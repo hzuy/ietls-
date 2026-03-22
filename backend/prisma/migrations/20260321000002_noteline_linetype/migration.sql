@@ -1,0 +1,1 @@
+ALTER TABLE "NoteLine" ADD COLUMN "lineType" TEXT NOT NULL DEFAULT 'content';

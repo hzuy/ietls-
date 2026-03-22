@@ -1,0 +1,244 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("user")
+  createdAt DateTime @default(now())
+
+  attempts        Attempt[]
+  writingAnswers  WritingAnswer[]
+  speakingAnswers SpeakingAnswer[]
+}
+
+model Exam {
+  id            Int      @id @default(autoincrement())
+  title         String
+  skill         String   // reading | listening | writing | speaking
+  bookNumber    Int?     // Cambridge book number (1-19)
+  testNumber    Int?     // Test number within book (1-4)
+  coverImageUrl String?  // Cover image for the exam card
+  seriesId      Int?
+  series        ExamSeries? @relation(fields: [seriesId], references: [id])
+  createdAt     DateTime @default(now())
+
+  passages          Passage[]
+  listeningSections ListeningSection[]
+  writingTasks      WritingTask[]
+  speakingParts     SpeakingPart[]
+  attempts          Attempt[]
+}
+
+// ─── READING ────────────────────────────────────────
+model Passage {
+  id                 Int     @id @default(autoincrement())
+  examId             Int
+  number             Int
+  title              String
+  subtitle           String?
+  body               String
+  letteredParagraphs Boolean @default(false)
+
+  exam           Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
+  questions      Question[]
+  questionGroups QuestionGroup[]
+}
+
+// ─── LISTENING ──────────────────────────────────────
+model ListeningSection {
+  id         Int     @id @default(autoincrement())
+  examId     Int
+  number     Int
+  context    String
+  audioUrl   String?
+  transcript String?
+
+  exam           Exam           @relation(fields: [examId], references: [id], onDelete: Cascade)
+  questions      Question[]
+  questionGroups QuestionGroup[]
+}
+
+// ─── SHARED QUESTIONS (Reading + Listening) ─────────
+model Question {
+  id                 Int     @id @default(autoincrement())
+  passageId          Int?
+  listeningSectionId Int?
+  groupId            Int?
+  number             Int
+  type               String  // mcq | mcq_multi | fill_blank | short_answer | true_false_ng | yes_no_ng | matching | matching_headings | matching_features | matching_paragraph | matching_endings | choose_title | diagram_completion | map_diagram
+  questionText       String
+  options            String? // JSON array
+  correctAnswer      String
+  imageUrl           String?
+
+  passage          Passage?          @relation(fields: [passageId], references: [id], onDelete: Cascade)
+  listeningSection ListeningSection? @relation(fields: [listeningSectionId], references: [id], onDelete: Cascade)
+  group            QuestionGroup?    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  answers          QuestionAnswer[]
+}
+
+// ─── WRITING ────────────────────────────────────────
+model WritingTask {
+  id       Int     @id @default(autoincrement())
+  examId   Int
+  number   Int     // 1 or 2
+  taskType String?
+  prompt   String
+  imageUrl String?
+  minWords Int
+
+  exam    Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
+  answers WritingAnswer[]
+}
+
+// ─── SPEAKING ───────────────────────────────────────
+model SpeakingPart {
+  id      Int     @id @default(autoincrement())
+  examId  Int
+  number  Int     // 1, 2, 3
+  cueCard String?
+
+  exam      Exam               @relation(fields: [examId], references: [id], onDelete: Cascade)
+  questions SpeakingQuestion[]
+  answers   SpeakingAnswer[]
+}
+
+model SpeakingQuestion {
+  id           Int    @id @default(autoincrement())
+  partId       Int
+  orderNum     Int
+  questionText String
+
+  part SpeakingPart @relation(fields: [partId], references: [id], onDelete: Cascade)
+}
+
+// ─── ATTEMPTS ───────────────────────────────────────
+model Attempt {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  examId     Int
+  score      Float?
+  aiFeedback String?
+  answers    String?
+  finishedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user            User             @relation(fields: [userId], references: [id])
+  exam            Exam             @relation(fields: [examId], references: [id])
+  questionAnswers QuestionAnswer[]
+}
+
+model QuestionAnswer {
+  id         Int      @id @default(autoincrement())
+  attemptId  Int
+  questionId Int
+  userAnswer String
+  isCorrect  Boolean?
+
+  attempt  Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id])
+}
+
+model WritingAnswer {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  taskId     Int
+  essayText  String
+  wordCount  Int
+  aiFeedback String?
+  aiScore    Float?
+  createdAt  DateTime @default(now())
+
+  user User        @relation(fields: [userId], references: [id])
+  task WritingTask @relation(fields: [taskId], references: [id])
+}
+
+model SpeakingAnswer {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  partId     Int
+  transcript String?
+  aiFeedback String?
+  aiScore    Float?
+  createdAt  DateTime @default(now())
+
+  user User         @relation(fields: [userId], references: [id])
+  part SpeakingPart @relation(fields: [partId], references: [id])
+}
+
+model QuestionGroup {
+  id           Int     @id @default(autoincrement())
+  sectionId    Int?
+  passageId    Int?
+  qNumberStart Int     @default(1)
+  qNumberEnd   Int     @default(1)
+  instruction  String  @default("")
+  type         String
+  imageUrl     String?
+  sortOrder    Int     @default(0)
+  canReuse     Boolean @default(false)
+  maxChoices   Int     @default(2)
+
+  section         ListeningSection? @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  passage         Passage?          @relation(fields: [passageId], references: [id], onDelete: Cascade)
+  questions       Question[]
+  noteSections    NoteSection[]
+  matchingOptions MatchingOption[]
+}
+
+model NoteSection {
+  id        Int    @id @default(autoincrement())
+  groupId   Int
+  title     String @default("")
+  sortOrder Int    @default(0)
+
+  group QuestionGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  lines NoteLine[]
+}
+
+model NoteLine {
+  id                Int    @id @default(autoincrement())
+  sectionId         Int
+  contentWithTokens String @default("")
+  lineType          String @default("content")
+  sortOrder         Int    @default(0)
+
+  noteSection NoteSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+}
+
+model BookCover {
+  id            Int        @id @default(autoincrement())
+  seriesId      Int
+  bookNumber    Int
+  coverImageUrl String?
+  series        ExamSeries @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  @@unique([seriesId, bookNumber])
+}
+
+model ExamSeries {
+  id         Int         @id @default(autoincrement())
+  name       String
+  createdAt  DateTime    @default(now())
+  bookCovers BookCover[]
+  exams      Exam[]
+}
+
+model MatchingOption {
+  id           Int    @id @default(autoincrement())
+  groupId      Int
+  optionLetter String
+  optionText   String @default("")
+  sortOrder    Int    @default(0)
+
+  group QuestionGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+}

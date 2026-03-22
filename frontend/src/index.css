@@ -1,0 +1,23 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --primary: #1a56db;
+  --primary-hover: #1d4ed8;
+  --primary-light: #eff6ff;
+  --dark: #1e3a5f;
+  --text: #1e293b;
+  --muted: #64748b;
+  --border: #e2e8f0;
+  --bg: #f0f4f8;
+  --white: #FFFFFF;
+}
+
+* {
+  font-family: 'Nunito', sans-serif;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+}
