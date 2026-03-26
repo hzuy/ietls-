@@ -320,20 +320,56 @@ function QuestionEditor({ question, questionIndex, onUpdate, onRemove, skill = '
   )
 }
 
-function ExamList({ exams, skill, onDelete, onEdit, editingId }) {
+function ExamList({ exams, skill, onDelete, onEdit, editingId, examSeries = [] }) {
   const [loadingId, setLoadingId] = useState(null)
-  const [confirmDelete, setConfirmDelete] = useState(null) // { id, title }
+  const [confirmDelete, setConfirmDelete] = useState(null)
+  const [search, setSearch] = useState('')
+  const [filterSeries, setFilterSeries] = useState('')
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [sortBy, setSortBy] = useState('newest')
 
-  const skillLabel = { reading: 'Reading', listening: 'Listening', writing: 'Writing', speaking: 'Speaking' }
-  const skillColor = {
-    reading: 'bg-[#eff6ff] text-[#1a56db]',
-    listening: 'bg-[#eff6ff] text-[#1a56db]',
-    writing: 'bg-[#eff6ff] text-[#1a56db]',
-    speaking: 'bg-[#eff6ff] text-[#1a56db]',
+  const getHasQuestions = (exam) => {
+    switch (exam.skill) {
+      case 'reading':   return exam.passages?.some(p => (p._count?.questionGroups ?? 0) > 0) ?? false
+      case 'listening': return exam.listeningSections?.some(s => (s._count?.questionGroups ?? 0) > 0) ?? false
+      case 'writing':   return (exam.writingTasks?.length ?? 0) > 0
+      case 'speaking':  return exam.speakingParts?.some(p => (p._count?.questions ?? 0) > 0) ?? false
+      default: return false
+    }
   }
-  const filtered = exams.filter(e => e.skill === skill)
 
-  // Close confirm dialog on Escape
+  const skillExams = exams.filter(e => e.skill === skill)
+
+  const resetFilters = () => { setSearch(''); setFilterSeries(''); setFilterStatus('all'); setSortBy('newest') }
+
+  const hasActiveFilter = search || filterSeries || filterStatus !== 'all' || sortBy !== 'newest'
+
+  // Stats (always from all skillExams, not filtered)
+  const totalAttempts = skillExams.reduce((s, e) => s + (e._count?.attempts ?? 0), 0)
+  const examsWithScore = skillExams.filter(e => e.avgScore != null)
+  const avgBand = examsWithScore.length > 0
+    ? (examsWithScore.reduce((s, e) => s + e.avgScore, 0) / examsWithScore.length).toFixed(1)
+    : null
+  const noQuestionsCount = skillExams.filter(e => !getHasQuestions(e)).length
+
+  // Filter + sort
+  let filtered = skillExams
+    .filter(e => !search || e.title.toLowerCase().includes(search.toLowerCase()))
+    .filter(e => !filterSeries || e.seriesId?.toString() === filterSeries)
+    .filter(e => {
+      if (filterStatus === 'has_questions') return getHasQuestions(e)
+      if (filterStatus === 'no_questions')  return !getHasQuestions(e)
+      return true
+    })
+
+  filtered = [...filtered].sort((a, b) => {
+    if (sortBy === 'oldest')   return new Date(a.createdAt) - new Date(b.createdAt)
+    if (sortBy === 'name')     return a.title.localeCompare(b.title, 'vi')
+    if (sortBy === 'attempts') return (b._count?.attempts ?? 0) - (a._count?.attempts ?? 0)
+    if (sortBy === 'score')    return (b.avgScore ?? -1) - (a.avgScore ?? -1)
+    return new Date(b.createdAt) - new Date(a.createdAt) // newest
+  })
+
   useEffect(() => {
     if (!confirmDelete) return
     const handler = (e) => { if (e.key === 'Escape') setConfirmDelete(null) }
@@ -357,75 +393,160 @@ function ExamList({ exams, skill, onDelete, onEdit, editingId }) {
     await onDelete(id)
   }
 
-  if (filtered.length === 0) {
-    return <div className="text-center text-gray-400 py-8 text-sm">Chưa có đề nào. Tạo đề đầu tiên!</div>
-  }
-
   const anyLoading = loadingId !== null
+
+  const formatDate = (iso) => {
+    if (!iso) return ''
+    const d = new Date(iso)
+    return `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`
+  }
 
   return (
     <>
-      <div className="space-y-2">
-        {filtered.map(exam => {
-          const isEditing = exam.id === editingId
-          const isLoading = exam.id === loadingId
-          return (
-            <div key={exam.id}
-              style={isEditing ? { background: '#eff6ff', borderLeft: '3px solid #1a56db' } : {}}
-              className={`bg-white rounded-xl p-4 border flex items-center justify-between transition
-                ${isEditing ? 'border-[#bfdbfe]' : 'border-gray-100 hover:border-gray-200'}`}>
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className={`font-semibold text-sm truncate ${isEditing ? 'text-[#1a56db] font-medium' : 'text-gray-800'}`}>
-                      {exam.title}
-                    </p>
-                    {isEditing && (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#1a56db] text-white shrink-0">
-                        Đang chỉnh sửa
+      {/* Stats cards */}
+      <div className="grid grid-cols-2 gap-3 mb-5 sm:grid-cols-4">
+        {[
+          { label: 'Tổng đề',         value: skillExams.length,        color: 'bg-blue-50 text-[#1a56db]' },
+          { label: 'Tổng lượt làm',   value: totalAttempts,            color: 'bg-green-50 text-green-700' },
+          { label: 'Band TB',          value: avgBand ?? '—',           color: 'bg-purple-50 text-purple-700' },
+          { label: 'Chưa có câu hỏi', value: noQuestionsCount,         color: noQuestionsCount > 0 ? 'bg-orange-50 text-orange-600' : 'bg-gray-50 text-gray-400' },
+        ].map(card => (
+          <div key={card.label} className={`rounded-xl p-3 ${card.color} border border-white`}>
+            <div className="text-xl font-bold">{card.value}</div>
+            <div className="text-xs mt-0.5 opacity-75">{card.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Search + Filter */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        <input
+          type="text"
+          placeholder="Tìm theo tên đề..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="flex-1 min-w-[160px] px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db] bg-white"
+        />
+        <select
+          value={filterSeries}
+          onChange={e => setFilterSeries(e.target.value)}
+          className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db] bg-white"
+        >
+          <option value="">Tất cả bộ đề</option>
+          {examSeries.map(s => <option key={s.id} value={s.id.toString()}>{s.name}</option>)}
+        </select>
+        <select
+          value={filterStatus}
+          onChange={e => setFilterStatus(e.target.value)}
+          className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db] bg-white"
+        >
+          <option value="all">Tất cả trạng thái</option>
+          <option value="has_questions">Có câu hỏi</option>
+          <option value="no_questions">Chưa có câu hỏi</option>
+        </select>
+        <select
+          value={sortBy}
+          onChange={e => setSortBy(e.target.value)}
+          className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db] bg-white"
+        >
+          <option value="newest">Mới nhất</option>
+          <option value="oldest">Cũ nhất</option>
+          <option value="name">Tên A→Z</option>
+          <option value="attempts">Nhiều lượt làm</option>
+          <option value="score">Band cao nhất</option>
+        </select>
+        {hasActiveFilter && (
+          <button
+            onClick={resetFilters}
+            className="px-3 py-2 text-sm border border-gray-200 rounded-xl text-gray-500 hover:bg-gray-50 transition bg-white"
+          >Reset</button>
+        )}
+      </div>
+
+      {/* Result count */}
+      {hasActiveFilter && (
+        <p className="text-xs text-gray-400 mb-3">Hiển thị {filtered.length} / {skillExams.length} đề</p>
+      )}
+
+      {/* Exam list */}
+      {filtered.length === 0 ? (
+        <div className="text-center text-gray-400 py-8 text-sm">
+          {skillExams.length === 0 ? 'Chưa có đề nào. Tạo đề đầu tiên!' : 'Không tìm thấy đề nào khớp với bộ lọc.'}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map(exam => {
+            const isEditing = exam.id === editingId
+            const isLoading = exam.id === loadingId
+            const hasQ = getHasQuestions(exam)
+            return (
+              <div key={exam.id}
+                style={isEditing ? { background: '#eff6ff', borderLeft: '3px solid #1a56db' } : {}}
+                className={`bg-white rounded-xl p-4 border flex items-center justify-between transition
+                  ${isEditing ? 'border-[#bfdbfe]' : 'border-gray-100 hover:border-gray-200'}`}>
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className={`font-semibold text-sm ${isEditing ? 'text-[#1a56db]' : 'text-gray-800'}`}>
+                        {exam.title}
+                      </p>
+                      {isEditing && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#1a56db] text-white shrink-0">
+                          Đang chỉnh sửa
+                        </span>
+                      )}
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${
+                        hasQ ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-600'
+                      }`}>
+                        {hasQ ? 'Đầy đủ' : 'Chưa có câu hỏi'}
                       </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${skillColor[exam.skill]}`}>
-                      {skillLabel[exam.skill]}
-                    </span>
-                    {exam.bookNumber && exam.testNumber && (
-                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                        Cambridge {exam.bookNumber} · Test {exam.testNumber}
+                    </div>
+                    <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                      {exam.bookNumber && exam.testNumber && (
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                          Cambridge {exam.bookNumber} · Test {exam.testNumber}
+                        </span>
+                      )}
+                      <span className="text-xs text-gray-400">
+                        🗓 {formatDate(exam.createdAt)}
                       </span>
-                    )}
-                    {exam._count?.attempts > 0 && (
-                      <span className="text-xs text-gray-400">{exam._count.attempts} lượt thi</span>
-                    )}
+                      <span className="text-xs text-gray-400">
+                        📝 {exam._count?.attempts ?? 0} lượt làm
+                      </span>
+                      {exam.avgScore != null && (
+                        <span className="text-xs text-purple-600 font-medium">
+                          ★ Band {exam.avgScore.toFixed(1)} TB
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
+                <div className="flex items-center gap-2 shrink-0 ml-3">
+                  <button
+                    onClick={() => !anyLoading && handleEdit(exam)}
+                    disabled={anyLoading}
+                    className={btnSecondary + ' text-xs min-w-[72px] justify-center flex items-center gap-1.5'}
+                  >
+                    {isLoading ? (
+                      <>
+                        <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
+                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="60" strokeDashoffset="20" strokeLinecap="round"/>
+                        </svg>
+                        Đang tải...
+                      </>
+                    ) : 'Sửa'}
+                  </button>
+                  <button
+                    onClick={() => !anyLoading && setConfirmDelete({ id: exam.id, title: exam.title })}
+                    disabled={anyLoading}
+                    className={btnDanger}
+                  >Xóa</button>
+                </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => !anyLoading && handleEdit(exam)}
-                  disabled={anyLoading}
-                  className={btnSecondary + ' text-xs min-w-[72px] justify-center flex items-center gap-1.5'}
-                >
-                  {isLoading ? (
-                    <>
-                      <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
-                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="60" strokeDashoffset="20" strokeLinecap="round"/>
-                      </svg>
-                      Đang tải...
-                    </>
-                  ) : 'Sửa'}
-                </button>
-                <button
-                  onClick={() => !anyLoading && setConfirmDelete({ id: exam.id, title: exam.title })}
-                  disabled={anyLoading}
-                  className={btnDanger}
-                >Xóa</button>
-              </div>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Delete confirm modal */}
       {confirmDelete && (
@@ -2414,7 +2535,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [] }) {
 
       <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
         <h3 className="font-bold text-gray-800 mb-4">Danh sách đề Reading ({exams.filter(e => e.skill === 'reading').length})</h3>
-        <ExamList exams={exams} skill="reading" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} />
+        <ExamList exams={exams} skill="reading" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} />
       </div>
     </div>
   )
@@ -3481,7 +3602,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [] }) {
 
       <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
         <h3 className="font-bold text-gray-800 mb-4">Danh sách đề Listening ({exams.filter(e => e.skill === 'listening').length})</h3>
-        <ExamList exams={exams} skill="listening" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} />
+        <ExamList exams={exams} skill="listening" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} />
       </div>
     </div>
   )
@@ -3847,7 +3968,7 @@ function WritingTab({ exams, onRefresh, examSeries = [] }) {
 
       <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
         <h3 className="font-bold text-gray-800 mb-4">Danh sách đề Writing ({exams.filter(e => e.skill === 'writing').length})</h3>
-        <ExamList exams={exams} skill="writing" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} />
+        <ExamList exams={exams} skill="writing" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} />
       </div>
     </div>
   )
@@ -4277,7 +4398,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [] }) {
 
       <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
         <h3 className="font-bold text-gray-800 mb-4">Danh sách đề Speaking ({exams.filter(e => e.skill === 'speaking').length})</h3>
-        <ExamList exams={exams} skill="speaking" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} />
+        <ExamList exams={exams} skill="speaking" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} />
       </div>
     </div>
   )

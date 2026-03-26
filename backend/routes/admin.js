@@ -116,14 +116,22 @@ router.get('/exams', authMiddleware, adminOnly, async (req, res) => {
     const exams = await prisma.exam.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
-        passages: { select: { id: true } },
-        listeningSections: { select: { id: true } },
-        writingTasks: { select: { id: true } },
-        speakingParts: { select: { id: true } },
+        passages:          { select: { id: true, _count: { select: { questionGroups: true } } } },
+        listeningSections: { select: { id: true, _count: { select: { questionGroups: true } } } },
+        writingTasks:      { select: { id: true } },
+        speakingParts:     { select: { id: true, _count: { select: { questions: true } } } },
         _count: { select: { attempts: true } }
       }
     })
-    res.json(exams)
+
+    const avgScores = await prisma.attempt.groupBy({
+      by: ['examId'],
+      where: { score: { not: null }, finishedAt: { not: null } },
+      _avg: { score: true }
+    })
+    const avgScoreMap = Object.fromEntries(avgScores.map(a => [a.examId, a._avg.score]))
+
+    res.json(exams.map(e => ({ ...e, avgScore: avgScoreMap[e.id] ?? null })))
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
   }
