@@ -13,6 +13,7 @@ model User {
   password  String
   name      String
   role      String   @default("user")
+  isLocked  Boolean  @default(false)
   createdAt DateTime @default(now())
 
   attempts        Attempt[]
@@ -231,6 +232,13 @@ model ExamSeries {
   createdAt  DateTime    @default(now())
   bookCovers BookCover[]
   exams      Exam[]
+}
+
+model Setting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
 }
 
 model MatchingOption {

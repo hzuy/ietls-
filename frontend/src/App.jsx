@@ -13,6 +13,13 @@ import SpeakingExam from './pages/SpeakingExam'
 import Admin from './pages/Admin'
 import FullTest from './pages/FullTest'
 import FullTestResult from './pages/FullTestResult'
+import Dashboard from './pages/admin/Dashboard'
+import Users from './pages/admin/Users'
+import UserDetail from './pages/admin/UserDetail'
+import Attempts from './pages/admin/Attempts'
+import Analytics from './pages/admin/Analytics'
+import Accounts from './pages/admin/Accounts'
+import Settings from './pages/admin/Settings'
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('token')
@@ -36,7 +43,16 @@ export default function App() {
         <Route path="/speaking/:id" element={<PrivateRoute><SpeakingExam /></PrivateRoute>} />
         <Route path="/full-test" element={<PrivateRoute><FullTest /></PrivateRoute>} />
         <Route path="/full-test/result" element={<PrivateRoute><FullTestResult /></PrivateRoute>} />
-        <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
+
+        {/* Admin routes */}
+        <Route path="/admin" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+        <Route path="/admin/exams" element={<PrivateRoute><Admin /></PrivateRoute>} />
+        <Route path="/admin/users" element={<PrivateRoute><Users /></PrivateRoute>} />
+        <Route path="/admin/users/:id" element={<PrivateRoute><UserDetail /></PrivateRoute>} />
+        <Route path="/admin/attempts" element={<PrivateRoute><Attempts /></PrivateRoute>} />
+        <Route path="/admin/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
+        <Route path="/admin/accounts" element={<PrivateRoute><Accounts /></PrivateRoute>} />
+        <Route path="/admin/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
       </Routes>
     </BrowserRouter>
   )

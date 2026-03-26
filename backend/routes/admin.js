@@ -1,4 +1,5 @@
 const express = require('express')
+const bcrypt = require('bcryptjs')
 const { PrismaClient } = require('@prisma/client')
 const authMiddleware = require('../middleware/auth')
 const multer = require('multer')
@@ -1917,6 +1918,464 @@ router.post('/make-admin', authMiddleware, async (req, res) => {
       data: { role: 'admin' }
     })
     res.json({ message: 'Đã nâng quyền admin!', user })
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ─── DASHBOARD ───────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
+router.get('/dashboard', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const now = new Date()
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+
+    const [totalUsers, usersThisMonth, usersLastMonth, attemptsToday, avgBandRaw, totalExams] = await Promise.all([
+      prisma.user.count(),
+      prisma.user.count({ where: { createdAt: { gte: startOfThisMonth } } }),
+      prisma.user.count({ where: { createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
+      prisma.attempt.count({ where: { finishedAt: { gte: startOfToday } } }),
+      prisma.attempt.aggregate({ where: { score: { not: null } }, _avg: { score: true } }),
+      prisma.exam.count(),
+    ])
+
+    // Attempts per day - last 30 days
+    const thirtyDaysAgo = new Date(now)
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29)
+    const recentAttempts = await prisma.attempt.findMany({
+      where: { createdAt: { gte: thirtyDaysAgo } },
+      select: { createdAt: true }
+    })
+    const dayMap = {}
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now)
+      d.setDate(d.getDate() - i)
+      const key = d.toISOString().slice(0, 10)
+      dayMap[key] = 0
+    }
+    recentAttempts.forEach(a => {
+      const key = a.createdAt.toISOString().slice(0, 10)
+      if (key in dayMap) dayMap[key]++
+    })
+    const attemptsByDay = Object.entries(dayMap).map(([date, count]) => ({ date, count }))
+
+    // Band score distribution (buckets: <4, 4-5, 5-6, 6-7, 7-8, 8+)
+    const allScores = await prisma.attempt.findMany({
+      where: { score: { not: null } }, select: { score: true }
+    })
+    const bandBuckets = { '<4.0': 0, '4.0-4.5': 0, '5.0-5.5': 0, '6.0-6.5': 0, '7.0-7.5': 0, '8.0+': 0 }
+    allScores.forEach(({ score }) => {
+      if (score < 4)       bandBuckets['<4.0']++
+      else if (score < 5)  bandBuckets['4.0-4.5']++
+      else if (score < 6)  bandBuckets['5.0-5.5']++
+      else if (score < 7)  bandBuckets['6.0-6.5']++
+      else if (score < 8)  bandBuckets['7.0-7.5']++
+      else                 bandBuckets['8.0+']++
+    })
+    const bandDistribution = Object.entries(bandBuckets).map(([range, count]) => ({ range, count }))
+
+    // Skill distribution
+    const skillDist = await prisma.attempt.groupBy({
+      by: ['examId'],
+      _count: { id: true }
+    })
+    const examSkillMap = await prisma.exam.findMany({ select: { id: true, skill: true } })
+    const skillLookup = Object.fromEntries(examSkillMap.map(e => [e.id, e.skill]))
+    const skillCount = { reading: 0, listening: 0, writing: 0, speaking: 0 }
+    skillDist.forEach(({ examId, _count }) => {
+      const s = skillLookup[examId]
+      if (s && s in skillCount) skillCount[s] += _count.id
+    })
+    const skillDistribution = Object.entries(skillCount).map(([skill, count]) => ({ skill, count }))
+
+    // Recent 10 attempts
+    const recent = await prisma.attempt.findMany({
+      take: 10,
+      orderBy: { createdAt: 'desc' },
+      where: { finishedAt: { not: null } },
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+        exam: { select: { id: true, title: true, skill: true } }
+      }
+    })
+
+    res.json({
+      stats: {
+        totalUsers, usersThisMonth, usersLastMonth,
+        attemptsToday,
+        avgBand: avgBandRaw._avg.score,
+        totalExams,
+      },
+      attemptsByDay,
+      bandDistribution,
+      skillDistribution,
+      recentAttempts: recent,
+    })
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ─── USERS ───────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
+router.get('/users', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { search = '', page = 1, limit = 20 } = req.query
+    const skip = (parseInt(page) - 1) * parseInt(limit)
+    const where = {
+      role: 'user',
+      OR: search ? [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } }
+      ] : undefined
+    }
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where, skip, take: parseInt(limit),
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true, name: true, email: true, role: true,
+          isLocked: true, createdAt: true,
+          _count: { select: { attempts: true } }
+        }
+      }),
+      prisma.user.count({ where })
+    ])
+
+    const userIds = users.map(u => u.id)
+    const [avgScores, lastAttempts] = await Promise.all([
+      prisma.attempt.groupBy({
+        by: ['userId'],
+        where: { userId: { in: userIds }, score: { not: null } },
+        _avg: { score: true }
+      }),
+      prisma.attempt.groupBy({
+        by: ['userId'],
+        where: { userId: { in: userIds } },
+        _max: { createdAt: true }
+      })
+    ])
+    const avgMap = Object.fromEntries(avgScores.map(a => [a.userId, a._avg.score]))
+    const lastMap = Object.fromEntries(lastAttempts.map(a => [a.userId, a._max.createdAt]))
+
+    res.json({
+      users: users.map(u => ({
+        ...u,
+        avgScore: avgMap[u.id] ?? null,
+        lastAttemptAt: lastMap[u.id] ?? null,
+      })),
+      total,
+      page: parseInt(page),
+      pages: Math.ceil(total / parseInt(limit))
+    })
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
+router.get('/users/:id', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id)
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, name: true, email: true, role: true, isLocked: true, createdAt: true }
+    })
+    if (!user) return res.status(404).json({ message: 'Không tìm thấy user' })
+
+    const [attempts, skillAvg] = await Promise.all([
+      prisma.attempt.findMany({
+        where: { userId: id },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+        include: { exam: { select: { title: true, skill: true } } }
+      }),
+      prisma.attempt.groupBy({
+        by: ['examId'],
+        where: { userId: id, score: { not: null } },
+        _avg: { score: true }
+      })
+    ])
+
+    const examIds = [...new Set(skillAvg.map(a => a.examId))]
+    const exams = await prisma.exam.findMany({ where: { id: { in: examIds } }, select: { id: true, skill: true } })
+    const skillLookup = Object.fromEntries(exams.map(e => [e.id, e.skill]))
+    const bySkill = { reading: [], listening: [], writing: [], speaking: [] }
+    skillAvg.forEach(a => {
+      const s = skillLookup[a.examId]
+      if (s && s in bySkill) bySkill[s].push(a._avg.score)
+    })
+    const skillStats = Object.fromEntries(
+      Object.entries(bySkill).map(([s, scores]) => [
+        s, scores.length > 0 ? (scores.reduce((a,b) => a+b, 0) / scores.length) : null
+      ])
+    )
+
+    res.json({ user, attempts, skillStats, totalAttempts: attempts.length })
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
+router.put('/users/:id/toggle-lock', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id)
+    const user = await prisma.user.findUnique({ where: { id }, select: { isLocked: true } })
+    if (!user) return res.status(404).json({ message: 'Không tìm thấy user' })
+    const updated = await prisma.user.update({ where: { id }, data: { isLocked: !user.isLocked } })
+    res.json({ isLocked: updated.isLocked })
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
+router.delete('/users/:id', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id)
+    if (id === req.user.userId) return res.status(400).json({ message: 'Không thể xóa tài khoản đang dùng' })
+    await prisma.user.delete({ where: { id } })
+    res.json({ message: 'Đã xóa user' })
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ─── ATTEMPTS ────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
+router.get('/attempts', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { search = '', skill = '', scoreMin, scoreMax, dateFrom, dateTo, seriesId, page = 1, limit = 20 } = req.query
+    const skip = (parseInt(page) - 1) * parseInt(limit)
+
+    const examWhere = {}
+    if (skill) examWhere.skill = skill
+    if (seriesId) examWhere.seriesId = parseInt(seriesId)
+
+    const where = { finishedAt: { not: null } }
+    if (scoreMin !== undefined) where.score = { ...(where.score || {}), gte: parseFloat(scoreMin) }
+    if (scoreMax !== undefined) where.score = { ...(where.score || {}), lte: parseFloat(scoreMax) }
+    if (dateFrom) where.createdAt = { ...(where.createdAt || {}), gte: new Date(dateFrom) }
+    if (dateTo)   where.createdAt = { ...(where.createdAt || {}), lte: new Date(dateTo) }
+
+    const [attempts, total] = await Promise.all([
+      prisma.attempt.findMany({
+        where,
+        skip, take: parseInt(limit),
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: { select: { id: true, name: true, email: true } },
+          exam: { select: { id: true, title: true, skill: true } }
+        }
+      }),
+      prisma.attempt.count({ where })
+    ])
+
+    const filtered = attempts.filter(a => {
+      if (skill && a.exam.skill !== skill) return false
+      if (seriesId && true) return true // already filtered via exam
+      if (search) {
+        const q = search.toLowerCase()
+        return a.user.name.toLowerCase().includes(q) || a.user.email.toLowerCase().includes(q)
+      }
+      return true
+    }).filter(a => {
+      if (skill && a.exam.skill !== skill) return false
+      return true
+    })
+
+    res.json({
+      attempts: search || skill
+        ? filtered
+        : attempts,
+      total, page: parseInt(page), pages: Math.ceil(total / parseInt(limit))
+    })
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ─── ANALYTICS ───────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
+router.get('/analytics', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { period = 'month' } = req.query
+    const days = period === 'week' ? 7 : period === 'quarter' ? 90 : 30
+    const since = new Date()
+    since.setDate(since.getDate() - days)
+
+    const [totalAttempts, totalUsers, avgBandRaw, skillStats, topUsers, topWrongQ] = await Promise.all([
+      prisma.attempt.count({ where: { finishedAt: { not: null }, createdAt: { gte: since } } }),
+      prisma.user.count({ where: { createdAt: { gte: since } } }),
+      prisma.attempt.aggregate({ where: { score: { not: null }, createdAt: { gte: since } }, _avg: { score: true } }),
+      // Skill breakdown
+      prisma.attempt.findMany({
+        where: { finishedAt: { not: null }, createdAt: { gte: since } },
+        include: { exam: { select: { skill: true } } }
+      }),
+      // Top 10 users by avg score
+      prisma.attempt.groupBy({
+        by: ['userId'],
+        where: { score: { not: null } },
+        _avg: { score: true },
+        _count: { id: true },
+        orderBy: { _avg: { score: 'desc' } },
+        take: 10
+      }),
+      // Top wrong questions
+      prisma.questionAnswer.groupBy({
+        by: ['questionId'],
+        where: { isCorrect: false },
+        _count: { id: true },
+        orderBy: { _count: { id: 'desc' } },
+        take: 10
+      })
+    ])
+
+    // Aggregate skill stats
+    const bySkill = { reading: { count: 0, scores: [] }, listening: { count: 0, scores: [] }, writing: { count: 0, scores: [] }, speaking: { count: 0, scores: [] } }
+    skillStats.forEach(a => {
+      const s = a.exam.skill
+      if (s in bySkill) {
+        bySkill[s].count++
+        if (a.score != null) bySkill[s].scores.push(a.score)
+      }
+    })
+    const skillBreakdown = Object.entries(bySkill).map(([skill, { count, scores }]) => ({
+      skill, count,
+      avgScore: scores.length ? (scores.reduce((a,b)=>a+b,0)/scores.length) : null
+    }))
+
+    // Top users - fetch names
+    const topUserIds = topUsers.map(u => u.userId)
+    const topUserInfo = await prisma.user.findMany({
+      where: { id: { in: topUserIds } },
+      select: { id: true, name: true, email: true }
+    })
+    const userMap = Object.fromEntries(topUserInfo.map(u => [u.id, u]))
+    const topUsersResult = topUsers.map(u => ({
+      ...userMap[u.userId],
+      avgScore: u._avg.score,
+      attemptCount: u._count.id
+    }))
+
+    // Top wrong questions - fetch question text
+    const wrongQIds = topWrongQ.map(q => q.questionId)
+    const wrongQInfo = await prisma.question.findMany({
+      where: { id: { in: wrongQIds } },
+      select: { id: true, questionText: true, type: true }
+    })
+    const qMap = Object.fromEntries(wrongQInfo.map(q => [q.id, q]))
+    const topWrongQuestions = topWrongQ.map(q => ({
+      ...qMap[q.questionId],
+      wrongCount: q._count.id
+    })).filter(q => q.id)
+
+    res.json({
+      overview: { totalAttempts, totalUsers, avgBand: avgBandRaw._avg.score },
+      skillBreakdown,
+      topUsers: topUsersResult,
+      topWrongQuestions,
+    })
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ─── ACCOUNTS (ADMIN/TEACHER) ────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
+router.get('/accounts', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const accounts = await prisma.user.findMany({
+      where: { role: { in: ['admin', 'teacher'] } },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, name: true, email: true, role: true, isLocked: true, createdAt: true }
+    })
+    res.json(accounts)
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
+router.post('/accounts', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { name, email, password, role } = req.body
+    if (!['admin', 'teacher'].includes(role)) return res.status(400).json({ message: 'Role không hợp lệ' })
+    const existing = await prisma.user.findUnique({ where: { email } })
+    if (existing) return res.status(409).json({ message: 'Email đã tồn tại' })
+    const hashed = await bcrypt.hash(password, 10)
+    const user = await prisma.user.create({
+      data: { name, email, password: hashed, role },
+      select: { id: true, name: true, email: true, role: true, isLocked: true, createdAt: true }
+    })
+    res.status(201).json(user)
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
+router.put('/accounts/:id', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id)
+    const { name, role, isLocked } = req.body
+    if (role && !['admin', 'teacher'].includes(role)) return res.status(400).json({ message: 'Role không hợp lệ' })
+    const user = await prisma.user.update({
+      where: { id },
+      data: { ...(name && { name }), ...(role && { role }), ...(isLocked !== undefined && { isLocked }) },
+      select: { id: true, name: true, email: true, role: true, isLocked: true, createdAt: true }
+    })
+    res.json(user)
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
+router.delete('/accounts/:id', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id)
+    if (id === req.user.userId) return res.status(400).json({ message: 'Không thể xóa tài khoản đang dùng' })
+    await prisma.user.delete({ where: { id } })
+    res.json({ message: 'Đã xóa tài khoản' })
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ─── SETTINGS ────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
+router.get('/settings', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const settings = await prisma.setting.findMany()
+    const obj = Object.fromEntries(settings.map(s => [s.key, s.value]))
+    res.json(obj)
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
+router.put('/settings', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const entries = Object.entries(req.body)
+    await Promise.all(entries.map(([key, value]) =>
+      prisma.setting.upsert({
+        where: { key },
+        update: { value: String(value) },
+        create: { key, value: String(value) }
+      })
+    ))
+    res.json({ message: 'Đã lưu cài đặt' })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
   }

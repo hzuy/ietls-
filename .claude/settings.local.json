@@ -42,7 +42,8 @@
       "Bash(cmd /c \"cd /d D:\\\\Duy\\\\ielts-app\\\\backend && npx prisma generate\")",
       "Bash(cmd /c \"cd /d D:\\\\Duy\\\\ielts-app\\\\backend && npx prisma generate 2>&1 && echo SUCCESS\")",
       "Bash(wmic process:*)",
-      "Bash(ls D:/Duy/ielts-app/backend/*.js)"
+      "Bash(ls D:/Duy/ielts-app/backend/*.js)",
+      "Bash(find D:/Duy/ielts-app/frontend/src -type f \\\\\\(-name *writing* -o -name *speaking* \\\\\\))"
     ]
   }
 }

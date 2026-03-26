@@ -1,7 +1,7 @@
 const { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient()
 
-const EMAIL = 'duythcsltv@email.com' // ← đổi thành email của bạn
+const EMAIL = 'test@gmail.com' // ← đổi thành email của bạn
 
 async function main() {
   const user = await prisma.user.update({
