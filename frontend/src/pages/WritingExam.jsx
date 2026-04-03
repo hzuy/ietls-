@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import api from '../utils/axios'
+import { getWritingExam, submitWritingExam, getFullTestStatus } from '../services/examService'
 
 const TOTAL_TIME = 60 * 60
 const SERVER_BASE = 'http://localhost:3001'
@@ -63,15 +63,15 @@ export default function WritingExam() {
   const [fullTestStatus, setFullTestStatus] = useState(null)
 
   useEffect(() => {
-    api.get(`/writing/exams/${id}`).then(r => setExam(r.data)).finally(() => setLoading(false))
+    getWritingExam(id).then(data => setExam(data)).finally(() => setLoading(false))
   }, [id])
 
   useEffect(() => {
     if (!exam) return
     const allTasksDone = exam.writingTasks.every(t => results[t.id])
     if (allTasksDone && exam.writingTasks.length > 0) {
-      api.get(`/full-test/status?examId=${id}`)
-        .then(r => { if (r.data.isComplete) setFullTestStatus(r.data) })
+      getFullTestStatus(id)
+        .then(data => { if (data.isComplete) setFullTestStatus(data) })
         .catch(() => {})
     }
   }, [results, exam])
@@ -97,11 +97,10 @@ export default function WritingExam() {
     if (wc(essay) < 50) { alert('Bài viết cần ít nhất 50 từ!'); return }
     setSubmitting(true)
     try {
-      const r = await api.post(`/writing/exams/${id}/submit`, { taskId: task.id, essay })
-      setResults(prev => ({ ...prev, [task.id]: r.data }))
+      const r = await submitWritingExam(id, task.id, essay)
+      setResults(prev => ({ ...prev, [task.id]: r }))
     } catch (e) {
       alert('Lỗi chấm bài, thử lại nhé!')
-      console.error(e)
     } finally {
       setSubmitting(false)
     }

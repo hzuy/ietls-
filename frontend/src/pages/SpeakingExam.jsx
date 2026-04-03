@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import api from '../utils/axios'
+import { getSpeakingExam, submitSpeakingExam, getFullTestStatus } from '../services/examService'
 
 const CRITERIA_LABELS = {
   fluency: 'Fluency & Coherence',
@@ -29,7 +29,7 @@ export default function SpeakingExam() {
   const recognitionRef = useRef(null)
 
   useEffect(() => {
-    api.get(`/speaking/exams/${id}`).then(r => setExam(r.data)).finally(() => setLoading(false))
+    getSpeakingExam(id).then(data => setExam(data)).finally(() => setLoading(false))
   }, [id])
 
   // Skip start screen in preview mode
@@ -48,8 +48,8 @@ export default function SpeakingExam() {
     if (!exam) return
     const allPartsDone = exam.speakingParts.every(p => results[p.id])
     if (allPartsDone && exam.speakingParts.length > 0) {
-      api.get(`/full-test/status?examId=${id}`)
-        .then(r => { if (r.data.isComplete) setFullTestStatus(r.data) })
+      getFullTestStatus(id)
+        .then(data => { if (data.isComplete) setFullTestStatus(data) })
         .catch(() => {})
     }
   }, [results, exam])
@@ -108,8 +108,8 @@ export default function SpeakingExam() {
     if (isRecording) stopRecording()
     setSubmitting(true)
     try {
-      const r = await api.post(`/speaking/exams/${id}/submit`, { partId: part.id, transcript })
-      setResults(prev => ({ ...prev, [part.id]: r.data }))
+      const r = await submitSpeakingExam(id, part.id, transcript)
+      setResults(prev => ({ ...prev, [part.id]: r }))
       // Auto-advance to next part
       const currentIndex = exam.speakingParts.findIndex(p => p.id === part.id)
       if (currentIndex < exam.speakingParts.length - 1) {
@@ -117,7 +117,6 @@ export default function SpeakingExam() {
       }
     } catch (e) {
       alert('Lỗi nhận xét, thử lại nhé!')
-      console.error(e)
     } finally {
       setSubmitting(false)
     }

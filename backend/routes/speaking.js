@@ -1,16 +1,40 @@
 const express = require('express')
-const { PrismaClient } = require('@prisma/client')
 const Groq = require('groq-sdk')
 const authMiddleware = require('../middleware/auth')
 
 const router = express.Router()
-const prisma = new PrismaClient()
+const prisma = require('../lib/prisma')
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+
+// Public: 4 Speaking samples mới nhất cho trang chủ
+router.get('/samples', async (req, res) => {
+  try {
+    const exams = await prisma.exam.findMany({
+      where: { skill: 'speaking', deletedAt: null },
+      take: 4,
+      select: {
+        id: true, title: true, createdAt: true, coverImageUrl: true,
+        _count: { select: { attempts: true } },
+        speakingParts: { select: { number: true }, orderBy: { number: 'asc' }, take: 1 }
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+    const result = exams.map(e => ({
+      id: e.id, title: e.title, createdAt: e.createdAt, coverImageUrl: e.coverImageUrl,
+      attemptCount: e._count.attempts,
+      tag: e.speakingParts[0] ? `Part ${e.speakingParts[0].number}` : 'Part 1'
+    }))
+    res.json(result)
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
 
 router.get('/exams', authMiddleware, async (req, res) => {
   try {
     const exams = await prisma.exam.findMany({
-      where: { skill: 'speaking' },
+      where: { skill: 'speaking', deletedAt: null },
+      take: 100,
       select: { id: true, title: true, createdAt: true, coverImageUrl: true },
       orderBy: { createdAt: 'desc' }
     })
@@ -70,6 +94,9 @@ Trả về JSON (không có gì khác):
   "improvements": "..."
 }`
 
+    // TODO(P4): Chuyển sang async queue (BullMQ/Redis) để tránh giữ HTTP connection 3-10s
+    // Hiện tại: user phải chờ đồng bộ trong khi Groq xử lý → 1K concurrent submissions sẽ exhaust socket pool
+    // Fix: POST /submit trả về { jobId } ngay, client poll GET /submit/:jobId để lấy kết quả
     const completion = await groq.chat.completions.create({
       messages: [{ role: 'user', content: prompt }],
       model: 'llama-3.3-70b-versatile',
@@ -99,7 +126,6 @@ Trả về JSON (không có gì khác):
 
     res.json(feedback)
   } catch (error) {
-    console.error(error)
     res.status(500).json({ message: 'Lỗi nhận xét', error: error.message })
   }
 })

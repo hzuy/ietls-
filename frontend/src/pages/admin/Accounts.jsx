@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import api from '../../utils/axios'
+import { getAdminAccounts, createAdminAccount, updateAdminAccount, deleteAdminAccount } from '../../services/adminService'
 import AdminLayout from '../../components/AdminLayout'
 
 const emptyForm = { name: '', email: '', password: '', role: 'teacher' }
@@ -15,12 +15,13 @@ export default function Accounts() {
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [error, setError] = useState('')
   const navigate = useNavigate()
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
 
   const fetchAccounts = () => {
     setLoading(true)
-    api.get('/admin/accounts')
-      .then(r => setAccounts(r.data))
-      .catch(err => { if (err.response?.status === 403) navigate('/') })
+    getAdminAccounts()
+      .then(data => setAccounts(data))
+      .catch(err => { if (err.response?.status === 403) navigate('/admin') })
       .finally(() => setLoading(false))
   }
 
@@ -34,11 +35,10 @@ export default function Accounts() {
     setSubmitting(true); setError('')
     try {
       if (editingId) {
-        const payload = { name: form.name, role: form.role }
-        await api.put(`/admin/accounts/${editingId}`, payload)
+        await updateAdminAccount(editingId, { name: form.name, role: form.role })
       } else {
         if (!form.password) { setError('Vui lòng nhập mật khẩu'); setSubmitting(false); return }
-        await api.post('/admin/accounts', form)
+        await createAdminAccount(form)
       }
       setShowForm(false); fetchAccounts()
     } catch (err) {
@@ -49,7 +49,7 @@ export default function Accounts() {
   const handleDelete = async () => {
     if (!confirmDelete) return
     try {
-      await api.delete(`/admin/accounts/${confirmDelete.id}`)
+      await deleteAdminAccount(confirmDelete.id)
       setConfirmDelete(null); fetchAccounts()
     } catch (err) { alert(err.response?.data?.message || 'Lỗi xóa') }
   }
@@ -60,7 +60,7 @@ export default function Accounts() {
     <AdminLayout>
       <div className="p-6 max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-xl font-bold text-gray-800">Tài khoản nội bộ</h1>
+          <h1 className="text-xl font-bold text-gray-800">Quản lý nhân sự</h1>
           <button onClick={openCreate}
             className="px-4 py-2 rounded-xl bg-[#1a56db] text-white text-sm font-medium hover:bg-blue-700 transition">
             + Tạo tài khoản
@@ -94,8 +94,8 @@ export default function Accounts() {
                   <label className="text-xs font-medium text-gray-600 mb-1 block">Role</label>
                   <select value={form.role} onChange={e => setForm({...form, role: e.target.value})}
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db]">
-                    <option value="teacher">Teacher (Chỉ xem)</option>
-                    <option value="admin">Admin (Toàn quyền)</option>
+                    <option value="teacher">Teacher (Quản lý đề thi)</option>
+                    <option value="admin">Admin (Quản lý hệ thống)</option>
                   </select>
                 </div>
               </div>
@@ -132,11 +132,20 @@ export default function Accounts() {
                 </tr>
               </thead>
               <tbody>
-                {accounts.map(acc => (
-                  <tr key={acc.id} className="border-b border-gray-50 hover:bg-gray-50">
+                {accounts.map(acc => {
+                  const isSelf = acc.email === currentUser.email
+                  return (
+                  <tr key={acc.id} className={`border-b border-gray-50 ${isSelf ? 'bg-blue-50 hover:bg-blue-100' : 'hover:bg-gray-50'}`}>
                     <td className="px-5 py-3">
-                      <p className="font-medium text-gray-800">{acc.name}</p>
-                      <p className="text-xs text-gray-400">{acc.email}</p>
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <p className="font-medium text-gray-800">{acc.name}</p>
+                          <p className="text-xs text-gray-400">{acc.email}</p>
+                        </div>
+                        {isSelf && (
+                          <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-blue-100 text-blue-600 border border-blue-200">Bạn</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${acc.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
@@ -152,12 +161,17 @@ export default function Accounts() {
                     <td className="px-4 py-3">
                       <div className="flex gap-1.5">
                         <button onClick={() => openEdit(acc)} className="px-2.5 py-1 rounded-lg text-xs border border-gray-200 text-gray-600 hover:bg-gray-50">Sửa</button>
-                        <button onClick={() => setConfirmDelete({ id: acc.id, name: acc.name })}
-                          className="px-2.5 py-1 rounded-lg text-xs border border-red-200 text-red-500 hover:bg-red-50">Xóa</button>
+                        <button
+                          onClick={() => !isSelf && setConfirmDelete({ id: acc.id, name: acc.name })}
+                          disabled={isSelf}
+                          className={`px-2.5 py-1 rounded-lg text-xs border transition ${isSelf ? 'border-gray-100 text-gray-300 cursor-not-allowed' : 'border-red-200 text-red-500 hover:bg-red-50'}`}>
+                          Xóa
+                        </button>
                       </div>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           )}

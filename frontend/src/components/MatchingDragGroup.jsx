@@ -7,9 +7,18 @@ export default function MatchingDragGroup({ group, answers, onAnswer, previewMod
 
   const options = group.matchingOptions || []
   const questions = group.questions || []
+  const allowReuse = group.canReuse || false
+
+  const clearPreviousSlot = (letter) => {
+    if (allowReuse) return
+    questions.forEach(q => {
+      if (answers[q.id] === letter) onAnswer(q.id, '')
+    })
+  }
 
   const handleDrop = (qId) => {
     if (!draggingLetter) return
+    clearPreviousSlot(draggingLetter)
     onAnswer(qId, draggingLetter)
     setDraggingLetter(null)
     setDragOverQId(null)
@@ -23,6 +32,7 @@ export default function MatchingDragGroup({ group, answers, onAnswer, previewMod
   const handleSlotClick = (qId) => {
     if (previewMode) return
     if (selectedLetter) {
+      clearPreviousSlot(selectedLetter)
       onAnswer(qId, selectedLetter)
       setSelectedLetter(null)
     }
@@ -94,6 +104,8 @@ export default function MatchingDragGroup({ group, answers, onAnswer, previewMod
             {options.map(opt => {
               const isSelectedOpt = selectedLetter === opt.optionLetter
               const isDraggingThis = draggingLetter === opt.optionLetter
+              const usedLetters = new Set(Object.values(answers).filter(Boolean))
+              const isUsed = !allowReuse && usedLetters.has(opt.optionLetter)
               return (
                 <div
                   key={opt.optionLetter}
@@ -108,6 +120,8 @@ export default function MatchingDragGroup({ group, answers, onAnswer, previewMod
                       ? 'border-[#1a56db] bg-[#eff6ff] cursor-pointer shadow-sm'
                       : isDraggingThis
                       ? 'opacity-40 border-gray-200 bg-white'
+                      : isUsed
+                      ? 'border-gray-200 bg-gray-50 opacity-40 cursor-grab'
                       : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/50 cursor-grab active:cursor-grabbing'}`}
                 >
                   <span className="font-bold text-[#1a56db] shrink-0">{opt.optionLetter}</span>

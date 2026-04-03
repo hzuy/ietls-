@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import api from '../../utils/axios'
+import { getAdminAnalytics } from '../../services/adminService'
 import AdminLayout from '../../components/AdminLayout'
+
+import { roundIELTS, formatBand } from '../../utils/ielts'
 
 const SKILL_LABEL = { reading: 'Reading', listening: 'Listening', writing: 'Writing', speaking: 'Speaking' }
 const SKILL_COLOR = { reading: 'bg-blue-500', listening: 'bg-green-500', writing: 'bg-purple-500', speaking: 'bg-orange-500' }
@@ -14,8 +16,8 @@ export default function Analytics() {
 
   useEffect(() => {
     setLoading(true)
-    api.get('/admin/analytics', { params: { period } })
-      .then(r => setData(r.data))
+    getAdminAnalytics(period)
+      .then(data => setData(data))
       .catch(err => { if (err.response?.status === 403) navigate('/') })
       .finally(() => setLoading(false))
   }, [period])
@@ -53,7 +55,7 @@ export default function Analytics() {
           {[
             { label: 'Người dùng mới', value: overview.totalUsers, color: 'text-[#1a56db]', bg: 'bg-blue-50' },
             { label: 'Lượt thi', value: overview.totalAttempts, color: 'text-green-600', bg: 'bg-green-50' },
-            { label: 'Band TB', value: overview.avgBand ? overview.avgBand.toFixed(1) : '—', color: 'text-purple-600', bg: 'bg-purple-50' },
+            { label: 'Band TB', value: formatBand(overview.avgBand), color: 'text-purple-600', bg: 'bg-purple-50' },
           ].map(c => (
             <div key={c.label} className={`${c.bg} rounded-2xl p-4`}>
               <div className={`text-3xl font-bold ${c.color}`}>{c.value}</div>
@@ -84,7 +86,7 @@ export default function Analytics() {
                     <td className="px-4 py-3 font-medium text-gray-700">{s.count}</td>
                     <td className="px-4 py-3">
                       {s.avgScore != null
-                        ? <span className={`font-bold ${s.avgScore >= 7 ? 'text-green-600' : s.avgScore >= 5 ? 'text-yellow-600' : 'text-red-500'}`}>{s.avgScore.toFixed(1)}</span>
+                        ? <span className={`font-bold ${roundIELTS(s.avgScore) >= 7 ? 'text-green-600' : roundIELTS(s.avgScore) >= 5 ? 'text-yellow-600' : 'text-red-500'}`}>{formatBand(s.avgScore)}</span>
                         : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-4 py-3">
@@ -120,8 +122,8 @@ export default function Analytics() {
                       <p className="text-sm font-medium text-gray-800 truncate">{u.name}</p>
                       <p className="text-xs text-gray-400">{u.attemptCount} lượt thi</p>
                     </div>
-                    <span className={`font-bold text-sm ${u.avgScore >= 7 ? 'text-green-600' : u.avgScore >= 5 ? 'text-yellow-600' : 'text-red-500'}`}>
-                      {u.avgScore?.toFixed(1)}
+                    <span className={`font-bold text-sm ${roundIELTS(u.avgScore) >= 7 ? 'text-green-600' : roundIELTS(u.avgScore) >= 5 ? 'text-yellow-600' : 'text-red-500'}`}>
+                      {formatBand(u.avgScore)}
                     </span>
                   </div>
                 ))}

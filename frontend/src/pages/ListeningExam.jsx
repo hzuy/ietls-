@@ -1,10 +1,14 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import api from '../utils/axios'
+import { getListeningExam, submitListeningExam, getFullTestStatus } from '../services/examService'
 import { getSectionSlots } from '../utils/questionCount'
 import MatchingTickGrid from '../components/MatchingTickGrid'
 import DragWordBankGroup from '../components/DragWordBankGroup'
 import MatchingDragGroup from '../components/MatchingDragGroup'
+import DiagramLabelGroup from '../components/DiagramLabelGroup'
+import MatchingHeadingsGroup from '../components/MatchingHeadingsGroup'
+import PassagePills from '../components/PassagePills'
+import TableCompletionRender from '../components/TableCompletionRender'
 
 const TOTAL_TIME = 40 * 60
 const SERVER_BASE = 'http://localhost:3001'
@@ -262,41 +266,18 @@ function MatchingGroup({ group, answers, onAnswer, previewMode, showAnswers }) {
   )
 }
 
-// ── Short Answer Group ────────────────────────────────────────────────────────
-function ShortAnswerGroup({ group, answers, onAnswer, previewMode, showAnswers }) {
-  return (
-    <div id={`question-${group.qNumberStart}`} className="mb-6 scroll-mt-4">
-      <InstructionBanner group={group} />
-      {(group.questions || []).map(q => (
-        <div key={q.id} id={`question-${q.number}`} className="mb-4 scroll-mt-4">
-          <p className="text-sm text-gray-800 mb-2 leading-relaxed flex gap-2">
-            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold text-xs shrink-0 mt-0.5">{q.number}</span>
-            <span>{q.questionText}</span>
-          </p>
-          <div className="pl-8">
-            <input type="text"
-              value={previewMode && showAnswers ? (q.correctAnswer || '') : (answers[q.id] || '')}
-              readOnly={previewMode}
-              onChange={previewMode ? undefined : e => onAnswer(q.id, e.target.value)}
-              placeholder={previewMode ? '' : 'Nhập đáp án...'}
-              className={`border-b-2 ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'border-gray-300 focus:border-blue-500'} outline-none px-2 py-1 text-sm w-56 bg-transparent transition`} />
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 // ── Dispatcher ────────────────────────────────────────────────────────────────
 function GroupBlock({ group, answers, onAnswer, previewMode, showAnswers }) {
   if (group.type === 'note_completion') return <NoteCompletionGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
+  if (group.type === 'table_completion') return <TableCompletionRender group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
   if (group.type === 'mcq')             return <MCQGroup group={group} answers={answers} onAnswer={onAnswer} isMulti={false} previewMode={previewMode} showAnswers={showAnswers} />
   if (group.type === 'mcq_multi')       return <MCQGroup group={group} answers={answers} onAnswer={onAnswer} isMulti={true} previewMode={previewMode} showAnswers={showAnswers} />
   if (group.type === 'map_diagram')     return <MapDiagramGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
   if (group.type === 'matching')        return <MatchingGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
-  if (group.type === 'short_answer')    return <ShortAnswerGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
   if (group.type === 'drag_word_bank')  return <div id={`question-${group.qNumberStart}`} className="scroll-mt-4"><DragWordBankGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} /></div>
   if (group.type === 'matching_drag')   return <div id={`question-${group.qNumberStart}`} className="scroll-mt-4"><MatchingDragGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} /></div>
+  if (group.type === 'diagram_label')    return <DiagramLabelGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
+  if (group.type === 'matching_headings') return <MatchingHeadingsGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
   return null
 }
 
@@ -352,7 +333,7 @@ function QuestionBlock({ q, globalIdx, answers, onAnswer, previewMode, showAnswe
           })}
         </div>
       )}
-      {['fill_blank', 'short_answer'].includes(q.type) && (
+      {q.type === 'fill_blank' && (
         <div className="pl-8">
           <input type="text"
             value={previewMode && showAnswers ? (q.correctAnswer || '') : (answers[q.id] || '')}
@@ -427,7 +408,7 @@ export default function ListeningExam() {
   const bottomBarRef = useRef(null)
 
   useEffect(() => {
-    api.get(`/listening/exams/${id}`).then(r => setExam(r.data)).finally(() => setLoading(false))
+    getListeningExam(id).then(data => setExam(data)).finally(() => setLoading(false))
   }, [id])
 
   // Skip start screen in preview mode
@@ -472,8 +453,8 @@ export default function ListeningExam() {
 
   useEffect(() => {
     if (result) {
-      api.get(`/full-test/status?examId=${id}`)
-        .then(r => { if (r.data.isComplete) setFullTestStatus(r.data) })
+      getFullTestStatus(id)
+        .then(data => { if (data.isComplete) setFullTestStatus(data) })
         .catch(() => {})
     }
   }, [result])
@@ -492,10 +473,10 @@ export default function ListeningExam() {
   const doSubmit = async () => {
     setSubmitting(true)
     try {
-      const r = await api.post(`/listening/exams/${id}/submit`, { answers })
-      setResult(r.data)
+      const r = await submitListeningExam(id, answers)
+      setResult(r)
       setPhase('result')
-    } catch (e) { console.error(e) }
+    } catch (e) { /* submit error handled by submitting state */ }
     finally { setSubmitting(false) }
   }
 
@@ -676,119 +657,76 @@ export default function ListeningExam() {
 
       {/* Bottom navigator bar — 2 rows */}
       {!previewMode && (
-        <div ref={bottomBarRef} className="bg-white border-t border-gray-200 shrink-0">
+        <div ref={bottomBarRef} className="bg-white border-t border-gray-200 shrink-0 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
           {/* Row 1: question numbers for active section only (collapsible) */}
           {showNavNumbers && (
-            <div className="px-4 pt-2 pb-1.5 border-b border-gray-100 flex justify-center">
-              <div className="flex flex-wrap gap-0.5 justify-center">
-                {getSectionSlots(section).map(slot => (
-                  <button
-                    key={slot.number}
-                    onClick={() => jumpToQuestion(slot)}
-                    className={`w-6 h-6 rounded text-[11px] font-bold transition
-                      ${slot.qId && answers[slot.qId]
-                        ? 'bg-[#1a56db] border border-[#1a56db] text-white'
-                        : 'bg-white border border-[#e2e8f0] text-[#1e293b]'}`}
-                  >
-                    {slot.number}
-                  </button>
-                ))}
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-center bg-white">
+              <div className="flex flex-wrap gap-3 justify-center max-w-5xl">
+                {getSectionSlots(section).map(slot => {
+                  const isAnswered = slot.qId && answers[slot.qId]
+                  return (
+                    <button
+                      key={slot.number}
+                      onClick={() => jumpToQuestion(slot)}
+                      className={`w-10 h-10 rounded-lg text-sm font-bold transition-all flex items-center justify-center border
+                        ${isAnswered
+                          ? 'bg-[#002D5B] border-[#002D5B] text-white shadow-sm'
+                          : 'bg-white border-gray-300 text-[#002D5B] hover:border-[#0066FF] hover:text-[#0066FF]'}`}
+                    >
+                      {slot.number}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           )}
 
           {/* Row 2: controls */}
-          <div className="px-4 py-2 flex items-center gap-3">
-            {/* Left: icons + current section info */}
-            <div className="flex items-center gap-2 shrink-0">
-              {/* Grid icon — opens question panel */}
+          <div className="px-6 h-[52px] flex items-center justify-between gap-6">
+            {/* Left: icons */}
+            <div className="flex items-center gap-3 shrink-0">
               <button
                 title="Bảng câu hỏi"
                 onClick={() => setShowQuestionPanel(v => !v)}
-                className={`w-7 h-7 flex items-center justify-center rounded border transition ${showQuestionPanel ? 'border-[#1a56db] text-[#1a56db]' : 'border-gray-200 text-gray-400 hover:border-gray-400'}`}
+                className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all ${showQuestionPanel ? 'bg-[#0066FF] border-[#0066FF] text-white shadow-md' : 'bg-white border-gray-200 text-gray-400 hover:border-[#0066FF] hover:text-[#0066FF]'}`}
               >
-                <svg width="13" height="13" viewBox="0 0 13 13" fill="currentColor">
-                  <rect x="0" y="0" width="3.5" height="3.5" rx="0.5"/>
-                  <rect x="4.75" y="0" width="3.5" height="3.5" rx="0.5"/>
-                  <rect x="9.5" y="0" width="3.5" height="3.5" rx="0.5"/>
-                  <rect x="0" y="4.75" width="3.5" height="3.5" rx="0.5"/>
-                  <rect x="4.75" y="4.75" width="3.5" height="3.5" rx="0.5"/>
-                  <rect x="9.5" y="4.75" width="3.5" height="3.5" rx="0.5"/>
-                  <rect x="0" y="9.5" width="3.5" height="3.5" rx="0.5"/>
-                  <rect x="4.75" y="9.5" width="3.5" height="3.5" rx="0.5"/>
-                  <rect x="9.5" y="9.5" width="3.5" height="3.5" rx="0.5"/>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="14" width="7" height="7"></rect>
+                  <rect x="3" y="14" width="7" height="7"></rect>
                 </svg>
               </button>
-              {/* Collapse/expand icon */}
               <button
                 title={showNavNumbers ? 'Thu gọn' : 'Mở rộng'}
                 onClick={() => setShowNavNumbers(v => !v)}
-                className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition"
+                className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-400 hover:border-[#002D5B] hover:text-[#002D5B] transition-all"
               >
-                <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                  {showNavNumbers
-                    ? <path d="M2 9l4.5-4.5L11 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    : <path d="M2 4l4.5 4.5L11 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  }
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  {showNavNumbers ? <polyline points="18 15 12 9 6 15"></polyline> : <polyline points="6 9 12 15 18 9"></polyline>}
                 </svg>
               </button>
-              <div className="w-px h-4 bg-gray-200 mx-0.5" />
-              <span className="text-xs font-bold text-gray-800">Section {section.number}</span>
-              <span className="text-[11px] text-gray-500">
-                Đã làm {getSectionSlots(section).filter(s => s.qId && answers[s.qId]).length}/{getSectionSlots(section).length}
-              </span>
             </div>
 
-            {/* Middle: section summary */}
-            <div className="flex-1 flex items-center justify-center gap-3 text-[11px] font-medium">
-              {exam.listeningSections.map((s, si) => {
+            {/* Middle: Section Pills */}
+            <PassagePills
+              items={exam.listeningSections.map(s => {
                 const slots = getSectionSlots(s)
-                const sAns = slots.filter(sl => sl.qId && answers[sl.qId]).length
-                const isActive = activeSection === si
-                return (
-                  <Fragment key={si}>
-                    {si > 0 && <span className="text-gray-300 select-none">——</span>}
-                    <button
-                      onClick={() => setActiveSection(si)}
-                      className={`transition whitespace-nowrap ${isActive ? 'text-[#1a56db] font-bold' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                      Section {s.number}{' '}
-                      <span className={isActive ? 'text-[#1a56db]' : 'text-gray-400'}>{sAns}/{slots.length}</span>
-                    </button>
-                  </Fragment>
-                )
+                return {
+                  label: `Section ${s.number}`,
+                  answered: slots.filter(sl => sl.qId && answers[sl.qId]).length,
+                  total: slots.length,
+                }
               })}
-            </div>
+              activeIndex={activeSection}
+              onChange={setActiveSection}
+            />
 
-            {/* Right: prev/next arrows + submit */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              {activeSection > 0 && (() => {
-                const slots = getSectionSlots(exam.listeningSections[activeSection - 1])
-                const range = `${slots[0]?.number}–${slots[slots.length - 1]?.number}`
-                return (
-                  <button
-                    onClick={() => setActiveSection(activeSection - 1)}
-                    className="text-[11px] text-gray-600 hover:text-[#1a56db] font-semibold px-2 py-1.5 rounded border border-gray-200 hover:border-[#1a56db] transition"
-                  >
-                    ← {range}
-                  </button>
-                )
-              })()}
-              {activeSection < exam.listeningSections.length - 1 && (() => {
-                const slots = getSectionSlots(exam.listeningSections[activeSection + 1])
-                const range = `${slots[0]?.number}–${slots[slots.length - 1]?.number}`
-                return (
-                  <button
-                    onClick={() => setActiveSection(activeSection + 1)}
-                    className="text-[11px] text-gray-600 hover:text-[#1a56db] font-semibold px-2 py-1.5 rounded border border-gray-200 hover:border-[#1a56db] transition"
-                  >
-                    {range} →
-                  </button>
-                )
-              })()}
+            {/* Right: submit */}
+            <div className="flex items-center shrink-0">
               <button
                 onClick={() => setShowConfirm(true)}
-                className="bg-[#dc2626] hover:bg-red-700 text-white px-4 py-2 rounded-xl font-bold text-sm transition ml-1"
+                className="bg-[#dc2626] hover:bg-red-700 text-white px-4 py-2 rounded-xl font-bold text-sm transition"
               >
                 Nộp bài
               </button>

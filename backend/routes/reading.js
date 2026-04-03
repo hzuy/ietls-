@@ -1,9 +1,8 @@
 const express = require('express')
-const { PrismaClient } = require('@prisma/client')
 const authMiddleware = require('../middleware/auth')
 
 const router = express.Router()
-const prisma = new PrismaClient()
+const prisma = require('../lib/prisma')
 
 function getReadingBand(correct) {
   if (correct >= 39) return 9.0
@@ -23,11 +22,44 @@ function getReadingBand(correct) {
   return 0
 }
 
+// Public: 4 bài Reading mới nhất cho trang chủ
+router.get('/featured', async (req, res) => {
+  try {
+    const exams = await prisma.exam.findMany({
+      where: { skill: 'reading', deletedAt: null },
+      take: 4,
+      select: {
+        id: true, title: true, createdAt: true, coverImageUrl: true,
+        _count: { select: { attempts: true } },
+        passages: {
+          select: {
+            questions: { where: { groupId: null }, select: { id: true } },
+            questionGroups: { select: { qNumberStart: true, qNumberEnd: true } }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+    const result = exams.map(e => ({
+      id: e.id, title: e.title, createdAt: e.createdAt, coverImageUrl: e.coverImageUrl,
+      attemptCount: e._count.attempts,
+      questionCount: e.passages.reduce((sum, p) => {
+        const fromGroups = p.questionGroups.reduce((gs, g) => gs + (g.qNumberEnd - g.qNumberStart + 1), 0)
+        return sum + p.questions.length + fromGroups
+      }, 0)
+    }))
+    res.json(result)
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
 // Danh sách đề Reading
 router.get('/exams', authMiddleware, async (req, res) => {
   try {
     const exams = await prisma.exam.findMany({
-      where: { skill: 'reading' },
+      where: { skill: 'reading', deletedAt: null },
+      take: 100,
       select: {
         id: true, title: true, createdAt: true, coverImageUrl: true,
         passages: {
@@ -134,14 +166,27 @@ router.post('/exams/:id/submit', authMiddleware, async (req, res) => {
 
     const band = getReadingBand(correct)
 
-    const attempt = await prisma.attempt.create({
-      data: {
-        userId: req.user.userId,
-        examId,
-        score: band,
-        answers: JSON.stringify(answers),
-        finishedAt: new Date()
+    const attempt = await prisma.$transaction(async (tx) => {
+      const a = await tx.attempt.create({
+        data: {
+          userId: req.user.userId,
+          examId,
+          score: band,
+          answers: JSON.stringify(answers),
+          finishedAt: new Date()
+        }
+      })
+      if (result.length > 0) {
+        await tx.questionAnswer.createMany({
+          data: result.map(r => ({
+            attemptId: a.id,
+            questionId: r.questionId,
+            userAnswer: r.userAnswer,
+            isCorrect: r.isCorrect,
+          }))
+        })
       }
+      return a
     })
 
     res.json({ score: band, correct, total: totalSlots, result, attemptId: attempt.id })

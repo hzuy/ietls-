@@ -1,6 +1,5 @@
 const express = require('express')
 const bcrypt = require('bcryptjs')
-const { PrismaClient } = require('@prisma/client')
 const authMiddleware = require('../middleware/auth')
 const multer = require('multer')
 const path = require('path')
@@ -10,7 +9,7 @@ const pdfParse = require('pdf-parse')
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
 const router = express.Router()
-const prisma = new PrismaClient()
+const prisma = require('../lib/prisma')
 
 // Multer config cho audio upload
 const uploadsDir = path.join(__dirname, '..', 'uploads')
@@ -42,8 +41,53 @@ const adminOnly = (req, res, next) => {
   next()
 }
 
+const teacherOrAdmin = (req, res, next) => {
+  if (req.user.role !== 'admin' && req.user.role !== 'teacher') {
+    return res.status(403).json({ message: 'Không có quyền truy cập' })
+  }
+  next()
+}
+
+const teacherOnly = (req, res, next) => {
+  if (req.user.role !== 'teacher') {
+    return res.status(403).json({ message: 'Không có quyền truy cập' })
+  }
+  next()
+}
+
+// ─── AUTO SYNC SeriesExam ─────────────────────────────────────────────────────
+// When saving an exam with examSeriesId + testNumber, auto-link it to any Full Test
+// Series that already contains sibling exams (same ExamSeries + testNumber).
+async function syncSeriesExam(examId, examSeriesId, testNumber) {
+  if (!examSeriesId || !testNumber) return
+  const tn = parseInt(testNumber)
+  const sid = parseInt(examSeriesId)
+  // Find sibling exams in the same ExamSeries at the same testNumber
+  const siblings = await prisma.exam.findMany({
+    where: { seriesId: sid, testNumber: tn, id: { not: examId } },
+    select: { id: true }
+  })
+  if (!siblings.length) return
+  // Find which Full Test Series already contain any sibling at this testNumber
+  const linked = await prisma.seriesExam.findMany({
+    where: { examId: { in: siblings.map(s => s.id) }, testNumber: tn },
+    select: { seriesId: true }
+  })
+  const seriesIds = [...new Set(linked.map(l => l.seriesId))]
+  if (!seriesIds.length) return
+  // For each such Series, create a SeriesExam for the new exam if not already there
+  for (const fullSeriesId of seriesIds) {
+    const exists = await prisma.seriesExam.findFirst({
+      where: { seriesId: fullSeriesId, examId }
+    })
+    if (!exists) {
+      await prisma.seriesExam.create({ data: { seriesId: fullSeriesId, examId, testNumber: tn } })
+    }
+  }
+}
+
 // ─── UPLOAD AUDIO ────────────────────────────────────────────────────────────
-router.post('/upload-audio', authMiddleware, adminOnly, upload.single('audio'), (req, res) => {
+router.post('/upload-audio', authMiddleware, teacherOnly, upload.single('audio'), (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
   const audioUrl = `/uploads/${req.file.filename}`
   res.json({ audioUrl, filename: req.file.filename })
@@ -61,13 +105,13 @@ const imageUpload = multer({
   limits: { fileSize: 20 * 1024 * 1024 } // 20MB
 })
 
-router.post('/upload-image', authMiddleware, adminOnly, imageUpload.single('image'), (req, res) => {
+router.post('/upload-image', authMiddleware, teacherOnly, imageUpload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
   const imageUrl = `/uploads/${req.file.filename}`
   res.json({ imageUrl, filename: req.file.filename })
 })
 
-router.post('/exams/:id/cover', authMiddleware, adminOnly, imageUpload.single('cover'), async (req, res) => {
+router.post('/exams/:id/cover', authMiddleware, teacherOnly, imageUpload.single('cover'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'Không có file ảnh' })
     const coverImageUrl = `/uploads/${req.file.filename}`
@@ -83,7 +127,7 @@ router.post('/exams/:id/cover', authMiddleware, adminOnly, imageUpload.single('c
 })
 
 // ─── TRANSCRIBE AUDIO (Groq Whisper) ────────────────────────────────────────
-router.post('/transcribe', authMiddleware, adminOnly, async (req, res) => {
+router.post('/transcribe', authMiddleware, teacherOnly, async (req, res) => {
   try {
     const { audioUrl } = req.body
     if (!audioUrl) return res.status(400).json({ message: 'Thiếu audioUrl' })
@@ -112,34 +156,66 @@ router.post('/transcribe', authMiddleware, adminOnly, async (req, res) => {
 })
 
 // ─── GET ALL EXAMS ───────────────────────────────────────────────────────────
-router.get('/exams', authMiddleware, adminOnly, async (req, res) => {
+router.get('/exams', authMiddleware, teacherOnly, async (req, res) => {
   try {
+    const skillFilter = req.query.skill || undefined
     const exams = await prisma.exam.findMany({
+      where: skillFilter ? { skill: skillFilter, deletedAt: null } : { deletedAt: null },
       orderBy: { createdAt: 'desc' },
+      take: 200,
       include: {
-        passages:          { select: { id: true, _count: { select: { questionGroups: true } } } },
-        listeningSections: { select: { id: true, _count: { select: { questionGroups: true } } } },
-        writingTasks:      { select: { id: true } },
-        speakingParts:     { select: { id: true, _count: { select: { questions: true } } } },
+        passages: {
+          select: {
+            id: true,
+            _count: { select: { questionGroups: true } },
+            questionGroups: { select: { qNumberStart: true, qNumberEnd: true } },
+            questions: { where: { groupId: null }, select: { id: true } }
+          }
+        },
+        listeningSections: {
+          select: {
+            id: true,
+            _count: { select: { questionGroups: true } },
+            questionGroups: { select: { qNumberStart: true, qNumberEnd: true } },
+            questions: { where: { groupId: null }, select: { id: true } }
+          }
+        },
+        writingTasks:  { select: { id: true } },
+        speakingParts: { select: { id: true, _count: { select: { questions: true } } } },
         _count: { select: { attempts: true } }
       }
     })
 
+    const examIds = exams.map(e => e.id)
     const avgScores = await prisma.attempt.groupBy({
       by: ['examId'],
-      where: { score: { not: null }, finishedAt: { not: null } },
+      where: { examId: { in: examIds }, score: { not: null }, finishedAt: { not: null } },
       _avg: { score: true }
     })
     const avgScoreMap = Object.fromEntries(avgScores.map(a => [a.examId, a._avg.score]))
 
-    res.json(exams.map(e => ({ ...e, avgScore: avgScoreMap[e.id] ?? null })))
+    res.json(exams.map(e => {
+      let questionCount = null
+      if (e.skill === 'reading') {
+        questionCount = e.passages.reduce((sum, p) => {
+          const fromGroups = p.questionGroups.reduce((gs, g) => gs + (g.qNumberEnd - g.qNumberStart + 1), 0)
+          return sum + p.questions.length + fromGroups
+        }, 0)
+      } else if (e.skill === 'listening') {
+        questionCount = e.listeningSections.reduce((sum, s) => {
+          const fromGroups = s.questionGroups.reduce((gs, g) => gs + (g.qNumberEnd - g.qNumberStart + 1), 0)
+          return sum + s.questions.length + fromGroups
+        }, 0)
+      }
+      return { ...e, avgScore: avgScoreMap[e.id] ?? null, questionCount }
+    }))
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
   }
 })
 
 // ─── CREATE READING EXAM ─────────────────────────────────────────────────────
-router.post('/exams/reading', authMiddleware, adminOnly, async (req, res) => {
+router.post('/exams/reading', authMiddleware, teacherOnly, async (req, res) => {
   try {
     const { title, passages, bookNumber, testNumber, seriesId } = req.body
 
@@ -175,8 +251,8 @@ router.post('/exams/reading', authMiddleware, adminOnly, async (req, res) => {
         }
       }
 
-      // note_completion: noteSections + questions with fill_blank
-      if (g.type === 'note_completion') {
+      // note_completion / table_completion: noteSections + questions with fill_blank
+      if (g.type === 'note_completion' || g.type === 'table_completion') {
         return {
           ...base,
           noteSections: {
@@ -290,6 +366,47 @@ router.post('/exams/reading', authMiddleware, adminOnly, async (req, res) => {
         }
       }
 
+      // diagram_label: image + questions (questionText = hint, correctAnswer = answer)
+      if (g.type === 'diagram_label') {
+        return {
+          ...base,
+          questions: {
+            create: (g.questions || []).map(q => ({
+              number: q.number,
+              type: 'fill_blank',
+              questionText: q.hint || q.questionText || '',
+              correctAnswer: q.correctAnswer || '',
+              options: null,
+              imageUrl: null
+            }))
+          }
+        }
+      }
+
+      // matching_headings: headings as matchingOptions (i/ii/iii), paragraphs as questions
+      if (g.type === 'matching_headings') {
+        return {
+          ...base,
+          matchingOptions: {
+            create: (g.matchingOptions || []).map((mo, moi) => ({
+              optionLetter: mo.letter,
+              optionText: mo.text || '',
+              sortOrder: moi
+            }))
+          },
+          questions: {
+            create: (g.questions || []).map(q => ({
+              number: q.number,
+              type: 'matching_headings',
+              questionText: q.questionText || '',
+              correctAnswer: q.correctAnswer || '',
+              options: null,
+              imageUrl: null
+            }))
+          }
+        }
+      }
+
       // mcq, mcq_multi, short_answer
       return {
         ...base,
@@ -341,6 +458,7 @@ router.post('/exams/reading', authMiddleware, adminOnly, async (req, res) => {
       }
     })
 
+    await syncSeriesExam(exam.id, seriesId, testNumber)
     res.status(201).json(exam)
   } catch (error) {
     console.error(error)
@@ -349,7 +467,7 @@ router.post('/exams/reading', authMiddleware, adminOnly, async (req, res) => {
 })
 
 // ─── CREATE LISTENING EXAM ───────────────────────────────────────────────────
-router.post('/exams/listening', authMiddleware, adminOnly, async (req, res) => {
+router.post('/exams/listening', authMiddleware, teacherOnly, async (req, res) => {
   try {
     const { title, sections, bookNumber, testNumber, seriesId } = req.body
 
@@ -364,10 +482,11 @@ router.post('/exams/listening', authMiddleware, adminOnly, async (req, res) => {
         type: g.type,
         imageUrl: g.imageUrl || null,
         sortOrder: gi,
+        canReuse: g.canReuse || false,
         maxChoices: g.maxChoices || 2,
       }
 
-      if (g.type === 'note_completion') {
+      if (g.type === 'note_completion' || g.type === 'table_completion') {
         return {
           ...base,
           noteSections: {
@@ -480,6 +599,47 @@ router.post('/exams/listening', authMiddleware, adminOnly, async (req, res) => {
         }
       }
 
+      // diagram_label: image + questions (questionText = hint, correctAnswer = answer)
+      if (g.type === 'diagram_label') {
+        return {
+          ...base,
+          questions: {
+            create: (g.questions || []).map(q => ({
+              number: q.number,
+              type: 'fill_blank',
+              questionText: q.hint || q.questionText || '',
+              correctAnswer: q.correctAnswer || '',
+              options: null,
+              imageUrl: null
+            }))
+          }
+        }
+      }
+
+      // matching_headings: headings as matchingOptions (i/ii/iii), paragraphs as questions
+      if (g.type === 'matching_headings') {
+        return {
+          ...base,
+          matchingOptions: {
+            create: (g.matchingOptions || []).map((mo, moi) => ({
+              optionLetter: mo.letter,
+              optionText: mo.text || '',
+              sortOrder: moi
+            }))
+          },
+          questions: {
+            create: (g.questions || []).map(q => ({
+              number: q.number,
+              type: 'matching_headings',
+              questionText: q.questionText || '',
+              correctAnswer: q.correctAnswer || '',
+              options: null,
+              imageUrl: null
+            }))
+          }
+        }
+      }
+
       // mcq, mcq_multi, short_answer
       return {
         ...base,
@@ -525,6 +685,7 @@ router.post('/exams/listening', authMiddleware, adminOnly, async (req, res) => {
       }
     })
 
+    await syncSeriesExam(exam.id, seriesId, testNumber)
     res.status(201).json(exam)
   } catch (error) {
     console.error(error)
@@ -533,7 +694,7 @@ router.post('/exams/listening', authMiddleware, adminOnly, async (req, res) => {
 })
 
 // ─── CREATE WRITING EXAM ─────────────────────────────────────────────────────
-router.post('/exams/writing', authMiddleware, adminOnly, async (req, res) => {
+router.post('/exams/writing', authMiddleware, teacherOnly, async (req, res) => {
   try {
     const { title, task1, task2, bookNumber, testNumber, seriesId } = req.body
     // task1: { prompt, imageUrl }
@@ -569,6 +730,7 @@ router.post('/exams/writing', authMiddleware, adminOnly, async (req, res) => {
       include: { writingTasks: true }
     })
 
+    await syncSeriesExam(exam.id, seriesId, testNumber)
     res.status(201).json(exam)
   } catch (error) {
     console.error(error)
@@ -577,7 +739,7 @@ router.post('/exams/writing', authMiddleware, adminOnly, async (req, res) => {
 })
 
 // ─── CREATE SPEAKING EXAM ────────────────────────────────────────────────────
-router.post('/exams/speaking', authMiddleware, adminOnly, async (req, res) => {
+router.post('/exams/speaking', authMiddleware, teacherOnly, async (req, res) => {
   try {
     const { title, part1, part2, part3, bookNumber, testNumber, seriesId } = req.body
     // part1: { questions: ['...', '...'] }
@@ -634,6 +796,7 @@ router.post('/exams/speaking', authMiddleware, adminOnly, async (req, res) => {
       }
     })
 
+    await syncSeriesExam(exam.id, seriesId, testNumber)
     res.status(201).json(exam)
   } catch (error) {
     console.error(error)
@@ -655,7 +818,7 @@ router.get('/book-covers', authMiddleware, async (req, res) => {
   }
 })
 
-router.post('/book-covers/:bookNumber', authMiddleware, adminOnly, imageUpload.single('cover'), async (req, res) => {
+router.post('/book-covers/:bookNumber', authMiddleware, teacherOnly, imageUpload.single('cover'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'Không có file ảnh' })
     const bookNumber = parseInt(req.params.bookNumber)
@@ -677,7 +840,7 @@ router.get('/full-tests', authMiddleware, async (req, res) => {
   try {
     const [exams, covers] = await Promise.all([
       prisma.exam.findMany({
-        where: { bookNumber: { not: null }, testNumber: { not: null } },
+        where: { bookNumber: { not: null }, testNumber: { not: null }, deletedAt: null },
         select: { id: true, title: true, skill: true, bookNumber: true, testNumber: true, seriesId: true },
         orderBy: [{ bookNumber: 'asc' }, { testNumber: 'asc' }, { skill: 'asc' }]
       }),
@@ -705,8 +868,9 @@ router.get('/full-tests', authMiddleware, async (req, res) => {
 router.get('/exam-series', authMiddleware, async (req, res) => {
   try {
     const series = await prisma.examSeries.findMany({
+      where: { deletedAt: null },
       orderBy: { createdAt: 'asc' },
-      include: { _count: { select: { bookCovers: true } } }
+      include: { _count: { select: { bookCovers: { where: { deletedAt: null } } } } }
     })
     res.json(series)
   } catch (error) {
@@ -714,7 +878,7 @@ router.get('/exam-series', authMiddleware, async (req, res) => {
   }
 })
 
-router.post('/exam-series', authMiddleware, adminOnly, async (req, res) => {
+router.post('/exam-series', authMiddleware, teacherOnly, async (req, res) => {
   try {
     const { name } = req.body
     if (!name?.trim()) return res.status(400).json({ message: 'Tên bộ đề không được để trống' })
@@ -725,7 +889,7 @@ router.post('/exam-series', authMiddleware, adminOnly, async (req, res) => {
   }
 })
 
-router.put('/exam-series/:id', authMiddleware, adminOnly, async (req, res) => {
+router.put('/exam-series/:id', authMiddleware, teacherOnly, async (req, res) => {
   try {
     const { name } = req.body
     if (!name?.trim()) return res.status(400).json({ message: 'Tên không được để trống' })
@@ -739,9 +903,10 @@ router.put('/exam-series/:id', authMiddleware, adminOnly, async (req, res) => {
   }
 })
 
-router.delete('/exam-series/:id', authMiddleware, adminOnly, async (req, res) => {
+router.delete('/exam-series/:id', authMiddleware, teacherOnly, async (req, res) => {
   try {
-    await prisma.examSeries.delete({ where: { id: parseInt(req.params.id) } })
+    const id = parseInt(req.params.id)
+    await prisma.examSeries.update({ where: { id }, data: { deletedAt: new Date() } })
     res.json({ ok: true })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
@@ -751,7 +916,7 @@ router.delete('/exam-series/:id', authMiddleware, adminOnly, async (req, res) =>
 router.get('/exam-series/:id/books', authMiddleware, async (req, res) => {
   try {
     const books = await prisma.bookCover.findMany({
-      where: { seriesId: parseInt(req.params.id) },
+      where: { seriesId: parseInt(req.params.id), deletedAt: null },
       orderBy: { bookNumber: 'asc' }
     })
     res.json(books)
@@ -760,11 +925,11 @@ router.get('/exam-series/:id/books', authMiddleware, async (req, res) => {
   }
 })
 
-router.post('/exam-series/:id/books', authMiddleware, adminOnly, async (req, res) => {
+router.post('/exam-series/:id/books', authMiddleware, teacherOnly, async (req, res) => {
   try {
     const seriesId = parseInt(req.params.id)
     const max = await prisma.bookCover.findFirst({
-      where: { seriesId },
+      where: { seriesId, deletedAt: null },
       orderBy: { bookNumber: 'desc' }
     })
     const nextNumber = (max?.bookNumber || 0) + 1
@@ -775,7 +940,7 @@ router.post('/exam-series/:id/books', authMiddleware, adminOnly, async (req, res
   }
 })
 
-router.put('/exam-series/:seriesId/books/:bookNumber', authMiddleware, adminOnly, async (req, res) => {
+router.put('/exam-series/:seriesId/books/:bookNumber', authMiddleware, teacherOnly, async (req, res) => {
   try {
     const seriesId = parseInt(req.params.seriesId)
     const oldNumber = parseInt(req.params.bookNumber)
@@ -792,21 +957,22 @@ router.put('/exam-series/:seriesId/books/:bookNumber', authMiddleware, adminOnly
   }
 })
 
-router.delete('/exam-series/:seriesId/books/:bookNumber', authMiddleware, adminOnly, async (req, res) => {
+router.delete('/exam-series/:seriesId/books/:bookNumber', authMiddleware, teacherOnly, async (req, res) => {
   try {
     const seriesId = parseInt(req.params.seriesId)
     const bookNumber = parseInt(req.params.bookNumber)
-    // Delete all exams associated with this book
-    await prisma.exam.deleteMany({ where: { seriesId, bookNumber } })
-    // Delete the book cover record
-    await prisma.bookCover.deleteMany({ where: { seriesId, bookNumber } })
+    const now = new Date()
+    // Soft-delete all exams in this book
+    await prisma.exam.updateMany({ where: { seriesId, bookNumber, deletedAt: null }, data: { deletedAt: now } })
+    // Soft-delete the book cover
+    await prisma.bookCover.updateMany({ where: { seriesId, bookNumber }, data: { deletedAt: now } })
     res.json({ ok: true })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
   }
 })
 
-router.post('/exam-series/:seriesId/covers/:bookNumber', authMiddleware, adminOnly, imageUpload.single('cover'), async (req, res) => {
+router.post('/exam-series/:seriesId/covers/:bookNumber', authMiddleware, teacherOnly, imageUpload.single('cover'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'Không có file ảnh' })
     const seriesId = parseInt(req.params.seriesId)
@@ -824,7 +990,7 @@ router.post('/exam-series/:seriesId/covers/:bookNumber', authMiddleware, adminOn
 })
 
 // ─── GET SINGLE EXAM (full detail for editing) ───────────────────────────────
-router.get('/exams/:id', authMiddleware, adminOnly, async (req, res) => {
+router.get('/exams/:id', authMiddleware, teacherOnly, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
     const exam = await prisma.exam.findUnique({
@@ -866,11 +1032,28 @@ router.get('/exams/:id', authMiddleware, adminOnly, async (req, res) => {
   }
 })
 
-// ─── UPDATE EXAM ──────────────────────────────────────────────────────────────
-router.put('/exams/:id', authMiddleware, adminOnly, async (req, res) => {
+// ─── UPDATE BASIC INFO (title only — dùng cho trang quản lý nội dung) ────────
+router.put('/exams/:id/basic', authMiddleware, teacherOnly, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
-    const existing = await prisma.exam.findUnique({ where: { id }, select: { skill: true } })
+    const { title } = req.body
+    if (!title?.trim()) return res.status(400).json({ message: 'Thiếu tiêu đề' })
+    const exam = await prisma.exam.update({
+      where: { id },
+      data: { title: title.trim() },
+      select: { id: true, title: true, skill: true, coverImageUrl: true, createdAt: true }
+    })
+    res.json(exam)
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi cập nhật', error: error.message })
+  }
+})
+
+// ─── UPDATE EXAM ──────────────────────────────────────────────────────────────
+router.put('/exams/:id', authMiddleware, teacherOnly, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id)
+    const existing = await prisma.exam.findUnique({ where: { id }, select: { skill: true, seriesId: true } })
     if (!existing) return res.status(404).json({ message: 'Không tìm thấy đề' })
 
     const { title, bookNumber, testNumber } = req.body
@@ -900,7 +1083,7 @@ router.put('/exams/:id', authMiddleware, adminOnly, async (req, res) => {
             })) }
           }
         }
-        if (g.type === 'note_completion') {
+        if (g.type === 'note_completion' || g.type === 'table_completion') {
           return {
             ...base,
             noteSections: { create: (g.noteSections || []).map((ns, nsi) => ({
@@ -1003,6 +1186,7 @@ router.put('/exams/:id', authMiddleware, adminOnly, async (req, res) => {
         },
         include: { passages: { include: { questions: true, questionGroups: true } } }
       })
+      await syncSeriesExam(id, existing.seriesId, tn)
       return res.json(updated)
     }
 
@@ -1040,7 +1224,7 @@ router.put('/exams/:id', authMiddleware, adminOnly, async (req, res) => {
           sortOrder: gi,
           maxChoices: g.maxChoices || 2,
         }
-        if (g.type === 'note_completion') {
+        if (g.type === 'note_completion' || g.type === 'table_completion') {
           return {
             ...base,
             noteSections: { create: (g.noteSections || []).map((ns, nsi) => ({
@@ -1126,6 +1310,7 @@ router.put('/exams/:id', authMiddleware, adminOnly, async (req, res) => {
           }
         }
       })
+      await syncSeriesExam(id, existing.seriesId, tn)
       return res.json(updated)
     }
 
@@ -1145,6 +1330,7 @@ router.put('/exams/:id', authMiddleware, adminOnly, async (req, res) => {
         },
         include: { writingTasks: true }
       })
+      await syncSeriesExam(id, existing.seriesId, tn)
       return res.json(updated)
     }
 
@@ -1178,6 +1364,7 @@ router.put('/exams/:id', authMiddleware, adminOnly, async (req, res) => {
         },
         include: { speakingParts: { include: { questions: true } } }
       })
+      await syncSeriesExam(id, existing.seriesId, tn)
       return res.json(updated)
     }
 
@@ -1189,31 +1376,10 @@ router.put('/exams/:id', authMiddleware, adminOnly, async (req, res) => {
 })
 
 // ─── DELETE EXAM ─────────────────────────────────────────────────────────────
-router.delete('/exams/:id', authMiddleware, adminOnly, async (req, res) => {
+router.delete('/exams/:id', authMiddleware, teacherOnly, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
-
-    // Collect all question IDs under this exam (passages, sections, groups)
-    const questions = await prisma.question.findMany({
-      where: {
-        OR: [
-          { passage: { examId: id } },
-          { listeningSection: { examId: id } },
-          { group: { section: { examId: id } } },
-          { group: { passage: { examId: id } } }
-        ]
-      },
-      select: { id: true }
-    })
-    const qIds = questions.map(q => q.id)
-
-    // Delete in FK-safe order before the cascade
-    if (qIds.length) await prisma.questionAnswer.deleteMany({ where: { questionId: { in: qIds } } })
-    await prisma.attempt.deleteMany({ where: { examId: id } })
-    await prisma.writingAnswer.deleteMany({ where: { task: { examId: id } } })
-    await prisma.speakingAnswer.deleteMany({ where: { part: { examId: id } } })
-
-    await prisma.exam.delete({ where: { id } })
+    await prisma.exam.update({ where: { id }, data: { deletedAt: new Date() } })
     res.json({ message: 'Xóa đề thành công' })
   } catch (error) {
     console.error('[Delete exam]', error)
@@ -1911,11 +2077,13 @@ ${contentText.substring(0, 8000)}
 })
 
 // ─── MAKE ADMIN ──────────────────────────────────────────────────────────────
-router.post('/make-admin', authMiddleware, async (req, res) => {
+router.post('/make-admin', authMiddleware, adminOnly, async (req, res) => {
   try {
+    const targetId = req.body.userId ? parseInt(req.body.userId) : req.user.userId
     const user = await prisma.user.update({
-      where: { id: req.user.userId },
-      data: { role: 'admin' }
+      where: { id: targetId },
+      data: { role: 'admin' },
+      select: { id: true, name: true, email: true, role: true }
     })
     res.json({ message: 'Đã nâng quyền admin!', user })
   } catch (error) {
@@ -1926,8 +2094,9 @@ router.post('/make-admin', authMiddleware, async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════
 // ─── DASHBOARD ───────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
+const os = require('os')
 
-router.get('/dashboard', authMiddleware, adminOnly, async (req, res) => {
+router.get('/dashboard', authMiddleware, teacherOrAdmin, async (req, res) => {
   try {
     const now = new Date()
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -1943,9 +2112,66 @@ router.get('/dashboard', authMiddleware, adminOnly, async (req, res) => {
       prisma.exam.count(),
     ])
 
-    // Attempts per day - last 30 days
     const thirtyDaysAgo = new Date(now)
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29)
+
+    // 1. User Growth Data (Real)
+    const recentUsers = await prisma.user.findMany({
+      where: { createdAt: { gte: thirtyDaysAgo } },
+      select: { createdAt: true }
+    })
+    const userDayMap = {}
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now)
+      d.setDate(d.getDate() - i)
+      userDayMap[d.toISOString().slice(0, 10)] = 0
+    }
+    recentUsers.forEach(u => {
+      const key = u.createdAt.toISOString().slice(0, 10)
+      if (key in userDayMap) userDayMap[key]++
+    })
+    const registrationsByDay = Object.entries(userDayMap).map(([date, count]) => ({ date, count }))
+
+    // 2. System Logs (Real actions from DB)
+    const [latestExams, latestAttempts] = await Promise.all([
+      prisma.exam.findMany({ take: 3, orderBy: { createdAt: 'desc' }, select: { title: true, createdAt: true } }),
+      prisma.attempt.findMany({ take: 2, orderBy: { createdAt: 'desc' }, include: { user: { select: { name: true } } } })
+    ])
+    
+    const systemLogs = [
+      ...latestExams.map(e => ({
+        time: e.createdAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+        user: 'Hệ thống',
+        action: `Đã thêm đề mới: ${e.title}`,
+        status: 'Hoàn tất'
+      })),
+      ...latestAttempts.map(a => ({
+        time: a.createdAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+        user: a.user?.name || 'Ẩn danh',
+        action: `Hoàn thành bài thi ${a.examId}`,
+        status: 'Thành công'
+      }))
+    ].sort((a, b) => b.time.localeCompare(a.time)).slice(0, 5)
+
+    // 3. System Health (Real server stats)
+    const freeMem = os.freemem()
+    const totalMem = os.totalmem()
+    const memUsage = Math.round(((totalMem - freeMem) / totalMem) * 100)
+    
+    const aiAttemptsToday = await prisma.attempt.count({ 
+      where: { 
+        finishedAt: { gte: startOfToday },
+        exam: { skill: { in: ['writing', 'speaking'] } }
+      } 
+    })
+    const aiLimitUsage = Math.min(100, Math.round((aiAttemptsToday / 500) * 100)) 
+
+    const systemHealth = {
+      serverMemory: memUsage,
+      aiLimit: aiLimitUsage
+    }
+
+    // Attempts per day - last 30 days
     const recentAttempts = await prisma.attempt.findMany({
       where: { createdAt: { gte: thirtyDaysAgo } },
       select: { createdAt: true }
@@ -1963,7 +2189,7 @@ router.get('/dashboard', authMiddleware, adminOnly, async (req, res) => {
     })
     const attemptsByDay = Object.entries(dayMap).map(([date, count]) => ({ date, count }))
 
-    // Band score distribution (buckets: <4, 4-5, 5-6, 6-7, 7-8, 8+)
+    // Band score distribution
     const allScores = await prisma.attempt.findMany({
       where: { score: { not: null } }, select: { score: true }
     })
@@ -2007,15 +2233,19 @@ router.get('/dashboard', authMiddleware, adminOnly, async (req, res) => {
       stats: {
         totalUsers, usersThisMonth, usersLastMonth,
         attemptsToday,
-        avgBand: avgBandRaw._avg.score,
+        avgBand: avgBandRaw._avg.score || 0,
         totalExams,
       },
+      registrationsByDay,
+      systemLogs,
+      systemHealth,
       attemptsByDay,
       bandDistribution,
       skillDistribution,
       recentAttempts: recent,
     })
   } catch (error) {
+    console.error('[Dashboard Error]', error)
     res.status(500).json({ message: 'Lỗi server', error: error.message })
   }
 })
@@ -2028,13 +2258,14 @@ router.get('/users', authMiddleware, adminOnly, async (req, res) => {
   try {
     const { search = '', page = 1, limit = 20 } = req.query
     const skip = (parseInt(page) - 1) * parseInt(limit)
-    const where = {
-      role: 'user',
-      OR: search ? [
+    const baseWhere = { role: 'user' }
+    const where = search ? {
+      ...baseWhere,
+      OR: [
         { name: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } }
-      ] : undefined
-    }
+      ]
+    } : baseWhere
     const [users, total] = await Promise.all([
       prisma.user.findMany({
         where, skip, take: parseInt(limit),
@@ -2149,26 +2380,51 @@ router.delete('/users/:id', authMiddleware, adminOnly, async (req, res) => {
 // ─── ATTEMPTS ────────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
 
-router.get('/attempts', authMiddleware, adminOnly, async (req, res) => {
+router.get('/attempts', authMiddleware, teacherOnly, async (req, res) => {
   try {
-    const { search = '', skill = '', scoreMin, scoreMax, dateFrom, dateTo, seriesId, page = 1, limit = 20 } = req.query
+    const { search = '', skill = '', dateFrom, dateTo, seriesId, sortBy = 'date', sortOrder = 'desc', page = 1, limit = 20 } = req.query
     const skip = (parseInt(page) - 1) * parseInt(limit)
 
-    const examWhere = {}
-    if (skill) examWhere.skill = skill
-    if (seriesId) examWhere.seriesId = parseInt(seriesId)
-
     const where = { finishedAt: { not: null } }
-    if (scoreMin !== undefined) where.score = { ...(where.score || {}), gte: parseFloat(scoreMin) }
-    if (scoreMax !== undefined) where.score = { ...(where.score || {}), lte: parseFloat(scoreMax) }
-    if (dateFrom) where.createdAt = { ...(where.createdAt || {}), gte: new Date(dateFrom) }
-    if (dateTo)   where.createdAt = { ...(where.createdAt || {}), lte: new Date(dateTo) }
+
+    // Lọc theo exam (skill, seriesId) — dùng relation filter đúng chuẩn Prisma
+    if (skill || seriesId) {
+      where.exam = {}
+      if (skill) where.exam.skill = skill
+      if (seriesId) where.exam.seriesId = parseInt(seriesId)
+    }
+
+    // Tìm kiếm theo tên/email user
+    if (search) {
+      where.user = {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } }
+        ]
+      }
+    }
+
+    // Lọc theo ngày — dateTo set đến cuối ngày (23:59:59)
+    if (dateFrom || dateTo) {
+      where.createdAt = {}
+      if (dateFrom) where.createdAt.gte = new Date(dateFrom)
+      if (dateTo) {
+        const to = new Date(dateTo)
+        to.setHours(23, 59, 59, 999)
+        where.createdAt.lte = to
+      }
+    }
+
+    // Sắp xếp: theo band hoặc theo ngày
+    const orderBy = sortBy === 'score'
+      ? { score: sortOrder === 'asc' ? 'asc' : 'desc' }
+      : { createdAt: 'desc' }
 
     const [attempts, total] = await Promise.all([
       prisma.attempt.findMany({
         where,
         skip, take: parseInt(limit),
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         include: {
           user: { select: { id: true, name: true, email: true } },
           exam: { select: { id: true, title: true, skill: true } }
@@ -2177,25 +2433,7 @@ router.get('/attempts', authMiddleware, adminOnly, async (req, res) => {
       prisma.attempt.count({ where })
     ])
 
-    const filtered = attempts.filter(a => {
-      if (skill && a.exam.skill !== skill) return false
-      if (seriesId && true) return true // already filtered via exam
-      if (search) {
-        const q = search.toLowerCase()
-        return a.user.name.toLowerCase().includes(q) || a.user.email.toLowerCase().includes(q)
-      }
-      return true
-    }).filter(a => {
-      if (skill && a.exam.skill !== skill) return false
-      return true
-    })
-
-    res.json({
-      attempts: search || skill
-        ? filtered
-        : attempts,
-      total, page: parseInt(page), pages: Math.ceil(total / parseInt(limit))
-    })
+    res.json({ attempts, total, page: parseInt(page), pages: Math.ceil(total / parseInt(limit)) })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
   }
@@ -2205,7 +2443,7 @@ router.get('/attempts', authMiddleware, adminOnly, async (req, res) => {
 // ─── ANALYTICS ───────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
 
-router.get('/analytics', authMiddleware, adminOnly, async (req, res) => {
+router.get('/analytics', authMiddleware, teacherOnly, async (req, res) => {
   try {
     const { period = 'month' } = req.query
     const days = period === 'week' ? 7 : period === 'quarter' ? 90 : 30
@@ -2291,11 +2529,51 @@ router.get('/analytics', authMiddleware, adminOnly, async (req, res) => {
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ─── PROFILE (CURRENT USER) ──────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
+router.get('/me', authMiddleware, teacherOrAdmin, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { id: true, name: true, email: true, role: true, isLocked: true, createdAt: true }
+    })
+    if (!user) return res.status(404).json({ message: 'Không tìm thấy tài khoản' })
+    res.json(user)
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
+router.put('/me/password', authMiddleware, teacherOrAdmin, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body
+    if (!currentPassword || !newPassword) return res.status(400).json({ message: 'Thiếu thông tin' })
+    if (newPassword.length < 6) return res.status(400).json({ message: 'Mật khẩu mới phải ít nhất 6 ký tự' })
+    const user = await prisma.user.findUnique({ where: { id: req.user.userId } })
+    const valid = await bcrypt.compare(currentPassword, user.password)
+    if (!valid) return res.status(400).json({ message: 'Mật khẩu hiện tại không đúng' })
+    const hashed = await bcrypt.hash(newPassword, 10)
+    await prisma.user.update({ where: { id: req.user.userId }, data: { password: hashed } })
+    res.json({ message: 'Đổi mật khẩu thành công' })
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ─── ACCOUNTS (ADMIN/TEACHER) ────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
 
-router.get('/accounts', authMiddleware, adminOnly, async (req, res) => {
+router.get('/accounts', authMiddleware, teacherOrAdmin, async (req, res) => {
   try {
+    if (req.user.role === 'teacher') {
+      const account = await prisma.user.findUnique({
+        where: { id: req.user.userId },
+        select: { id: true, name: true, email: true, role: true, isLocked: true, createdAt: true }
+      })
+      return res.json(account ? [account] : [])
+    }
     const accounts = await prisma.user.findMany({
       where: { role: { in: ['admin', 'teacher'] } },
       orderBy: { createdAt: 'desc' },
@@ -2324,14 +2602,22 @@ router.post('/accounts', authMiddleware, adminOnly, async (req, res) => {
   }
 })
 
-router.put('/accounts/:id', authMiddleware, adminOnly, async (req, res) => {
+router.put('/accounts/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
+    if (req.user.role === 'teacher' && id !== req.user.userId) {
+      return res.status(403).json({ message: 'Không có quyền truy cập' })
+    }
     const { name, role, isLocked } = req.body
-    if (role && !['admin', 'teacher'].includes(role)) return res.status(400).json({ message: 'Role không hợp lệ' })
+    const data = {}
+    if (name) data.name = name
+    if (req.user.role === 'admin') {
+      if (role && ['admin', 'teacher'].includes(role)) data.role = role
+      if (isLocked !== undefined) data.isLocked = isLocked
+    }
     const user = await prisma.user.update({
       where: { id },
-      data: { ...(name && { name }), ...(role && { role }), ...(isLocked !== undefined && { isLocked }) },
+      data,
       select: { id: true, name: true, email: true, role: true, isLocked: true, createdAt: true }
     })
     res.json(user)
@@ -2378,6 +2664,259 @@ router.put('/settings', authMiddleware, adminOnly, async (req, res) => {
     res.json({ message: 'Đã lưu cài đặt' })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ─── STAFF MANAGEMENT ────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
+router.get('/staff', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const staff = await prisma.user.findMany({
+      where: { role: { in: ['admin', 'teacher'] } },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, name: true, email: true, role: true, isLocked: true, createdAt: true }
+    })
+    res.json(staff)
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
+router.post('/make-teacher', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { userId } = req.body
+    if (!userId) return res.status(400).json({ message: 'Thiếu userId' })
+    const user = await prisma.user.update({
+      where: { id: parseInt(userId) },
+      data: { role: 'teacher' },
+      select: { id: true, name: true, email: true, role: true }
+    })
+    res.json({ message: 'Đã nâng quyền teacher!', user })
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
+router.post('/remove-staff', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { userId } = req.body
+    if (!userId) return res.status(400).json({ message: 'Thiếu userId' })
+    if (parseInt(userId) === req.user.userId) return res.status(400).json({ message: 'Không thể tự xóa quyền của mình' })
+    const user = await prisma.user.update({
+      where: { id: parseInt(userId) },
+      data: { role: 'user' },
+      select: { id: true, name: true, email: true, role: true }
+    })
+    res.json({ message: 'Đã xóa quyền staff', user })
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
+// ─── TRASH ────────────────────────────────────────────────────────────────────
+const teacherOrAdmin2 = (req, res, next) => {
+  if (req.user.role !== 'admin' && req.user.role !== 'teacher')
+    return res.status(403).json({ message: 'Không có quyền' })
+  next()
+}
+
+// Cascade-safe hard delete for Exam records
+// No-cascade FKs on Exam: Attempt.examId, SeriesExam.examId, WritingAnswer.taskId, SpeakingAnswer.partId
+async function hardDeleteExams(examIds) {
+  if (!examIds.length) return
+  const [taskIds, partIds] = await Promise.all([
+    prisma.writingTask.findMany({ where: { examId: { in: examIds } }, select: { id: true } }).then(r => r.map(t => t.id)),
+    prisma.speakingPart.findMany({ where: { examId: { in: examIds } }, select: { id: true } }).then(r => r.map(p => p.id)),
+  ])
+  await Promise.all([
+    prisma.attempt.deleteMany({ where: { examId: { in: examIds } } }),
+    prisma.seriesExam.deleteMany({ where: { examId: { in: examIds } } }),
+    taskIds.length ? prisma.writingAnswer.deleteMany({ where: { taskId: { in: taskIds } } }) : Promise.resolve(),
+    partIds.length ? prisma.speakingAnswer.deleteMany({ where: { partId: { in: partIds } } }) : Promise.resolve(),
+  ])
+  await prisma.exam.deleteMany({ where: { id: { in: examIds } } })
+}
+
+// Cascade-safe hard delete for Series records (SeriesExam has no onDelete: Cascade)
+async function hardDeleteSeries(seriesIds) {
+  if (!seriesIds.length) return
+  await prisma.seriesExam.deleteMany({ where: { seriesId: { in: seriesIds } } })
+  await prisma.series.deleteMany({ where: { id: { in: seriesIds } } })
+}
+
+router.get('/trash', authMiddleware, teacherOrAdmin2, async (req, res) => {
+  try {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    const softWhere = { deletedAt: { not: null } }
+    const expiredWhere = { deletedAt: { not: null, lt: thirtyDaysAgo } }
+
+    // Auto-purge items older than 30 days
+    await Promise.all([
+      prisma.practiceExam.deleteMany({ where: expiredWhere }),
+      prisma.writingSample.deleteMany({ where: expiredWhere }),
+      prisma.speakingSample.deleteMany({ where: expiredWhere }),
+      prisma.examSeries.deleteMany({ where: expiredWhere }),
+      prisma.bookCover.deleteMany({ where: expiredWhere }),
+    ])
+    const [expiredExams, expiredSeries] = await Promise.all([
+      prisma.exam.findMany({ where: expiredWhere, select: { id: true } }),
+      prisma.series.findMany({ where: expiredWhere, select: { id: true } }),
+    ])
+    await hardDeleteExams(expiredExams.map(e => e.id))
+    await hardDeleteSeries(expiredSeries.map(s => s.id))
+
+    const [practices, writings, speakings, exams, examSeriesList, books, seriesList] = await Promise.all([
+      prisma.practiceExam.findMany({
+        where: softWhere,
+        select: { id: true, title: true, skill: true, thumbnailUrl: true, deletedAt: true },
+        orderBy: { deletedAt: 'desc' }
+      }),
+      prisma.writingSample.findMany({
+        where: softWhere,
+        select: { id: true, title: true, thumbnailUrl: true, deletedAt: true },
+        orderBy: { deletedAt: 'desc' }
+      }),
+      prisma.speakingSample.findMany({
+        where: softWhere,
+        select: { id: true, title: true, thumbnailUrl: true, deletedAt: true },
+        orderBy: { deletedAt: 'desc' }
+      }),
+      prisma.exam.findMany({
+        where: softWhere,
+        select: { id: true, title: true, skill: true, coverImageUrl: true, seriesId: true, bookNumber: true, deletedAt: true },
+        orderBy: { deletedAt: 'desc' }
+      }),
+      prisma.examSeries.findMany({
+        where: softWhere,
+        select: { id: true, name: true, deletedAt: true },
+        orderBy: { deletedAt: 'desc' }
+      }),
+      prisma.bookCover.findMany({
+        where: softWhere,
+        select: { id: true, seriesId: true, bookNumber: true, coverImageUrl: true, deletedAt: true },
+        orderBy: { deletedAt: 'desc' }
+      }),
+      prisma.series.findMany({
+        where: softWhere,
+        select: { id: true, name: true, thumbnailUrl: true, deletedAt: true },
+        orderBy: { deletedAt: 'desc' }
+      }),
+    ])
+
+    // Enrich books with seriesName
+    const seriesIds = [...new Set(books.map(b => b.seriesId))]
+    let seriesNameMap = {}
+    if (seriesIds.length) {
+      const seriesRows = await prisma.examSeries.findMany({
+        where: { id: { in: seriesIds } },
+        select: { id: true, name: true }
+      })
+      for (const s of seriesRows) seriesNameMap[s.id] = s.name
+    }
+
+    const items = [
+      ...practices.map(r => ({ ...r, type: r.skill === 'reading' ? 'reading_practice' : 'listening_practice' })),
+      ...writings.map(r => ({ ...r, type: 'writing_sample' })),
+      ...speakings.map(r => ({ ...r, type: 'speaking_sample' })),
+      ...exams.map(r => ({ ...r, thumbnailUrl: r.coverImageUrl, type: `exam_${r.skill}` })),
+      ...examSeriesList.map(r => ({ ...r, title: r.name, type: 'exam_series' })),
+      ...books.map(r => ({ ...r, title: `Cuốn ${r.bookNumber} — ${seriesNameMap[r.seriesId] || 'Bộ đề'}`, thumbnailUrl: r.coverImageUrl, type: 'book' })),
+      ...seriesList.map(r => ({ ...r, title: r.name, type: 'series' })),
+    ].sort((a, b) => new Date(b.deletedAt) - new Date(a.deletedAt))
+
+    res.json(items)
+  } catch (err) {
+    res.status(500).json({ message: 'Lỗi server', error: err.message })
+  }
+})
+
+router.post('/trash/:type/:id/restore', authMiddleware, teacherOrAdmin2, async (req, res) => {
+  const { type, id } = req.params
+  const numId = parseInt(id)
+  try {
+    if (type === 'reading_practice' || type === 'listening_practice') {
+      await prisma.practiceExam.update({ where: { id: numId }, data: { deletedAt: null } })
+    } else if (type === 'writing_sample') {
+      await prisma.writingSample.update({ where: { id: numId }, data: { deletedAt: null } })
+    } else if (type === 'speaking_sample') {
+      await prisma.speakingSample.update({ where: { id: numId }, data: { deletedAt: null } })
+    } else if (type.startsWith('exam_')) {
+      await prisma.exam.update({ where: { id: numId }, data: { deletedAt: null } })
+    } else if (type === 'exam_series') {
+      await prisma.examSeries.update({ where: { id: numId }, data: { deletedAt: null } })
+    } else if (type === 'book') {
+      // Restore BookCover + all exams in this book
+      const book = await prisma.bookCover.findUnique({ where: { id: numId }, select: { seriesId: true, bookNumber: true } })
+      if (book) {
+        await Promise.all([
+          prisma.bookCover.update({ where: { id: numId }, data: { deletedAt: null } }),
+          prisma.exam.updateMany({ where: { seriesId: book.seriesId, bookNumber: book.bookNumber }, data: { deletedAt: null } }),
+        ])
+      }
+    } else if (type === 'series') {
+      await prisma.series.update({ where: { id: numId }, data: { deletedAt: null } })
+    } else {
+      return res.status(400).json({ message: 'Loại không hợp lệ' })
+    }
+    res.json({ message: 'Đã khôi phục' })
+  } catch (err) {
+    res.status(500).json({ message: 'Lỗi khôi phục', error: err.message })
+  }
+})
+
+router.delete('/trash/purge', authMiddleware, teacherOrAdmin2, async (req, res) => {
+  try {
+    const where = { deletedAt: { not: null } }
+    await Promise.all([
+      prisma.practiceExam.deleteMany({ where }),
+      prisma.writingSample.deleteMany({ where }),
+      prisma.speakingSample.deleteMany({ where }),
+      prisma.examSeries.deleteMany({ where }),
+      prisma.bookCover.deleteMany({ where }),
+    ])
+    const [allExams, allSeries] = await Promise.all([
+      prisma.exam.findMany({ where, select: { id: true } }),
+      prisma.series.findMany({ where, select: { id: true } }),
+    ])
+    await hardDeleteExams(allExams.map(e => e.id))
+    await hardDeleteSeries(allSeries.map(s => s.id))
+    res.json({ message: 'Đã dọn sạch thùng rác' })
+  } catch (err) {
+    res.status(500).json({ message: 'Lỗi dọn rác', error: err.message })
+  }
+})
+
+router.delete('/trash/:type/:id/permanent', authMiddleware, teacherOrAdmin2, async (req, res) => {
+  const { type, id } = req.params
+  const numId = parseInt(id)
+  try {
+    if (type === 'reading_practice' || type === 'listening_practice') {
+      await prisma.practiceExam.delete({ where: { id: numId } })
+    } else if (type === 'writing_sample') {
+      await prisma.writingSample.delete({ where: { id: numId } })
+    } else if (type === 'speaking_sample') {
+      await prisma.speakingSample.delete({ where: { id: numId } })
+    } else if (type.startsWith('exam_')) {
+      await hardDeleteExams([numId])
+    } else if (type === 'exam_series') {
+      await prisma.examSeries.delete({ where: { id: numId } })
+    } else if (type === 'book') {
+      const book = await prisma.bookCover.findUnique({ where: { id: numId }, select: { seriesId: true, bookNumber: true } })
+      if (book) {
+        const bookExams = await prisma.exam.findMany({ where: { seriesId: book.seriesId, bookNumber: book.bookNumber }, select: { id: true } })
+        await hardDeleteExams(bookExams.map(e => e.id))
+        await prisma.bookCover.delete({ where: { id: numId } })
+      }
+    } else if (type === 'series') {
+      await hardDeleteSeries([numId])
+    } else {
+      return res.status(400).json({ message: 'Loại không hợp lệ' })
+    }
+    res.json({ message: 'Đã xóa vĩnh viễn' })
+  } catch (err) {
+    res.status(500).json({ message: 'Lỗi xóa vĩnh viễn', error: err.message })
   }
 })
 

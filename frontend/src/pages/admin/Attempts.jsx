@@ -1,6 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, forwardRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import api from '../../utils/axios'
+import DatePicker from 'react-datepicker'
+import 'react-datepicker/dist/react-datepicker.css'
+import * as XLSX from 'xlsx'
+import { getAdminAttempts, getAdminExamSeriesForFilter } from '../../services/adminService'
 import AdminLayout from '../../components/AdminLayout'
 
 const SKILL_LABEL = { reading: 'Reading', listening: 'Listening', writing: 'Writing', speaking: 'Speaking' }
@@ -12,7 +15,7 @@ function bandColor(score) {
   return 'text-red-500'
 }
 
-function exportCSV(attempts) {
+function exportExcel(attempts) {
   const headers = ['Người dùng', 'Email', 'Kỹ năng', 'Đề thi', 'Band', 'Ngày thi']
   const rows = attempts.map(a => [
     a.user?.name, a.user?.email,
@@ -21,12 +24,32 @@ function exportCSV(attempts) {
     a.score != null ? a.score.toFixed(1) : '',
     new Date(a.createdAt).toLocaleDateString('vi-VN')
   ])
-  const csv = [headers, ...rows].map(r => r.map(c => `"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n')
-  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a'); a.href = url; a.download = 'attempts.csv'; a.click()
-  URL.revokeObjectURL(url)
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Lịch sử thi')
+  XLSX.writeFile(wb, 'attempts.xlsx')
 }
+
+// Custom input cho DatePicker — hiển thị icon lịch + text
+const DatePickerInput = forwardRef(({ value, onClick, placeholder }, ref) => (
+  <button
+    ref={ref}
+    type="button"
+    onClick={onClick}
+    className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-200 rounded-xl hover:border-[#1a56db] bg-white transition min-w-[130px]"
+  >
+    <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" strokeWidth="2"/>
+      <line x1="16" y1="2" x2="16" y2="6" strokeWidth="2"/>
+      <line x1="8" y1="2" x2="8" y2="6" strokeWidth="2"/>
+      <line x1="3" y1="10" x2="21" y2="10" strokeWidth="2"/>
+    </svg>
+    <span className={value ? 'text-gray-700' : 'text-gray-400'}>
+      {value || placeholder}
+    </span>
+  </button>
+))
+DatePickerInput.displayName = 'DatePickerInput'
 
 export default function Attempts() {
   const [attempts, setAttempts] = useState([])
@@ -37,6 +60,7 @@ export default function Attempts() {
   const [skill, setSkill] = useState('')
   const [scoreMin, setScoreMin] = useState('')
   const [scoreMax, setScoreMax] = useState('')
+  const [bandSort, setBandSort] = useState('') // 'asc' | 'desc' | '' — client-side only
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [examSeries, setExamSeries] = useState([])
@@ -44,8 +68,10 @@ export default function Attempts() {
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
 
+  const today = new Date()
+
   useEffect(() => {
-    api.get('/admin/exam-series').then(r => setExamSeries(r.data)).catch(() => {})
+    getAdminExamSeriesForFilter().then(data => setExamSeries(data)).catch(() => {})
   }, [])
 
   const fetchAttempts = useCallback(() => {
@@ -55,30 +81,53 @@ export default function Attempts() {
     if (scoreMax) params.scoreMax = scoreMax
     if (dateFrom) params.dateFrom = dateFrom
     if (dateTo)   params.dateTo = dateTo
-    api.get('/admin/attempts', { params })
-      .then(r => { setAttempts(r.data.attempts); setTotal(r.data.total); setPages(r.data.pages) })
+    getAdminAttempts(params)
+      .then(data => { setAttempts(data.attempts); setTotal(data.total); setPages(data.pages) })
       .catch(err => { if (err.response?.status === 403) navigate('/') })
       .finally(() => setLoading(false))
   }, [search, skill, scoreMin, scoreMax, dateFrom, dateTo, seriesId, page])
 
   useEffect(() => { fetchAttempts() }, [fetchAttempts])
 
-  const reset = () => { setSearch(''); setSkill(''); setScoreMin(''); setScoreMax(''); setDateFrom(''); setDateTo(''); setSeriesId(''); setPage(1) }
+  const reset = () => { setSearch(''); setSkill(''); setScoreMin(''); setScoreMax(''); setBandSort(''); setDateFrom(''); setDateTo(''); setSeriesId(''); setPage(1) }
+
+  const displayedAttempts = bandSort
+    ? [...attempts].sort((a, b) => {
+        const sa = a.score ?? -1
+        const sb = b.score ?? -1
+        return bandSort === 'desc' ? sb - sa : sa - sb
+      })
+    : attempts
+
+  // Chuyển YYYY-MM-DD string ↔ Date object
+  const dateFromObj = dateFrom ? new Date(dateFrom) : null
+  const dateToObj   = dateTo   ? new Date(dateTo)   : null
+
+  const handleDateFrom = (date) => {
+    setDateFrom(date ? date.toISOString().split('T')[0] : '')
+    // Nếu dateTo < dateFrom mới, reset dateTo
+    if (date && dateToObj && date > dateToObj) setDateTo('')
+    setPage(1)
+  }
+  const handleDateTo = (date) => {
+    setDateTo(date ? date.toISOString().split('T')[0] : '')
+    setPage(1)
+  }
 
   return (
     <AdminLayout>
       <div className="p-6 max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-xl font-bold text-gray-800">Lịch sử bài thi <span className="text-base font-normal text-gray-400">({total})</span></h1>
-          <button onClick={() => exportCSV(attempts)}
+          <button onClick={() => exportExcel(displayedAttempts)}
             className="px-4 py-2 rounded-xl bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition">
-            ↓ Export CSV
+            ↓ Export Excel
           </button>
         </div>
 
         {/* Filters */}
         <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
             <input type="text" placeholder="Tìm tên/email..." value={search}
               onChange={e => { setSearch(e.target.value); setPage(1) }}
               className="flex-1 min-w-[160px] px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db]" />
@@ -92,16 +141,35 @@ export default function Attempts() {
               <option value="">Tất cả bộ đề</option>
               {examSeries.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
-            <input type="number" placeholder="Band min" value={scoreMin} min="0" max="9" step="0.5"
-              onChange={e => { setScoreMin(e.target.value); setPage(1) }}
-              className="w-24 px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db]" />
-            <input type="number" placeholder="Band max" value={scoreMax} min="0" max="9" step="0.5"
-              onChange={e => { setScoreMax(e.target.value); setPage(1) }}
-              className="w-24 px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db]" />
-            <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1) }}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db]" />
-            <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1) }}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db]" />
+            <button
+              onClick={() => setBandSort(s => s === 'desc' ? '' : 'desc')}
+              className={`px-3 py-2 text-sm rounded-xl border font-medium transition ${bandSort === 'desc' ? 'bg-[#1a56db] text-white border-[#1a56db]' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+              ↑ Band cao nhất
+            </button>
+            <button
+              onClick={() => setBandSort(s => s === 'asc' ? '' : 'asc')}
+              className={`px-3 py-2 text-sm rounded-xl border font-medium transition ${bandSort === 'asc' ? 'bg-[#1a56db] text-white border-[#1a56db]' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+              ↓ Band thấp nhất
+            </button>
+            <DatePicker
+              selected={dateFromObj}
+              onChange={handleDateFrom}
+              dateFormat="dd/MM/yyyy"
+              maxDate={today}
+              placeholderText="Từ ngày"
+              customInput={<DatePickerInput placeholder="Từ ngày" />}
+              highlightDates={dateFromObj ? [dateFromObj] : []}
+            />
+            <DatePicker
+              selected={dateToObj}
+              onChange={handleDateTo}
+              dateFormat="dd/MM/yyyy"
+              maxDate={today}
+              minDate={dateFromObj || undefined}
+              placeholderText="Đến ngày"
+              customInput={<DatePickerInput placeholder="Đến ngày" />}
+              highlightDates={dateFromObj ? [dateFromObj] : []}
+            />
             <button onClick={reset} className="px-3 py-2 text-sm border border-gray-200 rounded-xl text-gray-500 hover:bg-gray-50">Reset</button>
           </div>
         </div>
@@ -127,7 +195,7 @@ export default function Attempts() {
                   </tr>
                 </thead>
                 <tbody>
-                  {attempts.map(a => (
+                  {displayedAttempts.map(a => (
                     <tr key={a.id} className="border-b border-gray-50 hover:bg-gray-50 transition">
                       <td className="px-5 py-3">
                         <p className="font-medium text-gray-800">{a.user?.name}</p>

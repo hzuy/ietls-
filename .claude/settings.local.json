@@ -43,7 +43,30 @@
       "Bash(cmd /c \"cd /d D:\\\\Duy\\\\ielts-app\\\\backend && npx prisma generate 2>&1 && echo SUCCESS\")",
       "Bash(wmic process:*)",
       "Bash(ls D:/Duy/ielts-app/backend/*.js)",
-      "Bash(find D:/Duy/ielts-app/frontend/src -type f \\\\\\(-name *writing* -o -name *speaking* \\\\\\))"
+      "Bash(find D:/Duy/ielts-app/frontend/src -type f \\\\\\(-name *writing* -o -name *speaking* \\\\\\))",
+      "Bash(find /d/Duy/ielts-app/backend/routes -type f -name *.js -o -name *.ts)",
+      "Bash(grep -n \"new PrismaClient\\\\|require.*lib/prisma\\\\|require.*PrismaClient\" routes/*.js lib/prisma.js)",
+      "Bash(xargs grep:*)",
+      "Bash(xargs wc:*)",
+      "Bash(python3 -c ':*)",
+      "Bash(grep -o \"VIỆC[^\\\\\\\\\\\\\\\\]*\" \"C:/Users/ADMIN/.claude/projects/D--Duy-ielts-app/9e3c4f91-f08c-4655-af84-14ed7bf314ce.jsonl\")",
+      "Bash(grep -o \"VIỆC 3[^\\\\\\\\\\\\\\\\]*\" \"C:/Users/ADMIN/.claude/projects/D--Duy-ielts-app/9e3c4f91-f08c-4655-af84-14ed7bf314ce.jsonl\")",
+      "Bash(grep -o \"BỔ SUNG 2 field[^\\\\\\\\\\\\\\\\]*\" \"C:/Users/ADMIN/.claude/projects/D--Duy-ielts-app/9e3c4f91-f08c-4655-af84-14ed7bf314ce.jsonl\")",
+      "Bash(grep -o \"tất cả 4 mục[^\\\\\\\\\\\\\\\\]*\" \"C:/Users/ADMIN/.claude/projects/D--Duy-ielts-app/9e3c4f91-f08c-4655-af84-14ed7bf314ce.jsonl\")",
+      "Bash(grep -o \"3 dạng mới[^\\\\\\\\\\\\\\\\]*\" \"C:/Users/ADMIN/.claude/projects/D--Duy-ielts-app/9e3c4f91-f08c-4655-af84-14ed7bf314ce.jsonl\")",
+      "Bash(grep -o \"3 dạng mới: [^\\\\\\\\\\\\\\\\]*\" \"C:/Users/ADMIN/.claude/projects/D--Duy-ielts-app/9e3c4f91-f08c-4655-af84-14ed7bf314ce.jsonl\")",
+      "Bash(grep -o \"matching_headings[^\\\\\\\\\\\\\\\\]*\\\\|diagram_label[^\\\\\\\\\\\\\\\\]*\\\\|matching_tick[^\\\\\\\\\\\\\\\\]*\" \"C:/Users/ADMIN/.claude/projects/D--Duy-ielts-app/9e3c4f91-f08c-4655-af84-14ed7bf314ce.jsonl\")",
+      "Bash(grep -o \"Ô tích[^\\\\\\\\\\\\\\\\]*\" \"C:/Users/ADMIN/.claude/projects/D--Duy-ielts-app/9e3c4f91-f08c-4655-af84-14ed7bf314ce.jsonl\")",
+      "Bash(grep -o \"hasLetterLabel[^\\\\\\\\\\\\\\\\]*\" \"C:/Users/ADMIN/.claude/projects/D--Duy-ielts-app/9e3c4f91-f08c-4655-af84-14ed7bf314ce.jsonl\")",
+      "Bash(grep -o \"subtitle[^\\\\\\\\\\\\\\\\\\\\\"]*\" \"C:/Users/ADMIN/.claude/projects/D--Duy-ielts-app/9e3c4f91-f08c-4655-af84-14ed7bf314ce.jsonl\")",
+      "Bash(wc -l /d/Duy/ielts-app/frontend/src/pages/*.jsx)",
+      "Bash(wc -l /d/Duy/ielts-app/frontend/src/components/*.jsx)",
+      "Bash(wc -l /d/Duy/ielts-app/backend/routes/*.js)",
+      "Bash(wc -l /d/Duy/ielts-app/frontend/src/components/*.jsx /d/Duy/ielts-app/frontend/src/context/*.jsx /d/Duy/ielts-app/frontend/src/utils/*.js)",
+      "Bash(wc -l \"D:/Duy/ielts-app/frontend/src/components/practice/\"*.jsx)",
+      "Bash(wc -l \"D:/Duy/ielts-app/frontend/src/components/practice/\"*.jsx \"D:/Duy/ielts-app/frontend/src/utils/practiceConfig.js\")",
+      "Bash(wc -l \"D:/Duy/ielts-app/frontend/src/services/\"*.js)",
+      "Bash(wc -l \"D:/Duy/ielts-app/frontend/src/components/admin/\"*.jsx)"
     ]
   }
 }

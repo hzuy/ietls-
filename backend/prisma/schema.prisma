@@ -12,9 +12,10 @@ model User {
   email     String   @unique
   password  String
   name      String
-  role      String   @default("user")
-  isLocked  Boolean  @default(false)
-  createdAt DateTime @default(now())
+  role                    String   @default("user")
+  isLocked                Boolean  @default(false)
+  requirePasswordChange   Boolean  @default(false)
+  createdAt               DateTime @default(now())
 
   attempts        Attempt[]
   writingAnswers  WritingAnswer[]
@@ -22,21 +23,27 @@ model User {
 }
 
 model Exam {
-  id            Int      @id @default(autoincrement())
+  id            Int       @id @default(autoincrement())
   title         String
-  skill         String   // reading | listening | writing | speaking
-  bookNumber    Int?     // Cambridge book number (1-19)
-  testNumber    Int?     // Test number within book (1-4)
-  coverImageUrl String?  // Cover image for the exam card
+  skill         String    // reading | listening | writing | speaking
+  bookNumber    Int?      // Cambridge book number (1-19)
+  testNumber    Int?      // Test number within book (1-4)
+  coverImageUrl String?   // Cover image for the exam card
   seriesId      Int?
   series        ExamSeries? @relation(fields: [seriesId], references: [id])
-  createdAt     DateTime @default(now())
+  createdAt     DateTime  @default(now())
+  deletedAt     DateTime?
 
   passages          Passage[]
   listeningSections ListeningSection[]
   writingTasks      WritingTask[]
   speakingParts     SpeakingPart[]
   attempts          Attempt[]
+  seriesExams       SeriesExam[]
+
+  @@index([skill])
+  @@index([seriesId, bookNumber, testNumber])
+  @@index([createdAt])
 }
 
 // ─── READING ────────────────────────────────────────
@@ -85,6 +92,10 @@ model Question {
   listeningSection ListeningSection? @relation(fields: [listeningSectionId], references: [id], onDelete: Cascade)
   group            QuestionGroup?    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   answers          QuestionAnswer[]
+
+  @@index([passageId])
+  @@index([listeningSectionId])
+  @@index([groupId])
 }
 
 // ─── WRITING ────────────────────────────────────────
@@ -136,6 +147,12 @@ model Attempt {
   user            User             @relation(fields: [userId], references: [id])
   exam            Exam             @relation(fields: [examId], references: [id])
   questionAnswers QuestionAnswer[]
+
+  @@index([userId])
+  @@index([examId])
+  @@index([userId, examId])
+  @@index([finishedAt])
+  @@index([createdAt])
 }
 
 model QuestionAnswer {
@@ -147,6 +164,9 @@ model QuestionAnswer {
 
   attempt  Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   question Question @relation(fields: [questionId], references: [id])
+
+  @@index([attemptId])
+  @@index([questionId])
 }
 
 model WritingAnswer {
@@ -161,6 +181,11 @@ model WritingAnswer {
 
   user User        @relation(fields: [userId], references: [id])
   task WritingTask @relation(fields: [taskId], references: [id])
+
+  @@index([userId])
+  @@index([taskId])
+  @@index([userId, taskId])
+  @@index([createdAt])
 }
 
 model SpeakingAnswer {
@@ -174,6 +199,11 @@ model SpeakingAnswer {
 
   user User         @relation(fields: [userId], references: [id])
   part SpeakingPart @relation(fields: [partId], references: [id])
+
+  @@index([userId])
+  @@index([partId])
+  @@index([userId, partId])
+  @@index([createdAt])
 }
 
 model QuestionGroup {
@@ -194,6 +224,9 @@ model QuestionGroup {
   questions       Question[]
   noteSections    NoteSection[]
   matchingOptions MatchingOption[]
+
+  @@index([sectionId])
+  @@index([passageId])
 }
 
 model NoteSection {
@@ -221,6 +254,7 @@ model BookCover {
   seriesId      Int
   bookNumber    Int
   coverImageUrl String?
+  deletedAt     DateTime?
   series        ExamSeries @relation(fields: [seriesId], references: [id], onDelete: Cascade)
 
   @@unique([seriesId, bookNumber])
@@ -230,6 +264,7 @@ model ExamSeries {
   id         Int         @id @default(autoincrement())
   name       String
   createdAt  DateTime    @default(now())
+  deletedAt  DateTime?
   bookCovers BookCover[]
   exams      Exam[]
 }
@@ -241,6 +276,53 @@ model Setting {
   updatedAt DateTime @updatedAt
 }
 
+// ─── PRACTICE EXAMS (standalone, not part of full-test) ──────────────────────
+model PracticeExam {
+  id           Int       @id @default(autoincrement())
+  title        String
+  skill        String    // reading | listening
+  level        String?   // beginner | intermediate | advanced
+  thumbnailUrl String?
+  audioUrl     String?   // listening only
+  passage      String?   // passage text (reading) or context (listening)
+  questions    String?   // JSON: { groups: [...] }
+  createdAt    DateTime  @default(now())
+  deletedAt    DateTime?
+
+  @@index([skill])
+  @@index([createdAt])
+}
+
+// ─── WRITING SAMPLES ──────────────────────────────────────────────────────────
+model WritingSample {
+  id           Int       @id @default(autoincrement())
+  title        String
+  level        String?   // task1 | task2
+  examType     String?   // VD: "Bar chart", "Opinion essay"
+  thumbnailUrl String?
+  content      String?   // rich text HTML
+  tags         String?   // JSON array
+  createdAt    DateTime  @default(now())
+  deletedAt    DateTime?
+
+  @@index([createdAt])
+}
+
+// ─── SPEAKING SAMPLES ─────────────────────────────────────────────────────────
+model SpeakingSample {
+  id           Int       @id @default(autoincrement())
+  title        String
+  level        String?   // task1 | task2 | task3
+  examType     String?   // VD: "Describe a person", "Abstract discussion"
+  thumbnailUrl String?
+  content      String?   // rich text HTML
+  tags         String?   // JSON array
+  createdAt    DateTime  @default(now())
+  deletedAt    DateTime?
+
+  @@index([createdAt])
+}
+
 model MatchingOption {
   id           Int    @id @default(autoincrement())
   groupId      Int
@@ -249,4 +331,30 @@ model MatchingOption {
   sortOrder    Int    @default(0)
 
   group QuestionGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+}
+
+// ─── SERIES (new full-test series model) ──────────────────────────────────────
+model Series {
+  id           Int          @id @default(autoincrement())
+  name         String
+  description  String?
+  thumbnailUrl String?
+  type         String       @default("academic")
+  createdAt    DateTime     @default(now())
+  deletedAt    DateTime?
+  exams        SeriesExam[]
+
+  @@index([createdAt])
+}
+
+model SeriesExam {
+  id         Int    @id @default(autoincrement())
+  seriesId   Int
+  examId     Int
+  testNumber Int
+  series     Series @relation(fields: [seriesId], references: [id])
+  exam       Exam   @relation(fields: [examId], references: [id])
+
+  @@index([seriesId])
+  @@index([examId])
 }

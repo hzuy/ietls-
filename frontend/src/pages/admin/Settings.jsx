@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import api from '../../utils/axios'
+import { getAdminSettings, updateAdminSettings } from '../../services/adminService'
 import AdminLayout from '../../components/AdminLayout'
 
 const DEFAULT_SETTINGS = {
@@ -17,14 +17,14 @@ const DEFAULT_SETTINGS = {
 
 export default function Settings() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const [loading, setLoading]   = useState(true)
+  const [saving, setSaving]     = useState(false)
+  const [saved, setSaved]       = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
-    api.get('/admin/settings')
-      .then(r => setSettings({ ...DEFAULT_SETTINGS, ...r.data }))
+    getAdminSettings()
+      .then(data => setSettings({ ...DEFAULT_SETTINGS, ...data }))
       .catch(err => { if (err.response?.status === 403) navigate('/') })
       .finally(() => setLoading(false))
   }, [])
@@ -32,16 +32,18 @@ export default function Settings() {
   const handleSave = async () => {
     setSaving(true)
     try {
-      await api.put('/admin/settings', settings)
-      setSaved(true); setTimeout(() => setSaved(false), 3000)
+      await updateAdminSettings(settings)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
     } catch { alert('Lỗi lưu cài đặt') }
     finally { setSaving(false) }
   }
 
   const set = (key, val) => setSettings(prev => ({ ...prev, [key]: val }))
 
-  const inputCls = "w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db]"
-  const labelCls = "text-xs font-medium text-gray-600 mb-1 block"
+  const inputCls  = "w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db] bg-white"
+  const labelCls  = "block text-sm font-semibold text-gray-700 mb-1.5"
+  const hintCls   = "text-xs text-gray-400 mt-1"
 
   if (loading) return (
     <AdminLayout>
@@ -53,80 +55,132 @@ export default function Settings() {
 
   return (
     <AdminLayout>
-      <div className="p-6 max-w-3xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-xl font-bold text-gray-800">Cài đặt hệ thống</h1>
-          <button onClick={handleSave} disabled={saving}
-            className="px-5 py-2 rounded-xl bg-[#1a56db] text-white text-sm font-medium hover:bg-blue-700 transition disabled:opacity-60">
-            {saving ? 'Đang lưu...' : saved ? '✓ Đã lưu' : 'Lưu cài đặt'}
-          </button>
+      <div className="p-6 max-w-2xl mx-auto">
+
+        {/* Page header */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-gray-800">Cài đặt hệ thống</h1>
+          <p className="text-sm text-gray-400 mt-1">Cấu hình vận hành nền tảng IELTS</p>
         </div>
 
-        {/* Display settings */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-4">
-          <h2 className="font-semibold text-gray-800 text-sm mb-4">Cài đặt hiển thị</h2>
-          <div className="space-y-3">
+        {/* ── SECTION 1: Thông tin chung ─────────────────── */}
+        <section className="bg-white rounded-2xl border border-gray-100 p-6 mb-5">
+          <div className="mb-5">
+            <h2 className="text-base font-bold text-gray-800">Thông tin chung</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Hiển thị trên giao diện người dùng</p>
+          </div>
+          <div className="space-y-5">
             <div>
               <label className={labelCls}>Tên website</label>
-              <input value={settings.site_name} onChange={e => set('site_name', e.target.value)} className={inputCls} />
+              <input
+                value={settings.site_name}
+                onChange={e => set('site_name', e.target.value)}
+                className={inputCls}
+                placeholder="VD: IELTS Practice"
+              />
             </div>
             <div>
-              <label className={labelCls}>Thông báo hệ thống (banner cho user)</label>
-              <input value={settings.system_announcement} onChange={e => set('system_announcement', e.target.value)}
+              <label className={labelCls}>Thông báo hệ thống</label>
+              <input
+                value={settings.system_announcement}
+                onChange={e => set('system_announcement', e.target.value)}
+                className={inputCls}
                 placeholder="Để trống nếu không có thông báo"
-                className={inputCls} />
+              />
+              <p className={hintCls}>Hiển thị dưới dạng banner cho tất cả người dùng</p>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Exam time settings */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-4">
-          <h2 className="font-semibold text-gray-800 text-sm mb-4">Thời gian làm bài mặc định (phút)</h2>
-          <div className="grid grid-cols-2 gap-3">
+        {/* ── SECTION 2: Thời gian làm bài ──────────────── */}
+        <section className="bg-white rounded-2xl border border-gray-100 p-6 mb-5">
+          <div className="mb-5">
+            <h2 className="text-base font-bold text-gray-800">Thời gian làm bài</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Thời gian mặc định cho mỗi kỹ năng (đơn vị: phút)</p>
+          </div>
+          <div className="space-y-5">
             {[
-              ['reading_time', 'Reading'],
-              ['listening_time', 'Listening'],
-              ['writing_time', 'Writing'],
-              ['speaking_time', 'Speaking'],
-            ].map(([key, label]) => (
+              { key: 'reading_time',   label: 'Reading',   hint: 'Khuyến nghị: 60 phút' },
+              { key: 'listening_time', label: 'Listening', hint: 'Khuyến nghị: 40 phút' },
+              { key: 'writing_time',   label: 'Writing',   hint: 'Khuyến nghị: 60 phút' },
+              { key: 'speaking_time',  label: 'Speaking',  hint: 'Khuyến nghị: 15 phút' },
+            ].map(({ key, label, hint }) => (
               <div key={key}>
                 <label className={labelCls}>{label}</label>
-                <input type="number" min="1" value={settings[key]} onChange={e => set(key, e.target.value)} className={inputCls} />
+                <input
+                  type="number"
+                  min="1"
+                  value={settings[key]}
+                  onChange={e => set(key, e.target.value)}
+                  className={`${inputCls} max-w-xs`}
+                />
+                <p className={hintCls}>{hint}</p>
               </div>
             ))}
           </div>
-          <div className="mt-3">
-            <label className={labelCls}>Số lần thi tối đa mỗi đề (0 = không giới hạn)</label>
-            <input type="number" min="0" value={settings.max_attempts_per_exam}
-              onChange={e => set('max_attempts_per_exam', e.target.value)} className={`${inputCls} max-w-xs`} />
-          </div>
-        </div>
+        </section>
 
-        {/* AI prompt templates */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5">
-          <h2 className="font-semibold text-gray-800 text-sm mb-1">Cài đặt AI chấm điểm</h2>
-          <p className="text-xs text-gray-400 mb-4">Prompt template gửi đến AI. Đảm bảo yêu cầu trả về JSON hợp lệ.</p>
-          <div className="space-y-4">
+        {/* ── SECTION 3: Giới hạn thi ───────────────────── */}
+        <section className="bg-white rounded-2xl border border-gray-100 p-6 mb-5">
+          <div className="mb-5">
+            <h2 className="text-base font-bold text-gray-800">Giới hạn thi</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Kiểm soát số lần học viên được làm mỗi đề</p>
+          </div>
+          <div>
+            <label className={labelCls}>Số lần thi tối đa mỗi đề</label>
+            <input
+              type="number"
+              min="0"
+              value={settings.max_attempts_per_exam}
+              onChange={e => set('max_attempts_per_exam', e.target.value)}
+              className={`${inputCls} max-w-xs`}
+            />
+            <p className={hintCls}>Nhập 0 để không giới hạn số lần thi</p>
+          </div>
+        </section>
+
+        {/* ── SECTION 4: Cài đặt AI chấm điểm ──────────── */}
+        <section className="bg-white rounded-2xl border border-gray-100 p-6 mb-8">
+          <div className="mb-5">
+            <h2 className="text-base font-bold text-gray-800">Cài đặt AI chấm điểm</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Prompt template gửi đến AI — đảm bảo yêu cầu trả về JSON hợp lệ</p>
+          </div>
+          <div className="space-y-6">
             <div>
-              <label className={labelCls}>Prompt template Writing</label>
+              <label className={labelCls}>Prompt template — Writing</label>
               <textarea
                 value={settings.writing_prompt_template}
                 onChange={e => set('writing_prompt_template', e.target.value)}
-                rows={5}
-                className={`${inputCls} resize-y font-mono text-xs`}
+                rows={6}
+                className={`${inputCls} resize-y font-mono text-xs leading-relaxed`}
               />
+              <p className={hintCls}>Phải trả về JSON với các key: band, ta, cc, lr, gra, feedback</p>
             </div>
             <div>
-              <label className={labelCls}>Prompt template Speaking</label>
+              <label className={labelCls}>Prompt template — Speaking</label>
               <textarea
                 value={settings.speaking_prompt_template}
                 onChange={e => set('speaking_prompt_template', e.target.value)}
-                rows={5}
-                className={`${inputCls} resize-y font-mono text-xs`}
+                rows={6}
+                className={`${inputCls} resize-y font-mono text-xs leading-relaxed`}
               />
+              <p className={hintCls}>Phải trả về JSON với các key: band, fc, lr, gra, pron, feedback</p>
             </div>
           </div>
+        </section>
+
+        {/* ── Save button ────────────────────────────────── */}
+        <div className="flex items-center justify-between bg-white rounded-2xl border border-gray-100 px-6 py-4">
+          <p className="text-sm text-gray-400">Nhấn lưu để áp dụng tất cả thay đổi</p>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-6 py-2.5 rounded-xl bg-[#1a56db] text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-60 min-w-[130px] text-center"
+          >
+            {saving ? 'Đang lưu...' : saved ? '✓ Đã lưu' : 'Lưu tất cả'}
+          </button>
         </div>
+
       </div>
     </AdminLayout>
   )

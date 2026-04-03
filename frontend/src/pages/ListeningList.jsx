@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import api from '../utils/axios'
+import { getListeningExams } from '../services/examService'
 import Navbar from '../components/Navbar'
 
 function Spinner() {
@@ -19,9 +19,9 @@ export default function ListeningList() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    api.get('/listening/exams')
-      .then(res => setExams(res.data))
-      .catch(err => console.error(err))
+    getListeningExams()
+      .then(data => setExams(data))
+      .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
 

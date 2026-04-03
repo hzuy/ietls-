@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import api from '../utils/axios'
+import { getFullTestResult } from '../services/examService'
 import Navbar from '../components/Navbar'
 
 const SKILL_META = {
@@ -22,8 +22,8 @@ export default function FullTestResult() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.get(`/full-test/result?seriesId=${seriesId}&bookNumber=${bookNumber}&testNumber=${testNumber}`)
-      .then(r => setData(r.data))
+    getFullTestResult(seriesId, bookNumber, testNumber)
+      .then(data => setData(data))
       .finally(() => setLoading(false))
   }, [seriesId, bookNumber, testNumber])
 

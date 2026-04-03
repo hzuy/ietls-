@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import api from '../utils/axios'
+import { getWritingExams } from '../services/examService'
 import Navbar from '../components/Navbar'
 
 function Spinner() {
@@ -19,9 +19,9 @@ export default function WritingList() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    api.get('/writing/exams')
-      .then(res => setExams(res.data))
-      .catch(err => console.error(err))
+    getWritingExams()
+      .then(data => setExams(data))
+      .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
 

@@ -1,9 +1,13 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import api from '../utils/axios'
+import { getReadingExam, submitReadingExam, getFullTestStatus } from '../services/examService'
 import MatchingTickGrid from '../components/MatchingTickGrid'
 import DragWordBankGroup from '../components/DragWordBankGroup'
 import MatchingDragGroup from '../components/MatchingDragGroup'
+import DiagramLabelGroup from '../components/DiagramLabelGroup'
+import MatchingHeadingsGroup from '../components/MatchingHeadingsGroup'
+import PassagePills from '../components/PassagePills'
+import TableCompletionRender from '../components/TableCompletionRender'
 
 const TOTAL_TIME = 60 * 60
 
@@ -69,13 +73,6 @@ function TypeHeader({ type, from, to }) {
         <p className="font-bold text-gray-800 mb-1">{q}</p>
         <p className="text-gray-700">Complete the sentences below.</p>
         <p className="text-gray-600 mt-1">Write <strong>NO MORE THAN TWO WORDS AND/OR A NUMBER</strong> from the passage for each answer.</p>
-      </div>
-    ),
-    short_answer: (
-      <div className={base}>
-        <p className="font-bold text-gray-800 mb-1">{q}</p>
-        <p className="text-gray-700">Answer the questions below.</p>
-        <p className="text-gray-600 mt-1">Write <strong>NO MORE THAN THREE WORDS</strong> from the passage for each answer.</p>
       </div>
     ),
     matching_headings: (
@@ -236,8 +233,8 @@ function QuestionBlock({ q, globalIdx, answers, onAnswer, maxChoices = 2, previe
         </div>
       )}
 
-      {/* Text input: fill_blank, short_answer, diagram_completion */}
-      {['fill_blank', 'short_answer', 'diagram_completion'].includes(q.type) && (
+      {/* Text input: fill_blank, diagram_completion */}
+      {['fill_blank', 'diagram_completion'].includes(q.type) && (
         <div className="pl-8">
           {q.imageUrl && <img src={q.imageUrl} alt="diagram" className="w-full max-w-sm rounded-lg mb-2 border" />}
           <input type="text"
@@ -372,6 +369,11 @@ function GroupBlock({ group, answers, onAnswer, globalOffset, previewMode, showA
     )
   }
 
+  // Table completion
+  if (group.type === 'table_completion') {
+    return <TableCompletionRender group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
+  }
+
   // Matching drag-drop (2-column)
   if (group.type === 'matching_drag') {
     return (
@@ -379,6 +381,16 @@ function GroupBlock({ group, answers, onAnswer, globalOffset, previewMode, showA
         <MatchingDragGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
       </div>
     )
+  }
+
+  // Diagram Label Completion
+  if (group.type === 'diagram_label') {
+    return <DiagramLabelGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
+  }
+
+  // Matching Headings
+  if (group.type === 'matching_headings') {
+    return <MatchingHeadingsGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
   }
 
   // MCQ Multi: each sub-question rendered with its range prefix
@@ -500,13 +512,13 @@ export default function ReadingExam() {
   const [isDragging, setIsDragging] = useState(false)
 
   useEffect(() => {
-    api.get(`/reading/exams/${id}`).then(r => setExam(r.data)).finally(() => setLoading(false))
+    getReadingExam(id).then(data => setExam(data)).finally(() => setLoading(false))
   }, [id])
 
   useEffect(() => {
     if (phase === 'result' && result) {
-      api.get(`/full-test/status?examId=${id}`)
-        .then(r => { if (r.data.isComplete) setFullTestStatus(r.data) })
+      getFullTestStatus(id)
+        .then(data => { if (data.isComplete) setFullTestStatus(data) })
         .catch(() => {})
     }
   }, [phase, result])
@@ -593,10 +605,10 @@ export default function ReadingExam() {
   const doSubmit = async () => {
     setSubmitting(true)
     try {
-      const r = await api.post(`/reading/exams/${id}/submit`, { answers })
-      setResult(r.data)
+      const r = await submitReadingExam(id, answers)
+      setResult(r)
       setPhase('result')
-    } catch (e) { console.error(e) }
+    } catch (e) { /* submit error handled by submitting state */ }
     finally { setSubmitting(false) }
   }
 
@@ -888,119 +900,76 @@ export default function ReadingExam() {
 
       {/* Bottom navigator bar — 2 rows */}
       {!previewMode && (
-        <div ref={bottomBarRef} className="bg-white border-t border-gray-200 shrink-0">
+        <div ref={bottomBarRef} className="bg-white border-t border-gray-200 shrink-0 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
           {/* Row 1: question numbers for active passage only (collapsible) */}
           {showNavNumbers && (
-            <div className="px-4 pt-2 pb-1.5 border-b border-gray-100 flex justify-center">
-              <div className="flex flex-wrap gap-0.5 justify-center">
-                {getPassageNavItems(passage).map(({ number, qId }) => (
-                  <button
-                    key={number}
-                    onClick={() => jumpToQuestion(number)}
-                    className={`w-6 h-6 rounded text-[11px] font-bold transition
-                      ${qId && answers[qId]
-                        ? 'bg-[#1a56db] border border-[#1a56db] text-white'
-                        : 'bg-white border border-[#e2e8f0] text-[#1e293b]'}`}
-                  >
-                    {number}
-                  </button>
-                ))}
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-center bg-white">
+              <div className="flex flex-wrap gap-3 justify-center max-w-5xl">
+                {getPassageNavItems(passage).map(({ number, qId }) => {
+                  const isAnswered = qId && answers[qId];
+                  return (
+                    <button
+                      key={number}
+                      onClick={() => jumpToQuestion(number)}
+                      className={`w-10 h-10 rounded-lg text-sm font-bold transition-all flex items-center justify-center border
+                        ${isAnswered
+                          ? 'bg-[#002D5B] border-[#002D5B] text-white shadow-sm'
+                          : 'bg-white border-gray-300 text-[#002D5B] hover:border-[#0066FF] hover:text-[#0066FF]'}`}
+                    >
+                      {number}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* Row 2: controls */}
-          <div className="px-4 py-2 flex items-center gap-3">
-            {/* Left: icons + current passage info */}
-            <div className="flex items-center gap-2 shrink-0">
-              {/* Grid icon — opens question panel */}
+          {/* Row 2: controls & Passage Pills */}
+          <div className="px-6 h-[52px] flex items-center justify-between gap-6">
+            {/* Left: icons + Grid toggle */}
+            <div className="flex items-center gap-3 shrink-0">
               <button
                 title="Bảng câu hỏi"
                 onClick={() => setShowQuestionPanel(v => !v)}
-                className={`w-7 h-7 flex items-center justify-center rounded border transition ${showQuestionPanel ? 'border-[#1a56db] text-[#1a56db]' : 'border-gray-200 text-gray-400 hover:border-gray-400'}`}
+                className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all ${showQuestionPanel ? 'bg-[#0066FF] border-[#0066FF] text-white shadow-md' : 'bg-white border-gray-200 text-gray-400 hover:border-[#0066FF] hover:text-[#0066FF]'}`}
               >
-                <svg width="13" height="13" viewBox="0 0 13 13" fill="currentColor">
-                  <rect x="0" y="0" width="3.5" height="3.5" rx="0.5"/>
-                  <rect x="4.75" y="0" width="3.5" height="3.5" rx="0.5"/>
-                  <rect x="9.5" y="0" width="3.5" height="3.5" rx="0.5"/>
-                  <rect x="0" y="4.75" width="3.5" height="3.5" rx="0.5"/>
-                  <rect x="4.75" y="4.75" width="3.5" height="3.5" rx="0.5"/>
-                  <rect x="9.5" y="4.75" width="3.5" height="3.5" rx="0.5"/>
-                  <rect x="0" y="9.5" width="3.5" height="3.5" rx="0.5"/>
-                  <rect x="4.75" y="9.5" width="3.5" height="3.5" rx="0.5"/>
-                  <rect x="9.5" y="9.5" width="3.5" height="3.5" rx="0.5"/>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="14" width="7" height="7"></rect>
+                  <rect x="3" y="14" width="7" height="7"></rect>
                 </svg>
               </button>
-              {/* Collapse/expand icon */}
               <button
                 title={showNavNumbers ? 'Thu gọn' : 'Mở rộng'}
                 onClick={() => setShowNavNumbers(v => !v)}
-                className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition"
+                className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-400 hover:border-[#002D5B] hover:text-[#002D5B] transition-all"
               >
-                <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                  {showNavNumbers
-                    ? <path d="M2 9l4.5-4.5L11 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    : <path d="M2 4l4.5 4.5L11 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  }
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  {showNavNumbers ? <polyline points="18 15 12 9 6 15"></polyline> : <polyline points="6 9 12 15 18 9"></polyline>}
                 </svg>
               </button>
-              <div className="w-px h-4 bg-gray-200 mx-0.5" />
-              <span className="text-xs font-bold text-gray-800">Passage {passage.number}</span>
-              <span className="text-[11px] text-gray-500">
-                Đã làm {getPassageNavItems(passage).filter(s => s.qId && answers[s.qId]).length}/{getPassageNavItems(passage).length}
-              </span>
             </div>
 
-            {/* Middle: passage summary */}
-            <div className="flex-1 flex items-center justify-center gap-3 text-[11px] font-medium">
-              {exam.passages.map((p, pi) => {
+            {/* Middle: Passage Pills */}
+            <PassagePills
+              items={exam.passages.map(p => {
                 const navItems = getPassageNavItems(p)
-                const pAns = navItems.filter(s => s.qId && answers[s.qId]).length
-                const isActive = activePassage === pi
-                return (
-                  <Fragment key={pi}>
-                    {pi > 0 && <span className="text-gray-300 select-none">——</span>}
-                    <button
-                      onClick={() => setActivePassage(pi)}
-                      className={`transition whitespace-nowrap ${isActive ? 'text-[#1a56db] font-bold' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                      Passage {p.number}{' '}
-                      <span className={isActive ? 'text-[#1a56db]' : 'text-gray-400'}>{pAns}/{navItems.length}</span>
-                    </button>
-                  </Fragment>
-                )
+                return {
+                  label: `Passage ${p.number}`,
+                  answered: navItems.filter(s => s.qId && answers[s.qId]).length,
+                  total: navItems.length,
+                }
               })}
-            </div>
+              activeIndex={activePassage}
+              onChange={setActivePassage}
+            />
 
-            {/* Right: prev/next arrows + submit */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              {activePassage > 0 && (() => {
-                const items = getPassageNavItems(exam.passages[activePassage - 1])
-                const range = `${items[0]?.number}–${items[items.length - 1]?.number}`
-                return (
-                  <button
-                    onClick={() => setActivePassage(activePassage - 1)}
-                    className="text-[11px] text-gray-600 hover:text-[#1a56db] font-semibold px-2 py-1.5 rounded border border-gray-200 hover:border-[#1a56db] transition"
-                  >
-                    ← {range}
-                  </button>
-                )
-              })()}
-              {activePassage < exam.passages.length - 1 && (() => {
-                const items = getPassageNavItems(exam.passages[activePassage + 1])
-                const range = `${items[0]?.number}–${items[items.length - 1]?.number}`
-                return (
-                  <button
-                    onClick={() => setActivePassage(activePassage + 1)}
-                    className="text-[11px] text-gray-600 hover:text-[#1a56db] font-semibold px-2 py-1.5 rounded border border-gray-200 hover:border-[#1a56db] transition"
-                  >
-                    {range} →
-                  </button>
-                )
-              })()}
+            {/* Right: Submit Button */}
+            <div className="flex items-center shrink-0">
               <button
                 onClick={() => setShowConfirm(true)}
-                className="bg-[#dc2626] hover:bg-red-700 text-white px-4 py-2 rounded-xl font-bold text-sm transition ml-1"
+                className="bg-[#dc2626] hover:bg-red-700 text-white px-4 py-2 rounded-xl font-bold text-sm transition"
               >
                 Nộp bài
               </button>

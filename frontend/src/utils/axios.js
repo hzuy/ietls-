@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: 'https://ietls.onrender.com/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001/api',
 })
 
 // Tự động gắn token vào mỗi request

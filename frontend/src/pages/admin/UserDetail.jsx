@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import api from '../../utils/axios'
+import { getAdminUser } from '../../services/adminService'
 import AdminLayout from '../../components/AdminLayout'
 
 const SKILL_LABEL = { reading: 'Reading', listening: 'Listening', writing: 'Writing', speaking: 'Speaking' }
@@ -12,8 +12,8 @@ export default function UserDetail() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    api.get(`/admin/users/${id}`)
-      .then(r => setData(r.data))
+    getAdminUser(id)
+      .then(data => setData(data))
       .catch(err => { if (err.response?.status === 403) navigate('/') })
       .finally(() => setLoading(false))
   }, [id])
