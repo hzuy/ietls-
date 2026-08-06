@@ -1,6 +1,9 @@
+import { getQuestionGroupTheme } from '../../utils/practiceConfig'
+
 export default function TrueFalseEditor({ group, onChange }) {
   const isTF = group.type === 'true_false_ng'
   const answerOptions = isTF ? ['TRUE', 'FALSE', 'NOT GIVEN'] : ['YES', 'NO', 'NOT GIVEN']
+  const theme = getQuestionGroupTheme(group.type)
 
   const addQuestion = () => {
     const nextNum = group.questions.length > 0 ? group.qNumberEnd + 1 : group.qNumberStart
@@ -19,16 +22,16 @@ export default function TrueFalseEditor({ group, onChange }) {
   return (
     <div className="space-y-2">
       {group.questions.map((q, qi) => (
-        <div key={qi} className="bg-blue-50 border border-blue-200 rounded-xl p-3 space-y-2">
+        <div key={qi} className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-xl p-3 space-y-2`}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-blue-700">Câu {q.number}</span>
-            <button type="button" onClick={() => removeQuestion(qi)} className="text-red-400 hover:text-red-600 text-xs">✕ Xóa</button>
+            <span className={`text-xs font-bold ${theme.subBoxText}`}>Câu {q.number}</span>
+            <button type="button" onClick={() => removeQuestion(qi)} className="text-red-500 hover:text-red-600 text-xs">✕ Xóa</button>
           </div>
           <textarea rows={2}
-            className="w-full border border-blue-200 rounded-lg px-2 py-1 text-sm resize-none focus:outline-none focus:border-blue-400"
+            className={`w-full border ${theme.subBoxBorder} bg-white/80 rounded-lg px-2.5 py-1.5 text-sm resize-none focus:outline-none focus:bg-white`}
             placeholder="Nội dung câu phát biểu..."
             value={q.questionText} onChange={e => updateQ(qi, 'questionText', e.target.value)} />
-          <select className="w-full border border-[#e2e8f0] rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-[#3b82f6] bg-white"
+          <select className={`w-full border ${theme.subBoxBorder} rounded-lg px-2.5 py-1.5 text-sm focus:outline-none bg-white`}
             value={q.correctAnswer} onChange={e => updateQ(qi, 'correctAnswer', e.target.value)}>
             <option value="">-- Chọn đáp án --</option>
             {answerOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
@@ -36,7 +39,7 @@ export default function TrueFalseEditor({ group, onChange }) {
         </div>
       ))}
       <button type="button" onClick={addQuestion}
-        className="w-full border-2 border-dashed border-blue-200 rounded-xl py-2 text-sm text-blue-400 hover:border-blue-400 hover:text-blue-600 transition font-medium">
+        className={`w-full border-2 border-dashed ${theme.subBoxBorder} ${theme.subBoxText} bg-white/50 hover:bg-white rounded-xl py-2 text-sm font-semibold transition`}>
         + Thêm câu phát biểu
       </button>
     </div>

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * MatchingTickGrid — shared grid for:
  *   - Map / Diagram Labelling (Listening)
  *   - Matching Information (Reading)
@@ -23,7 +23,7 @@ export default function MatchingTickGrid({
   accentColor = 'purple',
   globalOffset,
 }) {
-  const numClass = 'text-[#1a56db]'
+  const numClass = 'text-[#1D4ED8]'
 
   return (
     <div className="overflow-x-auto rounded-xl border border-gray-200">
@@ -65,7 +65,7 @@ export default function MatchingTickGrid({
                         className={`w-7 h-7 flex items-center justify-center mx-auto text-sm font-bold transition-all
                           rounded border
                           ${isSelected
-                            ? 'bg-[#eff6ff] border-[#1a56db] text-[#1a56db]'
+                            ? 'bg-[#eff6ff] border-[#1D4ED8] text-[#1D4ED8]'
                             : previewMode
                               ? 'bg-white border-gray-200 text-transparent cursor-default'
                               : 'bg-white border-gray-300 text-transparent hover:bg-gray-50 hover:border-gray-400 cursor-pointer'

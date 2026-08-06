@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getAdminSettings, updateAdminSettings } from '../../services/adminService'
 import AdminLayout from '../../components/AdminLayout'
 
+
 const DEFAULT_SETTINGS = {
   site_name: 'IELTS Practice',
   system_announcement: '',
@@ -41,14 +42,14 @@ export default function Settings() {
 
   const set = (key, val) => setSettings(prev => ({ ...prev, [key]: val }))
 
-  const inputCls  = "w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db] bg-white"
+  const inputCls  = "w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1D4ED8] bg-white"
   const labelCls  = "block text-sm font-semibold text-gray-700 mb-1.5"
   const hintCls   = "text-xs text-gray-400 mt-1"
 
   if (loading) return (
     <AdminLayout>
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-[#1a56db] border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-[#1D4ED8] border-t-transparent rounded-full animate-spin" />
       </div>
     </AdminLayout>
   )
@@ -175,7 +176,7 @@ export default function Settings() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-6 py-2.5 rounded-xl bg-[#1a56db] text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-60 min-w-[130px] text-center"
+            className="px-6 py-2.5 rounded-xl bg-[#1D4ED8] text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-60 min-w-[130px] text-center"
           >
             {saving ? 'Đang lưu...' : saved ? '✓ Đã lưu' : 'Lưu tất cả'}
           </button>

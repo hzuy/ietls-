@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import api from '../../utils/axios'
 import { inputCls, labelCls } from './adminConstants'
 import { SeriesCard, SeriesDetailView, BookModal } from './CambridgeBookComponents'
@@ -8,31 +8,49 @@ import { SeriesCard, SeriesDetailView, BookModal } from './CambridgeBookComponen
 const SKILLS_LIST = ['reading', 'listening', 'writing', 'speaking']
 const skillLabel = { reading: 'Reading', listening: 'Listening', writing: 'Writing', speaking: 'Speaking' }
 const skillColor = {
-  reading: 'border-[#bfdbfe] bg-[#eff6ff] text-[#1a56db]',
-  listening: 'border-[#bfdbfe] bg-[#eff6ff] text-[#1a56db]',
-  writing: 'border-[#bfdbfe] bg-[#eff6ff] text-[#1a56db]',
-  speaking: 'border-[#bfdbfe] bg-[#eff6ff] text-[#1a56db]',
+  reading: 'border-[#bfdbfe] bg-[#eff6ff] text-[#1D4ED8]',
+  listening: 'border-[#bfdbfe] bg-[#eff6ff] text-[#1D4ED8]',
+  writing: 'border-[#bfdbfe] bg-[#eff6ff] text-[#1D4ED8]',
+  speaking: 'border-[#bfdbfe] bg-[#eff6ff] text-[#1D4ED8]',
 }
 
-function CambridgeTab({ onRefresh }) {
-  const [seriesList, setSeriesList] = useState([])
+let cachedSeriesList = null
+
+function CambridgeTab({ onRefresh, initialSeriesList = [] }) {
+  const [seriesList, setSeriesList] = useState(cachedSeriesList || initialSeriesList)
   const [activeSeries, setActiveSeries] = useState(null)
   const [activeBooks, setActiveBooks] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!cachedSeriesList && initialSeriesList.length === 0)
   const [showAdd, setShowAdd] = useState(false)
   const [newName, setNewName] = useState('')
   const [editId, setEditId] = useState(null)
   const [editName, setEditName] = useState('')
 
-  const fetchSeries = () => {
-    api.get('/admin/exam-series').then(r => setSeriesList(r.data)).catch(() => {}).finally(() => setLoading(false))
+  const fetchSeries = (silent = false) => {
+    if (!silent && !cachedSeriesList && seriesList.length === 0) {
+      setLoading(true)
+    }
+    api.get('/admin/exam-series')
+      .then(r => {
+        cachedSeriesList = r.data
+        setSeriesList(r.data)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }
 
   const fetchBooks = (seriesId) => {
     api.get(`/admin/exam-series/${seriesId}/books`).then(r => setActiveBooks(r.data)).catch(() => {})
   }
 
-  useEffect(() => { fetchSeries() }, [])
+  useEffect(() => {
+    if (initialSeriesList.length > 0 && !cachedSeriesList) {
+      cachedSeriesList = initialSeriesList
+      setSeriesList(initialSeriesList)
+      setLoading(false)
+    }
+    fetchSeries(Boolean(cachedSeriesList || seriesList.length > 0))
+  }, [initialSeriesList])
 
   const handleManage = (s) => {
     setActiveSeries(s)
@@ -44,7 +62,7 @@ function CambridgeTab({ onRefresh }) {
     try {
       await api.post('/admin/exam-series', { name: newName.trim() })
       setNewName(''); setShowAdd(false)
-      fetchSeries()
+      fetchSeries(true)
     } catch { alert('Lỗi tạo bộ đề') }
   }
 
@@ -52,7 +70,11 @@ function CambridgeTab({ onRefresh }) {
     if (!editName.trim()) return
     try {
       const updated = await api.put(`/admin/exam-series/${id}`, { name: editName.trim() })
-      setSeriesList(list => list.map(s => s.id === id ? { ...s, name: updated.data.name } : s))
+      setSeriesList(list => {
+        const next = list.map(s => s.id === id ? { ...s, name: updated.data.name } : s)
+        cachedSeriesList = next
+        return next
+      })
       if (activeSeries?.id === id) setActiveSeries(s => ({ ...s, name: updated.data.name }))
       setEditId(null)
     } catch { alert('Lỗi sửa tên') }
@@ -62,7 +84,7 @@ function CambridgeTab({ onRefresh }) {
     try {
       await api.delete(`/admin/exam-series/${id}`)
       if (activeSeries?.id === id) setActiveSeries(null)
-      fetchSeries()
+      fetchSeries(true)
     } catch { alert('Lỗi xóa bộ đề') }
   }
 
@@ -88,7 +110,7 @@ function CambridgeTab({ onRefresh }) {
           </div>
           <button
             onClick={() => setShowAdd(v => !v)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1a56db] text-white text-xs font-bold hover:bg-[#1d4ed8] transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1D4ED8] text-white text-xs font-bold hover:bg-[#1D4ED8] transition"
           >
             + Thêm bộ đề mới
           </button>
@@ -98,13 +120,13 @@ function CambridgeTab({ onRefresh }) {
           <div className="flex gap-2 mb-4">
             <input
               autoFocus
-              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-[#1a56db] outline-none"
+              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-[#1D4ED8] outline-none"
               placeholder="Tên bộ đề (VD: IELTS Practice Test Plus)"
               value={newName}
               onChange={e => setNewName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleAddSeries(); if (e.key === 'Escape') { setShowAdd(false); setNewName('') } }}
             />
-            <button onClick={handleAddSeries} className="px-3 py-2 rounded-lg bg-[#1a56db] text-white text-xs font-bold hover:bg-[#1d4ed8] transition">Tạo</button>
+            <button onClick={handleAddSeries} className="px-3 py-2 rounded-lg bg-[#1D4ED8] text-white text-xs font-bold hover:bg-[#1D4ED8] transition">Tạo</button>
             <button onClick={() => { setShowAdd(false); setNewName('') }} className="px-3 py-2 rounded-lg border border-gray-200 text-gray-500 text-xs hover:bg-gray-50 transition">Hủy</button>
           </div>
         )}
@@ -115,16 +137,16 @@ function CambridgeTab({ onRefresh }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {seriesList.map(s => (
               editId === s.id ? (
-                <div key={s.id} className="bg-white border border-[#1a56db] rounded-2xl p-4 shadow-sm flex flex-col gap-2">
+                <div key={s.id} className="bg-white border border-[#1D4ED8] rounded-2xl p-4 shadow-sm flex flex-col gap-2">
                   <input
                     autoFocus
-                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-[#1a56db] outline-none"
+                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-[#1D4ED8] outline-none"
                     value={editName}
                     onChange={e => setEditName(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') handleEditSeries(s.id); if (e.key === 'Escape') setEditId(null) }}
                   />
                   <div className="flex gap-2">
-                    <button onClick={() => handleEditSeries(s.id)} className="flex-1 py-1.5 rounded-lg bg-[#1a56db] text-white text-xs font-bold">Lưu</button>
+                    <button onClick={() => handleEditSeries(s.id)} className="flex-1 py-1.5 rounded-lg bg-[#1D4ED8] text-white text-xs font-bold">Lưu</button>
                     <button onClick={() => setEditId(null)} className="py-1.5 px-3 rounded-lg border border-gray-200 text-gray-500 text-xs">Hủy</button>
                   </div>
                 </div>

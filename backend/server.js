@@ -15,6 +15,8 @@ const practiceRoutes = require('./routes/practice')
 const samplesRoutes  = require('./routes/samples')
 const seriesRoutes = require('./routes/series')
 const userRoutes = require('./routes/user')
+const statsRoutes = require('./routes/stats')
+const { router: chatbotRoutes } = require('./routes/chatbot')
 
 const app = express()
 
@@ -42,9 +44,15 @@ app.use('/api/practice',  practiceRoutes)
 app.use('/api/samples',   samplesRoutes)
 app.use('/api/series', seriesRoutes)
 app.use('/api/user', userRoutes)
+app.use('/api/stats', statsRoutes)
+app.use('/api/chatbot', chatbotRoutes)
 app.use('/uploads/thumbnails', express.static(path.join(__dirname, 'uploads', 'thumbnails')))
 
 app.get('/', (req, res) => res.json({ message: 'IELTS App API đang chạy!' }))
 
 const PORT = process.env.PORT || 3001
-app.listen(PORT, () => console.log(`Server chạy tại http://localhost:${PORT}`))
+if (require.main === module) {
+  app.listen(PORT, () => console.log(`Server chạy tại http://localhost:${PORT}`))
+}
+
+module.exports = app

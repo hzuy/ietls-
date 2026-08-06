@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { changePassword } from '../services/userService'
 
@@ -32,27 +32,28 @@ export default function ChangePassword() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#f0f4f8' }}>
+    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
       <div
         className="w-full max-w-md rounded-2xl p-8"
-        style={{ backgroundColor: 'white', boxShadow: '0 4px 24px rgba(0,0,0,0.08)', border: '1px solid #e2e8f0' }}
+        style={{ backgroundColor: 'var(--surface)', boxShadow: 'var(--shadow-lg)', border: '1px solid var(--border)' }}
       >
         <div className="flex items-center gap-2 mb-8">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm" style={{ backgroundColor: '#1a56db' }}>I</div>
-          <span className="font-bold text-lg" style={{ color: '#1e3a5f' }}>IELTS<span style={{ color: '#1a56db' }}>Pro</span></span>
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm" style={{ backgroundColor: 'var(--primary)' }}>I</div>
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18, color: 'var(--ink)' }}>IELTS<span style={{ color: 'var(--primary)' }}>Pro</span></span>
         </div>
 
         <div className="mb-6">
-          <h1 className="text-2xl font-extrabold mb-1" style={{ color: '#1e3a5f' }}>Đổi mật khẩu</h1>
-          <p className="text-sm" style={{ color: '#64748b' }}>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, color: 'var(--ink)', marginBottom: 4 }}>Đổi mật khẩu</h1>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--muted)' }}>
             Tài khoản của bạn cần đặt lại mật khẩu mới để tiếp tục.
           </p>
         </div>
 
         {error && (
           <div
-            className="p-3 rounded-xl mb-4 text-sm font-semibold"
-            style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}
+            role="alert"
+            className="p-3 rounded-xl mb-4 text-sm font-medium bg-slate-50 border border-slate-200 text-slate-700"
+            style={{ fontFamily: 'var(--font-body)' }}
           >
             {error}
           </div>
@@ -60,46 +61,43 @@ export default function ChangePassword() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-bold mb-1.5" style={{ color: '#1e293b' }}>Mật khẩu hiện tại</label>
+            <label htmlFor="cp-old" className="block text-sm font-bold mb-1.5" style={{ fontFamily: 'var(--font-body)', color: 'var(--text)' }}>Mật khẩu hiện tại</label>
             <input
+              id="cp-old"
               type="password"
-              className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all"
-              style={{ border: '1.5px solid #e2e8f0', color: '#1e293b' }}
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all duration-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              style={{ border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'var(--font-body)' }}
               placeholder="••••••••"
               value={form.oldPassword}
               onChange={e => setForm({ ...form, oldPassword: e.target.value })}
-              onFocus={e => e.currentTarget.style.borderColor = '#1a56db'}
-              onBlur={e => e.currentTarget.style.borderColor = '#e2e8f0'}
               required
               autoComplete="current-password"
             />
           </div>
           <div>
-            <label className="block text-sm font-bold mb-1.5" style={{ color: '#1e293b' }}>Mật khẩu mới</label>
+            <label htmlFor="cp-new" className="block text-sm font-bold mb-1.5" style={{ fontFamily: 'var(--font-body)', color: 'var(--text)' }}>Mật khẩu mới</label>
             <input
+              id="cp-new"
               type="password"
-              className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all"
-              style={{ border: '1.5px solid #e2e8f0', color: '#1e293b' }}
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all duration-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              style={{ border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'var(--font-body)' }}
               placeholder="Tối thiểu 8 ký tự"
               value={form.newPassword}
               onChange={e => setForm({ ...form, newPassword: e.target.value })}
-              onFocus={e => e.currentTarget.style.borderColor = '#1a56db'}
-              onBlur={e => e.currentTarget.style.borderColor = '#e2e8f0'}
               required
               autoComplete="new-password"
             />
           </div>
           <div>
-            <label className="block text-sm font-bold mb-1.5" style={{ color: '#1e293b' }}>Xác nhận mật khẩu mới</label>
+            <label htmlFor="cp-confirm" className="block text-sm font-bold mb-1.5" style={{ fontFamily: 'var(--font-body)', color: 'var(--text)' }}>Xác nhận mật khẩu mới</label>
             <input
+              id="cp-confirm"
               type="password"
-              className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all"
-              style={{ border: '1.5px solid #e2e8f0', color: '#1e293b' }}
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all duration-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              style={{ border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'var(--font-body)' }}
               placeholder="Nhập lại mật khẩu mới"
               value={form.confirm}
               onChange={e => setForm({ ...form, confirm: e.target.value })}
-              onFocus={e => e.currentTarget.style.borderColor = '#1a56db'}
-              onBlur={e => e.currentTarget.style.borderColor = '#e2e8f0'}
               required
               autoComplete="new-password"
             />
@@ -107,10 +105,8 @@ export default function ChangePassword() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all mt-2"
-            style={{ backgroundColor: loading ? '#93c5fd' : '#1a56db' }}
-            onMouseEnter={e => { if (!loading) e.currentTarget.style.backgroundColor = '#1d4ed8' }}
-            onMouseLeave={e => { if (!loading) e.currentTarget.style.backgroundColor = '#1a56db' }}
+            className="w-full py-3 rounded-xl text-sm font-bold btn-primary mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{ fontFamily: 'var(--font-body)' }}
           >
             {loading ? 'Đang lưu...' : 'Xác nhận đổi mật khẩu'}
           </button>

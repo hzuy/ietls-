@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getAdminMe, changeAdminPassword } from '../../services/adminService'
 import AdminLayout from '../../components/AdminLayout'
 
+
 const ROLE_LABEL = { admin: 'Admin', teacher: 'Teacher' }
 const ROLE_COLOR = { admin: 'bg-purple-100 text-purple-700', teacher: 'bg-blue-100 text-blue-700' }
 
@@ -48,13 +49,13 @@ export default function Profile() {
 
   const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
 
-  const inputCls = 'w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db] bg-white'
+  const inputCls = 'w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1D4ED8] bg-white'
   const labelCls = 'block text-sm font-semibold text-gray-700 mb-1.5'
 
   if (loading) return (
     <AdminLayout>
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-[#1a56db] border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-[#1D4ED8] border-t-transparent rounded-full animate-spin" />
       </div>
     </AdminLayout>
   )
@@ -83,7 +84,7 @@ export default function Profile() {
         <section className="bg-white rounded-2xl border border-gray-100 p-6 mb-5">
           <div className="flex items-center gap-5">
             {/* Avatar */}
-            <div className="w-16 h-16 rounded-2xl bg-[#1a56db] flex items-center justify-center shrink-0">
+            <div className="w-16 h-16 rounded-2xl bg-[#1D4ED8] flex items-center justify-center shrink-0">
               <span className="text-white text-xl font-bold">{initials}</span>
             </div>
             {/* Info */}
@@ -166,7 +167,7 @@ export default function Profile() {
               <button
                 type="submit"
                 disabled={pwSaving}
-                className="px-6 py-2.5 rounded-xl bg-[#1a56db] text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-60"
+                className="px-6 py-2.5 rounded-xl bg-[#1D4ED8] text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-60"
               >
                 {pwSaving ? 'Đang lưu...' : 'Đổi mật khẩu'}
               </button>

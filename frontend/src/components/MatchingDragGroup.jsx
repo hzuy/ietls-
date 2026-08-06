@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 
 export default function MatchingDragGroup({ group, answers, onAnswer, previewMode, showAnswers }) {
   const [draggingLetter, setDraggingLetter] = useState(null)
@@ -63,7 +63,7 @@ export default function MatchingDragGroup({ group, answers, onAnswer, previewMod
             return (
               <div key={q.id} className="bg-white rounded-xl border border-gray-200 p-3">
                 <p className="text-sm text-gray-800 mb-2 leading-relaxed flex gap-2">
-                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-[#1a56db] font-bold text-xs shrink-0 mt-0.5">{q.number}</span>
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-[#1D4ED8] font-bold text-xs shrink-0 mt-0.5">{q.number}</span>
                   <span>{q.questionText}</span>
                 </p>
                 <div
@@ -73,15 +73,15 @@ export default function MatchingDragGroup({ group, answers, onAnswer, previewMod
                   onClick={() => handleSlotClick(q.id)}
                   className={`min-h-[38px] rounded-lg border-2 px-3 py-1.5 flex items-center text-sm transition
                     ${!previewMode ? 'cursor-pointer' : ''}
-                    ${isOver ? 'border-[#1a56db] bg-[#eff6ff]'
-                    : answer ? 'border-[#3b82f6] bg-[#eff6ff]'
-                    : isClickable ? 'border-[#1a56db] border-dashed bg-blue-50/50'
+                    ${isOver ? 'border-[#1D4ED8] bg-[#eff6ff]'
+                    : answer ? 'border-[#3B82F6] bg-[#eff6ff]'
+                    : isClickable ? 'border-[#1D4ED8] border-dashed bg-blue-50/50'
                     : 'border-dashed border-gray-300 bg-gray-50'}`}
                 >
                   {answer ? (
                     <div className="flex items-center gap-2 w-full">
-                      <span className="font-bold text-[#1a56db] text-xs shrink-0">{answer}</span>
-                      <span className="text-[#1a56db] text-xs flex-1 leading-snug">{answerOpt?.optionText}</span>
+                      <span className="font-bold text-[#1D4ED8] text-xs shrink-0">{answer}</span>
+                      <span className="text-[#1D4ED8] text-xs flex-1 leading-snug">{answerOpt?.optionText}</span>
                       {!previewMode && (
                         <button onClick={e => clearSlot(q.id, e)} className="text-gray-400 hover:text-red-500 text-base leading-none shrink-0">×</button>
                       )}
@@ -101,34 +101,38 @@ export default function MatchingDragGroup({ group, answers, onAnswer, previewMod
         <div className="w-48 shrink-0">
           <p className="text-xs font-bold text-gray-500 uppercase mb-2 px-1">Options</p>
           <div className="space-y-1.5">
-            {options.map(opt => {
-              const isSelectedOpt = selectedLetter === opt.optionLetter
-              const isDraggingThis = draggingLetter === opt.optionLetter
-              const usedLetters = new Set(Object.values(answers).filter(Boolean))
-              const isUsed = !allowReuse && usedLetters.has(opt.optionLetter)
-              return (
-                <div
-                  key={opt.optionLetter}
-                  draggable={!previewMode}
-                  onDragStart={() => { setDraggingLetter(opt.optionLetter); setSelectedLetter(null) }}
-                  onDragEnd={() => { setDraggingLetter(null); setDragOverQId(null) }}
+            {(() => {
+              const groupAnswerValues = questions.map(q => answers[q.id]).filter(Boolean)
+              const usedLetters = new Set(groupAnswerValues)
+              
+              return options.map(opt => {
+                const isSelectedOpt = selectedLetter === opt.optionLetter
+                const isDraggingThis = draggingLetter === opt.optionLetter
+                const isUsed = !allowReuse && usedLetters.has(opt.optionLetter)
+                
+                return (
+                  <div
+                    key={opt.optionLetter}
+                    draggable={!previewMode}
+                    onDragStart={() => { setDraggingLetter(opt.optionLetter); setSelectedLetter(null) }}
+                    onDragEnd={() => { setDraggingLetter(null); setDragOverQId(null) }}
                   onClick={() => handleOptionClick(opt.optionLetter)}
                   className={`flex items-start gap-2 px-3 py-2 rounded-lg border text-xs transition select-none
                     ${previewMode
                       ? 'border-gray-200 bg-white cursor-default'
                       : isSelectedOpt
-                      ? 'border-[#1a56db] bg-[#eff6ff] cursor-pointer shadow-sm'
+                      ? 'border-[#1D4ED8] bg-[#eff6ff] cursor-pointer shadow-sm'
                       : isDraggingThis
                       ? 'opacity-40 border-gray-200 bg-white'
                       : isUsed
                       ? 'border-gray-200 bg-gray-50 opacity-40 cursor-grab'
                       : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/50 cursor-grab active:cursor-grabbing'}`}
                 >
-                  <span className="font-bold text-[#1a56db] shrink-0">{opt.optionLetter}</span>
+                  <span className="font-bold text-[#1D4ED8] shrink-0">{opt.optionLetter}</span>
                   <span className="text-gray-700 leading-relaxed">{opt.optionText}</span>
                 </div>
               )
-            })}
+            })})()}
           </div>
         </div>
       </div>

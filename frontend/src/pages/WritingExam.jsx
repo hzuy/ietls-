@@ -1,8 +1,12 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { getWritingExam, submitWritingExam, getFullTestStatus } from '../services/examService'
 
-const TOTAL_TIME = 60 * 60
+import { getWritingExam, submitWritingExam, getWritingStatus, getFullTestStatus } from '../services/examService'
+import { getAdminSettings } from '../services/adminService'
+import { PenTool, ArrowLeft } from 'lucide-react'
+import ConfirmExitModal from '../components/ConfirmExitModal'
+
+const DEFAULT_WRITING_TIME = 60 * 60
 const SERVER_BASE = 'http://localhost:3001'
 const toImgSrc = (url) => (url || '').startsWith('/') ? `${SERVER_BASE}${url}` : (url || '')
 
@@ -12,6 +16,37 @@ function fmt(s) {
 
 function wc(text) {
   return text.trim() ? text.trim().split(/\s+/).length : 0
+}
+
+export function renderFeedbackList(input, bulletColorClass = 'text-purple-600') {
+  if (!input) return null
+
+  let items = []
+  if (typeof input === 'string') {
+    items = input.split(/\r?\n|•|-|\*/).map(s => s.trim()).filter(Boolean)
+  } else if (Array.isArray(input)) {
+    items = input.map(item => typeof item === 'string' ? item.trim() : String(item)).filter(Boolean)
+  } else if (typeof input === 'object' && input !== null) {
+    items = Object.values(input).map(val => typeof val === 'string' ? val.trim() : String(val)).filter(Boolean)
+  } else {
+    items = [String(input)]
+  }
+
+  if (items.length === 0) return null
+
+  if (items.length <= 1) {
+    return <p className="text-slate-600 text-sm leading-relaxed m-0 font-medium">{items[0]}</p>
+  }
+  return (
+    <ul className="list-none p-0 m-0 flex flex-col gap-3">
+      {items.map((item, index) => (
+        <li key={index} className="flex items-start gap-2.5 text-slate-600 text-sm leading-relaxed font-medium">
+          <span className={`font-bold select-none ${bulletColorClass}`} style={{ marginTop: '2px' }}>•</span>
+          <span>{item}</span>
+        </li>
+      ))}
+    </ul>
+  )
 }
 
 const CRITERIA_LABELS = {
@@ -57,13 +92,30 @@ export default function WritingExam() {
   const [essays, setEssays] = useState({}) // { taskId: text }
   const [results, setResults] = useState({}) // { taskId: result }
   const [submitting, setSubmitting] = useState(false)
-  const [timeLeft, setTimeLeft] = useState(TOTAL_TIME)
+  const [gradingTask, setGradingTask] = useState(null)
+  const [gradingError, setGradingError] = useState(null)
+  const [timeLeft, setTimeLeft] = useState(DEFAULT_WRITING_TIME)
   const [lightbox, setLightbox] = useState(null)
   const [showExitConfirm, setShowExitConfirm] = useState(false)
   const [fullTestStatus, setFullTestStatus] = useState(null)
+  const pollTimerRef = useRef(null)
 
   useEffect(() => {
-    getWritingExam(id).then(data => setExam(data)).finally(() => setLoading(false))
+    return () => {
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current)
+    }
+  }, [])
+
+  useEffect(() => {
+    document.title = 'Bài thi Writing | IELTS Pro'
+    // Fetch writing_time setting from admin settings, fallback to 60 min
+    getAdminSettings()
+      .then(settings => {
+        const mins = parseInt(settings.writing_time)
+        if (!isNaN(mins) && mins > 0) setTimeLeft(mins * 60)
+      })
+      .catch(() => {})
+    getWritingExam(id).then(data => setExam(data)).catch(() => navigate('/full-test', { replace: true })).finally(() => setLoading(false))
   }, [id])
 
   useEffect(() => {
@@ -75,6 +127,14 @@ export default function WritingExam() {
         .catch(() => {})
     }
   }, [results, exam])
+
+  const handleBack = () => {
+    if (exam?.seriesId) {
+      navigate(`/full-test/${exam.seriesId}?book=${exam.bookNumber}`)
+    } else {
+      navigate('/writing')
+    }
+  }
 
   useEffect(() => {
     if (phase !== 'exam') return
@@ -92,41 +152,94 @@ export default function WritingExam() {
 
   const setEssay = (taskId, text) => setEssays(e => ({ ...e, [taskId]: text }))
 
+  const pollStatus = async (answerId, task, pollCount = 0) => {
+    if (pollCount >= 30) {
+      setGradingError({ taskId: task.id, error: 'Hết thời gian chờ chấm bài (90 giây). Vui lòng thử lại.' })
+      setSubmitting(false)
+      setGradingTask(null)
+      return
+    }
+
+    try {
+      const res = await getWritingStatus(answerId)
+      if (res.status === 'graded') {
+        setResults(prev => ({ ...prev, [task.id]: res }))
+        setGradingTask(null)
+        setGradingError(null)
+        setSubmitting(false)
+      } else if (res.status === 'failed') {
+        setGradingError({ taskId: task.id, error: res.error || 'Lỗi chấm bài AI' })
+        setSubmitting(false)
+        setGradingTask(null)
+      } else {
+        // Still pending or grading
+        pollTimerRef.current = setTimeout(() => pollStatus(answerId, task, pollCount + 1), 3000)
+      }
+    } catch (err) {
+      setGradingError({ taskId: task.id, error: err.response?.data?.message || 'Lỗi kiểm tra kết quả chấm' })
+      setSubmitting(false)
+      setGradingTask(null)
+    }
+  }
+
   const submitTask = async (task) => {
     const essay = essays[task.id] || ''
     if (wc(essay) < 50) { alert('Bài viết cần ít nhất 50 từ!'); return }
     setSubmitting(true)
+    setGradingError(null)
+    setGradingTask(task.id)
     try {
       const r = await submitWritingExam(id, task.id, essay)
-      setResults(prev => ({ ...prev, [task.id]: r }))
+      if (r.answerId && r.status === 'pending') {
+        pollStatus(r.answerId, task)
+      } else {
+        setResults(prev => ({ ...prev, [task.id]: r }))
+        setSubmitting(false)
+        setGradingTask(null)
+      }
     } catch (e) {
-      alert('Lỗi chấm bài, thử lại nhé!')
-    } finally {
+      setGradingError({ taskId: task.id, error: e.response?.data?.message || 'Lỗi nộp bài, thử lại nhé!' })
       setSubmitting(false)
+      setGradingTask(null)
     }
   }
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-400 text-sm">Đang tải đề...</div>
+  if (!exam) return <div className="min-h-screen flex items-center justify-center text-gray-400 text-sm">Không tìm thấy đề thi.</div>
 
   const allDone = exam.writingTasks.every(t => results[t.id])
 
   // ── Start ─────────────────────────────────────────────────────
   if (phase === 'start') return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="bg-white rounded-2xl shadow-lg p-10 max-w-md w-full text-center">
-        <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-5">✍️</div>
-        <h1 className="text-xl font-bold text-gray-800 mb-2">{exam.title}</h1>
-        <p className="text-gray-500 text-sm mb-1">{exam.writingTasks.length} Tasks</p>
-        <p className="text-gray-500 text-sm mb-8">Thời gian: <span className="font-semibold text-[#1a56db]">60 phút</span></p>
-        <div className="bg-blue-50 rounded-xl p-4 text-left text-sm text-gray-600 mb-8 space-y-1">
-          <p>• Task 1: mô tả biểu đồ/bản đồ — tối thiểu 150 từ (~20 phút)</p>
-          <p>• Task 2: viết luận — tối thiểu 250 từ (~40 phút)</p>
-          <p>• AI chấm điểm theo 4 tiêu chí IELTS</p>
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+      <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm p-10 max-w-md w-full text-center flex flex-col items-center transition-all duration-300">
+        <div className="w-16 h-16 bg-slate-100 border border-slate-200/80 rounded-2xl flex items-center justify-center mx-auto mb-6">
+          <PenTool className="w-8 h-8 text-slate-600 stroke-[1.75]" />
         </div>
-        <button onClick={() => setPhase('exam')} className="w-full bg-[#1a56db] hover:bg-[#1d4ed8] text-white py-3 rounded-xl font-bold transition">
+        <h1 className="text-slate-900 text-xl font-bold mb-2 tracking-tight">{exam.title}</h1>
+        <p className="text-slate-600 text-sm mb-1">{exam.writingTasks.length} Tasks</p>
+        <p className="text-slate-600 text-sm mb-6">Thời gian: <span className="font-bold text-purple-600">60 phút</span></p>
+        
+        <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 text-left text-sm text-slate-600 mb-8 flex flex-col gap-2.5 leading-relaxed w-full">
+          <p className="m-0">• Task 1: mô tả biểu đồ/bản đồ — tối thiểu 150 từ (~20 phút)</p>
+          <p className="m-0">• Task 2: viết luận — tối thiểu 250 từ (~40 phút)</p>
+          <p className="m-0">• AI chấm điểm theo 4 tiêu chí IELTS</p>
+        </div>
+        
+        <button
+          onClick={() => setPhase('exam')}
+          className="btn-primary w-full text-sm font-bold transition-all duration-300"
+          style={{ width: '100%', padding: '12px 0', borderRadius: '12px', marginBottom: 8 }}
+        >
           Bắt đầu làm bài
         </button>
-        <button onClick={() => navigate('/writing')} className="w-full mt-3 text-gray-400 hover:text-gray-600 text-sm transition">← Quay lại</button>
+        <button
+          onClick={handleBack}
+          className="w-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all duration-200 ease-in-out font-medium text-sm flex items-center justify-center gap-1.5 cursor-pointer"
+          style={{ width: '100%', padding: '12px 0', borderRadius: '12px' }}
+        >
+          <ArrowLeft className="w-4 h-4 text-slate-500" /> Quay lại
+        </button>
       </div>
     </div>
   )
@@ -137,65 +250,94 @@ export default function WritingExam() {
     const avg = taskScores.length > 0 ? taskScores.reduce((a, b) => a + b, 0) / taskScores.length : 0
     const overallBand = Math.round(Math.min(9, Math.max(0, avg)) * 2) / 2
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="bg-[#1e3a5f] text-white px-6 py-4">
-          <h1 className="font-bold text-lg">Kết quả Writing — AI chấm bài</h1>
-          <p className="text-blue-200 text-sm">{exam.title}</p>
-        </div>
-        <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
-          {/* Overall band */}
-          <div className="bg-white rounded-2xl p-8 shadow-sm text-center border border-blue-100">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Overall Band Score</p>
-            <div className="text-7xl font-extrabold text-[#1a56db] mb-2">{overallBand}</div>
-            <p className="text-sm text-gray-500">
-              {exam.writingTasks.map(t => `Task ${t.number}: ${results[t.id]?.overall}`).join(' · ')}
-            </p>
+      <div className="min-h-screen bg-slate-50 text-slate-600 font-sans">
+        {/* Header */}
+        <div className="bg-[#0B2345] border-b border-slate-800 px-6 py-5">
+          <div className="max-w-3xl mx-auto">
+            <h1 className="text-white text-xl font-bold tracking-tight m-0">Kết quả Writing — AI chấm bài</h1>
+            <p className="text-slate-400 text-xs mt-1 m-0 font-medium">{exam.title}</p>
           </div>
+        </div>
 
-          {/* Per-task results */}
-          {exam.writingTasks.map(task => {
-            const r = results[task.id]
-            if (!r) return null
-            return (
-              <div key={task.id}>
-                <h2 className="font-bold text-gray-700 mb-4">Task {task.number}</h2>
-                <div className="bg-white rounded-2xl p-6 shadow-sm text-center mb-4">
-                  <div className="text-5xl font-bold text-[#1a56db] mb-1">{r.overall}</div>
-                  <div className="text-gray-400 text-sm">Band Score</div>
-                  <div className="text-gray-500 text-xs mt-1">{r.wordCount} từ</div>
-                </div>
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  {Object.entries(CRITERIA_LABELS).map(([key, label]) => (
-                    <div key={key} className="bg-white rounded-xl p-4 shadow-sm">
-                      <div className="text-2xl font-bold text-[#1a56db] mb-0.5">{r.criteria[key]?.score}</div>
-                      <div className="text-xs font-semibold text-gray-600 mb-2">{label}</div>
-                      <p className="text-xs text-gray-500 leading-relaxed">{r.criteria[key]?.comment}</p>
-                    </div>
-                  ))}
-                </div>
-                <div className="bg-white rounded-xl p-4 shadow-sm mb-3">
-                  <p className="text-xs font-bold text-[#1a56db] uppercase mb-2">Điểm mạnh</p>
-                  <p className="text-sm text-gray-700 leading-relaxed">{r.strengths}</p>
-                </div>
-                <div className="bg-white rounded-xl p-4 shadow-sm">
-                  <p className="text-xs font-bold text-blue-600 uppercase mb-2">Gợi ý cải thiện</p>
-                  <p className="text-sm text-gray-700 leading-relaxed">{r.improvements}</p>
-                </div>
+        {/* Content */}
+        <div className="app-container section-py">
+          <div className="max-w-3xl mx-auto flex flex-col gap-8">
+            {/* Overall band score card */}
+            <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm p-8 text-center transition-all duration-300">
+              <p className="text-slate-400 text-xs font-bold tracking-wider uppercase mb-1">Overall Band Score</p>
+              <div className="text-7xl font-extrabold font-mono tracking-tight my-4" style={{ color: '#0B2345' }}>
+                {overallBand}
               </div>
-            )
-          })}
-          {fullTestStatus?.isComplete && (
-            <button
-              onClick={() => navigate(`/full-test/result?seriesId=${fullTestStatus.seriesId}&bookNumber=${fullTestStatus.bookNumber}&testNumber=${fullTestStatus.testNumber}`)}
-              className="w-full py-3 rounded-xl font-bold text-white transition mb-3"
-              style={{ backgroundColor: '#059669' }}
-            >
-              Xem kết quả Full Test →
-            </button>
-          )}
-          <button onClick={() => navigate('/writing')} className="w-full bg-[#1a56db] text-white py-3 rounded-xl font-bold hover:bg-[#1d4ed8] transition">
-            Làm đề khác
-          </button>
+              <p className="text-slate-500 text-sm font-medium">
+                {exam.writingTasks.map(t => `Task ${t.number}: ${results[t.id]?.overall}`).join(' · ')}
+              </p>
+            </div>
+
+            {/* Per-task results */}
+            {exam.writingTasks.map(task => {
+              const r = results[task.id]
+              if (!r) return null
+              return (
+                <div key={task.id} className="flex flex-col gap-6">
+                  <h2 className="text-slate-900 text-xl font-bold tracking-tight m-0 border-b border-slate-200 pb-2">
+                    Task {task.number}
+                  </h2>
+                  
+                  {/* Task score overview */}
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 text-center transition-all duration-300">
+                    <div className="text-5xl font-extrabold font-mono tracking-tight mb-1" style={{ color: '#0B2345' }}>
+                      {r.overall}
+                    </div>
+                    <div className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Band Score</div>
+                    <div className="text-slate-500 text-xs font-mono">{r.wordCount} từ</div>
+                  </div>
+
+                  {/* 4 Criteria Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {Object.entries(CRITERIA_LABELS).map(([key, label]) => (
+                      <div key={key} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col transition-all duration-300">
+                        <div className="text-3xl font-extrabold font-mono mb-2" style={{ color: '#0B2345' }}>
+                          {r.criteria[key]?.score}
+                        </div>
+                        <div className="text-slate-900 text-sm font-bold mb-2">{label}</div>
+                        <p className="text-slate-600 text-xs leading-relaxed m-0 font-medium">{r.criteria[key]?.comment}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Strengths */}
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 transition-all duration-300">
+                    <p className="text-slate-900 text-sm font-bold mb-3">Điểm mạnh (Strengths)</p>
+                    {renderFeedbackList(r.strengths, 'text-emerald-500')}
+                  </div>
+
+                  {/* Improvements */}
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 transition-all duration-300">
+                    <p className="text-slate-900 text-sm font-bold mb-3">Điểm cần cải thiện & Gợi ý (Improvements)</p>
+                    {renderFeedbackList(r.improvements, 'text-orange-500')}
+                  </div>
+                </div>
+              )
+            })}
+
+            {/* Actions */}
+            <div className="flex flex-col gap-3 mt-4">
+              {fullTestStatus?.isComplete && (
+                <button
+                  onClick={() => navigate(`/full-test/result?seriesId=${fullTestStatus.seriesId}&bookNumber=${fullTestStatus.bookNumber}&testNumber=${fullTestStatus.testNumber}`)}
+                  className="btn-primary w-full py-3.5 text-sm font-bold rounded-xl transition-all duration-300"
+                >
+                  Xem kết quả Full Test →
+                </button>
+              )}
+              <button 
+                onClick={() => navigate('/writing')} 
+                className="w-full py-3.5 border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-xl font-bold text-sm transition-all duration-300 cursor-pointer text-center"
+              >
+                Làm đề khác
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -209,27 +351,27 @@ export default function WritingExam() {
   const taskDone = !!results[task.id]
 
   return (
-    <div className="h-screen flex flex-col bg-gray-100 overflow-hidden">
+    <div className="h-screen flex flex-col overflow-hidden bg-slate-50">
       {/* Header */}
-      <header className="bg-[#1e3a5f] text-white px-6 py-3 flex items-center justify-between shrink-0">
+      <header className="bg-[#0B2345] border-b border-slate-800 px-6 py-4 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3 min-w-0">
-          <button onClick={() => setShowExitConfirm(true)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold text-base shrink-0 transition">✕</button>
-          <span className="text-sm font-semibold truncate">{exam.title}</span>
+          <button aria-label="Đóng bài thi" onClick={() => setShowExitConfirm(true)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 border-none text-white font-bold text-sm cursor-pointer flex-shrink-0 transition-colors">✕</button>
+          <span className="font-sans text-sm font-semibold text-white overflow-hidden text-overflow-ellipsis white-space-nowrap">{exam.title}</span>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <div className={`font-mono font-bold text-sm px-3 py-1 rounded ${timeLeft < 300 ? 'bg-red-500' : timeLeft < 600 ? 'bg-yellow-500 text-black' : 'bg-blue-700'}`}>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <div className={`font-mono font-bold text-sm px-3.5 py-1.5 rounded-lg text-white ${timeLeft < 300 ? 'bg-blue-500' : timeLeft < 600 ? 'bg-amber-600' : 'bg-white/15'}`}>
             {fmt(timeLeft)}
           </div>
         </div>
       </header>
 
       {/* Task tabs */}
-      <div className="bg-[#2d5282] flex shrink-0">
+      <div className="bg-[#1e293b] flex flex-shrink-0 border-b border-slate-800">
         {exam.writingTasks.map((t, i) => (
           <button key={t.id} onClick={() => setActiveTask(i)}
-            className={`px-5 py-2 text-sm font-medium transition border-b-2 ${activeTask === i ? 'border-white text-white bg-white/10' : 'border-transparent text-blue-200 hover:text-white'}`}>
+            className={`px-5 py-3 text-sm font-medium border-none cursor-pointer border-b-2 transition-all duration-300 flex items-center gap-2 ${activeTask === i ? 'border-purple-500 bg-white/5 text-white' : 'border-transparent text-slate-400 hover:text-slate-200'}`}>
             Task {t.number}
-            {results[t.id] && <span className="ml-2 text-xs bg-green-500 text-white px-1.5 py-0.5 rounded-full">Đã nộp</span>}
+            {results[t.id] && <span className="text-[10px] bg-purple-600 text-white px-2 py-0.5 rounded-full font-bold">Đã nộp</span>}
           </button>
         ))}
       </div>
@@ -237,57 +379,72 @@ export default function WritingExam() {
       {/* Body */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left: Task prompt */}
-        <div className="w-2/5 overflow-y-auto bg-white p-6 border-r border-gray-200">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm flex items-center justify-center">{task.number}</div>
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Task {task.number}</span>
+        <div className="w-2/5 overflow-y-auto bg-white p-6 border-r border-slate-200 flex flex-col gap-5">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-purple-50 border border-purple-100 text-purple-600 font-bold text-sm flex items-center justify-center">{task.number}</div>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Task {task.number}</span>
           </div>
           {task.imageUrl && (
             <div
               onClick={() => setLightbox(toImgSrc(task.imageUrl))}
-              style={{ position: 'relative', cursor: 'pointer', display: 'inline-block', width: '100%' }}
-              className="group mb-4"
+              className="relative cursor-pointer inline-block w-full group border border-slate-200 rounded-2xl overflow-hidden"
             >
-              <img src={toImgSrc(task.imageUrl)} alt="Task visual" className="w-full rounded-xl border border-gray-200" />
-              <div style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.5)', color: 'white', borderRadius: 6, padding: '3px 7px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, opacity: 0, transition: 'opacity 0.15s' }} className="group-hover:opacity-100">
+              <img src={toImgSrc(task.imageUrl)} alt={`Hình ảnh minh họa Task ${task.number}`} className="w-full" />
+              <div className="absolute bottom-2.5 right-2.5 bg-black/60 text-white rounded-lg px-2.5 py-1 text-xs flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                 <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 Phóng to
               </div>
             </div>
           )}
           {lightbox && <ImageLightbox src={lightbox} onClose={() => setLightbox(null)} />}
-          <p className="text-gray-700 text-sm leading-7">{task.prompt}</p>
-          <div className="mt-6 pt-4 border-t border-gray-100">
-            <p className="text-xs text-gray-400">Tối thiểu <span className="font-bold">{minWords} từ</span></p>
-            {task.number === 1 && <p className="text-xs text-gray-400 mt-1">Khuyến nghị: 20 phút</p>}
-            {task.number === 2 && <p className="text-xs text-gray-400 mt-1">Khuyến nghị: 40 phút</p>}
+          <p className="text-slate-700 text-sm leading-relaxed m-0 font-medium whitespace-pre-line">{task.prompt}</p>
+          <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400 font-medium">
+            <span>Tối thiểu <span className="font-bold text-slate-600">{minWords} từ</span></span>
+            <span>Khuyến nghị: {task.number === 1 ? '20 phút' : '40 phút'}</span>
           </div>
         </div>
 
         {/* Right: Essay area */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-gray-50 p-5">
+        <div className="flex-1 flex flex-col overflow-hidden bg-slate-50 p-8">
           {taskDone ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-center">
-              <div className="text-4xl mb-3">✅</div>
-              <p className="font-bold text-gray-700 mb-1">Task {task.number} đã được nộp!</p>
-              <p className="text-gray-500 text-sm mb-6">Kết quả sẽ hiển thị sau khi hoàn thành tất cả tasks.</p>
+            <div className="flex-1 bg-white rounded-2xl border border-slate-200 p-8 flex flex-col items-center justify-center text-center max-w-xl mx-auto w-full self-center shadow-sm">
+              <div className="text-4xl mb-4">✅</div>
+              <p className="font-bold text-slate-800 text-lg mb-1">Task {task.number} đã được nộp!</p>
+              <p className="text-slate-500 text-sm mb-6 leading-relaxed">Kết quả chi tiết từ AI sẽ hiển thị sau khi hoàn thành tất cả các tasks của bài thi viết.</p>
               {exam.writingTasks.length > 1 && activeTask < exam.writingTasks.length - 1 && !results[exam.writingTasks[activeTask + 1]?.id] && (
-                <button onClick={() => setActiveTask(activeTask + 1)} className="bg-[#1a56db] text-white px-6 py-2 rounded-xl font-bold hover:bg-[#1d4ed8] transition text-sm">
+                <button onClick={() => setActiveTask(activeTask + 1)} className="btn-primary px-6 py-2.5 rounded-xl font-bold transition text-sm">
                   Làm Task {task.number + 1} →
                 </button>
               )}
             </div>
+          ) : gradingTask === task.id ? (
+            <div className="flex-1 bg-white rounded-2xl border border-slate-200 p-8 flex flex-col items-center justify-center text-center max-w-xl mx-auto w-full self-center shadow-sm">
+              <div className="w-10 h-10 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mb-4" />
+              <p className="font-bold text-slate-800 text-lg mb-1">🤖 AI đang chấm bài Task {task.number}...</p>
+              <p className="text-slate-500 text-sm leading-relaxed">Hệ thống đang xử lý bài viết của bạn. Vui lòng chờ trong giây lát.</p>
+            </div>
           ) : (
             <>
-              <div className="bg-white rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col">
-                <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
-                  <span className="text-xs font-semibold text-gray-500">Bài viết Task {task.number}</span>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${words >= minWords ? 'bg-blue-100 text-[#1a56db]' : words > 0 ? 'bg-blue-100 text-[#1a56db]' : 'bg-gray-100 text-gray-400'}`}>
+              {gradingError && gradingError.taskId === task.id && (
+                <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center justify-between text-sm">
+                  <span>❌ Chấm bài không thành công: {gradingError.error}</span>
+                  <button
+                    onClick={() => submitTask(task)}
+                    className="ml-3 px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition cursor-pointer"
+                  >
+                    🔄 Thử chấm điểm lại
+                  </button>
+                </div>
+              )}
+              <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm overflow-hidden flex-1 flex flex-col">
+                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                  <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Bài viết Task {task.number}</span>
+                  <span className={`text-xs font-bold px-3 py-1 rounded-full ${words >= minWords ? 'bg-purple-100 text-purple-700' : words > 0 ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-400'}`}>
                     {words}/{minWords} từ
                   </span>
                 </div>
                 <textarea
-                  className="flex-1 p-4 text-gray-700 text-sm leading-7 resize-none focus:outline-none"
+                  className="flex-1 p-8 text-slate-800 text-base leading-relaxed resize-none focus:outline-none bg-white font-medium"
                   placeholder={`Bắt đầu viết Task ${task.number} tại đây...`}
                   value={taskEssay}
                   onChange={e => setEssay(task.id, e.target.value)}
@@ -296,8 +453,8 @@ export default function WritingExam() {
               <button
                 onClick={() => submitTask(task)}
                 disabled={submitting || words < 50}
-                className="mt-3 bg-[#1a56db] hover:bg-[#1d4ed8] text-white py-2.5 rounded-xl font-bold text-sm transition disabled:opacity-40">
-                {submitting ? '🤖 AI đang chấm bài... (10–15 giây)' : `Nộp Task ${task.number} để AI chấm`}
+                className="mt-4 btn-primary py-3 rounded-xl font-bold text-sm w-full transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed">
+                {submitting ? '🤖 Đang chấm điểm...' : `Nộp Task ${task.number} để AI chấm`}
               </button>
             </>
           )}
@@ -305,22 +462,11 @@ export default function WritingExam() {
       </div>
 
       {/* Exit confirm modal */}
-      {showExitConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowExitConfirm(false)}>
-          <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-sm w-full mx-4" onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-gray-800 mb-2">Thoát bài làm?</h2>
-            <p className="text-gray-600 text-sm mb-6">Tiến trình bài làm sẽ không được lưu nếu bạn thoát lúc này.</p>
-            <div className="flex gap-3">
-              <button onClick={() => setShowExitConfirm(false)} className="flex-1 py-2.5 rounded-xl bg-[#1a56db] hover:bg-[#1d4ed8] text-white text-sm font-bold transition">
-                Tiếp tục làm
-              </button>
-              <button onClick={() => navigate('/writing')} className="flex-1 py-2.5 rounded-xl bg-[#dc2626] hover:bg-red-700 text-white text-sm font-bold transition">
-                Thoát
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmExitModal
+        isOpen={showExitConfirm}
+        onClose={() => setShowExitConfirm(false)}
+        onConfirm={handleBack}
+      />
     </div>
   )
 }

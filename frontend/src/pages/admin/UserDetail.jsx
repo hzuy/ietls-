@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { getAdminUser } from '../../services/adminService'
+import { getAdminUser, toggleUserLock, deleteAdminUser } from '../../services/adminService'
 import AdminLayout from '../../components/AdminLayout'
+
 
 const SKILL_LABEL = { reading: 'Reading', listening: 'Listening', writing: 'Writing', speaking: 'Speaking' }
 
@@ -9,6 +10,8 @@ export default function UserDetail() {
   const { id } = useParams()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [togglingLock, setTogglingLock] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -21,15 +24,32 @@ export default function UserDetail() {
   if (loading) return (
     <AdminLayout>
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-[#1a56db] border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-[#1D4ED8] border-t-transparent rounded-full animate-spin" />
       </div>
     </AdminLayout>
   )
 
   if (!data) return <AdminLayout><div className="p-8 text-gray-400">Không tìm thấy người dùng.</div></AdminLayout>
 
-  const { user, attempts, skillStats, totalAttempts } = data
+  const { user, attempts, skillStats, totalAttempts, shownAttempts } = data
   const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
+
+  // BUG-07: Action handlers
+  const handleToggleLock = async () => {
+    setTogglingLock(true)
+    try {
+      const result = await toggleUserLock(user.id)
+      setData(d => ({ ...d, user: { ...d.user, isLocked: result.isLocked } }))
+    } catch { alert('Lỗi thao tác') }
+    setTogglingLock(false)
+  }
+
+  const handleDelete = async () => {
+    try {
+      await deleteAdminUser(user.id)
+      navigate('/admin/users')
+    } catch (err) { alert(err.response?.data?.message || 'Lỗi xóa') }
+  }
 
   return (
     <AdminLayout>
@@ -41,7 +61,7 @@ export default function UserDetail() {
         {/* User info */}
         <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-4">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full bg-[#1a56db] text-white text-xl font-bold flex items-center justify-center">
+            <div className="w-14 h-14 rounded-full bg-[#1D4ED8] text-white text-xl font-bold flex items-center justify-center">
               {user.name?.charAt(0)?.toUpperCase()}
             </div>
             <div>
@@ -49,14 +69,25 @@ export default function UserDetail() {
               <p className="text-sm text-gray-400">{user.email}</p>
               <div className="flex gap-2 mt-1">
                 <span className="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 font-medium">{user.role}</span>
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${user.isLocked ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${user.isLocked ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-700'}`}>
                   {user.isLocked ? 'Đã khoá' : 'Hoạt động'}
                 </span>
               </div>
             </div>
-            <div className="ml-auto text-right">
+            <div className="ml-auto text-right flex flex-col items-end gap-2">
               <p className="text-xs text-gray-400">Ngày đăng ký</p>
               <p className="text-sm font-medium text-gray-700">{new Date(user.createdAt).toLocaleDateString('vi-VN')}</p>
+              {/* BUG-07: Action buttons */}
+              <div className="flex gap-2 mt-1">
+                <button onClick={handleToggleLock} disabled={togglingLock}
+                  className={`px-3 py-1.5 text-xs rounded-lg border font-medium transition ${user.isLocked ? 'border-green-200 text-green-600 hover:bg-green-50' : 'border-orange-200 text-orange-500 hover:bg-orange-50'}`}>
+                  {togglingLock ? '...' : user.isLocked ? 'Mở khoá' : 'Khoá'}
+                </button>
+                <button onClick={() => setConfirmDelete(true)}
+                  className="px-3 py-1.5 text-xs rounded-lg border border-red-200 text-red-500 hover:bg-red-50 font-medium transition">
+                  Xóa
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -64,7 +95,7 @@ export default function UserDetail() {
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
           <div className="bg-blue-50 rounded-xl p-4">
-            <div className="text-2xl font-bold text-[#1a56db]">{totalAttempts}</div>
+            <div className="text-2xl font-bold text-[#1D4ED8]">{totalAttempts}</div>
             <div className="text-xs text-gray-500 mt-0.5">Tổng lượt thi</div>
           </div>
           {Object.entries(skillStats).map(([skill, score]) => (
@@ -77,8 +108,14 @@ export default function UserDetail() {
 
         {/* Attempt history */}
         <div className="bg-white rounded-2xl border border-gray-100">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="font-semibold text-gray-800 text-sm">Lịch sử bài thi ({totalAttempts})</h2>
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h2 className="font-semibold text-gray-800 text-sm">Lịch sử bài thi</h2>
+            {/* BUG-06: Show displayed vs total count */}
+            <span className="text-xs text-gray-400">
+              {totalAttempts > (shownAttempts ?? attempts.length)
+                ? `Hiển thị ${shownAttempts ?? attempts.length} lượt thi gần nhất / tổng ${totalAttempts} lượt`
+                : `Tổng ${totalAttempts} lượt thi`}
+            </span>
           </div>
           {attempts.length === 0 ? (
             <p className="text-center text-gray-400 py-8 text-sm">Chưa có lượt thi nào</p>
@@ -116,6 +153,20 @@ export default function UserDetail() {
           )}
         </div>
       </div>
+
+      {/* BUG-07: Delete confirmation modal */}
+      {confirmDelete && (
+        <div onClick={() => setConfirmDelete(false)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <h3 className="font-bold text-gray-800 mb-2">Xác nhận xóa</h3>
+            <p className="text-sm text-gray-600 mb-6">Xóa người dùng <strong>{user.name}</strong>? Lịch sử thi sẽ được giữ lại (soft delete).</p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setConfirmDelete(false)} className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">Huỷ</button>
+              <button onClick={handleDelete} className="px-4 py-2 rounded-xl bg-red-500 text-white text-sm font-bold hover:bg-red-600 transition">Xóa</button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   )
 }

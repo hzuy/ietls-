@@ -4,15 +4,18 @@ const jwt = require('jsonwebtoken')
 const router = express.Router()
 const prisma = require('../lib/prisma')
 const authMiddleware = require('../middleware/auth')
+const validate = require('../middleware/validate')
+const {
+  registerSchema,
+  loginSchema,
+  changePasswordSchema,
+  updateProfileSchema,
+} = require('../validators/authValidator')
 
 // Đăng ký
-router.post('/register', async (req, res) => {
+router.post('/register', validate(registerSchema), async (req, res) => {
   try {
     const { email, password, name } = req.body
-
-    if (!password || password.length < 8) {
-      return res.status(400).json({ message: 'Mật khẩu phải có ít nhất 8 ký tự' })
-    }
 
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) {
@@ -32,7 +35,7 @@ router.post('/register', async (req, res) => {
 })
 
 // Đăng nhập
-router.post('/login', async (req, res) => {
+router.post('/login', validate(loginSchema), async (req, res) => {
   try {
     const { email, password } = req.body
 
@@ -51,10 +54,10 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-  { userId: user.id, email: user.email, role: user.role }, // thêm role vào đây
-  process.env.JWT_SECRET,
-  { expiresIn: '7d' }
-)
+      { userId: user.id, email: user.email, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    )
 
     res.json({
       token,
@@ -67,15 +70,10 @@ router.post('/login', async (req, res) => {
 })
 
 // Đổi mật khẩu bắt buộc
-router.put('/change-password', authMiddleware, async (req, res) => {
+router.put('/change-password', authMiddleware, validate(changePasswordSchema), async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body
-    if (!oldPassword || !newPassword) {
-      return res.status(400).json({ message: 'Thiếu thông tin' })
-    }
-    if (newPassword.length < 8) {
-      return res.status(400).json({ message: 'Mật khẩu mới phải có ít nhất 8 ký tự' })
-    }
+
     const user = await prisma.user.findUnique({ where: { id: req.user.userId } })
     const valid = await bcrypt.compare(oldPassword, user.password)
     if (!valid) {
@@ -107,15 +105,13 @@ router.get('/me', authMiddleware, async (req, res) => {
 })
 
 // Cập nhật tên user
-router.put('/profile', authMiddleware, async (req, res) => {
+router.put('/profile', authMiddleware, validate(updateProfileSchema), async (req, res) => {
   try {
     const { name } = req.body
-    if (!name || !name.trim()) {
-      return res.status(400).json({ message: 'Tên không được để trống' })
-    }
+
     const user = await prisma.user.update({
       where: { id: req.user.userId },
-      data: { name: name.trim() },
+      data: { name },
       select: { id: true, name: true, email: true, role: true },
     })
     res.json(user)

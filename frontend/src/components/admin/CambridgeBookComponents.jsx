@@ -1,14 +1,14 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import api from '../../utils/axios'
 import { SERVER_BASE, inputCls, labelCls, btnPrimary, btnSecondary } from './adminConstants'
 
 // ─── CAMBRIDGE BOOK MODAL — Cover + PDF Import ────────────────────────────────
 
 const SKILL_COLOR_CLASS = {
-  reading:   'bg-[#1a56db] border-[#1a56db] text-white',
-  listening: 'bg-[#1a56db] border-[#1a56db] text-white',
-  writing:   'bg-[#1a56db] border-[#1a56db] text-white',
-  speaking:  'bg-[#1a56db] border-[#1a56db] text-white',
+  reading:   'bg-[#1D4ED8] border-[#1D4ED8] text-white',
+  listening: 'bg-[#1D4ED8] border-[#1D4ED8] text-white',
+  writing:   'bg-[#1D4ED8] border-[#1D4ED8] text-white',
+  speaking:  'bg-[#1D4ED8] border-[#1D4ED8] text-white',
 }
 const SKILL_LABEL = { reading: 'Reading', listening: 'Listening', writing: 'Writing', speaking: 'Speaking' }
 
@@ -133,7 +133,7 @@ function PDFImportTab({ bookNumber, seriesId, onRefresh }) {
           </div>
           <input ref={pdfRef} type="file" accept=".pdf" className="hidden"
             onChange={e => { if (e.target.files[0]) setPdfFile(e.target.files[0]); e.target.value = '' }} />
-          {error && <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm">{error}</div>}
+          {error && <div className="bg-blue-50 border border-blue-200 text-blue-600 p-3 rounded-xl text-sm">{error}</div>}
           <button onClick={handleUpload} disabled={!pdfFile || uploading} className={btnPrimary + ' w-full'}>
             {uploading
               ? <span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/>Đang đọc PDF... (1–2 phút)</span>
@@ -160,8 +160,8 @@ function PDFImportTab({ bookNumber, seriesId, onRefresh }) {
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Đã trích xuất</p>
               {results.map((r, i) => (
                 <div key={i} className={`flex items-center justify-between rounded-xl px-3 py-2 border ${r.questionCount > 0 ? 'bg-[#eff6ff] border-blue-200' : 'bg-amber-50 border-amber-200'}`}>
-                  <span className={`text-sm font-semibold truncate ${r.questionCount > 0 ? 'text-[#1a56db]' : 'text-amber-700'}`}>{r.title}</span>
-                  <span className={`text-xs shrink-0 ml-2 font-bold ${r.questionCount > 0 ? 'text-[#1a56db]' : 'text-amber-600'}`}>
+                  <span className={`text-sm font-semibold truncate ${r.questionCount > 0 ? 'text-[#1D4ED8]' : 'text-amber-700'}`}>{r.title}</span>
+                  <span className={`text-xs shrink-0 ml-2 font-bold ${r.questionCount > 0 ? 'text-[#1D4ED8]' : 'text-amber-600'}`}>
                     {r.questionCount > 0 ? `${r.questionCount} câu ✓` : '⚠ 0 câu — kiểm tra lại'}
                   </span>
                 </div>
@@ -169,7 +169,7 @@ function PDFImportTab({ bookNumber, seriesId, onRefresh }) {
             </div>
           )}
 
-          {error && <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm">{error}</div>}
+          {error && <div className="bg-blue-50 border border-blue-200 text-blue-600 p-3 rounded-xl text-sm">{error}</div>}
 
           {/* Select Test */}
           <div>
@@ -177,7 +177,7 @@ function PDFImportTab({ bookNumber, seriesId, onRefresh }) {
             <div className="flex gap-2">
               {[1,2,3,4].map(n => (
                 <button key={n} type="button" onClick={() => setSelectedTest(n)}
-                  className={`flex-1 py-2 rounded-xl text-sm font-semibold border-2 transition ${selectedTest === n ? 'bg-[#1a56db] text-white border-[#1a56db]' : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'}`}>
+                  className={`flex-1 py-2 rounded-xl text-sm font-semibold border-2 transition ${selectedTest === n ? 'bg-[#1D4ED8] text-white border-[#1D4ED8]' : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'}`}>
                   Test {n}
                 </button>
               ))}
@@ -269,9 +269,9 @@ function BookModal({ bookNumber, seriesId, seriesName, coverUrl, onClose, onCove
 
         {/* Tabs */}
         <div className="flex border-b border-gray-100 shrink-0">
-          {[{k:'cover',l:'🖼️ Ảnh bìa'},{k:'pdf',l:'📄 Import đề từ PDF'}].map(({k,l}) => (
+          {[{k:'cover',l:'Ảnh bìa'},{k:'pdf',l:'Import đề từ PDF'}].map(({k,l}) => (
             <button key={k} onClick={() => setTab(k)}
-              className={`px-5 py-3 text-sm font-semibold transition border-b-2 ${tab === k ? 'border-[#1a56db] text-[#1a56db]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+              className={`px-5 py-3 text-sm font-semibold transition border-b-2 ${tab === k ? 'border-[#1D4ED8] text-[#1D4ED8]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
               {l}
             </button>
           ))}
@@ -296,12 +296,11 @@ function SeriesCard({ s, onManage, onEdit, onDelete }) {
           <h4 className="font-bold text-gray-800 text-sm">{s.name}</h4>
           <p className="text-xs text-gray-400 mt-0.5">{s._count?.bookCovers ?? 0} cuốn</p>
         </div>
-        <span className="text-2xl">📚</span>
       </div>
       <div className="flex gap-2 mt-auto">
-        <button onClick={() => onManage(s)} className="flex-1 py-1.5 rounded-lg bg-[#1a56db] text-white text-xs font-bold hover:bg-[#1d4ed8] transition">Xem</button>
+        <button onClick={() => onManage(s)} className="flex-1 py-1.5 rounded-lg bg-[#1D4ED8] text-white text-xs font-bold hover:bg-[#1D4ED8] transition">Xem</button>
         <button onClick={() => onEdit(s)} className="py-1.5 px-3 rounded-lg border border-gray-200 text-gray-600 text-xs font-semibold hover:bg-gray-50 transition">Sửa tên</button>
-        <button onClick={() => setConfirmDelete(true)} className="py-1.5 px-3 rounded-lg border border-red-200 text-red-500 text-xs font-semibold hover:bg-red-50 transition">Xóa</button>
+        <button onClick={() => setConfirmDelete(true)} className="py-1.5 px-3 rounded-lg border border-blue-200 text-red-500 text-xs font-semibold hover:bg-blue-50 transition">Xóa</button>
       </div>
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setConfirmDelete(false)}>
@@ -391,7 +390,7 @@ function SeriesDetailView({ series, books, onBack, onBooksChanged, onRefresh }) 
         <button
           onClick={handleAddBook}
           disabled={addingBook}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1a56db] text-white text-xs font-bold hover:bg-[#1d4ed8] transition disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1D4ED8] text-white text-xs font-bold hover:bg-[#1D4ED8] transition disabled:opacity-50"
         >
           + Thêm cuốn
         </button>
@@ -420,7 +419,7 @@ function SeriesDetailView({ series, books, onBack, onBooksChanged, onRefresh }) 
               >✏</button>
               <button
                 onClick={() => setDeleteBook(b.bookNumber)}
-                className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold opacity-0 group-hover:opacity-100 transition flex items-center justify-center leading-none"
+                className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-blue-500 text-white text-[9px] font-bold opacity-0 group-hover:opacity-100 transition flex items-center justify-center leading-none"
                 title="Xóa cuốn"
               >✕</button>
             </div>
@@ -433,7 +432,7 @@ function SeriesDetailView({ series, books, onBack, onBooksChanged, onRefresh }) 
                 onChange={e => setEditValue(e.target.value)}
                 onBlur={commitEdit}
                 onKeyDown={handleEditKeyDown}
-                className="w-12 text-xs text-center border border-[#1a56db] rounded px-1 py-0.5 outline-none font-medium"
+                className="w-12 text-xs text-center border border-[#1D4ED8] rounded px-1 py-0.5 outline-none font-medium"
               />
             ) : (
               <span className="text-xs text-gray-500 font-medium">{b.bookNumber}</span>

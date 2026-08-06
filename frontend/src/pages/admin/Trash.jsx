@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import AdminLayout from '../../components/AdminLayout'
+
 import { getAdminTrash, restoreTrashItem, permanentDeleteTrashItem, purgeTrash } from '../../services/adminService'
+import { Trash2, RotateCcw, AlertTriangle } from 'lucide-react'
 
 const TYPE_LABEL = {
   reading_practice:   'Reading Practice',
@@ -45,7 +47,7 @@ const TABS = [
   { key: 'series',             label: 'Full-test Series' },
 ]
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '')
 const resolveImg = (url) => {
   if (!url) return null
   if (url.startsWith('http')) return url
@@ -56,7 +58,7 @@ export default function Trash() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('all')
-  const [confirming, setConfirming] = useState(null) // { id, type, title, action }
+  const [confirming, setConfirming] = useState(null)
   const [purgeConfirm, setPurgeConfirm] = useState(false)
   const [busy, setBusy] = useState(false)
 
@@ -100,7 +102,6 @@ export default function Trash() {
     setBusy(false)
   }
 
-  // Count per tab
   const countByType = {}
   for (const item of items) countByType[item.type] = (countByType[item.type] || 0) + 1
 
@@ -109,31 +110,34 @@ export default function Trash() {
       <div className="p-6 max-w-5xl">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-xl font-bold text-gray-800">🗑️ Thùng rác</h1>
+            <div className="flex items-center gap-2">
+              <Trash2 size={24} className="text-slate-700" strokeWidth={2} />
+              <h1 className="text-xl font-bold text-gray-800">Thùng rác</h1>
+            </div>
             <p className="text-sm text-gray-500 mt-0.5">Các mục đã xóa — tự động xóa vĩnh viễn sau 30 ngày</p>
           </div>
           {items.length > 0 && (
             <button
               onClick={() => setPurgeConfirm(true)}
-              className="text-sm font-semibold px-4 py-2 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 transition"
+              className="text-sm font-semibold px-4 py-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 transition"
             >
               Dọn sạch thùng rác
             </button>
           )}
         </div>
 
-        {/* Tabs — scrollable */}
-        <div className="flex gap-1 mb-5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+        {/* Tabs — flex-wrap */}
+        <div className="flex flex-wrap gap-2 items-center mb-5">
           {TABS.map(t => {
             const cnt = t.key === 'all' ? items.length : (countByType[t.key] || 0)
             return (
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
-                className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap ${
+                className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition whitespace-nowrap ${
                   tab === t.key
-                    ? 'bg-[#1a56db] text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-500 hover:text-gray-700 hover:bg-gray-200'
+                    ? 'bg-[#1D4ED8] text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200'
                 }`}
               >
                 {t.label}
@@ -151,7 +155,7 @@ export default function Trash() {
           <div className="text-center py-20 text-gray-400 text-sm">Đang tải...</div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-20">
-            <div className="text-5xl mb-3">🗑️</div>
+            <Trash2 size={48} className="text-slate-300 stroke-[1.5] mx-auto mb-3" />
             <p className="text-gray-400 text-sm">Thùng rác trống</p>
           </div>
         ) : (
@@ -217,9 +221,11 @@ export default function Trash() {
         >
           <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center text-xl"
+              <div className="w-10 h-10 rounded-full flex items-center justify-center"
                 style={{ background: confirming.action === 'restore' ? '#eff6ff' : '#fef2f2' }}>
-                {confirming.action === 'restore' ? '♻️' : '🗑️'}
+                {confirming.action === 'restore'
+                  ? <RotateCcw size={20} className="text-blue-600" />
+                  : <Trash2 size={20} className="text-red-500" />}
               </div>
               <h3 className="font-bold text-gray-800 text-base">
                 {confirming.action === 'restore' ? 'Khôi phục mục này?' : 'Xóa vĩnh viễn?'}
@@ -242,7 +248,7 @@ export default function Trash() {
                 disabled={busy}
                 onClick={() => confirming.action === 'restore' ? handleRestore(confirming) : handleDelete(confirming)}
                 className={`px-4 py-2 rounded-xl text-sm font-bold text-white transition disabled:opacity-60 ${
-                  confirming.action === 'restore' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-red-600 hover:bg-red-700'
+                  confirming.action === 'restore' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'
                 }`}
               >
                 {busy ? '...' : confirming.action === 'restore' ? 'Khôi phục' : 'Xóa vĩnh viễn'}
@@ -260,7 +266,9 @@ export default function Trash() {
         >
           <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-xl">⚠️</div>
+              <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center">
+                <AlertTriangle size={20} className="text-amber-500" />
+              </div>
               <h3 className="font-bold text-gray-800 text-base">Dọn sạch thùng rác?</h3>
             </div>
             <p className="text-sm text-gray-600 mb-1">Tất cả <span className="font-semibold">{items.length} mục</span> trong thùng rác sẽ bị xóa vĩnh viễn.</p>
@@ -271,7 +279,7 @@ export default function Trash() {
                 Hủy
               </button>
               <button disabled={busy} onClick={handlePurge}
-                className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition disabled:opacity-60">
+                className="px-4 py-2 rounded-xl bg-blue-500 text-white text-sm font-bold hover:bg-blue-600 transition disabled:opacity-60">
                 {busy ? '...' : 'Xóa tất cả'}
               </button>
             </div>

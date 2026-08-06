@@ -1,4 +1,4 @@
-// Shared render component for table_completion groups
+﻿// Shared render component for table_completion groups
 // Used by both ReadingExam and ListeningExam
 
 function CellContent({ content, questions, answers, onAnswer, previewMode, showAnswers }) {
@@ -21,7 +21,7 @@ function CellContent({ content, questions, answers, onAnswer, previewMode, showA
                 readOnly={previewMode}
                 onChange={previewMode ? undefined : e => onAnswer(q.id, e.target.value)}
                 placeholder={previewMode ? '' : '...'}
-                className={`border-b-2 ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'border-blue-400 focus:border-blue-600'} outline-none px-1 py-0.5 text-sm w-24 bg-transparent text-center transition`}
+                className={`border-b-2 ${previewMode && showAnswers ? 'border-blue-500 text-[#1D4ED8] font-semibold' : 'border-blue-400 focus:border-blue-600'} outline-none px-1 py-0.5 text-sm w-24 bg-transparent text-center transition`}
               />
             </span>
           )

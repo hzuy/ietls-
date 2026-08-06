@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -20,6 +21,12 @@ model User {
   attempts        Attempt[]
   writingAnswers  WritingAnswer[]
   speakingAnswers SpeakingAnswer[]
+  answerLogs      AnswerLog[]
+  writingCriterionLogs  WritingCriterionLog[]
+  speakingCriterionLogs SpeakingCriterionLog[]
+
+  @@index([role])
+  @@index([createdAt])
 }
 
 model Exam {
@@ -92,6 +99,7 @@ model Question {
   listeningSection ListeningSection? @relation(fields: [listeningSectionId], references: [id], onDelete: Cascade)
   group            QuestionGroup?    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   answers          QuestionAnswer[]
+  answerLogs       AnswerLog[]
 
   @@index([passageId])
   @@index([listeningSectionId])
@@ -147,12 +155,16 @@ model Attempt {
   user            User             @relation(fields: [userId], references: [id])
   exam            Exam             @relation(fields: [examId], references: [id])
   questionAnswers QuestionAnswer[]
+  answerLogs      AnswerLog[]
 
   @@index([userId])
   @@index([examId])
   @@index([userId, examId])
   @@index([finishedAt])
   @@index([createdAt])
+  @@index([finishedAt, createdAt])
+  @@index([userId, score])
+  @@index([examId, score])
 }
 
 model QuestionAnswer {
@@ -169,6 +181,29 @@ model QuestionAnswer {
   @@index([questionId])
 }
 
+// ─── ANSWER LOG (for AI review & learning analysis) ─────────────────────────────
+model AnswerLog {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  attemptId     Int?
+  questionId    Int
+  skillType     String   // reading | listening
+  questionType  String   // mcq | fill_blank | short_answer | true_false_ng | ...
+  isCorrect     Boolean
+  userAnswer    String
+  correctAnswer String
+  createdAt     DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id])
+  attempt  Attempt? @relation(fields: [attemptId], references: [id], onDelete: SetNull)
+  question Question @relation(fields: [questionId], references: [id])
+
+  @@index([userId, skillType, questionType])
+  @@index([userId, isCorrect])
+  @@index([questionId])
+  @@index([attemptId])
+}
+
 model WritingAnswer {
   id         Int      @id @default(autoincrement())
   userId     Int
@@ -177,10 +212,13 @@ model WritingAnswer {
   wordCount  Int
   aiFeedback String?
   aiScore    Float?
+  status     String   @default("pending")
+  error      String?
   createdAt  DateTime @default(now())
 
-  user User        @relation(fields: [userId], references: [id])
-  task WritingTask @relation(fields: [taskId], references: [id])
+  user          User                  @relation(fields: [userId], references: [id])
+  task          WritingTask           @relation(fields: [taskId], references: [id])
+  criterionLogs WritingCriterionLog[]
 
   @@index([userId])
   @@index([taskId])
@@ -195,15 +233,50 @@ model SpeakingAnswer {
   transcript String?
   aiFeedback String?
   aiScore    Float?
+  status     String   @default("pending")
+  error      String?
   createdAt  DateTime @default(now())
 
-  user User         @relation(fields: [userId], references: [id])
-  part SpeakingPart @relation(fields: [partId], references: [id])
+  user          User                   @relation(fields: [userId], references: [id])
+  part          SpeakingPart           @relation(fields: [partId], references: [id])
+  criterionLogs SpeakingCriterionLog[]
 
   @@index([userId])
   @@index([partId])
   @@index([userId, partId])
   @@index([createdAt])
+}
+
+model WritingCriterionLog {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  writingAnswerId Int
+  criterion       String   // "task_achievement" | "coherence_cohesion" | "lexical_resource" | "grammatical_range"
+  score           Float
+  comment         String?  @db.Text
+  createdAt       DateTime @default(now())
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  writingAnswer WritingAnswer @relation(fields: [writingAnswerId], references: [id], onDelete: Cascade)
+
+  @@index([userId, criterion])
+  @@index([writingAnswerId])
+}
+
+model SpeakingCriterionLog {
+  id               Int      @id @default(autoincrement())
+  userId           Int
+  speakingAnswerId Int
+  criterion        String   // "fluency" | "vocabulary" | "grammar" | "pronunciation"
+  score            Float
+  comment          String?  @db.Text
+  createdAt        DateTime @default(now())
+
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  speakingAnswer   SpeakingAnswer @relation(fields: [speakingAnswerId], references: [id], onDelete: Cascade)
+
+  @@index([userId, criterion])
+  @@index([speakingAnswerId])
 }
 
 model QuestionGroup {
@@ -267,6 +340,7 @@ model ExamSeries {
   deletedAt  DateTime?
   bookCovers BookCover[]
   exams      Exam[]
+  mappings   SeriesMapping[]
 }
 
 model Setting {
@@ -285,12 +359,26 @@ model PracticeExam {
   thumbnailUrl String?
   audioUrl     String?   // listening only
   passage      String?   // passage text (reading) or context (listening)
-  questions    String?   // JSON: { groups: [...] }
+  isNormalized Boolean   @default(false)
   createdAt    DateTime  @default(now())
   deletedAt    DateTime?
 
+  questions    PracticeQuestion[]
+
   @@index([skill])
   @@index([createdAt])
+}
+
+model PracticeQuestion {
+  id            Int          @id @default(autoincrement())
+  examId        Int
+  content       String
+  type          String?
+  orderNum      Int          @default(0)
+  options       String?      // JSON array string
+  correctAnswer String?
+  createdAt     DateTime     @default(now())
+  exam          PracticeExam @relation(fields: [examId], references: [id], onDelete: Cascade)
 }
 
 // ─── WRITING SAMPLES ──────────────────────────────────────────────────────────
@@ -299,6 +387,7 @@ model WritingSample {
   title        String
   level        String?   // task1 | task2
   examType     String?   // VD: "Bar chart", "Opinion essay"
+  taskType     String?   // Normalized task type
   thumbnailUrl String?
   content      String?   // rich text HTML
   tags         String?   // JSON array
@@ -320,7 +409,27 @@ model SpeakingSample {
   createdAt    DateTime  @default(now())
   deletedAt    DateTime?
 
+  parts SpeakingSamplePart[]
+
   @@index([createdAt])
+}
+
+model SpeakingSamplePart {
+  id          Int      @id @default(autoincrement())
+  sampleId    Int
+  partNumber  Int
+  title       String?
+  description String?
+  sample      SpeakingSample @relation(fields: [sampleId], references: [id], onDelete: Cascade)
+  questions   SpeakingSampleQuestion[]
+}
+
+model SpeakingSampleQuestion {
+  id           Int    @id @default(autoincrement())
+  partId       Int
+  orderNum     Int
+  questionText String
+  part         SpeakingSamplePart @relation(fields: [partId], references: [id], onDelete: Cascade)
 }
 
 model MatchingOption {
@@ -343,6 +452,7 @@ model Series {
   createdAt    DateTime     @default(now())
   deletedAt    DateTime?
   exams        SeriesExam[]
+  mappings     SeriesMapping[]
 
   @@index([createdAt])
 }
@@ -357,4 +467,16 @@ model SeriesExam {
 
   @@index([seriesId])
   @@index([examId])
+}
+
+model SeriesMapping {
+  id           Int        @id @default(autoincrement())
+  seriesId     Int
+  examSeriesId Int
+  createdAt    DateTime   @default(now())
+  series       Series     @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  examSeries   ExamSeries @relation(fields: [examSeriesId], references: [id], onDelete: Cascade)
+
+  @@index([seriesId])
+  @@index([examSeriesId])
 }

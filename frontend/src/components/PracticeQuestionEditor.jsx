@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 
 const Q_TYPES = [
   { value: 'mcq',              label: 'Multiple Choice (1 đáp án)' },
@@ -117,7 +117,7 @@ function Group({ group, onChange, onDelete, index }) {
                 <button onClick={() => removeMcqOpt(i)} style={{ color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}>×</button>
               </div>
             ))}
-            <button onClick={addMcqOpt} style={{ fontSize: 12, color: '#1a56db', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>+ Thêm đáp án</button>
+            <button onClick={addMcqOpt} style={{ fontSize: 12, color: '#1D4ED8', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>+ Thêm đáp án</button>
           </div>
         )}
 
@@ -135,7 +135,7 @@ function Group({ group, onChange, onDelete, index }) {
                 <button onClick={() => removeMatchOpt(opt.id)} style={{ color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}>×</button>
               </div>
             ))}
-            <button onClick={addMatchOpt} style={{ fontSize: 12, color: '#1a56db', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>+ Thêm mục</button>
+            <button onClick={addMatchOpt} style={{ fontSize: 12, color: '#1D4ED8', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>+ Thêm mục</button>
           </div>
         )}
 
@@ -224,7 +224,7 @@ export default function PracticeQuestionEditor({ value = { groups: [] }, onChang
       ))}
       <button onClick={addGroup} style={{
         width: '100%', padding: '10px 0', border: '1.5px dashed #bfdbfe', borderRadius: 10,
-        background: '#f8faff', color: '#1a56db', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+        background: '#f8faff', color: '#1D4ED8', fontSize: 13, fontWeight: 600, cursor: 'pointer',
         transition: 'background 0.15s'
       }}
         onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'}

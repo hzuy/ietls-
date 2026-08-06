@@ -1,19 +1,24 @@
 import { useState, useEffect, useRef } from 'react'
 import AdminLayout from '../../components/AdminLayout'
+
 import RichTextEditor from '../../components/RichTextEditor'
 import { getSpeakingSamples, getSpeakingSample, createSpeakingSample, updateSpeakingSample, deleteSpeakingSample, uploadSpeakingSampleThumbnail } from '../../services/sampleService'
 
-const BACKEND_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3001'
+const BACKEND_URL = import.meta.env.VITE_API_URL?.replace(/\/api$/, '') || 'http://localhost:3001'
 const resolveImg = (url) => !url ? null : url.startsWith('http') ? url : BACKEND_URL + url
 
 const TASKS = [
-  { value: '', label: '-- Task --' },
-  { value: 'task1', label: 'Task 1' },
-  { value: 'task2', label: 'Task 2' },
-  { value: 'task3', label: 'Task 3' },
+  { value: '', label: '-- Part --' },
+  { value: 'task1', label: 'Part 1' },
+  { value: 'task2', label: 'Part 2' },
+  { value: 'task3', label: 'Part 3' },
 ]
 
-const TASK_LABELS = { task1: 'Task 1', task2: 'Task 2', task3: 'Task 3' }
+const TASK_LABELS = { task1: 'Part 1', task2: 'Part 2', task3: 'Part 3' }
+
+function formatPart(level) {
+  return TASK_LABELS[level] || level || ''
+}
 
 const EXAM_TYPE_PLACEHOLDER = {
   task1: 'VD: Personal questions, Hobbies, Daily routine...',
@@ -32,7 +37,35 @@ export default function SpeakingSamples() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [delConfirm, setDelConfirm] = useState(null)
+  const [draftBanner, setDraftBanner] = useState(null)
+  const [draftSavedAt, setDraftSavedAt] = useState(null)
   const thumbRef = useRef()
+
+  const getDraftKey = () => `draft_speaking_sample_${editing?.id || 'new'}`
+
+  useEffect(() => {
+    if (view !== 'form') return
+    const key = getDraftKey()
+    const saved = localStorage.getItem(key)
+    if (saved) {
+      try { setDraftBanner({ data: JSON.parse(saved) }) }
+      catch { localStorage.removeItem(key) }
+    } else { setDraftBanner(null) }
+  }, [view, editing?.id])
+
+  useEffect(() => {
+    if (view !== 'form') return
+    if (!form.title && !form.content) return
+    const key = getDraftKey()
+    const timer = setTimeout(() => {
+      localStorage.setItem(key, JSON.stringify(form))
+      const now = new Date()
+      setDraftSavedAt(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
+    }, 2000)
+    return () => clearTimeout(timer)
+  }, [form, view, editing?.id])
+
+  const clearDraft = () => { localStorage.removeItem(getDraftKey()); setDraftBanner(null); setDraftSavedAt(null) }
 
   const load = async () => {
     setLoading(true)
@@ -60,6 +93,9 @@ export default function SpeakingSamples() {
 
   const handleSave = async () => {
     if (!form.title.trim()) { alert('Vui lòng nhập tên bài'); return }
+    // BUG-15: Validate content not empty
+    const plainContent = form.content.replace(/<[^>]*>/g, '').trim()
+    if (!plainContent) { alert('Vui lòng nhập nội dung bài mẫu'); return }
     setSaving(true)
     try {
       const body = { title: form.title.trim(), level: form.level || null, examType: form.examType.trim() || null, content: form.content, tags: form.tags }
@@ -70,7 +106,7 @@ export default function SpeakingSamples() {
         const fd = new FormData(); fd.append('thumbnail', form.thumbFile)
         await uploadSpeakingSampleThumbnail(id, fd)
       }
-      setView('list'); load()
+      clearDraft(); setView('list'); load()
     } catch (err) { alert(err.response?.data?.message || 'Lỗi lưu') }
     setSaving(false)
   }
@@ -85,9 +121,24 @@ export default function SpeakingSamples() {
       <AdminLayout>
         <div className="p-6 max-w-4xl">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-            <button onClick={() => setView('list')} style={{ color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', fontSize: 20 }}>←</button>
+            <button onClick={() => { clearDraft(); setView('list') }} style={{ color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', fontSize: 20 }}>←</button>
             <h1 className="text-xl font-bold text-gray-800">{editing ? 'Chỉnh sửa Speaking Sample' : 'Thêm Speaking Sample mới'}</h1>
           </div>
+
+          {draftBanner && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 flex items-center justify-between">
+              <span className="text-sm text-yellow-700">📋 Bạn có bản nháp chưa lưu. Khôi phục không?</span>
+              <div className="flex gap-2">
+                <button onClick={() => { setForm(draftBanner.data); setDraftBanner(null) }}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-yellow-100 hover:bg-yellow-200 text-yellow-800 border border-yellow-300 transition">Khôi phục</button>
+                <button onClick={() => { localStorage.removeItem(getDraftKey()); setDraftBanner(null) }}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 transition">Bỏ qua</button>
+              </div>
+            </div>
+          )}
+          {draftSavedAt && !draftBanner && (
+            <div className="text-xs text-gray-400 mb-2">💾 Đã lưu nháp lúc {draftSavedAt}</div>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 260px', gap: 20, alignItems: 'start' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -99,7 +150,7 @@ export default function SpeakingSamples() {
                     className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400" />
                 </div>
                 <div style={{ marginBottom: 14 }}>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">Task</label>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">Part</label>
                   <select value={form.level} onChange={e => setForm(f => ({ ...f, level: e.target.value, examType: '' }))}
                     className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400">
                     {TASKS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -155,8 +206,8 @@ export default function SpeakingSamples() {
                 <input ref={thumbRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={e => { const f = e.target.files[0]; if (f) setForm(prev => ({ ...prev, thumbFile: f, thumbPreview: URL.createObjectURL(f) })) }} />
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => setView('list')} className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 font-medium">Hủy</button>
-                <button onClick={handleSave} disabled={saving} className="flex-1 px-4 py-2.5 rounded-xl bg-[#1a56db] text-white text-sm font-bold hover:bg-[#1d4ed8] transition disabled:opacity-50">{saving ? 'Đang lưu...' : 'Lưu'}</button>
+                <button onClick={() => { clearDraft(); setView('list') }} className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 font-medium">Hủy</button>
+                <button onClick={handleSave} disabled={saving} className="flex-1 px-4 py-2.5 rounded-xl bg-[#1D4ED8] text-white text-sm font-bold hover:bg-[#1D4ED8] transition disabled:opacity-50">{saving ? 'Đang lưu...' : 'Lưu'}</button>
               </div>
             </div>
           </div>
@@ -170,7 +221,7 @@ export default function SpeakingSamples() {
       <div className="p-6 max-w-5xl">
         <div className="flex items-center justify-between mb-6">
           <div><h1 className="text-xl font-bold text-gray-800">Speaking Samples</h1><p className="text-sm text-gray-500 mt-0.5">Bài mẫu Speaking — hiển thị trên trang chủ</p></div>
-          <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1a56db] text-white text-sm font-semibold hover:bg-[#1d4ed8] transition">+ Thêm mới</button>
+          <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1D4ED8] text-white text-sm font-semibold hover:bg-[#1D4ED8] transition">+ Thêm mới</button>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
           {loading ? <div className="p-10 text-center text-sm text-gray-400">Đang tải...</div>
@@ -180,7 +231,7 @@ export default function SpeakingSamples() {
                 <thead><tr className="border-b border-gray-100 bg-gray-50">
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 w-16">Ảnh</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Tên bài</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 hidden sm:table-cell">Task / Dạng đề</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 hidden sm:table-cell">Part / Dạng đề</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 hidden sm:table-cell">Tags</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 hidden sm:table-cell">Ngày tạo</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500">Hành động</th>
@@ -194,7 +245,7 @@ export default function SpeakingSamples() {
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
                           {item.level && (
                             <span style={{ fontSize: 11, background: '#f5f3ff', color: '#7c3aed', borderRadius: 4, padding: '1px 7px', fontWeight: 600 }}>
-                              {TASK_LABELS[item.level] || item.level}
+                              {formatPart(item.level)}
                             </span>
                           )}
                           {item.examType && (
@@ -208,7 +259,7 @@ export default function SpeakingSamples() {
                       <td className="px-4 py-3 text-sm text-gray-500 hidden sm:table-cell">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</td>
                       <td className="px-4 py-3"><div className="flex items-center justify-end gap-2">
                         <button onClick={() => openEdit(item)} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium transition">Sửa</button>
-                        <button onClick={() => setDelConfirm(item.id)} className="text-xs px-3 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 font-medium transition">Xóa</button>
+                        <button onClick={() => setDelConfirm(item.id)} className="text-xs px-3 py-1.5 rounded-lg border border-blue-200 text-red-500 hover:bg-blue-50 font-medium transition">Xóa</button>
                       </div></td>
                     </tr>
                   ))}
@@ -220,11 +271,11 @@ export default function SpeakingSamples() {
       {delConfirm && (
         <div onClick={() => setDelConfirm(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
-            <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-xl">🗑️</div><h3 className="font-bold text-gray-800">Xóa bài Speaking?</h3></div>
+            <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-xl">🗑️</div><h3 className="font-bold text-gray-800">Xóa bài Speaking?</h3></div>
             <p className="text-sm text-gray-500 mb-5">Hành động này không thể hoàn tác.</p>
             <div className="flex gap-3 justify-end">
               <button onClick={() => setDelConfirm(null)} className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 font-medium">Hủy</button>
-              <button onClick={() => handleDelete(delConfirm)} className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition">Xóa</button>
+              <button onClick={() => handleDelete(delConfirm)} className="px-4 py-2 rounded-xl bg-blue-500 text-white text-sm font-bold hover:bg-blue-600 transition">Xóa</button>
             </div>
           </div>
         </div>

@@ -1,17 +1,9 @@
 const express = require('express')
 const authMiddleware = require('../middleware/auth')
 const prisma = require('../lib/prisma')
+const { ieltsOverall } = require('../lib/scoreUtils')
 
 const router = express.Router()
-
-function ieltsOverall(scores) {
-  const avg = scores.reduce((a, b) => a + b, 0) / scores.length
-  const floored = Math.floor(avg)
-  const frac = Math.round((avg - floored) * 100) / 100
-  if (frac >= 0.75) return floored + 1
-  if (frac >= 0.25) return floored + 0.5
-  return floored
-}
 
 // P7 Fix: 4 skill queries chạy song song với Promise.all thay vì tuần tự trong for-loop
 // Trước: 4 × ~30ms roundtrip = ~120ms / lần gọi

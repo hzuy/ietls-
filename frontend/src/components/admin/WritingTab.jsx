@@ -1,39 +1,8 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import api from '../../utils/axios'
-import { emptyWritingForm, inputCls, labelCls, btnPrimary, btnSecondary, toImgSrc } from './adminConstants'
+import { emptyWritingForm, inputCls, labelCls, btnPrimary, btnSecondary, toImgSrc, useExamSeriesList, useSeriesBooks } from './adminConstants'
 import ExamList from './ExamList'
-import { useExamSeriesList, useSeriesBooks } from './ReadingTab'
-
-// ─── INLINE PREVIEW PANEL ─────────────────────────────────────────────────────
-
-function InlinePreviewPanel({ title, showAnswers, setShowAnswers, onClose, children }) {
-  return (
-    <div className="bg-white rounded-2xl border-2 border-indigo-200 shadow-lg overflow-hidden">
-      <div className="flex items-center justify-between px-6 py-3 bg-indigo-50 border-b border-indigo-100">
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-bold text-indigo-800">Xem trước — {title}</span>
-          <button
-            type="button"
-            onClick={() => setShowAnswers(v => !v)}
-            className={`text-xs px-3 py-1 rounded-full font-semibold transition ${showAnswers ? 'bg-[#1a56db] text-white' : 'bg-white border border-gray-200 text-gray-500 hover:border-[#bfdbfe] hover:text-[#1a56db]'}`}
-          >
-            {showAnswers ? 'Ẩn đáp án' : 'Hiện đáp án'}
-          </button>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-xs px-3 py-1 rounded-lg border border-indigo-200 text-indigo-600 hover:bg-indigo-100 transition font-medium"
-        >
-          Thu gọn ↑
-        </button>
-      </div>
-      <div className="p-6 max-h-[600px] overflow-y-auto">
-        {children}
-      </div>
-    </div>
-  )
-}
+import InlinePreviewPanel from '../common/InlinePreviewPanel'
 
 // ─── PREVIEW: WRITING ─────────────────────────────────────────────────────────
 
@@ -54,9 +23,9 @@ function WritingFormPreview({ form }) {
         {tasks.map(t => (
           <button key={t.num} type="button" onClick={() => setActiveTask(t.num)}
             style={{
-              background: activeTask === t.num ? '#1a56db' : '#fff',
+              background: activeTask === t.num ? '#1D4ED8' : '#fff',
               color: activeTask === t.num ? '#fff' : '#1e293b',
-              borderColor: activeTask === t.num ? '#1a56db' : '#e2e8f0',
+              borderColor: activeTask === t.num ? '#1D4ED8' : '#e2e8f0',
             }}
             className="px-4 py-1.5 rounded-lg border text-sm font-medium transition">
             Task {t.num}
@@ -69,7 +38,7 @@ function WritingFormPreview({ form }) {
         {/* Left: task prompt */}
         <div className="flex-1 min-w-0 bg-white rounded-2xl border border-[#bfdbfe] p-5 overflow-y-auto" style={{ maxHeight: 480 }}>
           <div className="flex items-center gap-2 mb-3">
-            <span className="px-2.5 py-0.5 rounded-lg bg-[#1a56db] text-white text-xs font-bold uppercase tracking-wide">
+            <span className="px-2.5 py-0.5 rounded-lg bg-[#1D4ED8] text-white text-xs font-bold uppercase tracking-wide">
               TASK {task.num}
             </span>
           </div>
@@ -134,7 +103,7 @@ function WritingFormPreview({ form }) {
 
 // ─── TAB: WRITING ─────────────────────────────────────────────────────────────
 
-function WritingTab({ exams, onRefresh, examSeries = [] }) {
+function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchExams, loading }) {
   const [form, setForm] = useState(emptyWritingForm())
   const liveExamSeries = useExamSeriesList()
   const seriesBooks = useSeriesBooks(form.seriesId)
@@ -261,13 +230,13 @@ function WritingTab({ exams, onRefresh, examSeries = [] }) {
         </div>
       )}
       <form ref={formRef} onSubmit={handleSubmit} className={`bg-white rounded-2xl p-6 border shadow-sm transition-all duration-500 ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-gray-100'}`}>
-        <h3 className="font-bold text-gray-800 mb-5">{editingId ? `✏️ Sửa đề Writing #${editingId}` : 'Tạo đề Writing mới'}</h3>
+        <h3 className="font-bold text-gray-800 mb-5">{editingId ? `Sửa đề Writing #${editingId}` : 'Tạo đề Writing mới'}</h3>
 
-        {error && <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl mb-4 text-sm">{error}</div>}
+        {error && <div className="bg-blue-50 border border-blue-200 text-blue-600 p-3 rounded-xl mb-4 text-sm">{error}</div>}
 
         {draftBanner && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 flex items-center justify-between">
-            <span className="text-sm text-yellow-700">📋 Có bản nháp chưa lưu. Khôi phục?</span>
+            <span className="text-sm text-yellow-700">Có bản nháp chưa lưu. Khôi phục?</span>
             <div className="flex gap-2">
               <button type="button" onClick={() => { setForm(draftBanner.data); setDraftBanner(null) }}
                 className="text-xs px-2.5 py-1 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 transition">Khôi phục</button>
@@ -279,7 +248,7 @@ function WritingTab({ exams, onRefresh, examSeries = [] }) {
 
         {editingId && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-center justify-between">
-            <span className="text-sm font-semibold text-amber-700">✏️ Đang sửa đề #{editingId}</span>
+            <span className="text-sm font-semibold text-amber-700">Đang sửa đề #{editingId}</span>
             <button type="button" onClick={cancelEdit} className={btnSecondary + ' text-xs'}>Hủy sửa</button>
           </div>
         )}
@@ -292,7 +261,7 @@ function WritingTab({ exams, onRefresh, examSeries = [] }) {
           </div>
         </div>
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-5">
-          <p className="text-xs font-bold text-blue-700 mb-2">📚 Gắn nhãn bộ đề (tuỳ chọn)</p>
+          <p className="text-xs font-bold text-blue-700 mb-2">Gắn nhãn bộ đề (tuỳ chọn)</p>
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className={labelCls}>Bộ đề</label>
@@ -333,7 +302,7 @@ function WritingTab({ exams, onRefresh, examSeries = [] }) {
               </button>
               {form.task1.imageUrl && (
                 <button type="button" onClick={() => setForm(f => ({ ...f, task1: { ...f.task1, imageUrl: '' } }))}
-                  className="text-red-400 hover:text-red-600 text-xs px-2">✕ Xóa ảnh</button>
+                  className="text-blue-500 hover:text-blue-600 text-xs px-2">✕ Xóa ảnh</button>
               )}
               <input ref={imgRef} type="file" accept=".png,.jpg,.jpeg" className="hidden"
                 onChange={e => { if (e.target.files[0]) uploadTask1Image(e.target.files[0]); e.target.value = '' }} />
@@ -393,8 +362,8 @@ function WritingTab({ exams, onRefresh, examSeries = [] }) {
       )}
 
       <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-        <h3 className="font-bold text-gray-800 mb-4">Danh sách đề Writing ({exams.filter(e => e.skill === 'writing').length})</h3>
-        <ExamList exams={exams} skill="writing" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} />
+        <h3 className="font-bold text-gray-800 mb-4">Danh sách đề Writing ({paginationData?.total ?? exams.length})</h3>
+        <ExamList exams={exams} skill="writing" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} />
       </div>
     </div>
   )

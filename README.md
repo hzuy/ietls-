@@ -104,8 +104,8 @@ ielts-app/
 │   │   ├── speaking.js             # GET/POST đề Speaking + chấm điểm Groq AI
 │   │   ├── fulltest.js             # Trạng thái + kết quả Full Test
 │   │   └── admin.js                # CRUD đề, upload file, Cambridge tools
+│   ├── scripts/                    # Scripts quản trị & tiện ích (recalculate-scores.js, make-admin.js,...)
 │   ├── uploads/                    # File audio & ảnh đã upload (gitignored)
-│   ├── recalculate-scores.js       # Script tiện ích tính lại điểm
 │   ├── seed.js                     # Seed dữ liệu mẫu
 │   ├── server.js                   # Entry point Express
 │   └── package.json

@@ -1,23 +1,15 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Navbar from '../components/Navbar'
+import Breadcrumb from '../components/common/Breadcrumb'
 
 const BACKEND_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '')
 const API_BASE = BACKEND_URL + '/api'
 const resolveImg = (url) => !url ? null : url.startsWith('http') ? url : BACKEND_URL + url
 
-const TYPE_LABELS = {
-  academic: 'IELTS Academic',
-  general: 'IELTS General Training',
-}
-
-function getTypeLabel(type) {
-  return TYPE_LABELS[type] || (type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Khác')
-}
-
 function ThumbPlaceholder() {
   return (
-    <div style={{ width: '100%', aspectRatio: '4/5', background: 'linear-gradient(145deg, #1e3a5f 0%, #1a56db 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ width: '100%', aspectRatio: '4/5', background: 'var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <span style={{ fontSize: 36 }}>📚</span>
     </div>
   )
@@ -25,40 +17,55 @@ function ThumbPlaceholder() {
 
 function SeriesCard({ item, onClick }) {
   const [hovered, setHovered] = useState(false)
-  const img = resolveImg(item.thumbnailUrl)
+  const img = resolveImg(item.coverImageUrl)
+  const hasTests = item.testCount > 0
+
   return (
     <div
-      onClick={onClick}
+      onClick={hasTests ? onClick : null}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      className={`card-base ${hasTests ? 'cursor-pointer' : 'opacity-80 cursor-default pointer-events-none'}`}
       style={{
-        background: 'white',
-        border: `1px solid ${hovered ? '#93c5fd' : '#e2e8f0'}`,
-        borderRadius: 12,
+        display: 'flex',
+        flexDirection: 'column',
         overflow: 'hidden',
-        cursor: 'pointer',
-        transform: hovered ? 'translateY(-4px)' : 'none',
-        boxShadow: hovered ? '0 12px 32px rgba(26,86,219,0.13)' : '0 2px 8px rgba(0,0,0,0.05)',
-        transition: 'transform 0.2s, box-shadow 0.2s, border-color 0.2s',
-        display: 'flex', flexDirection: 'column',
       }}
     >
       {img
-        ? <div style={{ width: '100%', aspectRatio: '4/5', overflow: 'hidden' }}>
-            <img src={img} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        ? <div style={{ width: '100%', aspectRatio: '4/5', overflow: 'hidden', position: 'relative' }}>
+            <img
+              draggable="false"
+              src={img}
+              alt={item.title}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: hasTests ? 'none' : 'grayscale(0.5)' }}
+            />
+            {!hasTests && (
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                <span style={{ background: 'rgba(255,255,255,0.92)', color: 'var(--color-heading)', fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 4, textTransform: 'uppercase', fontFamily: 'var(--font-body)' }}>Sắp có bài</span>
+              </div>
+            )}
           </div>
         : <ThumbPlaceholder />
       }
       <div style={{ padding: '12px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <p style={{ fontWeight: 700, fontSize: 13, color: '#1e3a5f', margin: 0, lineHeight: 1.4 }}>{item.name}</p>
-        <div style={{ display: 'flex', gap: 10, fontSize: 12, color: '#94a3b8' }}>
-          <span>{item.testCount} bài test</span>
-          {item.attemptCount > 0 && <span>{item.attemptCount.toLocaleString()} lượt</span>}
+        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 13, color: 'var(--color-heading)', margin: 0, lineHeight: 1.4 }}>{item.title}</p>
+        <div style={{ display: 'flex', gap: 10, fontSize: 12, color: 'var(--color-body)', fontFamily: 'var(--font-mono)' }}>
+          {hasTests ? <span>{item.testCount} bài test</span> : <span>Chưa có bài</span>}
         </div>
         <button
-          style={{ marginTop: 4, padding: '6px 0', borderRadius: 8, border: 'none', background: hovered ? '#1d4ed8' : '#1a56db', color: 'white', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'background 0.15s' }}
+          disabled={!hasTests}
+          style={{
+            marginTop: 4, padding: '6px 0', borderRadius: 'var(--radius-sm)', border: 'none',
+            background: hasTests ? 'var(--color-primary)' : 'var(--color-border)',
+            color: hasTests ? '#fff' : 'var(--subtle)',
+            fontSize: 12, fontWeight: 700,
+            cursor: hasTests ? 'pointer' : 'not-allowed',
+            fontFamily: 'var(--font-body)',
+            transition: 'opacity var(--transition)',
+          }}
         >
-          Xem bài test →
+          {hasTests ? 'Làm bài ngay →' : 'Đang cập nhật'}
         </button>
       </div>
     </div>
@@ -67,131 +74,290 @@ function SeriesCard({ item, onClick }) {
 
 function SkeletonCard() {
   return (
-    <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
-      <div style={{ width: '100%', aspectRatio: '4/5', background: '#f1f5f9' }} />
-      <div style={{ padding: '12px 14px' }}>
-        <div style={{ height: 14, background: '#f1f5f9', borderRadius: 4, marginBottom: 8 }} />
-        <div style={{ height: 12, background: '#f1f5f9', borderRadius: 4, width: '60%' }} />
+    <div className="card-base overflow-hidden w-[200px] flex flex-col shrink-0">
+      <div className="w-full aspect-[4/5] bg-slate-200 animate-pulse shrink-0" />
+      <div className="px-[14px] py-[12px] flex flex-col flex-1 gap-[6px]">
+        <div className="h-[18px] bg-slate-200 animate-pulse rounded w-full" />
+        <div className="h-[18px] bg-slate-200 animate-pulse rounded w-2/3" />
+        <div className="h-[26px] bg-slate-200 animate-pulse rounded mt-1" />
       </div>
     </div>
   )
 }
 
-export default function FullTest() {
-  const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const [series, setSeries] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const sectionRefs = useRef({})
+function SeriesRow({ title, count, children }) {
+  const scrollRef = useRef(null)
+  const [showLeft, setShowLeft] = useState(false)
+  const [showRight, setShowRight] = useState(true)
+
+  // Drag-to-scroll refs & state
+  const isDown = useRef(false)
+  const startX = useRef(0)
+  const scrollLeftStart = useRef(0)
+  const dragged = useRef(false)
+  const [isDragging, setIsDragging] = useState(false)
+
+  const checkScroll = () => {
+    if (!scrollRef.current) return
+    const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current
+    setShowLeft(scrollLeft > 10)
+    setShowRight(scrollLeft < scrollWidth - clientWidth - 10)
+  }
+
+  const scroll = (dir) => {
+    if (!scrollRef.current) return
+    const offset = scrollRef.current.clientWidth * 0.8
+    scrollRef.current.scrollBy({ left: dir * offset, behavior: 'smooth' })
+  }
 
   useEffect(() => {
-    fetch(API_BASE + '/series', { cache: 'no-store' })
-      .then(r => r.ok ? r.json() : [])
-      .then(data => { setSeries(data); setLoading(false) })
-      .catch(() => { setSeries([]); setLoading(false) })
-  }, [])
+    checkScroll()
+    window.addEventListener('resize', checkScroll)
+    return () => window.removeEventListener('resize', checkScroll)
+  }, [children])
 
-  // Scroll to highlighted series from query param
-  useEffect(() => {
-    const sid = searchParams.get('series')
-    if (!sid || !series) return
-    const el = sectionRefs.current[sid]
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [series, searchParams])
 
-  // Group series by type, preserving insertion order
-  const grouped = series ? series.reduce((acc, s) => {
-    const key = s.type || 'other'
-    if (!acc[key]) acc[key] = []
-    acc[key].push(s)
-    return acc
-  }, {}) : {}
 
-  const groupKeys = Object.keys(grouped)
-  const totalTests = series ? series.reduce((n, s) => n + s.testCount, 0) : 0
+  const handleMouseDown = (e) => {
+    if (e.button !== 0) return // Only left-click
+    
+    // Ignore drag starting if clicked directly on the horizontal scrollbar area
+    const el = scrollRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const clickYRelative = e.clientY - rect.top
+    if (clickYRelative > el.clientHeight) {
+      return
+    }
+
+    isDown.current = true
+    setIsDragging(true)
+    dragged.current = false
+    startX.current = e.pageX - el.offsetLeft
+    scrollLeftStart.current = el.scrollLeft
+  }
+
+  const handleMouseLeave = () => {
+    isDown.current = false
+    setIsDragging(false)
+  }
+
+  const handleMouseUp = () => {
+    isDown.current = false
+    setIsDragging(false)
+  }
+
+  const handleMouseMove = (e) => {
+    if (!isDown.current) return
+    e.preventDefault()
+    const x = e.pageX - scrollRef.current.offsetLeft
+    const walk = (x - startX.current) * 1.5 // drag speed multiplier
+    if (Math.abs(walk) > 5) {
+      dragged.current = true
+    }
+    scrollRef.current.scrollLeft = scrollLeftStart.current - walk
+  }
+
+  const handleClickCapture = (e) => {
+    if (dragged.current) {
+      e.preventDefault()
+      e.stopPropagation()
+      dragged.current = false
+    }
+  }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#f0f4f8' }}>
+    <section className="mb-12">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: 'var(--color-heading)', margin: 0 }}>{title}</h2>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, background: 'var(--primary-light)', color: 'var(--color-primary)', padding: '3px 10px', borderRadius: 20, border: '1px solid var(--color-border)' }}>{count}</span>
+      </div>
+
+      <div className="relative group/row">
+        <button
+          aria-label="Cuộn trái"
+          onClick={() => scroll(-1)}
+          style={{ position: 'absolute', left: -20, top: '50%', transform: 'translateY(-50%)', zIndex: 10, width: 40, height: 40, borderRadius: '50%', display: showLeft ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', background: 'var(--color-surface)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', border: '1px solid var(--color-border)', color: 'var(--color-body)', cursor: 'pointer', opacity: 0, transition: 'all 0.2s ease' }}
+          className="group-hover/row:opacity-100 hover:text-slate-900 hover:border-slate-300"
+        >
+          <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>
+        </button>
+
+        <div
+          ref={scrollRef}
+          onScroll={checkScroll}
+          onMouseDown={handleMouseDown}
+          onMouseLeave={handleMouseLeave}
+          onMouseUp={handleMouseUp}
+          onMouseMove={handleMouseMove}
+          onClickCapture={handleClickCapture}
+          className={`flex flex-nowrap overflow-x-auto gap-6 pb-4 custom-scrollbar select-none ${
+            isDragging ? 'scroll-auto cursor-grabbing' : 'scroll-smooth cursor-grab'
+          }`}
+          style={{ scrollSnapType: isDragging ? 'none' : 'x proximity' }}
+        >
+          {children}
+          {/* Spacer to avoid last card clipping */}
+          <div className="flex-shrink-0 w-8" style={{ scrollSnapAlign: 'none' }} />
+        </div>
+
+        <button
+          aria-label="Cuộn phải"
+          onClick={() => scroll(1)}
+          style={{ position: 'absolute', right: -20, top: '50%', transform: 'translateY(-50%)', zIndex: 10, width: 40, height: 40, borderRadius: '50%', display: showRight ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', background: 'var(--color-surface)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', border: '1px solid var(--color-border)', color: 'var(--color-body)', cursor: 'pointer', opacity: 0, transition: 'all 0.2s ease' }}
+          className="group-hover/row:opacity-100 hover:text-slate-900 hover:border-slate-300"
+        >
+          <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    </section>
+  )
+}
+
+export default function FullTest() {
+  const navigate = useNavigate()
+  const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState(false)
+  const [groupedData, setGroupedData] = useState({})
+
+  useEffect(() => {
+    document.title = 'Đề thi Full Test | IELTS Pro'
+    fetch(`${BACKEND_URL}/api/admin/full-tests`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+    })
+      .then(r => r.ok ? r.json() : [])
+      .then(data => {
+        const booksMap = data.reduce((acc, item) => {
+          const bKey = `${item.seriesId}-${item.bookNumber}`
+          if (!acc[bKey]) {
+            acc[bKey] = {
+              seriesId: item.seriesId,
+              seriesName: item.seriesName,
+              bookNumber: item.bookNumber,
+              coverImageUrl: item.coverImageUrl,
+              testNumbers: new Set()
+            }
+          }
+          acc[bKey].testNumbers.add(item.testNumber)
+          return acc
+        }, {})
+
+        const normalizedBooks = Object.values(booksMap).map(b => ({
+          ...b,
+          testCount: b.testNumbers.size,
+          title: `${b.seriesName} ${b.bookNumber}`
+        }))
+
+        const rows = normalizedBooks.reduce((acc, book) => {
+          const sId = book.seriesId
+          if (!acc[sId]) {
+            acc[sId] = {
+              name: book.seriesName,
+              books: []
+            }
+          }
+          acc[sId].books.push(book)
+          return acc
+        }, {})
+
+        Object.values(rows).forEach(row => {
+          row.books.sort((a, b) => b.bookNumber - a.bookNumber)
+        })
+
+        setGroupedData(rows)
+        setLoading(false)
+      })
+      .catch(() => {
+        setFetchError(true)
+        setLoading(false)
+      })
+  }, [])
+
+  return (
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-background)' }}>
       <Navbar />
 
-      {/* Header */}
-      <div style={{ background: 'linear-gradient(135deg, #fff 0%, #eff6ff 50%, #fff 100%)', borderBottom: '1px solid #e2e8f0' }}>
-        <div className="max-w-6xl mx-auto px-6 py-10">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 16, background: '#eff6ff', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>📚</div>
+      <div style={{ background: '#0B2345' }}>
+        <div className="app-container py-12">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+            <div style={{ width: 56, height: 56, borderRadius: 'var(--radius-lg)', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>📚</div>
             <div>
-              <h1 style={{ fontSize: 24, fontWeight: 800, color: '#1e3a5f', margin: 0 }}>IELTS Full Test</h1>
-              <p style={{ fontSize: 14, color: '#64748b', margin: 0, marginTop: 2 }}>Luyện đầy đủ 4 kỹ năng theo từng bộ đề Cambridge IELTS</p>
+              <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 30, fontWeight: 700, color: '#FFFFFF', margin: 0, letterSpacing: '-0.02em' }}>IELTS Full Test</h1>
+              <p style={{ fontFamily: 'var(--font-body)', color: '#94A3B8', marginTop: 4, fontWeight: 500 }}>Luyện tập trọn bộ 4 kỹ năng với kho đề thi chính thức</p>
             </div>
           </div>
-          {!loading && series && (
-            <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-              <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 10, padding: '5px 14px', fontSize: 13, fontWeight: 700, color: '#1a56db' }}>
-                {series.length} bộ đề
-              </div>
-              <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 10, padding: '5px 14px', fontSize: 13, fontWeight: 700, color: '#1a56db' }}>
-                {totalTests} full tests
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Content */}
-      <div className="max-w-6xl mx-auto px-6 py-8" style={{ display: 'flex', flexDirection: 'column', gap: 40 }}>
-        {loading ? (
-          <>
-            <div>
-              <div style={{ height: 24, width: 200, background: '#e2e8f0', borderRadius: 6, marginBottom: 20 }} />
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-4">
-                {[0,1,2,3,4].map(i => <SkeletonCard key={i} />)}
-              </div>
+      <div className="app-container section-py relative">
+        <Breadcrumb items={[{ label: 'Trang chủ', to: '/' }, { label: 'IELTS Full Test' }]} />
+        {fetchError ? (
+          <div className="text-center py-20 px-6 bg-white rounded-[24px] border border-slate-200 shadow-sm flex flex-col items-center">
+            <div className="w-16 h-16 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center mb-6 text-slate-400">
+              <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
             </div>
-          </>
-        ) : series?.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '80px 0' }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>📭</div>
-            <p style={{ fontWeight: 700, color: '#374151', marginBottom: 4 }}>Chưa có bộ đề nào</p>
-            <p style={{ fontSize: 14, color: '#9ca3af' }}>Admin cần tạo bộ đề trong trang quản trị</p>
+            <p className="text-[18px] font-bold text-slate-900 mb-2" style={{ fontFamily: 'var(--font-display)' }}>Không thể tải dữ liệu</p>
+            <p className="text-[14px] text-slate-600 mb-6 max-w-sm" style={{ fontFamily: 'var(--font-body)' }}>Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
+            <button className="btn-primary px-8 py-3 text-[14px] font-bold" onClick={() => window.location.reload()}>Thử lại</button>
           </div>
-        ) : (
-          groupKeys.map(typeKey => (
-            <section key={typeKey}>
-              {/* Section header */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1e3a5f', margin: 0 }}>
-                    {getTypeLabel(typeKey)}
-                  </h2>
-                  <span style={{ fontSize: 12, fontWeight: 600, background: '#eff6ff', color: '#1a56db', padding: '2px 8px', borderRadius: 20, border: '1px solid #bfdbfe' }}>
-                    {grouped[typeKey].length} bộ
-                  </span>
+        ) : loading ? (
+          <div className="flex flex-col gap-12">
+            {[1, 2].map(i => (
+              <div key={i}>
+                <div className="h-7 w-48 bg-slate-200 animate-pulse rounded-md mb-6" />
+                <div className="flex gap-6 overflow-hidden">
+                  {[1, 2, 3, 4, 5, 6].map(j => (
+                    <SkeletonCard key={j} />
+                  ))}
                 </div>
               </div>
-
-              {/* Series cards row */}
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
-                {grouped[typeKey].map(item => {
-                  const isHighlighted = searchParams.get('series') === String(item.id)
-                  return (
-                    <div
-                      key={item.id}
-                      ref={el => { if (isHighlighted && el) sectionRefs.current[item.id] = el }}
-                      style={{
-                        outline: isHighlighted ? '2px solid #1a56db' : 'none',
-                        borderRadius: 13,
-                        transition: 'outline 0.3s',
-                      }}
-                    >
-                      <SeriesCard item={item} onClick={() => navigate(`/full-test/${item.id}`)} />
-                    </div>
-                  )
-                })}
-              </div>
-            </section>
+            ))}
+          </div>
+        ) : Object.keys(groupedData).length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '80px 0', background: 'var(--color-surface)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-xs)' }}>
+            <div style={{ fontSize: 56, marginBottom: 24 }}>📭</div>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: 'var(--color-heading)', margin: '0 0 8px' }}>Chưa có bộ đề nào</h3>
+            <p style={{ fontFamily: 'var(--font-body)', color: 'var(--color-body)', fontSize: 14 }}>Dữ liệu đang được cập nhật, vui lòng quay lại sau.</p>
+          </div>
+        ) : (
+          Object.values(groupedData).map((series) => (
+            <SeriesRow
+              key={series.name}
+              title={series.name}
+              count={`${series.books.length} cuốn`}
+            >
+              {series.books.map(book => (
+                <div key={`${book.seriesId}-${book.bookNumber}`} className="flex-shrink-0 shrink-0 w-[180px] sm:w-[200px]" style={{ scrollSnapAlign: 'start' }}>
+                  <SeriesCard
+                    item={book}
+                    onClick={() => navigate(`/full-test/${book.seriesId}?book=${book.bookNumber}`)}
+                  />
+                </div>
+              ))}
+            </SeriesRow>
           ))
         )}
       </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Custom premium scrollbar for the horizontal list */
+        .custom-scrollbar::-webkit-scrollbar {
+          height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: var(--color-border);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: var(--color-body);
+        }
+      `}} />
     </div>
   )
 }

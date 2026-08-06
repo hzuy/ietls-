@@ -18,7 +18,8 @@ export const uploadSeriesCover = (seriesId, bookNumber, formData) =>
   }).then(r => r.data)
 
 // ─── Exams ────────────────────────────────────────────────────────────────────
-export const getExams = () => api.get('/admin/exams').then(r => r.data)
+export const getExams = (params) => api.get('/admin/exams', { params }).then(r => r.data)
+export const getExamCounts = () => api.get('/admin/exams/counts').then(r => r.data)
 export const getExam = (id) => api.get(`/admin/exams/${id}`).then(r => r.data)
 export const createReadingExam = (payload) => api.post('/admin/exams/reading', payload).then(r => r.data)
 export const createListeningExam = (payload) => api.post('/admin/exams/listening', payload).then(r => r.data)
@@ -59,6 +60,9 @@ export const submitReadingExam = (id, answers) => api.post(`/reading/exams/${id}
 export const submitListeningExam = (id, answers) => api.post(`/listening/exams/${id}/submit`, { answers }).then(r => r.data)
 export const submitWritingExam = (id, taskId, essay) => api.post(`/writing/exams/${id}/submit`, { taskId, essay }).then(r => r.data)
 export const submitSpeakingExam = (id, partId, transcript) => api.post(`/speaking/exams/${id}/submit`, { partId, transcript }).then(r => r.data)
+
+export const getWritingStatus = (answerId) => api.get(`/writing/answers/${answerId}/status`).then(r => r.data)
+export const getSpeakingStatus = (answerId) => api.get(`/speaking/answers/${answerId}/status`).then(r => r.data)
 
 export const getFullTestStatus = (examId) => api.get(`/full-test/status?examId=${examId}`).then(r => r.data)
 export const getFullTestResult = (seriesId, bookNumber, testNumber) =>

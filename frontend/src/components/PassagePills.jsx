@@ -13,9 +13,9 @@ export default function PassagePills({ items, activeIndex, onChange }) {
         const isActive   = activeIndex === i
         const isComplete = item.answered === item.total && item.total > 0
 
-        const bgColor     = isActive ? '#1e3a5f' : isComplete ? '#eff6ff' : 'transparent'
-        const borderColor = isActive ? '#1e3a5f' : isComplete ? '#bfdbfe' : 'transparent'
-        const textColor   = isActive ? '#ffffff'  : isComplete ? '#1a56db' : '#94a3b8'
+        const bgColor     = isActive ? 'var(--ink)' : isComplete ? 'var(--primary-light)' : 'transparent'
+        const borderColor = isActive ? 'var(--ink)' : isComplete ? 'var(--border)' : 'transparent'
+        const textColor   = isActive ? '#ffffff' : isComplete ? 'var(--primary)' : 'var(--subtle)'
 
         return (
           <button
@@ -24,8 +24,9 @@ export default function PassagePills({ items, activeIndex, onChange }) {
             style={{
               fontSize: 12,
               fontWeight: isActive ? 600 : 400,
+              fontFamily: 'var(--font-body)',
               padding: '6px 14px',
-              borderRadius: 8,
+              borderRadius: 'var(--radius-sm)',
               border: `1.5px solid ${borderColor}`,
               backgroundColor: bgColor,
               color: textColor,
@@ -40,9 +41,9 @@ export default function PassagePills({ items, activeIndex, onChange }) {
             onMouseEnter={e => {
               if (!isActive) {
                 e.currentTarget.style.transform = 'translateY(-4px)'
-                e.currentTarget.style.backgroundColor = '#f1f5f9'
-                e.currentTarget.style.color = '#1e3a5f'
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)'
+                e.currentTarget.style.backgroundColor = 'var(--surface-raised)'
+                e.currentTarget.style.color = 'var(--ink)'
+                e.currentTarget.style.boxShadow = 'var(--shadow-sm)'
               }
             }}
             onMouseLeave={e => {
@@ -55,7 +56,7 @@ export default function PassagePills({ items, activeIndex, onChange }) {
             }}
           >
             <span>{item.label}</span>
-            <span style={{ fontSize: 11, opacity: isActive ? 0.75 : 0.5 }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, opacity: isActive ? 0.75 : 0.5 }}>
               {item.answered}/{item.total}
             </span>
           </button>

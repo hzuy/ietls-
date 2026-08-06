@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { login, register } from '../services/userService'
 
@@ -61,8 +61,16 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
     }
   }
 
-  const inputStyle = { border: '1.5px solid #e2e8f0', color: '#1e293b' }
-  const inputCls   = 'w-full rounded-xl px-4 py-3 text-sm outline-none transition-all'
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
+  const inputStyle = { border: '1px solid var(--border)', color: 'var(--text)' }
+  const inputCls   = 'w-full rounded-xl px-4 py-3 text-sm outline-none transition-all duration-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'
 
   return (
     <div
@@ -72,37 +80,47 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
       <div
         onClick={e => e.stopPropagation()}
         className="w-full max-w-md rounded-2xl p-8 relative"
-        style={{ backgroundColor: 'white', boxShadow: '0 8px 40px rgba(0,0,0,0.18)', border: '1px solid #e2e8f0' }}
+        style={{ backgroundColor: 'var(--surface)', boxShadow: 'var(--shadow-lg)', border: '1px solid var(--border)' }}
       >
         {/* Nút X */}
         <button
           onClick={onClose}
-          style={{ position: 'absolute', top: 14, right: 18, color: '#94a3b8', fontSize: 22, lineHeight: 1 }}
+          aria-label="Đóng"
+          style={{ position: 'absolute', top: 14, right: 18, color: 'var(--subtle)', fontSize: 22, lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer' }}
           className="font-bold hover:text-gray-600 transition-colors"
         >
           ×
         </button>
 
         {/* Logo */}
-        <div className="flex items-center gap-2 mb-6">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white shadow-sm border border-slate-100">
-            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: '#0066FF' }}></div>
+        <div className="flex items-center justify-center gap-2 mb-6">
+          <div style={{
+            width: 32, height: 32, borderRadius: '50%',
+            background: '#2563EB',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(37,99,235,0.3)', flexShrink: 0,
+          }}>
+            <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#fff' }} />
           </div>
-          <span className="font-bold text-lg tracking-tight" style={{ color: '#1e3a5f' }}>
-            IELTS<span style={{ color: '#1a56db' }}>PRO</span>
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, letterSpacing: '-0.02em', color: '#0B2345' }} className="whitespace-nowrap">
+            IELTS<span style={{ color: '#2563EB', fontWeight: 500 }}>Pro</span>
           </span>
         </div>
 
         {/* Tabs */}
-        <div className="flex mb-6" style={{ borderBottom: '1px solid #e2e8f0' }}>
+        <div className="flex mb-6" style={{ borderBottom: '1px solid var(--border)' }}>
           {['login', 'register'].map(t => (
             <button
               key={t}
               onClick={() => onTabChange(t)}
               className="pb-3 px-1 mr-6 text-sm font-bold transition-colors"
               style={{
-                borderBottom: tab === t ? '2px solid #1a56db' : '2px solid transparent',
-                color: tab === t ? '#1a56db' : '#94a3b8',
+                fontFamily: 'var(--font-body)',
+                borderBottom: tab === t ? '2px solid var(--primary)' : '2px solid transparent',
+                color: tab === t ? 'var(--primary)' : 'var(--subtle)',
+                background: 'none', border: 'none',
+                borderBottom: tab === t ? '2px solid var(--primary)' : '2px solid transparent',
+                cursor: 'pointer', paddingBottom: 12, paddingLeft: 4, paddingRight: 4, marginRight: 24,
               }}
             >
               {t === 'login' ? 'Đăng nhập' : 'Đăng ký'}
@@ -110,138 +128,131 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
           ))}
         </div>
 
-        {/* ── LOGIN ── */}
+        {/* LOGIN */}
         {tab === 'login' && (
           <>
-            <h2 className="text-xl font-extrabold mb-1" style={{ color: '#1e3a5f' }}>Đăng nhập</h2>
-            <p className="text-sm mb-5" style={{ color: '#64748b' }}>Chào mừng bạn quay lại!</p>
+            <h2 className="text-xl font-extrabold mb-1" style={{ fontFamily: 'var(--font-display)', color: 'var(--ink)' }}>Đăng nhập</h2>
+            <p className="text-sm mb-5" style={{ fontFamily: 'var(--font-body)', color: 'var(--muted)' }}>Chào mừng bạn quay lại!</p>
 
             {loginError && (
-              <div className="p-3 rounded-xl mb-4 text-sm font-semibold" style={{ backgroundColor: '#eff6ff', color: '#1a56db', border: '1px solid #fecaca' }}>
-                {loginError}
+              <div role="alert" className="p-3 rounded-xl mb-4 text-sm font-medium bg-red-50 border border-red-200 text-red-600" style={{ fontFamily: 'var(--font-body)' }}>
+                ⚠️ {loginError}
               </div>
             )}
 
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: '#1e293b' }}>Email</label>
+                <label htmlFor="login-email" className="block text-sm font-bold mb-1.5" style={{ fontFamily: 'var(--font-body)', color: 'var(--text)' }}>Email</label>
                 <input
+                  id="login-email"
                   type="email"
                   className={inputCls}
                   style={inputStyle}
                   placeholder="example@gmail.com"
                   value={loginForm.email}
                   onChange={e => setLoginForm({ ...loginForm, email: e.target.value })}
-                  onFocus={e => e.currentTarget.style.borderColor = '#1a56db'}
-                  onBlur={e => e.currentTarget.style.borderColor = '#e2e8f0'}
                   required
+                  autoFocus
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: '#1e293b' }}>Mật khẩu</label>
+                <label htmlFor="login-password" className="block text-sm font-bold mb-1.5" style={{ fontFamily: 'var(--font-body)', color: 'var(--text)' }}>Mật khẩu</label>
                 <input
+                  id="login-password"
                   type="password"
                   className={inputCls}
                   style={inputStyle}
                   placeholder="••••••••"
                   value={loginForm.password}
                   onChange={e => setLoginForm({ ...loginForm, password: e.target.value })}
-                  onFocus={e => e.currentTarget.style.borderColor = '#1a56db'}
-                  onBlur={e => e.currentTarget.style.borderColor = '#e2e8f0'}
                   required
                 />
               </div>
               <button
                 type="submit"
                 disabled={loginLoading}
-                className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all mt-2"
-                style={{ backgroundColor: loginLoading ? '#93c5fd' : '#1a56db' }}
-                onMouseEnter={e => { if (!loginLoading) e.currentTarget.style.backgroundColor = '#1d4ed8' }}
-                onMouseLeave={e => { if (!loginLoading) e.currentTarget.style.backgroundColor = '#1a56db' }}
+                className="w-full py-3 rounded-xl text-sm font-bold btn-primary mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                style={{ fontFamily: 'var(--font-body)' }}
               >
                 {loginLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
               </button>
             </form>
 
-            <p className="text-center text-sm mt-5" style={{ color: '#64748b' }}>
+            <p className="text-center text-sm mt-5" style={{ fontFamily: 'var(--font-body)', color: 'var(--muted)' }}>
               Chưa có tài khoản?{' '}
-              <button onClick={() => onTabChange('register')} className="font-bold" style={{ color: '#1a56db' }}>
+              <button onClick={() => onTabChange('register')} className="font-bold" style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}>
                 Đăng ký ngay
               </button>
             </p>
           </>
         )}
 
-        {/* ── REGISTER ── */}
+        {/* REGISTER */}
         {tab === 'register' && (
           <>
-            <h2 className="text-xl font-extrabold mb-1" style={{ color: '#1e3a5f' }}>Tạo tài khoản</h2>
-            <p className="text-sm mb-5" style={{ color: '#64748b' }}>Miễn phí, không cần thẻ tín dụng</p>
+            <h2 className="text-xl font-extrabold mb-1" style={{ fontFamily: 'var(--font-display)', color: 'var(--ink)' }}>Tạo tài khoản</h2>
+            <p className="text-sm mb-5" style={{ fontFamily: 'var(--font-body)', color: 'var(--muted)' }}>Miễn phí, không cần thẻ tín dụng</p>
 
             {regError && (
-              <div className="p-3 rounded-xl mb-4 text-sm font-semibold" style={{ backgroundColor: '#eff6ff', color: '#1a56db', border: '1px solid #fecaca' }}>
-                {regError}
+              <div role="alert" className="p-3 rounded-xl mb-4 text-sm font-medium bg-red-50 border border-red-200 text-red-600" style={{ fontFamily: 'var(--font-body)' }}>
+                ⚠️ {regError}
               </div>
             )}
 
             <form onSubmit={handleRegister} className="space-y-4">
               <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: '#1e293b' }}>Họ và tên</label>
+                <label htmlFor="reg-name" className="block text-sm font-bold mb-1.5" style={{ fontFamily: 'var(--font-body)', color: 'var(--text)' }}>Họ và tên</label>
                 <input
+                  id="reg-name"
                   type="text"
                   className={inputCls}
                   style={inputStyle}
                   placeholder="Nguyễn Văn A"
                   value={regForm.name}
                   onChange={e => setRegForm({ ...regForm, name: e.target.value })}
-                  onFocus={e => e.currentTarget.style.borderColor = '#1a56db'}
-                  onBlur={e => e.currentTarget.style.borderColor = '#e2e8f0'}
                   required
+                  autoFocus
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: '#1e293b' }}>Email</label>
+                <label htmlFor="reg-email" className="block text-sm font-bold mb-1.5" style={{ fontFamily: 'var(--font-body)', color: 'var(--text)' }}>Email</label>
                 <input
+                  id="reg-email"
                   type="email"
                   className={inputCls}
                   style={inputStyle}
                   placeholder="example@gmail.com"
                   value={regForm.email}
                   onChange={e => setRegForm({ ...regForm, email: e.target.value })}
-                  onFocus={e => e.currentTarget.style.borderColor = '#1a56db'}
-                  onBlur={e => e.currentTarget.style.borderColor = '#e2e8f0'}
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: '#1e293b' }}>Mật khẩu</label>
+                <label htmlFor="reg-password" className="block text-sm font-bold mb-1.5" style={{ fontFamily: 'var(--font-body)', color: 'var(--text)' }}>Mật khẩu</label>
                 <input
+                  id="reg-password"
                   type="password"
                   className={inputCls}
                   style={inputStyle}
                   placeholder="Tối thiểu 8 ký tự"
                   value={regForm.password}
                   onChange={e => setRegForm({ ...regForm, password: e.target.value })}
-                  onFocus={e => e.currentTarget.style.borderColor = '#1a56db'}
-                  onBlur={e => e.currentTarget.style.borderColor = '#e2e8f0'}
                   required
                 />
               </div>
               <button
                 type="submit"
                 disabled={regLoading}
-                className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all mt-2"
-                style={{ backgroundColor: regLoading ? '#93c5fd' : '#1a56db' }}
-                onMouseEnter={e => { if (!regLoading) e.currentTarget.style.backgroundColor = '#1d4ed8' }}
-                onMouseLeave={e => { if (!regLoading) e.currentTarget.style.backgroundColor = '#1a56db' }}
+                className="w-full py-3 rounded-xl text-sm font-bold btn-primary mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                style={{ fontFamily: 'var(--font-body)' }}
               >
                 {regLoading ? 'Đang tạo tài khoản...' : 'Đăng ký miễn phí'}
               </button>
             </form>
 
-            <p className="text-center text-sm mt-5" style={{ color: '#64748b' }}>
+            <p className="text-center text-sm mt-5" style={{ fontFamily: 'var(--font-body)', color: 'var(--muted)' }}>
               Đã có tài khoản?{' '}
-              <button onClick={() => onTabChange('login')} className="font-bold" style={{ color: '#1a56db' }}>
+              <button onClick={() => onTabChange('login')} className="font-bold" style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}>
                 Đăng nhập
               </button>
             </p>

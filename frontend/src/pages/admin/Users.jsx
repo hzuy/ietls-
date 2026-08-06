@@ -2,7 +2,10 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAdminUsers, toggleUserLock, deleteAdminUser } from '../../services/adminService'
 import AdminLayout from '../../components/AdminLayout'
+
 import { roundIELTS } from '../../utils/ielts'
+
+import { useDebounce } from '../../hooks/useDebounce'
 
 function fmtDate(iso) {
   if (!iso) return '—'
@@ -18,16 +21,19 @@ function avatarInitials(name) {
 }
 
 const AVATAR_COLORS = [
-  'bg-[#1a56db]', 'bg-green-500', 'bg-purple-500', 'bg-orange-500',
+  'bg-[#1D4ED8]', 'bg-green-500', 'bg-purple-500', 'bg-orange-500',
   'bg-pink-500', 'bg-indigo-500', 'bg-teal-500', 'bg-cyan-600',
 ]
 
 export default function Users() {
   const [users, setUsers]           = useState([])
   const [total, setTotal]           = useState(0)
+  const [totalActive, setTotalActive] = useState(0)
+  const [totalLocked, setTotalLocked] = useState(0)
   const [pages, setPages]           = useState(1)
   const [page, setPage]             = useState(1)
   const [search, setSearch]         = useState('')
+  const debouncedSearch             = useDebounce(search, 400)
   const [loading, setLoading]       = useState(true)
   const [togglingId, setTogglingId] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
@@ -40,11 +46,17 @@ export default function Users() {
 
   const fetchUsers = useCallback(() => {
     setLoading(true)
-    getAdminUsers({ search, page, limit: 10 })
-      .then(data => { setUsers(data.users); setTotal(data.total); setPages(data.pages) })
+    getAdminUsers({ search: debouncedSearch, page, limit: 10 })
+      .then(data => {
+        setUsers(data.users)
+        setTotal(data.total)
+        setPages(data.pages)
+        if (data.totalActive != null) setTotalActive(data.totalActive)
+        if (data.totalLocked != null) setTotalLocked(data.totalLocked)
+      })
       .catch(err => { if (err.response?.status === 403) navigate('/') })
       .finally(() => setLoading(false))
-  }, [search, page])
+  }, [debouncedSearch, page])
 
   useEffect(() => { fetchUsers() }, [fetchUsers])
 
@@ -66,9 +78,9 @@ export default function Users() {
     } catch (err) { alert(err.response?.data?.message || 'Lỗi xóa') }
   }
 
-  // Stats từ danh sách hiện có
-  const activeCount = users.filter(u => !u.isLocked).length
-  const lockedCount = users.filter(u => u.isLocked).length
+  // Stats từ DB (toàn hệ thống, không phụ thuộc trang hiện tại)
+  const activeCount = totalActive
+  const lockedCount = totalLocked
 
   // Client-side filter + sort (áp dụng trên trang hiện tại)
   const displayedUsers = useMemo(() => {
@@ -100,14 +112,14 @@ export default function Users() {
         {/* ── Stats row ──────────────────────────────────── */}
         <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100">
-            <div className="text-2xl font-bold text-[#1a56db]">{total}</div>
+            <div className="text-2xl font-bold text-[#1D4ED8]">{total}</div>
             <div className="text-xs text-gray-500 mt-1 font-medium">Tổng người dùng</div>
           </div>
           <div className="bg-green-50 rounded-2xl p-4 border border-green-100">
             <div className="text-2xl font-bold text-green-600">{activeCount}</div>
             <div className="text-xs text-gray-500 mt-1 font-medium">Đang hoạt động</div>
           </div>
-          <div className="bg-red-50 rounded-2xl p-4 border border-red-100">
+          <div className="bg-blue-50 rounded-2xl p-4 border border-red-100">
             <div className="text-2xl font-bold text-red-500">{lockedCount}</div>
             <div className="text-xs text-gray-500 mt-1 font-medium">Bị khóa</div>
           </div>
@@ -121,12 +133,12 @@ export default function Users() {
               placeholder="Tìm tên / email..."
               value={search}
               onChange={e => { setSearch(e.target.value); setPage(1) }}
-              className="w-[220px] px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db]"
+              className="w-[220px] px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1D4ED8]"
             />
             <select
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db]">
+              className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1D4ED8]">
               <option value="">Tất cả trạng thái</option>
               <option value="active">Hoạt động</option>
               <option value="locked">Không hoạt động</option>
@@ -134,7 +146,7 @@ export default function Users() {
             <select
               value={sortBy}
               onChange={e => setSortBy(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db]">
+              className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1D4ED8]">
               <option value="newest">Mới nhất</option>
               <option value="oldest">Cũ nhất</option>
               <option value="az">A → Z</option>
@@ -147,7 +159,7 @@ export default function Users() {
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center h-32">
-              <div className="w-7 h-7 border-4 border-[#1a56db] border-t-transparent rounded-full animate-spin" />
+              <div className="w-7 h-7 border-4 border-[#1D4ED8] border-t-transparent rounded-full animate-spin" />
             </div>
           ) : displayedUsers.length === 0 ? (
             <p className="text-center text-gray-400 py-12 text-sm">Không có người dùng nào</p>
@@ -198,7 +210,7 @@ export default function Users() {
                         {/* Trạng thái */}
                         <td className="px-4 py-3">
                           {u.isLocked
-                            ? <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-600">Không HĐ</span>
+                            ? <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-600">Không HĐ</span>
                             : <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Hoạt động</span>
                           }
                         </td>
@@ -243,7 +255,7 @@ export default function Users() {
                             </button>
                             <button
                               onClick={() => setConfirmDelete({ id: u.id, name: u.name })}
-                              className="px-2.5 py-1 rounded-lg text-xs border border-red-200 text-red-500 hover:bg-red-50 transition">
+                              className="px-2.5 py-1 rounded-lg text-xs border border-blue-200 text-red-500 hover:bg-blue-50 transition">
                               Xoá
                             </button>
                           </div>
@@ -302,7 +314,7 @@ export default function Users() {
               </button>
               <button
                 onClick={handleDelete}
-                className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition">
+                className="px-4 py-2 rounded-xl bg-blue-500 text-white text-sm font-bold hover:bg-blue-600 transition">
                 Xóa
               </button>
             </div>

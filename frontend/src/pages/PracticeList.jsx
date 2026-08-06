@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
+import Breadcrumb from '../components/common/Breadcrumb'
+import { getTypesBySkill } from '../utils/questionTypes'
 
 const BACKEND_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '')
 const API_BASE = BACKEND_URL + '/api'
@@ -11,28 +13,18 @@ const SKILL_META = {
     icon: '📖',
     label: 'Reading Practice',
     sub: '3 đoạn văn · 40 câu hỏi · 60 phút',
-    accentBg: '#eff6ff',
-    accentBorder: '#bfdbfe',
-    accentColor: '#1a56db',
-    headerGradient: 'linear-gradient(135deg, #fff 0%, #eff6ff 50%, #fff 100%)',
-    buttonColor: '#1a56db',
-    buttonHover: '#1d4ed8',
-    cardBorderHover: '#93c5fd',
-    cardShadowHover: 'rgba(26,86,219,0.10)',
+    colorVar: '--skill-r-color',
+    bgVar: '--skill-r-bg',
+    borderVar: '--skill-r-border',
     path: '/practice/reading',
   },
   listening: {
     icon: '🎧',
     label: 'Listening Practice',
     sub: '4 phần · 40 câu hỏi · 30 phút',
-    accentBg: '#f0fdf4',
-    accentBorder: '#bbf7d0',
-    accentColor: '#15803d',
-    headerGradient: 'linear-gradient(135deg, #fff 0%, #f0fdf4 50%, #fff 100%)',
-    buttonColor: '#15803d',
-    buttonHover: '#166534',
-    cardBorderHover: '#6ee7b7',
-    cardShadowHover: 'rgba(16,185,129,0.10)',
+    colorVar: '--skill-l-color',
+    bgVar: '--skill-l-bg',
+    borderVar: '--skill-l-border',
     path: '/practice/listening',
   },
 }
@@ -40,50 +32,39 @@ const SKILL_META = {
 function ThumbPlaceholder({ skill }) {
   const meta = SKILL_META[skill]
   return (
-    <div style={{ width: '100%', aspectRatio: '16/9', background: meta.accentBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ width: '100%', height: '160px', background: `var(${meta.bgVar})`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <span style={{ fontSize: 32 }}>{meta.icon}</span>
     </div>
   )
 }
 
 function PracticeCard({ item, skill, onClick }) {
-  const [hovered, setHovered] = useState(false)
   const meta = SKILL_META[skill]
   const img = resolveImg(item.thumbnailUrl)
 
   return (
     <div
       onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        background: 'white',
-        border: `1px solid ${hovered ? meta.cardBorderHover : '#e2e8f0'}`,
-        borderRadius: 12, overflow: 'hidden', cursor: 'pointer',
-        transform: hovered ? 'translateY(-3px)' : 'none',
-        boxShadow: hovered ? `0 8px 24px ${meta.cardShadowHover}` : '0 2px 6px rgba(0,0,0,0.04)',
-        transition: 'transform 0.2s, box-shadow 0.2s, border-color 0.2s',
-        display: 'flex', flexDirection: 'column',
-      }}
+      className="card-base cursor-pointer hover:shadow-md transition-all duration-300 flex flex-col h-full overflow-hidden"
     >
-      {img
-        ? <div style={{ width: '100%', aspectRatio: '16/9', overflow: 'hidden' }}>
-            <img src={img} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-          </div>
-        : <ThumbPlaceholder skill={skill} />
-      }
-      <div style={{ padding: '14px 16px', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <p style={{ fontWeight: 700, fontSize: 14, color: '#1e3a5f', margin: 0, lineHeight: 1.4 }}>{item.title}</p>
-        <div style={{ display: 'flex', gap: 10, fontSize: 12, color: '#94a3b8' }}>
-          {item.questionCount > 0 && <span>{item.questionCount} câu hỏi</span>}
+      <div className="w-full h-40 overflow-hidden shrink-0">
+        {img
+          ? <img src={img} alt={item.title} className="w-full h-full object-cover block" />
+          : <ThumbPlaceholder skill={skill} />
+        }
+      </div>
+
+      <div className="p-4 flex flex-col flex-1 gap-3">
+        <p className="font-semibold text-slate-900 text-[15px] leading-snug m-0 line-clamp-2 min-h-[44px]" style={{ fontFamily: 'var(--font-body)' }}>
+          {item.title}
+        </p>
+
+        <div className="flex gap-2 text-[13px] text-slate-600 mt-auto" style={{ fontFamily: 'var(--font-body)' }}>
+          {item.questionCount > 0 && <span className="font-mono">{item.questionCount} câu hỏi</span>}
         </div>
+
         <button
-          style={{
-            marginTop: 4, padding: '7px 0', borderRadius: 8, border: 'none',
-            background: hovered ? meta.buttonHover : meta.buttonColor,
-            color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            transition: 'background 0.15s',
-          }}
+          className="btn-primary w-full py-2 text-[13px] font-bold mt-2"
         >
           Làm bài →
         </button>
@@ -94,48 +75,65 @@ function PracticeCard({ item, skill, onClick }) {
 
 function SkeletonCard() {
   return (
-    <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
-      <div style={{ width: '100%', aspectRatio: '16/9', background: '#f1f5f9' }} />
-      <div style={{ padding: '14px 16px' }}>
-        <div style={{ height: 14, background: '#f1f5f9', borderRadius: 4, marginBottom: 8 }} />
-        <div style={{ height: 12, background: '#f1f5f9', borderRadius: 4, width: '55%', marginBottom: 12 }} />
-        <div style={{ height: 32, background: '#f1f5f9', borderRadius: 8 }} />
+    <div className="card-base flex flex-col h-full overflow-hidden">
+      <div className="w-full h-40 shrink-0 bg-slate-200 animate-pulse" />
+      <div className="p-4 flex flex-col flex-1 gap-3">
+        <div className="h-[44px] bg-slate-200 animate-pulse rounded w-full" />
+        <div className="h-5 bg-slate-200 animate-pulse rounded w-[55%] mt-auto" />
+        <div className="h-9 bg-slate-200 animate-pulse rounded-xl mt-2" />
       </div>
     </div>
   )
 }
 
-export default function PracticeList({ skill }) {
+export default function PracticeList({ skill: skillKey }) {
   const navigate = useNavigate()
   const [exams, setExams] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+  const skill = SKILL_META[skillKey] ? skillKey : 'reading'
   const meta = SKILL_META[skill]
+  const availableTypes = getTypesBySkill(skill)
 
   useEffect(() => {
-    fetch(API_BASE + `/practice/${skill}?limit=0`)
-      .then(r => r.ok ? r.json() : [])
+    setLoading(true)
+    setError(false)
+    document.title = 'Luyện tập Kỹ năng | IELTS Pro'
+    fetch(`${API_BASE}/practice/${skill}?limit=0`)
+      .then(r => {
+        if (!r.ok) throw new Error('API Error')
+        return r.json()
+      })
       .then(data => { setExams(data); setLoading(false) })
-      .catch(() => { setExams([]); setLoading(false) })
+      .catch(() => { setError(true); setLoading(false) })
   }, [skill])
 
+  const groupedExams = availableTypes.map(type => ({
+    ...type,
+    items: exams.filter(e => e.type === type.key)
+  })).filter(group => group.items.length > 0)
+
+  const otherExams = exams.filter(e => !availableTypes.some(t => t.key === e.type))
+
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#f0f4f8' }}>
+    <div className="min-h-screen bg-slate-50">
       <Navbar />
 
-      {/* Header */}
-      <div style={{ background: meta.headerGradient, borderBottom: '1px solid #e2e8f0' }}>
-        <div className="max-w-6xl mx-auto px-6 py-10">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 10 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 16, background: meta.accentBg, border: `1px solid ${meta.accentBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>
+      {/* Header Area */}
+      <div className="bg-slate-50 border-b border-slate-200">
+        <div className="app-container py-12">
+          <Breadcrumb items={[{ label: 'Trang chủ', to: '/' }, { label: 'Practice' }, { label: meta?.label || 'Reading' }]} />
+          <div className="flex items-center gap-4 mb-2">
+            <div className="w-12 h-12 rounded-[14px] bg-slate-50 border border-slate-200 shadow-sm flex items-center justify-center text-2xl">
               {meta.icon}
             </div>
             <div>
-              <h1 style={{ fontSize: 24, fontWeight: 800, color: '#1e3a5f', margin: 0 }}>{meta.label}</h1>
-              <p style={{ fontSize: 14, color: '#64748b', margin: 0, marginTop: 2 }}>{meta.sub}</p>
+              <h1 className="text-[24px] font-bold text-slate-900 m-0" style={{ fontFamily: 'var(--font-display)' }}>{meta.label}</h1>
+              <p className="text-[15px] text-slate-600 m-0 mt-1" style={{ fontFamily: 'var(--font-body)' }}>{meta.sub}</p>
             </div>
           </div>
           {!loading && (
-            <div style={{ display: 'inline-flex', background: 'white', border: '1px solid #e2e8f0', borderRadius: 10, padding: '5px 14px', fontSize: 13, fontWeight: 700, color: meta.accentColor, marginTop: 4 }}>
+            <div className="inline-flex bg-slate-50 border border-slate-200 rounded-lg px-3 py-1 text-[13px] font-bold text-slate-700 mt-3 font-mono">
               {exams.length} bài luyện tập
             </div>
           )}
@@ -143,28 +141,75 @@ export default function PracticeList({ skill }) {
       </div>
 
       {/* Content */}
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="app-container section-py flex flex-col gap-12">
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[0,1,2,3,4,5,6,7].map(i => <SkeletonCard key={i} />)}
           </div>
+        ) : error ? (
+          <div className="text-center py-20 px-6 bg-white rounded-[24px] border border-slate-200 shadow-sm flex flex-col items-center">
+            <div className="w-16 h-16 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center mb-6 text-slate-400">
+              <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            </div>
+            <p className="text-[18px] font-bold text-slate-900 mb-2" style={{ fontFamily: 'var(--font-display)' }}>Không thể tải dữ liệu</p>
+            <p className="text-[14px] text-slate-600 mb-6 max-w-sm" style={{ fontFamily: 'var(--font-body)' }}>Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
+            <button className="btn-primary px-8 py-3 text-[14px] font-bold" onClick={() => window.location.reload()}>Thử lại</button>
+          </div>
         ) : exams.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '80px 0', background: 'white', borderRadius: 16, border: '1px solid #e2e8f0' }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>📭</div>
-            <p style={{ fontWeight: 700, color: '#374151', marginBottom: 4 }}>Chưa có bài luyện tập nào</p>
-            <p style={{ fontSize: 14, color: '#9ca3af' }}>Admin cần thêm bài trong trang quản trị</p>
+          <div className="text-center py-20 px-6 bg-white rounded-[24px] border border-slate-200 shadow-sm flex flex-col items-center">
+            <div className="w-16 h-16 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center mb-6 text-slate-400">
+              <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+            </div>
+            <p className="text-[18px] font-bold text-slate-900 mb-2" style={{ fontFamily: 'var(--font-display)' }}>Không tìm thấy bài luyện tập</p>
+            <p className="text-[14px] text-slate-600 mb-6 max-w-sm" style={{ fontFamily: 'var(--font-body)' }}>Hãy thử lựa chọn cấp độ hoặc kỹ năng khác.</p>
+            <button className="btn-primary px-6 py-2.5 text-[14px] font-bold" onClick={() => navigate('/')}>Về trang chủ</button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-            {exams.map(item => (
-              <PracticeCard
-                key={item.id}
-                item={item}
-                skill={skill}
-                onClick={() => navigate(`/practice/${skill}/${item.id}`)}
-              />
+          <>
+            {groupedExams.map((group, gi) => (
+              <section key={group.key}>
+                <div className="flex items-center gap-3 mb-6">
+                  <h2 className="text-[20px] font-bold text-slate-900 m-0" style={{ fontFamily: 'var(--font-display)' }}>{group.label}</h2>
+                  <span className="font-mono text-[12px] font-bold bg-white text-slate-600 border border-slate-200 px-2.5 py-0.5 rounded-full shadow-sm">
+                    {group.items.length} bài
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
+                  {group.items.map((item, idx) => (
+                    <div key={item.id} className={`anim-fade-up delay-${Math.min(idx + 1, 8)}`}>
+                      <PracticeCard
+                        item={item}
+                        skill={skill}
+                        onClick={() => navigate(`/practice/${skill}/${item.id}`)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </section>
             ))}
-          </div>
+
+            {otherExams.length > 0 && (
+              <section>
+                <div className="flex items-center gap-3 mb-6">
+                  <h2 className="text-[20px] font-bold text-slate-900 m-0" style={{ fontFamily: 'var(--font-display)' }}>Dạng bài khác</h2>
+                  <span className="font-mono text-[12px] font-bold bg-white text-slate-600 border border-slate-200 px-2.5 py-0.5 rounded-full shadow-sm">
+                    {otherExams.length} bài
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
+                  {otherExams.map((item, idx) => (
+                    <div key={item.id} className={`anim-fade-up delay-${Math.min(idx + 1, 8)}`}>
+                      <PracticeCard
+                        item={item}
+                        skill={skill}
+                        onClick={() => navigate(`/practice/${skill}/${item.id}`)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
         )}
       </div>
     </div>

@@ -3,7 +3,10 @@ const multer = require('multer')
 const path = require('path')
 const fs = require('fs')
 const authMiddleware = require('../middleware/auth')
+const validate = require('../middleware/validate')
 const prisma = require('../lib/prisma')
+const { ieltsOverall } = require('../lib/scoreUtils')
+const { createSeriesSchema, updateSeriesSchema } = require('../validators/contentValidator')
 
 const router = express.Router()
 
@@ -30,11 +33,6 @@ const thumbUpload = multer({
 function adminOnly(req, res, next) {
   if (req.user.role !== 'admin') return res.status(403).json({ message: 'Chỉ admin' })
   next()
-}
-
-function ieltsOverall(scores) {
-  const avg = scores.reduce((a, b) => a + b, 0) / scores.length
-  return Math.round(Math.min(9, Math.max(0, avg)) * 2) / 2
 }
 
 // ─── ADMIN routes (must be before /:id) ──────────────────────────────────────
@@ -73,10 +71,9 @@ router.get('/admin/exams-list', authMiddleware, adminOnly, async (req, res) => {
 })
 
 // POST /admin — create series
-router.post('/admin', authMiddleware, adminOnly, async (req, res) => {
+router.post('/admin', authMiddleware, adminOnly, validate(createSeriesSchema), async (req, res) => {
   try {
     const { name, description, type, exams } = req.body
-    if (!name?.trim()) return res.status(400).json({ message: 'Thiếu tên bộ đề' })
     const series = await prisma.series.create({
       data: {
         name: name.trim(),
@@ -94,7 +91,7 @@ router.post('/admin', authMiddleware, adminOnly, async (req, res) => {
 })
 
 // PUT /admin/:id — update series
-router.put('/admin/:id', authMiddleware, adminOnly, async (req, res) => {
+router.put('/admin/:id', authMiddleware, adminOnly, validate(updateSeriesSchema), async (req, res) => {
   try {
     const id = parseInt(req.params.id)
     const { name, description, type, exams } = req.body
@@ -141,6 +138,26 @@ router.post('/admin/:id/thumbnail', authMiddleware, adminOnly,
     }
   }
 )
+
+// GET /admin/:id — fetch single series with full exam data (BUG-10)
+router.get('/admin/:id', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id)
+    const series = await prisma.series.findUnique({
+      where: { id },
+      include: {
+        exams: {
+          include: { exam: { select: { id: true, title: true, skill: true } } },
+          orderBy: { testNumber: 'asc' }
+        }
+      }
+    })
+    if (!series || series.deletedAt) return res.status(404).json({ message: 'Không tìm thấy bộ đề' })
+    res.json(series)
+  } catch (err) {
+    res.status(500).json({ message: 'Lỗi server', error: err.message })
+  }
+})
 
 // ─── PUBLIC routes ────────────────────────────────────────────────────────────
 
@@ -246,13 +263,38 @@ router.get('/', async (req, res) => {
     const series = await prisma.series.findMany({
       where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
-      include: { exams: true }
+      include: { 
+        mappings: {
+          include: {
+            examSeries: {
+              include: {
+                exams: { select: { bookNumber: true } },
+                bookCovers: { select: { bookNumber: true, coverImageUrl: true } }
+              }
+            }
+          }
+        },
+        exams: {
+          include: { exam: { select: { bookNumber: true } } }
+        }
+      }
     })
+    
     const result = series.map(s => {
+      // Collect book numbers from all sources (native exams + mapped admin series)
+      let bookNums = new Set(s.exams.map(e => e.exam?.bookNumber).filter(n => n != null))
+      
+      s.mappings.forEach(m => {
+        m.examSeries.exams.forEach(e => { if (e.bookNumber) bookNums.add(e.bookNumber) })
+        m.examSeries.bookCovers.forEach(bc => bookNums.add(bc.bookNumber))
+      })
+
       const testNums = [...new Set(s.exams.map(e => e.testNumber))]
+      
       return {
         id: s.id, name: s.name, description: s.description,
         thumbnailUrl: s.thumbnailUrl, type: s.type,
+        bookNumbers: Array.from(bookNums).sort((a,b) => b - a),
         testCount: testNums.length, attemptCount: 0, createdAt: s.createdAt
       }
     })
@@ -333,6 +375,23 @@ router.get('/:id', async (req, res) => {
     const series = await prisma.series.findFirst({
       where: { id, deletedAt: null },
       include: {
+        mappings: {
+          include: {
+            examSeries: {
+              include: {
+                exams: {
+                  include: {
+                    passages: { select: { id: true } },
+                    listeningSections: { select: { id: true } },
+                    writingTasks: { select: { id: true } },
+                    speakingParts: { select: { id: true } },
+                    _count: { select: { attempts: true } }
+                  }
+                }
+              }
+            }
+          }
+        },
         exams: {
           include: {
             exam: {
@@ -353,6 +412,8 @@ router.get('/:id', async (req, res) => {
     if (!series) return res.status(404).json({ message: 'Không tìm thấy' })
 
     const testMap = {}
+    
+    // 1. Process native linked exams
     for (const se of series.exams) {
       if (!testMap[se.testNumber]) testMap[se.testNumber] = { testNumber: se.testNumber, exams: {} }
       const e = se.exam
@@ -364,6 +425,25 @@ router.get('/:id', async (req, res) => {
         partCount: e.speakingParts?.length ?? 0,
       }
     }
+
+    // 2. Process mapped admin exams
+    series.mappings.forEach(m => {
+      m.examSeries.exams.forEach(e => {
+        if (!e.testNumber) return
+        if (!testMap[e.testNumber]) testMap[e.testNumber] = { testNumber: e.testNumber, exams: {} }
+        // Only overwrite if native doesn't exist to prevent duplicates
+        if (!testMap[e.testNumber].exams[e.skill]) {
+          testMap[e.testNumber].exams[e.skill] = {
+            id: e.id, title: e.title, attemptCount: e._count.attempts,
+            passageCount: e.passages?.length ?? 0,
+            sectionCount: e.listeningSections?.length ?? 0,
+            taskCount: e.writingTasks?.length ?? 0,
+            partCount: e.speakingParts?.length ?? 0,
+          }
+        }
+      })
+    })
+
     const tests = Object.values(testMap).sort((a, b) => a.testNumber - b.testNumber)
 
     const others = await prisma.series.findMany({

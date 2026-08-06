@@ -1,5 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { Search, RotateCcw, AlertTriangle } from 'lucide-react'
+
 import { formatBand } from '../../utils/ielts'
+import useDebounce from '../../hooks/useDebounce'
 import {
   READING_Q_TYPES, LISTENING_Q_TYPES,
   TYPES_WITH_MCQ_OPTIONS, TYPES_WITH_DYNAMIC_OPTIONS, TYPES_WITH_IMAGE,
@@ -81,11 +84,11 @@ function QuestionEditor({ question, questionIndex, onUpdate, onRemove, skill = '
                 <input className={inputCls} placeholder={`Lựa chọn ${oi + 1}...`}
                   value={opt} onChange={e => updateOption(oi, e.target.value)} />
                 <button type="button" onClick={() => removeOption(oi)}
-                  className="text-red-400 hover:text-red-600 text-sm px-1 shrink-0">✕</button>
+                  className="text-blue-500 hover:text-[#1D4ED8] text-sm px-1 shrink-0">✕</button>
               </div>
             ))}
             <button type="button" onClick={addOption}
-              className="text-xs text-blue-600 hover:text-blue-800 font-semibold">+ Thêm lựa chọn</button>
+              className="text-xs text-blue-600 hover:text-[#1D4ED8] font-semibold">+ Thêm lựa chọn</button>
           </div>
         </div>
       )}
@@ -101,7 +104,7 @@ function QuestionEditor({ question, questionIndex, onUpdate, onRemove, skill = '
 
       <div>
         <label className={labelCls}>Đáp án đúng</label>
-        <input className={`${inputCls} border-[#e2e8f0] focus:border-[#3b82f6] focus:ring-blue-100`}
+        <input className={`${inputCls} border-[#e2e8f0] focus:border-[#3B82F6] focus:ring-blue-100`}
           placeholder={ANSWER_PLACEHOLDER[question.type] || 'Đáp án đúng'}
           value={question.correctAnswer} onChange={e => updateField('correctAnswer', e.target.value)} />
       </div>
@@ -109,13 +112,30 @@ function QuestionEditor({ question, questionIndex, onUpdate, onRemove, skill = '
   )
 }
 
-function ExamList({ exams, skill, onDelete, onEdit, editingId, examSeries = [] }) {
+function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries = [], paginationData, fetchExams, loading }) {
   const [loadingId, setLoadingId] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [search, setSearch] = useState('')
   const [filterSeries, setFilterSeries] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [sortBy, setSortBy] = useState('newest')
+
+  const debouncedSearch = useDebounce(search, 400)
+  const isInitialMount = useRef(true)
+
+  const totalPages = paginationData?.pages || 1
+  const currentPage = paginationData?.page || 1
+  const totalCount = paginationData?.total || exams.length
+
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+      return
+    }
+    if (fetchExams) {
+      fetchExams(1, debouncedSearch, filterSeries)
+    }
+  }, [debouncedSearch])
 
   const getHasQuestions = (exam) => {
     switch (exam.skill) {
@@ -144,13 +164,30 @@ function ExamList({ exams, skill, onDelete, onEdit, editingId, examSeries = [] }
     return { text: `${count}/${total}`, bg, color }
   }
 
-  const skillExams = exams.filter(e => e.skill === skill)
+  const skillExams = (Array.isArray(exams) ? exams : []).filter(e => e.skill === skill || !e.skill)
 
-  const resetFilters = () => { setSearch(''); setFilterSeries(''); setFilterStatus('all'); setSortBy('newest') }
+  const resetFilters = () => {
+    setSearch('')
+    setFilterSeries('')
+    setFilterStatus('all')
+    setSortBy('newest')
+    if (fetchExams) fetchExams(1, '', '')
+  }
+
+  const handleSeriesChange = (val) => {
+    setFilterSeries(val)
+    if (fetchExams) fetchExams(1, debouncedSearch, val)
+  }
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages && fetchExams) {
+      fetchExams(newPage, debouncedSearch, filterSeries)
+    }
+  }
 
   const hasActiveFilter = search || filterSeries || filterStatus !== 'all' || sortBy !== 'newest'
 
-  // Stats (always from all skillExams, not filtered)
+  // Stats (from current page skillExams)
   const totalAttempts = skillExams.reduce((s, e) => s + (e._count?.attempts ?? 0), 0)
   const examsWithScore = skillExams.filter(e => e.avgScore != null && e.avgScore > 0)
   const avgBand = examsWithScore.length > 0
@@ -212,7 +249,7 @@ function ExamList({ exams, skill, onDelete, onEdit, editingId, examSeries = [] }
       {/* Stats cards */}
       <div className="grid grid-cols-2 gap-3 mb-5 sm:grid-cols-4">
         {[
-          { label: 'Tổng đề',         value: skillExams.length,        color: 'bg-blue-50 text-[#1a56db]' },
+          { label: 'Tổng đề',         value: skillExams.length,        color: 'bg-blue-50 text-[#1D4ED8]' },
           { label: 'Tổng lượt làm',   value: totalAttempts,            color: 'bg-green-50 text-green-700' },
           { label: 'Band TB',          value: avgBand ?? '—',           color: 'bg-purple-50 text-purple-700' },
           { label: 'Chưa có câu hỏi', value: noQuestionsCount,         color: noQuestionsCount > 0 ? 'bg-orange-50 text-orange-600' : 'bg-gray-50 text-gray-400' },
@@ -231,12 +268,12 @@ function ExamList({ exams, skill, onDelete, onEdit, editingId, examSeries = [] }
           placeholder="Tìm theo tên đề..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="flex-1 min-w-[160px] px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db] bg-white"
+          className="flex-1 min-w-[160px] px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1D4ED8] bg-white"
         />
         <select
           value={filterSeries}
-          onChange={e => setFilterSeries(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db] bg-white"
+          onChange={e => handleSeriesChange(e.target.value)}
+          className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1D4ED8] bg-white"
         >
           <option value="">Tất cả bộ đề</option>
           {examSeries.map(s => <option key={s.id} value={s.id.toString()}>{s.name}</option>)}
@@ -244,7 +281,7 @@ function ExamList({ exams, skill, onDelete, onEdit, editingId, examSeries = [] }
         <select
           value={filterStatus}
           onChange={e => setFilterStatus(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db] bg-white"
+          className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1D4ED8] bg-white"
         >
           <option value="all">Tất cả trạng thái</option>
           <option value="has_questions">Có câu hỏi</option>
@@ -253,7 +290,7 @@ function ExamList({ exams, skill, onDelete, onEdit, editingId, examSeries = [] }
         <select
           value={sortBy}
           onChange={e => setSortBy(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db] bg-white"
+          className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1D4ED8] bg-white"
         >
           <option value="newest">Mới nhất</option>
           <option value="oldest">Cũ nhất</option>
@@ -271,7 +308,7 @@ function ExamList({ exams, skill, onDelete, onEdit, editingId, examSeries = [] }
 
       {/* Result count */}
       {hasActiveFilter && (
-        <p className="text-xs text-gray-400 mb-3">Hiển thị {filtered.length} / {skillExams.length} đề</p>
+        <p className="text-xs text-gray-400 mb-3">Hiển thị {filtered.length} đề trên trang này ({totalCount} đề tất cả)</p>
       )}
 
       {/* Exam list */}
@@ -286,17 +323,17 @@ function ExamList({ exams, skill, onDelete, onEdit, editingId, examSeries = [] }
             const isLoading = exam.id === loadingId
             return (
               <div key={exam.id}
-                style={isEditing ? { background: '#eff6ff', borderLeft: '3px solid #1a56db' } : {}}
+                style={isEditing ? { background: '#eff6ff', borderLeft: '3px solid #1D4ED8' } : {}}
                 className={`bg-white rounded-xl p-4 border flex items-center justify-between transition
                   ${isEditing ? 'border-[#bfdbfe]' : 'border-gray-100 hover:border-gray-200'}`}>
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className={`font-semibold text-sm ${isEditing ? 'text-[#1a56db]' : 'text-gray-800'}`}>
+                      <p className={`font-semibold text-sm ${isEditing ? 'text-[#1D4ED8]' : 'text-gray-800'}`}>
                         {exam.title}
                       </p>
                       {isEditing && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#1a56db] text-white shrink-0">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#1D4ED8] text-white shrink-0">
                           Đang chỉnh sửa
                         </span>
                       )}
@@ -317,10 +354,10 @@ function ExamList({ exams, skill, onDelete, onEdit, editingId, examSeries = [] }
                         </span>
                       )}
                       <span className="text-xs text-gray-400">
-                        🗓 {formatDate(exam.createdAt)}
+                        {formatDate(exam.createdAt)}
                       </span>
                       <span className="text-xs text-gray-400">
-                        📝 {exam._count?.attempts ?? 0} lượt làm
+                        {exam._count?.attempts ?? 0} lượt làm
                       </span>
                       {exam.avgScore != null && exam.avgScore > 0 && (
                         <span className="text-xs text-purple-600 font-medium">
@@ -354,6 +391,33 @@ function ExamList({ exams, skill, onDelete, onEdit, editingId, examSeries = [] }
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
+          <span className="text-xs text-gray-500">
+            Hiển thị trang <span className="font-semibold text-gray-700">{currentPage}</span> / <span className="font-semibold text-gray-700">{totalPages}</span> ({totalCount} đề)
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage <= 1 || loading}
+              className="px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+            >
+              ← Trang trước
+            </button>
+            <button
+              type="button"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage >= totalPages || loading}
+              className="px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+            >
+              Trang sau →
+            </button>
+          </div>
         </div>
       )}
 

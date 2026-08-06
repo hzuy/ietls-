@@ -1,21 +1,23 @@
-import { useRef } from 'react'
-import { inputCls, labelCls } from '../../utils/practiceConfig'
+import { useState, useRef } from 'react'
+import { inputCls, labelCls, getQuestionGroupTheme } from '../../utils/practiceConfig'
 
 export default function TableCompletionEditor({ group, onChange }) {
   const cellRefs = useRef({})
-  const section = (group.noteSections || [])[0] || { title: '', lines: [] }
-  const lines = section.lines || []
-  const headerLine = lines.find(l => l.lineType === 'heading') || { content: '', lineType: 'heading' }
-  const dataLines = lines.filter(l => l.lineType !== 'heading')
-  const headers = (headerLine.content || '').split('|')
-  const colCount = Math.max(2, headers.length)
+  const theme = getQuestionGroupTheme(group?.type || 'table_completion')
 
-  const allTokenNums = dataLines.flatMap(dl =>
-    (dl.content || '').split('|').flatMap(cell => {
-      const matches = [...cell.matchAll(/\[Q:(\d+)\]/g)]
-      return matches.map(m => parseInt(m[1]))
-    })
-  )
+  const section = (group.noteSections && group.noteSections.length > 0)
+    ? group.noteSections[0]
+    : { title: '', lines: [{ content: 'Cột 1|Cột 2|Cột 3', lineType: 'heading' }, { content: '||', lineType: 'content' }] }
+
+  const headingLine = section.lines.find(l => l.lineType === 'heading') || { content: '' }
+  const dataLines = section.lines.filter(l => l.lineType !== 'heading')
+  const headers = (headingLine.content || '').split('|')
+  const [colCount, setColCount] = useState(headers.length || 3)
+
+  const allTokenNums = section.lines.flatMap(l => {
+    const matches = [...(l.content || '').matchAll(/\[Q:(\d+)\]/g)]
+    return matches.map(m => parseInt(m[1]))
+  })
   const nextQNum = allTokenNums.length > 0 ? Math.max(...allTokenNums) + 1 : group.qNumberStart
 
   const tokenOrder = []
@@ -24,75 +26,71 @@ export default function TableCompletionEditor({ group, onChange }) {
   const tokenDisplayMap = {}
   tokenOrder.forEach((n, idx) => { tokenDisplayMap[n] = group.qNumberStart + idx })
 
-  const rebuildSection = (newHeaderCells, newDataLines) => {
-    const newLines = [{ content: newHeaderCells.join('|'), lineType: 'heading' }, ...newDataLines]
-    onChange({ ...group, noteSections: [{ ...section, lines: newLines }, ...(group.noteSections || []).slice(1)] })
+  const updateSection = (newLines, newTitle = section.title) => {
+    onChange({ ...group, noteSections: [{ title: newTitle, lines: newLines }] })
   }
 
-  const setColCount = (n) => {
-    const newHeaders = Array.from({ length: n }, (_, i) => headers[i] !== undefined ? headers[i] : `Cột ${i + 1}`)
-    const newDataLines = dataLines.map(dl => {
-      const cells = (dl.content || '').split('|')
-      const newCells = Array.from({ length: n }, (_, i) => cells[i] || '')
-      return { ...dl, content: newCells.join('|') }
-    })
-    rebuildSection(newHeaders, newDataLines)
+  const updateTitle = (val) => updateSection(section.lines, val)
+
+  const updateHeader = (colIdx, val) => {
+    const newHeaders = [...headers]
+    while (newHeaders.length < colCount) newHeaders.push('')
+    newHeaders[colIdx] = val
+    const newHeadingContent = newHeaders.slice(0, colCount).join('|')
+    const newLines = section.lines.map(l => l.lineType === 'heading' ? { ...l, content: newHeadingContent } : l)
+    updateSection(newLines)
   }
 
-  const updateHeader = (ci, val) => {
-    const newHeaders = headers.map((h, i) => i === ci ? val : h)
-    rebuildSection(newHeaders, dataLines)
+  const updateCell = (rowIdx, colIdx, val) => {
+    const newDataLines = [...dataLines]
+    const cells = (newDataLines[rowIdx].content || '').split('|')
+    while (cells.length < colCount) cells.push('')
+    cells[colIdx] = val
+    newDataLines[rowIdx] = { ...newDataLines[rowIdx], content: cells.slice(0, colCount).join('|') }
+    const newLines = [headingLine, ...newDataLines]
+    onChange({ ...group, noteSections: [{ title: section.title, lines: newLines }] })
   }
 
-  const updateCell = (ri, ci, val) => {
-    const newDataLines = dataLines.map((dl, i) => {
-      if (i !== ri) return dl
-      const cells = (dl.content || '').split('|')
-      const newCells = Array.from({ length: colCount }, (_, j) => j === ci ? val : (cells[j] || ''))
-      return { ...dl, content: newCells.join('|') }
-    })
-    rebuildSection(headers, newDataLines)
-  }
-
-  const insertBlank = (ri, ci) => {
-    const key = `${ri}-${ci}`
+  const insertBlank = (rowIdx, colIdx) => {
+    const key = `${rowIdx}-${colIdx}`
     const el = cellRefs.current[key]
-    const cells = ((dataLines[ri] || {}).content || '').split('|')
-    const oldVal = cells[ci] || ''
+    const cells = (dataLines[rowIdx].content || '').split('|')
+    while (cells.length < colCount) cells.push('')
+    const oldVal = cells[colIdx] || ''
     const pos = el ? el.selectionStart : oldVal.length
     const token = `[Q:${nextQNum}]`
     const newVal = oldVal.slice(0, pos) + token + oldVal.slice(pos)
-    const newDataLines = dataLines.map((dl, i) => {
-      if (i !== ri) return dl
-      const cs = (dl.content || '').split('|')
-      const newCs = Array.from({ length: colCount }, (_, j) => j === ci ? newVal : (cs[j] || ''))
-      return { ...dl, content: newCs.join('|') }
-    })
-    const existingNums = new Set(group.questions.map(q => q.number))
-    const newQuestions = existingNums.has(nextQNum) ? group.questions
-      : [...group.questions, { number: nextQNum, correctAnswer: '' }].sort((a, b) => a.number - b.number)
-    const newLines = [{ content: headers.join('|'), lineType: 'heading' }, ...newDataLines]
+    cells[colIdx] = newVal
+
+    const newDataLines = [...dataLines]
+    newDataLines[rowIdx] = { ...newDataLines[rowIdx], content: cells.slice(0, colCount).join('|') }
+    const newLines = [headingLine, ...newDataLines]
+
+    const existingNums = new Set((group.questions || []).map(q => q.number))
+    const newQuestions = existingNums.has(nextQNum) ? (group.questions || [])
+      : [...(group.questions || []), { number: nextQNum, correctAnswer: '' }].sort((a, b) => a.number - b.number)
+
     onChange({
       ...group,
-      noteSections: [{ ...section, lines: newLines }, ...(group.noteSections || []).slice(1)],
+      noteSections: [{ title: section.title, lines: newLines }],
       questions: newQuestions,
-      qNumberEnd: Math.max(group.qNumberStart, nextQNum),
+      qNumberEnd: Math.max(group.qNumberStart, nextQNum)
     })
   }
 
   const addRow = () => {
-    const newDataLines = [...dataLines, { content: Array(colCount).fill('').join('|'), lineType: 'content' }]
-    rebuildSection(headers, newDataLines)
+    const emptyRow = Array.from({ length: colCount }, () => '').join('|')
+    const newLines = [...section.lines, { content: emptyRow, lineType: 'content' }]
+    updateSection(newLines)
   }
 
-  const removeRow = (ri) => { rebuildSection(headers, dataLines.filter((_, i) => i !== ri)) }
+  const removeRow = (rowIdx) => {
+    const newDataLines = dataLines.filter((_, i) => i !== rowIdx)
+    updateSection([headingLine, ...newDataLines])
+  }
 
   const updateAnswer = (qNum, val) => {
     onChange({ ...group, questions: group.questions.map(q => q.number === qNum ? { ...q, correctAnswer: val } : q) })
-  }
-
-  const updateTitle = (val) => {
-    onChange({ ...group, noteSections: [{ ...section, title: val }, ...(group.noteSections || []).slice(1)] })
   }
 
   return (
@@ -102,9 +100,9 @@ export default function TableCompletionEditor({ group, onChange }) {
         <input type="text" className={inputCls} placeholder="VD: A typical 45-minute guitar lesson"
           value={section.title || ''} onChange={e => updateTitle(e.target.value)} />
       </div>
-      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+      <div className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-xl p-4`}>
         <div className="flex items-center gap-3 mb-3">
-          <p className="text-xs font-bold text-emerald-700">Bảng Table Completion</p>
+          <p className={`text-xs font-bold ${theme.subBoxText}`}>Bảng Table Completion</p>
           <div className="flex items-center gap-2 ml-auto">
             <span className="text-xs text-gray-500">Số cột:</span>
             <button type="button" onClick={() => colCount > 2 && setColCount(colCount - 1)} disabled={colCount <= 2}
@@ -117,16 +115,16 @@ export default function TableCompletionEditor({ group, onChange }) {
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-xs">
             <thead>
-              <tr className="bg-emerald-100">
+              <tr className={`${theme.headerBg}`}>
                 {Array.from({ length: colCount }, (_, ci) => (
-                  <th key={ci} className="px-2 py-1.5 border border-emerald-200 font-normal min-w-[100px]">
+                  <th key={ci} className={`px-2 py-1.5 border ${theme.subBoxBorder} font-normal min-w-[100px]`}>
                     <input type="text"
-                      className="w-full bg-transparent border-none outline-none text-xs font-bold text-emerald-800 placeholder-emerald-400 text-center"
+                      className={`w-full bg-transparent border-none outline-none text-xs font-bold ${theme.subBoxText} text-center`}
                       placeholder={`Tiêu đề cột ${ci + 1}`}
                       value={headers[ci] || ''} onChange={e => updateHeader(ci, e.target.value)} />
                   </th>
                 ))}
-                <th className="w-8 border border-emerald-200 bg-emerald-100" />
+                  <th className={`w-8 border ${theme.subBoxBorder} ${theme.headerBg}`} />
               </tr>
             </thead>
             <tbody>
@@ -138,12 +136,12 @@ export default function TableCompletionEditor({ group, onChange }) {
                       <td key={ci} className="px-2 py-1.5 border border-gray-200 align-top min-w-[100px]">
                         <div className="flex items-start gap-1">
                           <textarea ref={el => { cellRefs.current[`${ri}-${ci}`] = el }} rows={2}
-                            className="flex-1 border border-gray-200 rounded px-1.5 py-1 text-xs font-mono focus:outline-none focus:border-emerald-400 resize-none"
+                            className={`flex-1 border ${theme.subBoxBorder} rounded px-1.5 py-1 text-xs font-mono focus:outline-none resize-none`}
                             placeholder={`text [Q:${nextQNum}] text`}
                             value={cells[ci] || ''} onChange={e => updateCell(ri, ci, e.target.value)}
                             style={{ minHeight: '48px' }} />
                           <button type="button" onClick={() => insertBlank(ri, ci)}
-                            className="shrink-0 text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-1 rounded font-semibold hover:bg-emerald-200 whitespace-nowrap leading-tight mt-0.5">
+                            className={`shrink-0 text-[10px] ${theme.subBoxBtn} ${theme.subBoxHover} px-1.5 py-1 rounded font-semibold whitespace-nowrap leading-tight mt-0.5`}>
                             +Ô<br />trống
                           </button>
                         </div>
@@ -151,7 +149,7 @@ export default function TableCompletionEditor({ group, onChange }) {
                     ))}
                     <td className="border border-gray-200 px-1 text-center align-middle">
                       {dataLines.length > 1 && (
-                        <button type="button" onClick={() => removeRow(ri)} className="text-red-400 hover:text-red-600 text-xs">✕</button>
+                        <button type="button" onClick={() => removeRow(ri)} className="text-red-500 hover:text-red-600 text-xs">✕</button>
                       )}
                     </td>
                   </tr>
@@ -160,12 +158,12 @@ export default function TableCompletionEditor({ group, onChange }) {
             </tbody>
           </table>
         </div>
-        <button type="button" onClick={addRow} className="mt-2 text-xs text-emerald-600 font-semibold hover:underline">+ Thêm hàng</button>
+        <button type="button" onClick={addRow} className={`mt-2 text-xs ${theme.subBoxText} font-semibold hover:underline`}>+ Thêm hàng</button>
       </div>
       {tokenOrder.length > 0 && (
-        <div className="bg-[#eff6ff] border border-[#bfdbfe] rounded-xl p-3">
+        <div className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-xl p-3`}>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold text-[#1a56db]">Đáp án (từ ô trống trong bảng)</p>
+            <p className={`text-xs font-bold ${theme.subBoxText}`}>Đáp án (từ ô trống trong bảng)</p>
             <p className="text-[10px] text-gray-400">Dùng <span className="font-mono bg-gray-100 px-1 rounded">/</span> để tách nhiều đáp án. VD: <span className="font-mono">word1/word2</span></p>
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -174,8 +172,8 @@ export default function TableCompletionEditor({ group, onChange }) {
               const q = group.questions.find(q => q.number === tokenNum)
               return (
                 <div key={tokenNum} className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-[#1a56db] w-14 shrink-0">Q{displayNum}:</span>
-                  <input className="flex-1 border border-[#e2e8f0] rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-[#3b82f6]"
+                  <span className={`text-xs font-bold ${theme.subBoxText} w-14 shrink-0`}>Q{displayNum}:</span>
+                  <input className={`flex-1 border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-sm focus:outline-none`}
                     placeholder="VD: word hoặc word1/word2"
                     value={q?.correctAnswer || ''} onChange={e => updateAnswer(tokenNum, e.target.value)} />
                 </div>

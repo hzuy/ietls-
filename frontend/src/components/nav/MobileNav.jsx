@@ -7,7 +7,8 @@ function MobileItem({ label, onClick, active, indent }) {
         padding: indent ? '6px 32px' : '10px 20px',
         fontSize: indent ? 13 : 14,
         fontWeight: active ? 700 : 500,
-        color: active ? '#93c5fd' : 'rgba(255,255,255,0.82)',
+        fontFamily: 'var(--font-body)',
+        color: active ? 'var(--primary-light)' : 'rgba(255,255,255,0.82)',
         background: 'transparent', border: 'none', cursor: 'pointer',
         transition: 'background 0.12s',
       }}
@@ -29,21 +30,20 @@ export default function MobileNav({
   onShowLogoutConfirm,
 }) {
   return (
-    <div style={{ background: '#162d4a', borderTop: '1px solid rgba(255,255,255,0.08)', paddingBottom: 16 }}>
+    <div style={{ background: 'var(--ink-soft)', borderTop: '1px solid rgba(255,255,255,0.08)', paddingBottom: 16 }}>
       <MobileItem label="Trang chủ" onClick={() => onNavigate('/')} active={location.pathname === '/'} />
 
       {/* Full Test accordion */}
       <MobileItem
         label={`Full Test ${mobileExpanded === 'fulltest' ? '▴' : '▾'}`}
         onClick={() => setMobileExpanded(v => v === 'fulltest' ? null : 'fulltest')}
-        active={location.pathname.startsWith('/full-test')}
+        active={location.pathname.startsWith('/full-test') || location.pathname === '/cambridge' || location.pathname === '/practice-plus'}
       />
       {mobileExpanded === 'fulltest' && (
         <>
-          <MobileItem label="📚 Tất cả bộ đề" onClick={() => onNavigate('/full-test')} indent />
-          {series.map(s => (
-            <MobileItem key={s.id} label={`📖 ${s.name}`} onClick={() => onNavigate(`/full-test/${s.id}`)} indent />
-          ))}
+          <MobileItem label="📚 Tất cả bộ đề" onClick={() => onNavigate('/full-test')} indent active={location.pathname === '/full-test'} />
+          <MobileItem label="📖 IELTS Cambridge Academic" onClick={() => onNavigate('/cambridge')} indent active={location.pathname === '/cambridge'} />
+          <MobileItem label="📕 IELTS Practice Test Plus" onClick={() => onNavigate('/practice-plus')} indent active={location.pathname === '/practice-plus'} />
         </>
       )}
 
@@ -68,28 +68,6 @@ export default function MobileNav({
         </>
       )}
 
-      {/* Mobile auth */}
-      <div style={{ margin: '12px 20px 0', display: 'flex', gap: 8 }}>
-        {isLoggedIn ? (
-          <>
-            <button onClick={() => onNavigate('/profile')}
-              style={{ flex: 1, padding: '8px 0', borderRadius: 8, background: 'rgba(255,255,255,0.1)', color: 'white', fontSize: 13, fontWeight: 600, border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer' }}
-            >{user?.name}</button>
-            <button onClick={onShowLogoutConfirm}
-              style={{ flex: 1, padding: '8px 0', borderRadius: 8, background: '#dc2626', color: 'white', fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer' }}
-            >Đăng xuất</button>
-          </>
-        ) : (
-          <>
-            <button onClick={() => onOpenAuthModal('login')}
-              style={{ flex: 1, padding: '8px 0', borderRadius: 8, background: 'rgba(255,255,255,0.1)', color: 'white', fontSize: 13, fontWeight: 600, border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer' }}
-            >Đăng nhập</button>
-            <button onClick={() => onOpenAuthModal('register')}
-              style={{ flex: 1, padding: '8px 0', borderRadius: 8, background: '#1a56db', color: 'white', fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer' }}
-            >Đăng ký</button>
-          </>
-        )}
-      </div>
     </div>
   )
 }

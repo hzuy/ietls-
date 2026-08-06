@@ -6,7 +6,9 @@ import {
   recalcAllGroupNumbers, getGroupSlots,
   inputCls, labelCls, btnPrimary, btnSecondary,
   toImgSrc,
+  useExamSeriesList, useSeriesBooks,
 } from './adminConstants'
+import InlinePreviewPanel from '../common/InlinePreviewPanel'
 import ExamList from './ExamList'
 import TrueFalseEditor from '../practice/TrueFalseEditor'
 import SummaryCompletionEditor from '../practice/SummaryCompletionEditor'
@@ -14,120 +16,13 @@ import NoteCompletionEditor from '../practice/NoteCompletionEditor'
 import TableCompletionEditor from '../practice/TableCompletionEditor'
 import MCQGroupEditor from '../practice/MCQGroupEditor'
 import MatchingEditor from '../practice/MatchingEditor'
+import DiagramLabelEditor from '../practice/DiagramLabelEditor'
 import AdminGroupPreview from '../practice/AdminGroupPreview'
 import { PreviewTokenLine, buildTokenNumMap } from '../practice/PreviewTokenLine'
+import ReadingGroupEditor from './editors/ReadingGroupEditor'
 
 // ─── TAB: READING ─────────────────────────────────────────────────────────────
 
-function ReadingGroupEditor({ group, onChange, onRemove, onMoveUp, onMoveDown, isFirst, isLast }) {
-  const typeLabel = READING_GROUP_TYPES.find(t => t.value === group.type)?.label || group.type
-
-  const typeColors = {
-    true_false_ng: 'bg-blue-100 text-blue-800 border-blue-300',
-    yes_no_ng: 'bg-cyan-100 text-cyan-800 border-cyan-300',
-    note_completion: 'bg-amber-100 text-amber-800 border-amber-300',
-    table_completion: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-    mcq: 'bg-blue-100 text-blue-800 border-blue-300',
-    mcq_multi: 'bg-indigo-100 text-indigo-800 border-indigo-300',
-    matching_information: 'bg-[#eff6ff] text-[#1a56db] border-[#bfdbfe]',
-    drag_word_bank: 'bg-sky-100 text-sky-800 border-sky-300',
-    matching_drag: 'bg-violet-100 text-violet-800 border-violet-300',
-  }
-
-  return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden">
-      <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
-        <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${typeColors[group.type] || 'bg-gray-100 text-gray-700 border-gray-300'}`}>
-          {typeLabel}
-        </span>
-        <span className="text-xs text-gray-500 font-medium">Câu {group.qNumberStart}–{group.qNumberEnd}</span>
-        <div className="flex-1" />
-        <div className="flex items-center gap-2">
-          <div className="flex flex-col gap-0.5">
-            <button type="button" onClick={onMoveUp} disabled={isFirst}
-              className="w-5 h-5 flex items-center justify-center rounded border border-gray-200 text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-25 text-xs transition">▲</button>
-            <button type="button" onClick={onMoveDown} disabled={isLast}
-              className="w-5 h-5 flex items-center justify-center rounded border border-gray-200 text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-25 text-xs transition">▼</button>
-          </div>
-          <button type="button" onClick={onRemove}
-            className="text-red-400 hover:text-red-600 text-xs font-medium px-2 py-0.5 rounded hover:bg-red-50">
-            Xóa nhóm
-          </button>
-        </div>
-      </div>
-
-      <div className="p-4 space-y-3">
-        <div>
-          <label className={labelCls}>Instruction (hiển thị cho học sinh)</label>
-          <textarea rows={2}
-            className={`${inputCls} resize-none`}
-            placeholder="Hướng dẫn làm bài..."
-            value={group.instruction}
-            onChange={e => onChange({ ...group, instruction: e.target.value })} />
-        </div>
-
-        {(group.type === 'true_false_ng' || group.type === 'yes_no_ng') && (
-          <TrueFalseEditor group={group} onChange={onChange} />
-        )}
-        {group.type === 'note_completion' && (
-          <NoteCompletionEditor group={group} onChange={onChange} />
-        )}
-        {group.type === 'table_completion' && (
-          <TableCompletionEditor group={group} onChange={onChange} />
-        )}
-        {(group.type === 'mcq' || group.type === 'mcq_multi') && (
-          <MCQGroupEditor group={group} onChange={onChange} />
-        )}
-        {group.type === 'matching_information' && (
-          <div className="space-y-3">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={group.canReuse || false}
-                onChange={e => onChange({ ...group, canReuse: e.target.checked })}
-                className="accent-[#1a56db]" />
-              <span className="text-xs text-gray-600 font-medium">Cho phép dùng lại chữ cái (mỗi đoạn có thể khớp nhiều câu)</span>
-            </label>
-            <MatchingEditor group={group} onChange={onChange} />
-          </div>
-        )}
-        {group.type === 'drag_word_bank' && (
-          <SummaryCompletionEditor group={group} onChange={onChange} />
-        )}
-        {group.type === 'matching_drag' && (
-          <MatchingEditor group={group} onChange={onChange} />
-        )}
-      </div>
-    </div>
-  )
-}
-
-function InlinePreviewPanel({ title, showAnswers, setShowAnswers, onClose, children }) {
-  return (
-    <div className="bg-white rounded-2xl border-2 border-indigo-200 shadow-lg overflow-hidden">
-      <div className="flex items-center justify-between px-6 py-3 bg-indigo-50 border-b border-indigo-100">
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-bold text-indigo-800">Xem trước — {title}</span>
-          <button
-            type="button"
-            onClick={() => setShowAnswers(v => !v)}
-            className={`text-xs px-3 py-1 rounded-full font-semibold transition ${showAnswers ? 'bg-[#1a56db] text-white' : 'bg-white border border-gray-200 text-gray-500 hover:border-[#bfdbfe] hover:text-[#1a56db]'}`}
-          >
-            {showAnswers ? 'Ẩn đáp án' : 'Hiện đáp án'}
-          </button>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-xs px-3 py-1 rounded-lg border border-indigo-200 text-indigo-600 hover:bg-indigo-100 transition font-medium"
-        >
-          Thu gọn ↑
-        </button>
-      </div>
-      <div className="p-6 max-h-[600px] overflow-y-auto">
-        {children}
-      </div>
-    </div>
-  )
-}
 
 function ListeningFormPreview({ form, showAnswers }) {
   const [activeSection, setActiveSection] = useState(0)
@@ -147,9 +42,9 @@ function ListeningFormPreview({ form, showAnswers }) {
               onClick={() => setActiveSection(si)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition"
               style={{
-                background: isActive ? '#1a56db' : '#fff',
+                background: isActive ? '#1D4ED8' : '#fff',
                 color: isActive ? '#fff' : '#1e293b',
-                borderColor: isActive ? '#1a56db' : '#e2e8f0',
+                borderColor: isActive ? '#1D4ED8' : '#e2e8f0',
               }}
             >
               Section {s.number}
@@ -222,7 +117,7 @@ function ReadingFormPreview({ form, showAnswers }) {
               key={pi}
               type="button"
               onClick={() => setActivePassage(pi)}
-              className={`text-xs font-bold px-3 py-1.5 rounded-lg transition ${activePassage === pi ? 'bg-[#1a56db] text-white' : 'bg-gray-100 text-gray-600 hover:bg-[#eff6ff] hover:text-[#1a56db]'}`}
+              className={`text-xs font-bold px-3 py-1.5 rounded-lg transition ${activePassage === pi ? 'bg-[#1D4ED8] text-white' : 'bg-gray-100 text-gray-600 hover:bg-[#eff6ff] hover:text-[#1D4ED8]'}`}
             >
               Passage {p.number}
             </button>
@@ -249,7 +144,7 @@ function ReadingFormPreview({ form, showAnswers }) {
           {/* Divider */}
           <div
             onMouseDown={onDividerMouseDown}
-            style={{ width: 5, cursor: 'col-resize', flexShrink: 0, background: dragging ? '#3b82f6' : '#e5e7eb', transition: dragging ? 'none' : 'background 0.15s' }}
+            style={{ width: 5, cursor: 'col-resize', flexShrink: 0, background: dragging ? '#3B82F6' : '#e5e7eb', transition: dragging ? 'none' : 'background 0.15s' }}
             onMouseEnter={e => { if (!dragging) e.currentTarget.style.background = '#93c5fd' }}
             onMouseLeave={e => { if (!dragging) e.currentTarget.style.background = '#e5e7eb' }}
           />
@@ -283,7 +178,7 @@ function SpeakingRecordMockup() {
       </div>
       {/* Record button */}
       <button type="button" disabled
-        className="w-14 h-14 rounded-full bg-[#1a56db] flex items-center justify-center shadow-lg opacity-60 cursor-default">
+        className="w-14 h-14 rounded-full bg-[#1D4ED8] flex items-center justify-center shadow-lg opacity-60 cursor-default">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
           <rect x="9" y="2" width="6" height="12" rx="3" fill="white"/>
           <path d="M5 11a7 7 0 0 0 14 0" stroke="white" strokeWidth="2" strokeLinecap="round"/>
@@ -296,7 +191,7 @@ function SpeakingRecordMockup() {
       <div className="flex items-center gap-2 w-full mt-1">
         <button type="button" disabled
           className="w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center opacity-40 cursor-default">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="#1a56db"><polygon points="4,2 14,8 4,14"/></svg>
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="#1D4ED8"><polygon points="4,2 14,8 4,14"/></svg>
         </button>
         <div className="flex-1 h-1.5 rounded-full bg-gray-100" />
         <span className="text-xs text-gray-300 font-mono">0:00</span>
@@ -322,7 +217,7 @@ function SpeakingFormPreview({ form }) {
           <div className="space-y-2">
             {form.part1.questions.filter(q => q.trim()).map((q, i) => (
               <div key={i} className="flex gap-2.5">
-                <span className="w-6 h-6 shrink-0 rounded-full bg-[#eff6ff] text-[#1a56db] font-bold text-xs flex items-center justify-center">{i + 1}</span>
+                <span className="w-6 h-6 shrink-0 rounded-full bg-[#eff6ff] text-[#1D4ED8] font-bold text-xs flex items-center justify-center">{i + 1}</span>
                 <p className="text-sm text-gray-700">{q}</p>
               </div>
             ))}
@@ -338,8 +233,8 @@ function SpeakingFormPreview({ form }) {
         <div className="flex-1 min-w-0">
           {form.part2.instructions && <p className="text-sm text-gray-500 italic mb-3">{form.part2.instructions}</p>}
           {form.part2.cueCard ? (
-            <div className="bg-[#eff6ff] border-l-4 border-[#1a56db] rounded-r-xl p-4">
-              <p className="text-xs font-bold text-[#1a56db] uppercase tracking-wide mb-2">Cue Card</p>
+            <div className="bg-[#eff6ff] border-l-4 border-[#1D4ED8] rounded-r-xl p-4">
+              <p className="text-xs font-bold text-[#1D4ED8] uppercase tracking-wide mb-2">Cue Card</p>
               <p className="text-sm text-gray-800 leading-7 whitespace-pre-wrap font-medium">{form.part2.cueCard}</p>
             </div>
           ) : (
@@ -357,11 +252,11 @@ function SpeakingFormPreview({ form }) {
           <div className="space-y-3">
             {form.part3.topics.map((topic, ti) => (
               <div key={ti} className="bg-white rounded-xl border border-[#e2e8f0] p-3">
-                {topic.label && <p className="text-xs font-bold text-[#1a56db] uppercase tracking-wide mb-2 pb-1.5 border-b border-[#e2e8f0]">{topic.label}</p>}
+                {topic.label && <p className="text-xs font-bold text-[#1D4ED8] uppercase tracking-wide mb-2 pb-1.5 border-b border-[#e2e8f0]">{topic.label}</p>}
                 <div className="space-y-1.5">
                   {topic.questions.filter(q => q.trim()).map((q, qi) => (
                     <div key={qi} className="flex gap-2 text-sm text-gray-700">
-                      <span className="w-5 h-5 shrink-0 rounded-full bg-[#eff6ff] text-[#1a56db] font-bold text-xs flex items-center justify-center mt-0.5">{qi + 1}</span>
+                      <span className="w-5 h-5 shrink-0 rounded-full bg-[#eff6ff] text-[#1D4ED8] font-bold text-xs flex items-center justify-center mt-0.5">{qi + 1}</span>
                       <span>{q}</span>
                     </div>
                   ))}
@@ -382,9 +277,9 @@ function SpeakingFormPreview({ form }) {
         {[1, 2, 3].map(p => (
           <button key={p} type="button" onClick={() => setActivePart(p)}
             style={{
-              background: activePart === p ? '#1a56db' : '#fff',
+              background: activePart === p ? '#1D4ED8' : '#fff',
               color: activePart === p ? '#fff' : '#1e293b',
-              borderColor: activePart === p ? '#1a56db' : '#e2e8f0',
+              borderColor: activePart === p ? '#1D4ED8' : '#e2e8f0',
             }}
             className="px-4 py-1.5 rounded-lg border text-sm font-medium transition">
             Part {p}
@@ -393,7 +288,7 @@ function SpeakingFormPreview({ form }) {
       </div>
       {/* Active part content */}
       <div className="border border-[#bfdbfe] rounded-2xl overflow-hidden">
-        <div className="bg-[#1a56db] text-white px-4 py-2.5 font-semibold text-sm">{PART_META[activePart].title}</div>
+        <div className="bg-[#1D4ED8] text-white px-4 py-2.5 font-semibold text-sm">{PART_META[activePart].title}</div>
         <div className="p-4 bg-[#eff6ff]/40">
           {renderContent()}
         </div>
@@ -401,30 +296,9 @@ function SpeakingFormPreview({ form }) {
     </div>
   )
 }
+// ─── TAB: READING ─────────────────────────────────────────────────────────────
 
-// ─── SHARED HOOKS for exam-series dropdowns ────────────────────────────────────
-function useExamSeriesList() {
-  const [list, setList] = useState([])
-  useEffect(() => {
-    api.get('/admin/exam-series').then(r => setList(r.data)).catch(() => {})
-  }, [])
-  return list
-}
-
-function useSeriesBooks(seriesId) {
-  const [books, setBooks] = useState([])
-  useEffect(() => {
-    if (!seriesId) { setBooks([]); return }
-    setBooks([])
-    api.get(`/admin/exam-series/${seriesId}/books`)
-      .then(r => setBooks(r.data))
-      .catch(() => setBooks([]))
-  }, [seriesId])
-  return books
-}
-// ───────────────────────────────────────────────────────────────────────────────
-
-function ReadingTab({ exams, onRefresh, examSeries = [] }) {
+function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchExams, loading }) {
   const [form, setForm] = useState(emptyReadingForm())
   const liveExamSeries = useExamSeriesList()
   const seriesBooks = useSeriesBooks(form.seriesId)
@@ -629,11 +503,11 @@ function ReadingTab({ exams, onRefresh, examSeries = [] }) {
           {editingId ? `Sửa đề Reading #${editingId}` : 'Tạo đề Reading mới'}
         </h3>
 
-        {error && <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl mb-4 text-sm">{error}</div>}
+        {error && <div className="bg-blue-50 border border-blue-200 text-blue-600 p-3 rounded-xl mb-4 text-sm">{error}</div>}
 
         {draftBanner && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 flex items-center justify-between">
-            <span className="text-sm text-yellow-700">📋 Có bản nháp chưa lưu. Khôi phục?</span>
+            <span className="text-sm text-yellow-700">Có bản nháp chưa lưu. Khôi phục?</span>
             <div className="flex gap-2">
               <button type="button" onClick={() => { setForm(draftBanner.data); setDraftBanner(null) }}
                 className="text-xs px-2.5 py-1 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 transition">Khôi phục</button>
@@ -663,7 +537,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [] }) {
         </div>
 
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-5">
-          <p className="text-xs font-bold text-blue-700 mb-2">📚 Gắn nhãn bộ đề (tuỳ chọn)</p>
+          <p className="text-xs font-bold text-blue-700 mb-2">Gắn nhãn bộ đề (tuỳ chọn)</p>
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className={labelCls}>Bộ đề</label>
@@ -729,7 +603,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [] }) {
                       <label className="flex items-center gap-2 cursor-pointer select-none">
                         <input type="checkbox" checked={passage.letteredParagraphs}
                           onChange={e => updatePassage(pi, 'letteredParagraphs', e.target.checked)}
-                          className="accent-[#1a56db]" />
+                          className="accent-[#1D4ED8]" />
                         <span className="text-xs text-gray-600 font-medium">Đoạn văn có ký hiệu chữ cái (A, B, C...) — dùng cho Matching Paragraph</span>
                       </label>
                     </div>
@@ -760,7 +634,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [] }) {
                       </div>
 
                       {addingGroupPassage === pi ? (
-                        <div className="border border-dashed border-[#1a56db] rounded-xl p-4">
+                        <div className="border border-dashed border-[#1D4ED8] rounded-xl p-4">
                           <p className="text-xs font-bold text-gray-600 mb-3">Chọn loại nhóm câu hỏi:</p>
                           <div className="grid grid-cols-2 gap-2">
                             {READING_GROUP_TYPES.map(t => (
@@ -768,7 +642,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [] }) {
                                 key={t.value}
                                 type="button"
                                 onClick={() => addGroup(pi, t.value)}
-                                className="text-left px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 hover:border-[#1a56db] hover:text-[#1a56db] hover:bg-blue-50 transition font-medium"
+                                className="text-left px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 hover:border-[#1D4ED8] hover:text-[#1D4ED8] hover:bg-blue-50 transition font-medium"
                               >
                                 {t.label}
                               </button>
@@ -781,7 +655,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [] }) {
                         <button
                           type="button"
                           onClick={() => setAddingGroupPassage(pi)}
-                          className="w-full border-2 border-dashed border-gray-200 rounded-xl py-3 text-sm text-gray-400 hover:border-[#1a56db] hover:text-[#1a56db] transition font-medium">
+                          className="w-full border-2 border-dashed border-gray-200 rounded-xl py-3 text-sm text-gray-400 hover:border-[#1D4ED8] hover:text-[#1D4ED8] transition font-medium">
                           + Thêm nhóm câu hỏi
                         </button>
                       )}
@@ -817,8 +691,8 @@ function ReadingTab({ exams, onRefresh, examSeries = [] }) {
       )}
 
       <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-        <h3 className="font-bold text-gray-800 mb-4">Danh sách đề Reading ({exams.filter(e => e.skill === 'reading').length})</h3>
-        <ExamList exams={exams} skill="reading" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} />
+        <h3 className="font-bold text-gray-800 mb-4">Danh sách đề Reading ({paginationData?.total ?? exams.length})</h3>
+        <ExamList exams={exams} skill="reading" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} />
       </div>
     </div>
   )

@@ -1,0 +1,1165 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Code coverage report for backend/services/cambridge/aiQuestionParser.js</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../../prettify.css" />
+    <link rel="stylesheet" href="../../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../../favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../../../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../../../index.html">All files</a> / <a href="index.html">backend/services/cambridge</a> aiQuestionParser.js</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">8% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>4/50</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>0/35</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>0/5</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">8.33% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>4/48</span>
+            </div>
+        
+            
+        </div>
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line low'></div>
+    <pre><table class="coverage">
+<tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
+<a name='L2'></a><a href='#L2'>2</a>
+<a name='L3'></a><a href='#L3'>3</a>
+<a name='L4'></a><a href='#L4'>4</a>
+<a name='L5'></a><a href='#L5'>5</a>
+<a name='L6'></a><a href='#L6'>6</a>
+<a name='L7'></a><a href='#L7'>7</a>
+<a name='L8'></a><a href='#L8'>8</a>
+<a name='L9'></a><a href='#L9'>9</a>
+<a name='L10'></a><a href='#L10'>10</a>
+<a name='L11'></a><a href='#L11'>11</a>
+<a name='L12'></a><a href='#L12'>12</a>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a>
+<a name='L85'></a><a href='#L85'>85</a>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a>
+<a name='L102'></a><a href='#L102'>102</a>
+<a name='L103'></a><a href='#L103'>103</a>
+<a name='L104'></a><a href='#L104'>104</a>
+<a name='L105'></a><a href='#L105'>105</a>
+<a name='L106'></a><a href='#L106'>106</a>
+<a name='L107'></a><a href='#L107'>107</a>
+<a name='L108'></a><a href='#L108'>108</a>
+<a name='L109'></a><a href='#L109'>109</a>
+<a name='L110'></a><a href='#L110'>110</a>
+<a name='L111'></a><a href='#L111'>111</a>
+<a name='L112'></a><a href='#L112'>112</a>
+<a name='L113'></a><a href='#L113'>113</a>
+<a name='L114'></a><a href='#L114'>114</a>
+<a name='L115'></a><a href='#L115'>115</a>
+<a name='L116'></a><a href='#L116'>116</a>
+<a name='L117'></a><a href='#L117'>117</a>
+<a name='L118'></a><a href='#L118'>118</a>
+<a name='L119'></a><a href='#L119'>119</a>
+<a name='L120'></a><a href='#L120'>120</a>
+<a name='L121'></a><a href='#L121'>121</a>
+<a name='L122'></a><a href='#L122'>122</a>
+<a name='L123'></a><a href='#L123'>123</a>
+<a name='L124'></a><a href='#L124'>124</a>
+<a name='L125'></a><a href='#L125'>125</a>
+<a name='L126'></a><a href='#L126'>126</a>
+<a name='L127'></a><a href='#L127'>127</a>
+<a name='L128'></a><a href='#L128'>128</a>
+<a name='L129'></a><a href='#L129'>129</a>
+<a name='L130'></a><a href='#L130'>130</a>
+<a name='L131'></a><a href='#L131'>131</a>
+<a name='L132'></a><a href='#L132'>132</a>
+<a name='L133'></a><a href='#L133'>133</a>
+<a name='L134'></a><a href='#L134'>134</a>
+<a name='L135'></a><a href='#L135'>135</a>
+<a name='L136'></a><a href='#L136'>136</a>
+<a name='L137'></a><a href='#L137'>137</a>
+<a name='L138'></a><a href='#L138'>138</a>
+<a name='L139'></a><a href='#L139'>139</a>
+<a name='L140'></a><a href='#L140'>140</a>
+<a name='L141'></a><a href='#L141'>141</a>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a>
+<a name='L146'></a><a href='#L146'>146</a>
+<a name='L147'></a><a href='#L147'>147</a>
+<a name='L148'></a><a href='#L148'>148</a>
+<a name='L149'></a><a href='#L149'>149</a>
+<a name='L150'></a><a href='#L150'>150</a>
+<a name='L151'></a><a href='#L151'>151</a>
+<a name='L152'></a><a href='#L152'>152</a>
+<a name='L153'></a><a href='#L153'>153</a>
+<a name='L154'></a><a href='#L154'>154</a>
+<a name='L155'></a><a href='#L155'>155</a>
+<a name='L156'></a><a href='#L156'>156</a>
+<a name='L157'></a><a href='#L157'>157</a>
+<a name='L158'></a><a href='#L158'>158</a>
+<a name='L159'></a><a href='#L159'>159</a>
+<a name='L160'></a><a href='#L160'>160</a>
+<a name='L161'></a><a href='#L161'>161</a>
+<a name='L162'></a><a href='#L162'>162</a>
+<a name='L163'></a><a href='#L163'>163</a>
+<a name='L164'></a><a href='#L164'>164</a>
+<a name='L165'></a><a href='#L165'>165</a>
+<a name='L166'></a><a href='#L166'>166</a>
+<a name='L167'></a><a href='#L167'>167</a>
+<a name='L168'></a><a href='#L168'>168</a>
+<a name='L169'></a><a href='#L169'>169</a>
+<a name='L170'></a><a href='#L170'>170</a>
+<a name='L171'></a><a href='#L171'>171</a>
+<a name='L172'></a><a href='#L172'>172</a>
+<a name='L173'></a><a href='#L173'>173</a>
+<a name='L174'></a><a href='#L174'>174</a>
+<a name='L175'></a><a href='#L175'>175</a>
+<a name='L176'></a><a href='#L176'>176</a>
+<a name='L177'></a><a href='#L177'>177</a>
+<a name='L178'></a><a href='#L178'>178</a>
+<a name='L179'></a><a href='#L179'>179</a>
+<a name='L180'></a><a href='#L180'>180</a>
+<a name='L181'></a><a href='#L181'>181</a>
+<a name='L182'></a><a href='#L182'>182</a>
+<a name='L183'></a><a href='#L183'>183</a>
+<a name='L184'></a><a href='#L184'>184</a>
+<a name='L185'></a><a href='#L185'>185</a>
+<a name='L186'></a><a href='#L186'>186</a>
+<a name='L187'></a><a href='#L187'>187</a>
+<a name='L188'></a><a href='#L188'>188</a>
+<a name='L189'></a><a href='#L189'>189</a>
+<a name='L190'></a><a href='#L190'>190</a>
+<a name='L191'></a><a href='#L191'>191</a>
+<a name='L192'></a><a href='#L192'>192</a>
+<a name='L193'></a><a href='#L193'>193</a>
+<a name='L194'></a><a href='#L194'>194</a>
+<a name='L195'></a><a href='#L195'>195</a>
+<a name='L196'></a><a href='#L196'>196</a>
+<a name='L197'></a><a href='#L197'>197</a>
+<a name='L198'></a><a href='#L198'>198</a>
+<a name='L199'></a><a href='#L199'>199</a>
+<a name='L200'></a><a href='#L200'>200</a>
+<a name='L201'></a><a href='#L201'>201</a>
+<a name='L202'></a><a href='#L202'>202</a>
+<a name='L203'></a><a href='#L203'>203</a>
+<a name='L204'></a><a href='#L204'>204</a>
+<a name='L205'></a><a href='#L205'>205</a>
+<a name='L206'></a><a href='#L206'>206</a>
+<a name='L207'></a><a href='#L207'>207</a>
+<a name='L208'></a><a href='#L208'>208</a>
+<a name='L209'></a><a href='#L209'>209</a>
+<a name='L210'></a><a href='#L210'>210</a>
+<a name='L211'></a><a href='#L211'>211</a>
+<a name='L212'></a><a href='#L212'>212</a>
+<a name='L213'></a><a href='#L213'>213</a>
+<a name='L214'></a><a href='#L214'>214</a>
+<a name='L215'></a><a href='#L215'>215</a>
+<a name='L216'></a><a href='#L216'>216</a>
+<a name='L217'></a><a href='#L217'>217</a>
+<a name='L218'></a><a href='#L218'>218</a>
+<a name='L219'></a><a href='#L219'>219</a>
+<a name='L220'></a><a href='#L220'>220</a>
+<a name='L221'></a><a href='#L221'>221</a>
+<a name='L222'></a><a href='#L222'>222</a>
+<a name='L223'></a><a href='#L223'>223</a>
+<a name='L224'></a><a href='#L224'>224</a>
+<a name='L225'></a><a href='#L225'>225</a>
+<a name='L226'></a><a href='#L226'>226</a>
+<a name='L227'></a><a href='#L227'>227</a>
+<a name='L228'></a><a href='#L228'>228</a>
+<a name='L229'></a><a href='#L229'>229</a>
+<a name='L230'></a><a href='#L230'>230</a>
+<a name='L231'></a><a href='#L231'>231</a>
+<a name='L232'></a><a href='#L232'>232</a>
+<a name='L233'></a><a href='#L233'>233</a>
+<a name='L234'></a><a href='#L234'>234</a>
+<a name='L235'></a><a href='#L235'>235</a>
+<a name='L236'></a><a href='#L236'>236</a>
+<a name='L237'></a><a href='#L237'>237</a>
+<a name='L238'></a><a href='#L238'>238</a>
+<a name='L239'></a><a href='#L239'>239</a>
+<a name='L240'></a><a href='#L240'>240</a>
+<a name='L241'></a><a href='#L241'>241</a>
+<a name='L242'></a><a href='#L242'>242</a>
+<a name='L243'></a><a href='#L243'>243</a>
+<a name='L244'></a><a href='#L244'>244</a>
+<a name='L245'></a><a href='#L245'>245</a>
+<a name='L246'></a><a href='#L246'>246</a>
+<a name='L247'></a><a href='#L247'>247</a>
+<a name='L248'></a><a href='#L248'>248</a>
+<a name='L249'></a><a href='#L249'>249</a>
+<a name='L250'></a><a href='#L250'>250</a>
+<a name='L251'></a><a href='#L251'>251</a>
+<a name='L252'></a><a href='#L252'>252</a>
+<a name='L253'></a><a href='#L253'>253</a>
+<a name='L254'></a><a href='#L254'>254</a>
+<a name='L255'></a><a href='#L255'>255</a>
+<a name='L256'></a><a href='#L256'>256</a>
+<a name='L257'></a><a href='#L257'>257</a>
+<a name='L258'></a><a href='#L258'>258</a>
+<a name='L259'></a><a href='#L259'>259</a>
+<a name='L260'></a><a href='#L260'>260</a>
+<a name='L261'></a><a href='#L261'>261</a>
+<a name='L262'></a><a href='#L262'>262</a>
+<a name='L263'></a><a href='#L263'>263</a>
+<a name='L264'></a><a href='#L264'>264</a>
+<a name='L265'></a><a href='#L265'>265</a>
+<a name='L266'></a><a href='#L266'>266</a>
+<a name='L267'></a><a href='#L267'>267</a>
+<a name='L268'></a><a href='#L268'>268</a>
+<a name='L269'></a><a href='#L269'>269</a>
+<a name='L270'></a><a href='#L270'>270</a>
+<a name='L271'></a><a href='#L271'>271</a>
+<a name='L272'></a><a href='#L272'>272</a>
+<a name='L273'></a><a href='#L273'>273</a>
+<a name='L274'></a><a href='#L274'>274</a>
+<a name='L275'></a><a href='#L275'>275</a>
+<a name='L276'></a><a href='#L276'>276</a>
+<a name='L277'></a><a href='#L277'>277</a>
+<a name='L278'></a><a href='#L278'>278</a>
+<a name='L279'></a><a href='#L279'>279</a>
+<a name='L280'></a><a href='#L280'>280</a>
+<a name='L281'></a><a href='#L281'>281</a>
+<a name='L282'></a><a href='#L282'>282</a>
+<a name='L283'></a><a href='#L283'>283</a>
+<a name='L284'></a><a href='#L284'>284</a>
+<a name='L285'></a><a href='#L285'>285</a>
+<a name='L286'></a><a href='#L286'>286</a>
+<a name='L287'></a><a href='#L287'>287</a>
+<a name='L288'></a><a href='#L288'>288</a>
+<a name='L289'></a><a href='#L289'>289</a>
+<a name='L290'></a><a href='#L290'>290</a>
+<a name='L291'></a><a href='#L291'>291</a>
+<a name='L292'></a><a href='#L292'>292</a>
+<a name='L293'></a><a href='#L293'>293</a>
+<a name='L294'></a><a href='#L294'>294</a>
+<a name='L295'></a><a href='#L295'>295</a>
+<a name='L296'></a><a href='#L296'>296</a>
+<a name='L297'></a><a href='#L297'>297</a>
+<a name='L298'></a><a href='#L298'>298</a>
+<a name='L299'></a><a href='#L299'>299</a>
+<a name='L300'></a><a href='#L300'>300</a>
+<a name='L301'></a><a href='#L301'>301</a>
+<a name='L302'></a><a href='#L302'>302</a>
+<a name='L303'></a><a href='#L303'>303</a>
+<a name='L304'></a><a href='#L304'>304</a>
+<a name='L305'></a><a href='#L305'>305</a>
+<a name='L306'></a><a href='#L306'>306</a>
+<a name='L307'></a><a href='#L307'>307</a>
+<a name='L308'></a><a href='#L308'>308</a>
+<a name='L309'></a><a href='#L309'>309</a>
+<a name='L310'></a><a href='#L310'>310</a>
+<a name='L311'></a><a href='#L311'>311</a>
+<a name='L312'></a><a href='#L312'>312</a>
+<a name='L313'></a><a href='#L313'>313</a>
+<a name='L314'></a><a href='#L314'>314</a>
+<a name='L315'></a><a href='#L315'>315</a>
+<a name='L316'></a><a href='#L316'>316</a>
+<a name='L317'></a><a href='#L317'>317</a>
+<a name='L318'></a><a href='#L318'>318</a>
+<a name='L319'></a><a href='#L319'>319</a>
+<a name='L320'></a><a href='#L320'>320</a>
+<a name='L321'></a><a href='#L321'>321</a>
+<a name='L322'></a><a href='#L322'>322</a>
+<a name='L323'></a><a href='#L323'>323</a>
+<a name='L324'></a><a href='#L324'>324</a>
+<a name='L325'></a><a href='#L325'>325</a>
+<a name='L326'></a><a href='#L326'>326</a>
+<a name='L327'></a><a href='#L327'>327</a>
+<a name='L328'></a><a href='#L328'>328</a>
+<a name='L329'></a><a href='#L329'>329</a>
+<a name='L330'></a><a href='#L330'>330</a>
+<a name='L331'></a><a href='#L331'>331</a>
+<a name='L332'></a><a href='#L332'>332</a>
+<a name='L333'></a><a href='#L333'>333</a>
+<a name='L334'></a><a href='#L334'>334</a>
+<a name='L335'></a><a href='#L335'>335</a>
+<a name='L336'></a><a href='#L336'>336</a>
+<a name='L337'></a><a href='#L337'>337</a>
+<a name='L338'></a><a href='#L338'>338</a>
+<a name='L339'></a><a href='#L339'>339</a>
+<a name='L340'></a><a href='#L340'>340</a>
+<a name='L341'></a><a href='#L341'>341</a>
+<a name='L342'></a><a href='#L342'>342</a>
+<a name='L343'></a><a href='#L343'>343</a>
+<a name='L344'></a><a href='#L344'>344</a>
+<a name='L345'></a><a href='#L345'>345</a>
+<a name='L346'></a><a href='#L346'>346</a>
+<a name='L347'></a><a href='#L347'>347</a>
+<a name='L348'></a><a href='#L348'>348</a>
+<a name='L349'></a><a href='#L349'>349</a>
+<a name='L350'></a><a href='#L350'>350</a>
+<a name='L351'></a><a href='#L351'>351</a>
+<a name='L352'></a><a href='#L352'>352</a>
+<a name='L353'></a><a href='#L353'>353</a>
+<a name='L354'></a><a href='#L354'>354</a>
+<a name='L355'></a><a href='#L355'>355</a>
+<a name='L356'></a><a href='#L356'>356</a>
+<a name='L357'></a><a href='#L357'>357</a>
+<a name='L358'></a><a href='#L358'>358</a>
+<a name='L359'></a><a href='#L359'>359</a>
+<a name='L360'></a><a href='#L360'>360</a>
+<a name='L361'></a><a href='#L361'>361</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">const prisma = require('../../lib/prisma')
+const { groq } = require('../../lib/adminUploads')
+const { cleanJsonRaw, repairTruncatedJson } = require('./jsonSanitizer')
+&nbsp;
+// Phase 1: Analyze PDF structure using Groq AI
+async function <span class="fstat-no" title="function not covered" >analyzeBookStructure(</span>pages, originalname) {
+  const totalPages = <span class="cstat-no" title="statement not covered" >pages.length</span>
+  const tocSample = <span class="cstat-no" title="statement not covered" >pages.slice(0, Math.min(40, totalPages))</span>
+    .map(<span class="fstat-no" title="function not covered" >(p</span>, i) =&gt; <span class="cstat-no" title="statement not covered" >`=== PAGE ${i + 1} ===\n${p}`)</span>
+    .join('\n\n')
+    .substring(0, 20000)
+&nbsp;
+  const completion = <span class="cstat-no" title="statement not covered" >await groq.chat.completions.create({</span>
+    model: 'llama-3.3-70b-versatile',
+    temperature: 0.0,
+    max_tokens: 2000,
+    messages: [
+      {
+        role: 'system',
+        content: `You are an expert at analyzing Cambridge IELTS book PDFs. A Cambridge IELTS Academic/General book contains 4 tests. Each test has 4 sections: Listening (questions + transcript at the back), Reading (3 passages), Writing (Task 1 + Task 2), Speaking (3 parts). The Answer Key is typically near the end of the book. Return ONLY valid JSON, no explanation.`
+      },
+      {
+        role: 'user',
+        content: `Analyze the structure of this Cambridge IELTS book PDF. Find the page ranges for each test's 4 skills and the answer key.
+&nbsp;
+ORIGINAL FILENAME: ${originalname}
+&nbsp;
+IMPORTANT: Page numbers in the PDF text usually appear as standalone numbers or in headers/footers. Tests are typically labeled "Test 1", "Test 2", etc. Reading passages have titles. Listening sections say "SECTION 1", "SECTION 2", etc. The Answer Key section shows answers like "1. B  2. TRUE  3. carbon".
+&nbsp;
+PDF CONTENT (first ${Math.min(40, totalPages)} pages):
+${tocSample}
+&nbsp;
+Total pages in PDF: ${totalPages}
+&nbsp;
+Return this exact JSON structure (use 0 for unknown page numbers):
+{
+  "bookTitle": "Cambridge IELTS 19 Academic",
+  "totalPages": ${totalPages},
+  "tests": [
+    {
+      "testNumber": 1,
+      "listening": { "startPage": 10, "endPage": 22 },
+      "reading": { "startPage": 23, "endPage": 48 },
+      "writing": { "startPage": 49, "endPage": 53 },
+      "speaking": { "startPage": 54, "endPage": 57 }
+    },
+    {
+      "testNumber": 2,
+      "listening": { "startPage": 0, "endPage": 0 },
+      "reading": { "startPage": 0, "endPage": 0 },
+      "writing": { "startPage": 0, "endPage": 0 },
+      "speaking": { "startPage": 0, "endPage": 0 }
+    },
+    {
+      "testNumber": 3,
+      "listening": { "startPage": 0, "endPage": 0 },
+      "reading": { "startPage": 0, "endPage": 0 },
+      "writing": { "startPage": 0, "endPage": 0 },
+      "speaking": { "startPage": 0, "endPage": 0 }
+    },
+    {
+      "testNumber": 4,
+      "listening": { "startPage": 0, "endPage": 0 },
+      "reading": { "startPage": 0, "endPage": 0 },
+      "writing": { "startPage": 0, "endPage": 0 },
+      "speaking": { "startPage": 0, "endPage": 0 }
+    }
+  ],
+  "answerKey": { "startPage": 180, "endPage": 200 }
+}`
+      }
+    ]
+  })
+&nbsp;
+  let structure
+<span class="cstat-no" title="statement not covered" >  try {</span>
+    const raw = <span class="cstat-no" title="statement not covered" >cleanJsonRaw(completion.choices[0].message.content)</span>
+<span class="cstat-no" title="statement not covered" >    structure = JSON.parse(raw)</span>
+  } catch {
+    // Fallback: estimate page ranges for a ~200-page book
+    const perTest = <span class="cstat-no" title="statement not covered" >Math.floor(totalPages / 5)</span>
+<span class="cstat-no" title="statement not covered" >    structure = {</span>
+      bookTitle: 'Cambridge IELTS',
+      totalPages,
+      tests: [1, 2, 3, 4].map(<span class="fstat-no" title="function not covered" >n </span>=&gt; (<span class="cstat-no" title="statement not covered" >{</span>
+        testNumber: n,
+        listening:  { startPage: (n - 1) * perTest + 1,      endPage: (n - 1) * perTest + 12 },
+        reading:    { startPage: (n - 1) * perTest + 13,     endPage: (n - 1) * perTest + 38 },
+        writing:    { startPage: (n - 1) * perTest + 39,     endPage: (n - 1) * perTest + 43 },
+        speaking:   { startPage: (n - 1) * perTest + 44,     endPage: (n - 1) * perTest + perTest }
+      })),
+      answerKey: { startPage: totalPages - 25, endPage: totalPages - 5 }
+    }
+  }
+&nbsp;
+  // If AI couldn't detect book title, use the original filename
+<span class="cstat-no" title="statement not covered" >  if (!structure.bookTitle || structure.bookTitle === 'Unknown' || structure.bookTitle === 'Cambridge IELTS') {</span>
+    const cleanName = <span class="cstat-no" title="statement not covered" >originalname.replace(/\.pdf$/i, '').replace(/[-_]/g, ' ')</span>
+<span class="cstat-no" title="statement not covered" >    structure.bookTitle = cleanName</span>
+  }
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  return structure</span>
+}
+&nbsp;
+// Phase 2: Preview extraction using Groq AI
+async function <span class="fstat-no" title="function not covered" >extractTestContent(</span>{ skill, testNumber, sectionText, answerText, bookTitle }) {
+  const title = <span class="cstat-no" title="statement not covered" >`${bookTitle} - Test ${testNumber} ${skill.charAt(0).toUpperCase() + skill.slice(1)}`</span>
+  let prompt = <span class="cstat-no" title="statement not covered" >''</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  if (skill === 'reading') {</span>
+<span class="cstat-no" title="statement not covered" >    prompt = `You are extracting IELTS Reading Test ${testNumber} from a Cambridge IELTS book PDF.</span>
+&nbsp;
+The text below is extracted from the PDF pages. It may have formatting artifacts. Extract ALL 3 passages and ALL 40 questions with their correct answers.
+&nbsp;
+READING SECTION TEXT:
+${sectionText.substring(0, 40000)}
+&nbsp;
+${answerText ? `ANSWER KEY TEXT:\n${answerText}` : ''}
+&nbsp;
+INSTRUCTIONS:
+- Extract exactly 3 passages (Passage 1, Passage 2, Passage 3)
+- Each passage has a title and body text (copy the full passage body)
+- Questions are numbered 1–40 total (Passage 1: Q1–13, Passage 2: Q14–26, Passage 3: Q27–40 — but actual ranges vary)
+- For correct answers: use the Answer Key section if provided; otherwise infer from context
+- Question types: true_false_ng, yes_no_ng, mcq, fill_blank, short_answer, matching_headings, matching_features, matching_paragraph, matching_endings, choose_title, diagram_completion
+- For MCQ: options array like ["A. option text", "B. option text", "C. option text", "D. option text"]
+- For TRUE/FALSE/NOT GIVEN: correctAnswer is "TRUE", "FALSE", or "NOT GIVEN"
+- For YES/NO/NOT GIVEN: correctAnswer is "YES", "NO", or "NOT GIVEN"
+- For fill_blank / short_answer: correctAnswer is the word(s) that fill the blank
+- For matching_headings: questionText is e.g. "Paragraph A" and correctAnswer is the Roman numeral "i", "ii", "iii", etc.
+&nbsp;
+Return ONLY this JSON (no markdown):
+{
+  "suggestedTitle": "${title}",
+  "passages": [
+    {
+      "number": 1,
+      "title": "The exact passage title",
+      "body": "Full passage text here...",
+      "questions": [
+        { "number": 1, "type": "true_false_ng", "questionText": "The statement text", "options": null, "correctAnswer": "TRUE" },
+        { "number": 5, "type": "mcq", "questionText": "Which of the following...?", "options": ["A. First option", "B. Second option", "C. Third option", "D. Fourth option"], "correctAnswer": "A. First option" },
+        { "number": 9, "type": "fill_blank", "questionText": "The process involves ___ and ___", "options": null, "correctAnswer": "heating / cooling" },
+        { "number": 14, "type": "matching_headings", "questionText": "Paragraph B", "options": null, "correctAnswer": "iii" }
+      ]
+    },
+    { "number": 2, "title": "...", "body": "...", "questions": [] },
+    { "number": 3, "title": "...", "body": "...", "questions": [] }
+  ]
+}`
+&nbsp;
+  } else <span class="cstat-no" title="statement not covered" >if (skill === 'listening') {</span>
+<span class="cstat-no" title="statement not covered" >    prompt = `You are extracting IELTS Listening Test ${testNumber} from a Cambridge IELTS book PDF.</span>
+&nbsp;
+The text contains the QUESTIONS (not the audio transcripts). Extract all 4 sections with their questions.
+&nbsp;
+LISTENING SECTION TEXT:
+${sectionText.substring(0, 30000)}
+&nbsp;
+${answerText ? `ANSWER KEY TEXT:\n${answerText}` : ''}
+&nbsp;
+INSTRUCTIONS:
+- There are 4 sections (SECTION 1, SECTION 2, SECTION 3, SECTION 4)
+- Total 40 questions: Section 1 Q1–10, Section 2 Q11–20, Section 3 Q21–30, Section 4 Q31–40
+- Write a 1-2 sentence context description for each section (what the audio is about)
+- Question types: fill_blank, mcq, mcq_multi, short_answer, matching, map_diagram
+- For fill_blank: questionText should include the blank as ___, e.g. "The venue is at ___ Street"
+- For MCQ: include options like ["A. option", "B. option", "C. option"]
+- Correct answers come from the Answer Key; if not available, leave as empty string ""
+&nbsp;
+Return ONLY this JSON (no markdown):
+{
+  "suggestedTitle": "${title}",
+  "sections": [
+    {
+      "number": 1,
+      "context": "A conversation between two students about enrolling in a course at a local college.",
+      "questions": [
+        { "number": 1, "type": "fill_blank", "questionText": "Name: ___ Johnson", "options": null, "correctAnswer": "Sarah" },
+        { "number": 3, "type": "mcq", "questionText": "What type of course does the student want?", "options": ["A. Part-time", "B. Full-time", "C. Online", "D. Evening"], "correctAnswer": "A. Part-time" }
+      ]
+    },
+    { "number": 2, "context": "...", "questions": [] },
+    { "number": 3, "context": "...", "questions": [] },
+    { "number": 4, "context": "...", "questions": [] }
+  ]
+}`
+&nbsp;
+  } else <span class="cstat-no" title="statement not covered" >if (skill === 'writing') {</span>
+<span class="cstat-no" title="statement not covered" >    prompt = `You are extracting IELTS Writing Test ${testNumber} from a Cambridge IELTS book PDF.</span>
+&nbsp;
+WRITING SECTION TEXT:
+${sectionText.substring(0, 8000)}
+&nbsp;
+INSTRUCTIONS:
+- Task 1: usually describes a chart, graph, map, process diagram, or letter. Copy the full prompt/instruction.
+- Task 2: an essay question. Copy the full question text.
+- taskType for Task 1: "chart" (bar/line/pie chart, table), "map" (map comparison), "process" (process diagram), "diagram" (other diagram), "letter" (informal/formal letter for GT)
+&nbsp;
+Return ONLY this JSON (no markdown):
+{
+  "suggestedTitle": "${title}",
+  "task1": {
+    "taskType": "chart",
+    "prompt": "The graph below shows... Summarise the information by selecting and reporting the main features, and make comparisons where relevant. Write at least 150 words."
+  },
+  "task2": {
+    "prompt": "Some people think... To what extent do you agree or disagree? Give reasons for your answer and include any relevant examples from your own knowledge or experience. Write at least 250 words."
+  }
+}`
+&nbsp;
+  } else <span class="cstat-no" title="statement not covered" >if (skill === 'speaking') {</span>
+<span class="cstat-no" title="statement not covered" >    prompt = `You are extracting IELTS Speaking Test ${testNumber} from a Cambridge IELTS book PDF.</span>
+&nbsp;
+SPEAKING SECTION TEXT:
+${sectionText.substring(0, 8000)}
+&nbsp;
+INSTRUCTIONS:
+- Part 1: 3-5 questions on familiar topics (home, work, hobbies, etc.)
+- Part 2: a cue card topic with bullet points + follow-up questions
+- Part 3: 4-6 discussion questions related to Part 2 topic
+&nbsp;
+Return ONLY this JSON (no markdown):
+{
+  "suggestedTitle": "${title}",
+  "part1": {
+    "description": "The examiner asks general questions about familiar topics.",
+    "questions": ["Do you work or study?", "What do you like about your hometown?", "How do you usually spend your weekends?"]
+  },
+  "part2": {
+    "instructions": "You will have to talk about the topic for one to two minutes. You have one minute to think about what you are going to say. You can make some notes to help you if you wish.",
+    "cueCard": "Describe a place you have visited that you particularly liked.\n\nYou should say:\n  where it is\n  when you went there\n  what you did there\nand explain why you liked it so much.",
+    "questions": ["Would you like to go back?", "Do you think tourism has changed this place?"]
+  },
+  "part3": {
+    "description": "Discussion topics related to travel and places.",
+    "topics": [
+      {
+        "label": "Tourism",
+        "questions": ["Why do people enjoy travelling to different countries?", "How has tourism changed in recent years?"]
+      },
+      {
+        "label": "Local culture",
+        "questions": ["How important is it to preserve local culture?", "Can tourism help preserve culture or does it damage it?"]
+      }
+    ]
+  }
+}`
+  }
+&nbsp;
+  const completion = <span class="cstat-no" title="statement not covered" >await groq.chat.completions.create({</span>
+    model: 'llama-3.3-70b-versatile',
+    temperature: 0.0,
+    max_tokens: skill === 'reading' ? 16000 : 8000,
+    messages: [
+      {
+        role: 'system',
+        content: 'You are an expert IELTS content extractor. Extract exam content from Cambridge IELTS PDF text accurately. The PDF text may have minor formatting artifacts — interpret them correctly. Return ONLY valid JSON with no markdown code blocks.'
+      },
+      { role: 'user', content: prompt }
+    ]
+  })
+&nbsp;
+  const raw = <span class="cstat-no" title="statement not covered" >cleanJsonRaw(completion.choices[0].message.content)</span>
+  const extracted = <span class="cstat-no" title="statement not covered" >JSON.parse(raw)</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  return { raw, extracted }</span>
+}
+&nbsp;
+// Extraction for save to DB (Phase 3 - extract-save)
+async function <span class="fstat-no" title="function not covered" >extractTestContentForSave(</span>{ skill, bookNumber, testNumber, contentText, answerText, seriesId, s, e }) {
+  let seriesName = <span class="cstat-no" title="statement not covered" >'IELTS'</span>
+<span class="cstat-no" title="statement not covered" >  if (seriesId) {</span>
+<span class="cstat-no" title="statement not covered" >    try {</span>
+      const sr = <span class="cstat-no" title="statement not covered" >await prisma.examSeries.findUnique({ where: { id: parseInt(seriesId) } })</span>
+<span class="cstat-no" title="statement not covered" >      if (sr) <span class="cstat-no" title="statement not covered" >seriesName = sr.name</span></span>
+    } catch {}
+  }
+  const bookLabel = <span class="cstat-no" title="statement not covered" >bookNumber ? `${seriesName} ${bookNumber}` : seriesName</span>
+  const title = <span class="cstat-no" title="statement not covered" >`${bookLabel} - Test ${testNumber} ${skill.charAt(0).toUpperCase() + skill.slice(1)}`</span>
+&nbsp;
+  const PROMPTS = <span class="cstat-no" title="statement not covered" >{</span>
+    reading: `Extract IELTS Reading Test ${testNumber} from the PDF text. Return ONLY valid JSON, no markdown, no explanation.
+&nbsp;
+READING TEXT (pages ${s}–${e}):
+${contentText.substring(0, 35000)}
+${answerText ? `\nANSWER KEY (use for correctAnswer):\n${answerText}` : ''}
+&nbsp;
+Rules:
+- 3 passages. "body" = full passage text verbatim (essential for students to read).
+- question types: mcq|mcq_multi|true_false_ng|yes_no_ng|fill_blank|short_answer|matching_headings|matching_features|matching_paragraph|matching_endings|choose_title|diagram_completion
+- mcq/mcq_multi: options=["A. text","B. text",...], correctAnswer=exact matching option string
+- true_false_ng/yes_no_ng: correctAnswer="TRUE"/"FALSE"/"NOT GIVEN" or "YES"/"NO"/"NOT GIVEN"
+- matching_headings: options=["i. heading",...], correctAnswer=roman numeral string
+- fill_blank/short_answer: options=null, correctAnswer=word(s) to fill
+- imageUrl=null for all questions
+&nbsp;
+{"title":"${title}","passages":[{"number":1,"title":"Passage title","body":"Full passage text here...","questions":[{"number":1,"type":"mcq","questionText":"Question?","options":["A. opt","B. opt","C. opt","D. opt"],"correctAnswer":"A. opt","imageUrl":null}]}]}`,
+&nbsp;
+    listening: `Extract IELTS Listening Test ${testNumber} from the PDF text below. Return ONLY valid JSON matching this exact schema.
+&nbsp;
+LISTENING TEXT (pages ${s}–${e}):
+${contentText.substring(0, 30000)}
+${answerText ? `\nANSWER KEY:\n${answerText}` : ''}
+&nbsp;
+Rules:
+- 4 sections (SECTION 1–4), questions 1–40
+- Question types: fill_blank|mcq|mcq_multi|short_answer|matching|map_diagram
+- fill_blank: blank shown as ___ in questionText, correctAnswer = missing word(s)
+- mcq: options ["A. text","B. text","C. text"], correctAnswer = exact option text
+- mcq_multi (choose TWO): correctAnswer = "A. text,C. text"
+- map_diagram: options = ["A","B","C",...], correctAnswer = correct letter
+- Use answer key for correctAnswer
+&nbsp;
+{"title":"${title}","sections":[{"number":1,"context":"Brief description of the conversation/talk","transcript":"","questions":[{"number":1,"type":"fill_blank","questionText":"Name: ___ Johnson","options":null,"correctAnswer":"Sarah","imageUrl":null}]}]}`,
+&nbsp;
+    writing: `Extract IELTS Writing Test ${testNumber} from the PDF text below. Return ONLY valid JSON.
+&nbsp;
+WRITING TEXT (pages ${s}–${e}):
+${contentText.substring(0, 8000)}
+&nbsp;
+{"title":"${title}","task1":{"taskType":"chart","prompt":"Full Task 1 prompt including instructions..."},"task2":{"prompt":"Full Task 2 essay question including instructions..."}}
+&nbsp;
+taskType options: chart | map | process | diagram | letter`,
+&nbsp;
+    speaking: `Extract IELTS Speaking Test ${testNumber} from the PDF text below. Return ONLY valid JSON.
+&nbsp;
+SPEAKING TEXT (pages ${s}–${e}):
+${contentText.substring(0, 8000)}
+&nbsp;
+{"title":"${title}","part1":{"description":"Examiner asks about familiar topics.","questions":["Q1?","Q2?","Q3?"]},"part2":{"instructions":"You will have to talk for 1–2 minutes...","cueCard":"Describe ...\\n\\nYou should say:\\n  ...\\nand explain ...","questions":["Follow-up Q?"]},"part3":{"description":"Discussion topics related to ...","topics":[{"label":"Topic A","questions":["Q1?","Q2?"]},{"label":"Topic B","questions":["Q3?"]}]}}`
+  }
+&nbsp;
+  const prompt = <span class="cstat-no" title="statement not covered" >PROMPTS[skill]</span>
+<span class="cstat-no" title="statement not covered" >  if (!prompt) <span class="cstat-no" title="statement not covered" >throw new Error('Skill không hợp lệ')</span></span>
+&nbsp;
+  const completion = <span class="cstat-no" title="statement not covered" >await groq.chat.completions.create({</span>
+    model: 'llama-3.3-70b-versatile',
+    temperature: 0.0,
+    max_tokens: skill === 'reading' ? 16000 : 6000,
+    messages: [
+      { role: 'system', content: 'You are an expert IELTS content extractor. Extract exam content from Cambridge IELTS PDF text accurately. Return ONLY valid JSON with no markdown code blocks, no explanation.' },
+      { role: 'user', content: prompt }
+    ]
+  })
+&nbsp;
+  const finishReason = <span class="cstat-no" title="statement not covered" >completion.choices[0].finish_reason</span>
+  let raw = <span class="cstat-no" title="statement not covered" >(completion.choices[0].message.content || '').trim()</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  raw = repairTruncatedJson(raw, finishReason)</span>
+  const extracted = <span class="cstat-no" title="statement not covered" >JSON.parse(raw)</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  return { finishReason, raw, extracted, title }</span>
+}
+&nbsp;
+module.exports = {
+  analyzeBookStructure,
+  extractTestContent,
+  extractTestContentForSave
+}
+&nbsp;</pre></td></tr></table></pre>
+
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-07-23T08:19:38.310Z
+            </div>
+        <script src="../../../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../../../sorter.js"></script>
+        <script src="../../../block-navigation.js"></script>
+    </body>
+</html>
+    

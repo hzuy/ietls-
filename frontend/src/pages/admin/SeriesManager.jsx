@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import AdminLayout from '../../components/AdminLayout'
-import { getAdminSeriesList, getAdminExamsList, createSeries, updateSeries, deleteSeries, uploadSeriesThumbnail } from '../../services/seriesService'
+
+
+import { getAdminSeriesList, getAdminSeriesById, getAdminExamsList, createSeries, updateSeries, deleteSeries, uploadSeriesThumbnail } from '../../services/seriesService'
 
 const BACKEND_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '')
 const resolveImg = (url) => !url ? null : url.startsWith('http') ? url : BACKEND_URL + url
@@ -39,9 +41,8 @@ export default function SeriesManager() {
 
   const openEdit = async (item) => {
     try {
-      const data = (await getAdminSeriesList()).find(s => s.id === item.id)
-      if (!data) return
-      // Build tests structure from data.exams
+      // BUG-10: Fetch single series directly instead of refetching whole list
+      const data = await getAdminSeriesById(item.id)
       const testMap = {}
       for (const se of data.exams || []) {
         if (!testMap[se.testNumber]) testMap[se.testNumber] = { testNumber: se.testNumber, exams: {} }
@@ -74,6 +75,12 @@ export default function SeriesManager() {
 
   const handleSave = async () => {
     if (!form.name.trim()) { alert('Vui lòng nhập tên bộ đề'); return }
+    // BUG-08: Validate duplicate testNumbers
+    const nums = form.tests.map(t => t.testNumber)
+    if (new Set(nums).size !== nums.length) {
+      alert('Có hai test slot trùng số. Vui lòng đổi số test cho mỗi slot độc nhất.')
+      return
+    }
     setSaving(true)
     try {
       // Build exams array
@@ -204,7 +211,7 @@ export default function SeriesManager() {
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => setView('list')} className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 font-medium">Hủy</button>
-                <button onClick={handleSave} disabled={saving} className="flex-1 px-4 py-2.5 rounded-xl bg-[#1a56db] text-white text-sm font-bold hover:bg-[#1d4ed8] transition disabled:opacity-50">
+                <button onClick={handleSave} disabled={saving} className="flex-1 px-4 py-2.5 rounded-xl bg-[#1D4ED8] text-white text-sm font-bold hover:bg-[#1D4ED8] transition disabled:opacity-50">
                   {saving ? 'Đang lưu...' : 'Lưu'}
                 </button>
               </div>
@@ -220,7 +227,7 @@ export default function SeriesManager() {
       <div className="p-6 max-w-5xl">
         <div className="flex items-center justify-between mb-6">
           <div><h1 className="text-xl font-bold text-gray-800">Quản lý bộ đề</h1><p className="text-sm text-gray-500 mt-0.5">Tạo và quản lý các bộ đề Full Test</p></div>
-          <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1a56db] text-white text-sm font-semibold hover:bg-[#1d4ed8] transition">+ Tạo bộ đề mới</button>
+          <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1D4ED8] text-white text-sm font-semibold hover:bg-[#1D4ED8] transition">+ Tạo bộ đề mới</button>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
           {loading ? <div className="p-10 text-center text-sm text-gray-400">Đang tải...</div>
@@ -250,7 +257,7 @@ export default function SeriesManager() {
                         </td>
                         <td className="px-4 py-3 text-sm font-medium text-gray-800">{item.name}</td>
                         <td className="px-4 py-3 hidden sm:table-cell">
-                          <span style={{ fontSize: 11, fontWeight: 600, background: '#eff6ff', color: '#1a56db', borderRadius: 4, padding: '2px 6px' }}>
+                          <span style={{ fontSize: 11, fontWeight: 600, background: '#eff6ff', color: '#1D4ED8', borderRadius: 4, padding: '2px 6px' }}>
                             {item.type === 'general' ? 'General' : 'Academic'}
                           </span>
                         </td>
@@ -259,7 +266,7 @@ export default function SeriesManager() {
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-2">
                             <button onClick={() => openEdit(item)} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium transition">Sửa</button>
-                            <button onClick={() => setDelConfirm(item.id)} className="text-xs px-3 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 font-medium transition">Xóa</button>
+                            <button onClick={() => setDelConfirm(item.id)} className="text-xs px-3 py-1.5 rounded-lg border border-blue-200 text-red-500 hover:bg-blue-50 font-medium transition">Xóa</button>
                           </div>
                         </td>
                       </tr>
@@ -270,18 +277,24 @@ export default function SeriesManager() {
             )}
         </div>
       </div>
-      {delConfirm && (
-        <div onClick={() => setDelConfirm(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
-            <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-xl">🗑️</div><h3 className="font-bold text-gray-800">Xóa bộ đề?</h3></div>
-            <p className="text-sm text-gray-500 mb-5">Hành động này không thể hoàn tác.</p>
-            <div className="flex gap-3 justify-end">
-              <button onClick={() => setDelConfirm(null)} className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 font-medium">Hủy</button>
-              <button onClick={() => handleDelete(delConfirm)} className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition">Xóa</button>
+      {delConfirm && (() => {
+        const deletingItem = list.find(s => s.id === delConfirm)
+        // BUG-09: Show number of tests that will be deleted
+        const testCount = deletingItem ? [...new Set((deletingItem.seriesExams || []).map(e => e.testNumber))].length : 0
+        return (
+          <div onClick={() => setDelConfirm(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+            <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+              <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-xl">🗑️</div><h3 className="font-bold text-gray-800">Xóa bộ đề?</h3></div>
+              <p className="text-sm text-gray-500 mb-1">Hành động này không thể hoàn tác.</p>
+              {testCount > 0 && <p className="text-sm text-red-500 mb-4">{testCount} test slot sẽ bị xóa cùng.</p>}
+              <div className="flex gap-3 justify-end">
+                <button onClick={() => setDelConfirm(null)} className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 font-medium">Hủy</button>
+                <button onClick={() => handleDelete(delConfirm)} className="px-4 py-2 rounded-xl bg-blue-500 text-white text-sm font-bold hover:bg-blue-600 transition">Xóa</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
     </AdminLayout>
   )
 }

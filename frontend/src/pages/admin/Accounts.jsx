@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Eye, EyeOff } from 'lucide-react'
 import { getAdminAccounts, createAdminAccount, updateAdminAccount, deleteAdminAccount } from '../../services/adminService'
 import AdminLayout from '../../components/AdminLayout'
+
 
 const emptyForm = { name: '', email: '', password: '', role: 'teacher' }
 
@@ -11,6 +13,7 @@ export default function Accounts() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [editingId, setEditingId] = useState(null)
+  const [showPassword, setShowPassword] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [error, setError] = useState('')
@@ -27,22 +30,40 @@ export default function Accounts() {
 
   useEffect(() => { fetchAccounts() }, [])
 
-  const openCreate = () => { setForm(emptyForm); setEditingId(null); setError(''); setShowForm(true) }
-  const openEdit = (acc) => { setForm({ name: acc.name, email: acc.email, password: '', role: acc.role }); setEditingId(acc.id); setError(''); setShowForm(true) }
+  const openCreate = () => {
+    setForm(emptyForm)
+    setEditingId(null)
+    setShowPassword(false)
+    setError('')
+    setShowForm(true)
+  }
+
+  const openEdit = (acc) => {
+    setForm({ name: acc.name, email: acc.email, password: '', role: acc.role })
+    setEditingId(acc.id)
+    setShowPassword(false)
+    setError('')
+    setShowForm(true)
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSubmitting(true); setError('')
     try {
       if (editingId) {
-        await updateAdminAccount(editingId, { name: form.name, role: form.role })
+        const payload = { name: form.name, role: form.role }
+        if (form.password && form.password.trim()) {
+          payload.password = form.password.trim()
+        }
+        await updateAdminAccount(editingId, payload)
       } else {
         if (!form.password) { setError('Vui lòng nhập mật khẩu'); setSubmitting(false); return }
         await createAdminAccount(form)
       }
       setShowForm(false); fetchAccounts()
     } catch (err) {
-      setError(err.response?.data?.message || 'Lỗi thao tác')
+      const msg = err.response?.data?.errors?.[0]?.message || err.response?.data?.message || 'Lỗi thao tác'
+      setError(msg)
     } finally { setSubmitting(false) }
   }
 
@@ -62,7 +83,7 @@ export default function Accounts() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-xl font-bold text-gray-800">Quản lý nhân sự</h1>
           <button onClick={openCreate}
-            className="px-4 py-2 rounded-xl bg-[#1a56db] text-white text-sm font-medium hover:bg-blue-700 transition">
+            className="px-4 py-2 rounded-xl bg-[#1D4ED8] text-white text-sm font-medium hover:bg-blue-700 transition">
             + Tạo tài khoản
           </button>
         </div>
@@ -72,37 +93,55 @@ export default function Accounts() {
           <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-4">
             <h2 className="font-semibold text-gray-800 mb-4">{editingId ? 'Sửa tài khoản' : 'Tạo tài khoản mới'}</h2>
             <form onSubmit={handleSubmit} className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-medium text-gray-600 mb-1 block">Họ tên</label>
                   <input value={form.name} onChange={e => setForm({...form, name: e.target.value})} required
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db]" />
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1D4ED8]" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-600 mb-1 block">Email</label>
                   <input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} required disabled={!!editingId}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db] disabled:bg-gray-50" />
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1D4ED8] disabled:bg-gray-50" />
                 </div>
-                {!editingId && (
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">
+                    {editingId ? 'Mật khẩu mới (Tùy chọn)' : 'Mật khẩu'}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={form.password}
+                      onChange={e => setForm({ ...form, password: e.target.value })}
+                      placeholder={editingId ? 'Mật khẩu mới' : 'Mật khẩu'}
+                      className="w-full pl-3 pr-10 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1D4ED8]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(v => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+                      title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+                {/* BUG-21: Only admin can change roles — hide for teachers */}
+                {currentUser.role !== 'teacher' && (
                   <div>
-                    <label className="text-xs font-medium text-gray-600 mb-1 block">Mật khẩu</label>
-                    <input type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db]" />
+                    <label className="text-xs font-medium text-gray-600 mb-1 block">Role</label>
+                    <select value={form.role} onChange={e => setForm({...form, role: e.target.value})}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1D4ED8]">
+                      <option value="teacher">Teacher (Quản lý đề thi)</option>
+                      <option value="admin">Admin (Quản lý hệ thống)</option>
+                    </select>
                   </div>
                 )}
-                <div>
-                  <label className="text-xs font-medium text-gray-600 mb-1 block">Role</label>
-                  <select value={form.role} onChange={e => setForm({...form, role: e.target.value})}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db]">
-                    <option value="teacher">Teacher (Quản lý đề thi)</option>
-                    <option value="admin">Admin (Quản lý hệ thống)</option>
-                  </select>
-                </div>
               </div>
               {error && <p className="text-sm text-red-500">{error}</p>}
               <div className="flex gap-2 pt-1">
                 <button type="submit" disabled={submitting}
-                  className="px-4 py-2 rounded-xl bg-[#1a56db] text-white text-sm font-medium hover:bg-blue-700 transition disabled:opacity-60">
+                  className="px-4 py-2 rounded-xl bg-[#1D4ED8] text-white text-sm font-medium hover:bg-blue-700 transition disabled:opacity-60">
                   {submitting ? 'Đang lưu...' : editingId ? 'Cập nhật' : 'Tạo tài khoản'}
                 </button>
                 <button type="button" onClick={() => setShowForm(false)}
@@ -116,7 +155,7 @@ export default function Accounts() {
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center h-32">
-              <div className="w-7 h-7 border-4 border-[#1a56db] border-t-transparent rounded-full animate-spin" />
+              <div className="w-7 h-7 border-4 border-[#1D4ED8] border-t-transparent rounded-full animate-spin" />
             </div>
           ) : accounts.length === 0 ? (
             <p className="text-center text-gray-400 py-12 text-sm">Chưa có tài khoản nội bộ nào</p>
@@ -154,7 +193,7 @@ export default function Accounts() {
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-400">{fmtDate(acc.createdAt)}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${acc.isLocked ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${acc.isLocked ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-700'}`}>
                         {acc.isLocked ? 'Khoá' : 'Active'}
                       </span>
                     </td>
@@ -164,7 +203,7 @@ export default function Accounts() {
                         <button
                           onClick={() => !isSelf && setConfirmDelete({ id: acc.id, name: acc.name })}
                           disabled={isSelf}
-                          className={`px-2.5 py-1 rounded-lg text-xs border transition ${isSelf ? 'border-gray-100 text-gray-300 cursor-not-allowed' : 'border-red-200 text-red-500 hover:bg-red-50'}`}>
+                          className={`px-2.5 py-1 rounded-lg text-xs border transition ${isSelf ? 'border-gray-100 text-gray-300 cursor-not-allowed' : 'border-blue-200 text-red-500 hover:bg-blue-50'}`}>
                           Xóa
                         </button>
                       </div>

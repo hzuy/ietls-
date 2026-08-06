@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getAdminStaff, makeAdmin, makeTeacher, removeStaff } from '../../services/adminService'
 import AdminLayout from '../../components/AdminLayout'
 
+
 function fmtDate(iso) {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('vi-VN')
@@ -76,7 +77,7 @@ export default function Staff() {
             <div className="text-xs text-gray-500 mt-1 font-medium">Admin</div>
           </div>
           <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100">
-            <div className="text-2xl font-bold text-[#1a56db]">{teacherCount}</div>
+            <div className="text-2xl font-bold text-[#1D4ED8]">{teacherCount}</div>
             <div className="text-xs text-gray-500 mt-1 font-medium">Teacher</div>
           </div>
         </div>
@@ -85,7 +86,7 @@ export default function Staff() {
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center h-32">
-              <div className="w-7 h-7 border-4 border-[#1a56db] border-t-transparent rounded-full animate-spin" />
+              <div className="w-7 h-7 border-4 border-[#1D4ED8] border-t-transparent rounded-full animate-spin" />
             </div>
           ) : staff.length === 0 ? (
             <p className="text-center text-gray-400 py-12 text-sm">Chưa có nhân sự nào</p>
@@ -144,7 +145,7 @@ export default function Staff() {
                         {s.id !== currentUser.id && (
                           <button
                             onClick={() => setConfirmRemove({ id: s.id, name: s.name })}
-                            className="px-2.5 py-1 rounded-lg text-xs border border-red-200 text-red-500 hover:bg-red-50 transition">
+                            className="px-2.5 py-1 rounded-lg text-xs border border-blue-200 text-red-500 hover:bg-blue-50 transition">
                             Xóa khỏi staff
                           </button>
                         )}
@@ -176,7 +177,7 @@ export default function Staff() {
               </button>
               <button
                 onClick={handleRemoveStaff}
-                className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition">
+                className="px-4 py-2 rounded-xl bg-blue-500 text-white text-sm font-bold hover:bg-blue-600 transition">
                 Xóa
               </button>
             </div>

@@ -24,8 +24,8 @@ export const deleteAdminAccount = (id) => api.delete(`/admin/accounts/${id}`).th
 
 // ─── Profile (admin self) ─────────────────────────────────────────────────────
 export const getAdminMe = () => api.get('/admin/me').then(r => r.data)
-export const changeAdminPassword = (oldPassword, newPassword) =>
-  api.put('/admin/me/password', { oldPassword, newPassword }).then(r => r.data)
+export const changeAdminPassword = (currentPassword, newPassword) =>
+  api.put('/admin/me/password', { currentPassword, newPassword }).then(r => r.data)
 
 // ─── Settings ────────────────────────────────────────────────────────────────
 export const getAdminSettings = () => api.get('/admin/settings').then(r => r.data)
@@ -33,11 +33,13 @@ export const updateAdminSettings = (settings) => api.put('/admin/settings', sett
 
 // ─── Attempts ────────────────────────────────────────────────────────────────
 export const getAdminAttempts = (params) => api.get('/admin/attempts', { params }).then(r => r.data)
+export const getAdminAttemptsExport = (params) => api.get('/admin/attempts/export', { params, responseType: 'blob' })
 export const getAdminExamSeriesForFilter = () => api.get('/admin/exam-series').then(r => r.data)
+
 
 // ─── Trash ────────────────────────────────────────────────────────────────────
 export const getAdminTrash = () => api.get('/admin/trash').then(r => r.data)
 export const restoreTrashItem = (type, id) => api.post(`/admin/trash/${type}/${id}/restore`).then(r => r.data)
 export const permanentDeleteTrashItem = (type, id) => api.delete(`/admin/trash/${type}/${id}/permanent`).then(r => r.data)
 export const purgeTrash = () => api.delete('/admin/trash/purge').then(r => r.data)
-export const getTrashCount = () => api.get('/admin/trash').then(r => r.data.length)
+export const getTrashCount = () => api.get('/admin/trash/count').then(r => r.data.count)

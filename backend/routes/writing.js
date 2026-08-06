@@ -1,10 +1,13 @@
 const express = require('express')
 const Groq = require('groq-sdk')
 const authMiddleware = require('../middleware/auth')
+const validate = require('../middleware/validate')
+const { writingSubmitSchema } = require('../validators/submissionValidator')
+const { cleanJsonRaw, repairTruncatedJson } = require('../services/cambridge/jsonSanitizer')
 
 const router = express.Router()
 const prisma = require('../lib/prisma')
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+const getGroqClient = () => new Groq({ apiKey: process.env.GROQ_API_KEY })
 
 // Public: 4 Writing samples mới nhất cho trang chủ
 router.get('/samples', async (req, res) => {
@@ -57,18 +60,16 @@ router.get('/exams/:id', authMiddleware, async (req, res) => {
   }
 })
 
-router.post('/exams/:id/submit', authMiddleware, async (req, res) => {
+async function processWritingAI(answerId, taskPrompt, taskNumber, essay) {
   try {
-    const { taskId, essay } = req.body
-    const task = await prisma.writingTask.findUnique({ where: { id: taskId } })
-    if (!task) return res.status(404).json({ message: 'Không tìm thấy task' })
+    await prisma.writingAnswer.update({
+      where: { id: answerId },
+      data: { status: 'grading' }
+    })
 
-    const wordCount = essay.trim().split(/\s+/).length
-    if (wordCount < 50) return res.status(400).json({ message: 'Bài viết quá ngắn!' })
+    const prompt = `Bạn là giám khảo IELTS. Chấm bài Writing Task ${taskNumber}.
 
-    const prompt = `Bạn là giám khảo IELTS. Chấm bài Writing Task ${task.number}.
-
-ĐỀ BÀI: ${task.prompt}
+ĐỀ BÀI: ${taskPrompt}
 BÀI VIẾT: ${essay}
 
 Trả về JSON (không có gì khác):
@@ -84,17 +85,17 @@ Trả về JSON (không có gì khác):
   "improvements": "..."
 }`
 
-    // TODO(P4): Chuyển sang async queue (BullMQ/Redis) để tránh giữ HTTP connection 3-10s
-    // Hiện tại: user phải chờ đồng bộ trong khi Groq xử lý → 1K concurrent submissions sẽ exhaust socket pool
-    // Fix: POST /submit trả về { jobId } ngay, client poll GET /submit/:jobId để lấy kết quả
+    const groq = getGroqClient()
     const completion = await groq.chat.completions.create({
       messages: [{ role: 'user', content: prompt }],
       model: 'llama-3.3-70b-versatile',
       temperature: 0.3
     })
 
-    const responseText = completion.choices[0].message.content
-    const feedback = JSON.parse(responseText.replace(/```json|```/g, '').trim())
+    const responseText = completion.choices[0]?.message?.content || ''
+    const finishReason = completion.choices[0]?.finish_reason || null
+    const cleanedJson = repairTruncatedJson(responseText, finishReason)
+    const feedback = JSON.parse(cleanedJson)
 
     // Round all scores to nearest IELTS half-band (0, 0.5, 1, ..., 9)
     const roundBand = s => Math.round(Math.min(9, Math.max(0, parseFloat(s) || 0)) * 2) / 2
@@ -105,20 +106,142 @@ Trả về JSON (không có gì khác):
       }
     }
 
-    await prisma.writingAnswer.create({
+    await prisma.writingAnswer.update({
+      where: { id: answerId },
+      data: {
+        aiFeedback: JSON.stringify(feedback),
+        aiScore: feedback.overall,
+        status: 'graded',
+        error: null
+      }
+    })
+
+    // Non-fatal criterion-level logging for Writing (Layer 1)
+    try {
+      const answerRecord = await prisma.writingAnswer.findUnique({
+        where: { id: answerId },
+        select: { userId: true },
+      })
+
+      if (answerRecord && feedback.criteria) {
+        const validCriteriaKeys = ['task_achievement', 'coherence_cohesion', 'lexical_resource', 'grammatical_range']
+        const criterionLogEntries = []
+
+        for (const key of validCriteriaKeys) {
+          if (feedback.criteria[key]) {
+            criterionLogEntries.push({
+              userId: answerRecord.userId,
+              writingAnswerId: answerId,
+              criterion: key,
+              score: feedback.criteria[key].score || 0,
+              comment: feedback.criteria[key].comment || '',
+            })
+          }
+        }
+
+        if (criterionLogEntries.length > 0) {
+          await prisma.writingCriterionLog.createMany({
+            data: criterionLogEntries,
+          })
+        }
+      }
+    } catch (logErr) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('[Writing CriterionLog Error Non-Fatal]', logErr.message)
+      }
+    }
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'production') console.error('[Writing AI Error]', error)
+    await prisma.writingAnswer.update({
+      where: { id: answerId },
+      data: {
+        status: 'failed',
+        error: error.message || 'Lỗi chấm bài AI'
+      }
+    }).catch(() => {})
+  }
+}
+
+router.post('/exams/:id/submit', authMiddleware, validate(writingSubmitSchema), async (req, res) => {
+  try {
+    const { taskId, essay } = req.body
+    const examId = parseInt(req.params.id)
+    const task = await prisma.writingTask.findUnique({ where: { id: taskId } })
+    if (!task) return res.status(404).json({ message: 'Không tìm thấy task' })
+    if (task.examId !== examId) {
+      return res.status(400).json({ message: 'Task không thuộc đề thi này' })
+    }
+
+    // BUG-26: Enforce max_attempts_per_exam setting
+    const maxSetting = await prisma.setting.findUnique({ where: { key: 'max_attempts_per_exam' } })
+    const maxAttempts = maxSetting ? parseInt(maxSetting.value) : 0
+    if (maxAttempts > 0) {
+      const prevCount = await prisma.attempt.count({ where: { userId: req.user.userId, examId } })
+      if (prevCount >= maxAttempts) {
+        return res.status(429).json({ message: `Bạn đã đạt giới hạn ${maxAttempts} lượt thi cho đề này.` })
+      }
+    }
+
+    const wordCount = essay.trim().split(/\s+/).length
+    if (wordCount < 50) return res.status(400).json({ message: 'Bài viết quá ngắn!' })
+
+    const writingAnswer = await prisma.writingAnswer.create({
       data: {
         userId: req.user.userId,
         taskId,
         essayText: essay,
         wordCount,
-        aiFeedback: JSON.stringify(feedback),
-        aiScore: feedback.overall
+        status: 'pending'
       }
     })
 
-    res.json({ ...feedback, wordCount })
+    // Fire-and-forget background processing
+    processWritingAI(writingAnswer.id, task.prompt, task.number, essay).catch(err => {
+      if (process.env.NODE_ENV !== 'production') console.error('[processWritingAI Unhandled]', err)
+    })
+
+    // Return response immediately
+    res.json({ answerId: writingAnswer.id, status: 'pending', wordCount })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi chấm bài', error: error.message })
+    res.status(500).json({ message: 'Lỗi nộp bài', error: error.message })
+  }
+})
+
+// Endpoint cho Client polling trạng thái chấm bài Writing
+router.get('/answers/:id/status', authMiddleware, async (req, res) => {
+  try {
+    const answerId = parseInt(req.params.id)
+    const answer = await prisma.writingAnswer.findUnique({ where: { id: answerId } })
+    if (!answer) return res.status(404).json({ message: 'Không tìm thấy bài làm' })
+    if (answer.userId !== req.user.userId) {
+      return res.status(403).json({ message: 'Không có quyền xem kết quả này' })
+    }
+
+    if (answer.status === 'graded') {
+      let feedback = {}
+      try { feedback = JSON.parse(answer.aiFeedback || '{}') } catch {}
+      return res.json({
+        answerId: answer.id,
+        status: 'graded',
+        ...feedback,
+        wordCount: answer.wordCount
+      })
+    }
+
+    if (answer.status === 'failed') {
+      return res.json({
+        answerId: answer.id,
+        status: 'failed',
+        error: answer.error || 'Lỗi chấm bài'
+      })
+    }
+
+    return res.json({
+      answerId: answer.id,
+      status: answer.status
+    })
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
   }
 })
 

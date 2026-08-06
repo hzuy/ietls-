@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import AdminLayout from '../../components/AdminLayout'
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges'
 import {
   getReadingPracticeList, getReadingPractice,
   createReadingPractice, updateReadingPractice,
@@ -41,7 +42,7 @@ function ReadingGroupEditor({ group, onChange, onRemove, onMoveUp, onMoveDown, i
               className="w-5 h-5 flex items-center justify-center rounded border border-gray-200 text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-25 text-xs transition">▼</button>
           </div>
           <button type="button" onClick={onRemove}
-            className="text-red-400 hover:text-red-600 text-xs font-medium px-2 py-0.5 rounded hover:bg-red-50">
+            className="text-blue-500 hover:text-blue-600 text-xs font-medium px-2 py-0.5 rounded hover:bg-blue-50">
             Xóa nhóm
           </button>
         </div>
@@ -73,7 +74,7 @@ function ReadingGroupEditor({ group, onChange, onRemove, onMoveUp, onMoveDown, i
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={group.canReuse || false}
                 onChange={e => onChange({ ...group, canReuse: e.target.checked })}
-                className="accent-[#1a56db]" />
+                className="accent-[#1D4ED8]" />
               <span className="text-xs text-gray-600 font-medium">Cho phép dùng lại chữ cái (mỗi đoạn có thể khớp nhiều câu)</span>
             </label>
             <MatchingEditor group={group} onChange={onChange} />
@@ -87,7 +88,7 @@ function ReadingGroupEditor({ group, onChange, onRemove, onMoveUp, onMoveDown, i
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={group.canReuse || false}
                 onChange={e => onChange({ ...group, canReuse: e.target.checked })}
-                className="accent-[#1a56db]" />
+                className="accent-[#1D4ED8]" />
               <span className="text-xs text-gray-600 font-medium">Cho phép dùng lại đáp án (mỗi đáp án có thể khớp nhiều câu)</span>
             </label>
             <MatchingEditor group={group} onChange={onChange} />
@@ -150,7 +151,7 @@ function ReadingPracticePreviewModal({ form, showAnswers, setShowAnswers, onClos
           <div className="flex items-center gap-3">
             <span className="text-sm font-bold text-indigo-800">Xem trước — {form.title || 'Reading Practice'}</span>
             <button type="button" onClick={() => setShowAnswers(v => !v)}
-              className={`text-xs px-3 py-1 rounded-full font-semibold transition ${showAnswers ? 'bg-[#1a56db] text-white' : 'bg-white border border-gray-200 text-gray-500 hover:border-[#bfdbfe] hover:text-[#1a56db]'}`}>
+              className={`text-xs px-3 py-1 rounded-full font-semibold transition ${showAnswers ? 'bg-[#1D4ED8] text-white' : 'bg-white border border-gray-200 text-gray-500 hover:border-[#bfdbfe] hover:text-[#1D4ED8]'}`}>
               {showAnswers ? 'Ẩn đáp án' : 'Hiện đáp án'}
             </button>
           </div>
@@ -167,7 +168,7 @@ function ReadingPracticePreviewModal({ form, showAnswers, setShowAnswers, onClos
               : <p className="text-sm text-gray-400 italic">Chưa có nội dung passage</p>}
           </div>
           <div onMouseDown={onDividerMouseDown}
-            style={{ width: 5, cursor: 'col-resize', flexShrink: 0, background: dragging ? '#3b82f6' : '#e5e7eb', transition: dragging ? 'none' : 'background 0.15s' }}
+            style={{ width: 5, cursor: 'col-resize', flexShrink: 0, background: dragging ? '#3B82F6' : '#e5e7eb', transition: dragging ? 'none' : 'background 0.15s' }}
             onMouseEnter={e => { if (!dragging) e.currentTarget.style.background = '#93c5fd' }}
             onMouseLeave={e => { if (!dragging) e.currentTarget.style.background = '#e5e7eb' }} />
           <div className="flex-1 overflow-y-auto bg-gray-50 px-6 py-6">
@@ -200,29 +201,36 @@ export default function ReadingPractice() {
   const [showAnswers, setShowAnswers] = useState(false)
   const [draftBanner, setDraftBanner] = useState(null)
   const [draftSavedAt, setDraftSavedAt] = useState(null)
+  // BUG-13: Track unsaved changes
+  const [isDirty, setIsDirty] = useState(false)
   const thumbRef = useRef()
 
-  const DRAFT_KEY = 'draft_reading_practice'
+  // BUG-13: Block navigation when dirty (view === 'form' with changes)
+  useUnsavedChanges(view === 'form' && isDirty)
+
+  const getDraftKey = () => `draft_reading_practice_${editing?.id || 'new'}`
 
   useEffect(() => {
-    if (view !== 'form' || editing) return
-    const saved = localStorage.getItem(DRAFT_KEY)
+    if (view !== 'form') return
+    const key = getDraftKey()
+    const saved = localStorage.getItem(key)
     if (saved) {
       try { setDraftBanner({ data: JSON.parse(saved) }) }
-      catch { localStorage.removeItem(DRAFT_KEY) }
+      catch { localStorage.removeItem(key) }
     } else { setDraftBanner(null) }
-  }, [view, editing])
+  }, [view, editing?.id])
 
   useEffect(() => {
     if (view !== 'form') return
     if (!form.title && !form.passage && form.questionGroups.length === 0) return
+    const key = getDraftKey()
     const timer = setTimeout(() => {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(form))
+      localStorage.setItem(key, JSON.stringify(form))
       const now = new Date()
       setDraftSavedAt(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
-    }, 1000)
+    }, 2000)
     return () => clearTimeout(timer)
-  }, [form, view])
+  }, [form, view, editing?.id])
 
   const load = async () => {
     setLoading(true)
@@ -232,10 +240,10 @@ export default function ReadingPractice() {
 
   useEffect(() => { load() }, [])
 
-  const clearDraft = () => { localStorage.removeItem(DRAFT_KEY); setDraftBanner(null); setDraftSavedAt(null) }
+  const clearDraft = () => { localStorage.removeItem(getDraftKey()); setDraftBanner(null); setDraftSavedAt(null) }
 
   const openAdd = () => {
-    setForm(EMPTY_FORM); setEditing(null); setShowPreview(false); setView('form')
+    setForm(EMPTY_FORM); setEditing(null); setShowPreview(false); setIsDirty(false); setView('form')
   }
 
   const openEdit = async (item) => {
@@ -251,7 +259,7 @@ export default function ReadingPractice() {
         thumbPreview: resolveImg(data.thumbnailUrl),
         thumbFile: null,
       })
-      setEditing(data); setShowPreview(false); setView('form')
+      setEditing(data); setShowPreview(false); setIsDirty(false); setView('form')
     } catch { alert('Lỗi tải bài') }
   }
 
@@ -259,13 +267,24 @@ export default function ReadingPractice() {
     const file = e.target.files[0]
     if (!file) return
     setForm(f => ({ ...f, thumbFile: file, thumbPreview: URL.createObjectURL(file) }))
+    setIsDirty(true)
   }
 
   const handleSave = async () => {
     if (!form.title.trim()) { alert('Vui lòng nhập tên bài'); return }
+    if (form.questionGroups.length === 0) {
+      alert('Bài thi phải có ít nhất một nhóm câu hỏi')
+      return
+    }
+
     setSaving(true)
     try {
-      const body = { title: form.title.trim(), passage: form.passage, questions: { groups: form.questionGroups } }
+      const body = {
+        title: form.title.trim(),
+        passage: form.passage,
+        questions: form.questionGroups.map((group, index) => ({ ...group, orderIndex: index }))
+      }
+
       let id
       if (!editing) {
         const res = await createReadingPractice(body); id = res.id
@@ -276,8 +295,10 @@ export default function ReadingPractice() {
         const fd = new FormData(); fd.append('thumbnail', form.thumbFile)
         await uploadReadingThumbnail(id, fd)
       }
-      clearDraft(); setView('list'); load()
-    } catch (err) { alert(err.response?.data?.message || 'Lỗi lưu') }
+      clearDraft(); setIsDirty(false); setView('list'); load()
+    } catch (err) {
+      alert(err.response?.data?.message || 'Lỗi lưu bài thi')
+    }
     setSaving(false)
   }
 
@@ -288,6 +309,7 @@ export default function ReadingPractice() {
 
   const handleGroupChange = (i, updated) => {
     setForm(f => ({ ...f, questionGroups: recalcGroups(f.questionGroups.map((g, idx) => idx === i ? updated : g)) }))
+    setIsDirty(true)
   }
   const handleGroupRemove = (i) => {
     setForm(f => ({ ...f, questionGroups: recalcGroups(f.questionGroups.filter((_, idx) => idx !== i)) }))
@@ -297,10 +319,12 @@ export default function ReadingPractice() {
     if (j < 0 || j >= arr.length) return
     ;[arr[i], arr[j]] = [arr[j], arr[i]]
     setForm(f => ({ ...f, questionGroups: recalcGroups(arr) }))
+    setIsDirty(true)
   }
   const handleAddGroup = () => {
     const lastEnd = form.questionGroups.length > 0 ? form.questionGroups[form.questionGroups.length - 1].qNumberEnd : 0
     setForm(f => ({ ...f, questionGroups: [...f.questionGroups, emptyReadingGroupOf(addGroupType, lastEnd + 1)] }))
+    setIsDirty(true)
   }
 
   // ── FORM VIEW ────────────────────────────────────────────────────────────────
@@ -309,7 +333,7 @@ export default function ReadingPractice() {
       <AdminLayout>
         <div className="p-6 max-w-5xl">
           <div className="flex items-center gap-3 mb-6">
-            <button onClick={() => { clearDraft(); setView('list') }} className="text-gray-500 hover:text-gray-700 text-xl font-bold transition">←</button>
+            <button onClick={() => { clearDraft(); setIsDirty(false); setView('list') }} className="text-gray-500 hover:text-gray-700 text-xl font-bold transition">←</button>
             <h1 className="text-xl font-bold text-gray-800">
               {editing ? 'Chỉnh sửa bài Reading Practice' : 'Thêm bài Reading Practice mới'}
             </h1>
@@ -319,7 +343,7 @@ export default function ReadingPractice() {
             <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 flex items-center justify-between">
               <span className="text-sm text-yellow-700">📋 Bạn có bản nháp chưa lưu. Khôi phục không?</span>
               <div className="flex gap-2">
-                <button onClick={() => { setForm(draftBanner.data); setDraftBanner(null) }}
+                <button onClick={() => { setForm(draftBanner.data); setDraftBanner(null); setIsDirty(true) }}
                   className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-yellow-100 hover:bg-yellow-200 text-yellow-800 border border-yellow-300 transition">Khôi phục</button>
                 <button onClick={() => { localStorage.removeItem(DRAFT_KEY); setDraftBanner(null) }}
                   className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 transition">Bỏ qua</button>
@@ -334,14 +358,14 @@ export default function ReadingPractice() {
             <div className="space-y-4">
               <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                 <label className={labelCls}>Tên bài <span className="text-red-500 normal-case font-normal">*</span></label>
-                <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                <input value={form.title} onChange={e => { setForm(f => ({ ...f, title: e.target.value })); setIsDirty(true) }}
                   placeholder="VD: Academic Reading — Nature and Wildlife"
                   className={inputCls} />
               </div>
 
               <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                 <label className={labelCls}>Passage (nội dung bài đọc)</label>
-                <textarea value={form.passage} onChange={e => setForm(f => ({ ...f, passage: e.target.value }))}
+                <textarea value={form.passage} onChange={e => { setForm(f => ({ ...f, passage: e.target.value })); setIsDirty(true) }}
                   rows={14} placeholder="Nhập nội dung passage..."
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 resize-y font-mono"
                   style={{ lineHeight: 1.7 }} />
@@ -388,7 +412,7 @@ export default function ReadingPractice() {
                   <div className="relative mb-2">
                     <img src={form.thumbPreview} alt="" className="w-full rounded-lg object-cover" style={{ aspectRatio: '16/9' }} />
                     <button onClick={() => setForm(f => ({ ...f, thumbFile: null, thumbPreview: null, thumbnailUrl: null }))}
-                      className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white text-sm font-bold flex items-center justify-center border-2 border-white">×</button>
+                      className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-blue-500 text-white text-sm font-bold flex items-center justify-center border-2 border-white">×</button>
                   </div>
                 ) : (
                   <button onClick={() => thumbRef.current.click()}
@@ -437,7 +461,7 @@ export default function ReadingPractice() {
             <p className="text-sm text-gray-500 mt-0.5">Bài luyện đọc riêng lẻ — hiển thị trên trang chủ</p>
           </div>
           <button onClick={openAdd}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1a56db] text-white text-sm font-semibold hover:bg-[#1d4ed8] transition">
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1D4ED8] text-white text-sm font-semibold hover:bg-[#1D4ED8] transition">
             + Thêm mới
           </button>
         </div>
@@ -481,7 +505,7 @@ export default function ReadingPractice() {
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
                         <button onClick={() => openEdit(item)} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium transition">Sửa</button>
-                        <button onClick={() => setDelConfirm(item.id)} className="text-xs px-3 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 font-medium transition">Xóa</button>
+                        <button onClick={() => setDelConfirm(item.id)} className="text-xs px-3 py-1.5 rounded-lg border border-blue-200 text-red-500 hover:bg-blue-50 font-medium transition">Xóa</button>
                       </div>
                     </td>
                   </tr>
@@ -496,13 +520,13 @@ export default function ReadingPractice() {
         <div onClick={() => setDelConfirm(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-xl">🗑️</div>
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-xl">🗑️</div>
               <h3 className="font-bold text-gray-800">Xóa bài đọc?</h3>
             </div>
             <p className="text-sm text-gray-500 mb-5">Hành động này không thể hoàn tác.</p>
             <div className="flex gap-3 justify-end">
               <button onClick={() => setDelConfirm(null)} className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 font-medium">Hủy</button>
-              <button onClick={() => handleDelete(delConfirm)} className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition">Xóa</button>
+              <button onClick={() => handleDelete(delConfirm)} className="px-4 py-2 rounded-xl bg-blue-500 text-white text-sm font-bold hover:bg-blue-600 transition">Xóa</button>
             </div>
           </div>
         </div>

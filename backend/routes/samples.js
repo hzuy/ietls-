@@ -3,7 +3,9 @@ const multer = require('multer')
 const path = require('path')
 const fs = require('fs')
 const authMiddleware = require('../middleware/auth')
+const validate = require('../middleware/validate')
 const prisma = require('../lib/prisma')
+const { createSampleSchema, updateSampleSchema } = require('../validators/contentValidator')
 
 const router = express.Router()
 
@@ -77,7 +79,10 @@ router.get('/writing/:id', async (req, res) => {
 
 router.get('/speaking/:id', async (req, res) => {
   try {
-    const s = await prisma.speakingSample.findUnique({ where: { id: parseInt(req.params.id) } })
+    const s = await prisma.speakingSample.findUnique({ 
+      where: { id: parseInt(req.params.id) },
+      include: { parts: { include: { questions: { orderBy: { orderNum: 'asc' } } }, orderBy: { partNumber: 'asc' } } }
+    })
     if (!s) return res.status(404).json({ message: 'Không tìm thấy' })
     res.json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
   } catch (err) {
@@ -125,7 +130,10 @@ router.get('/admin/writing/:id', authMiddleware, teacherOrAdmin, async (req, res
 
 router.get('/admin/speaking/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
   try {
-    const s = await prisma.speakingSample.findUnique({ where: { id: parseInt(req.params.id) } })
+    const s = await prisma.speakingSample.findUnique({ 
+      where: { id: parseInt(req.params.id) },
+      include: { parts: { include: { questions: { orderBy: { orderNum: 'asc' } } }, orderBy: { partNumber: 'asc' } } }
+    })
     if (!s) return res.status(404).json({ message: 'Không tìm thấy' })
     res.json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
   } catch (err) {
@@ -134,10 +142,9 @@ router.get('/admin/speaking/:id', authMiddleware, teacherOrAdmin, async (req, re
 })
 
 // ─── ADMIN: create ────────────────────────────────────────────────────────────
-router.post('/admin/writing', authMiddleware, teacherOrAdmin, async (req, res) => {
+router.post('/admin/writing', authMiddleware, teacherOrAdmin, validate(createSampleSchema), async (req, res) => {
   try {
     const { title, level, examType, content, tags } = req.body
-    if (!title?.trim()) return res.status(400).json({ message: 'Thiếu tiêu đề' })
     const s = await prisma.writingSample.create({
       data: { title: title.trim(), level: level || null, examType: examType || null, content: content || null, tags: tags ? JSON.stringify(tags) : null }
     })
@@ -147,10 +154,9 @@ router.post('/admin/writing', authMiddleware, teacherOrAdmin, async (req, res) =
   }
 })
 
-router.post('/admin/speaking', authMiddleware, teacherOrAdmin, async (req, res) => {
+router.post('/admin/speaking', authMiddleware, teacherOrAdmin, validate(createSampleSchema), async (req, res) => {
   try {
     const { title, level, examType, content, tags } = req.body
-    if (!title?.trim()) return res.status(400).json({ message: 'Thiếu tiêu đề' })
     const s = await prisma.speakingSample.create({
       data: { title: title.trim(), level: level || null, examType: examType || null, content: content || null, tags: tags ? JSON.stringify(tags) : null }
     })
@@ -161,7 +167,7 @@ router.post('/admin/speaking', authMiddleware, teacherOrAdmin, async (req, res) 
 })
 
 // ─── ADMIN: update ────────────────────────────────────────────────────────────
-router.put('/admin/writing/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
+router.put('/admin/writing/:id', authMiddleware, teacherOrAdmin, validate(updateSampleSchema), async (req, res) => {
   try {
     const { title, level, examType, content, tags } = req.body
     const data = {}
@@ -177,7 +183,7 @@ router.put('/admin/writing/:id', authMiddleware, teacherOrAdmin, async (req, res
   }
 })
 
-router.put('/admin/speaking/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
+router.put('/admin/speaking/:id', authMiddleware, teacherOrAdmin, validate(updateSampleSchema), async (req, res) => {
   try {
     const { title, level, examType, content, tags } = req.body
     const data = {}

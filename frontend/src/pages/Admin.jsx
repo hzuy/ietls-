@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Routes, Route, Navigate, useLocation, NavLink } from 'react-router-dom'
 import AdminLayout from '../components/AdminLayout'
-import { getExams, getExamSeries } from '../services/examService'
+import { getExams, getExamSeries, getExamCounts } from '../services/examService'
 import ReadingTab from '../components/admin/ReadingTab'
 import ListeningTab from '../components/admin/ListeningTab'
 import WritingTab from '../components/admin/WritingTab'
@@ -11,82 +11,109 @@ import CambridgeTab from '../components/admin/CambridgeTab'
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
 const TABS = [
-  { key: 'cambridge',  label: 'IELTS Test', icon: '📚' },
-  { key: 'reading',    label: 'Reading',    icon: '📖' },
-  { key: 'listening',  label: 'Listening',  icon: '🎧' },
-  { key: 'writing',    label: 'Writing',    icon: '✍️' },
-  { key: 'speaking',   label: 'Speaking',   icon: '🎤' },
+  { key: 'cambridge',  label: 'IELTS Test', path: 'cambridge' },
+  { key: 'reading',    label: 'Reading',    path: 'reading' },
+  { key: 'listening',  label: 'Listening',  path: 'listening' },
+  { key: 'writing',    label: 'Writing',    path: 'writing' },
+  { key: 'speaking',   label: 'Speaking',   path: 'speaking' },
 ]
 
 export default function Admin() {
-  const [activeTab, setActiveTab] = useState('reading')
-  const [exams, setExams] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [tabCounts, setTabCounts] = useState({ reading: 0, listening: 0, writing: 0, speaking: 0 })
+  const [tabCache, setTabCache] = useState({ reading: null, listening: null, writing: null, speaking: null })
+  const [loading, setLoading] = useState(false)
   const [examSeries, setExamSeries] = useState([])
   const navigate = useNavigate()
+  const location = useLocation()
 
-  const fetchExams = () => {
-    getExams()
-      .then(data => setExams(data))
+  // Determine active tab from URL path
+  const activeTab = TABS.find(tab => location.pathname.includes(`/admin/exams/${tab.path}`))?.key || 'cambridge'
+
+  const fetchCounts = () => {
+    getExamCounts().then(data => setTabCounts(data)).catch(() => {})
+  }
+
+  const fetchSkillExams = (skill, page = 1, search = '', seriesId = '', force = false) => {
+    if (!skill || skill === 'cambridge') return
+    if (!force && tabCache[skill] && page === 1 && !search && !seriesId) {
+      return
+    }
+    setLoading(true)
+    getExams({ skill, page, limit: 20, search, seriesId })
+      .then(res => {
+        const payload = Array.isArray(res) ? { exams: res, total: res.length, page: 1, pages: 1 } : res
+        setTabCache(prev => ({ ...prev, [skill]: payload }))
+      })
       .catch(err => {
         if (err.response?.status === 403) navigate('/')
       })
       .finally(() => setLoading(false))
   }
 
+  const handleRefresh = (skill = activeTab) => {
+    fetchCounts()
+    setTabCache(prev => ({ ...prev, [skill]: null }))
+    fetchSkillExams(skill, 1, '', '', true)
+  }
+
   useEffect(() => {
-    fetchExams()
+    fetchCounts()
+    getExamSeries().then(data => setExamSeries(data)).catch(() => {})
   }, [])
 
   useEffect(() => {
-    getExamSeries().then(data => setExamSeries(data)).catch(() => {})
-  }, [])
+    if (activeTab && activeTab !== 'cambridge') {
+      fetchSkillExams(activeTab)
+    }
+  }, [activeTab])
+
+  const currentTabExams = tabCache[activeTab]?.exams || []
 
   return (
     <AdminLayout>
       <div className="p-6">
-        {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="w-12 h-12 border-4 border-[#1a56db] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-gray-500 font-medium">Đang tải...</p>
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Tab Navigation */}
-            <div className="flex gap-2 mb-8 bg-white p-1.5 rounded-2xl border border-gray-100 shadow-sm w-fit">
-              {TABS.map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition ${
-                    activeTab === tab.key
-                      ? 'bg-[#1a56db] text-white shadow-sm'
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <span>{tab.icon}</span>
-                  <span>{tab.label}</span>
-                  {tab.key !== 'cambridge' && (
-                    <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
-                      activeTab === tab.key ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
-                    }`}>
-                      {exams.filter(e => e.skill === tab.key).length}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
+        {/* Tab Navigation */}
+        <div className="flex gap-2 mb-8 bg-white p-1.5 rounded-2xl border border-gray-100 shadow-sm w-fit">
+          {TABS.map(tab => {
+            const isTabActive = activeTab === tab.key
+            return (
+              <NavLink
+                key={tab.key}
+                to={`/admin/exams/${tab.path}`}
+                onClick={(e) => {
+                  e.preventDefault()
+                  navigate(`/admin/exams/${tab.path}`)
+                }}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer select-none ${
+                  isTabActive
+                    ? 'bg-[#1D4ED8] text-white shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <span>{tab.label}</span>
+                {tab.key !== 'cambridge' && (
+                  <span
+                    className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
+                      isTabActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
+                    }`}
+                  >
+                    {tabCounts[tab.key] ?? 0}
+                  </span>
+                )}
+              </NavLink>
+            )
+          })}
+        </div>
 
-            {/* Tab Content */}
-            {activeTab === 'cambridge'  && <CambridgeTab onRefresh={fetchExams} />}
-            {activeTab === 'reading'    && <ReadingTab exams={exams} onRefresh={fetchExams} examSeries={examSeries} />}
-            {activeTab === 'listening'  && <ListeningTab exams={exams} onRefresh={fetchExams} examSeries={examSeries} />}
-            {activeTab === 'writing'    && <WritingTab exams={exams} onRefresh={fetchExams} examSeries={examSeries} />}
-            {activeTab === 'speaking'   && <SpeakingTab exams={exams} onRefresh={fetchExams} examSeries={examSeries} />}
-          </>
-        )}
+        {/* Tab Content via Nested Routes */}
+        <Routes>
+          <Route index element={<Navigate to="cambridge" replace />} />
+          <Route path="cambridge" element={<CambridgeTab initialSeriesList={examSeries} onRefresh={() => handleRefresh('reading')} />} />
+          <Route path="reading"   element={<ReadingTab exams={tabCache.reading?.exams || []} paginationData={tabCache.reading} fetchExams={(p, s, sid) => fetchSkillExams('reading', p, s, sid, true)} onRefresh={() => handleRefresh('reading')} examSeries={examSeries} loading={loading} />} />
+          <Route path="listening" element={<ListeningTab exams={tabCache.listening?.exams || []} paginationData={tabCache.listening} fetchExams={(p, s, sid) => fetchSkillExams('listening', p, s, sid, true)} onRefresh={() => handleRefresh('listening')} examSeries={examSeries} loading={loading} />} />
+          <Route path="writing"   element={<WritingTab exams={tabCache.writing?.exams || []} paginationData={tabCache.writing} fetchExams={(p, s, sid) => fetchSkillExams('writing', p, s, sid, true)} onRefresh={() => handleRefresh('writing')} examSeries={examSeries} loading={loading} />} />
+          <Route path="speaking"  element={<SpeakingTab exams={tabCache.speaking?.exams || []} paginationData={tabCache.speaking} fetchExams={(p, s, sid) => fetchSkillExams('speaking', p, s, sid, true)} onRefresh={() => handleRefresh('speaking')} examSeries={examSeries} loading={loading} />} />
+        </Routes>
       </div>
     </AdminLayout>
   )

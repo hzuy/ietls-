@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from 'react'
+﻿import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Navbar from '../components/Navbar'
+import Breadcrumb from '../components/common/Breadcrumb'
 
 const BACKEND_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '')
 const API_BASE = BACKEND_URL + '/api'
@@ -13,63 +14,45 @@ const TASK_OPTIONS = [
 
 const TASK_LABELS = { task1: 'Task 1', task2: 'Task 2' }
 const TASK_COLORS = {
-  task1: { bg: '#eff6ff', color: '#1a56db' },
-  task2: { bg: '#f0fdf4', color: '#15803d' },
+  task1: { bgVar: '--skill-w-bg', colorVar: '--skill-w-color', borderVar: '--skill-w-border' },
+  task2: { bgVar: '--surface-raised', colorVar: '--muted', borderVar: '--border' },
 }
 
 function ThumbPlaceholder() {
   return (
-    <div style={{ width: '100%', aspectRatio: '16/9', background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <span style={{ fontSize: 32 }}>✍️</span>
+    <div style={{ width: '100%', aspectRatio: '16/9', background: 'var(--skill-w-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ fontSize: 32, opacity: 0.7 }}>✍️</span>
     </div>
   )
 }
 
 function SampleCard({ item, onClick }) {
-  const [hovered, setHovered] = useState(false)
   const img = resolveImg(item.thumbnailUrl)
-  const taskStyle = TASK_COLORS[item.level] || null
-  const taskLabel = TASK_LABELS[item.level] || null
+  const taskStyle = TASK_COLORS[item.level] || TASK_COLORS.task2
+  const taskLabel = TASK_LABELS[item.level] || 'Writing'
 
   return (
     <div
       onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        background: 'white',
-        border: `1px solid ${hovered ? '#93c5fd' : '#e2e8f0'}`,
-        borderRadius: 12, overflow: 'hidden', cursor: 'pointer',
-        transform: hovered ? 'translateY(-3px)' : 'none',
-        boxShadow: hovered ? '0 8px 24px rgba(26,86,219,0.10)' : '0 2px 6px rgba(0,0,0,0.04)',
-        transition: 'transform 0.2s, box-shadow 0.2s, border-color 0.2s',
-        display: 'flex', flexDirection: 'column',
-      }}
+      className="card-base flex flex-col h-full overflow-hidden cursor-pointer hover:shadow-md transition-all duration-300"
     >
       {img
-        ? <div style={{ width: '100%', aspectRatio: '16/9', overflow: 'hidden' }}>
-            <img src={img} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        ? <div className="w-full aspect-video overflow-hidden shrink-0">
+            <img src={img} alt={item.title} className="w-full h-full object-cover block" />
           </div>
         : <ThumbPlaceholder />
       }
-      <div style={{ padding: '12px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <p style={{ fontWeight: 700, fontSize: 13, color: '#1e3a5f', margin: 0, lineHeight: 1.5 }}>{item.title}</p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-          {taskLabel && taskStyle && (
-            <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: taskStyle.bg, color: taskStyle.color }}>
-              {taskLabel}
-            </span>
-          )}
+      <div className="p-4 flex flex-col flex-1 gap-3">
+        <p className="font-semibold text-slate-900 text-[15px] leading-snug m-0">{item.title}</p>
+        <div className="flex flex-wrap gap-2 mt-auto">
+          <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: `var(${taskStyle.bgVar})`, color: `var(${taskStyle.colorVar})`, border: `1px solid var(${taskStyle.borderVar})` }}>
+            {taskLabel}
+          </span>
           {item.examType && (
-            <span style={{ fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 20, background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0' }}>
+            <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 20, background: 'var(--surface-raised)', color: 'var(--muted)', border: '1px solid var(--border)' }}>
               {item.examType}
             </span>
           )}
-          {(item.tags || []).map((tag, i) => (
-            <span key={i} style={{ fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 20, background: '#fff7ed', color: '#9a3412', border: '1px solid #fed7aa' }}>
-              {tag}
-            </span>
-          ))}
         </div>
       </div>
     </div>
@@ -80,17 +63,15 @@ function FilterBtn({ active, onClick, children }) {
   return (
     <button
       onClick={onClick}
-      style={{
-        display: 'block', width: '100%', textAlign: 'left',
-        padding: '7px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
-        fontSize: 13, fontWeight: active ? 700 : 500,
-        background: active ? '#eff6ff' : 'transparent',
-        color: active ? '#1a56db' : '#374151',
-        transition: 'background 0.12s, color 0.12s',
-      }}
-      onMouseEnter={e => { if (!active) e.currentTarget.style.background = '#f8fafc' }}
-      onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
-    >{children}</button>
+      className={`block w-full text-left px-3 py-2 rounded-xl border-none cursor-pointer text-[13px] font-medium transition-all duration-300 ${
+        active 
+          ? 'bg-blue-50 text-blue-700 font-bold' 
+          : 'bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+      }`}
+      style={{ fontFamily: 'var(--font-body)' }}
+    >
+      {children}
+    </button>
   )
 }
 
@@ -99,24 +80,27 @@ export default function WritingSamplesPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [samples, setSamples] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
 
   const selectedTask = searchParams.get('task') || ''
   const selectedType = searchParams.get('type') || ''
 
   useEffect(() => {
+    document.title = 'Bài mẫu Writing | IELTS Pro'
     fetch(API_BASE + '/samples/writing?limit=0')
-      .then(r => r.ok ? r.json() : [])
+      .then(r => {
+        if (!r.ok) throw new Error('API Error')
+        return r.json()
+      })
       .then(data => { setSamples(data); setLoading(false) })
-      .catch(() => { setSamples([]); setLoading(false) })
+      .catch(() => { setError(true); setLoading(false) })
   }, [])
 
-  // Dynamic examTypes from data
   const examTypes = useMemo(() => {
     const set = new Set(samples.map(s => s.examType).filter(Boolean))
     return [...set].sort()
   }, [samples])
 
-  // Filtered results
   const filtered = useMemo(() => {
     return samples.filter(s => {
       if (selectedTask && s.level !== selectedTask) return false
@@ -133,96 +117,118 @@ export default function WritingSamplesPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#f0f4f8' }}>
+    <div className="min-h-screen bg-slate-50">
       <Navbar />
 
-      {/* Header */}
-      <div style={{ background: 'linear-gradient(135deg, #fff 0%, #fffbeb 50%, #fff 100%)', borderBottom: '1px solid #e2e8f0' }}>
-        <div className="max-w-6xl mx-auto px-6 py-8">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 6 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 14, background: '#fffbeb', border: '1px solid #fde68a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>✍️</div>
+      {/* Hero Section */}
+      <div className="bg-white border-b border-slate-200">
+        <div className="app-container py-12">
+          <Breadcrumb items={[{ label: 'Trang chủ', to: '/' }, { label: 'Writing Samples' }]} />
+          <div className="flex items-center gap-4 mt-6">
+            <div className="w-12 h-12 rounded-[14px] bg-slate-50 border border-slate-200 shadow-sm flex items-center justify-center text-2xl">✍️</div>
             <div>
-              <h1 style={{ fontSize: 22, fontWeight: 800, color: '#1e3a5f', margin: 0 }}>Writing Sample Essays</h1>
-              <p style={{ fontSize: 14, color: '#64748b', margin: 0, marginTop: 2 }}>Bài mẫu Writing Task 1 & Task 2 chất lượng cao</p>
+              <h1 className="text-[24px] font-bold text-slate-900 m-0" style={{ fontFamily: 'var(--font-display)' }}>Writing Sample Essays</h1>
+              <p className="text-[15px] text-slate-600 m-0 mt-1" style={{ fontFamily: 'var(--font-body)' }}>Bài mẫu Writing Task 1 & Task 2 chất lượng cao</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Body */}
-      <div className="max-w-6xl mx-auto px-6 py-8" style={{ display: 'flex', gap: 28, alignItems: 'flex-start' }}>
-
+      <div className="app-container section-py flex gap-8 items-start">
         {/* Sidebar */}
-        <aside style={{ width: 200, flexShrink: 0, background: 'white', borderRadius: 12, border: '1px solid #e2e8f0', padding: '16px 12px', position: 'sticky', top: 80 }}>
-
+        <aside className="w-56 shrink-0 bg-white rounded-[24px] border border-slate-200 p-5 sticky top-24 shadow-sm">
           {/* Task filter */}
-          <div style={{ marginBottom: 20 }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 8px 4px' }}>Task</p>
-            <FilterBtn active={!selectedTask} onClick={() => setFilter('task', '')}>Tất cả</FilterBtn>
-            {TASK_OPTIONS.map(opt => (
-              <FilterBtn key={opt.value} active={selectedTask === opt.value} onClick={() => setFilter('task', selectedTask === opt.value ? '' : opt.value)}>
-                {opt.label}
-              </FilterBtn>
-            ))}
+          <div className="mb-6">
+            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-1 mb-3" style={{ fontFamily: 'var(--font-body)' }}>Task</p>
+            <div className="flex flex-col gap-1">
+              <FilterBtn active={!selectedTask} onClick={() => setFilter('task', '')}>Tất cả</FilterBtn>
+              {TASK_OPTIONS.map(opt => (
+                <FilterBtn key={opt.value} active={selectedTask === opt.value} onClick={() => setFilter('task', selectedTask === opt.value ? '' : opt.value)}>
+                  {opt.label}
+                </FilterBtn>
+              ))}
+            </div>
           </div>
 
           {/* Dạng bài filter */}
           {examTypes.length > 0 && (
             <div>
-              <p style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 8px 4px' }}>Dạng bài</p>
-              <FilterBtn active={!selectedType} onClick={() => setFilter('type', '')}>Tất cả</FilterBtn>
-              {examTypes.map(t => (
-                <FilterBtn key={t} active={selectedType === t} onClick={() => setFilter('type', selectedType === t ? '' : t)}>
-                  {t}
-                </FilterBtn>
-              ))}
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-1 mb-3" style={{ fontFamily: 'var(--font-body)' }}>Dạng bài</p>
+              <div className="flex flex-col gap-1">
+                <FilterBtn active={!selectedType} onClick={() => setFilter('type', '')}>Tất cả</FilterBtn>
+                {examTypes.map(t => (
+                  <FilterBtn key={t} active={selectedType === t} onClick={() => setFilter('type', selectedType === t ? '' : t)}>
+                    {t}
+                  </FilterBtn>
+                ))}
+              </div>
             </div>
           )}
         </aside>
 
         {/* Grid */}
-        <main style={{ flex: 1, minWidth: 0 }}>
-          {/* Active filters & count */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 14, color: '#64748b' }}>
-              {loading ? 'Đang tải...' : `${filtered.length} bài mẫu`}
+        <main className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-6 flex-wrap">
+            <span className="text-[14px] text-slate-600 mr-2 flex items-center" style={{ fontFamily: 'var(--font-body)' }}>
+              {loading ? <div className="h-4 w-20 bg-slate-200 animate-pulse rounded" /> : `${filtered.length} bài mẫu`}
             </span>
             {selectedTask && (
               <span
-                style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: '#eff6ff', color: '#1a56db', border: '1px solid #bfdbfe', cursor: 'pointer' }}
+                className="text-[12px] font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100 cursor-pointer hover:bg-blue-100 transition-colors"
+                style={{ fontFamily: 'var(--font-body)' }}
                 onClick={() => setFilter('task', '')}
               >{TASK_LABELS[selectedTask]} ×</span>
             )}
             {selectedType && (
               <span
-                style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: '#f8fafc', color: '#374151', border: '1px solid #e2e8f0', cursor: 'pointer' }}
+                className="text-[12px] font-semibold px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 cursor-pointer hover:bg-slate-200 transition-colors"
+                style={{ fontFamily: 'var(--font-body)' }}
                 onClick={() => setFilter('type', '')}
               >{selectedType} ×</span>
             )}
           </div>
 
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {[0,1,2,3,4,5].map(i => (
-                <div key={i} style={{ background: 'white', borderRadius: 12, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-                  <div style={{ width: '100%', aspectRatio: '16/9', background: '#f1f5f9' }} />
-                  <div style={{ padding: 14 }}>
-                    <div style={{ height: 14, background: '#f1f5f9', borderRadius: 4, marginBottom: 10 }} />
-                    <div style={{ height: 12, background: '#f1f5f9', borderRadius: 4, width: '60%' }} />
+                <div key={i} className="card-base flex flex-col h-full overflow-hidden">
+                  <div className="w-full aspect-video shrink-0 bg-slate-200 animate-pulse" />
+                  <div className="p-4 flex flex-col flex-1 gap-3">
+                    <div className="h-4 bg-slate-200 animate-pulse rounded w-[80%]" />
+                    <div className="h-4 bg-slate-200 animate-pulse rounded w-[50%]" />
+                    <div className="mt-auto flex gap-2 pt-2">
+                      <div className="h-5 w-16 bg-slate-200 animate-pulse rounded-full" />
+                      <div className="h-5 w-20 bg-slate-200 animate-pulse rounded-full" />
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
+          ) : error ? (
+            <div className="text-center py-16 px-6 bg-white rounded-[24px] border border-slate-200 shadow-sm flex flex-col items-center">
+              <div className="w-16 h-16 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center mb-6 text-slate-400">
+                <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+              </div>
+              <p className="text-[18px] font-bold text-slate-900 mb-2" style={{ fontFamily: 'var(--font-display)' }}>Không thể tải dữ liệu</p>
+              <p className="text-[14px] text-slate-600 mb-6 max-w-sm" style={{ fontFamily: 'var(--font-body)' }}>Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
+              <button className="btn-primary px-8 py-3 text-[14px] font-bold" onClick={() => window.location.reload()}>Thử lại</button>
+            </div>
           ) : filtered.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '60px 0', background: 'white', borderRadius: 12, border: '1px solid #e2e8f0' }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
-              <p style={{ fontWeight: 700, color: '#374151' }}>Không tìm thấy bài mẫu</p>
-              <p style={{ fontSize: 14, color: '#9ca3af', marginTop: 4 }}>Thử chọn bộ lọc khác</p>
+            <div className="text-center py-16 px-6 bg-white rounded-[24px] border border-slate-200 shadow-sm flex flex-col items-center">
+              <div className="w-16 h-16 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center mb-6 text-slate-400">
+                <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+              </div>
+              <p className="text-[18px] font-bold text-slate-900 mb-2" style={{ fontFamily: 'var(--font-display)' }}>Không tìm thấy bài mẫu phù hợp</p>
+              <p className="text-[14px] text-slate-600 mb-6 max-w-sm" style={{ fontFamily: 'var(--font-body)' }}>Hãy thử thay đổi từ khóa hoặc lựa chọn dạng bài khác.</p>
+              <button className="btn-secondary px-6 py-2.5 text-[14px] font-bold" onClick={() => setSearchParams(new URLSearchParams())}>Xóa bộ lọc</button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {filtered.map(item => (
-                <SampleCard key={item.id} item={item} onClick={() => navigate(`/samples/writing/${item.id}`)} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filtered.map((item, i) => (
+                <div key={item.id} className={`anim-fade-up delay-${Math.min(i + 1, 8)}`}>
+                  <SampleCard item={item} onClick={() => navigate(`/samples/writing/${item.id}`)} />
+                </div>
               ))}
             </div>
           )}

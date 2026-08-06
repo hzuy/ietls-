@@ -6,6 +6,7 @@ export const getSeriesProgress = (id) => api.get(`/series/${id}/progress`).then(
 
 // ─── Admin series ─────────────────────────────────────────────────────────────
 export const getAdminSeriesList = () => api.get('/series/admin/list').then(r => r.data)
+export const getAdminSeriesById = (id) => api.get(`/series/admin/${id}`).then(r => r.data)
 export const getAdminExamsList = () => api.get('/series/admin/exams-list').then(r => r.data)
 export const createSeries = (body) => api.post('/series/admin', body).then(r => r.data)
 export const updateSeries = (id, body) => api.put(`/series/admin/${id}`, body).then(r => r.data)

@@ -1,16 +1,22 @@
 import { PreviewTokenLine, buildTokenNumMap } from './PreviewTokenLine'
-import { toImgSrc } from '../../utils/practiceConfig'
+import { toImgSrc, getQuestionTypeTheme } from '../../utils/practiceConfig'
 
 // Unified preview for all question group types (Reading + Listening admin)
 export default function AdminGroupPreview({ group, showAnswers }) {
   const qStart     = group.qNumberStart
   const qEnd       = group.qNumberEnd
   const maxChoices = group.maxChoices || 2
+  const theme      = getQuestionTypeTheme(group.type)
 
   const Banner = () => (
-    <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-3 text-sm">
-      <p className="font-bold text-gray-800 mb-0.5">Questions {qStart}–{qEnd}</p>
-      {group.instruction && <p className="text-gray-600 text-xs">{group.instruction}</p>}
+    <div className={`${theme.cardBg} border ${theme.cardBorder} rounded-xl p-3.5 mb-3 text-sm flex flex-col gap-1`}>
+      <div className="flex items-center justify-between">
+        <p className="font-bold text-gray-800 mb-0">Questions {qStart}–{qEnd}</p>
+        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${theme.badge}`}>
+          {group.type}
+        </span>
+      </div>
+      {group.instruction && <p className="text-gray-600 text-xs margin-0 mt-0.5">{group.instruction}</p>}
     </div>
   )
 
@@ -28,7 +34,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
             </div>
             <div className="flex gap-2 pl-7">
               {choices.map(c => (
-                <span key={c} className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${showAnswers && q.correctAnswer === c ? 'bg-[#1a56db] text-white border-[#1a56db]' : 'border-gray-200 text-gray-400'}`}>{c}</span>
+                <span key={c} className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${showAnswers && q.correctAnswer === c ? 'bg-[#1D4ED8] text-white border-[#1D4ED8]' : 'border-gray-200 text-gray-400'}`}>{c}</span>
               ))}
             </div>
           </div>
@@ -61,9 +67,9 @@ export default function AdminGroupPreview({ group, showAnswers }) {
           <div className="space-y-2">
             {(group.questions || []).map((q, qi) => (
               <div key={qi} className="flex gap-2 items-center text-sm">
-                <span className="w-5 h-5 rounded-full bg-[#eff6ff] text-[#1a56db] font-bold text-xs flex items-center justify-center shrink-0">{qStart + qi}</span>
+                <span className="w-5 h-5 rounded-full bg-[#eff6ff] text-[#1D4ED8] font-bold text-xs flex items-center justify-center shrink-0">{qStart + qi}</span>
                 <span className="flex-1 text-gray-700">{q.questionText}</span>
-                <span className={`border-b-2 ${showAnswers ? 'border-[#1a56db] text-[#1a56db] font-semibold' : 'border-gray-200 text-gray-400'} min-w-24 text-center text-sm`}>
+                <span className={`border-b-2 ${showAnswers ? 'border-[#1D4ED8] text-[#1D4ED8] font-semibold' : 'border-gray-200 text-gray-400'} min-w-24 text-center text-sm`}>
                   {showAnswers ? q.correctAnswer : '___'}
                 </span>
               </div>
@@ -91,10 +97,10 @@ export default function AdminGroupPreview({ group, showAnswers }) {
                 {opts.filter(o => o && o.trim()).map((opt, oi) => {
                   const isCorrect = showAnswers && q.correctAnswer === opt
                   return (
-                    <div key={oi} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm ${isCorrect ? 'bg-[#eff6ff] border border-[#bfdbfe] text-[#1a56db]' : 'text-gray-600'}`}>
+                    <div key={oi} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm ${isCorrect ? 'bg-[#eff6ff] border border-[#bfdbfe] text-[#1D4ED8]' : 'text-gray-600'}`}>
                       <span className="text-xs text-gray-400 shrink-0">{String.fromCharCode(65 + oi)}.</span>
                       <span className="flex-1">{opt}</span>
-                      {isCorrect && <span className="text-xs font-bold text-[#1a56db]">✓</span>}
+                      {isCorrect && <span className="text-xs font-bold text-[#1D4ED8]">✓</span>}
                     </div>
                   )
                 })}
@@ -128,10 +134,10 @@ export default function AdminGroupPreview({ group, showAnswers }) {
                 {opts.filter(o => o && o.trim()).map((opt, oi) => {
                   const isCorrect = showAnswers && correctList.includes(opt)
                   return (
-                    <div key={oi} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm ${isCorrect ? 'bg-[#eff6ff] border border-[#bfdbfe] text-[#1a56db]' : 'text-gray-600'}`}>
+                    <div key={oi} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm ${isCorrect ? 'bg-[#eff6ff] border border-[#bfdbfe] text-[#1D4ED8]' : 'text-gray-600'}`}>
                       <span className="text-xs text-gray-400 shrink-0">{String.fromCharCode(65 + oi)}.</span>
                       <span className="flex-1">{opt}</span>
-                      {isCorrect && <span className="text-xs font-bold text-[#1a56db]">✓</span>}
+                      {isCorrect && <span className="text-xs font-bold text-[#1D4ED8]">✓</span>}
                     </div>
                   )
                 })}
@@ -152,7 +158,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
           <div className="flex flex-wrap gap-1.5 mb-3">
             {(group.matchingOptions || []).map((mo, mi) => (
               <span key={mi} className="text-xs px-2 py-0.5 bg-[#eff6ff] border border-[#bfdbfe] rounded-lg">
-                <span className="font-bold text-[#1a56db]">{mo.letter || mo.optionLetter}.</span> {mo.text || mo.optionText}
+                <span className="font-bold text-[#1D4ED8]">{mo.letter || mo.optionLetter}.</span> {mo.text || mo.optionText}
               </span>
             ))}
           </div>
@@ -161,7 +167,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
           <div key={qi} className="flex items-center gap-2 mb-2 text-sm">
             <span className="w-6 text-xs font-bold text-gray-500 shrink-0">{qStart + qi}.</span>
             <span className="flex-1 text-gray-700">{q.questionText}</span>
-            <span className={`font-bold text-sm ${showAnswers ? 'text-[#1a56db]' : 'text-gray-300'}`}>{showAnswers ? q.correctAnswer : '—'}</span>
+            <span className={`font-bold text-sm ${showAnswers ? 'text-[#1D4ED8]' : 'text-gray-300'}`}>{showAnswers ? q.correctAnswer : '—'}</span>
           </div>
         ))}
       </div>
@@ -194,7 +200,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
                   return (
                     <tr key={qi} className="border-b border-gray-100 last:border-b-0">
                       <td className="px-4 py-2.5 border-r border-gray-200 align-middle">
-                        <span className="font-bold text-[#1a56db] mr-1.5 text-xs">{qStart + qi}.</span>
+                        <span className="font-bold text-[#1D4ED8] mr-1.5 text-xs">{qStart + qi}.</span>
                         <span className="text-gray-700 text-xs leading-snug">{q.questionText}</span>
                       </td>
                       {letters.map(l => {
@@ -202,7 +208,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
                         return (
                           <td key={l} className="px-2 py-2.5 text-center border-r border-gray-100 last:border-r-0 align-middle">
                             <span className={`inline-flex items-center justify-center w-7 h-7 rounded border text-sm font-bold
-                              ${isCorrect ? 'bg-[#eff6ff] border-[#1a56db] text-[#1a56db]' : 'bg-white border-gray-200 text-transparent'}`}>✓</span>
+                              ${isCorrect ? 'bg-[#eff6ff] border-[#1D4ED8] text-[#1D4ED8]' : 'bg-white border-gray-200 text-transparent'}`}>✓</span>
                           </td>
                         )
                       })}
@@ -217,7 +223,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
             <div key={qi} className="flex items-center gap-2 mb-2 text-sm">
               <span className="w-6 text-xs font-bold text-gray-500 shrink-0">{qStart + qi}.</span>
               <span className="flex-1 text-gray-700">{q.questionText}</span>
-              <span className={`font-bold text-sm ${showAnswers ? 'text-[#1a56db]' : 'text-gray-300'}`}>{showAnswers ? q.correctAnswer : '—'}</span>
+              <span className={`font-bold text-sm ${showAnswers ? 'text-[#1D4ED8]' : 'text-gray-300'}`}>{showAnswers ? q.correctAnswer : '—'}</span>
             </div>
           ))
         )}
@@ -237,7 +243,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
           <div className="flex flex-wrap gap-2">
             {wordBank.map((wb, wi) => (
               <span key={wi} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#bfdbfe] bg-white text-sm">
-                <span className="font-bold text-xs text-[#1a56db]">{wb.letter || wb.optionLetter}</span>
+                <span className="font-bold text-xs text-[#1D4ED8]">{wb.letter || wb.optionLetter}</span>
                 <span className="text-gray-700">{wb.text || wb.optionText}</span>
               </span>
             ))}
@@ -262,8 +268,8 @@ export default function AdminGroupPreview({ group, showAnswers }) {
                         const ansWord    = ans ? (wordBank.find(wb => (wb.letter || wb.optionLetter) === ans) || {}) : {}
                         return (
                           <span key={pi} className="inline-flex items-center gap-1 mx-1">
-                            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#eff6ff] text-[#1a56db] font-bold text-xs shrink-0">{displayNum}</span>
-                            <span className={`inline-block min-w-20 border-b-2 ${showAnswers && ans ? 'border-[#1a56db] text-[#1a56db] font-semibold' : 'border-gray-300 text-gray-400'} px-1 text-sm text-center`}>
+                            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#eff6ff] text-[#1D4ED8] font-bold text-xs shrink-0">{displayNum}</span>
+                            <span className={`inline-block min-w-20 border-b-2 ${showAnswers && ans ? 'border-[#1D4ED8] text-[#1D4ED8] font-semibold' : 'border-gray-300 text-gray-400'} px-1 text-sm text-center`}>
                               {ans ? `${ans}. ${ansWord.text || ansWord.optionText || ''}` : '___'}
                             </span>
                           </span>
@@ -295,14 +301,14 @@ export default function AdminGroupPreview({ group, showAnswers }) {
               return (
                 <div key={qi} className="bg-white rounded-xl border border-gray-200 p-3">
                   <p className="text-sm text-gray-800 mb-2 leading-relaxed flex gap-2">
-                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#eff6ff] text-[#1a56db] font-bold text-xs shrink-0 mt-0.5">{qStart + qi}</span>
+                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#eff6ff] text-[#1D4ED8] font-bold text-xs shrink-0 mt-0.5">{qStart + qi}</span>
                     <span>{q.questionText}</span>
                   </p>
-                  <div className={`min-h-[36px] rounded-lg border-2 px-3 py-1.5 flex items-center text-sm ${answer ? 'border-[#3b82f6] bg-[#eff6ff]' : 'border-dashed border-gray-300 bg-gray-50'}`}>
+                  <div className={`min-h-[36px] rounded-lg border-2 px-3 py-1.5 flex items-center text-sm ${answer ? 'border-[#3B82F6] bg-[#eff6ff]' : 'border-dashed border-gray-300 bg-gray-50'}`}>
                     {answer ? (
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-[#1a56db] text-xs shrink-0">{answer}</span>
-                        <span className="text-[#1a56db] text-xs leading-snug">{answerOpt?.text || answerOpt?.optionText || ''}</span>
+                        <span className="font-bold text-[#1D4ED8] text-xs shrink-0">{answer}</span>
+                        <span className="text-[#1D4ED8] text-xs leading-snug">{answerOpt?.text || answerOpt?.optionText || ''}</span>
                       </div>
                     ) : (
                       <span className="text-gray-400 text-xs italic">Kéo hoặc click đáp án...</span>
@@ -317,7 +323,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
             <div className="space-y-1.5">
               {opts.map((opt, oi) => (
                 <div key={oi} className="flex items-start gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-xs">
-                  <span className="font-bold text-[#1a56db] shrink-0">{opt.letter || opt.optionLetter}</span>
+                  <span className="font-bold text-[#1D4ED8] shrink-0">{opt.letter || opt.optionLetter}</span>
                   <span className="text-gray-700 leading-relaxed">{opt.text || opt.optionText}</span>
                 </div>
               ))}
@@ -343,8 +349,8 @@ export default function AdminGroupPreview({ group, showAnswers }) {
             const answer = showAnswers ? (q.correctAnswer || '') : ''
             return (
               <div key={qi} className="flex items-center gap-3">
-                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-rose-100 text-rose-700 font-bold text-xs shrink-0">{qStart + qi}</span>
-                <div className={`flex-1 min-h-[34px] rounded-lg border-2 px-3 py-1.5 flex items-center text-sm ${answer ? 'border-rose-400 bg-rose-50 text-rose-700 font-semibold' : 'border-dashed border-gray-300 bg-gray-50'}`}>
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-[#1D4ED8] font-bold text-xs shrink-0">{qStart + qi}</span>
+                <div className={`flex-1 min-h-[34px] rounded-lg border-2 px-3 py-1.5 flex items-center text-sm ${answer ? 'border-blue-400 bg-blue-50 text-[#1D4ED8] font-semibold' : 'border-dashed border-gray-300 bg-gray-50'}`}>
                   {answer || <span className="text-gray-400 text-xs italic">________</span>}
                 </div>
                 {hint && <span className="text-xs text-gray-500 italic">{hint}</span>}
@@ -368,7 +374,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
             <div className="space-y-1.5">
               {headings.map((h, i) => (
                 <div key={i} className="flex items-start gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-xs">
-                  <span className="font-bold text-green-700 shrink-0">{h.letter || h.optionLetter}</span>
+                  <span className="font-bold text-[#1D4ED8] shrink-0">{h.letter || h.optionLetter}</span>
                   <span className="text-gray-700 leading-relaxed">{h.text || h.optionText}</span>
                 </div>
               ))}
@@ -382,17 +388,17 @@ export default function AdminGroupPreview({ group, showAnswers }) {
               return (
                 <div key={qi} className="bg-white rounded-xl border border-gray-200 p-3">
                   <p className="text-sm text-gray-800 mb-2 flex gap-2 items-start">
-                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-100 text-green-700 font-bold text-xs shrink-0 mt-0.5">{qStart + qi}</span>
+                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-[#1D4ED8] font-bold text-xs shrink-0 mt-0.5">{qStart + qi}</span>
                     <span>
                       <span className="font-semibold">Paragraph {paraKey}</span>
                       {paraLabel && <span className="text-gray-500"> — {paraLabel}</span>}
                     </span>
                   </p>
-                  <div className={`min-h-[36px] rounded-lg border-2 px-3 py-1.5 flex items-center text-sm ${answer ? 'border-green-500 bg-green-50' : 'border-dashed border-gray-300 bg-gray-50'}`}>
+                  <div className={`min-h-[36px] rounded-lg border-2 px-3 py-1.5 flex items-center text-sm ${answer ? 'border-blue-500 bg-blue-50 text-[#1D4ED8] font-semibold' : 'border-dashed border-gray-300 bg-gray-50'}`}>
                     {answer ? (
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-green-700 text-xs shrink-0">{answer}</span>
-                        <span className="text-green-700 text-xs leading-snug">{answerHeading?.text || answerHeading?.optionText || ''}</span>
+                        <span className="font-bold text-[#1D4ED8] text-xs shrink-0">{answer}</span>
+                        <span className="text-[#1D4ED8] text-xs leading-snug">{answerHeading?.text || answerHeading?.optionText || ''}</span>
                       </div>
                     ) : (
                       <span className="text-gray-400 text-xs italic">Kéo hoặc click heading...</span>

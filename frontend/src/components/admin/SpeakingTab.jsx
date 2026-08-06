@@ -1,43 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import api from '../../utils/axios'
-import { emptySpeakingForm, inputCls, labelCls, btnPrimary, btnSecondary, btnGhost } from './adminConstants'
+import { emptySpeakingForm, inputCls, labelCls, btnPrimary, btnSecondary, btnGhost, useExamSeriesList, useSeriesBooks } from './adminConstants'
 import ExamList from './ExamList'
-import { useExamSeriesList, useSeriesBooks } from './ReadingTab'
-
-// ─── INLINE PREVIEW PANEL ─────────────────────────────────────────────────────
-
-function InlinePreviewPanel({ title, showAnswers, setShowAnswers, onClose, children }) {
-  return (
-    <div className="bg-white rounded-2xl border-2 border-indigo-200 shadow-lg overflow-hidden">
-      <div className="flex items-center justify-between px-6 py-3 bg-indigo-50 border-b border-indigo-100">
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-bold text-indigo-800">Xem trước — {title}</span>
-          <button
-            type="button"
-            onClick={() => setShowAnswers(v => !v)}
-            className={`text-xs px-3 py-1 rounded-full font-semibold transition ${showAnswers ? 'bg-[#1a56db] text-white' : 'bg-white border border-gray-200 text-gray-500 hover:border-[#bfdbfe] hover:text-[#1a56db]'}`}
-          >
-            {showAnswers ? 'Ẩn đáp án' : 'Hiện đáp án'}
-          </button>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-xs px-3 py-1 rounded-lg border border-indigo-200 text-indigo-600 hover:bg-indigo-100 transition font-medium"
-        >
-          Thu gọn ↑
-        </button>
-      </div>
-      <div className="p-6 max-h-[600px] overflow-y-auto">
-        {children}
-      </div>
-    </div>
-  )
-}
+import InlinePreviewPanel from '../common/InlinePreviewPanel'
 
 // ─── TAB: SPEAKING ────────────────────────────────────────────────────────────
 
-function SpeakingTab({ exams, onRefresh, examSeries = [] }) {
+function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchExams, loading }) {
   const [form, setForm] = useState(emptySpeakingForm())
   const liveExamSeries = useExamSeriesList()
   const seriesBooks = useSeriesBooks(form.seriesId)
@@ -236,13 +205,13 @@ function SpeakingTab({ exams, onRefresh, examSeries = [] }) {
         </div>
       )}
       <form ref={formRef} onSubmit={handleSubmit} className={`bg-white rounded-2xl p-6 border shadow-sm transition-all duration-500 ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-gray-100'}`}>
-        <h3 className="font-bold text-gray-800 mb-5">{editingId ? `✏️ Sửa đề Speaking #${editingId}` : 'Tạo đề Speaking mới'}</h3>
+        <h3 className="font-bold text-gray-800 mb-5">{editingId ? `Sửa đề Speaking #${editingId}` : 'Tạo đề Speaking mới'}</h3>
 
-        {error && <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl mb-4 text-sm">{error}</div>}
+        {error && <div className="bg-blue-50 border border-blue-200 text-blue-600 p-3 rounded-xl mb-4 text-sm">{error}</div>}
 
         {draftBanner && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 flex items-center justify-between">
-            <span className="text-sm text-yellow-700">📋 Có bản nháp chưa lưu. Khôi phục?</span>
+            <span className="text-sm text-yellow-700">Có bản nháp chưa lưu. Khôi phục?</span>
             <div className="flex gap-2">
               <button type="button" onClick={() => { setForm(draftBanner.data); setDraftBanner(null) }}
                 className="text-xs px-2.5 py-1 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 transition">Khôi phục</button>
@@ -254,7 +223,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [] }) {
 
         {editingId && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-center justify-between">
-            <span className="text-sm font-semibold text-amber-700">✏️ Đang sửa đề #{editingId}</span>
+            <span className="text-sm font-semibold text-amber-700">Đang sửa đề #{editingId}</span>
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => setShowPreview(v => !v)}
                 className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-blue-200 bg-white text-blue-500 hover:border-blue-400 hover:text-blue-700 transition">
@@ -272,7 +241,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [] }) {
         </div>
 
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-5">
-          <p className="text-xs font-bold text-blue-700 mb-2">📚 Gắn nhãn bộ đề (tuỳ chọn)</p>
+          <p className="text-xs font-bold text-blue-700 mb-2">Gắn nhãn bộ đề (tuỳ chọn)</p>
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className={labelCls}>Bộ đề</label>
@@ -299,17 +268,17 @@ function SpeakingTab({ exams, onRefresh, examSeries = [] }) {
         </div>
 
         {/* ── Part 1 ── */}
-        <div className="border border-[#bfdbfe] rounded-2xl p-5 mb-4 bg-[#eff6ff]/30">
+        <div className="border border-sky-300 rounded-2xl p-5 mb-4 bg-sky-50/70">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-7 h-7 rounded-full bg-[#eff6ff] text-[#1a56db] text-xs font-bold flex items-center justify-center">1</div>
+            <div className="w-7 h-7 rounded-full bg-sky-500 text-white text-xs font-bold flex items-center justify-center">1</div>
             <div>
-              <span className="font-semibold text-gray-700">Part 1 — Introduction & Interview</span>
-              <p className="text-xs text-gray-400 mt-0.5">Examiner hỏi về chủ đề quen thuộc trong cuộc sống</p>
+              <span className="font-bold text-sky-900">Part 1 — Introduction & Interview</span>
+              <p className="text-xs text-sky-700/80 mt-0.5">Examiner hỏi về chủ đề quen thuộc trong cuộc sống</p>
             </div>
           </div>
           <div className="mb-3">
             <label className={labelCls}>Mô tả / Hướng dẫn cho thí sinh</label>
-            <textarea className={`${inputCls} h-20 resize-none`}
+            <textarea className={`${inputCls} h-20 resize-none bg-sky-100/50 border-sky-200 focus:bg-white`}
               placeholder="VD: The examiner asks you about yourself, your home, work or studies and other familiar topics."
               value={form.part1.description}
               onChange={e => setForm({ ...form, part1: { ...form.part1, description: e.target.value } })} />
@@ -317,12 +286,12 @@ function SpeakingTab({ exams, onRefresh, examSeries = [] }) {
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className={labelCls}>Câu hỏi</label>
-              <button type="button" onClick={addP1Question} className={btnGhost}>+ Thêm câu</button>
+              <button type="button" onClick={addP1Question} className="text-xs font-semibold text-sky-700 hover:text-sky-900 transition">+ Thêm câu</button>
             </div>
             <div className="space-y-2">
               {form.part1.questions.map((q, idx) => (
                 <div key={idx} className="flex gap-2">
-                  <input className={inputCls}
+                  <input className={`${inputCls} bg-sky-100/50 border-sky-200 focus:bg-white`}
                     placeholder={`VD: Can you find food from many different countries where you live? [Why/Why not?]`}
                     value={q} onChange={e => updateP1Question(idx, e.target.value)} />
                   {form.part1.questions.length > 1 && (
@@ -336,24 +305,24 @@ function SpeakingTab({ exams, onRefresh, examSeries = [] }) {
         </div>
 
         {/* ── Part 2 ── */}
-        <div className="border border-[#bfdbfe] rounded-2xl p-5 mb-4 bg-[#eff6ff]/30">
+        <div className="border border-purple-300 rounded-2xl p-5 mb-4 bg-purple-50/70">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-7 h-7 rounded-full bg-[#eff6ff] text-[#1a56db] text-xs font-bold flex items-center justify-center">2</div>
+            <div className="w-7 h-7 rounded-full bg-purple-500 text-white text-xs font-bold flex items-center justify-center">2</div>
             <div>
-              <span className="font-semibold text-gray-700">Part 2 — Individual Long Turn (Cue Card)</span>
-              <p className="text-xs text-gray-400 mt-0.5">Thí sinh chuẩn bị 1 phút, nói 1–2 phút</p>
+              <span className="font-bold text-purple-900">Part 2 — Individual Long Turn (Cue Card)</span>
+              <p className="text-xs text-purple-700/80 mt-0.5">Thí sinh chuẩn bị 1 phút, nói 1–2 phút</p>
             </div>
           </div>
           <div className="mb-3">
             <label className={labelCls}>Mô tả / Hướng dẫn cho thí sinh</label>
-            <textarea className={`${inputCls} h-16 resize-none`}
+            <textarea className={`${inputCls} h-16 resize-none bg-purple-100/50 border-purple-200 focus:bg-white`}
               placeholder="VD: You will have to talk about the topic for one to two minutes..."
               value={form.part2.instructions}
               onChange={e => setForm({ ...form, part2: { ...form.part2, instructions: e.target.value } })} />
           </div>
           <div className="mb-4">
             <label className={labelCls}>Nội dung Cue Card</label>
-            <textarea className={`${inputCls} h-36 resize-none`}
+            <textarea className={`${inputCls} h-36 resize-none bg-purple-100/50 border-purple-200 focus:bg-white`}
               placeholder={`Describe a law that was introduced in your country and that you thought was a very good idea.\n\nYou should say:\n  what the law was\n  who introduced it\n  when and why it was introduced\nand explain why you thought this law was such a good idea.`}
               value={form.part2.cueCard}
               onChange={e => setForm({ ...form, part2: { ...form.part2, cueCard: e.target.value } })} />
@@ -361,12 +330,12 @@ function SpeakingTab({ exams, onRefresh, examSeries = [] }) {
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className={labelCls}>Follow-up questions (tùy chọn)</label>
-              <button type="button" onClick={addP2Question} className={btnGhost}>+ Thêm câu</button>
+              <button type="button" onClick={addP2Question} className="text-xs font-semibold text-purple-700 hover:text-purple-900 transition">+ Thêm câu</button>
             </div>
             <div className="space-y-2">
               {form.part2.questions.map((q, idx) => (
                 <div key={idx} className="flex gap-2">
-                  <input className={inputCls} placeholder={`Follow-up ${idx + 1}...`}
+                  <input className={`${inputCls} bg-purple-100/50 border-purple-200 focus:bg-white`} placeholder={`Follow-up ${idx + 1}...`}
                     value={q} onChange={e => updateP2Question(idx, e.target.value)} />
                   {form.part2.questions.length > 1 && (
                     <button type="button" onClick={() => removeP2Question(idx)}
@@ -379,21 +348,21 @@ function SpeakingTab({ exams, onRefresh, examSeries = [] }) {
         </div>
 
         {/* ── Part 3 ── */}
-        <div className="border border-[#bfdbfe] rounded-2xl p-5 mb-6 bg-[#eff6ff]/30">
+        <div className="border border-amber-300 rounded-2xl p-5 mb-6 bg-amber-50/70">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-[#eff6ff] text-[#1a56db] text-xs font-bold flex items-center justify-center">3</div>
+              <div className="w-7 h-7 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">3</div>
               <div>
-                <span className="font-semibold text-gray-700">Part 3 — Two-way Discussion</span>
-                <p className="text-xs text-gray-400 mt-0.5">Nhiều chủ đề thảo luận, mỗi chủ đề có nhiều câu hỏi</p>
+                <span className="font-bold text-amber-900">Part 3 — Two-way Discussion</span>
+                <p className="text-xs text-amber-700/80 mt-0.5">Nhiều chủ đề thảo luận, mỗi chủ đề có nhiều câu hỏi</p>
               </div>
             </div>
-            <button type="button" onClick={addTopic} className={btnGhost}>+ Thêm chủ đề</button>
+            <button type="button" onClick={addTopic} className="text-xs font-semibold text-amber-700 hover:text-amber-900 transition">+ Thêm chủ đề</button>
           </div>
 
           <div className="mb-4">
             <label className={labelCls}>Mô tả / Hướng dẫn cho thí sinh</label>
-            <textarea className={`${inputCls} h-16 resize-none`}
+            <textarea className={`${inputCls} h-16 resize-none bg-amber-100/50 border-amber-200 focus:bg-white`}
               placeholder="VD: Discussion topics: The examiner will ask you questions about the following topics."
               value={form.part3.description}
               onChange={e => setForm({ ...form, part3: { ...form.part3, description: e.target.value } })} />
@@ -401,13 +370,13 @@ function SpeakingTab({ exams, onRefresh, examSeries = [] }) {
 
           <div className="space-y-4">
             {form.part3.topics.map((topic, ti) => (
-              <div key={ti} className="bg-white border border-[#e2e8f0] rounded-xl p-4">
+              <div key={ti} className="bg-amber-100/50 border border-amber-200 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <input className={inputCls} placeholder={`VD: School rules`}
+                  <input className={`${inputCls} bg-white border-amber-200`} placeholder={`VD: School rules`}
                     value={topic.label} onChange={e => updateTopicLabel(ti, e.target.value)} />
                   {form.part3.topics.length > 1 && (
                     <button type="button" onClick={() => removeTopic(ti)}
-                      className="text-red-400 hover:text-red-600 text-xs px-2 py-1 rounded hover:bg-red-50 whitespace-nowrap shrink-0">
+                      className="text-red-500 hover:text-red-600 text-xs px-2 py-1 rounded hover:bg-red-50 whitespace-nowrap shrink-0">
                       Xóa chủ đề
                     </button>
                   )}
@@ -415,7 +384,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [] }) {
                 <div className="space-y-2">
                   {topic.questions.map((q, qi) => (
                     <div key={qi} className="flex gap-2">
-                      <input className={inputCls}
+                      <input className={`${inputCls} bg-white border-amber-200`}
                         placeholder={`VD: What kinds of rules are common in a school?`}
                         value={q} onChange={e => updateTopicQuestion(ti, qi, e.target.value)} />
                       {topic.questions.length > 1 && (
@@ -424,7 +393,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [] }) {
                       )}
                     </div>
                   ))}
-                  <button type="button" onClick={() => addTopicQuestion(ti)} className={btnGhost + ' text-xs'}>
+                  <button type="button" onClick={() => addTopicQuestion(ti)} className="text-xs font-semibold text-amber-700 hover:text-amber-900 transition">
                     + Thêm câu hỏi
                   </button>
                 </div>
@@ -457,8 +426,8 @@ function SpeakingTab({ exams, onRefresh, examSeries = [] }) {
       )}
 
       <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-        <h3 className="font-bold text-gray-800 mb-4">Danh sách đề Speaking ({exams.filter(e => e.skill === 'speaking').length})</h3>
-        <ExamList exams={exams} skill="speaking" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} />
+        <h3 className="font-bold text-gray-800 mb-4">Danh sách đề Speaking ({paginationData?.total ?? exams.length})</h3>
+        <ExamList exams={exams} skill="speaking" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} />
       </div>
     </div>
   )

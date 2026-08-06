@@ -2,51 +2,34 @@ import { useState, useEffect, useCallback, forwardRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
-import * as XLSX from 'xlsx'
-import { getAdminAttempts, getAdminExamSeriesForFilter } from '../../services/adminService'
+import { getAdminAttempts, getAdminAttemptsExport, getAdminExamSeriesForFilter } from '../../services/adminService'
 import AdminLayout from '../../components/AdminLayout'
+
+
+import { Download, RotateCcw, Eye, Search, Filter, Calendar, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
+import { useDebounce } from '../../hooks/useDebounce'
 
 const SKILL_LABEL = { reading: 'Reading', listening: 'Listening', writing: 'Writing', speaking: 'Speaking' }
 
-function bandColor(score) {
-  if (score == null) return 'text-gray-300'
-  if (score >= 7) return 'text-green-600'
-  if (score >= 5) return 'text-yellow-600'
-  return 'text-red-500'
+function getBandPill(score) {
+  if (score == null) return <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">Đang chấm</span>
+  if (score >= 7.0) return <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">BAND {score.toFixed(1)}</span>
+  if (score >= 5.0) return <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200">BAND {score.toFixed(1)}</span>
+  return <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 border border-rose-200">BAND {score.toFixed(1)}</span>
 }
 
-function exportExcel(attempts) {
-  const headers = ['Người dùng', 'Email', 'Kỹ năng', 'Đề thi', 'Band', 'Ngày thi']
-  const rows = attempts.map(a => [
-    a.user?.name, a.user?.email,
-    SKILL_LABEL[a.exam?.skill] || a.exam?.skill,
-    a.exam?.title,
-    a.score != null ? a.score.toFixed(1) : '',
-    new Date(a.createdAt).toLocaleDateString('vi-VN')
-  ])
-  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Lịch sử thi')
-  XLSX.writeFile(wb, 'attempts.xlsx')
-}
-
-// Custom input cho DatePicker — hiển thị icon lịch + text
+// Custom input cho DatePicker — Enterprise Console UI (h-10 equal height)
 const DatePickerInput = forwardRef(({ value, onClick, placeholder }, ref) => (
   <button
     ref={ref}
     type="button"
     onClick={onClick}
-    className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-200 rounded-xl hover:border-[#1a56db] bg-white transition min-w-[130px]"
+    className="w-full h-10 flex items-center justify-between gap-2 px-3 text-sm border border-slate-200 rounded-lg hover:border-blue-500 bg-white transition cursor-pointer"
   >
-    <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" strokeWidth="2"/>
-      <line x1="16" y1="2" x2="16" y2="6" strokeWidth="2"/>
-      <line x1="8" y1="2" x2="8" y2="6" strokeWidth="2"/>
-      <line x1="3" y1="10" x2="21" y2="10" strokeWidth="2"/>
-    </svg>
-    <span className={value ? 'text-gray-700' : 'text-gray-400'}>
+    <span className={value ? 'text-slate-700 font-medium' : 'text-slate-400'}>
       {value || placeholder}
     </span>
+    <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
   </button>
 ))
 DatePickerInput.displayName = 'DatePickerInput'
@@ -57,15 +40,19 @@ export default function Attempts() {
   const [pages, setPages] = useState(1)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebounce(search, 400)
   const [skill, setSkill] = useState('')
   const [scoreMin, setScoreMin] = useState('')
   const [scoreMax, setScoreMax] = useState('')
   const [bandSort, setBandSort] = useState('') // 'asc' | 'desc' | '' — client-side only
+  const [statusFilter, setStatusFilter] = useState('') // '' | 'scored' | 'pending'
+  const [selectedAttemptIds, setSelectedAttemptIds] = useState([])
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [examSeries, setExamSeries] = useState([])
   const [seriesId, setSeriesId] = useState('')
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
   const navigate = useNavigate()
 
   const today = new Date()
@@ -74,30 +61,92 @@ export default function Attempts() {
     getAdminExamSeriesForFilter().then(data => setExamSeries(data)).catch(() => {})
   }, [])
 
+  const sanitizeBandValue = (val) => {
+    if (val === '' || val === null || val === undefined) return ''
+    const num = parseFloat(val)
+    if (isNaN(num)) return ''
+    if (num < 0) return '0'
+    if (num > 9) return '9'
+    const rounded = Math.round(num * 2) / 2
+    return rounded.toString()
+  }
+
+  const handleScoreMinChange = (e) => {
+    const raw = e.target.value
+    if (raw.includes('e') || raw.includes('E') || raw.includes('+')) return
+    setScoreMin(raw)
+    setPage(1)
+  }
+
+  const handleScoreMinBlur = () => {
+    setScoreMin(prev => sanitizeBandValue(prev))
+  }
+
+  const handleScoreMaxChange = (e) => {
+    const raw = e.target.value
+    if (raw.includes('e') || raw.includes('E') || raw.includes('+')) return
+    setScoreMax(raw)
+    setPage(1)
+  }
+
+  const handleScoreMaxBlur = () => {
+    setScoreMax(prev => sanitizeBandValue(prev))
+  }
+
   const fetchAttempts = useCallback(() => {
     setLoading(true)
-    const params = { page, limit: 20, search, skill, seriesId }
-    if (scoreMin) params.scoreMin = scoreMin
-    if (scoreMax) params.scoreMax = scoreMax
+    const params = { page, limit: 20, search: debouncedSearch, skill, seriesId }
+    
+    // Chỉ gửi minBand/maxBand lên API khi giá trị hợp lệ theo thang 0.0 - 9.0 (bội số 0.5)
+    const validMin = scoreMin !== '' && !isNaN(parseFloat(scoreMin)) && parseFloat(scoreMin) >= 0 && parseFloat(scoreMin) <= 9 ? (Math.round(parseFloat(scoreMin) * 2) / 2) : undefined
+    const validMax = scoreMax !== '' && !isNaN(parseFloat(scoreMax)) && parseFloat(scoreMax) >= 0 && parseFloat(scoreMax) <= 9 ? (Math.round(parseFloat(scoreMax) * 2) / 2) : undefined
+
+    if (validMin !== undefined) params.scoreMin = validMin
+    if (validMax !== undefined) params.scoreMax = validMax
     if (dateFrom) params.dateFrom = dateFrom
     if (dateTo)   params.dateTo = dateTo
     getAdminAttempts(params)
       .then(data => { setAttempts(data.attempts); setTotal(data.total); setPages(data.pages) })
       .catch(err => { if (err.response?.status === 403) navigate('/') })
       .finally(() => setLoading(false))
-  }, [search, skill, scoreMin, scoreMax, dateFrom, dateTo, seriesId, page])
+  }, [debouncedSearch, skill, scoreMin, scoreMax, dateFrom, dateTo, seriesId, page])
 
   useEffect(() => { fetchAttempts() }, [fetchAttempts])
 
-  const reset = () => { setSearch(''); setSkill(''); setScoreMin(''); setScoreMax(''); setBandSort(''); setDateFrom(''); setDateTo(''); setSeriesId(''); setPage(1) }
+  const reset = () => { setSearch(''); setSkill(''); setScoreMin(''); setScoreMax(''); setBandSort(''); setStatusFilter(''); setDateFrom(''); setDateTo(''); setSeriesId(''); setSelectedAttemptIds([]); setPage(1) }
+
+  const filteredAttempts = attempts.filter(a => {
+    if (statusFilter === 'scored') return a.score != null
+    if (statusFilter === 'pending') return a.score == null
+    return true
+  })
 
   const displayedAttempts = bandSort
-    ? [...attempts].sort((a, b) => {
+    ? [...filteredAttempts].sort((a, b) => {
         const sa = a.score ?? -1
         const sb = b.score ?? -1
         return bandSort === 'desc' ? sb - sa : sa - sb
       })
-    : attempts
+    : filteredAttempts
+
+  // Checkbox selection logic
+  const isAllSelected = displayedAttempts.length > 0 && displayedAttempts.every(a => selectedAttemptIds.includes(a.id))
+
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      const pageIds = displayedAttempts.map(a => a.id)
+      setSelectedAttemptIds(prev => Array.from(new Set([...prev, ...pageIds])))
+    } else {
+      const pageIds = new Set(displayedAttempts.map(a => a.id))
+      setSelectedAttemptIds(prev => prev.filter(id => !pageIds.has(id)))
+    }
+  }
+
+  const handleSelectOne = (id) => {
+    setSelectedAttemptIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    )
+  }
 
   // Chuyển YYYY-MM-DD string ↔ Date object
   const dateFromObj = dateFrom ? new Date(dateFrom) : null
@@ -105,7 +154,6 @@ export default function Attempts() {
 
   const handleDateFrom = (date) => {
     setDateFrom(date ? date.toISOString().split('T')[0] : '')
-    // Nếu dateTo < dateFrom mới, reset dateTo
     if (date && dateToObj && date > dateToObj) setDateTo('')
     setPage(1)
   }
@@ -114,106 +162,313 @@ export default function Attempts() {
     setPage(1)
   }
 
+  const handleExportExcel = async () => {
+    if (selectedAttemptIds.length === 0) return
+
+    setExporting(true)
+    try {
+      const params = {
+        attemptIds: selectedAttemptIds
+      }
+
+      const response = await getAdminAttemptsExport(params)
+
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `attempts-selected-${selectedAttemptIds.length}.xlsx`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      let errMsg = 'Lỗi xuất file'
+      if (err.response?.data) {
+        if (err.response.data instanceof Blob) {
+          try {
+            const text = await err.response.data.text()
+            const json = JSON.parse(text)
+            errMsg = json.message || errMsg
+          } catch {
+            // ignore
+          }
+        } else if (err.response.data.message) {
+          errMsg = err.response.data.message
+        }
+      }
+      alert(errMsg)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <AdminLayout>
-      <div className="p-6 max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-xl font-bold text-gray-800">Lịch sử bài thi <span className="text-base font-normal text-gray-400">({total})</span></h1>
-          <button onClick={() => exportExcel(displayedAttempts)}
-            className="px-4 py-2 rounded-xl bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition">
-            ↓ Export Excel
-          </button>
-        </div>
+      <div className="p-6 w-full flex-1">
+        {/* Top Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 w-full">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
+              Lịch sử bài thi
+              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                {total} lượt
+              </span>
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Quản lý và tra cứu chi tiết các lượt làm bài thi của học viên
+            </p>
+          </div>
 
-        {/* Filters */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
-          <div className="flex flex-wrap gap-2 items-center">
-            <input type="text" placeholder="Tìm tên/email..." value={search}
-              onChange={e => { setSearch(e.target.value); setPage(1) }}
-              className="flex-1 min-w-[160px] px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db]" />
-            <select value={skill} onChange={e => { setSkill(e.target.value); setPage(1) }}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db]">
-              <option value="">Tất cả kỹ năng</option>
-              {Object.entries(SKILL_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-            <select value={seriesId} onChange={e => { setSeriesId(e.target.value); setPage(1) }}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a56db]">
-              <option value="">Tất cả bộ đề</option>
-              {examSeries.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+          {/* Action Header */}
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setBandSort(s => s === 'desc' ? '' : 'desc')}
-              className={`px-3 py-2 text-sm rounded-xl border font-medium transition ${bandSort === 'desc' ? 'bg-[#1a56db] text-white border-[#1a56db]' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-              ↑ Band cao nhất
+              type="button"
+              onClick={handleExportExcel}
+              disabled={exporting || selectedAttemptIds.length === 0}
+              title={selectedAttemptIds.length === 0 ? 'Tích chọn ít nhất 1 bài thi để Download' : `Tải ${selectedAttemptIds.length} bài thi đã chọn`}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-700 text-sm font-normal transition shadow-xs ${
+                selectedAttemptIds.length === 0 || exporting
+                  ? 'opacity-50 cursor-not-allowed pointer-events-none'
+                  : 'cursor-pointer hover:bg-slate-50 hover:border-slate-300'
+              }`}
+            >
+              <Download className="w-4 h-4 text-slate-500" />
+              <span>
+                {exporting
+                  ? 'Đang xuất...'
+                  : selectedAttemptIds.length > 0
+                    ? `Download (${selectedAttemptIds.length})`
+                    : 'Download'}
+              </span>
             </button>
-            <button
-              onClick={() => setBandSort(s => s === 'asc' ? '' : 'asc')}
-              className={`px-3 py-2 text-sm rounded-xl border font-medium transition ${bandSort === 'asc' ? 'bg-[#1a56db] text-white border-[#1a56db]' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-              ↓ Band thấp nhất
-            </button>
-            <DatePicker
-              selected={dateFromObj}
-              onChange={handleDateFrom}
-              dateFormat="dd/MM/yyyy"
-              maxDate={today}
-              placeholderText="Từ ngày"
-              customInput={<DatePickerInput placeholder="Từ ngày" />}
-              highlightDates={dateFromObj ? [dateFromObj] : []}
-            />
-            <DatePicker
-              selected={dateToObj}
-              onChange={handleDateTo}
-              dateFormat="dd/MM/yyyy"
-              maxDate={today}
-              minDate={dateFromObj || undefined}
-              placeholderText="Đến ngày"
-              customInput={<DatePickerInput placeholder="Đến ngày" />}
-              highlightDates={dateFromObj ? [dateFromObj] : []}
-            />
-            <button onClick={reset} className="px-3 py-2 text-sm border border-gray-200 rounded-xl text-gray-500 hover:bg-gray-50">Reset</button>
           </div>
         </div>
 
-        {/* Table */}
-        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        {/* Filter Card — Symmetrical 4-Column x 2-Row Grid */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs mb-6 w-full">
+          {/* HÀNG 1 (Grid 4 cột bằng nhau) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+            {/* Cột 1: Từ ngày */}
+            <div className="w-full">
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Từ ngày</label>
+              <DatePicker
+                selected={dateFromObj}
+                onChange={handleDateFrom}
+                dateFormat="dd/MM/yyyy"
+                maxDate={today}
+                placeholderText="Chọn ngày"
+                wrapperClassName="w-full"
+                customInput={<DatePickerInput placeholder="Chọn ngày" />}
+              />
+            </div>
+
+            {/* Cột 2: Đến ngày */}
+            <div className="w-full">
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Đến ngày</label>
+              <DatePicker
+                selected={dateToObj}
+                onChange={handleDateTo}
+                dateFormat="dd/MM/yyyy"
+                maxDate={today}
+                minDate={dateFromObj || undefined}
+                placeholderText="Chọn ngày"
+                wrapperClassName="w-full"
+                customInput={<DatePickerInput placeholder="Chọn ngày" />}
+              />
+            </div>
+
+            {/* Cột 3: Band cao nhất */}
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Sắp xếp</label>
+              <button
+                type="button"
+                onClick={() => setBandSort(s => s === 'desc' ? '' : 'desc')}
+                className={`w-full h-10 px-3 text-sm rounded-lg border font-normal transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                  bandSort === 'desc'
+                    ? 'bg-blue-50 text-blue-700 border-blue-200 shadow-xs'
+                    : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <span>↑ Band cao nhất</span>
+              </button>
+            </div>
+
+            {/* Cột 4: Band thấp nhất */}
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Sắp xếp</label>
+              <button
+                type="button"
+                onClick={() => setBandSort(s => s === 'asc' ? '' : 'asc')}
+                className={`w-full h-10 px-3 text-sm rounded-lg border font-normal transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                  bandSort === 'asc'
+                    ? 'bg-blue-50 text-blue-700 border-blue-200 shadow-xs'
+                    : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <span>↓ Band thấp nhất</span>
+              </button>
+            </div>
+          </div>
+
+          {/* HÀNG 2 (Grid 4 cột bằng nhau) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end mt-4">
+            {/* Cột 1: Kỹ năng */}
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Kỹ năng</label>
+              <div className="relative w-full">
+                <select
+                  value={skill}
+                  onChange={e => { setSkill(e.target.value); setPage(1) }}
+                  className="w-full h-10 pl-3 pr-9 text-sm border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition font-normal bg-white appearance-none cursor-pointer"
+                >
+                  <option value="">Tất cả kỹ năng</option>
+                  {Object.entries(SKILL_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+                <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Cột 2: Bộ đề */}
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Bộ đề</label>
+              <div className="relative w-full">
+                <select
+                  value={seriesId}
+                  onChange={e => { setSeriesId(e.target.value); setPage(1) }}
+                  className="w-full h-10 pl-3 pr-9 text-sm border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition font-normal bg-white appearance-none cursor-pointer"
+                >
+                  <option value="">Tất cả bộ đề</option>
+                  {examSeries.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+                <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Cột 3: Thang Band */}
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Thang Band</label>
+              <div className="flex items-center space-x-2 border border-slate-200 rounded-lg px-3 h-10 bg-white w-full">
+                <input
+                  type="number" min="0" max="9" step="0.5" placeholder="Từ" value={scoreMin}
+                  onChange={handleScoreMinChange} onBlur={handleScoreMinBlur}
+                  className="w-full text-sm text-center font-normal text-slate-700 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                <span className="text-xs text-slate-400">—</span>
+                <input
+                  type="number" min="0" max="9" step="0.5" placeholder="Đến" value={scoreMax}
+                  onChange={handleScoreMaxChange} onBlur={handleScoreMaxBlur}
+                  className="w-full text-sm text-center font-normal text-slate-700 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+              </div>
+            </div>
+
+            {/* Cột 4: Tìm kiếm */}
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Tìm kiếm</label>
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Tìm tên, email..."
+                  value={search}
+                  onChange={e => { setSearch(e.target.value); setPage(1) }}
+                  className="w-full h-10 pl-9 pr-3 text-sm border border-slate-200 rounded-lg text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* HÀNG NÚT BẤM (Góc dưới bên phải) */}
+          <div className="flex items-center justify-end gap-3 mt-4 pt-3 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={reset}
+              className="border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 px-4 h-10 rounded-lg text-sm font-medium flex items-center gap-1.5 transition cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+              <span>Đặt lại</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => fetchAttempts()}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-5 h-10 rounded-lg text-sm font-medium flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+            >
+              <Filter className="w-4 h-4" />
+              <span>Lọc dữ liệu</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Data Table Card */}
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden w-full flex-1 shadow-xs">
           {loading ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="w-7 h-7 border-4 border-[#1a56db] border-t-transparent rounded-full animate-spin" />
+            <div className="w-full flex-1 flex items-center justify-center py-16">
+              <div className="w-7 h-7 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : attempts.length === 0 ? (
-            <p className="text-center text-gray-400 py-12 text-sm">Không có lượt thi nào khớp bộ lọc</p>
+            <p className="text-center text-slate-400 py-16 text-sm font-medium">Không có lượt thi nào khớp bộ lọc</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-xs text-gray-400 bg-gray-50 border-b border-gray-100">
-                    <th className="px-5 py-3 text-left font-medium">Người dùng</th>
-                    <th className="px-4 py-3 text-left font-medium">Kỹ năng</th>
-                    <th className="px-4 py-3 text-left font-medium">Đề thi</th>
-                    <th className="px-4 py-3 text-left font-medium">Band</th>
-                    <th className="px-4 py-3 text-left font-medium">Ngày thi</th>
+                  <tr className="text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50/50 border-b border-slate-200">
+                    <th className="px-4 py-3.5 text-center w-10">
+                      <input
+                        type="checkbox"
+                        checked={isAllSelected}
+                        onChange={handleSelectAll}
+                        className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                    </th>
+                    <th className="px-5 py-3.5 text-left">Học viên</th>
+                    <th className="px-4 py-3.5 text-left">Kỹ năng</th>
+                    <th className="px-4 py-3.5 text-left">Đề thi</th>
+                    <th className="px-4 py-3.5 text-left">Band Score</th>
+                    <th className="px-4 py-3.5 text-left">Ngày làm bài</th>
+                    <th className="px-4 py-3.5 text-right">Thao tác</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100">
                   {displayedAttempts.map(a => (
-                    <tr key={a.id} className="border-b border-gray-50 hover:bg-gray-50 transition">
-                      <td className="px-5 py-3">
-                        <p className="font-medium text-gray-800">{a.user?.name}</p>
-                        <p className="text-xs text-gray-400">{a.user?.email}</p>
+                    <tr key={a.id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="px-4 py-3.5 text-center w-10">
+                        <input
+                          type="checkbox"
+                          checked={selectedAttemptIds.includes(a.id)}
+                          onChange={() => handleSelectOne(a.id)}
+                          className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        />
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                      <td className="px-5 py-3.5">
+                        <p className="font-semibold text-slate-800">{a.user?.name}</p>
+                        <p className="text-xs text-slate-400">{a.user?.email}</p>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
                           {SKILL_LABEL[a.exam?.skill]}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-gray-600 max-w-[200px] truncate">{a.exam?.title}</td>
-                      <td className="px-4 py-3">
-                        <span className={`font-bold ${bandColor(a.score)}`}>
-                          {a.score != null ? a.score.toFixed(1) : '—'}
-                        </span>
+                      <td className="px-4 py-3.5 text-slate-600 font-medium max-w-[240px] truncate">{a.exam?.title}</td>
+                      <td className="px-4 py-3.5">
+                        {getBandPill(a.score)}
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-400">
+                      <td className="px-4 py-3.5 text-xs font-medium text-slate-500">
                         {new Date(a.createdAt).toLocaleDateString('vi-VN')}
+                      </td>
+                      <td className="px-4 py-3.5 text-right">
+                        {a.user?.id && (
+                          <a
+                            href={`/admin/users/${a.user.id}`}
+                            title="Xem chi tiết người dùng"
+                            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 hover:text-blue-600 transition shadow-xs"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Chi tiết</span>
+                          </a>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -222,14 +477,25 @@ export default function Attempts() {
             </div>
           )}
 
+          {/* Pagination */}
           {pages > 1 && (
-            <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100">
-              <span className="text-xs text-gray-400">Trang {page} / {pages}</span>
-              <div className="flex gap-1">
-                <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}
-                  className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50">←</button>
-                <button disabled={page >= pages} onClick={() => setPage(p => p + 1)}
-                  className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50">→</button>
+            <div className="flex items-center justify-between px-5 py-3.5 border-t border-slate-200 bg-slate-50/30">
+              <span className="text-xs font-medium text-slate-500">Trang {page} / {pages}</span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  disabled={page <= 1}
+                  onClick={() => setPage(p => p - 1)}
+                  className="p-1.5 text-xs rounded-lg border border-slate-200 bg-white text-slate-600 disabled:opacity-40 hover:bg-slate-50 transition cursor-pointer flex items-center justify-center"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  disabled={page >= pages}
+                  onClick={() => setPage(p => p + 1)}
+                  className="p-1.5 text-xs rounded-lg border border-slate-200 bg-white text-slate-600 disabled:opacity-40 hover:bg-slate-50 transition cursor-pointer flex items-center justify-center"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
             </div>
           )}
@@ -238,3 +504,4 @@ export default function Attempts() {
     </AdminLayout>
   )
 }
+

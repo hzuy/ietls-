@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 
 function parseParagraph(questionText) {
   const parts = (questionText || '').split('|')
@@ -48,11 +48,12 @@ export default function MatchingHeadingsGroup({ group, answers, onAnswer, previe
     onAnswer(qId, '')
   }
 
-  const usedKeys = new Set(Object.values(answers).filter(Boolean))
+  const groupAnswerValues = questions.map(q => answers[q.id]).filter(Boolean)
+  const usedKeys = new Set(groupAnswerValues)
 
   return (
     <div id={`question-${group.qNumberStart}`} className="mb-6 scroll-mt-4">
-      <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3 text-sm">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3 text-sm">
         <p className="font-bold text-gray-800 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
         {group.instruction && <p className="text-gray-600 text-xs mb-1">{group.instruction}</p>}
         {!previewMode && (
@@ -80,14 +81,14 @@ export default function MatchingHeadingsGroup({ group, answers, onAnswer, previe
                     ${previewMode
                       ? 'border-gray-200 bg-white cursor-default'
                       : isSelected
-                      ? 'border-green-500 bg-green-50 cursor-pointer shadow-sm'
+                      ? 'border-[#1D4ED8] bg-[#eff6ff] cursor-pointer shadow-sm'
                       : isDragging
                       ? 'opacity-40 border-gray-200 bg-white'
                       : isUsed
                       ? 'border-gray-200 bg-gray-50 opacity-40 cursor-grab'
-                      : 'border-gray-200 bg-white hover:border-green-300 hover:bg-green-50/50 cursor-grab active:cursor-grabbing'}`}
+                      : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/50 cursor-grab active:cursor-grabbing'}`}
                 >
-                  <span className="font-bold text-green-700 shrink-0">{h.optionLetter}</span>
+                  <span className="font-bold text-[#1D4ED8] shrink-0">{h.optionLetter}</span>
                   <span className="text-gray-700 leading-relaxed">{h.optionText}</span>
                 </div>
               )
@@ -107,7 +108,7 @@ export default function MatchingHeadingsGroup({ group, answers, onAnswer, previe
             return (
               <div key={q.id} className="bg-white rounded-xl border border-gray-200 p-3">
                 <p className="text-sm text-gray-800 mb-2 flex gap-2 items-start leading-relaxed">
-                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-100 text-green-700 font-bold text-xs shrink-0 mt-0.5">
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-[#1D4ED8] font-bold text-xs shrink-0 mt-0.5">
                     {q.number}
                   </span>
                   <span>
@@ -122,15 +123,15 @@ export default function MatchingHeadingsGroup({ group, answers, onAnswer, previe
                   onClick={() => handleParaClick(q.id)}
                   className={`min-h-[38px] rounded-lg border-2 px-3 py-1.5 flex items-center text-sm transition
                     ${!previewMode ? 'cursor-pointer' : ''}
-                    ${isOver ? 'border-green-500 bg-green-50'
-                    : answer ? 'border-green-500 bg-green-50'
-                    : isClickable ? 'border-green-400 border-dashed bg-green-50/50'
+                    ${isOver ? 'border-[#1D4ED8] bg-[#eff6ff]'
+                    : answer ? 'border-[#1D4ED8] bg-[#eff6ff]'
+                    : isClickable ? 'border-blue-400 border-dashed bg-blue-50/50'
                     : 'border-dashed border-gray-300 bg-gray-50'}`}
                 >
                   {answer ? (
                     <div className="flex items-center gap-2 w-full">
-                      <span className="font-bold text-green-700 text-xs shrink-0">{answer}</span>
-                      <span className="text-green-700 text-xs flex-1 leading-snug">{answerHeading?.optionText}</span>
+                      <span className="font-bold text-[#1D4ED8] text-xs shrink-0">{answer}</span>
+                      <span className="text-[#1D4ED8] text-xs flex-1 leading-snug">{answerHeading?.optionText}</span>
                       {!previewMode && (
                         <button onClick={e => clearSlot(q.id, e)} className="text-gray-400 hover:text-red-500 text-base leading-none shrink-0">×</button>
                       )}

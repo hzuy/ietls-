@@ -1,6 +1,11 @@
-import { useState, useEffect, useRef, Fragment } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+
 import { getListeningExam, submitListeningExam, getFullTestStatus } from '../services/examService'
+import { getAdminSettings } from '../services/adminService'
+import { saveDraft, loadDraft, clearDraft } from '../services/draftService'
+import { useAuth } from '../context/AuthContext'
+import { Headphones, ArrowLeft } from 'lucide-react'
 import { getSectionSlots } from '../utils/questionCount'
 import MatchingTickGrid from '../components/MatchingTickGrid'
 import DragWordBankGroup from '../components/DragWordBankGroup'
@@ -9,378 +14,16 @@ import DiagramLabelGroup from '../components/DiagramLabelGroup'
 import MatchingHeadingsGroup from '../components/MatchingHeadingsGroup'
 import PassagePills from '../components/PassagePills'
 import TableCompletionRender from '../components/TableCompletionRender'
+import NoteCompletionGroup from '../components/exam/listening/NoteCompletionGroup'
+import MCQGroup from '../components/exam/listening/MCQGroup'
+import MapDiagramGroup from '../components/exam/listening/MapDiagramGroup'
+import { GroupBlock, QuestionBlock, groupByType } from '../components/exam/listening/OtherGroups'
+import { fmt } from '../utils/practiceUtils'
+import { toImgSrc } from '../utils/practiceConfig'
+import ConfirmExitModal from '../components/ConfirmExitModal'
 
-const TOTAL_TIME = 40 * 60
-const SERVER_BASE = 'http://localhost:3001'
-const toImgSrc = (url) => (url || '').startsWith('/') ? `${SERVER_BASE}${url}` : (url || '')
 
-function fmt(s) {
-  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
-}
-
-// ── Group instruction banner ─────────────────────────────────────────────────
-function InstructionBanner({ group }) {
-  return (
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 text-sm">
-      <p className="font-bold text-gray-800 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
-      {group.instruction && <p className="text-gray-700">{group.instruction}</p>}
-    </div>
-  )
-}
-
-// ── Parse note tokens into inline inputs ─────────────────────────────────────
-function NoteTokenLine({ content, groupQuestions, answers, onAnswer, previewMode, showAnswers }) {
-  const parts = content.split(/(\[Q:\d+\])/)
-  return (
-    <p className="text-sm leading-9 text-gray-700">
-      {parts.map((part, i) => {
-        const match = part.match(/\[Q:(\d+)\]/)
-        if (match) {
-          const qNum = parseInt(match[1])
-          const q = groupQuestions.find(q => q.number === qNum)
-          if (!q) return <span key={i} className="inline-block w-24 border-b-2 border-gray-400 mx-1" />
-          const val = previewMode && showAnswers ? (q.correctAnswer || '') : (answers[q.id] || '')
-          const cls = previewMode && showAnswers
-            ? 'inline-block w-28 border-b-2 border-green-500 outline-none px-1 text-sm bg-transparent text-center font-semibold text-green-700'
-            : 'inline-block w-28 border-b-2 border-blue-400 focus:border-blue-600 outline-none px-1 text-sm bg-transparent text-center'
-          return (
-            <span key={i} className="inline-flex items-center gap-1 mx-1">
-              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-700 font-bold text-xs shrink-0">{qNum}</span>
-              <input
-                type="text"
-                value={val}
-                readOnly={previewMode}
-                onChange={previewMode ? undefined : e => onAnswer(q.id, e.target.value)}
-                className={cls}
-                placeholder={previewMode ? '' : '...'}
-              />
-            </span>
-          )
-        }
-        return <span key={i}>{part}</span>
-      })}
-    </p>
-  )
-}
-
-// ── Note Completion Group ─────────────────────────────────────────────────────
-function NoteCompletionGroup({ group, answers, onAnswer, previewMode, showAnswers }) {
-  const hasSections = (group.noteSections || []).length > 0
-  return (
-    <div id={`question-${group.qNumberStart}`} className="mb-6 scroll-mt-4">
-      <InstructionBanner group={group} />
-      {hasSections ? (
-        (group.noteSections || []).map(ns => (
-          <div key={ns.id} className="mb-4">
-            {ns.title && (
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 pl-1">{ns.title}</p>
-            )}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-0.5">
-              {(ns.lines || []).map(line => (
-                line.lineType === 'heading'
-                  ? <p key={line.id} className="font-bold text-gray-800 text-[0.95rem] pt-2 pb-0.5">{line.contentWithTokens}</p>
-                  : <NoteTokenLine key={line.id} content={line.contentWithTokens}
-                      groupQuestions={group.questions} answers={answers} onAnswer={onAnswer}
-                      previewMode={previewMode} showAnswers={showAnswers} />
-              ))}
-            </div>
-          </div>
-        ))
-      ) : (
-        (group.questions || []).map(q => (
-          <div key={q.id} id={`question-${q.number}`} className="mb-3 flex gap-2 items-center scroll-mt-4">
-            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold text-xs shrink-0">{q.number}</span>
-            <span className="text-sm text-gray-700 flex-1">{q.questionText}</span>
-            <input type="text"
-              value={previewMode && showAnswers ? (q.correctAnswer || '') : (answers[q.id] || '')}
-              readOnly={previewMode}
-              onChange={previewMode ? undefined : e => onAnswer(q.id, e.target.value)}
-              placeholder={previewMode ? '' : '...'}
-              className={`border-b-2 ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'border-blue-400 focus:border-blue-600'} outline-none px-2 py-0.5 text-sm w-36 bg-transparent`} />
-          </div>
-        ))
-      )}
-    </div>
-  )
-}
-
-// ── MCQ Group (single or multi) ───────────────────────────────────────────────
-function MCQGroup({ group, answers, onAnswer, isMulti, previewMode, showAnswers }) {
-  const maxChoices = group.maxChoices || 2
-  const questions = group.questions || []
-
-  if (isMulti) {
-    return (
-      <div id={`question-${group.qNumberStart}`} className="mb-6 scroll-mt-4">
-        <InstructionBanner group={group} />
-        {questions.map((q, qi) => {
-          const qStart = group.qNumberStart + qi * maxChoices
-          const qEnd = qStart + maxChoices - 1
-          const opts = q.options ? JSON.parse(q.options) : []
-          const combined = answers[q.id] || ''
-          const selected = combined.split(',').filter(Boolean)
-          const correctSelected = previewMode && showAnswers
-            ? (q.correctAnswer || '').split(',').filter(Boolean)
-            : selected
-          const limitReached = selected.length >= maxChoices
-
-          const handleChange = (opt) => {
-            if (previewMode) return
-            const checked = selected.includes(opt)
-            const next = checked ? selected.filter(s => s !== opt) : [...selected, opt]
-            onAnswer(q.id, next.join(','))
-          }
-
-          return (
-            <div key={q.id} id={`question-${qStart}`} className="mb-4 scroll-mt-4">
-              {q.questionText && (
-                <p className="text-sm text-gray-800 mb-2 leading-relaxed flex gap-2">
-                  <span className="font-bold text-gray-700 shrink-0">{qStart}–{qEnd}.</span>
-                  <span>{q.questionText}</span>
-                </p>
-              )}
-              <div className="space-y-1 pl-2">
-                {opts.map(opt => {
-                  const checked = previewMode && showAnswers ? correctSelected.includes(opt) : selected.includes(opt)
-                  const disabled = previewMode || (!checked && limitReached)
-                  return (
-                    <label key={opt} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition
-                      ${checked && previewMode && showAnswers ? 'bg-green-50 border border-green-400 text-green-700 cursor-default'
-                        : checked ? 'bg-blue-50 border border-blue-400 text-blue-700 cursor-pointer'
-                        : disabled ? 'border border-transparent text-gray-300 cursor-not-allowed'
-                        : 'hover:bg-gray-50 border border-transparent text-gray-700 cursor-pointer'}`}>
-                      <input type="checkbox" checked={checked} disabled={disabled} className="accent-blue-600"
-                        onChange={() => handleChange(opt)} />
-                      {opt}
-                    </label>
-                  )
-                })}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    )
-  }
-
-  // Single MCQ — render each question separately
-  return (
-    <div id={`question-${group.qNumberStart}`} className="mb-6 scroll-mt-4">
-      <InstructionBanner group={group} />
-      {questions.map(q => {
-        const opts = q.options ? JSON.parse(q.options) : []
-        const displayAnswer = previewMode && showAnswers ? q.correctAnswer : answers[q.id]
-        return (
-          <div key={q.id} id={`question-${q.number}`} className="mb-5 scroll-mt-4">
-            <p className="text-sm text-gray-800 mb-2 leading-relaxed flex gap-2">
-              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold text-xs shrink-0 mt-0.5">{q.number}</span>
-              <span>{q.questionText}</span>
-            </p>
-            <div className="space-y-1 pl-8">
-              {opts.map(opt => {
-                const isSelected = displayAnswer === opt
-                return (
-                  <label key={opt} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition
-                    ${isSelected && previewMode && showAnswers ? 'bg-green-50 border border-green-400 text-green-700 cursor-default'
-                      : isSelected ? 'bg-blue-50 border border-blue-400 text-blue-700 cursor-pointer'
-                      : previewMode ? 'border border-transparent text-gray-500 cursor-default'
-                      : 'hover:bg-gray-50 border border-transparent cursor-pointer'}`}>
-                    <input type="radio" name={`q${q.id}`} checked={isSelected}
-                      disabled={previewMode}
-                      onChange={previewMode ? undefined : () => onAnswer(q.id, opt)}
-                      className="accent-blue-600" />
-                    {opt}
-                  </label>
-                )
-              })}
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-// ── Map / Diagram Labelling Group ─────────────────────────────────────────────
-function MapDiagramGroup({ group, answers, onAnswer, previewMode, showAnswers }) {
-  const letters = (group.matchingOptions || []).map(mo => mo.optionLetter)
-  const questions = group.questions || []
-
-  return (
-    <div id={`question-${group.qNumberStart}`} className="mb-6 scroll-mt-4">
-      <InstructionBanner group={group} />
-      {group.imageUrl && (
-        <div className="flex justify-center mb-5">
-          <img src={toImgSrc(group.imageUrl)} alt="Map/Diagram"
-            className="max-w-full rounded-xl border border-gray-200 shadow-sm"
-            onError={e => { e.target.style.display = 'none' }} />
-        </div>
-      )}
-      <MatchingTickGrid
-        letters={letters}
-        questions={questions}
-        answers={answers}
-        onAnswer={onAnswer}
-        previewMode={previewMode}
-        showAnswers={showAnswers}
-        accentColor="blue"
-      />
-    </div>
-  )
-}
-
-// ── Matching Group (dropdown list, non-map) ───────────────────────────────────
-function MatchingGroup({ group, answers, onAnswer, previewMode, showAnswers }) {
-  const opts = (group.matchingOptions || []).map(mo => mo.optionLetter)
-  return (
-    <div id={`question-${group.qNumberStart}`} className="mb-6 scroll-mt-4">
-      <InstructionBanner group={group} />
-      {(group.matchingOptions || []).length > 0 && (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4">
-          {(group.matchingOptions || []).map(mo => (
-            <p key={mo.id} className="text-sm text-gray-700 py-0.5">
-              <span className="font-bold text-[#1a56db] mr-2">{mo.optionLetter}.</span>{mo.optionText}
-            </p>
-          ))}
-        </div>
-      )}
-      {(group.questions || []).map(q => (
-        <div key={q.id} id={`question-${q.number}`} className="mb-4 scroll-mt-4">
-          <p className="text-sm text-gray-800 mb-2 leading-relaxed flex gap-2">
-            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold text-xs shrink-0 mt-0.5">{q.number}</span>
-            <span>{q.questionText}</span>
-          </p>
-          <div className="pl-8">
-            <select
-              value={previewMode && showAnswers ? (q.correctAnswer || '') : (answers[q.id] || '')}
-              disabled={previewMode}
-              onChange={previewMode ? undefined : e => onAnswer(q.id, e.target.value)}
-              className={`border ${previewMode && showAnswers ? 'border-green-400 text-green-700 font-semibold' : 'border-gray-300'} rounded-lg px-3 py-1.5 text-sm focus:border-blue-500 outline-none bg-white min-w-32`}>
-              <option value="">— Chọn —</option>
-              {opts.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-            </select>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// ── Dispatcher ────────────────────────────────────────────────────────────────
-function GroupBlock({ group, answers, onAnswer, previewMode, showAnswers }) {
-  if (group.type === 'note_completion') return <NoteCompletionGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
-  if (group.type === 'table_completion') return <TableCompletionRender group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
-  if (group.type === 'mcq')             return <MCQGroup group={group} answers={answers} onAnswer={onAnswer} isMulti={false} previewMode={previewMode} showAnswers={showAnswers} />
-  if (group.type === 'mcq_multi')       return <MCQGroup group={group} answers={answers} onAnswer={onAnswer} isMulti={true} previewMode={previewMode} showAnswers={showAnswers} />
-  if (group.type === 'map_diagram')     return <MapDiagramGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
-  if (group.type === 'matching')        return <MatchingGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
-  if (group.type === 'drag_word_bank')  return <div id={`question-${group.qNumberStart}`} className="scroll-mt-4"><DragWordBankGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} /></div>
-  if (group.type === 'matching_drag')   return <div id={`question-${group.qNumberStart}`} className="scroll-mt-4"><MatchingDragGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} /></div>
-  if (group.type === 'diagram_label')    return <DiagramLabelGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
-  if (group.type === 'matching_headings') return <MatchingHeadingsGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
-  return null
-}
-
-// ── Legacy direct-question support ───────────────────────────────────────────
-function QuestionBlock({ q, globalIdx, answers, onAnswer, previewMode, showAnswers }) {
-  const opts = q.options ? JSON.parse(q.options) : []
-  const selected = (answers[q.id] || '').split(',').filter(Boolean)
-  return (
-    <div id={`question-${q.number}`} className="mb-5 scroll-mt-4">
-      <p className="text-sm text-gray-800 mb-2 leading-relaxed flex gap-2">
-        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold text-xs shrink-0 mt-0.5">{globalIdx + 1}</span>
-        <span>{q.questionText}</span>
-      </p>
-      {q.type === 'mcq' && (
-        <div className="space-y-1 pl-8">
-          {opts.map(opt => {
-            const isSelected = previewMode && showAnswers ? q.correctAnswer === opt : answers[q.id] === opt
-            return (
-              <label key={opt} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition
-                ${isSelected && previewMode && showAnswers ? 'bg-green-50 border border-green-400 text-green-700 cursor-default'
-                  : isSelected ? 'bg-blue-50 border border-blue-400 text-blue-700 cursor-pointer'
-                  : previewMode ? 'border border-transparent text-gray-500 cursor-default'
-                  : 'hover:bg-gray-50 border border-transparent cursor-pointer'}`}>
-                <input type="radio" name={`q${q.id}`} checked={isSelected}
-                  disabled={previewMode}
-                  onChange={previewMode ? undefined : () => onAnswer(q.id, opt)}
-                  className="accent-blue-600" />
-                {opt}
-              </label>
-            )
-          })}
-        </div>
-      )}
-      {q.type === 'mcq_multi' && (
-        <div className="space-y-1 pl-8">
-          {opts.map(opt => {
-            const correctAnswers = previewMode && showAnswers ? (q.correctAnswer || '').split(',').filter(Boolean) : []
-            const checked = previewMode && showAnswers ? correctAnswers.includes(opt) : selected.includes(opt)
-            return (
-              <label key={opt} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition
-                ${checked && previewMode && showAnswers ? 'bg-green-50 border border-green-400 text-green-700 cursor-default'
-                  : checked ? 'bg-blue-50 border border-blue-400 text-blue-700 cursor-pointer'
-                  : previewMode ? 'border border-transparent text-gray-500 cursor-default'
-                  : 'hover:bg-gray-50 border border-transparent cursor-pointer'}`}>
-                <input type="checkbox" checked={checked} disabled={previewMode} className="accent-blue-600"
-                  onChange={previewMode ? undefined : () => {
-                    const next = checked ? selected.filter(s => s !== opt) : [...selected, opt].sort()
-                    onAnswer(q.id, next.join(','))
-                  }} />
-                {opt}
-              </label>
-            )
-          })}
-        </div>
-      )}
-      {q.type === 'fill_blank' && (
-        <div className="pl-8">
-          <input type="text"
-            value={previewMode && showAnswers ? (q.correctAnswer || '') : (answers[q.id] || '')}
-            readOnly={previewMode}
-            onChange={previewMode ? undefined : e => onAnswer(q.id, e.target.value)}
-            placeholder={previewMode ? '' : 'Nhập đáp án...'}
-            className={`border-b-2 ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'border-gray-300 focus:border-blue-500'} outline-none px-2 py-1 text-sm w-56 bg-transparent transition`} />
-        </div>
-      )}
-      {['matching', 'map_diagram'].includes(q.type) && (
-        <div className="pl-8">
-          {q.imageUrl && <img src={q.imageUrl} alt="map/diagram" className="w-full max-w-sm rounded-lg mb-2 border" />}
-          {opts.length > 0 ? (
-            <select
-              value={previewMode && showAnswers ? (q.correctAnswer || '') : (answers[q.id] || '')}
-              disabled={previewMode}
-              onChange={previewMode ? undefined : e => onAnswer(q.id, e.target.value)}
-              className={`border ${previewMode && showAnswers ? 'border-green-400 text-green-700 font-semibold' : 'border-gray-300'} rounded-lg px-3 py-1.5 text-sm focus:border-blue-500 outline-none bg-white min-w-48`}>
-              <option value="">— Chọn đáp án —</option>
-              {opts.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-            </select>
-          ) : (
-            <input type="text"
-              value={previewMode && showAnswers ? (q.correctAnswer || '') : (answers[q.id] || '')}
-              readOnly={previewMode}
-              onChange={previewMode ? undefined : e => onAnswer(q.id, e.target.value)}
-              placeholder={previewMode ? '' : 'Nhập đáp án...'}
-              className={`border-b-2 ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'border-gray-300 focus:border-blue-500'} outline-none px-2 py-1 text-sm w-56 bg-transparent transition`} />
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function groupByType(questions) {
-  const groups = []
-  let i = 0
-  while (i < questions.length) {
-    const type = questions[i].type
-    const start = i
-    while (i < questions.length && questions[i].type === type) i++
-    groups.push({ type, qs: questions.slice(start, i), startOffset: start })
-  }
-  return groups
-}
-
+const DEFAULT_LISTENING_TIME = 40 * 60
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function ListeningExam() {
@@ -388,6 +31,9 @@ export default function ListeningExam() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const previewMode = searchParams.get('preview') === 'true'
+  const resumeMode = searchParams.get('resume') === 'true'
+  const viewResultMode = searchParams.get('viewResult') === 'true'
+  const { user } = useAuth()
 
   const [exam, setExam] = useState(null)
   const [answers, setAnswers] = useState({})
@@ -395,7 +41,7 @@ export default function ListeningExam() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [activeSection, setActiveSection] = useState(0)
-  const [timeLeft, setTimeLeft] = useState(TOTAL_TIME)
+  const [timeLeft, setTimeLeft] = useState(DEFAULT_LISTENING_TIME)
   const [phase, setPhase] = useState('start')
   const [showAnswers, setShowAnswers] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
@@ -408,7 +54,30 @@ export default function ListeningExam() {
   const bottomBarRef = useRef(null)
 
   useEffect(() => {
-    getListeningExam(id).then(data => setExam(data)).finally(() => setLoading(false))
+    document.title = 'Bài thi Listening | IELTS Pro'
+    // Fetch listening_time setting from admin settings, fallback to 40 min
+    getAdminSettings()
+      .then(settings => {
+        const mins = parseInt(settings.listening_time)
+        if (!isNaN(mins) && mins > 0) setTimeLeft(mins * 60)
+      })
+      .catch(() => {})
+    getListeningExam(id)
+      .then(data => {
+        setExam(data)
+        if (resumeMode && user) {
+          const userId = user.id || user._id
+          const draft = loadDraft(userId, id, 'listening')
+          if (draft?.answers && Object.keys(draft.answers).length > 0) {
+            setAnswers(draft.answers)
+            if (draft.timeRemaining != null) setTimeLeft(draft.timeRemaining)
+          }
+          setPhase('exam')
+        }
+        if (viewResultMode) setPhase('viewResult')
+      })
+      .catch(() => navigate('/full-test', { replace: true }))
+      .finally(() => setLoading(false))
   }, [id])
 
   // Skip start screen in preview mode
@@ -422,6 +91,16 @@ export default function ListeningExam() {
     const t = setInterval(() => setTimeLeft(s => s - 1), 1000)
     return () => clearInterval(t)
   }, [phase, timeLeft, result, previewMode])
+
+  // Auto-save draft every 30 seconds
+  useEffect(() => {
+    if (phase !== 'exam' || previewMode || !user || !id) return
+    const userId = user.id || user._id
+    const interval = setInterval(() => {
+      saveDraft({ userId, examId: id, skillType: 'listening', answers, timeRemaining: timeLeft })
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [phase, answers, timeLeft, previewMode, user, id])
 
   useEffect(() => {
     if (audioRef.current) {
@@ -452,12 +131,20 @@ export default function ListeningExam() {
   }, [showQuestionPanel])
 
   useEffect(() => {
-    if (result) {
+    if (phase === 'result' && result) {
       getFullTestStatus(id)
         .then(data => { if (data.isComplete) setFullTestStatus(data) })
         .catch(() => {})
     }
-  }, [result])
+  }, [phase, result])
+
+  const handleBack = () => {
+    if (exam?.seriesId) {
+      navigate(`/full-test/${exam.seriesId}?book=${exam.bookNumber}`)
+    } else {
+      navigate('/practice/listening')
+    }
+  }
 
   useEffect(() => {
     if (!bottomBarRef.current) return
@@ -473,11 +160,12 @@ export default function ListeningExam() {
   const doSubmit = async () => {
     setSubmitting(true)
     try {
-      const r = await submitListeningExam(id, answers)
-      setResult(r)
-      setPhase('result')
-    } catch (e) { /* submit error handled by submitting state */ }
-    finally { setSubmitting(false) }
+      await submitListeningExam(id, answers)
+      if (user) clearDraft(user.id || user._id, id, 'listening')
+      navigate(`/listening/${id}/result`, { replace: true })
+    } catch (e) {
+      alert(e?.response?.data?.message || e?.message || 'Lỗi nộp bài thi. Vui lòng thử lại.')
+    } finally { setSubmitting(false) }
   }
 
   const jumpToQuestion = (slot) => {
@@ -510,98 +198,67 @@ export default function ListeningExam() {
   }
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-400 text-sm">Đang tải đề...</div>
+  if (!exam) return <div className="min-h-screen flex items-center justify-center text-gray-400 text-sm">Không tìm thấy đề thi.</div>
 
   const allQ = exam.listeningSections.flatMap(s => getSectionSlots(s))
   const answered = allQ.filter(s => s.qId && answers[s.qId]).length
 
   // ── Start ─────────────────────────────────────────────────────
   if (phase === 'start') return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="bg-white rounded-2xl shadow-lg p-10 max-w-md w-full text-center">
-        <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-5">🎧</div>
-        <h1 className="text-xl font-bold text-gray-800 mb-2">{exam.title}</h1>
-        <p className="text-gray-500 text-sm mb-1">{exam.listeningSections.length} Sections · {allQ.length} câu hỏi</p>
-        <p className="text-gray-500 text-sm mb-8">Thời gian: <span className="font-semibold text-[#1a56db]">40 phút</span></p>
-        <div className="bg-blue-50 rounded-xl p-4 text-left text-sm text-gray-600 mb-8 space-y-1">
-          <p>• Nghe audio rồi trả lời câu hỏi bên dưới</p>
-          <p>• Có thể tua lại audio trong phần làm bài</p>
-          <p>• Bài sẽ tự nộp khi hết giờ</p>
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-background)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="flex flex-col items-center" style={{ background: 'var(--color-surface)', borderRadius: '24px', boxShadow: 'var(--shadow-md)', padding: 40, maxWidth: 448, width: '100%', textAlign: 'center', border: '1px solid var(--color-border)' }}>
+        <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200/80 flex items-center justify-center mx-auto mb-5">
+          <Headphones className="w-8 h-8 text-slate-600 stroke-[1.75]" />
         </div>
-        <button onClick={() => setPhase('exam')} className="w-full bg-[#1a56db] hover:bg-[#1d4ed8] text-white py-3 rounded-xl font-bold transition">
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: 'var(--color-heading)', marginBottom: 8 }}>{exam.title}</h1>
+        <p style={{ fontFamily: 'var(--font-body)', color: 'var(--color-body)', fontSize: 14, marginBottom: 4 }}>{exam.listeningSections.length} Sections · <span style={{ fontFamily: 'var(--font-mono)' }}>{allQ.length}</span> câu hỏi</p>
+        <p style={{ fontFamily: 'var(--font-body)', color: 'var(--color-body)', fontSize: 14, marginBottom: 32 }}>Thời gian: <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--skill-l-color)' }}>40 phút</span></p>
+        <div style={{ background: 'var(--skill-l-bg)', borderRadius: 'var(--radius-md)', padding: 16, textAlign: 'left', fontSize: 14, color: 'var(--color-heading)', marginBottom: 32, display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
+          <p style={{ fontFamily: 'var(--font-body)', margin: 0 }}>• Nghe audio rồi trả lời câu hỏi bên dưới</p>
+          <p style={{ fontFamily: 'var(--font-body)', margin: 0 }}>• Có thể tua lại audio trong phần làm bài</p>
+          <p style={{ fontFamily: 'var(--font-body)', margin: 0 }}>• Bài sẽ tự nộp khi hết giờ</p>
+        </div>
+        <button onClick={() => setPhase('exam')} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 15, marginBottom: 8 }}>
           Bắt đầu làm bài
         </button>
-        <button onClick={() => navigate('/listening')} className="w-full mt-3 text-gray-400 hover:text-gray-600 text-sm transition">← Quay lại</button>
-      </div>
-    </div>
-  )
-
-  // ── Result ────────────────────────────────────────────────────
-  if (phase === 'result' && result) return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-[#1e3a5f] text-white px-6 py-4">
-        <h1 className="font-bold text-lg">Kết quả Listening</h1>
-        <p className="text-blue-200 text-sm">{exam.title}</p>
-      </div>
-      <div className="max-w-2xl mx-auto px-6 py-8 space-y-6">
-        <div className="bg-white rounded-2xl p-8 shadow-sm text-center">
-          <div className="text-6xl font-bold text-[#1a56db] mb-2">{result.score}</div>
-          <div className="text-gray-500">Band Score IELTS</div>
-          <div className="text-gray-600 mt-2">Đúng {result.correct}/{result.total} câu</div>
-          <div className="mt-4 bg-gray-100 rounded-full h-3 overflow-hidden">
-            <div className="bg-[#1a56db] h-3 rounded-full" style={{ width: `${(result.correct / result.total) * 100}%` }} />
-          </div>
-        </div>
-        <div className="space-y-3">
-          {result.result.map((r, i) => (
-            <div key={r.questionId} className={`bg-white rounded-xl p-4 border-l-4 ${r.isCorrect ? 'border-green-400' : 'border-red-400'}`}>
-              <p className="text-sm font-medium text-gray-700 mb-1">Câu {i + 1}: {r.questionText}</p>
-              <p className={`text-sm ${r.isCorrect ? 'text-green-600' : 'text-red-500'}`}>Bạn trả lời: {r.userAnswer || '(bỏ trống)'}</p>
-              {!r.isCorrect && <p className="text-sm text-green-600">Đáp án: {r.correctAnswer}</p>}
-            </div>
-          ))}
-        </div>
-        {fullTestStatus?.isComplete && (
-          <button
-            onClick={() => navigate(`/full-test/result?seriesId=${fullTestStatus.seriesId}&bookNumber=${fullTestStatus.bookNumber}&testNumber=${fullTestStatus.testNumber}`)}
-            className="w-full py-3 rounded-xl font-bold text-white transition mb-3"
-            style={{ backgroundColor: '#059669' }}
-          >
-            Xem kết quả Full Test →
-          </button>
-        )}
-        <button onClick={() => navigate('/listening')} className="w-full bg-[#1a56db] text-white py-3 rounded-xl font-bold hover:bg-[#1d4ed8] transition">
-          Làm đề khác
+        <button
+          onClick={handleBack}
+          className="w-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all duration-200 ease-in-out font-medium text-sm flex items-center justify-center gap-1.5 cursor-pointer"
+          style={{ width: '100%', padding: '12px 0', borderRadius: '12px' }}
+        >
+          <ArrowLeft className="w-4 h-4 text-slate-500" /> Quay lại
         </button>
       </div>
     </div>
   )
 
   // ── Exam ──────────────────────────────────────────────────────
+
   const section = exam.listeningSections[activeSection]
   let startIdx = 0
   for (let i = 0; i < activeSection; i++) startIdx += getSectionSlots(exam.listeningSections[i]).length
 
   return (
-    <div className="h-screen flex flex-col bg-gray-100 overflow-hidden">
+    <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: 'var(--surface-raised)' }}>
       {/* Header */}
-      <header className="bg-[#1e3a5f] text-white px-6 py-3 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
-          <button onClick={() => previewMode ? navigate('/admin') : setShowExitConfirm(true)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold text-base shrink-0 transition">✕</button>
-          <span className="text-sm font-semibold truncate">{exam.title}</span>
-          {previewMode && <span className="text-xs bg-amber-500 text-white px-2 py-0.5 rounded-full font-bold shrink-0">Chế độ Preview</span>}
+      <header style={{ background: 'var(--ink)', borderBottom: '1px solid rgba(201,168,76,0.15)', padding: '8px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+          <button aria-label="Đóng bài thi" onClick={() => previewMode ? navigate('/admin') : setShowExitConfirm(true)} style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', fontWeight: 700, fontSize: 14, cursor: 'pointer', flexShrink: 0 }}>✕</button>
+          <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{exam.title}</span>
+          {previewMode && <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, background: 'var(--primary)', color: 'var(--ink)', padding: '2px 8px', borderRadius: 99, fontWeight: 700, flexShrink: 0 }}>Chế độ Preview</span>}
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
           {previewMode ? (
             <button
               onClick={() => setShowAnswers(v => !v)}
-              className={`text-xs px-3 py-1 rounded-full font-semibold transition ${showAnswers ? 'bg-green-500 text-white' : 'bg-white/10 text-blue-200 hover:bg-white/20'}`}
+              style={{ fontFamily: 'var(--font-body)', fontSize: 12, padding: '4px 12px', borderRadius: 99, fontWeight: 600, border: 'none', cursor: 'pointer', background: showAnswers ? 'var(--skill-l-color)' : 'rgba(255,255,255,0.12)', color: 'white' }}
             >
               {showAnswers ? 'Ẩn đáp án' : 'Hiện đáp án'}
             </button>
           ) : (
             <>
-              <span className="text-blue-200 text-xs">{answered}/{allQ.length} câu</span>
-              <div className={`font-mono font-bold text-sm px-3 py-1 rounded ${timeLeft < 300 ? 'bg-red-500' : timeLeft < 600 ? 'bg-yellow-500 text-black' : 'bg-blue-700'}`}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{answered}/{allQ.length} câu</span>
+              <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 14, padding: '4px 12px', borderRadius: 'var(--radius-sm)', background: timeLeft < 300 ? '#dc2626' : timeLeft < 600 ? '#d97706' : 'rgba(255,255,255,0.15)', color: 'white' }}>
                 {fmt(timeLeft)}
               </div>
             </>
@@ -624,7 +281,7 @@ export default function ListeningExam() {
         <div className="max-w-3xl mx-auto px-6 py-6 space-y-4">
           {/* Questions */}
           <div className="bg-white rounded-xl p-5 shadow-sm">
-            <p className="text-xs font-bold text-[#1a56db] uppercase tracking-wider mb-5">
+            <p className="text-xs font-bold text-[#1D4ED8] uppercase tracking-wider mb-5">
               Section {section.number}
               {section.context && <span className="font-normal text-gray-400 ml-1">— {section.context}</span>}
             </p>
@@ -687,6 +344,7 @@ export default function ListeningExam() {
             <div className="flex items-center gap-3 shrink-0">
               <button
                 title="Bảng câu hỏi"
+                aria-label="Bảng câu hỏi"
                 onClick={() => setShowQuestionPanel(v => !v)}
                 className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all ${showQuestionPanel ? 'bg-[#0066FF] border-[#0066FF] text-white shadow-md' : 'bg-white border-gray-200 text-gray-400 hover:border-[#0066FF] hover:text-[#0066FF]'}`}
               >
@@ -699,6 +357,7 @@ export default function ListeningExam() {
               </button>
               <button
                 title={showNavNumbers ? 'Thu gọn' : 'Mở rộng'}
+                aria-label={showNavNumbers ? 'Thu gọn' : 'Mở rộng'}
                 onClick={() => setShowNavNumbers(v => !v)}
                 className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-400 hover:border-[#002D5B] hover:text-[#002D5B] transition-all"
               >
@@ -726,7 +385,7 @@ export default function ListeningExam() {
             <div className="flex items-center shrink-0">
               <button
                 onClick={() => setShowConfirm(true)}
-                className="bg-[#dc2626] hover:bg-red-700 text-white px-4 py-2 rounded-xl font-bold text-sm transition"
+                className="bg-[#dc2626] hover:bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-sm transition"
               >
                 Nộp bài
               </button>
@@ -746,6 +405,7 @@ export default function ListeningExam() {
             <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
               <h3 className="font-bold text-gray-800 text-sm">Bảng câu hỏi</h3>
               <button
+                aria-label="Đóng"
                 onClick={() => setShowQuestionPanel(false)}
                 className="w-6 h-6 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 text-xs font-bold transition"
               >✕</button>
@@ -756,7 +416,7 @@ export default function ListeningExam() {
                 const isActive = activeSection === si
                 return (
                   <div key={si}>
-                    <p className={`text-xs font-bold mb-2 ${isActive ? 'text-[#1a56db]' : 'text-gray-500'}`}>
+                    <p className={`text-xs font-bold mb-2 ${isActive ? 'text-[#1D4ED8]' : 'text-gray-500'}`}>
                       Section {s.number}
                     </p>
                     <div className="flex flex-wrap gap-1.5">
@@ -766,7 +426,7 @@ export default function ListeningExam() {
                           onClick={() => { jumpToQuestion(slot); setShowQuestionPanel(false) }}
                           className={`w-8 h-8 rounded text-xs font-bold transition
                             ${slot.qId && answers[slot.qId]
-                              ? 'bg-[#1a56db] border border-[#1a56db] text-white'
+                              ? 'bg-[#1D4ED8] border border-[#1D4ED8] text-white'
                               : isActive
                                 ? 'bg-[#f1f5f9] border border-[#cbd5e1] text-[#475569]'
                                 : 'bg-white border border-[#e2e8f0] text-[#1e293b]'}`}
@@ -784,49 +444,33 @@ export default function ListeningExam() {
       )}
 
       {/* Exit confirm modal */}
-      {showExitConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowExitConfirm(false)}>
-          <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-sm w-full mx-4" onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-gray-800 mb-2">Thoát bài làm?</h2>
-            <p className="text-gray-600 text-sm mb-6">Tiến trình bài làm sẽ không được lưu nếu bạn thoát lúc này.</p>
-            <div className="flex gap-3">
-              <button onClick={() => setShowExitConfirm(false)} className="flex-1 py-2.5 rounded-xl bg-[#1a56db] hover:bg-[#1d4ed8] text-white text-sm font-bold transition">
-                Tiếp tục làm
-              </button>
-              <button onClick={() => navigate('/listening')} className="flex-1 py-2.5 rounded-xl bg-[#dc2626] hover:bg-red-700 text-white text-sm font-bold transition">
-                Thoát
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmExitModal
+        isOpen={showExitConfirm}
+        onClose={() => setShowExitConfirm(false)}
+        onConfirm={handleBack}
+      />
 
       {/* Confirm submit modal */}
       {showConfirm && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-          onClick={() => setShowConfirm(false)}
-        >
-          <div
-            className="bg-white rounded-2xl p-8 shadow-2xl max-w-sm w-full mx-4"
-            onClick={e => e.stopPropagation()}
-          >
-            <h2 className="text-lg font-bold text-gray-800 mb-2">Nộp bài?</h2>
-            <p className="text-gray-600 text-sm mb-2">Bạn có chắc muốn nộp bài không?</p>
-            <p className="text-sm font-semibold text-gray-700 mb-6">
-              Đã làm: <span className="text-[#1a56db]">{answered}/{allQ.length}</span> câu
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }} onClick={() => setShowConfirm(false)}>
+          <div style={{ background: 'var(--color-surface)', borderRadius: '24px', padding: 32, boxShadow: 'var(--shadow-md)', maxWidth: 360, width: '100%', border: '1px solid var(--color-border)' }} onClick={e => e.stopPropagation()}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--color-heading)', marginBottom: 8 }}>Nộp bài?</h2>
+            <p style={{ fontFamily: 'var(--font-body)', color: 'var(--color-body)', fontSize: 14, marginBottom: 8 }}>Bạn có chắc muốn nộp bài không?</p>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--color-heading)', marginBottom: 24 }}>
+              Đã làm: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-primary)' }}>{answered}/{allQ.length}</span> câu
             </p>
-            <div className="flex gap-3">
+            <div style={{ display: 'flex', gap: 12 }}>
               <button
                 onClick={() => setShowConfirm(false)}
-                className="flex-1 py-2.5 rounded-xl border border-gray-300 text-gray-600 text-sm font-semibold hover:bg-gray-50 transition"
+                className="btn-secondary"
+                style={{ flex: 1, padding: '10px 0', borderRadius: '12px', fontSize: 14 }}
               >
                 Tiếp tục làm
               </button>
               <button
                 onClick={() => { setShowConfirm(false); doSubmit() }}
                 disabled={submitting}
-                className="flex-1 py-2.5 rounded-xl bg-[#dc2626] hover:bg-red-700 text-white text-sm font-bold transition disabled:opacity-50"
+                style={{ flex: 1, padding: '10px 0', borderRadius: '12px', background: '#dc2626', color: 'white', fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 700, border: 'none', cursor: 'pointer', opacity: submitting ? 0.5 : 1 }}
               >
                 {submitting ? 'Đang chấm...' : 'Nộp bài'}
               </button>

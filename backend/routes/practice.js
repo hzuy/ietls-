@@ -3,11 +3,13 @@ const multer = require('multer')
 const path = require('path')
 const fs = require('fs')
 const authMiddleware = require('../middleware/auth')
+const validate = require('../middleware/validate')
 const prisma = require('../lib/prisma')
+const { createPracticeSchema, updatePracticeSchema } = require('../validators/contentValidator')
 
 const router = express.Router()
 
-// ─── Multer for thumbnails ────────────────────────────────────────────────────
+// ─── Multer setup ─────────────────────────────────────────────────────────────
 const thumbDir = path.join(__dirname, '..', 'uploads', 'thumbnails')
 if (!fs.existsSync(thumbDir)) fs.mkdirSync(thumbDir, { recursive: true })
 
@@ -28,7 +30,6 @@ const thumbUpload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }
 })
 
-// ─── Multer for audio (listening) ────────────────────────────────────────────
 const audioDir = path.join(__dirname, '..', 'uploads')
 const audioStorage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, audioDir),
@@ -53,7 +54,20 @@ const teacherOrAdmin = (req, res, next) => {
   next()
 }
 
-// ─── PUBLIC: list featured practice exams (home page) ────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function getQuestionCount(exam) {
+  if (exam.questions?.length > 0) {
+    return exam.questions.reduce((s, pq) => {
+      try {
+        const group = JSON.parse(pq.content)
+        return s + (group.qNumberEnd - group.qNumberStart + 1)
+      } catch { return s }
+    }, 0)
+  }
+  return 0
+}
+
+// ─── PUBLIC: list ─────────────────────────────────────────────────────────────
 router.get('/reading', async (req, res) => {
   const limit = req.query.limit !== undefined ? parseInt(req.query.limit) : 4
   try {
@@ -61,22 +75,14 @@ router.get('/reading', async (req, res) => {
       where: { skill: 'reading', deletedAt: null },
       ...(limit > 0 ? { take: limit } : {}),
       orderBy: { createdAt: 'desc' },
-      select: { id: true, title: true, thumbnailUrl: true, createdAt: true, questions: true }
+      include: { questions: { select: { content: true } } }
     })
-    const result = rows.map(r => ({
+    res.json(rows.map(r => ({
       ...r,
-      questionCount: r.questions ? (() => {
-        try {
-          const q = JSON.parse(r.questions)
-          return (q.groups || []).reduce((s, g) => s + (g.qNumberEnd - g.qNumberStart + 1), 0)
-        } catch { return 0 }
-      })() : 0,
+      questionCount: getQuestionCount(r),
       questions: undefined
-    }))
-    res.json(result)
-  } catch (err) {
-    res.status(500).json({ message: 'Lỗi server', error: err.message })
-  }
+    })))
+  } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
 })
 
 router.get('/listening', async (req, res) => {
@@ -86,171 +92,194 @@ router.get('/listening', async (req, res) => {
       where: { skill: 'listening', deletedAt: null },
       ...(limit > 0 ? { take: limit } : {}),
       orderBy: { createdAt: 'desc' },
-      select: { id: true, title: true, thumbnailUrl: true, createdAt: true, questions: true }
+      include: { questions: { select: { content: true } } }
     })
-    const result = rows.map(r => ({
+    res.json(rows.map(r => ({
       ...r,
-      questionCount: r.questions ? (() => {
-        try {
-          const q = JSON.parse(r.questions)
-          return (q.groups || []).reduce((s, g) => s + (g.qNumberEnd - g.qNumberStart + 1), 0)
-        } catch { return 0 }
-      })() : 0,
+      questionCount: getQuestionCount(r),
       questions: undefined
-    }))
-    res.json(result)
-  } catch (err) {
-    res.status(500).json({ message: 'Lỗi server', error: err.message })
-  }
+    })))
+  } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
 })
 
-// ─── AUTH: get detail (for exam taking) ──────────────────────────────────────
+// ─── AUTH: detail ─────────────────────────────────────────────────────────────
 router.get('/reading/:id', authMiddleware, async (req, res) => {
   try {
-    const exam = await prisma.practiceExam.findUnique({ where: { id: parseInt(req.params.id) } })
+    const exam = await prisma.practiceExam.findUnique({ 
+      where: { id: parseInt(req.params.id) },
+      include: { questions: { orderBy: { orderNum: 'asc' } } }
+    })
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy' })
-    res.json({ ...exam, questions: exam.questions ? JSON.parse(exam.questions) : null })
-  } catch (err) {
-    res.status(500).json({ message: 'Lỗi server', error: err.message })
-  }
+    const groups = (exam.questions || []).map(pq => JSON.parse(pq.content))
+    res.json({ ...exam, questions: { groups } })
+  } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
 })
 
 router.get('/listening/:id', authMiddleware, async (req, res) => {
   try {
-    const exam = await prisma.practiceExam.findUnique({ where: { id: parseInt(req.params.id) } })
+    const exam = await prisma.practiceExam.findUnique({ 
+      where: { id: parseInt(req.params.id) },
+      include: { questions: { orderBy: { orderNum: 'asc' } } }
+    })
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy' })
-    res.json({ ...exam, questions: exam.questions ? JSON.parse(exam.questions) : null })
-  } catch (err) {
-    res.status(500).json({ message: 'Lỗi server', error: err.message })
-  }
+    const groups = (exam.questions || []).map(pq => JSON.parse(pq.content))
+    res.json({ ...exam, questions: { groups } })
+  } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
 })
 
-// ─── ADMIN: list all ──────────────────────────────────────────────────────────
+// ─── ADMIN: list ──────────────────────────────────────────────────────────────
 router.get('/admin/reading', authMiddleware, teacherOrAdmin, async (req, res) => {
   try {
     const rows = await prisma.practiceExam.findMany({
       where: { skill: 'reading', deletedAt: null },
+      take: 100,
       orderBy: { createdAt: 'desc' },
-      select: { id: true, title: true, thumbnailUrl: true, createdAt: true, questions: true }
+      include: { questions: { select: { content: true } } }
     })
-    const result = rows.map(r => ({
+    res.json(rows.map(r => ({
       ...r,
-      questionCount: r.questions ? (() => {
-        try { return (JSON.parse(r.questions).groups || []).reduce((s, g) => s + (g.qNumberEnd - g.qNumberStart + 1), 0) }
-        catch { return 0 }
-      })() : 0,
+      questionCount: getQuestionCount(r),
       questions: undefined
-    }))
-    res.json(result)
-  } catch (err) {
-    res.status(500).json({ message: 'Lỗi server', error: err.message })
-  }
+    })))
+  } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
 })
 
 router.get('/admin/listening', authMiddleware, teacherOrAdmin, async (req, res) => {
   try {
     const rows = await prisma.practiceExam.findMany({
       where: { skill: 'listening', deletedAt: null },
+      take: 100,
       orderBy: { createdAt: 'desc' },
-      select: { id: true, title: true, thumbnailUrl: true, audioUrl: true, createdAt: true, questions: true }
+      include: { questions: { select: { content: true } } }
     })
-    const result = rows.map(r => ({
+    res.json(rows.map(r => ({
       ...r,
-      questionCount: r.questions ? (() => {
-        try { return (JSON.parse(r.questions).groups || []).reduce((s, g) => s + (g.qNumberEnd - g.qNumberStart + 1), 0) }
-        catch { return 0 }
-      })() : 0,
+      questionCount: getQuestionCount(r),
       questions: undefined
-    }))
-    res.json(result)
-  } catch (err) {
-    res.status(500).json({ message: 'Lỗi server', error: err.message })
-  }
+    })))
+  } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
 })
 
-// ─── ADMIN: get full detail for editing ──────────────────────────────────────
+// ─── ADMIN: detail for editing ────────────────────────────────────────────────
 router.get('/admin/:skill/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
   try {
-    const exam = await prisma.practiceExam.findUnique({ where: { id: parseInt(req.params.id) } })
+    const exam = await prisma.practiceExam.findUnique({ 
+      where: { id: parseInt(req.params.id) },
+      include: { questions: { orderBy: { orderNum: 'asc' } } }
+    })
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy' })
-    res.json(exam)
-  } catch (err) {
-    res.status(500).json({ message: 'Lỗi server', error: err.message })
-  }
+    
+    // Map to JSON for editor
+    const groups = (exam.questions || []).map(pq => JSON.parse(pq.content))
+    res.json({ ...exam, questions: JSON.stringify({ groups }) })
+  } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
 })
 
-// ─── ADMIN: create ────────────────────────────────────────────────────────────
-router.post('/admin/:skill', authMiddleware, teacherOrAdmin, async (req, res) => {
-  const skill = req.params.skill // reading | listening
-  if (!['reading', 'listening'].includes(skill))
-    return res.status(400).json({ message: 'skill không hợp lệ' })
+// ─── ADMIN: create (FIXED) ────────────────────────────────────────────────────
+router.post('/admin/:skill', authMiddleware, teacherOrAdmin, validate(createPracticeSchema), async (req, res) => {
+  const { skill } = req.params
+  const { title, level, thumbnailUrl, audioUrl, passage, questions } = req.body
+
   try {
-    const { title, passage, questions } = req.body
-    if (!title?.trim()) return res.status(400).json({ message: 'Thiếu tiêu đề' })
     const exam = await prisma.practiceExam.create({
       data: {
-        title: title.trim(), skill,
+        title: title.trim(),
+        skill,
+        level: level || null,
+        thumbnailUrl: thumbnailUrl || null,
+        audioUrl: skill === "listening" ? audioUrl : null,
         passage: passage || null,
-        questions: questions ? JSON.stringify(questions) : null
+        isNormalized: true,
+        // ✅ CORRECT: Relation is now named 'questions'
+        questions: {
+          create: (questions || []).map((q, index) => ({
+            content: typeof q === 'string' ? q : JSON.stringify(q),
+            correctAnswer: q.correctAnswer || '',
+            options: q.options ? (typeof q.options === 'string' ? q.options : JSON.stringify(q.options)) : null,
+            orderNum: q.orderIndex !== undefined ? q.orderIndex : index,
+            type: q.type || 'group'
+          }))
+        }
+      },
+      include: {
+        questions: true
       }
     })
+
     res.status(201).json(exam)
-  } catch (err) {
-    res.status(500).json({ message: 'Lỗi tạo bài', error: err.message })
+  } catch (error) {
+    console.error("CREATE PRACTICE ERROR:", error)
+    return res.status(500).json({ message: error.message })
   }
 })
 
-// ─── ADMIN: update ────────────────────────────────────────────────────────────
-router.put('/admin/:skill/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
+// ─── ADMIN: update (FIXED) ────────────────────────────────────────────────────
+router.put('/admin/:skill/:id', authMiddleware, teacherOrAdmin, validate(updatePracticeSchema), async (req, res) => {
+  const { id } = req.params
+  const { title, level, thumbnailUrl, audioUrl, passage, questions } = req.body
+
   try {
-    const id = parseInt(req.params.id)
-    const { title, passage, questions } = req.body
-    const data = {}
-    if (title !== undefined) data.title = title.trim()
-    if (passage !== undefined) data.passage = passage
-    if (questions !== undefined) data.questions = JSON.stringify(questions)
-    const exam = await prisma.practiceExam.update({ where: { id }, data })
-    res.json(exam)
-  } catch (err) {
-    res.status(500).json({ message: 'Lỗi cập nhật', error: err.message })
+    await prisma.$transaction(async (tx) => {
+      const updateData = { isNormalized: true }
+      if (title !== undefined) updateData.title = title.trim()
+      if (level !== undefined) updateData.level = level
+      if (thumbnailUrl !== undefined) updateData.thumbnailUrl = thumbnailUrl
+      if (passage !== undefined) updateData.passage = passage
+      if (audioUrl !== undefined) updateData.audioUrl = audioUrl
+
+      // ✅ Update main record and manage relation
+      await tx.practiceExam.update({
+        where: { id: parseInt(id) },
+        data: {
+          ...updateData,
+          questions: questions !== undefined && Array.isArray(questions) ? {
+            deleteMany: {},
+            create: questions.map((q, index) => ({
+              content: typeof q === 'string' ? q : JSON.stringify(q),
+              correctAnswer: q.correctAnswer || '',
+              options: q.options ? (typeof q.options === 'string' ? q.options : JSON.stringify(q.options)) : null,
+              orderNum: q.orderIndex !== undefined ? q.orderIndex : index,
+              type: q.type || 'group'
+            }))
+          } : undefined
+        }
+      })
+    })
+
+    res.json({ ok: true })
+  } catch (error) {
+    console.error("UPDATE PRACTICE ERROR:", error)
+    return res.status(500).json({ message: error.message })
   }
 })
 
 // ─── ADMIN: upload thumbnail ──────────────────────────────────────────────────
-router.post('/admin/:skill/:id/thumbnail', authMiddleware, teacherOrAdmin,
-  thumbUpload.single('thumbnail'), async (req, res) => {
-    if (!req.file) return res.status(400).json({ message: 'Không có file' })
-    try {
-      const thumbnailUrl = `/uploads/thumbnails/${req.file.filename}`
-      const exam = await prisma.practiceExam.update({
-        where: { id: parseInt(req.params.id) },
-        data: { thumbnailUrl },
-        select: { id: true, thumbnailUrl: true }
-      })
-      res.json(exam)
-    } catch (err) {
-      res.status(500).json({ message: 'Lỗi upload', error: err.message })
-    }
-  }
-)
+router.post('/admin/:skill/:id/thumbnail', authMiddleware, teacherOrAdmin, thumbUpload.single('thumbnail'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ message: 'Không có file' })
+  try {
+    const thumbnailUrl = `/uploads/thumbnails/${req.file.filename}`
+    const exam = await prisma.practiceExam.update({
+      where: { id: parseInt(req.params.id) },
+      data: { thumbnailUrl },
+      select: { id: true, thumbnailUrl: true }
+    })
+    res.json(exam)
+  } catch (err) { res.status(500).json({ message: 'Lỗi upload', error: err.message }) }
+})
 
 // ─── ADMIN: upload audio (listening only) ────────────────────────────────────
-router.post('/admin/listening/:id/audio', authMiddleware, teacherOrAdmin,
-  audioUpload.single('audio'), async (req, res) => {
-    if (!req.file) return res.status(400).json({ message: 'Không có file' })
-    try {
-      const audioUrl = `/uploads/${req.file.filename}`
-      const exam = await prisma.practiceExam.update({
-        where: { id: parseInt(req.params.id) },
-        data: { audioUrl },
-        select: { id: true, audioUrl: true }
-      })
-      res.json(exam)
-    } catch (err) {
-      res.status(500).json({ message: 'Lỗi upload audio', error: err.message })
-    }
-  }
-)
+router.post('/admin/listening/:id/audio', authMiddleware, teacherOrAdmin, audioUpload.single('audio'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ message: 'Không có file' })
+  try {
+    const audioUrl = `/uploads/${req.file.filename}`
+    const exam = await prisma.practiceExam.update({
+      where: { id: parseInt(req.params.id) },
+      data: { audioUrl },
+      select: { id: true, audioUrl: true }
+    })
+    res.json(exam)
+  } catch (err) { res.status(500).json({ message: 'Lỗi upload audio', error: err.message }) }
+})
 
 // ─── ADMIN: delete (soft) ─────────────────────────────────────────────────────
 router.delete('/admin/:skill/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
@@ -260,9 +289,7 @@ router.delete('/admin/:skill/:id', authMiddleware, teacherOrAdmin, async (req, r
       data: { deletedAt: new Date() }
     })
     res.json({ message: 'Đã xóa' })
-  } catch (err) {
-    res.status(500).json({ message: 'Lỗi xóa', error: err.message })
-  }
+  } catch (err) { res.status(500).json({ message: 'Lỗi xóa', error: err.message }) }
 })
 
 module.exports = router

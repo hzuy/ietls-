@@ -32,7 +32,11 @@ export function AuthProvider({ children }) {
     setUser(userData)
     const redirectTo = modal.redirectTo
     setModal({ open: false, tab: 'login', redirectTo: null })
-    if (redirectTo && redirectTo !== '/') navigate(redirectTo)
+    if (redirectTo && redirectTo !== '/') {
+      navigate(redirectTo)
+    } else if (userData?.role === 'admin' || userData?.role === 'teacher') {
+      navigate('/admin')
+    }
   }
 
   const handleLogout = () => {
@@ -43,8 +47,22 @@ export function AuthProvider({ children }) {
     navigate('/')
   }
 
+  // Giải mã role từ JWT token nếu user object không có role (session cũ)
+  const getRoleFromToken = () => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) return null
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      return payload.role || null
+    } catch {
+      return null
+    }
+  }
+
+  const role = user?.role || getRoleFromToken() || 'user'
+
   return (
-    <AuthContext.Provider value={{ user, setUser, openAuthModal, handleLogout }}>
+    <AuthContext.Provider value={{ user, role, setUser, openAuthModal, handleLogout }}>
       {children}
       {modal.open && (
         <AuthModal

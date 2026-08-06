@@ -36,8 +36,8 @@ router.get('/stats', authMiddleware, async (req, res) => {
       speaking:  avg(skillScores.speaking),
     }
 
-    const allScores = Object.values(skillScores).flat()
-    const avgBand = avg(allScores)
+    const activeBands = Object.values(bandBySkill).filter(v => v !== null)
+    const avgBand = activeBands.length ? activeBands.reduce((s, v) => s + v, 0) / activeBands.length : 0
 
     // Streak — số ngày liên tiếp có bài hoàn thành (tính từ hôm nay hoặc hôm qua)
     const finishedDates = await prisma.attempt.findMany({

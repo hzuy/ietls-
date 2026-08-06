@@ -1,18 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
+
+import SampleHeader from '../components/SampleHeader'
 import { getSample } from '../services/sampleService'
 
 const BACKEND_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3001'
-const resolveUrl = (url) => !url ? null : url.startsWith('http') ? url : BACKEND_URL + url
 
 const TASK_LABELS = { task1: 'Task 1', task2: 'Task 2', task3: 'Task 3' }
-
-const TASK_COLORS = {
-  task1: { bg: '#eff6ff', color: '#1a56db' },
-  task2: { bg: '#f0fdf4', color: '#15803d' },
-  task3: { bg: '#fdf4ff', color: '#7c3aed' },
-}
 
 export default function SampleDetailPage({ skill }) {
   const { id } = useParams()
@@ -28,106 +23,130 @@ export default function SampleDetailPage({ skill }) {
   }, [id, skill])
 
   if (loading) return (
-    <div className="min-h-screen bg-gray-50"><Navbar />
-      <div className="max-w-3xl mx-auto px-6 py-16 text-center text-gray-400">Đang tải...</div>
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
+      <Navbar />
+      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '64px 24px', textAlign: 'center', color: 'var(--muted)', fontFamily: 'var(--font-body)' }}>Đang tải...</div>
     </div>
   )
   if (!sample) return null
 
-  const taskStyle = TASK_COLORS[sample.level] || null
   const taskLabel = TASK_LABELS[sample.level] || null
   const tags = sample.tags || []
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#f0f4f8' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
       <Navbar />
-      <div className="max-w-3xl mx-auto px-4 py-8">
+      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '32px 24px' }}>
         {/* Back */}
         <button
           onClick={() => navigate(-1)}
-          style={{ fontSize: 13, color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 4 }}
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: 14,
+            fontWeight: 600,
+            color: 'var(--muted)',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            marginBottom: 24,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6
+          }}
+          onMouseEnter={e => e.target.style.color = 'var(--primary)'}
+          onMouseLeave={e => e.target.style.color = 'var(--muted)'}
         >
-          ← Quay lại
+          ← Quay lại danh sách
         </button>
 
-        <div style={{ background: 'white', borderRadius: 20, overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
-          {/* Thumbnail */}
-          {resolveUrl(sample.thumbnailUrl) && (
-            <div style={{ width: '100%', aspectRatio: '21/9', overflow: 'hidden' }}>
-              <img
-                src={resolveUrl(sample.thumbnailUrl)}
-                alt={sample.title}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            </div>
-          )}
+        <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-md)', padding: '48px' }}>
 
-          <div style={{ padding: '28px 32px' }}>
-            {/* Meta row */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: skill === 'writing' ? '#1a56db' : '#7c3aed', textTransform: 'uppercase' }}>
-                {skill === 'writing' ? 'Writing Sample' : 'Speaking Sample'}
-              </span>
-              {taskLabel && taskStyle && (
-                <span style={{ fontSize: 12, fontWeight: 600, borderRadius: 6, padding: '2px 10px', background: taskStyle.bg, color: taskStyle.color }}>
-                  {taskLabel}
-                </span>
-              )}
-              {sample.examType && (
-                <span style={{ fontSize: 12, fontWeight: 500, borderRadius: 6, padding: '2px 10px', background: '#f8fafc', color: '#475569', border: '1px solid #e2e8f0' }}>
-                  {sample.examType}
-                </span>
-              )}
-            </div>
+          <div style={{ maxWidth: '900px', margin: '0 auto' }}>
 
-            {/* Title */}
-            <h1 style={{ fontSize: 24, fontWeight: 800, color: '#1e3a5f', marginBottom: 16, lineHeight: 1.35 }}>
-              {sample.title}
-            </h1>
+            {/* Standardized Header */}
+            <SampleHeader
+              type={skill}
+              taskLabel={taskLabel}
+              title={sample.title}
+              examType={sample.examType}
+            />
 
             {/* Tags */}
             {tags.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 24 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 32 }}>
                 {tags.map(t => (
                   <span key={t} style={{
-                    fontSize: 12, fontWeight: 500, borderRadius: 20, padding: '3px 12px',
-                    background: skill === 'writing' ? '#eff6ff' : '#f5f3ff',
-                    color: skill === 'writing' ? '#1a56db' : '#7c3aed',
+                    fontFamily: 'var(--font-body)',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    borderRadius: 20,
+                    padding: '5px 16px',
+                    background: 'var(--surface-raised)',
+                    color: 'var(--muted)',
+                    border: '1px solid var(--border)'
                   }}>
-                    {t}
+                    #{t}
                   </span>
                 ))}
               </div>
             )}
 
             {/* Divider */}
-            <div style={{ borderTop: '1px solid #f1f5f9', marginBottom: 24 }} />
+            <div style={{ borderTop: '2px solid var(--border-soft)', marginBottom: 32 }} />
 
             {/* Content */}
             {sample.content ? (
               <div
                 className="rich-content"
                 dangerouslySetInnerHTML={{ __html: sample.content }}
-                style={{ fontSize: 15, lineHeight: 1.85, color: '#374151' }}
+                style={{ fontFamily: 'var(--font-body)', fontSize: 17, lineHeight: 1.8, color: 'var(--text)' }}
               />
+            ) : skill === 'speaking' && sample.parts?.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                {sample.parts.map(part => (
+                  <div key={part.id} style={{ background: 'var(--surface-raised)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-soft)', padding: '20px 24px' }}>
+                    <div style={{ marginBottom: 14 }}>
+                      <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>
+                        {part.title || `Part ${part.partNumber}`}
+                      </span>
+                      {part.description && (
+                        <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--muted)', margin: '4px 0 0' }}>{part.description}</p>
+                      )}
+                    </div>
+                    {part.questions?.length > 0 && (
+                      <ol style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {part.questions.map((q, qi) => (
+                          <li key={q.id} style={{ fontFamily: 'var(--font-body)', fontSize: 15, color: 'var(--text)', lineHeight: 1.6 }}>
+                            {q.questionText}
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                  </div>
+                ))}
+              </div>
             ) : (
-              <p style={{ color: '#94a3b8', fontSize: 14 }}>Chưa có nội dung.</p>
+              <div style={{ padding: '40px 0', textAlign: 'center' }}>
+                <p style={{ fontFamily: 'var(--font-body)', color: 'var(--subtle)', fontSize: 16, fontStyle: 'italic' }}>Nội dung bài mẫu đang được cập nhật...</p>
+              </div>
             )}
           </div>
         </div>
       </div>
 
       <style>{`
-        .rich-content h1 { font-size: 1.5rem; font-weight: 800; color: #1e3a5f; margin: 1.2em 0 0.5em; }
-        .rich-content h2 { font-size: 1.25rem; font-weight: 700; color: #1e3a5f; margin: 1.1em 0 0.4em; }
-        .rich-content h3 { font-size: 1.1rem; font-weight: 700; color: #374151; margin: 1em 0 0.4em; }
-        .rich-content p  { margin: 0 0 0.9em; }
-        .rich-content ul { list-style: disc; padding-left: 1.5rem; margin: 0.5em 0 0.9em; }
-        .rich-content ol { list-style: decimal; padding-left: 1.5rem; margin: 0.5em 0 0.9em; }
-        .rich-content li { margin-bottom: 0.3em; }
-        .rich-content strong { font-weight: 700; }
-        .rich-content em { font-style: italic; }
-        .rich-content u  { text-decoration: underline; }
+        .rich-content h1 { font-family: var(--font-display); font-size: 1.75rem; font-weight: 900; color: var(--ink); margin: 1.5em 0 0.6em; line-height: 1.3; }
+        .rich-content h2 { font-family: var(--font-display); font-size: 1.5rem; font-weight: 800; color: var(--ink); margin: 1.4em 0 0.5em; line-height: 1.3; }
+        .rich-content h3 { font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; color: var(--ink); margin: 1.3em 0 0.5em; line-height: 1.3; }
+        .rich-content p  { margin: 0 0 1.2em; }
+        .rich-content ul { list-style: disc; padding-left: 1.8rem; margin: 0.8em 0 1.2em; }
+        .rich-content ol { list-style: decimal; padding-left: 1.8rem; margin: 0.8em 0 1.2em; }
+        .rich-content li { margin-bottom: 0.5em; }
+        .rich-content strong { font-weight: 800; color: var(--text); }
+        .rich-content em { font-style: italic; color: var(--muted); }
+        .rich-content u  { text-decoration: underline; text-underline-offset: 3px; }
+        .rich-content blockquote { border-left: 4px solid var(--border); padding-left: 1.5rem; margin: 1.5em 0; font-style: italic; color: var(--muted); }
+        .rich-content img { max-width: 100%; height: auto; border-radius: var(--radius-lg); margin: 1.5em 0; border: 1px solid var(--border-soft); }
       `}</style>
     </div>
   )

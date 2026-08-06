@@ -1,0 +1,6 @@
+export { default as SkeletonBase }     from './SkeletonBase'
+export { default as SkeletonCard }     from './SkeletonCard'
+export { default as SkeletonTable }    from './SkeletonTable'
+export { default as SkeletonText }     from './SkeletonText'
+export { default as SkeletonChart }    from './SkeletonChart'
+export { default as SkeletonExamPage } from './SkeletonExamPage'

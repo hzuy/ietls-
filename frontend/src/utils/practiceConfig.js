@@ -25,7 +25,7 @@ export const recalcGroups = (groups) => {
       return { ...g, qNumberStart: newStart, qNumberEnd: newEnd }
     }
     let qNum = newStart
-    const updatedQuestions = g.questions.map(q => {
+    const updatedQuestions = (g.questions || []).map(q => {
       const num = qNum
       qNum += (g.type === 'mcq_multi') ? (g.maxChoices || 2) : 1
       return { ...q, number: num }
@@ -35,14 +35,14 @@ export const recalcGroups = (groups) => {
 }
 
 export const getGroupSlots = (group) => {
-  if (group.type === 'mcq_multi') return group.questions.length * (group.maxChoices || 2)
-  return group.questions.length
+  if (group.type === 'mcq_multi') return (group.questions || []).length * (group.maxChoices || 2)
+  return (group.questions || []).length
 }
 
 // ─── STYLES ──────────────────────────────────────────────────────────────────
 export const inputCls = 'w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition'
 export const labelCls = 'block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide'
-export const btnPrimary = 'bg-[#1a56db] text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed'
+export const btnPrimary = 'bg-[#1D4ED8] text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed'
 export const btnSecondary = 'border border-gray-200 text-gray-600 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition'
 
 // ─── READING GROUP CONSTANTS ──────────────────────────────────────────────────
@@ -123,21 +123,233 @@ export const LISTENING_GROUP_INSTRUCTIONS = {
   matching_headings: 'Choose the correct heading for each section from the list of headings below.',
 }
 
-// ─── TYPE COLOR MAP (shared for GroupEditor headers) ─────────────────────────
+export function getQuestionGroupTheme(type) {
+  switch (type) {
+    case 'true_false_ng':
+      return {
+        cardBg: 'bg-emerald-50/70',
+        cardBorder: 'border-emerald-300',
+        headerBg: 'bg-emerald-100/60 border-emerald-200',
+        badge: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+        subBoxBg: 'bg-emerald-100/50',
+        subBoxBorder: 'border-emerald-200',
+        subBoxText: 'text-emerald-800',
+        subBoxHover: 'hover:bg-emerald-200/60',
+        subBoxBtn: 'bg-emerald-200/70 text-emerald-900 border-emerald-300',
+        accentColor: 'accent-emerald-600',
+      }
+    case 'yes_no_ng':
+      return {
+        cardBg: 'bg-teal-50/80',
+        cardBorder: 'border-teal-300',
+        headerBg: 'bg-teal-100/60 border-teal-200',
+        badge: 'bg-teal-100 text-teal-800 border-teal-300',
+        subBoxBg: 'bg-teal-100/50',
+        subBoxBorder: 'border-teal-200',
+        subBoxText: 'text-teal-800',
+        subBoxHover: 'hover:bg-teal-200/60',
+        subBoxBtn: 'bg-teal-200/70 text-teal-900 border-teal-300',
+        accentColor: 'accent-teal-600',
+      }
+    case 'mcq':
+      return {
+        cardBg: 'bg-blue-50/80',
+        cardBorder: 'border-blue-300',
+        headerBg: 'bg-blue-100/60 border-blue-200',
+        badge: 'bg-blue-100 text-blue-800 border-blue-300',
+        subBoxBg: 'bg-blue-100/50',
+        subBoxBorder: 'border-blue-200',
+        subBoxText: 'text-blue-800',
+        subBoxHover: 'hover:bg-blue-200/60',
+        subBoxBtn: 'bg-blue-200/70 text-blue-900 border-blue-300',
+        accentColor: 'accent-blue-600',
+      }
+    case 'mcq_multi':
+      return {
+        cardBg: 'bg-indigo-50/70',
+        cardBorder: 'border-indigo-300',
+        headerBg: 'bg-indigo-100/60 border-indigo-200',
+        badge: 'bg-indigo-100 text-indigo-800 border-indigo-300',
+        subBoxBg: 'bg-indigo-100/50',
+        subBoxBorder: 'border-indigo-200',
+        subBoxText: 'text-indigo-800',
+        subBoxHover: 'hover:bg-indigo-200/60',
+        subBoxBtn: 'bg-indigo-200/70 text-indigo-900 border-indigo-300',
+        accentColor: 'accent-indigo-600',
+      }
+    case 'matching_information':
+      return {
+        cardBg: 'bg-purple-50/80',
+        cardBorder: 'border-purple-300',
+        headerBg: 'bg-purple-100/60 border-purple-200',
+        badge: 'bg-purple-100 text-purple-800 border-purple-300',
+        subBoxBg: 'bg-purple-100/50',
+        subBoxBorder: 'border-purple-200',
+        subBoxText: 'text-purple-800',
+        subBoxHover: 'hover:bg-purple-200/60',
+        subBoxBtn: 'bg-purple-200/70 text-purple-900 border-purple-300',
+        accentColor: 'accent-purple-600',
+      }
+    case 'matching_headings':
+      return {
+        cardBg: 'bg-violet-50/80',
+        cardBorder: 'border-violet-300',
+        headerBg: 'bg-violet-100/60 border-violet-200',
+        badge: 'bg-violet-100 text-violet-800 border-violet-300',
+        subBoxBg: 'bg-violet-100/50',
+        subBoxBorder: 'border-violet-200',
+        subBoxText: 'text-violet-800',
+        subBoxHover: 'hover:bg-violet-200/60',
+        subBoxBtn: 'bg-violet-200/70 text-violet-900 border-violet-300',
+        accentColor: 'accent-violet-600',
+      }
+    case 'matching':
+    case 'matching_features':
+    case 'matching_paragraph':
+    case 'matching_endings':
+      return {
+        cardBg: 'bg-fuchsia-50/70',
+        cardBorder: 'border-fuchsia-300',
+        headerBg: 'bg-fuchsia-100/60 border-fuchsia-200',
+        badge: 'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-300',
+        subBoxBg: 'bg-fuchsia-100/50',
+        subBoxBorder: 'border-fuchsia-200',
+        subBoxText: 'text-fuchsia-800',
+        subBoxHover: 'hover:bg-fuchsia-200/60',
+        subBoxBtn: 'bg-fuchsia-200/70 text-fuchsia-900 border-fuchsia-300',
+        accentColor: 'accent-fuchsia-600',
+      }
+    case 'matching_drag':
+      return {
+        cardBg: 'bg-pink-50/80',
+        cardBorder: 'border-pink-300',
+        headerBg: 'bg-pink-100/60 border-pink-200',
+        badge: 'bg-pink-100 text-pink-800 border-pink-300',
+        subBoxBg: 'bg-pink-100/50',
+        subBoxBorder: 'border-pink-200',
+        subBoxText: 'text-pink-800',
+        subBoxHover: 'hover:bg-pink-200/60',
+        subBoxBtn: 'bg-pink-200/70 text-pink-900 border-pink-300',
+        accentColor: 'accent-pink-600',
+      }
+    case 'note_completion':
+    case 'fill_blank':
+    case 'sentence_completion':
+      return {
+        cardBg: 'bg-amber-50/80',
+        cardBorder: 'border-amber-300',
+        headerBg: 'bg-amber-100/60 border-amber-200',
+        badge: 'bg-amber-100 text-amber-800 border-amber-300',
+        subBoxBg: 'bg-amber-100/50',
+        subBoxBorder: 'border-amber-200',
+        subBoxText: 'text-amber-800',
+        subBoxHover: 'hover:bg-amber-200/60',
+        subBoxBtn: 'bg-amber-200/70 text-amber-900 border-amber-300',
+        accentColor: 'accent-amber-600',
+      }
+    case 'table_completion':
+      return {
+        cardBg: 'bg-orange-50/80',
+        cardBorder: 'border-orange-300',
+        headerBg: 'bg-orange-100/60 border-orange-200',
+        badge: 'bg-orange-100 text-orange-800 border-orange-300',
+        subBoxBg: 'bg-orange-100/50',
+        subBoxBorder: 'border-orange-200',
+        subBoxText: 'text-orange-800',
+        subBoxHover: 'hover:bg-orange-200/60',
+        subBoxBtn: 'bg-orange-200/70 text-orange-900 border-orange-300',
+        accentColor: 'accent-orange-600',
+      }
+    case 'drag_word_bank':
+      return {
+        cardBg: 'bg-yellow-50/80',
+        cardBorder: 'border-yellow-300',
+        headerBg: 'bg-yellow-100/60 border-yellow-200',
+        badge: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+        subBoxBg: 'bg-yellow-100/50',
+        subBoxBorder: 'border-yellow-200',
+        subBoxText: 'text-yellow-800',
+        subBoxHover: 'hover:bg-yellow-200/60',
+        subBoxBtn: 'bg-yellow-200/70 text-yellow-900 border-yellow-300',
+        accentColor: 'accent-yellow-600',
+      }
+    case 'summary_completion':
+      return {
+        cardBg: 'bg-lime-50/80',
+        cardBorder: 'border-lime-300',
+        headerBg: 'bg-lime-100/60 border-lime-200',
+        badge: 'bg-lime-100 text-lime-800 border-lime-300',
+        subBoxBg: 'bg-lime-100/50',
+        subBoxBorder: 'border-lime-200',
+        subBoxText: 'text-lime-800',
+        subBoxHover: 'hover:bg-lime-200/60',
+        subBoxBtn: 'bg-lime-200/70 text-lime-900 border-lime-300',
+        accentColor: 'accent-lime-600',
+      }
+    case 'map_diagram':
+      return {
+        cardBg: 'bg-cyan-50/80',
+        cardBorder: 'border-cyan-300',
+        headerBg: 'bg-cyan-100/60 border-cyan-200',
+        badge: 'bg-cyan-100 text-cyan-800 border-cyan-300',
+        subBoxBg: 'bg-cyan-100/50',
+        subBoxBorder: 'border-cyan-200',
+        subBoxText: 'text-cyan-800',
+        subBoxHover: 'hover:bg-cyan-200/60',
+        subBoxBtn: 'bg-cyan-200/70 text-cyan-900 border-cyan-300',
+        accentColor: 'accent-cyan-600',
+      }
+    case 'diagram_label':
+    case 'diagram_completion':
+      return {
+        cardBg: 'bg-red-50/80',
+        cardBorder: 'border-red-300',
+        headerBg: 'bg-red-100/60 border-red-200',
+        badge: 'bg-red-100 text-red-800 border-red-300',
+        subBoxBg: 'bg-red-100/50',
+        subBoxBorder: 'border-red-200',
+        subBoxText: 'text-red-800',
+        subBoxHover: 'hover:bg-red-200/60',
+        subBoxBtn: 'bg-red-200/70 text-red-900 border-red-300',
+        accentColor: 'accent-red-600',
+      }
+    case 'short_answer':
+    default:
+      return {
+        cardBg: 'bg-rose-50/80',
+        cardBorder: 'border-rose-300',
+        headerBg: 'bg-rose-100/60 border-rose-200',
+        badge: 'bg-rose-100 text-rose-800 border-rose-300',
+        subBoxBg: 'bg-rose-100/50',
+        subBoxBorder: 'border-rose-200',
+        subBoxText: 'text-rose-800',
+        subBoxHover: 'hover:bg-rose-200/60',
+        subBoxBtn: 'bg-rose-200/70 text-rose-900 border-rose-300',
+        accentColor: 'accent-rose-600',
+      }
+  }
+}
+
+export const getQuestionTypeTheme = getQuestionGroupTheme
+
+// ─── TYPE COLOR MAP (shared for GroupEditor headers & list badges) ──────────
 export const GROUP_TYPE_COLORS = {
-  true_false_ng:       'bg-blue-100 text-blue-800 border-blue-300',
-  yes_no_ng:           'bg-cyan-100 text-cyan-800 border-cyan-300',
-  note_completion:     'bg-amber-100 text-amber-800 border-amber-300',
-  table_completion:    'bg-emerald-100 text-emerald-800 border-emerald-300',
-  mcq:                 'bg-blue-100 text-blue-800 border-blue-300',
-  mcq_multi:           'bg-indigo-100 text-indigo-800 border-indigo-300',
-  matching:            'bg-[#eff6ff] text-[#1a56db] border-[#bfdbfe]',
-  matching_information:'bg-[#eff6ff] text-[#1a56db] border-[#bfdbfe]',
-  map_diagram:         'bg-teal-100 text-teal-800 border-teal-300',
-  drag_word_bank:      'bg-sky-100 text-sky-800 border-sky-300',
-  matching_drag:       'bg-violet-100 text-violet-800 border-violet-300',
-  diagram_label:       'bg-rose-100 text-rose-800 border-rose-300',
-  matching_headings:   'bg-green-100 text-green-800 border-green-300',
+  true_false_ng:        'bg-emerald-100 text-emerald-800 border-emerald-300',
+  yes_no_ng:            'bg-teal-100 text-teal-800 border-teal-300',
+  note_completion:      'bg-amber-100 text-amber-800 border-amber-300',
+  table_completion:     'bg-orange-100 text-orange-800 border-orange-300',
+  matching_information: 'bg-purple-100 text-purple-800 border-purple-300',
+  matching:             'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-300',
+  map_diagram:          'bg-cyan-100 text-cyan-800 border-cyan-300',
+  drag_word_bank:       'bg-yellow-100 text-yellow-800 border-yellow-300',
+  matching_drag:        'bg-pink-100 text-pink-800 border-pink-300',
+  diagram_label:        'bg-red-100 text-red-800 border-red-300',
+  matching_headings:    'bg-violet-100 text-violet-800 border-violet-300',
+  mcq:                  'bg-blue-100 text-blue-800 border-blue-300',
+  mcq_multi:            'bg-indigo-100 text-indigo-800 border-indigo-300',
+  short_answer:         'bg-rose-100 text-rose-800 border-rose-300',
+  summary_completion:   'bg-lime-100 text-lime-800 border-lime-300',
+  fill_blank:           'bg-amber-100 text-amber-800 border-amber-300',
 }
 
 export const emptyListeningGroupOf = (type, startNum = 1) => ({

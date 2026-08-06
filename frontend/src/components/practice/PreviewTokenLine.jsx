@@ -1,4 +1,4 @@
-export function PreviewTokenLine({ content, questions, showAnswers, tokenNumMap = {} }) {
+﻿export function PreviewTokenLine({ content, questions, showAnswers, tokenNumMap = {} }) {
   const parts = (content || '').split(/(\[Q:\d+\])/)
   return (
     <p className="text-sm leading-8 text-gray-700">
@@ -11,8 +11,8 @@ export function PreviewTokenLine({ content, questions, showAnswers, tokenNumMap 
           const val = showAnswers ? (q?.correctAnswer || '') : ''
           return (
             <span key={i} className="inline-flex items-center gap-1 mx-1">
-              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#eff6ff] text-[#1a56db] font-bold text-xs shrink-0">{displayNum}</span>
-              <span className={`inline-block min-w-20 border-b-2 ${showAnswers ? 'border-[#1a56db] text-[#1a56db] font-semibold' : 'border-gray-300 text-gray-400'} px-1 text-sm text-center`}>
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#eff6ff] text-[#1D4ED8] font-bold text-xs shrink-0">{displayNum}</span>
+              <span className={`inline-block min-w-20 border-b-2 ${showAnswers ? 'border-[#1D4ED8] text-[#1D4ED8] font-semibold' : 'border-gray-300 text-gray-400'} px-1 text-sm text-center`}>
                 {val || (showAnswers ? '?' : '___')}
               </span>
             </span>
