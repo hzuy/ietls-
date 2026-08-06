@@ -7,7 +7,8 @@ const authMiddleware = require('../../middleware/auth')
 const validate = require('../../middleware/validate')
 const { teacherOnly } = require('../../lib/roles')
 const { transcribeUploadSchema, bookCoverSchema } = require('../../validators/contentValidator')
-const { uploadsDir, upload, imageUpload, groq } = require('../../lib/adminUploads')
+const { uploadsDir, upload, imageUpload } = require('../../lib/adminUploads')
+const { getGroqClient } = require('../../lib/groqClient')
 
 // ─── UPLOAD AUDIO ────────────────────────────────────────────────────────────
 router.post('/upload-audio', authMiddleware, teacherOnly, upload.single('audio'), (req, res) => {
@@ -49,6 +50,7 @@ router.post('/transcribe', authMiddleware, teacherOnly, validate(transcribeUploa
     if (!fs.existsSync(filePath)) return res.status(404).json({ message: 'File audio không tồn tại trên server' })
 
     if (process.env.NODE_ENV !== 'production') console.log('[Transcribe] Bắt đầu phiên âm:', filename)
+    const groq = getGroqClient()
     const transcription = await groq.audio.transcriptions.create({
       file: fs.createReadStream(filePath),
       model: 'whisper-large-v3',

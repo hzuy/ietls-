@@ -1,7 +1,6 @@
 const multer = require('multer')
 const path = require('path')
 const fs = require('fs')
-const Groq = require('groq-sdk')
 
 const uploadsDir = path.join(__dirname, '..', 'uploads')
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true })
@@ -36,6 +35,4 @@ const imageUpload = multer({
   limits: { fileSize: 20 * 1024 * 1024 } // 20MB
 })
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
-
-module.exports = { uploadsDir, storage, upload, imageUpload, groq }
+module.exports = { uploadsDir, storage, upload, imageUpload }

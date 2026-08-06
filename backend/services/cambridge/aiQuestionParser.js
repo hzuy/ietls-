@@ -1,9 +1,10 @@
 const prisma = require('../../lib/prisma')
-const { groq } = require('../../lib/adminUploads')
+const { getGroqClient } = require('../../lib/groqClient')
 const { cleanJsonRaw, repairTruncatedJson } = require('./jsonSanitizer')
 
 // Phase 1: Analyze PDF structure using Groq AI
 async function analyzeBookStructure(pages, originalname) {
+  const groq = getGroqClient()
   const totalPages = pages.length
   const tocSample = pages.slice(0, Math.min(40, totalPages))
     .map((p, i) => `=== PAGE ${i + 1} ===\n${p}`)
@@ -104,6 +105,7 @@ Return this exact JSON structure (use 0 for unknown page numbers):
 
 // Phase 2: Preview extraction using Groq AI
 async function extractTestContent({ skill, testNumber, sectionText, answerText, bookTitle }) {
+  const groq = getGroqClient()
   const title = `${bookTitle} - Test ${testNumber} ${skill.charAt(0).toUpperCase() + skill.slice(1)}`
   let prompt = ''
 
@@ -334,6 +336,7 @@ ${contentText.substring(0, 8000)}
   const prompt = PROMPTS[skill]
   if (!prompt) throw new Error('Skill không hợp lệ')
 
+  const groq = getGroqClient()
   const completion = await groq.chat.completions.create({
     model: 'llama-3.3-70b-versatile',
     temperature: 0.0,
