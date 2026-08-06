@@ -1,26 +1,26 @@
-# ── Stage: production ────────────────────────────────────────────
-FROM node:20-alpine
+# ── Production image ─────────────────────────────────────────────
+# Dùng node:20-slim (Debian-based) thay vì Alpine để tránh lỗi
+# Prisma engine không tìm được libssl.so.1.1 trên Alpine 3.17+ (OpenSSL 3.x)
+FROM node:20-slim
 
-# Thư mục làm việc bên trong container
+# OpenSSL cần thiết cho Prisma query engine
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# Copy package files trước để tận dụng Docker layer cache
+# Install dependencies (layer cache)
 COPY package.json package-lock.json ./
-
-# Install dependencies (bao gồm devDeps vì cần prisma CLI)
 RUN npm ci
 
-# Copy toàn bộ source code
+# Copy source
 COPY . .
 
-# Generate Prisma Client (cần schema.prisma có sẵn)
+# Generate Prisma Client (cần sau khi COPY schema.prisma)
 RUN npx prisma generate
 
-# Tạo thư mục uploads (tránh lỗi multer khi chưa có folder)
+# Tạo thư mục uploads
 RUN mkdir -p uploads/thumbnails uploads/audio
 
-# Expose port (chỉ để document — binding thực tế do docker-compose)
 EXPOSE 5001
 
-# Khởi động server
 CMD ["node", "server.js"]
