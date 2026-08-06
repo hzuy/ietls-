@@ -1,0 +1,19 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ielts-app-backend
+    restart: unless-stopped
+    ports:
+      # Bind 127.0.0.1 only — KHÔNG mở ra Internet, chỉ Nginx trên cùng máy truy cập được
+      - "127.0.0.1:5001:5001"
+    environment:
+      PORT: 5001
+      NODE_ENV: production
+    env_file:
+      # File .env thật trên server (không commit lên git)
+      - ./backend/.env
+    volumes:
+      # Persist uploads giữa các lần restart/redeploy
+      - ./backend/uploads:/app/uploads

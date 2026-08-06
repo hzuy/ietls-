@@ -20,11 +20,19 @@ const { router: chatbotRoutes } = require('./routes/chatbot')
 
 const app = express()
 
+// Build CORS allowlist:
+//   - Always include localhost (dev) and Vercel deploy
+//   - If FRONTEND_URL is set in .env (e.g. https://huuduy.dhcn.vn), add it too
+const CORS_ORIGINS = [
+  'http://localhost:5173',
+  'https://ietls-gamma.vercel.app',
+]
+if (process.env.FRONTEND_URL) {
+  CORS_ORIGINS.push(process.env.FRONTEND_URL)
+}
+
 app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'https://ietls-gamma.vercel.app',
-  ],
+  origin: CORS_ORIGINS,
   credentials: true
 }))
 app.use(compression())
