@@ -13,10 +13,12 @@ router.get('/stats', authMiddleware, async (req, res) => {
       where: { userId, finishedAt: { not: null } },
     })
 
-    // Tất cả bài có điểm, kèm kỹ năng từ exam
+    // Tất cả bài có điểm, kèm kỹ năng từ exam (tối đa 500 bài gần nhất)
     const attempts = await prisma.attempt.findMany({
       where: { userId, finishedAt: { not: null }, score: { not: null } },
       select: { score: true, exam: { select: { skill: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 500,
     })
 
     // Band theo kỹ năng
@@ -40,9 +42,12 @@ router.get('/stats', authMiddleware, async (req, res) => {
     const avgBand = activeBands.length ? activeBands.reduce((s, v) => s + v, 0) / activeBands.length : 0
 
     // Streak — số ngày liên tiếp có bài hoàn thành (tính từ hôm nay hoặc hôm qua)
+    // Lấy tối đa 366 ngày gần nhất — đủ cho bất kỳ streak thực tế nào
     const finishedDates = await prisma.attempt.findMany({
       where: { userId, finishedAt: { not: null } },
       select: { finishedAt: true },
+      orderBy: { finishedAt: 'desc' },
+      take: 366,
     })
 
     const dateSet = new Set(
