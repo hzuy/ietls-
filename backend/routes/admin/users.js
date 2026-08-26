@@ -98,7 +98,7 @@ router.get('/users/:id', authMiddleware, adminOnly, async (req, res) => {
     })
     if (!user) return res.status(404).json({ message: 'Không tìm thấy user' })
 
-    const [attempts, skillAvg] = await Promise.all([
+    const [attempts, skillAvg, totalAttemptsCount] = await Promise.all([
       prisma.attempt.findMany({
         where: { userId: id },
         orderBy: { createdAt: 'desc' },
@@ -109,12 +109,14 @@ router.get('/users/:id', authMiddleware, adminOnly, async (req, res) => {
         by: ['examId'],
         where: { userId: id, score: { not: null } },
         _avg: { score: true }
-      })
+      }),
+      prisma.attempt.count({ where: { userId: id } }),
     ])
 
-    const examIds = [...new Set(skillAvg.map(a => a.examId))]
-    const exams = await prisma.exam.findMany({ where: { id: { in: examIds } }, select: { id: true, skill: true } })
-    const skillLookup = Object.fromEntries(exams.map(e => [e.id, e.skill]))
+    // Build skill lookup from already-fetched attempts — no extra DB query needed
+    const skillLookup = Object.fromEntries(
+      attempts.filter(a => a.exam).map(a => [a.examId, a.exam.skill])
+    )
     const bySkill = { reading: [], listening: [], writing: [], speaking: [] }
     skillAvg.forEach(a => {
       const s = skillLookup[a.examId]
@@ -125,8 +127,6 @@ router.get('/users/:id', authMiddleware, adminOnly, async (req, res) => {
         s, scores.length > 0 ? (scores.reduce((a,b) => a+b, 0) / scores.length) : null
       ])
     )
-
-    const totalAttemptsCount = await prisma.attempt.count({ where: { userId: id } })
 
     res.json({ user, attempts, skillStats, totalAttempts: totalAttemptsCount, shownAttempts: attempts.length })
   } catch (error) {
