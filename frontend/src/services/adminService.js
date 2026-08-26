@@ -65,7 +65,7 @@ export const getAdminExamSeriesForFilter = () => api.get('/admin/exam-series').t
 
 
 // ─── Trash ────────────────────────────────────────────────────────────────────
-export const getAdminTrash = () => api.get('/admin/trash').then(r => r.data)
+export const getAdminTrash = (page = 1, limit = 50) => api.get('/admin/trash', { params: { page, limit } }).then(r => r.data.items)
 export const restoreTrashItem = (type, id) => api.post(`/admin/trash/${type}/${id}/restore`).then(r => r.data)
 export const permanentDeleteTrashItem = (type, id) => api.delete(`/admin/trash/${type}/${id}/permanent`).then(r => r.data)
 export const purgeTrash = () => api.delete('/admin/trash/purge').then(r => r.data)

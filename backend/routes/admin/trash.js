@@ -49,6 +49,9 @@ router.get('/trash/count', authMiddleware, teacherOrAdmin, async (req, res) => {
 
 router.get('/trash', authMiddleware, teacherOrAdmin, async (req, res) => {
   try {
+    const { page = 1, limit = 50 } = req.query
+    const take = Math.min(parseInt(limit) || 50, 100)
+    const skip = (Math.max(parseInt(page), 1) - 1) * take
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
     const softWhere = { deletedAt: { not: null } }
     const expiredWhere = { deletedAt: { not: null, lt: thirtyDaysAgo } }
@@ -78,37 +81,44 @@ router.get('/trash', authMiddleware, teacherOrAdmin, async (req, res) => {
       prisma.practiceExam.findMany({
         where: softWhere,
         select: { id: true, title: true, skill: true, thumbnailUrl: true, deletedAt: true },
-        orderBy: { deletedAt: 'desc' }
+        orderBy: { deletedAt: 'desc' },
+        take, skip,
       }),
       prisma.writingSample.findMany({
         where: softWhere,
         select: { id: true, title: true, thumbnailUrl: true, deletedAt: true },
-        orderBy: { deletedAt: 'desc' }
+        orderBy: { deletedAt: 'desc' },
+        take, skip,
       }),
       prisma.speakingSample.findMany({
         where: softWhere,
         select: { id: true, title: true, thumbnailUrl: true, deletedAt: true },
-        orderBy: { deletedAt: 'desc' }
+        orderBy: { deletedAt: 'desc' },
+        take, skip,
       }),
       prisma.exam.findMany({
         where: softWhere,
         select: { id: true, title: true, skill: true, coverImageUrl: true, seriesId: true, bookNumber: true, deletedAt: true },
-        orderBy: { deletedAt: 'desc' }
+        orderBy: { deletedAt: 'desc' },
+        take, skip,
       }),
       prisma.examSeries.findMany({
         where: softWhere,
         select: { id: true, name: true, deletedAt: true },
-        orderBy: { deletedAt: 'desc' }
+        orderBy: { deletedAt: 'desc' },
+        take, skip,
       }),
       prisma.bookCover.findMany({
         where: softWhere,
         select: { id: true, seriesId: true, bookNumber: true, coverImageUrl: true, deletedAt: true },
-        orderBy: { deletedAt: 'desc' }
+        orderBy: { deletedAt: 'desc' },
+        take, skip,
       }),
       prisma.series.findMany({
         where: softWhere,
         select: { id: true, name: true, thumbnailUrl: true, deletedAt: true },
-        orderBy: { deletedAt: 'desc' }
+        orderBy: { deletedAt: 'desc' },
+        take, skip,
       }),
     ])
 
@@ -133,7 +143,7 @@ router.get('/trash', authMiddleware, teacherOrAdmin, async (req, res) => {
       ...seriesList.map(r => ({ ...r, title: r.name, type: 'series' })),
     ].sort((a, b) => new Date(b.deletedAt) - new Date(a.deletedAt))
 
-    res.json(items)
+    res.json({ items, page: parseInt(page), limit: take })
   } catch (err) {
     res.status(500).json({ message: 'Lỗi server', error: err.message })
   }
