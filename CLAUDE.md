@@ -75,7 +75,7 @@ Groq is used for:
 Groq client is lazily initialized in `lib/groqClient.js` to avoid errors when `GROQ_API_KEY` is absent at module load time.
 
 ### CORS
-Allowed origins: `http://localhost:5173`, `https://ietls-gamma.vercel.app`, and `FRONTEND_URL` env var if set.
+Allowed origins: `http://localhost:5173` and `FRONTEND_URL` env var if set (e.g. `https://hzuy.net`).
 
 ## Environment variables
 
@@ -105,9 +105,9 @@ cd frontend && npx vitest run src/hooks/useDebounce.test.js
 
 ## Deployment
 
-- Backend: Docker (`backend/Dockerfile` uses `node:20-slim` + openssl for Prisma libssl compatibility). Target: Render.com.
-- Frontend: Vercel (static build).
-- `docker-compose.yml` at root runs backend on `127.0.0.1:5001`.
+- Backend: Docker via `docker-compose.yml` on a self-hosted VPS. `backend/Dockerfile` uses `node:20-slim` + openssl for Prisma libssl compatibility. Container binds to `127.0.0.1:5001`; Nginx reverse proxy handles HTTPS and forwards to it.
+- Frontend: Static build (`npm run build`) served by Nginx directly.
+- `FRONTEND_URL` env var (e.g. `https://hzuy.net`) must be set in `backend/.env` so it is added to the CORS allowlist.
 
 ## Project Status
 
