@@ -378,6 +378,25 @@ button:disabled {
   opacity: 1;
 }
 
+/* ─── Skill card — CSS-only hover, no JS state needed ──────────────────────
+   Pass skill colors as --_skill-bg and --_skill-color CSS custom properties
+   on the .skill-card element; children reference them for coordinated hover.
+   ──────────────────────────────────────────────────────────────────────────── */
+.skill-card { cursor: pointer; }
+.skill-card-icon { display: block; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.skill-card:hover .skill-card-icon { transform: scale(1.1); }
+.skill-card-bar { opacity: 0; transition: opacity var(--transition); }
+.skill-card:hover .skill-card-bar { opacity: 1; }
+.skill-card-action {
+  background: var(--_skill-bg, var(--primary-light));
+  color: var(--_skill-color, var(--primary));
+  transition: background var(--transition), color var(--transition);
+}
+.skill-card:hover .skill-card-action {
+  background: var(--_skill-color, var(--primary));
+  color: #fff;
+}
+
 /* ─── Global Base UI Standardization (Subtle) ─────────────────────────────── */
 
 /* 1. Standard transition & 11. Cursor pointer */
