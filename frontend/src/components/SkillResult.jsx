@@ -10,15 +10,15 @@ import api from '../utils/axios'
 // ─── Palette ──────────────────────────────────────────────────────────────────
 
 const STATUS_COLORS = {
-  correct: { bg: '#16a34a', text: '#fff' },
-  wrong:   { bg: '#dc2626', text: '#fff' },
-  missed:  { bg: '#6b7280', text: '#fff' },
+  correct: { bg: 'var(--success)', text: '#fff' },
+  wrong:   { bg: 'var(--error)',   text: '#fff' },
+  missed:  { bg: '#6b7280',        text: '#fff' },
 }
 
 const BADGE_COLORS = {
-  green: { bg: '#dcfce7', text: '#16a34a' },
-  red:   { bg: '#fee2e2', text: '#dc2626' },
-  gray:  { bg: '#f3f4f6', text: '#6b7280' },
+  green: { bg: 'var(--success-bg)', text: 'var(--success)' },
+  red:   { bg: 'var(--error-bg)',   text: 'var(--error)' },
+  gray:  { bg: '#f3f4f6',           text: '#6b7280' },
 }
 
 // ─── Score messaging ──────────────────────────────────────────────────────────

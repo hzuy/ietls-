@@ -55,16 +55,17 @@ function PracticeCard({ item, skill, onClick }) {
       </div>
 
       <div className="p-4 flex flex-col flex-1 gap-3">
-        <p className="font-semibold text-slate-900 text-[15px] leading-snug m-0 line-clamp-2 min-h-[44px]" style={{ fontFamily: 'var(--font-body)' }}>
+        <p className="font-semibold text-slate-900 leading-snug m-0 line-clamp-2 min-h-[44px]" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-base)' }}>
           {item.title}
         </p>
 
-        <div className="flex gap-2 text-[13px] text-slate-600 mt-auto" style={{ fontFamily: 'var(--font-body)' }}>
+        <div className="flex gap-2 text-slate-600 mt-auto" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}>
           {item.questionCount > 0 && <span className="font-mono">{item.questionCount} câu hỏi</span>}
         </div>
 
         <button
-          className="btn-primary w-full py-2 text-[13px] font-bold mt-2"
+          className="btn-primary w-full py-2 font-bold mt-2"
+          style={{ fontSize: 'var(--fs-sm)' }}
         >
           Làm bài →
         </button>
@@ -129,11 +130,11 @@ export default function PracticeList({ skill: skillKey }) {
             </div>
             <div>
               <h1 className="text-[24px] font-bold text-slate-900 m-0" style={{ fontFamily: 'var(--font-display)' }}>{meta.label}</h1>
-              <p className="text-[15px] text-slate-600 m-0 mt-1" style={{ fontFamily: 'var(--font-body)' }}>{meta.sub}</p>
+              <p className="text-slate-600 m-0 mt-1" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-base)' }}>{meta.sub}</p>
             </div>
           </div>
           {!loading && (
-            <div className="inline-flex bg-slate-50 border border-slate-200 rounded-lg px-3 py-1 text-[13px] font-bold text-slate-700 mt-3 font-mono">
+            <div className="inline-flex bg-slate-50 border border-slate-200 rounded-lg px-3 py-1 font-bold text-slate-700 mt-3 font-mono" style={{ fontSize: 'var(--fs-sm)' }}>
               {exams.length} bài luyện tập
             </div>
           )}
@@ -152,8 +153,8 @@ export default function PracticeList({ skill: skillKey }) {
               <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
             </div>
             <p className="text-[18px] font-bold text-slate-900 mb-2" style={{ fontFamily: 'var(--font-display)' }}>Không thể tải dữ liệu</p>
-            <p className="text-[14px] text-slate-600 mb-6 max-w-sm" style={{ fontFamily: 'var(--font-body)' }}>Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
-            <button className="btn-primary px-8 py-3 text-[14px] font-bold" onClick={() => window.location.reload()}>Thử lại</button>
+            <p className="text-slate-600 mb-6 max-w-sm" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}>Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
+            <button className="btn-primary px-8 py-3 font-bold" style={{ fontSize: 'var(--fs-sm)' }} onClick={() => window.location.reload()}>Thử lại</button>
           </div>
         ) : exams.length === 0 ? (
           <div className="text-center py-20 px-6 bg-white rounded-[24px] border border-slate-200 shadow-sm flex flex-col items-center">
@@ -161,8 +162,8 @@ export default function PracticeList({ skill: skillKey }) {
               <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
             </div>
             <p className="text-[18px] font-bold text-slate-900 mb-2" style={{ fontFamily: 'var(--font-display)' }}>Không tìm thấy bài luyện tập</p>
-            <p className="text-[14px] text-slate-600 mb-6 max-w-sm" style={{ fontFamily: 'var(--font-body)' }}>Hãy thử lựa chọn cấp độ hoặc kỹ năng khác.</p>
-            <button className="btn-primary px-6 py-2.5 text-[14px] font-bold" onClick={() => navigate('/')}>Về trang chủ</button>
+            <p className="text-slate-600 mb-6 max-w-sm" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}>Hãy thử lựa chọn cấp độ hoặc kỹ năng khác.</p>
+            <button className="btn-primary px-6 py-2.5 font-bold" style={{ fontSize: 'var(--fs-sm)' }} onClick={() => navigate('/')}>Về trang chủ</button>
           </div>
         ) : (
           <>
@@ -170,7 +171,7 @@ export default function PracticeList({ skill: skillKey }) {
               <section key={group.key}>
                 <div className="flex items-center gap-3 mb-6">
                   <h2 className="text-[20px] font-bold text-slate-900 m-0" style={{ fontFamily: 'var(--font-display)' }}>{group.label}</h2>
-                  <span className="font-mono text-[12px] font-bold bg-white text-slate-600 border border-slate-200 px-2.5 py-0.5 rounded-full shadow-sm">
+                  <span className="font-mono font-bold bg-white text-slate-600 border border-slate-200 px-2.5 py-0.5 rounded-full shadow-sm" style={{ fontSize: 'var(--fs-xs)' }}>
                     {group.items.length} bài
                   </span>
                 </div>
@@ -192,7 +193,7 @@ export default function PracticeList({ skill: skillKey }) {
               <section>
                 <div className="flex items-center gap-3 mb-6">
                   <h2 className="text-[20px] font-bold text-slate-900 m-0" style={{ fontFamily: 'var(--font-display)' }}>Dạng bài khác</h2>
-                  <span className="font-mono text-[12px] font-bold bg-white text-slate-600 border border-slate-200 px-2.5 py-0.5 rounded-full shadow-sm">
+                  <span className="font-mono font-bold bg-white text-slate-600 border border-slate-200 px-2.5 py-0.5 rounded-full shadow-sm" style={{ fontSize: 'var(--fs-xs)' }}>
                     {otherExams.length} bài
                   </span>
                 </div>
