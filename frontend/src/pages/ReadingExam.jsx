@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
-import { getReadingExam, submitReadingExam, getFullTestStatus } from '../services/examService'
+import { getReadingExam, getReadingExamWithAnswers, submitReadingExam, getFullTestStatus } from '../services/examService'
 import { getAdminSettings } from '../services/adminService'
 import { saveDraft, loadDraft, clearDraft } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
@@ -69,7 +69,8 @@ export default function ReadingExam() {
         if (!isNaN(mins) && mins > 0) setTimeLeft(mins * 60)
       })
       .catch(() => {})
-    getReadingExam(id)
+    const fetchExam = previewMode ? getReadingExamWithAnswers : getReadingExam
+    fetchExam(id)
       .then(data => {
         setExam(data)
         // Resume draft if ?resume=true

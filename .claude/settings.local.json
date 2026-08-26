@@ -82,7 +82,14 @@
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('Count:', len\\(d\\)\\); print\\('Sample:', json.dumps\\(d[0] if d else {}, indent=2\\)\\)\")",
       "Bash(DIRECT_URL=\"postgresql://postgres.qtuzysaqftzmveyvrzxz:nguyenhuuduy123@aws-1-ap-southeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=5\" npx prisma:*)",
       "Bash(kill -9 53591 17570)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(cat /d/Duy/ielts-app/.github/workflows/*.yml)",
+      "Bash(find \"D:/Duy/ielts-app/backend/routes\" -name \"*.js\" -type f -exec grep -n \"TODO\\\\|FIXME\\\\|HACK\\\\|BUG\\\\|NOTE\\\\|XXX\\\\|BROKEN\\\\|STUB\\\\|SKELETON\" {} +)",
+      "Bash(find \"D:/Duy/ielts-app/frontend/src/pages\" -type f \\\\\\( -name \"*.jsx\" -o -name \"*.js\" \\\\\\) -exec grep -n \"TODO\\\\|FIXME\\\\|HACK\\\\|BUG\\\\|NOTE\\\\|XXX\\\\|BROKEN\\\\|STUB\\\\|SKELETON\" {} +)",
+      "Bash(grep -r \"Contact\\\\|contact\\\\|Liên hệ\" /d/Duy/ielts-app/frontend/src/pages/*.jsx)",
+      "Bash(grep -r \"Trung tâm\\\\|center\\\\|school\\\\|địa chỉ\\\\|address\\\\|liên hệ\" /d/Duy/ielts-app/frontend/src/pages/*.jsx)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

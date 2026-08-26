@@ -76,19 +76,47 @@ router.get('/exams', authMiddleware, async (req, res) => {
   }
 })
 
+// Chi tiết 1 đề Listening
+// ?withAnswers=true chỉ dành cho admin/teacher preview — trả về correctAnswer
+// Mặc định: KHÔNG trả correctAnswer (bảo mật — tránh lộ đáp án qua DevTools)
 router.get('/exams/:id', authMiddleware, async (req, res) => {
   try {
+    const withAnswers = req.query.withAnswers === 'true'
+    // Chỉ staff mới được dùng withAnswers
+    if (withAnswers) {
+      const role = req.user?.role
+      if (role !== 'admin' && role !== 'teacher') {
+        return res.status(403).json({ message: 'Không có quyền xem đáp án' })
+      }
+    }
+
+    // Select fields — loại correctAnswer khi không phải preview mode
+    const questionSelect = withAnswers
+      ? undefined // include all fields
+      : {
+          id: true, passageId: true, listeningSectionId: true, groupId: true,
+          number: true, type: true, questionText: true, options: true, imageUrl: true
+          // correctAnswer intentionally excluded
+        }
+
     const exam = await prisma.exam.findUnique({
       where: { id: parseInt(req.params.id) },
       include: {
         listeningSections: {
           orderBy: { number: 'asc' },
           include: {
-            questions: { where: { groupId: null }, orderBy: { number: 'asc' } },
+            questions: {
+              where: { groupId: null },
+              orderBy: { number: 'asc' },
+              ...(questionSelect ? { select: questionSelect } : {})
+            },
             questionGroups: {
               orderBy: { sortOrder: 'asc' },
               include: {
-                questions: { orderBy: { number: 'asc' } },
+                questions: {
+                  orderBy: { number: 'asc' },
+                  ...(questionSelect ? { select: questionSelect } : {})
+                },
                 noteSections: { orderBy: { sortOrder: 'asc' }, include: { lines: { orderBy: { sortOrder: 'asc' } } } },
                 matchingOptions: { orderBy: { sortOrder: 'asc' } }
               }
@@ -103,6 +131,7 @@ router.get('/exams/:id', authMiddleware, async (req, res) => {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
   }
 })
+
 
 router.post('/exams/:id/submit', authMiddleware, validate(listeningSubmitSchema), async (req, res) => {
   try {

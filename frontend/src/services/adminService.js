@@ -28,8 +28,35 @@ export const changeAdminPassword = (currentPassword, newPassword) =>
   api.put('/admin/me/password', { currentPassword, newPassword }).then(r => r.data)
 
 // ─── Settings ────────────────────────────────────────────────────────────────
-export const getAdminSettings = () => api.get('/admin/settings').then(r => r.data)
-export const updateAdminSettings = (settings) => api.put('/admin/settings', settings).then(r => r.data)
+// In-memory cache — TTL 5 phút, tránh gọi API trùng lặp ở nhiều nơi (App, ReadingExam, ListeningExam, WritingExam, Settings)
+let _settingsCache = null        // { data, ts }
+let _settingsPending = null      // Promise đang chờ (chống stampede)
+const SETTINGS_TTL = 5 * 60 * 1000 // 5 phút
+
+export const getAdminSettings = async () => {
+  const now = Date.now()
+  // Trả cache nếu còn tươi
+  if (_settingsCache && (now - _settingsCache.ts < SETTINGS_TTL)) {
+    return _settingsCache.data
+  }
+  // Dedup: nếu đang có request chờ, chờ chung
+  if (_settingsPending) return _settingsPending
+  _settingsPending = api.get('/admin/settings')
+    .then(r => {
+      _settingsCache = { data: r.data, ts: Date.now() }
+      return r.data
+    })
+    .finally(() => { _settingsPending = null })
+  return _settingsPending
+}
+
+export const updateAdminSettings = (settings) =>
+  api.put('/admin/settings', settings).then(r => {
+    // Invalidate cache sau khi cập nhật
+    _settingsCache = null
+    return r.data
+  })
+
 
 // ─── Attempts ────────────────────────────────────────────────────────────────
 export const getAdminAttempts = (params) => api.get('/admin/attempts', { params }).then(r => r.data)

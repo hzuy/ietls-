@@ -52,7 +52,9 @@ export const getWritingExams = () => api.get('/writing/exams').then(r => r.data)
 export const getSpeakingExams = () => api.get('/speaking/exams').then(r => r.data)
 
 export const getReadingExam = (id) => api.get(`/reading/exams/${id}`).then(r => r.data)
+export const getReadingExamWithAnswers = (id) => api.get(`/reading/exams/${id}?withAnswers=true`).then(r => r.data)
 export const getListeningExam = (id) => api.get(`/listening/exams/${id}`).then(r => r.data)
+export const getListeningExamWithAnswers = (id) => api.get(`/listening/exams/${id}?withAnswers=true`).then(r => r.data)
 export const getWritingExam = (id) => api.get(`/writing/exams/${id}`).then(r => r.data)
 export const getSpeakingExam = (id) => api.get(`/speaking/exams/${id}`).then(r => r.data)
 

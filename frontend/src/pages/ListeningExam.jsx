@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
-import { getListeningExam, submitListeningExam, getFullTestStatus } from '../services/examService'
+import { getListeningExam, getListeningExamWithAnswers, submitListeningExam, getFullTestStatus } from '../services/examService'
 import { getAdminSettings } from '../services/adminService'
 import { saveDraft, loadDraft, clearDraft } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
@@ -62,7 +62,8 @@ export default function ListeningExam() {
         if (!isNaN(mins) && mins > 0) setTimeLeft(mins * 60)
       })
       .catch(() => {})
-    getListeningExam(id)
+    const fetchExam = previewMode ? getListeningExamWithAnswers : getListeningExam
+    fetchExam(id)
       .then(data => {
         setExam(data)
         if (resumeMode && user) {
