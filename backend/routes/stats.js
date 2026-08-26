@@ -216,6 +216,7 @@ async function fetchWritingCriteriaStats(targetUserId) {
   const logs = await prisma.writingCriterionLog.findMany({
     where: { userId: targetUserId },
     orderBy: { createdAt: 'asc' },
+    take: 200,
     select: {
       criterion: true,
       score: true,
@@ -275,6 +276,7 @@ async function fetchSpeakingCriteriaStats(targetUserId) {
   const logs = await prisma.speakingCriterionLog.findMany({
     where: { userId: targetUserId },
     orderBy: { createdAt: 'asc' },
+    take: 200,
     select: {
       criterion: true,
       score: true,
