@@ -331,6 +331,8 @@ model BookCover {
   series        ExamSeries @relation(fields: [seriesId], references: [id], onDelete: Cascade)
 
   @@unique([seriesId, bookNumber])
+  @@index([deletedAt])
+  @@index([seriesId])
 }
 
 model ExamSeries {
@@ -341,6 +343,8 @@ model ExamSeries {
   bookCovers BookCover[]
   exams      Exam[]
   mappings   SeriesMapping[]
+
+  @@index([deletedAt])
 }
 
 model Setting {
@@ -455,6 +459,7 @@ model Series {
   mappings     SeriesMapping[]
 
   @@index([createdAt])
+  @@index([deletedAt])
 }
 
 model SeriesExam {
