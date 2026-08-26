@@ -117,21 +117,25 @@ router.get('/exams', authMiddleware, teacherOnly, async (req, res) => {
 router.get('/exams/:id', authMiddleware, teacherOnly, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
+    const qSelect = {
+      id: true, number: true, type: true, questionText: true,
+      options: true, correctAnswer: true, imageUrl: true,
+    }
     const exam = await prisma.exam.findUnique({
       where: { id },
       include: {
         passages: { orderBy: { number: 'asc' }, include: {
-          questions: { where: { groupId: null }, orderBy: { number: 'asc' } },
+          questions: { where: { groupId: null }, orderBy: { number: 'asc' }, select: qSelect },
           questionGroups: { orderBy: { sortOrder: 'asc' }, include: {
-            questions: { orderBy: { number: 'asc' } },
+            questions: { orderBy: { number: 'asc' }, select: qSelect },
             noteSections: { orderBy: { sortOrder: 'asc' }, include: { lines: { orderBy: { sortOrder: 'asc' } } } },
             matchingOptions: { orderBy: { sortOrder: 'asc' } }
           }}
         }},
         listeningSections: { orderBy: { number: 'asc' }, include: {
-          questions: { where: { groupId: null }, orderBy: { number: 'asc' } },
+          questions: { where: { groupId: null }, orderBy: { number: 'asc' }, select: qSelect },
           questionGroups: { orderBy: { sortOrder: 'asc' }, include: {
-            questions: { orderBy: { number: 'asc' } },
+            questions: { orderBy: { number: 'asc' }, select: qSelect },
             noteSections: { orderBy: { sortOrder: 'asc' }, include: { lines: { orderBy: { sortOrder: 'asc' } } } },
             matchingOptions: { orderBy: { sortOrder: 'asc' } }
           }}
