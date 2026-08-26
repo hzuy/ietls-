@@ -11,15 +11,6 @@ import Home from './pages/Home'
 
 // Lazily loaded — split into separate chunks, loaded on demand
 const ChangePassword    = lazy(() => import('./pages/ChangePassword'))
-const About             = lazy(() => import('./pages/About'))
-const CoursesPage       = lazy(() => import('./pages/CoursesPage'))
-const PreIelts          = lazy(() => import('./pages/PreIelts'))
-const WsResolution        = lazy(() => import('./pages/WsResolution'))
-const Ielts40           = lazy(() => import('./pages/Ielts40'))
-const Ielts50           = lazy(() => import('./pages/Ielts50'))
-const Ielts60           = lazy(() => import('./pages/Ielts60'))
-const Ielts65           = lazy(() => import('./pages/Ielts65'))
-const Ielts70           = lazy(() => import('./pages/Ielts70'))
 const ReadingExam       = lazy(() => import('./pages/ReadingExam'))
 const ListeningExam     = lazy(() => import('./pages/ListeningExam'))
 const WritingExam       = lazy(() => import('./pages/WritingExam'))
@@ -137,21 +128,6 @@ export default function App() {
               <Route path="/register" element={<Navigate to="/" replace state={{ authModal: 'register' }} />} />
               <Route path="/change-password" element={<ChangePassword />} />
               <Route path="/" element={<Home />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/courses" element={<CoursesPage />} />
-              <Route path="/courses/pre-ielts" element={<PreIelts />} />
-              <Route path="/courses/ws-resolution" element={<WsResolution />} />
-              <Route path="/courses/writing-speaking" element={<Navigate to="/courses/ws-resolution" replace />} />
-              <Route path="/courses/ielts-4-0" element={<Ielts40 />} />
-              <Route path="/courses/ielts-5-0" element={<Ielts50 />} />
-              <Route path="/courses/ielts-6-0" element={<Ielts60 />} />
-              <Route path="/courses/ielts-6-5" element={<Ielts65 />} />
-              <Route path="/courses/ielts-7-0" element={<Ielts70 />} />
-              <Route path="/courses/4.0" element={<Navigate to="/courses/ielts-4-0" replace />} />
-              <Route path="/courses/5.0" element={<Navigate to="/courses/ielts-5-0" replace />} />
-              <Route path="/courses/6.0" element={<Navigate to="/courses/ielts-6-0" replace />} />
-              <Route path="/courses/6.5" element={<Navigate to="/courses/ielts-6-5" replace />} />
-              <Route path="/courses/7.0" element={<Navigate to="/courses/ielts-7-0" replace />} />
               <Route path="/reading" element={<Navigate to="/practice/reading" replace />} />
               <Route path="/reading/:id/result" element={<PrivateRoute><SkillResultPage skillType="reading" /></PrivateRoute>} />
               <Route path="/reading/:id" element={<PrivateRoute><ReadingExam /></PrivateRoute>} />

@@ -73,8 +73,6 @@ export default function Navbar() {
     location.pathname === '/cambridge' ||
     location.pathname === '/practice-plus'
 
-  const isCoursesActive = location.pathname.startsWith('/courses')
-
   return (
     <>
       {/* BUG-25: System announcement banner */}
@@ -160,27 +158,6 @@ export default function Navbar() {
               </div>
             </NavDropdown>
 
-            <NavDropdown name="courses" isOpen={openDropdown === 'courses'} onOpen={openMenu} onClose={scheduleClose}
-              dropdownStyle={{ width: 340 }}
-              trigger={<NavBtn active={isCoursesActive} onClick={() => navigate('/courses')} hasDropdown>Khóa học</NavBtn>}
-            >
-              <div style={{ padding: '6px 0' }}>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <div style={{ flex: 1 }}>
-                    <CustomDropItem to="/courses/ielts-4-0" label="IELTS 4.0+" active={location.pathname === '/courses/ielts-4-0'} />
-                    <CustomDropItem to="/courses/ielts-5-0" label="IELTS 5.0+" active={location.pathname === '/courses/ielts-5-0'} />
-                    <CustomDropItem to="/courses/ielts-6-0" label="IELTS 6.0+" active={location.pathname === '/courses/ielts-6-0'} />
-                    <CustomDropItem to="/courses/ielts-6-5" label="IELTS 6.5+" active={location.pathname === '/courses/ielts-6-5'} />
-                    <CustomDropItem to="/courses/ielts-7-0" label="IELTS 7.0+" active={location.pathname === '/courses/ielts-7-0'} />
-                  </div>
-                  <div style={{ width: 1, background: '#E2E8F0', margin: '4px 0' }} />
-                  <div style={{ flex: 1 }}>
-                    <CustomDropItem to="/courses/pre-ielts" label="PRE IELTS" active={location.pathname === '/courses/pre-ielts'} />
-                    <CustomDropItem to="/courses/ws-resolution" label="Giải đề W&S" active={location.pathname === '/courses/ws-resolution'} />
-                  </div>
-                </div>
-              </div>
-            </NavDropdown>
           </nav>
 
           {/* Right: auth */}

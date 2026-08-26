@@ -129,7 +129,6 @@ cd frontend && npx vitest run src/hooks/useDebounce.test.js
 - **Admin → Users & Accounts pages** (`admin/UserDetail.jsx`, `admin/Accounts.jsx`) — BUG-06: "showing X of Y" count display incomplete; BUG-07: some action handlers (ban/reset) wired up but not confirmed end-to-end; BUG-21: role-change guard (admin-only) implemented but not covered by tests.
 - **Admin → SeriesManager** (`admin/SeriesManager.jsx`) — BUG-08: duplicate `testNumber` validation client-side only, no backend constraint; BUG-09: deleted test count badge present but may not reflect real-time state; BUG-10: single-series fetch path implemented but untested in isolation.
 - **Admin → Analytics** (`admin/Analytics.jsx`) — BUG-19: shared bar-chart component referenced but wiring to teacher-only data path is partially stubbed; teacher analytics link on Dashboard exists but content coverage unclear.
-- **Courses pages** (`Ielts40.jsx`, `Ielts50.jsx`, `Ielts60.jsx`, `Ielts65.jsx`, `Ielts70.jsx`, `PreIelts.jsx`) — Navigation shells only; content is static/hardcoded; no backend data source.
 - **`correctAnswer.security.test.js`** — Untracked file in repo root (not inside `routes/`); not wired into the Vitest config; needs to be moved and registered.
 
 ### Not implemented / skeleton only

@@ -23,3 +23,7 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Claude Code — local overrides và worktree tạm (không commit)
+.claude/settings.local.json
+.claude/worktrees/

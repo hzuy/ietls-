@@ -11,13 +11,6 @@ import SeriesCarousel from '../components/home/SeriesCarousel'
 const BACKEND_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '')
 const API_BASE = BACKEND_URL + '/api'
 
-const stats = [
-  { label: 'Đề thi', value: '50+' },
-  { label: 'Học viên', value: '1,200+' },
-  { label: 'Band Score TB', value: '6.5' },
-  { label: 'AI Feedback', value: '24/7' },
-]
-
 const SKILL_CARDS = [
   {
     key: 'reading',
@@ -88,45 +81,6 @@ function HomeSectionError() {
   )
 }
 
-function StatCardItem({ stat }) {
-  const [hovered, setHovered] = useState(false)
-  return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        background: '#ffffff',
-        border: hovered ? '1px solid #93C5FD' : '1px solid #e5e7eb',
-        boxShadow: hovered ? '0 12px 28px rgba(37, 99, 235, 0.12)' : '0 2px 8px rgba(0,0,0,0.06)',
-        transform: hovered ? 'translateY(-4px)' : 'none',
-        borderRadius: 'var(--radius-lg)',
-        padding: '24px', textAlign: 'center',
-        minWidth: 140,
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        cursor: 'default',
-      }}
-    >
-      <div style={{
-        fontFamily: 'var(--font-mono)', fontSize: 32, fontWeight: 700,
-        color: '#4D8EFF', marginBottom: 4,
-        transform: hovered ? 'scale(1.05)' : 'none',
-        transition: 'transform 0.3s ease',
-      }}>
-        {stat.value}
-      </div>
-      <div style={{
-        fontFamily: 'var(--font-body)', fontSize: 'var(--fs-xs)',
-        color: hovered ? '#475569' : '#9ca3af',
-        textTransform: 'uppercase', letterSpacing: '0.05em',
-        fontWeight: 600,
-        transition: 'color 0.3s ease',
-      }}>
-        {stat.label}
-      </div>
-    </div>
-  )
-}
-
 function HeroPrimaryBtn({ onClick }) {
   const [hovered, setHovered] = useState(false)
   return (
@@ -150,33 +104,6 @@ function HeroPrimaryBtn({ onClick }) {
       }}
     >
       Bắt đầu ngay
-    </button>
-  )
-}
-
-function HeroSecondaryBtn({ onClick }) {
-  const [hovered, setHovered] = useState(false)
-  return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        padding: '13px 30px',
-        fontWeight: 600,
-        fontSize: '15px',
-        border: hovered ? '1px solid #93C5FD' : '1px solid #d1d5db',
-        color: hovered ? '#2563EB' : '#374151',
-        background: hovered ? '#F8FAFC' : '#ffffff',
-        borderRadius: '10px',
-        cursor: 'pointer',
-        transform: hovered ? 'translateY(-4px)' : 'translateY(0)',
-        boxShadow: hovered ? '0 10px 20px -4px rgba(15, 23, 42, 0.08)' : '0 2px 6px rgba(0,0,0,0.04)',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        fontFamily: 'var(--font-body)',
-      }}
-    >
-      Tìm hiểu thêm
     </button>
   )
 }
@@ -408,15 +335,8 @@ export default function Home() {
               </p>
               <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
                 <HeroPrimaryBtn onClick={() => navigate('/cambridge')} />
-                <HeroSecondaryBtn onClick={() => navigate('/about')} />
               </div>
 
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 anim-fade-up delay-2">
-              {stats.map(s => (
-                <StatCardItem key={s.label} stat={s} />
-              ))}
             </div>
           </div>
         </div>

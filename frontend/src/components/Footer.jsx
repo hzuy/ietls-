@@ -6,7 +6,6 @@ const NAV_COLUMNS = [
     links: [
       { label: 'IELTS Full Test', to: '/full-test' },
       { label: 'Practice Plus', to: '/practice-plus' },
-      { label: 'Khóa học', to: '/courses' },
     ],
   },
   {
@@ -25,15 +24,6 @@ const NAV_COLUMNS = [
       { label: 'Hướng dẫn sử dụng', to: '/' },
       { label: 'Câu hỏi thường gặp', to: '/' },
       { label: 'IELTS Band Calculator', to: '/' },
-    ],
-  },
-  {
-    heading: 'Company',
-    links: [
-      { label: 'Giới thiệu', to: '/about' },
-      { label: 'Liên hệ', to: '/' },
-      { label: 'Điều khoản sử dụng', to: '/' },
-      { label: 'Chính sách bảo mật', to: '/' },
     ],
   },
 ]
@@ -123,7 +113,6 @@ export default function Footer() {
             © 2026 IELTSPro. All rights reserved.
           </span>
           <div className="flex gap-6">
-            <Link to="/about" className="text-slate-400 hover:text-blue-400 transition-colors duration-300 text-[13px] no-underline" style={{ fontFamily: 'var(--font-body)' }}>Giới thiệu</Link>
             <Link to="/" className="text-slate-400 hover:text-blue-400 transition-colors duration-300 text-[13px] no-underline" style={{ fontFamily: 'var(--font-body)' }}>Chính sách bảo mật</Link>
           </div>
         </div>
