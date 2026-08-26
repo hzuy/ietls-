@@ -10,8 +10,8 @@ function NavBtn({ children, active, onClick, hasDropdown }) {
   return (
     <button
       onClick={onClick}
-      className={`nav-item flex items-center gap-1 border-none tracking-[0.01em] text-[14px] whitespace-nowrap shrink-0 px-3 py-1.5 rounded-xl ${active ? 'active' : 'bg-transparent text-slate-600'}`}
-      style={{ fontFamily: 'var(--font-body)' }}
+      className={`nav-item flex items-center gap-1 border-none tracking-[0.01em] whitespace-nowrap shrink-0 px-3 py-1.5 rounded-xl ${active ? 'active' : 'bg-transparent text-slate-600'}`}
+      style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}
     >
       <span className="whitespace-nowrap">{children}</span>
       {hasDropdown && (
@@ -27,10 +27,10 @@ function CustomDropItem({ to, icon, label, bold, active }) {
   return (
     <Link to={to} className="block no-underline">
       <div
-        className={`flex items-center gap-2.5 px-4 py-2 text-[14px] transition-colors duration-300 whitespace-nowrap rounded-md mx-1 cursor-pointer ${active ? 'bg-blue-50 text-blue-600 font-semibold' : 'bg-transparent text-slate-700 hover:bg-slate-50 hover:text-blue-600'} ${bold ? 'font-semibold' : ''}`}
-        style={{ fontFamily: 'var(--font-body)' }}
+        className={`flex items-center gap-2.5 px-4 py-2 transition-colors duration-300 whitespace-nowrap rounded-md mx-1 cursor-pointer ${active ? 'bg-blue-50 text-blue-600 font-semibold' : 'bg-transparent text-slate-700 hover:bg-slate-50 hover:text-blue-600'} ${bold ? 'font-semibold' : ''}`}
+        style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}
       >
-        {icon && <span className="text-[15px]">{icon}</span>}
+        {icon && <span>{icon}</span>}
         <span>{label}</span>
       </div>
     </Link>
@@ -39,6 +39,20 @@ function CustomDropItem({ to, icon, label, bold, active }) {
 
 function NavDivider() {
   return <div style={{ height: 1, background: '#E2E8F0', margin: '4px 8px' }} />
+}
+
+/* ── Mobile drawer link ─────────────────────────────────────────────────── */
+function MobileNavLink({ to, children, active, onClick }) {
+  return (
+    <Link
+      to={to}
+      onClick={onClick}
+      className={`flex items-center px-4 py-3 rounded-xl no-underline transition-colors ${active ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-slate-700 hover:bg-slate-50'}`}
+      style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-base)', minHeight: 44 }}
+    >
+      {children}
+    </Link>
+  )
 }
 
 export default function Navbar() {
@@ -50,7 +64,8 @@ export default function Navbar() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [openDropdown, setOpenDropdown] = useState(null)
   const [scrolled, setScrolled] = useState(false)
-  const [announcement, setAnnouncement] = useState(() => sessionStorage.getItem('__announcement__') || '')
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [announcement] = useState(() => sessionStorage.getItem('__announcement__') || '')
   const [announcementDismissed, setAnnouncementDismissed] = useState(false)
 
   const closeTimer = useRef(null)
@@ -61,9 +76,17 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  /* Close dropdowns and mobile menu on route change */
   useEffect(() => {
     setOpenDropdown(null)
+    setMobileOpen(false)
   }, [location.pathname])
+
+  /* Prevent body scroll when mobile menu is open */
+  useEffect(() => {
+    document.body.style.overflow = mobileOpen ? 'hidden' : ''
+    return () => { document.body.style.overflow = '' }
+  }, [mobileOpen])
 
   const openMenu = (name) => { clearTimeout(closeTimer.current); setOpenDropdown(name) }
   const scheduleClose = () => { closeTimer.current = setTimeout(() => setOpenDropdown(null), 150) }
@@ -73,26 +96,26 @@ export default function Navbar() {
     location.pathname === '/cambridge' ||
     location.pathname === '/practice-plus'
 
+  const closeMobile = () => setMobileOpen(false)
+
   return (
     <>
-      {/* BUG-25: System announcement banner */}
+      {/* Announcement banner */}
       {announcement && !announcementDismissed && (
         <div style={{ background: '#fef3c7', borderBottom: '1px solid #fde68a', padding: '8px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 60 }}>
-          <span style={{ fontSize: 13, color: '#92400e', fontFamily: 'var(--font-body)', lineHeight: 1.5, textAlign: 'center' }}>📢 {announcement}</span>
-          <button onClick={() => setAnnouncementDismissed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#92400e', fontSize: 16, padding: '0 4px', lineHeight: 1, opacity: 0.7 }} title="Đóng">✕</button>
+          <span style={{ fontSize: 'var(--fs-sm)', color: '#92400e', fontFamily: 'var(--font-body)', lineHeight: 1.5, textAlign: 'center' }}>{announcement}</span>
+          <button onClick={() => setAnnouncementDismissed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#92400e', fontSize: 16, padding: '0 4px', lineHeight: 1, opacity: 0.7, minHeight: 44, minWidth: 44 }} aria-label="Đóng thông báo">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+          </button>
         </div>
       )}
+
       <header className={`w-full sticky top-0 z-50 h-16 border-b border-slate-200 transition-all duration-300 ${scrolled ? 'bg-white/90 backdrop-blur-md shadow-[0_4px_12px_rgba(15,23,42,0.05)]' : 'bg-white'}`}>
         <div className="app-container h-full flex items-center justify-between flex-nowrap gap-4">
 
           {/* Logo */}
           <Link to="/" style={{ textDecoration: 'none' }} className="flex items-center gap-2 shrink-0 whitespace-nowrap">
-            <div style={{
-              width: 30, height: 30, borderRadius: '50%',
-              background: '#2563EB',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 2px 8px rgba(37,99,235,0.3)', flexShrink: 0,
-            }}>
+            <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(37,99,235,0.3)', flexShrink: 0 }}>
               <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#fff' }} />
             </div>
             <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20, letterSpacing: '-0.02em', color: '#0B2345' }} className="whitespace-nowrap">
@@ -157,22 +180,24 @@ export default function Navbar() {
                 </div>
               </div>
             </NavDropdown>
-
           </nav>
 
-          {/* Right: auth */}
-          <div className="flex items-center gap-2 md:gap-3 shrink-0 whitespace-nowrap">
-            <div className="hidden md:flex items-center gap-2 md:gap-3 flex-nowrap shrink-0 whitespace-nowrap">
+          {/* Right: desktop auth + mobile hamburger */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Desktop auth */}
+            <div className="hidden md:flex items-center gap-2 flex-nowrap shrink-0">
               {isLoggedIn ? (
                 <>
                   <Link to="/progress"
-                    className="text-xs md:text-sm font-semibold px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 transition-all whitespace-nowrap shrink-0 hover:bg-blue-100 flex items-center gap-1.5"
-                    style={{ fontFamily: 'var(--font-body)' }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 transition-all whitespace-nowrap shrink-0 no-underline"
+                    style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', fontWeight: 600, minHeight: 44 }}
                   >
-                    <span>📊 Phân tích lỗi sai</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    Phân tích lỗi sai
                   </Link>
                   <div role="button" tabIndex={0} aria-label="Tài khoản" onClick={() => navigate('/profile')} onKeyDown={(e) => { if (e.key === 'Enter') navigate('/profile') }}
-                    className="flex items-center gap-2 cursor-pointer px-2.5 py-1 rounded-full border border-slate-200 transition-colors whitespace-nowrap shrink-0 hover:border-blue-600"
+                    className="flex items-center gap-2 cursor-pointer px-2.5 py-1 rounded-full border border-slate-200 hover:border-blue-600 transition-colors whitespace-nowrap shrink-0"
+                    style={{ minHeight: 44 }}
                   >
                     <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
                       {user.name?.charAt(0)?.toUpperCase() || 'U'}
@@ -180,28 +205,132 @@ export default function Navbar() {
                     <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 600, color: '#0B2345', fontFamily: 'var(--font-body)' }} className="whitespace-nowrap max-w-[120px] truncate">{user.name}</span>
                   </div>
                   <button onClick={() => setShowLogoutConfirm(true)}
-                    className="text-xs md:text-sm font-medium px-3 py-1.5 rounded-lg border border-slate-200 bg-transparent text-slate-600 transition-all whitespace-nowrap shrink-0 hover:border-red-300 hover:text-red-500"
-                    style={{ fontFamily: 'var(--font-body)' }}
+                    className="btn-ghost text-slate-600 hover:text-red-500"
+                    style={{ minHeight: 44 }}
                   >Đăng xuất</button>
                 </>
               ) : (
                 <>
-                  <button onClick={() => openAuthModal('login')}
-                    className="text-xs md:text-sm font-medium px-3 py-1.5 rounded-lg border border-slate-200 bg-transparent text-slate-600 transition-all whitespace-nowrap shrink-0 hover:border-blue-600 hover:text-blue-600"
-                    style={{ fontFamily: 'var(--font-body)' }}
-                  >Đăng nhập</button>
-                  <button onClick={() => openAuthModal('register')}
-                    className="text-xs md:text-sm font-bold px-3.5 py-1.5 rounded-lg border-none bg-blue-600 text-white transition-all whitespace-nowrap shrink-0 hover:bg-blue-700 shadow-sm"
-                    style={{ fontFamily: 'var(--font-body)' }}
-                  >Đăng ký</button>
+                  <button onClick={() => openAuthModal('login')} className="btn-secondary" style={{ minHeight: 44, padding: '0.375rem 1rem' }}>Đăng nhập</button>
+                  <button onClick={() => openAuthModal('register')} className="btn-primary" style={{ minHeight: 44, padding: '0.375rem 1rem' }}>Đăng ký</button>
                 </>
               )}
             </div>
 
+            {/* Mobile hamburger */}
+            <button
+              className="md:hidden flex items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors"
+              style={{ width: 44, height: 44, flexShrink: 0 }}
+              onClick={() => setMobileOpen(true)}
+              aria-label="Mở menu"
+              aria-expanded={mobileOpen}
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <line x1="3" y1="6" x2="17" y2="6"/>
+                <line x1="3" y1="10" x2="17" y2="10"/>
+                <line x1="3" y1="14" x2="17" y2="14"/>
+              </svg>
+            </button>
           </div>
         </div>
-
       </header>
+
+      {/* ── Mobile drawer overlay ─────────────────────────────────────────────── */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-[100] md:hidden"
+          style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(2px)' }}
+          onClick={closeMobile}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* ── Mobile drawer panel ───────────────────────────────────────────────── */}
+      <div
+        className="fixed top-0 left-0 bottom-0 z-[101] md:hidden flex flex-col bg-white"
+        style={{
+          width: 'min(320px, 85vw)',
+          transform: mobileOpen ? 'translateX(0)' : 'translateX(-100%)',
+          transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          boxShadow: mobileOpen ? '4px 0 24px rgba(15,23,42,0.15)' : 'none',
+          overflowY: 'auto',
+        }}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Menu điều hướng"
+      >
+        {/* Drawer header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100" style={{ minHeight: 64 }}>
+          <Link to="/" onClick={closeMobile} style={{ textDecoration: 'none' }} className="flex items-center gap-2">
+            <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#fff' }} />
+            </div>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 18, letterSpacing: '-0.02em', color: '#0B2345' }}>
+              IELTS<span style={{ color: '#2563EB', fontWeight: 500 }}>Pro</span>
+            </span>
+          </Link>
+          <button
+            onClick={closeMobile}
+            className="flex items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 transition-colors"
+            style={{ width: 44, height: 44 }}
+            aria-label="Đóng menu"
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M2 2l14 14M16 2L2 16"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Nav links */}
+        <nav className="flex flex-col gap-1 px-3 py-4">
+          <MobileNavLink to="/" active={location.pathname === '/'} onClick={closeMobile}>Trang chủ</MobileNavLink>
+          <MobileNavLink to="/full-test" active={location.pathname === '/full-test'} onClick={closeMobile}>Full Test</MobileNavLink>
+          <MobileNavLink to="/cambridge" active={location.pathname === '/cambridge'} onClick={closeMobile}>
+            <span className="ml-3 text-slate-500">Cambridge Academic</span>
+          </MobileNavLink>
+          <MobileNavLink to="/practice-plus" active={location.pathname === '/practice-plus'} onClick={closeMobile}>
+            <span className="ml-3 text-slate-500">Practice Test Plus</span>
+          </MobileNavLink>
+
+          <div className="my-1 border-t border-slate-100" />
+
+          <MobileNavLink to="/practice/reading" active={location.pathname.startsWith('/practice/reading')} onClick={closeMobile}>Reading</MobileNavLink>
+          <MobileNavLink to="/practice/listening" active={location.pathname.startsWith('/practice/listening')} onClick={closeMobile}>Listening</MobileNavLink>
+
+          <div className="my-1 border-t border-slate-100" />
+
+          <MobileNavLink to="/writing-samples" active={location.pathname.startsWith('/writing-samples')} onClick={closeMobile}>Bài mẫu Writing</MobileNavLink>
+          <MobileNavLink to="/speaking-samples" active={location.pathname.startsWith('/speaking-samples')} onClick={closeMobile}>Bài mẫu Speaking</MobileNavLink>
+        </nav>
+
+        {/* Auth section */}
+        <div className="mt-auto border-t border-slate-100 px-3 py-4 flex flex-col gap-2">
+          {isLoggedIn ? (
+            <>
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 mb-1">
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 15, flexShrink: 0 }}>
+                  {user.name?.charAt(0)?.toUpperCase() || 'U'}
+                </div>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', fontWeight: 600, color: '#0B2345' }} className="truncate">{user.name}</span>
+              </div>
+              <MobileNavLink to="/profile" active={location.pathname === '/profile'} onClick={closeMobile}>Tài khoản</MobileNavLink>
+              <MobileNavLink to="/progress" active={location.pathname === '/progress'} onClick={closeMobile}>Phân tích lỗi sai</MobileNavLink>
+              <button
+                onClick={() => { closeMobile(); setShowLogoutConfirm(true) }}
+                className="flex items-center w-full px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 transition-colors"
+                style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-base)', minHeight: 44, border: 'none', background: 'transparent', cursor: 'pointer' }}
+              >
+                Đăng xuất
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => { closeMobile(); openAuthModal('login') }} className="btn-secondary w-full">Đăng nhập</button>
+              <button onClick={() => { closeMobile(); openAuthModal('register') }} className="btn-primary w-full">Đăng ký</button>
+            </>
+          )}
+        </div>
+      </div>
 
       <LogoutConfirmModal open={showLogoutConfirm} onClose={() => setShowLogoutConfirm(false)}
         onConfirm={() => { setShowLogoutConfirm(false); handleLogout() }}
