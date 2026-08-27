@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { Bot } from 'lucide-react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import NavDropdown from './nav/NavDropdown'
@@ -190,11 +191,12 @@ export default function Navbar() {
               {isLoggedIn ? (
                 <>
                   <Link to="/progress"
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 transition-all whitespace-nowrap shrink-0 no-underline"
-                    style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', fontWeight: 600, minHeight: 44 }}
+                    className="flex items-center justify-center rounded-lg bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 transition-all shrink-0 no-underline"
+                    style={{ width: 36, height: 36 }}
+                    title="Phân tích lỗi sai"
+                    aria-label="Phân tích lỗi sai"
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                    Phân tích lỗi sai
+                    <Bot size={18} strokeWidth={1.8} />
                   </Link>
                   <div role="button" tabIndex={0} aria-label="Tài khoản" onClick={() => navigate('/profile')} onKeyDown={(e) => { if (e.key === 'Enter') navigate('/profile') }}
                     className="flex items-center gap-2 cursor-pointer px-2.5 py-1 rounded-full border border-slate-200 hover:border-blue-600 transition-colors whitespace-nowrap shrink-0"
