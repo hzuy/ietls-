@@ -30,7 +30,7 @@ export default function UserDetail() {
     </AdminLayout>
   )
 
-  if (!data) return <AdminLayout><div className="p-8 text-gray-400">Không tìm thấy người dùng.</div></AdminLayout>
+  if (!data) return <AdminLayout><div className="p-8 text-slate-400">Không tìm thấy người dùng.</div></AdminLayout>
 
   const { user, attempts, skillStats, totalAttempts, shownAttempts } = data
   const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
@@ -63,19 +63,19 @@ export default function UserDetail() {
   return (
     <AdminLayout>
       <div className="p-6 max-w-5xl mx-auto">
-        <button onClick={() => navigate('/admin/users')} className="text-sm text-gray-400 hover:text-gray-600 mb-4 flex items-center gap-1">
+        <button onClick={() => navigate('/admin/users')} className="text-sm text-slate-400 hover:text-slate-600 mb-4 flex items-center gap-1">
           ← Quay lại
         </button>
 
         {/* User info */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-4">
+        <div className="bg-white rounded-2xl border border-slate-100 p-6 mb-4">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-full bg-[#1D4ED8] text-white text-xl font-bold flex items-center justify-center">
               {user.name?.charAt(0)?.toUpperCase()}
             </div>
             <div>
-              <h1 className="text-lg font-bold text-gray-800">{user.name}</h1>
-              <p className="text-sm text-gray-400">{user.email}</p>
+              <h1 className="text-lg font-bold text-slate-800">{user.name}</h1>
+              <p className="text-sm text-slate-400">{user.email}</p>
               <div className="flex gap-2 mt-1">
                 <span className="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 font-medium capitalize">{user.role}</span>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${user.isLocked ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-700'}`}>
@@ -84,8 +84,8 @@ export default function UserDetail() {
               </div>
             </div>
             <div className="ml-auto text-right flex flex-col items-end gap-2">
-              <p className="text-xs text-gray-400">Ngày đăng ký</p>
-              <p className="text-sm font-medium text-gray-700">{new Date(user.createdAt).toLocaleDateString('vi-VN')}</p>
+              <p className="text-xs text-slate-400">Ngày đăng ký</p>
+              <p className="text-sm font-medium text-slate-700">{new Date(user.createdAt).toLocaleDateString('vi-VN')}</p>
               {/* BUG-07: Action buttons */}
               <div className="flex gap-2 mt-1">
                 <button onClick={handleToggleLock} disabled={togglingLock}
@@ -110,7 +110,7 @@ export default function UserDetail() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
           <div className="bg-blue-50 rounded-xl p-4">
             <div className="text-2xl font-bold text-[#1D4ED8]">{totalAttempts}</div>
-            <div className="text-xs text-gray-500 mt-0.5">Tổng lượt thi</div>
+            <div className="text-xs text-slate-500 mt-0.5">Tổng lượt thi</div>
           </div>
           {SKILL_ORDER.map(skill => {
             const score = skillStats[skill]
@@ -118,30 +118,30 @@ export default function UserDetail() {
             return (
               <div key={skill} className="rounded-xl p-4" style={{ backgroundColor: colors.bg }}>
                 <div className="text-2xl font-bold" style={{ color: colors.text }}>{score != null ? score.toFixed(1) : '—'}</div>
-                <div className="text-xs text-gray-500 mt-0.5">Band TB {SKILL_LABEL[skill]}</div>
+                <div className="text-xs text-slate-500 mt-0.5">Band TB {SKILL_LABEL[skill]}</div>
               </div>
             )
           })}
         </div>
 
         {/* Attempt history */}
-        <div className="bg-white rounded-2xl border border-gray-100">
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="font-semibold text-gray-800 text-sm">Lịch sử bài thi</h2>
+        <div className="bg-white rounded-2xl border border-slate-100">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h2 className="font-semibold text-slate-800 text-sm">Lịch sử bài thi</h2>
             {/* BUG-06: Show displayed vs total count */}
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-slate-400">
               {totalAttempts > (shownAttempts ?? attempts.length)
                 ? `Hiển thị ${shownAttempts ?? attempts.length} lượt thi gần nhất / tổng ${totalAttempts} lượt`
                 : `Tổng ${totalAttempts} lượt thi`}
             </span>
           </div>
           {attempts.length === 0 ? (
-            <p className="text-center text-gray-400 py-8 text-sm">Chưa có lượt thi nào</p>
+            <p className="text-center text-slate-400 py-8 text-sm">Chưa có lượt thi nào</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-xs text-gray-400 bg-gray-50 border-b border-gray-100">
+                  <tr className="text-xs text-slate-400 bg-slate-50 border-b border-slate-100">
                     <th className="px-5 py-3 text-left font-medium">Đề thi</th>
                     <th className="px-4 py-3 text-left font-medium">Kỹ năng</th>
                     <th className="px-4 py-3 text-left font-medium">Band</th>
@@ -150,8 +150,8 @@ export default function UserDetail() {
                 </thead>
                 <tbody>
                   {attempts.map((a, idx) => (
-                    <tr key={a.id} className={`border-b border-gray-50 hover:bg-gray-50 ${idx % 2 === 1 ? 'bg-gray-50/50' : ''}`}>
-                      <td className="px-5 py-3 text-gray-700">{a.exam?.title}</td>
+                    <tr key={a.id} className={`border-b border-slate-50 hover:bg-slate-50 ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
+                      <td className="px-5 py-3 text-slate-700">{a.exam?.title}</td>
                       <td className="px-4 py-3">
                         <span
                           className="px-2 py-0.5 rounded-full text-xs font-medium"
@@ -164,10 +164,10 @@ export default function UserDetail() {
                       </td>
                       <td className="px-4 py-3">
                         {a.score != null
-                          ? <span className={`font-bold ${a.score >= 7 ? 'text-green-600' : a.score >= 5 ? 'text-yellow-600' : 'text-red-500'}`}>{a.score.toFixed(1)}</span>
-                          : <span className="text-gray-300">—</span>}
+                          ? <span className={`font-bold ${a.score >= 7 ? 'text-emerald-600' : a.score >= 5 ? 'text-amber-600' : 'text-rose-500'}`}>{a.score.toFixed(1)}</span>
+                          : <span className="text-slate-300">—</span>}
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-400">{fmtDate(a.createdAt)}</td>
+                      <td className="px-4 py-3 text-xs text-slate-400">{fmtDate(a.createdAt)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -181,12 +181,12 @@ export default function UserDetail() {
       {confirmReset && (
         <div onClick={() => setConfirmReset(false)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
-            <h3 className="font-bold text-gray-800 mb-2">Reset mật khẩu</h3>
-            <p className="text-sm text-gray-600 mb-6">
+            <h3 className="font-bold text-slate-800 mb-2">Reset mật khẩu</h3>
+            <p className="text-sm text-slate-600 mb-6">
               Tạo mật khẩu ngẫu nhiên mới cho <strong>{user.name}</strong>? Mật khẩu cũ sẽ không còn hợp lệ.
             </p>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setConfirmReset(false)} className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">Huỷ</button>
+              <button onClick={() => setConfirmReset(false)} className="px-4 py-2 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50">Huỷ</button>
               <button onClick={handleResetPassword} className="px-4 py-2 rounded-xl bg-orange-500 text-white text-sm font-bold hover:bg-orange-600 transition">Reset</button>
             </div>
           </div>
@@ -197,9 +197,9 @@ export default function UserDetail() {
       {newPassword && (
         <div onClick={() => setNewPassword(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
-            <h3 className="font-bold text-gray-800 mb-2">Mật khẩu mới</h3>
-            <p className="text-sm text-gray-600 mb-3">Mật khẩu mới của <strong>{user.name}</strong>:</p>
-            <code className="block w-full text-center text-lg font-mono font-bold tracking-widest bg-gray-100 rounded-xl px-4 py-3 mb-3 text-gray-800 select-all">
+            <h3 className="font-bold text-slate-800 mb-2">Mật khẩu mới</h3>
+            <p className="text-sm text-slate-600 mb-3">Mật khẩu mới của <strong>{user.name}</strong>:</p>
+            <code className="block w-full text-center text-lg font-mono font-bold tracking-widest bg-slate-100 rounded-xl px-4 py-3 mb-3 text-slate-800 select-all">
               {newPassword}
             </code>
             <p className="text-xs text-orange-600 mb-5">Chỉ hiển thị 1 lần — hãy gửi cho user ngay</p>
@@ -214,10 +214,10 @@ export default function UserDetail() {
       {confirmDelete && (
         <div onClick={() => setConfirmDelete(false)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
-            <h3 className="font-bold text-gray-800 mb-2">Xác nhận xóa</h3>
-            <p className="text-sm text-gray-600 mb-6">Xóa người dùng <strong>{user.name}</strong>? Lịch sử thi sẽ được giữ lại (soft delete).</p>
+            <h3 className="font-bold text-slate-800 mb-2">Xác nhận xóa</h3>
+            <p className="text-sm text-slate-600 mb-6">Xóa người dùng <strong>{user.name}</strong>? Lịch sử thi sẽ được giữ lại (soft delete).</p>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setConfirmDelete(false)} className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">Huỷ</button>
+              <button onClick={() => setConfirmDelete(false)} className="px-4 py-2 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50">Huỷ</button>
               <button onClick={handleDelete} className="px-4 py-2 rounded-xl bg-red-500 text-white text-sm font-bold hover:bg-red-600 transition">Xóa</button>
             </div>
           </div>

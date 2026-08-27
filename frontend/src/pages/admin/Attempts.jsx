@@ -4,12 +4,11 @@ import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import { getAdminAttempts, getAdminAttemptsExport, getAdminExamSeriesForFilter } from '../../services/adminService'
 import AdminLayout from '../../components/AdminLayout'
-
+import { SkeletonTable } from '../../components/skeletons'
+import { ADMIN_SKILL_COLORS, SKILL_LABEL } from '../../utils/adminSkillColors'
 
 import { Download, RotateCcw, Eye, Search, Filter, Calendar, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
 import { useDebounce } from '../../hooks/useDebounce'
-
-const SKILL_LABEL = { reading: 'Reading', listening: 'Listening', writing: 'Writing', speaking: 'Speaking' }
 
 function getBandPill(score) {
   if (score == null) return <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">Đang chấm</span>
@@ -386,12 +385,11 @@ export default function Attempts() {
         </div>
 
         {/* Data Table Card */}
+        {loading ? (
+          <SkeletonTable rows={8} cols={7} />
+        ) : (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden w-full flex-1 shadow-xs">
-          {loading ? (
-            <div className="w-full flex-1 flex items-center justify-center py-16">
-              <div className="w-7 h-7 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : attempts.length === 0 ? (
+          {attempts.length === 0 ? (
             <p className="text-center text-slate-400 py-16 text-sm font-medium">Không có lượt thi nào khớp bộ lọc</p>
           ) : (
             <div className="overflow-x-auto">
@@ -416,7 +414,7 @@ export default function Attempts() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {displayedAttempts.map(a => (
-                    <tr key={a.id} className="hover:bg-slate-50/60 transition-colors">
+                    <tr key={a.id} className="odd:bg-slate-50/40 hover:bg-slate-50/60 transition-colors">
                       <td className="px-4 py-3.5 text-center w-10">
                         <input
                           type="checkbox"
@@ -430,7 +428,13 @@ export default function Attempts() {
                         <p className="text-xs text-slate-400">{a.user?.email}</p>
                       </td>
                       <td className="px-4 py-3.5">
-                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
+                        <span
+                          className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                          style={{
+                            backgroundColor: ADMIN_SKILL_COLORS[a.exam?.skill]?.bg,
+                            color: ADMIN_SKILL_COLORS[a.exam?.skill]?.text
+                          }}
+                        >
                           {SKILL_LABEL[a.exam?.skill]}
                         </span>
                       </td>
@@ -483,6 +487,7 @@ export default function Attempts() {
             </div>
           )}
         </div>
+        )}
       </div>
     </AdminLayout>
   )
