@@ -328,9 +328,7 @@ export default function Home() {
                     {/* Sphere */}
                     <circle cx="200" cy="200" r="38"
                       fill="url(#net-core-grad)" stroke="var(--net-core-border)" strokeWidth="1.5" />
-                    {/* BrainCircuit icon — 34×34, centered at (200,200)
-                        Wrapped in <g> rotating 20° CW around (200,200) to correct the icon's inherent leftward lean */}
-                    <g transform="rotate(20, 200, 200)">
+                    {/* BrainCircuit icon — 34×34, centered at (200,200); no rotation applied */}
                     <svg x="183" y="183" width="34" height="34" viewBox="0 0 24 24" fill="none"
                       stroke="var(--net-core-icon)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/>
@@ -347,7 +345,6 @@ export default function Home() {
                       <circle cx="20" cy="21" r=".5" fill="var(--net-core-icon)" stroke="none"/>
                       <circle cx="20" cy="8"  r=".5" fill="var(--net-core-icon)" stroke="none"/>
                     </svg>
-                    </g>
                   </g>
                 </svg>
               </div>
