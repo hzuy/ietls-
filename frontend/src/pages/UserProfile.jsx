@@ -110,7 +110,7 @@ export default function UserProfile() {
     <div className="min-h-screen bg-slate-50">
       <Navbar />
 
-      <div className="app-container section-py flex flex-col md:flex-row gap-8 items-start">
+      <div className="app-container pt-6 pb-16 flex flex-col md:flex-row gap-8 items-start">
 
         {/* Sidebar */}
         <div className="w-full md:w-64 shrink-0 flex flex-col gap-4">

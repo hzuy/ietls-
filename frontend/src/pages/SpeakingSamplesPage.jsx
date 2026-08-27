@@ -122,22 +122,12 @@ export default function SpeakingSamplesPage() {
     <div className="min-h-screen bg-slate-50">
       <Navbar />
 
-      {/* Hero Section */}
-      <div className="bg-white border-b border-slate-200">
-        <div className="app-container py-12">
-          <Breadcrumb items={[{ label: 'Trang chủ', to: '/' }, { label: 'Speaking Samples' }]} />
-          <div className="flex items-center gap-4 mt-6">
-            <div className="w-12 h-12 rounded-[14px] bg-slate-50 border border-slate-200 shadow-sm flex items-center justify-center text-2xl">🎤</div>
-            <div>
-              <h1 className="text-[24px] font-bold text-slate-900 m-0" style={{ fontFamily: 'var(--font-display)' }}>Speaking Sample Answers</h1>
-              <p className="text-[15px] text-slate-600 m-0 mt-1" style={{ fontFamily: 'var(--font-body)' }}>Bài mẫu Speaking Part 1, 2 & 3 chuẩn IELTS</p>
-            </div>
-          </div>
-        </div>
+      <div className="app-container pt-4 pb-0">
+        <Breadcrumb items={[{ label: 'Trang chủ', to: '/' }, { label: 'Speaking Samples' }]} />
       </div>
 
       {/* Body */}
-      <div className="app-container section-py flex gap-8 items-start">
+      <div className="app-container pt-4 pb-16 flex gap-8 items-start">
         {/* Sidebar */}
         <aside className="w-56 shrink-0 bg-white rounded-[24px] border border-slate-200 p-5 sticky top-24 shadow-sm">
           {/* Part filter */}

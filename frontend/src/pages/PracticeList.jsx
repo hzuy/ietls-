@@ -120,29 +120,13 @@ export default function PracticeList({ skill: skillKey }) {
     <div className="min-h-screen bg-slate-50">
       <Navbar />
 
-      {/* Header Area */}
-      <div className="bg-slate-50 border-b border-slate-200">
-        <div className="app-container py-12">
-          <Breadcrumb items={[{ label: 'Trang chủ', to: '/' }, { label: 'Practice' }, { label: meta?.label || 'Reading' }]} />
-          <div className="flex items-center gap-4 mb-2">
-            <div className="w-12 h-12 rounded-[14px] bg-slate-50 border border-slate-200 shadow-sm flex items-center justify-center text-2xl">
-              {meta.icon}
-            </div>
-            <div>
-              <h1 className="text-[24px] font-bold text-slate-900 m-0" style={{ fontFamily: 'var(--font-display)' }}>{meta.label}</h1>
-              <p className="text-slate-600 m-0 mt-1" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-base)' }}>{meta.sub}</p>
-            </div>
-          </div>
-          {!loading && (
-            <div className="inline-flex bg-slate-50 border border-slate-200 rounded-lg px-3 py-1 font-bold text-slate-700 mt-3 font-mono" style={{ fontSize: 'var(--fs-sm)' }}>
-              {exams.length} bài luyện tập
-            </div>
-          )}
-        </div>
+      {/* Breadcrumb */}
+      <div className="app-container pt-4 pb-0">
+        <Breadcrumb items={[{ label: 'Trang chủ', to: '/' }, { label: 'Practice' }, { label: meta?.label || 'Reading' }]} />
       </div>
 
       {/* Content */}
-      <div className="app-container section-py flex flex-col gap-12">
+      <div className="app-container pt-4 pb-16 flex flex-col gap-12">
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[0,1,2,3,4,5,6,7].map(i => <SkeletonCard key={i} />)}

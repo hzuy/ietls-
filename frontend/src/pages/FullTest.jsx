@@ -277,20 +277,11 @@ export default function FullTest() {
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-background)' }}>
       <Navbar />
 
-      <div style={{ background: '#0B2345' }}>
-        <div className="app-container py-12">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-            <div style={{ width: 56, height: 56, borderRadius: 'var(--radius-lg)', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>📚</div>
-            <div>
-              <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 30, fontWeight: 700, color: '#FFFFFF', margin: 0, letterSpacing: '-0.02em' }}>IELTS Full Test</h1>
-              <p style={{ fontFamily: 'var(--font-body)', color: '#94A3B8', marginTop: 4, fontWeight: 500 }}>Luyện tập trọn bộ 4 kỹ năng với kho đề thi chính thức</p>
-            </div>
-          </div>
-        </div>
+      <div className="app-container pt-4 pb-0">
+        <Breadcrumb items={[{ label: 'Trang chủ', to: '/' }, { label: 'IELTS Full Test' }]} />
       </div>
 
-      <div className="app-container section-py relative">
-        <Breadcrumb items={[{ label: 'Trang chủ', to: '/' }, { label: 'IELTS Full Test' }]} />
+      <div className="app-container pt-4 pb-16 relative">
         {fetchError ? (
           <div className="text-center py-20 px-6 bg-white rounded-[24px] border border-slate-200 shadow-sm flex flex-col items-center">
             <div className="w-16 h-16 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center mb-6 text-slate-400">
