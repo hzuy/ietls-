@@ -7,7 +7,7 @@ import AdminLayout from '../../components/AdminLayout'
 import { SkeletonTable } from '../../components/skeletons'
 import { ADMIN_SKILL_COLORS, SKILL_LABEL } from '../../utils/adminSkillColors'
 
-import { Download, RotateCcw, Eye, Search, Filter, Calendar, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
+import { Download, RotateCcw, Eye, Search, Calendar, ChevronLeft, ChevronRight, ChevronDown, ArrowUpDown } from 'lucide-react'
 import { useDebounce } from '../../hooks/useDebounce'
 
 function getBandPill(score) {
@@ -17,18 +17,21 @@ function getBandPill(score) {
   return <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 border border-rose-200">BAND {score.toFixed(1)}</span>
 }
 
-// Custom input cho DatePicker — Enterprise Console UI (h-10 equal height)
-const DatePickerInput = forwardRef(({ value, onClick, placeholder }, ref) => (
+// Custom input cho DatePicker — Enterprise Console UI (h-10 equal height).
+// `bare`: bỏ viền/nền riêng để 2 ô ngày nằm chung trong 1 cụm range-picker.
+const DatePickerInput = forwardRef(({ value, onClick, placeholder, bare = false }, ref) => (
   <button
     ref={ref}
     type="button"
     onClick={onClick}
-    className="w-full h-10 flex items-center justify-between gap-2 px-3 text-sm border border-slate-200 rounded-lg hover:border-blue-500 bg-white transition cursor-pointer"
+    className={bare
+      ? 'w-full h-full flex items-center justify-between gap-1.5 px-2.5 text-sm bg-transparent cursor-pointer'
+      : 'w-full h-10 flex items-center justify-between gap-2 px-3 text-sm border border-slate-200 rounded-lg hover:border-blue-500 bg-white transition cursor-pointer'}
   >
-    <span className={value ? 'text-slate-700 font-medium' : 'text-slate-400'}>
+    <span className={`truncate ${value ? 'text-slate-700 font-medium' : 'text-slate-400'}`}>
       {value || placeholder}
     </span>
-    <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+    <Calendar className={`${bare ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-slate-400 shrink-0`} />
   </button>
 ))
 DatePickerInput.displayName = 'DatePickerInput'
@@ -219,14 +222,29 @@ export default function Attempts() {
             </p>
           </div>
 
-          {/* Action Header */}
-          <div className="flex items-center gap-2">
+          {/* Action Header — Sắp xếp (đổi thứ tự hiển thị) + Download, tách khỏi vùng filter */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Sắp xếp — server-side, áp dụng trên toàn bộ kết quả */}
+            <div className="relative">
+              <ArrowUpDown className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <select
+                value={sortMode}
+                onChange={e => { setSortMode(e.target.value); setPage(1) }}
+                aria-label="Sắp xếp"
+                className="h-10 pl-9 pr-9 text-sm border border-slate-200 rounded-lg text-slate-700 bg-white appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
+              >
+                <option value="recent">Mới nhất</option>
+                <option value="band_desc">Band cao nhất</option>
+                <option value="band_asc">Band thấp nhất</option>
+              </select>
+              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
             <button
               type="button"
               onClick={handleExportExcel}
               disabled={exporting || selectedAttemptIds.length === 0}
               title={selectedAttemptIds.length === 0 ? 'Tích chọn ít nhất 1 bài thi để Download' : `Tải ${selectedAttemptIds.length} bài thi đã chọn`}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-700 text-sm font-normal transition shadow-xs ${
+              className={`flex items-center gap-2 px-4 h-10 rounded-lg border border-slate-200 bg-white text-slate-700 text-sm font-normal transition shadow-xs ${
                 selectedAttemptIds.length === 0 || exporting
                   ? 'opacity-50 cursor-not-allowed pointer-events-none'
                   : 'cursor-pointer hover:bg-slate-50 hover:border-slate-300'
@@ -244,61 +262,27 @@ export default function Attempts() {
           </div>
         </div>
 
-        {/* Filter Card — HÀNG 1: 3 cột (ngày + sắp xếp) · HÀNG 2: 4 cột (bộ lọc) */}
+        {/* Filter Card — DÒNG 1: lọc theo danh mục · DÒNG 2: lọc theo khoảng giá trị */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs mb-6 w-full">
-          {/* HÀNG 1 (Grid 3 cột bằng nhau) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
-            {/* Cột 1: Từ ngày */}
-            <div className="w-full">
-              <label className="text-xs font-medium text-slate-500 mb-1 block">Từ ngày</label>
-              <DatePicker
-                selected={dateFromObj}
-                onChange={handleDateFrom}
-                dateFormat="dd/MM/yyyy"
-                maxDate={today}
-                placeholderText="Chọn ngày"
-                wrapperClassName="w-full"
-                customInput={<DatePickerInput placeholder="Chọn ngày" />}
-              />
-            </div>
-
-            {/* Cột 2: Đến ngày */}
-            <div className="w-full">
-              <label className="text-xs font-medium text-slate-500 mb-1 block">Đến ngày</label>
-              <DatePicker
-                selected={dateToObj}
-                onChange={handleDateTo}
-                dateFormat="dd/MM/yyyy"
-                maxDate={today}
-                minDate={dateFromObj || undefined}
-                placeholderText="Chọn ngày"
-                wrapperClassName="w-full"
-                customInput={<DatePickerInput placeholder="Chọn ngày" />}
-              />
-            </div>
-
-            {/* Cột 3: Sắp xếp (server-side — áp dụng trên toàn bộ kết quả) */}
-            <div>
-              <label className="text-xs font-medium text-slate-500 mb-1 block">Sắp xếp</label>
-              <div className="relative w-full">
-                <select
-                  value={sortMode}
-                  onChange={e => { setSortMode(e.target.value); setPage(1) }}
-                  className="w-full h-10 pl-3 pr-9 text-sm border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition font-normal bg-white appearance-none cursor-pointer"
-                >
-                  <option value="recent">Mới nhất</option>
-                  <option value="band_desc">Band cao nhất</option>
-                  <option value="band_asc">Band thấp nhất</option>
-                </select>
-                <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          {/* DÒNG 1 — Lọc theo danh mục: Tìm kiếm (rộng nhất) + Kỹ năng + Bộ đề */}
+          <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-end">
+            {/* Tìm kiếm — chiếm phần lớn chiều rộng */}
+            <div className="flex-1 min-w-[220px]">
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Tìm kiếm</label>
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Tìm theo tên hoặc email học viên..."
+                  value={search}
+                  onChange={e => { setSearch(e.target.value); setPage(1) }}
+                  className="w-full h-10 pl-9 pr-3 text-sm border border-slate-200 rounded-lg text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
+                />
               </div>
             </div>
-          </div>
 
-          {/* HÀNG 2 (Grid 4 cột bằng nhau) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end mt-4">
-            {/* Cột 1: Kỹ năng */}
-            <div>
+            {/* Kỹ năng */}
+            <div className="w-full sm:w-44">
               <label className="text-xs font-medium text-slate-500 mb-1 block">Kỹ năng</label>
               <div className="relative w-full">
                 <select
@@ -313,8 +297,8 @@ export default function Attempts() {
               </div>
             </div>
 
-            {/* Cột 2: Bộ đề */}
-            <div>
+            {/* Bộ đề */}
+            <div className="w-full sm:w-48">
               <label className="text-xs font-medium text-slate-500 mb-1 block">Bộ đề</label>
               <div className="relative w-full">
                 <select
@@ -328,17 +312,47 @@ export default function Attempts() {
                 <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             </div>
+          </div>
 
-            {/* Cột 3: Thang Band */}
-            <div>
-              <label className="text-xs font-medium text-slate-500 mb-1 block">Thang Band</label>
-              <div className="flex items-center space-x-2 border border-slate-200 rounded-lg px-3 h-10 bg-white w-full">
+          {/* DÒNG 2 — Lọc theo khoảng giá trị: Khoảng ngày + Khoảng Band (cùng ngôn ngữ thị giác) */}
+          <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-end mt-4">
+            {/* Khoảng ngày — 2 ô liền kề, gạch nối "–" ở giữa */}
+            <div className="w-full sm:w-auto">
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Khoảng ngày</label>
+              <div className="flex items-center border border-slate-200 rounded-lg h-10 bg-white w-full sm:w-[300px] focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-600 transition">
+                <DatePicker
+                  selected={dateFromObj}
+                  onChange={handleDateFrom}
+                  dateFormat="dd/MM/yyyy"
+                  maxDate={today}
+                  placeholderText="Từ ngày"
+                  wrapperClassName="flex-1 min-w-0"
+                  customInput={<DatePickerInput placeholder="Từ ngày" bare />}
+                />
+                <span className="text-xs text-slate-400 shrink-0">–</span>
+                <DatePicker
+                  selected={dateToObj}
+                  onChange={handleDateTo}
+                  dateFormat="dd/MM/yyyy"
+                  maxDate={today}
+                  minDate={dateFromObj || undefined}
+                  placeholderText="Đến ngày"
+                  wrapperClassName="flex-1 min-w-0"
+                  customInput={<DatePickerInput placeholder="Đến ngày" bare />}
+                />
+              </div>
+            </div>
+
+            {/* Khoảng Band — cùng style với Khoảng ngày */}
+            <div className="w-full sm:w-auto">
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Khoảng Band</label>
+              <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 h-10 bg-white w-full sm:w-[200px] focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-600 transition">
                 <input
                   type="number" min="0" max="9" step="0.5" placeholder="Từ" value={scoreMin}
                   onChange={handleScoreMinChange} onBlur={handleScoreMinBlur}
                   className="w-full text-sm text-center font-normal text-slate-700 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
-                <span className="text-xs text-slate-400">—</span>
+                <span className="text-xs text-slate-400 shrink-0">–</span>
                 <input
                   type="number" min="0" max="9" step="0.5" placeholder="Đến" value={scoreMax}
                   onChange={handleScoreMaxChange} onBlur={handleScoreMaxBlur}
@@ -346,25 +360,10 @@ export default function Attempts() {
                 />
               </div>
             </div>
-
-            {/* Cột 4: Tìm kiếm */}
-            <div>
-              <label className="text-xs font-medium text-slate-500 mb-1 block">Tìm kiếm</label>
-              <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Tìm tên, email..."
-                  value={search}
-                  onChange={e => { setSearch(e.target.value); setPage(1) }}
-                  className="w-full h-10 pl-9 pr-3 text-sm border border-slate-200 rounded-lg text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
-                />
-              </div>
-            </div>
           </div>
 
-          {/* HÀNG NÚT BẤM (Góc dưới bên phải) */}
-          <div className="flex items-center justify-end gap-3 mt-4 pt-3 border-t border-slate-100">
+          {/* HÀNG NÚT BẤM — chỉ còn "Đặt lại" (filter tự áp dụng qua useEffect) */}
+          <div className="flex items-center justify-end mt-4 pt-3 border-t border-slate-100">
             <button
               type="button"
               onClick={reset}
@@ -372,14 +371,6 @@ export default function Attempts() {
             >
               <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
               <span>Đặt lại</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => fetchAttempts()}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-5 h-10 rounded-lg text-sm font-medium flex items-center gap-1.5 shadow-xs transition cursor-pointer"
-            >
-              <Filter className="w-4 h-4" />
-              <span>Lọc dữ liệu</span>
             </button>
           </div>
         </div>
