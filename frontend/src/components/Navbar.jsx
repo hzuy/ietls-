@@ -55,6 +55,7 @@ function MobileNavLink({ to, children, active, onClick }) {
   )
 }
 
+
 export default function Navbar() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -110,7 +111,7 @@ export default function Navbar() {
         </div>
       )}
 
-      <header className={`w-full sticky top-0 z-50 h-16 border-b border-slate-200 transition-all duration-300 ${scrolled ? 'bg-white/90 backdrop-blur-md shadow-[0_4px_12px_rgba(15,23,42,0.05)]' : 'bg-white'}`}>
+      <header className={`w-full sticky top-0 z-50 h-16 border-b transition-all duration-300 ${scrolled ? 'bg-white/90 backdrop-blur-md shadow-[0_4px_12px_rgba(15,23,42,0.05)]' : 'bg-white'}`}>
         <div className="app-container h-full flex items-center justify-between flex-nowrap gap-4">
 
           {/* Logo */}
@@ -118,7 +119,7 @@ export default function Navbar() {
             <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(37,99,235,0.3)', flexShrink: 0 }}>
               <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#fff' }} />
             </div>
-            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20, letterSpacing: '-0.02em', color: '#0B2345' }} className="whitespace-nowrap">
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20, letterSpacing: '-0.02em', color: 'var(--ink)' }} className="whitespace-nowrap">
               IELTS<span style={{ color: '#2563EB', fontWeight: 500 }}>Pro</span>
             </span>
           </Link>
@@ -219,8 +220,8 @@ export default function Navbar() {
 
             {/* Mobile hamburger */}
             <button
-              className="md:hidden flex items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors"
-              style={{ width: 44, height: 44, flexShrink: 0 }}
+              className="md:hidden flex items-center justify-center rounded-xl border transition-colors"
+              style={{ width: 44, height: 44, flexShrink: 0, borderColor: '#E2E8F0', background: '#fff', color: '#334155' }}
               onClick={() => setMobileOpen(true)}
               aria-label="Mở menu"
               aria-expanded={mobileOpen}
@@ -247,25 +248,26 @@ export default function Navbar() {
 
       {/* ── Mobile drawer panel ───────────────────────────────────────────────── */}
       <div
-        className="fixed top-0 left-0 bottom-0 z-[101] md:hidden flex flex-col bg-white"
+        className="fixed top-0 left-0 bottom-0 z-[101] md:hidden flex flex-col"
         style={{
           width: 'min(320px, 85vw)',
           transform: mobileOpen ? 'translateX(0)' : 'translateX(-100%)',
           transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          boxShadow: mobileOpen ? '4px 0 24px rgba(15,23,42,0.15)' : 'none',
+          boxShadow: mobileOpen ? '4px 0 24px rgba(15,23,42,0.2)' : 'none',
           overflowY: 'auto',
+          background: '#fff',
         }}
         role="dialog"
         aria-modal="true"
         aria-label="Menu điều hướng"
       >
         {/* Drawer header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100" style={{ minHeight: 64 }}>
+        <div className="flex items-center justify-between px-4 py-3 border-b" style={{ minHeight: 64, borderBottomColor: '#F1F5F9' }}>
           <Link to="/" onClick={closeMobile} style={{ textDecoration: 'none' }} className="flex items-center gap-2">
             <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#fff' }} />
             </div>
-            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 18, letterSpacing: '-0.02em', color: '#0B2345' }}>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 18, letterSpacing: '-0.02em', color: 'var(--ink)' }}>
               IELTS<span style={{ color: '#2563EB', fontWeight: 500 }}>Pro</span>
             </span>
           </Link>

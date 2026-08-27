@@ -85,6 +85,7 @@
   --radius-md:  0.75rem;   /* 12px */
   --radius-lg:  1.25rem;   /* 20px */
   --radius-xl:  1.5rem;    /* 24px */
+  --radius-pill: 9999px;   /* pill / full-round */
 
   /* Shadows */
   --shadow-xs:  0 1px 3px rgba(15,23,42,0.03);
@@ -93,6 +94,11 @@
   --shadow-lg:  0 12px 30px rgba(15,23,42,0.12);
 
   --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Easing tokens — from motion-craft.md */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo:  cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ─── Reset & Base ──────────────────────────────────────────────────────────── */
@@ -133,6 +139,8 @@ html { font-size: 100%; scroll-behavior: smooth; overflow-y: scroll; scrollbar-g
 body {
   font-family: var(--font-body);
   background-color: var(--bg);
+  background-image: linear-gradient(135deg, #EFF6FF 0%, #F9F5FF 50%, #FFF7ED 100%);
+  background-attachment: fixed;
   color: var(--text);
   font-size: var(--fs-base);
   font-weight: 400;
@@ -147,6 +155,7 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--ink);
   line-height: 1.2;
   font-weight: 700;
+  text-wrap: balance;
 }
 h1 { font-size: var(--fs-3xl); }
 h2 { font-size: var(--fs-2xl); }
@@ -174,6 +183,7 @@ a, select, label, input[type="checkbox"], input[type="radio"],
   border-radius: var(--radius-sm);
   padding: 0.125rem 0.5rem;
 }
+.badge-pill { border-radius: var(--radius-pill); }
 
 /* ─── Table ─────────────────────────────────────────────────────────────────── */
 table th { font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
@@ -208,6 +218,15 @@ aside nav a, aside nav button { font-size: var(--fs-base); font-weight: 500; }
 .delay-7 { animation-delay: 0.49s; }
 .delay-8 { animation-delay: 0.56s; }
 
+/* Fix: prefers-reduced-motion + animation-fill-mode:both = element stuck at opacity:0.
+   Reset animation entirely so elements render at their natural (fully visible) state. */
+@media (prefers-reduced-motion: reduce) {
+  .anim-fade-up,
+  .anim-fade-in {
+    animation: none;
+  }
+}
+
 /* ─── Skeleton shimmer ──────────────────────────────────────────────────────── */
 .skeleton {
   background: linear-gradient(90deg, var(--surface-raised) 25%, var(--border-soft) 50%, var(--surface-raised) 75%);
@@ -220,7 +239,7 @@ aside nav a, aside nav button { font-size: var(--fs-base); font-weight: 500; }
 .btn-primary {
   display: inline-flex; align-items: center; justify-content: center;
   min-height: 44px; padding: 0.625rem 1.5rem;
-  border-radius: var(--radius-md); border: none;
+  border-radius: var(--radius-pill); border: none;
   background: var(--primary); color: #fff;
   font-family: var(--font-body); font-size: var(--fs-sm); font-weight: 700;
   cursor: pointer; letter-spacing: 0.01em;
@@ -294,7 +313,7 @@ aside nav a, aside nav button { font-size: var(--fs-base); font-weight: 500; }
   min-height: 44px; padding: 0.625rem 1.5rem;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-pill);
   color: var(--text);
   font-family: var(--font-body); font-size: var(--fs-sm); font-weight: 600;
   cursor: pointer;
@@ -310,7 +329,7 @@ aside nav a, aside nav button { font-size: var(--fs-base); font-weight: 500; }
   display: inline-flex; align-items: center; justify-content: center;
   min-height: 44px; padding: 0.625rem 1rem;
   background: transparent; border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-pill);
   color: var(--muted);
   font-family: var(--font-body); font-size: var(--fs-sm); font-weight: 500;
   cursor: pointer;
@@ -325,7 +344,7 @@ aside nav a, aside nav button { font-size: var(--fs-base); font-weight: 500; }
   display: inline-flex; align-items: center; justify-content: center;
   min-height: 44px; padding: 0.625rem 1.5rem;
   background: var(--error); color: #fff;
-  border: none; border-radius: var(--radius-md);
+  border: none; border-radius: var(--radius-pill);
   font-family: var(--font-body); font-size: var(--fs-sm); font-weight: 700;
   cursor: pointer;
   transition: background var(--transition), box-shadow var(--transition);
@@ -396,6 +415,113 @@ button:disabled {
   background: var(--_skill-color, var(--primary));
   color: #fff;
 }
+
+/* ─── AI Neural Network Hero ────────────────────────────────────────────────── */
+
+/* ── Net color tokens — light mode defaults ── */
+:root {
+  --net-grad-0:      #ffffff;
+  --net-grad-50:     #dbeafe;
+  --net-grad-100:    #bfdbfe;
+  --net-core-border: rgba(37,99,235,0.28);
+  --net-core-glow:   rgba(59,130,246,0.28);
+  --net-core-icon:   #1d4ed8;
+  --net-node-bg:     rgba(255,255,255,0.95);
+  --net-node-border: rgba(37,99,235,0.22);
+  --net-node-icon:   #2563eb;
+  --net-line-stroke: rgba(37,99,235,0.20);
+  --net-line-dim:    rgba(37,99,235,0.09);
+  --net-dot-fill:    #3b82f6;
+  --net-dec-fill:    rgba(37,99,235,0.28);
+}
+
+
+/* ── Outer wrap — owns size and float anchor ── */
+.hero-net-wrap {
+  position: relative;
+  width: clamp(240px, 32vw, 420px);
+  height: clamp(240px, 32vw, 420px);
+  flex-shrink: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+.hero-net-svg { width: 100%; height: 100%; overflow: visible; }
+
+/* Orbit group — rotates constellation CW around SVG center (50%/50% of viewBox 0 0 400 400) */
+.net-orbit {
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+}
+
+/* Core group — scale-breathe around its own bounding-box center */
+.net-core-breathe {
+  transform-box: fill-box;
+  transform-origin: center center;
+}
+
+/* Icon counter-rotation — wraps each satellite icon, rotates opposite to .net-orbit
+   so the net rotation seen from outside is 0 (icon stays upright at all times).
+   transform-box: fill-box ensures the origin is the icon's own center, not SVG (200,200). */
+.net-icon-counter {
+  transform-box: fill-box;
+  transform-origin: center center;
+}
+
+/* Data-flow dots — hidden by default, shown only when motion is permitted */
+.net-flow-dot { visibility: hidden; }
+
+/* ── Animation keyframes ── */
+@keyframes orb-float {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-14px); }
+}
+
+@keyframes ring-spin-cw {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Exact inverse of ring-spin-cw — same duration cancels out orbit rotation */
+@keyframes ring-spin-ccw {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(-360deg); }
+}
+
+@keyframes net-breathe {
+  from { transform: scale(1);    }
+  to   { transform: scale(1.08); }
+}
+
+@keyframes net-glow-pulse {
+  from { opacity: 0.45; }
+  to   { opacity: 0.85; }
+}
+
+/* ── Motion — single unified block, no theme conditions ── */
+@media (prefers-reduced-motion: no-preference) {
+  .hero-net-wrap    { animation: orb-float 7s ease-in-out infinite alternate; }
+  .net-orbit        { animation: ring-spin-cw 30s linear infinite; }
+  /* Counter-rotate icons at exactly the same speed/easing — net rotation = 0 */
+  .net-icon-counter { animation: ring-spin-ccw 30s linear infinite; }
+  .net-core-breathe { animation: net-breathe 4s ease-in-out infinite alternate; }
+  .net-glow-halo    { animation: net-glow-pulse 3s ease-in-out infinite alternate; }
+  .net-flow-dot     { visibility: visible; }
+}
+
+/* Scattered dot pattern — position: absolute on any relative container */
+.bg-dots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(37,99,235,0.18) 1px, transparent 1px);
+  background-size: 28px 28px;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.22;
+}
+
+/* Legacy alias */
+.hero-dots { position: absolute; inset: 0; background-image: radial-gradient(circle, rgba(37,99,235,0.15) 1px, transparent 1px); background-size: 24px 24px; pointer-events: none; user-select: none; opacity: 0.35; }
 
 /* ─── Global Base UI Standardization (Subtle) ─────────────────────────────── */
 
@@ -488,3 +614,4 @@ input:focus, textarea:focus, select:focus {
   from { opacity: 0; transform: translateY(-6px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
