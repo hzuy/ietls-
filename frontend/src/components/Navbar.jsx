@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Bot } from 'lucide-react'
+import { Bot, User, LogOut } from 'lucide-react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import NavDropdown from './nav/NavDropdown'
@@ -69,8 +69,10 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [announcement] = useState(() => sessionStorage.getItem('__announcement__') || '')
   const [announcementDismissed, setAnnouncementDismissed] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
 
   const closeTimer = useRef(null)
+  const userMenuRef = useRef(null)
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
@@ -82,7 +84,25 @@ export default function Navbar() {
   useEffect(() => {
     setOpenDropdown(null)
     setMobileOpen(false)
+    setUserMenuOpen(false)
   }, [location.pathname])
+
+  /* Click-outside + Escape to close user menu */
+  useEffect(() => {
+    if (!userMenuOpen) return
+    const onMouseDown = (e) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setUserMenuOpen(false)
+      }
+    }
+    const onKeyDown = (e) => { if (e.key === 'Escape') setUserMenuOpen(false) }
+    document.addEventListener('mousedown', onMouseDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [userMenuOpen])
 
   /* Prevent body scroll when mobile menu is open */
   useEffect(() => {
@@ -190,6 +210,7 @@ export default function Navbar() {
             <div className="hidden md:flex items-center gap-2 flex-nowrap shrink-0">
               {isLoggedIn ? (
                 <>
+                  {/* Bot — progress link */}
                   <Link to="/progress"
                     className="flex items-center justify-center rounded-lg bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 transition-all shrink-0 no-underline"
                     style={{ width: 36, height: 36 }}
@@ -198,19 +219,74 @@ export default function Navbar() {
                   >
                     <Bot size={18} strokeWidth={1.8} />
                   </Link>
-                  <div role="button" tabIndex={0} aria-label="Tài khoản" onClick={() => navigate('/profile')} onKeyDown={(e) => { if (e.key === 'Enter') navigate('/profile') }}
-                    className="flex items-center gap-2 cursor-pointer px-2.5 py-1 rounded-full border border-slate-200 hover:border-blue-600 transition-colors whitespace-nowrap shrink-0"
-                    style={{ minHeight: 44 }}
-                  >
-                    <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
+
+                  {/* Avatar + dropdown */}
+                  <div ref={userMenuRef} className="relative shrink-0">
+                    <button
+                      onClick={() => setUserMenuOpen(o => !o)}
+                      aria-haspopup="true"
+                      aria-expanded={userMenuOpen}
+                      aria-label="Tài khoản"
+                      style={{
+                        width: 36, height: 36, borderRadius: '50%',
+                        background: '#2563EB', border: '2px solid transparent',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#fff', fontSize: 13, fontWeight: 700,
+                        cursor: 'pointer', flexShrink: 0, padding: 0,
+                        outline: 'none',
+                        boxShadow: userMenuOpen ? '0 0 0 2px #BFDBFE' : 'none',
+                        transition: 'box-shadow 0.2s ease',
+                      }}
+                    >
                       {user.name?.charAt(0)?.toUpperCase() || 'U'}
-                    </div>
-                    <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 600, color: '#0B2345', fontFamily: 'var(--font-body)' }} className="whitespace-nowrap max-w-[120px] truncate">{user.name}</span>
+                    </button>
+
+                    {userMenuOpen && (
+                      <div
+                        role="menu"
+                        style={{
+                          position: 'absolute', right: 0, top: 'calc(100% + 8px)',
+                          minWidth: 180,
+                          background: 'var(--surface)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 'var(--radius-md)',
+                          boxShadow: 'var(--shadow-md)',
+                          padding: '4px',
+                          zIndex: 200,
+                        }}
+                      >
+                        <Link
+                          to="/profile"
+                          role="menuitem"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="no-underline"
+                          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', fontWeight: 500, transition: 'background 0.15s ease', textDecoration: 'none' }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-raised)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <User size={15} strokeWidth={1.8} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+                          Thông tin cá nhân
+                        </Link>
+                        <div style={{ height: 1, background: 'var(--border-soft)', margin: '3px 8px' }} />
+                        <button
+                          role="menuitem"
+                          onClick={() => { setUserMenuOpen(false); setShowLogoutConfirm(true) }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                            padding: '8px 12px', borderRadius: 'var(--radius-sm)',
+                            background: 'transparent', border: 'none', cursor: 'pointer',
+                            color: '#DC2626', fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', fontWeight: 500,
+                            transition: 'background 0.15s ease', textAlign: 'left',
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#FEF2F2'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <LogOut size={15} strokeWidth={1.8} style={{ flexShrink: 0 }} />
+                          Đăng xuất
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <button onClick={() => setShowLogoutConfirm(true)}
-                    className="btn-ghost text-slate-600 hover:text-red-500"
-                    style={{ minHeight: 44 }}
-                  >Đăng xuất</button>
                 </>
               ) : (
                 <>
