@@ -2,7 +2,7 @@ import SkeletonBase from './SkeletonBase'
 
 /**
  * SkeletonTable — placeholder for multi-column data tables.
- * Used in: Attempts, Users, Staff, Accounts, Trash, SeriesManager (admin).
+ * Used in: Attempts, Users, Staff, Accounts, Trash (admin).
  *
  * Props:
  *   rows   {number}  Number of body rows. Default 8.

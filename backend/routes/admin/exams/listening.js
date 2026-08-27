@@ -4,7 +4,6 @@ const prisma = require('../../../lib/prisma')
 const authMiddleware = require('../../../middleware/auth')
 const validate = require('../../../middleware/validate')
 const { teacherOnly } = require('../../../lib/roles')
-const { syncSeriesExam } = require('../../../lib/syncHelpers')
 const { createListeningExamSchema } = require('../../../validators/adminExamValidator')
 
 // ─── CREATE LISTENING EXAM ───────────────────────────────────────────────────
@@ -226,7 +225,6 @@ router.post('/exams/listening', authMiddleware, teacherOnly, validate(createList
       }
     })
 
-    await syncSeriesExam(exam.id, seriesId, testNumber)
     res.status(201).json(exam)
   } catch (error) {
     console.error(error)

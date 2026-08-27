@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   Users,
   UserCheck,
-  FolderKanban,
   FileText,
   BookOpen,
   Headphones,
@@ -24,7 +23,6 @@ const NAV_ALL = [
   // Admin
   { to: '/admin/users',     label: 'Người dùng',       icon: Users,           roles: ['admin'] },
   { to: '/admin/accounts',  label: 'Quản lý nhân sự',  icon: UserCheck,       roles: ['admin'] },
-  { to: '/admin/series',    label: 'Quản lý bộ đề',    icon: FolderKanban,    roles: ['admin'] },
   // Staff / Teacher / Admin
   { to: '/admin/exams/cambridge',     label: 'Quản lý đề thi',    icon: FileText,   roles: ['admin', 'teacher'], isExam: true },
   { to: '/admin/reading-practice',   label: 'Reading Practice',  icon: BookOpen,   roles: ['teacher'] },

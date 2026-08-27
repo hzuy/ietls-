@@ -4,7 +4,6 @@ const prisma = require('../../../lib/prisma')
 const authMiddleware = require('../../../middleware/auth')
 const validate = require('../../../middleware/validate')
 const { teacherOnly } = require('../../../lib/roles')
-const { syncSeriesExam } = require('../../../lib/syncHelpers')
 const { createWritingExamSchema } = require('../../../validators/adminExamValidator')
 
 // ─── CREATE WRITING EXAM ─────────────────────────────────────────────────────
@@ -44,7 +43,6 @@ router.post('/exams/writing', authMiddleware, teacherOnly, validate(createWritin
       include: { writingTasks: true }
     })
 
-    await syncSeriesExam(exam.id, seriesId, testNumber)
     res.status(201).json(exam)
   } catch (error) {
     console.error(error)

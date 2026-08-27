@@ -39,7 +39,6 @@ const Analytics         = lazy(() => import('./pages/admin/Analytics'))
 const Accounts          = lazy(() => import('./pages/admin/Accounts'))
 const Settings          = lazy(() => import('./pages/admin/Settings'))
 const Staff             = lazy(() => import('./pages/admin/Staff'))
-const SeriesManager     = lazy(() => import('./pages/admin/SeriesManager'))
 const Profile           = lazy(() => import('./pages/admin/Profile'))
 const ReadingPractice   = lazy(() => import('./pages/admin/ReadingPractice'))
 const ListeningPractice = lazy(() => import('./pages/admin/ListeningPractice'))
@@ -170,7 +169,6 @@ export default function App() {
               <Route path="/admin/writing-samples"    element={<StaffRoute><WritingSamples /></StaffRoute>} />
               <Route path="/admin/speaking-samples"   element={<StaffRoute><SpeakingSamples /></StaffRoute>} />
               <Route path="/admin/trash"             element={<StaffRoute><Trash /></StaffRoute>} />
-              <Route path="/admin/series" element={<AdminRoute><SeriesManager /></AdminRoute>} />
 
               {/* 404 Route */}
               <Route path="*" element={<NotFound />} />

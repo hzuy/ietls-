@@ -4,7 +4,6 @@ const prisma = require('../../../lib/prisma')
 const authMiddleware = require('../../../middleware/auth')
 const validate = require('../../../middleware/validate')
 const { teacherOnly } = require('../../../lib/roles')
-const { syncSeriesExam } = require('../../../lib/syncHelpers')
 const { updateExamSchema } = require('../../../validators/adminExamValidator')
 
 // ─── GET EXAM COUNTS BY SKILL ───────────────────────────────────────────────
@@ -314,7 +313,6 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
         },
         include: { passages: { include: { questions: true, questionGroups: true } } }
       })
-      await syncSeriesExam(id, existing.seriesId, tn)
       return res.json(updated)
     }
 
@@ -438,7 +436,6 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
           }
         }
       })
-      await syncSeriesExam(id, existing.seriesId, tn)
       return res.json(updated)
     }
 
@@ -458,7 +455,6 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
         },
         include: { writingTasks: true }
       })
-      await syncSeriesExam(id, existing.seriesId, tn)
       return res.json(updated)
     }
 
@@ -492,7 +488,6 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
         },
         include: { speakingParts: { include: { questions: true } } }
       })
-      await syncSeriesExam(id, existing.seriesId, tn)
       return res.json(updated)
     }
 

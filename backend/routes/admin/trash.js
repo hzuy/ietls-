@@ -5,7 +5,7 @@ const authMiddleware = require('../../middleware/auth')
 const { teacherOrAdmin } = require('../../lib/roles')
 
 // Cascade-safe hard delete for Exam records
-// No-cascade FKs on Exam: Attempt.examId, SeriesExam.examId, WritingAnswer.taskId, SpeakingAnswer.partId
+// No-cascade FKs on Exam: Attempt.examId, WritingAnswer.taskId, SpeakingAnswer.partId
 async function hardDeleteExams(examIds) {
   if (!examIds.length) return
   const [taskIds, partIds] = await Promise.all([
@@ -14,34 +14,25 @@ async function hardDeleteExams(examIds) {
   ])
   await Promise.all([
     prisma.attempt.deleteMany({ where: { examId: { in: examIds } } }),
-    prisma.seriesExam.deleteMany({ where: { examId: { in: examIds } } }),
     taskIds.length ? prisma.writingAnswer.deleteMany({ where: { taskId: { in: taskIds } } }) : Promise.resolve(),
     partIds.length ? prisma.speakingAnswer.deleteMany({ where: { partId: { in: partIds } } }) : Promise.resolve(),
   ])
   await prisma.exam.deleteMany({ where: { id: { in: examIds } } })
 }
 
-// Cascade-safe hard delete for Series records (SeriesExam has no onDelete: Cascade)
-async function hardDeleteSeries(seriesIds) {
-  if (!seriesIds.length) return
-  await prisma.seriesExam.deleteMany({ where: { seriesId: { in: seriesIds } } })
-  await prisma.series.deleteMany({ where: { id: { in: seriesIds } } })
-}
-
 // ─── TRASH COUNT (lightweight — for sidebar badge) ───────────────────────────
 router.get('/trash/count', authMiddleware, teacherOrAdmin, async (req, res) => {
   try {
     const where = { deletedAt: { not: null } }
-    const [practices, writings, speakings, exams, examSeriesList, books, seriesList] = await Promise.all([
+    const [practices, writings, speakings, exams, examSeriesList, books] = await Promise.all([
       prisma.practiceExam.count({ where }),
       prisma.writingSample.count({ where }),
       prisma.speakingSample.count({ where }),
       prisma.exam.count({ where }),
       prisma.examSeries.count({ where }),
       prisma.bookCover.count({ where }),
-      prisma.series.count({ where }),
     ])
-    res.json({ count: practices + writings + speakings + exams + examSeriesList + books + seriesList })
+    res.json({ count: practices + writings + speakings + exams + examSeriesList + books })
   } catch (err) {
     res.status(500).json({ message: 'Lỗi server', error: err.message })
   }
@@ -66,10 +57,7 @@ router.get('/trash', authMiddleware, teacherOrAdmin, async (req, res) => {
           prisma.examSeries.deleteMany({ where: expiredWhere }),
           prisma.bookCover.deleteMany({ where: expiredWhere }),
         ])
-        const [expiredExams, expiredSeries] = await Promise.all([
-          prisma.exam.findMany({ where: expiredWhere, select: { id: true } }),
-          prisma.series.findMany({ where: expiredWhere, select: { id: true } }),
-        ])
+        const expiredExams = await prisma.exam.findMany({ where: expiredWhere, select: { id: true } })
         await hardDeleteExams(expiredExams.map(e => e.id))
       } catch (e) {
         console.error(`[${new Date().toISOString()}] [Trash] Tác vụ "Auto-delete trash sau 30 ngày" bị lỗi:`, e.message || e)
@@ -77,7 +65,7 @@ router.get('/trash', authMiddleware, teacherOrAdmin, async (req, res) => {
     })()
 
 
-    const [practices, writings, speakings, exams, examSeriesList, books, seriesList] = await Promise.all([
+    const [practices, writings, speakings, exams, examSeriesList, books] = await Promise.all([
       prisma.practiceExam.findMany({
         where: softWhere,
         select: { id: true, title: true, skill: true, thumbnailUrl: true, deletedAt: true },
@@ -114,12 +102,6 @@ router.get('/trash', authMiddleware, teacherOrAdmin, async (req, res) => {
         orderBy: { deletedAt: 'desc' },
         take, skip,
       }),
-      prisma.series.findMany({
-        where: softWhere,
-        select: { id: true, name: true, thumbnailUrl: true, deletedAt: true },
-        orderBy: { deletedAt: 'desc' },
-        take, skip,
-      }),
     ])
 
     // Enrich books with seriesName
@@ -140,7 +122,6 @@ router.get('/trash', authMiddleware, teacherOrAdmin, async (req, res) => {
       ...exams.map(r => ({ ...r, thumbnailUrl: r.coverImageUrl, type: `exam_${r.skill}` })),
       ...examSeriesList.map(r => ({ ...r, title: r.name, type: 'exam_series' })),
       ...books.map(r => ({ ...r, title: `Cuốn ${r.bookNumber} — ${seriesNameMap[r.seriesId] || 'Bộ đề'}`, thumbnailUrl: r.coverImageUrl, type: 'book' })),
-      ...seriesList.map(r => ({ ...r, title: r.name, type: 'series' })),
     ].sort((a, b) => new Date(b.deletedAt) - new Date(a.deletedAt))
 
     res.json({ items, page: parseInt(page), limit: take })
@@ -172,8 +153,6 @@ router.post('/trash/:type/:id/restore', authMiddleware, teacherOrAdmin, async (r
           prisma.exam.updateMany({ where: { seriesId: book.seriesId, bookNumber: book.bookNumber }, data: { deletedAt: null } }),
         ])
       }
-    } else if (type === 'series') {
-      await prisma.series.update({ where: { id: numId }, data: { deletedAt: null } })
     } else {
       return res.status(400).json({ message: 'Loại không hợp lệ' })
     }
@@ -193,12 +172,8 @@ router.delete('/trash/purge', authMiddleware, teacherOrAdmin, async (req, res) =
       prisma.examSeries.deleteMany({ where }),
       prisma.bookCover.deleteMany({ where }),
     ])
-    const [allExams, allSeries] = await Promise.all([
-      prisma.exam.findMany({ where, select: { id: true } }),
-      prisma.series.findMany({ where, select: { id: true } }),
-    ])
+    const allExams = await prisma.exam.findMany({ where, select: { id: true } })
     await hardDeleteExams(allExams.map(e => e.id))
-    await hardDeleteSeries(allSeries.map(s => s.id))
     res.json({ message: 'Đã dọn sạch thùng rác' })
   } catch (err) {
     res.status(500).json({ message: 'Lỗi dọn rác', error: err.message })
@@ -226,8 +201,6 @@ router.delete('/trash/:type/:id/permanent', authMiddleware, teacherOrAdmin, asyn
         await hardDeleteExams(bookExams.map(e => e.id))
         await prisma.bookCover.delete({ where: { id: numId } })
       }
-    } else if (type === 'series') {
-      await hardDeleteSeries([numId])
     } else {
       return res.status(400).json({ message: 'Loại không hợp lệ' })
     }

@@ -46,7 +46,6 @@ model Exam {
   writingTasks      WritingTask[]
   speakingParts     SpeakingPart[]
   attempts          Attempt[]
-  seriesExams       SeriesExam[]
 
   @@index([skill])
   @@index([seriesId, bookNumber, testNumber])
@@ -343,7 +342,6 @@ model ExamSeries {
   deletedAt  DateTime?
   bookCovers BookCover[]
   exams      Exam[]
-  mappings   SeriesMapping[]
 
   @@index([deletedAt])
 }
@@ -447,42 +445,3 @@ model MatchingOption {
   group QuestionGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
 }
 
-// ─── SERIES (new full-test series model) ──────────────────────────────────────
-model Series {
-  id           Int          @id @default(autoincrement())
-  name         String
-  description  String?
-  thumbnailUrl String?
-  type         String       @default("academic")
-  createdAt    DateTime     @default(now())
-  deletedAt    DateTime?
-  exams        SeriesExam[]
-  mappings     SeriesMapping[]
-
-  @@index([createdAt])
-  @@index([deletedAt])
-}
-
-model SeriesExam {
-  id         Int    @id @default(autoincrement())
-  seriesId   Int
-  examId     Int
-  testNumber Int
-  series     Series @relation(fields: [seriesId], references: [id])
-  exam       Exam   @relation(fields: [examId], references: [id])
-
-  @@index([seriesId])
-  @@index([examId])
-}
-
-model SeriesMapping {
-  id           Int        @id @default(autoincrement())
-  seriesId     Int
-  examSeriesId Int
-  createdAt    DateTime   @default(now())
-  series       Series     @relation(fields: [seriesId], references: [id], onDelete: Cascade)
-  examSeries   ExamSeries @relation(fields: [examSeriesId], references: [id], onDelete: Cascade)
-
-  @@index([seriesId])
-  @@index([examSeriesId])
-}

@@ -2,7 +2,7 @@ import SkeletonBase from './SkeletonBase'
 
 /**
  * SkeletonCard — placeholder for thumbnail + title + meta cards.
- * Used in: ExamList, SeriesManager, WritingSamples (admin), SpeakingSamples (admin).
+ * Used in: ExamList, WritingSamples (admin), SpeakingSamples (admin).
  *
  * Props:
  *   count      {number}  Number of skeleton cards to render. Default 5.

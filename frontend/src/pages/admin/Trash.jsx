@@ -15,7 +15,6 @@ const TYPE_LABEL = {
   exam_speaking:      'Speaking',
   exam_series:        'Bộ đề',
   book:               'Cuốn sách',
-  series:             'Full-test Series',
 }
 
 const TYPE_COLOR = {
@@ -29,7 +28,6 @@ const TYPE_COLOR = {
   exam_speaking:      'bg-amber-50 text-amber-600',
   exam_series:        'bg-gray-100 text-gray-700',
   book:               'bg-slate-50 text-slate-600',
-  series:             'bg-indigo-50 text-indigo-600',
 }
 
 const TABS = [
@@ -44,7 +42,6 @@ const TABS = [
   { key: 'exam_speaking',      label: 'Speaking' },
   { key: 'exam_series',        label: 'Bộ đề' },
   { key: 'book',               label: 'Cuốn sách' },
-  { key: 'series',             label: 'Full-test Series' },
 ]
 
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '')

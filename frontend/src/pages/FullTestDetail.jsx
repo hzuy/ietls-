@@ -3,7 +3,6 @@ import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 
 import { useAuth } from '../context/AuthContext'
-import { getSeriesProgress } from '../services/seriesService'
 import { checkDraft } from '../services/draftService'
 import { Headphones, BookOpen, PenTool, Mic } from 'lucide-react'
 
@@ -30,9 +29,7 @@ export default function FullTestDetail() {
   const [bookData, setBookData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState(false)
-  const [progress, setProgress] = useState({})
   const [modal, setModal] = useState(null)
-  const [leaderboard, setLeaderboard] = useState([])
   const [draftInfo, setDraftInfo] = useState({}) // { [testNumber-skill]: checkDraft result }
 
   useEffect(() => {
@@ -102,11 +99,6 @@ export default function FullTestDetail() {
     return [...filtered].sort(() => 0.5 - Math.random()).slice(0, 4)
   }, [allBooks, seriesId, bookNumber, bookData])
 
-  useEffect(() => {
-    if (!user || !seriesId) return
-    getSeriesProgress(seriesId).then(setProgress).catch(() => {})
-  }, [seriesId, user])
-
   // Load draft info for all skills in all tests (runs after bookData + user are ready)
   useEffect(() => {
     if (!user || !bookData?.tests) return
@@ -122,14 +114,6 @@ export default function FullTestDetail() {
     }
     setDraftInfo(info)
   }, [user, bookData])
-
-  useEffect(() => {
-    if (!seriesId) return
-    fetch(`${BACKEND_URL}/api/series/${seriesId}/leaderboard`)
-      .then(r => r.ok ? r.json() : [])
-      .then(setLeaderboard)
-      .catch(() => setLeaderboard([]))
-  }, [seriesId])
 
   const handleStart = (test) => {
     if (!user) { openAuthModal('login'); return }
@@ -212,36 +196,29 @@ export default function FullTestDetail() {
             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: '0 0 14px' }}>Chọn bài test</h2>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
               {bookData.tests.map(test => {
-                const prog = progress[test.testNumber] || {}
-                const doneCount = SKILL_ORDER.filter(s => prog[s]?.done).length
+                // TODO: hiển thị tiến độ hoàn thành từng kỹ năng — chờ redesign API progress sau khi bỏ model Series
                 const availCount = SKILL_ORDER.filter(s => test.exams[s]).length
-                const isComplete = doneCount > 0 && doneCount === availCount
-                const isStarted = doneCount > 0 && !isComplete
-                const pct = Math.round((doneCount / (availCount || 1)) * 100)
-
-                const statusBg = isComplete ? 'var(--skill-l-bg)' : isStarted ? 'var(--skill-w-bg)' : 'var(--skill-r-bg)'
-                const statusColor = isComplete ? 'var(--skill-l-color)' : isStarted ? 'var(--skill-w-color)' : 'var(--skill-r-color)'
+                const hasDraft = SKILL_ORDER.some(s => draftInfo[`${test.testNumber}-${s}`]?.hasDraft)
 
                 return (
                   <div key={test.testNumber} style={{ background: 'var(--surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', padding: 18, boxShadow: 'var(--shadow-xs)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                       <span style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{`Test ${test.testNumber}`}</span>
-                      <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 700, borderRadius: 'var(--radius-sm)', padding: '2px 8px', background: statusBg, color: statusColor }}>
-                        {isComplete ? 'Hoàn thành' : isStarted ? 'Đang làm' : 'Chưa làm'}
+                      <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 700, borderRadius: 'var(--radius-sm)', padding: '2px 8px', background: 'var(--skill-r-bg)', color: 'var(--skill-r-color)' }}>
+                        {`${availCount} kỹ năng`}
                       </span>
                     </div>
                     <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
                       {SKILL_ORDER.map(skill => {
                         const m = SKILL_META[skill]
                         const exam = test.exams[skill]
-                        const done = prog[skill]?.done
                         const SkillIcon = m.Icon
                         return (
                           <span key={skill} style={{
                             fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 700, borderRadius: 'var(--radius-sm)', padding: '3px 8px',
-                            background: done ? 'var(--skill-l-bg)' : exam ? `var(${m.bgVar})` : 'var(--surface-raised)',
-                            color: done ? 'var(--skill-l-color)' : exam ? `var(${m.colorVar})` : 'var(--subtle)',
-                            border: `1px solid ${done ? 'var(--skill-l-border)' : exam ? `var(${m.borderVar})` : 'var(--border-soft)'}`,
+                            background: exam ? `var(${m.bgVar})` : 'var(--surface-raised)',
+                            color: exam ? `var(${m.colorVar})` : 'var(--subtle)',
+                            border: `1px solid ${exam ? `var(${m.borderVar})` : 'var(--border-soft)'}`,
                             display: 'inline-flex', alignItems: 'center', gap: 4
                           }}>
                             <SkillIcon className="w-3.5 h-3.5 stroke-[1.75]" />
@@ -250,15 +227,12 @@ export default function FullTestDetail() {
                         )
                       })}
                     </div>
-                    <div style={{ height: 6, borderRadius: 4, background: 'var(--surface-raised)', overflow: 'hidden', marginBottom: 6 }}>
-                      <div style={{ height: '100%', background: isComplete ? 'var(--skill-l-color)' : 'var(--primary)', width: `${pct}%`, transition: 'width 0.6s ease' }} />
-                    </div>
                     {/* Draft indicator badges */}
-                    {SKILL_ORDER.some(s => draftInfo[`${test.testNumber}-${s}`]?.hasDraft && !prog[s]?.done) && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                    {hasDraft && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
                         {SKILL_ORDER.map(s => {
                           const dk = `${test.testNumber}-${s}`
-                          if (!draftInfo[dk]?.hasDraft || prog[s]?.done) return null
+                          if (!draftInfo[dk]?.hasDraft) return null
                           return (
                             <span key={s} style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600, background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 6, padding: '2px 8px' }}>
                               ● {SKILL_META[s].label} đang làm dở
@@ -271,7 +245,7 @@ export default function FullTestDetail() {
                       onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
                       onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
                     >
-                      {isStarted ? 'Tiếp tục →' : 'Bắt đầu →'}
+                      Bắt đầu →
                     </button>
                   </div>
                 )
@@ -281,20 +255,7 @@ export default function FullTestDetail() {
 
           {/* Sidebar */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* Leaderboard */}
-            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', padding: 18, boxShadow: 'var(--shadow-xs)' }}>
-              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, color: 'var(--ink)', margin: '0 0 14px' }}>🏆 Top điểm bộ đề này</h3>
-              {!leaderboard.length ? <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--subtle)', textAlign: 'center' }}>Chưa có ai luyện thi.</p> : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {leaderboard.map((entry, idx) => (
-                    <div key={entry.userId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 8px', borderRadius: 'var(--radius-sm)', background: idx === 0 ? 'var(--primary-light)' : 'var(--surface-raised)' }}>
-                      <span style={{ fontFamily: 'var(--font-body)', flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{entry.name}</span>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 800, color: 'var(--primary)' }}>{entry.score}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* TODO: leaderboard bộ đề đã gỡ cùng model Series — chờ redesign trên API mới */}
 
             {/* Suggestions */}
             <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', padding: 18, boxShadow: 'var(--shadow-xs)' }}>
@@ -332,43 +293,21 @@ export default function FullTestDetail() {
               {SKILL_ORDER.map(skill => {
                 const m = SKILL_META[skill]
                 const exam = modal.exams[skill]
-                const prog = progress[modal.testNumber]?.[skill]
+                const hasDraft = draftInfo[`${modal.testNumber}-${skill}`]?.hasDraft
                 return (
                   <div key={skill} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 14px', borderRadius: 'var(--radius-md)', border: `1px solid ${exam ? `var(${m.borderVar})` : 'var(--border)'}`, background: exam ? `var(${m.bgVar})` : 'var(--surface-raised)', opacity: exam ? 1 : 0.6 }}>
                     <span style={{ fontSize: 22 }}>{m.icon}</span>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 700, color: exam ? `var(${m.colorVar})` : 'var(--subtle)' }}>{m.label}</span>
-                        {prog?.done && <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, color: 'var(--skill-l-color)' }}>✓ Đã làm</span>}
-                        {!prog?.done && draftInfo[`${modal.testNumber}-${skill}`]?.hasDraft && (
+                        {hasDraft && (
                           <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, color: '#f59e0b' }}>● Đang làm dở</span>
                         )}
                       </div>
                       <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--muted)', margin: 0 }}>{m.desc}</p>
                     </div>
                     {exam && (
-                      prog?.done ? (
-                        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                          <button
-                            className="btn-outline-blue"
-                            onClick={() => {
-                              // Both reading and listening now use dedicated result pages
-                              const skillPath = skill === 'listening' ? 'listening' : skill === 'reading' ? 'reading' : null
-                              if (skillPath) {
-                                navigate(`/${skillPath}/${exam.id}/result`)
-                              } else {
-                                navigate(`${m.path}/${exam.id}?viewResult=true`)
-                              }
-                            }}
-                          >Xem kết quả</button>
-                          <button
-                            onClick={() => navigate(`${m.path}/${exam.id}`)}
-                            style={{ padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                            onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
-                          >Làm lại</button>
-                        </div>
-                      ) : draftInfo[`${modal.testNumber}-${skill}`]?.hasDraft ? (
+                      hasDraft ? (
                         <button
                           onClick={() => navigate(`${m.path}/${exam.id}?resume=true`)}
                           style={{ padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: 'none', background: '#f59e0b', color: '#fff', fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
@@ -389,22 +328,6 @@ export default function FullTestDetail() {
           </div>
         </div>
       )}
-
-      <style dangerouslySetInnerHTML={{ __html: `
-        .btn-outline-blue {
-          padding: 7px 14px;
-          border: 1.5px solid #4D8EFF;
-          color: #4D8EFF;
-          background: #fff;
-          border-radius: var(--radius-sm);
-          font-size: 12px;
-          font-weight: 700;
-          cursor: pointer;
-          transition: background 0.15s;
-          font-family: var(--font-body);
-        }
-        .btn-outline-blue:hover { background: #f0f6ff; }
-      `}} />
     </div>
   )
 }
