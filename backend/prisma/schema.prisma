@@ -163,6 +163,7 @@ model Attempt {
   @@index([finishedAt])
   @@index([createdAt])
   @@index([finishedAt, createdAt])
+  @@index([score])
   @@index([userId, score])
   @@index([examId, score])
 }

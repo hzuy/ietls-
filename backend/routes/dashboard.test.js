@@ -80,4 +80,37 @@ describe('Dashboard Router & Optimizations', () => {
     expect(res.body).toHaveProperty('message')
     expect(res.body.message).toBe('Dữ liệu không hợp lệ')
   })
+
+  it('POST /api/admin/attempts/export rejects empty attemptIds with 400', async () => {
+    const res = await request(app)
+      .post('/api/admin/attempts/export')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send({ attemptIds: [] })
+      .expect(400)
+
+    expect(res.body.message).toMatch(/chọn ít nhất 1 lượt thi/i)
+  })
+
+  it('POST /api/admin/attempts/export rejects more than 1000 attemptIds with 400', async () => {
+    const res = await request(app)
+      .post('/api/admin/attempts/export')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send({ attemptIds: Array.from({ length: 1001 }, (_, i) => i + 1) })
+      .expect(400)
+
+    expect(res.body.message).toMatch(/tối đa 1000/i)
+  })
+
+  it('POST /api/admin/attempts/export streams an xlsx for a valid selection', async () => {
+    const res = await request(app)
+      .post('/api/admin/attempts/export')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send({ attemptIds: [1, 2, 3] })
+      .expect(200)
+
+    expect(res.headers['content-type']).toContain('spreadsheetml')
+    expect(prismaMock.attempt.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ id: { in: [1, 2, 3] } }) })
+    )
+  })
 })

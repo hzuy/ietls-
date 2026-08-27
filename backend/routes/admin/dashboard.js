@@ -308,7 +308,7 @@ router.get('/attempts', authMiddleware, teacherOnly, validate(attemptsQuerySchem
     }
 
     const orderBy = sortBy === 'score'
-      ? { score: sortOrder === 'asc' ? 'asc' : 'desc' }
+      ? { score: { sort: sortOrder === 'asc' ? 'asc' : 'desc', nulls: 'last' } }
       : { createdAt: 'desc' }
 
     const [attempts, total] = await Promise.all([
@@ -330,73 +330,29 @@ router.get('/attempts', authMiddleware, teacherOnly, validate(attemptsQuerySchem
   }
 })
 
-// ─── ATTEMPTS EXPORT ─────────────────────────────────────────────────────────
-router.get('/attempts/export', authMiddleware, teacherOnly, validate(attemptsQuerySchema, 'query'), async (req, res) => {
+// ─── ATTEMPTS EXPORT (theo các lượt thi đã tick chọn ở frontend) ──────────────
+const EXPORT_MAX_IDS = 1000
+
+router.post('/attempts/export', authMiddleware, teacherOnly, async (req, res) => {
   try {
-    const { search = '', skill = '', dateFrom, dateTo, seriesId, scoreMin, scoreMax } = req.query
+    const rawIds = Array.isArray(req.body?.attemptIds) ? req.body.attemptIds : []
+    const attemptIds = [...new Set(
+      rawIds
+        .map(v => Number(v))
+        .filter(n => Number.isInteger(n) && n > 0)
+    )]
 
-    if (!dateFrom || !dateTo) {
-      return res.status(400).json({ message: 'Vui lòng chọn khoảng thời gian trước khi xuất dữ liệu' })
+    if (attemptIds.length === 0) {
+      return res.status(400).json({ message: 'Vui lòng chọn ít nhất 1 lượt thi để xuất dữ liệu' })
+    }
+    if (attemptIds.length > EXPORT_MAX_IDS) {
+      return res.status(400).json({ message: `Chỉ được xuất tối đa ${EXPORT_MAX_IDS} lượt thi mỗi lần. Vui lòng bỏ bớt lựa chọn.` })
     }
 
-    const startFrom = new Date(dateFrom)
-    startFrom.setHours(0, 0, 0, 0)
-
-    const endTo = new Date(dateTo)
-    endTo.setHours(23, 59, 59, 999)
-
-    if (isNaN(startFrom.getTime()) || isNaN(endTo.getTime())) {
-      return res.status(400).json({ message: 'Khoảng thời gian không hợp lệ' })
-    }
-
-    if (startFrom > endTo) {
-      return res.status(400).json({ message: 'Thời gian bắt đầu không được lớn hơn thời gian kết thúc' })
-    }
-
-    const diffMs = endTo.getTime() - startFrom.getTime()
-    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
-    if (diffDays > 90) {
-      return res.status(400).json({ message: 'Khoảng thời gian xuất dữ liệu tối đa là 90 ngày. Vui lòng thu hẹp khoảng thời gian.' })
-    }
-
-    const where = {
-      finishedAt: { not: null },
-      createdAt: {
-        gte: startFrom,
-        lte: endTo
-      }
-    }
-
-    if (scoreMin !== undefined && scoreMin !== '') {
-      const minVal = parseFloat(scoreMin)
-      if (!isNaN(minVal) && minVal >= 0 && minVal <= 9) {
-        where.score = { ...where.score, gte: Math.round(minVal * 2) / 2 }
-      }
-    }
-    if (scoreMax !== undefined && scoreMax !== '') {
-      const maxVal = parseFloat(scoreMax)
-      if (!isNaN(maxVal) && maxVal >= 0 && maxVal <= 9) {
-        where.score = { ...where.score, lte: Math.round(maxVal * 2) / 2 }
-      }
-    }
-
-    if (skill || seriesId) {
-      where.exam = {}
-      if (skill) where.exam.skill = skill
-      if (seriesId) where.exam.seriesId = parseInt(seriesId)
-    }
-
-    if (search) {
-      where.user = {
-        OR: [
-          { name: { contains: search, mode: 'insensitive' } },
-          { email: { contains: search, mode: 'insensitive' } }
-        ]
-      }
-    }
+    const where = { finishedAt: { not: null }, id: { in: attemptIds } }
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    res.setHeader('Content-Disposition', `attachment; filename="attempts-${dateFrom}-to-${dateTo}.xlsx"`)
+    res.setHeader('Content-Disposition', `attachment; filename="attempts-selected-${attemptIds.length}.xlsx"`)
 
     const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
       stream: res,

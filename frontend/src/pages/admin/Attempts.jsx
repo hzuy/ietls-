@@ -44,7 +44,7 @@ export default function Attempts() {
   const [skill, setSkill] = useState('')
   const [scoreMin, setScoreMin] = useState('')
   const [scoreMax, setScoreMax] = useState('')
-  const [bandSort, setBandSort] = useState('') // 'asc' | 'desc' | '' — client-side only
+  const [sortMode, setSortMode] = useState('recent') // 'recent' | 'band_desc' | 'band_asc' — server-side
   const [statusFilter, setStatusFilter] = useState('') // '' | 'scored' | 'pending'
   const [selectedAttemptIds, setSelectedAttemptIds] = useState([])
   const [dateFrom, setDateFrom] = useState('')
@@ -96,7 +96,10 @@ export default function Attempts() {
   const fetchAttempts = useCallback(() => {
     setLoading(true)
     const params = { page, limit: 20, search: debouncedSearch, skill, seriesId }
-    
+
+    if (sortMode === 'band_desc') { params.sortBy = 'score'; params.sortOrder = 'desc' }
+    else if (sortMode === 'band_asc') { params.sortBy = 'score'; params.sortOrder = 'asc' }
+
     // Chỉ gửi minBand/maxBand lên API khi giá trị hợp lệ theo thang 0.0 - 9.0 (bội số 0.5)
     const validMin = scoreMin !== '' && !isNaN(parseFloat(scoreMin)) && parseFloat(scoreMin) >= 0 && parseFloat(scoreMin) <= 9 ? (Math.round(parseFloat(scoreMin) * 2) / 2) : undefined
     const validMax = scoreMax !== '' && !isNaN(parseFloat(scoreMax)) && parseFloat(scoreMax) >= 0 && parseFloat(scoreMax) <= 9 ? (Math.round(parseFloat(scoreMax) * 2) / 2) : undefined
@@ -109,11 +112,11 @@ export default function Attempts() {
       .then(data => { setAttempts(data.attempts); setTotal(data.total); setPages(data.pages) })
       .catch(err => { if (err.response?.status === 403) navigate('/') })
       .finally(() => setLoading(false))
-  }, [debouncedSearch, skill, scoreMin, scoreMax, dateFrom, dateTo, seriesId, page])
+  }, [debouncedSearch, skill, scoreMin, scoreMax, dateFrom, dateTo, seriesId, sortMode, page])
 
   useEffect(() => { fetchAttempts() }, [fetchAttempts])
 
-  const reset = () => { setSearch(''); setSkill(''); setScoreMin(''); setScoreMax(''); setBandSort(''); setStatusFilter(''); setDateFrom(''); setDateTo(''); setSeriesId(''); setSelectedAttemptIds([]); setPage(1) }
+  const reset = () => { setSearch(''); setSkill(''); setScoreMin(''); setScoreMax(''); setSortMode('recent'); setStatusFilter(''); setDateFrom(''); setDateTo(''); setSeriesId(''); setSelectedAttemptIds([]); setPage(1) }
 
   const filteredAttempts = attempts.filter(a => {
     if (statusFilter === 'scored') return a.score != null
@@ -121,13 +124,8 @@ export default function Attempts() {
     return true
   })
 
-  const displayedAttempts = bandSort
-    ? [...filteredAttempts].sort((a, b) => {
-        const sa = a.score ?? -1
-        const sb = b.score ?? -1
-        return bandSort === 'desc' ? sb - sa : sa - sb
-      })
-    : filteredAttempts
+  // Sắp xếp do server đảm nhiệm (sortMode → sortBy/sortOrder); FE chỉ giữ lọc trạng thái chấm
+  const displayedAttempts = filteredAttempts
 
   // Checkbox selection logic
   const isAllSelected = displayedAttempts.length > 0 && displayedAttempts.every(a => selectedAttemptIds.includes(a.id))
@@ -247,10 +245,10 @@ export default function Attempts() {
           </div>
         </div>
 
-        {/* Filter Card — Symmetrical 4-Column x 2-Row Grid */}
+        {/* Filter Card — HÀNG 1: 3 cột (ngày + sắp xếp) · HÀNG 2: 4 cột (bộ lọc) */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs mb-6 w-full">
-          {/* HÀNG 1 (Grid 4 cột bằng nhau) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+          {/* HÀNG 1 (Grid 3 cột bằng nhau) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
             {/* Cột 1: Từ ngày */}
             <div className="w-full">
               <label className="text-xs font-medium text-slate-500 mb-1 block">Từ ngày</label>
@@ -280,36 +278,21 @@ export default function Attempts() {
               />
             </div>
 
-            {/* Cột 3: Band cao nhất */}
+            {/* Cột 3: Sắp xếp (server-side — áp dụng trên toàn bộ kết quả) */}
             <div>
               <label className="text-xs font-medium text-slate-500 mb-1 block">Sắp xếp</label>
-              <button
-                type="button"
-                onClick={() => setBandSort(s => s === 'desc' ? '' : 'desc')}
-                className={`w-full h-10 px-3 text-sm rounded-lg border font-normal transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                  bandSort === 'desc'
-                    ? 'bg-blue-50 text-blue-700 border-blue-200 shadow-xs'
-                    : 'border-slate-200 text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                <span>↑ Band cao nhất</span>
-              </button>
-            </div>
-
-            {/* Cột 4: Band thấp nhất */}
-            <div>
-              <label className="text-xs font-medium text-slate-500 mb-1 block">Sắp xếp</label>
-              <button
-                type="button"
-                onClick={() => setBandSort(s => s === 'asc' ? '' : 'asc')}
-                className={`w-full h-10 px-3 text-sm rounded-lg border font-normal transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                  bandSort === 'asc'
-                    ? 'bg-blue-50 text-blue-700 border-blue-200 shadow-xs'
-                    : 'border-slate-200 text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                <span>↓ Band thấp nhất</span>
-              </button>
+              <div className="relative w-full">
+                <select
+                  value={sortMode}
+                  onChange={e => { setSortMode(e.target.value); setPage(1) }}
+                  className="w-full h-10 pl-3 pr-9 text-sm border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition font-normal bg-white appearance-none cursor-pointer"
+                >
+                  <option value="recent">Mới nhất</option>
+                  <option value="band_desc">Band cao nhất</option>
+                  <option value="band_asc">Band thấp nhất</option>
+                </select>
+                <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
             </div>
           </div>
 

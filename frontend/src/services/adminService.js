@@ -61,7 +61,7 @@ export const updateAdminSettings = (settings) =>
 
 // ─── Attempts ────────────────────────────────────────────────────────────────
 export const getAdminAttempts = (params) => api.get('/admin/attempts', { params }).then(r => r.data)
-export const getAdminAttemptsExport = (params) => api.get('/admin/attempts/export', { params, responseType: 'blob' })
+export const getAdminAttemptsExport = (body) => api.post('/admin/attempts/export', body, { responseType: 'blob' })
 export const getAdminExamSeriesForFilter = () => api.get('/admin/exam-series').then(r => r.data)
 
 
