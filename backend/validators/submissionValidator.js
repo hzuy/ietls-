@@ -33,10 +33,23 @@ const transcribeSchema = z.object({
   prompt: z.string().optional(),
 })
 
-// 6. Attempts Query Filter Schema (Band score & Pagination validation)
+// 6. Attempts Query Filter Schema (dùng cho GET /api/admin/attempts)
+// Query string luôn là chuỗi; các ô filter rỗng ở frontend gửi lên "" —
+// preprocess đưa "" về undefined để .optional()/.default() hoạt động đúng.
+const emptyToUndefined = (v) => (v === '' || v === null || v === undefined ? undefined : v)
+
 const attemptsQuerySchema = z.object({
-  scoreMin: z.coerce.number({ message: 'scoreMin phải là số' }).min(0, 'Band tối thiểu là 0.0').max(9, 'Band tối đa là 9.0').optional(),
-  scoreMax: z.coerce.number({ message: 'scoreMax phải là số' }).min(0, 'Band tối thiểu là 0.0').max(9, 'Band tối đa là 9.0').optional(),
+  search: z.string().optional().default(''),
+  skill: z.preprocess(emptyToUndefined, z.enum(['reading', 'listening', 'writing', 'speaking']).optional()),
+  seriesId: z.preprocess(emptyToUndefined, z.coerce.number({ message: 'seriesId phải là số' }).int().positive().optional()),
+  dateFrom: z.preprocess(emptyToUndefined, z.string().optional()),
+  dateTo: z.preprocess(emptyToUndefined, z.string().optional()),
+  scoreMin: z.preprocess(emptyToUndefined, z.coerce.number({ message: 'scoreMin phải là số' }).min(0, 'Band tối thiểu là 0.0').max(9, 'Band tối đa là 9.0').optional()),
+  scoreMax: z.preprocess(emptyToUndefined, z.coerce.number({ message: 'scoreMax phải là số' }).min(0, 'Band tối thiểu là 0.0').max(9, 'Band tối đa là 9.0').optional()),
+  sortBy: z.preprocess(emptyToUndefined, z.enum(['date', 'score']).optional().default('date')),
+  sortOrder: z.preprocess(emptyToUndefined, z.enum(['asc', 'desc']).optional().default('desc')),
+  page: z.preprocess(emptyToUndefined, z.coerce.number({ message: 'page phải là số' }).int().positive().optional().default(1)),
+  limit: z.preprocess(emptyToUndefined, z.coerce.number({ message: 'limit phải là số' }).int().positive().max(100).optional().default(20)),
 })
 
 module.exports = {

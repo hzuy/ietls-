@@ -264,28 +264,24 @@ router.get('/dashboard', authMiddleware, teacherOrAdmin, async (req, res) => {
 // ─── ATTEMPTS ────────────────────────────────────────────────────────────────
 router.get('/attempts', authMiddleware, teacherOnly, validate(attemptsQuerySchema, 'query'), async (req, res) => {
   try {
-    const { search = '', skill = '', dateFrom, dateTo, seriesId, scoreMin, scoreMax, sortBy = 'date', sortOrder = 'desc', page = 1, limit = 20 } = req.query
-    const skip = (parseInt(page) - 1) * parseInt(limit)
+    // req.validatedQuery — dữ liệu đã được validate + coerce bởi attemptsQuerySchema
+    // (Express 5 không cho gán đè req.query, xem middleware/validate.js)
+    const { search, skill, dateFrom, dateTo, seriesId, scoreMin, scoreMax, sortBy, sortOrder, page, limit } = req.validatedQuery
+    const skip = (page - 1) * limit
 
     const where = { finishedAt: { not: null } }
 
-    if (scoreMin !== undefined && scoreMin !== '') {
-      const minVal = parseFloat(scoreMin)
-      if (!isNaN(minVal) && minVal >= 0 && minVal <= 9) {
-        where.score = { ...where.score, gte: Math.round(minVal * 2) / 2 }
-      }
+    if (scoreMin !== undefined) {
+      where.score = { ...where.score, gte: Math.round(scoreMin * 2) / 2 }
     }
-    if (scoreMax !== undefined && scoreMax !== '') {
-      const maxVal = parseFloat(scoreMax)
-      if (!isNaN(maxVal) && maxVal >= 0 && maxVal <= 9) {
-        where.score = { ...where.score, lte: Math.round(maxVal * 2) / 2 }
-      }
+    if (scoreMax !== undefined) {
+      where.score = { ...where.score, lte: Math.round(scoreMax * 2) / 2 }
     }
 
     if (skill || seriesId) {
       where.exam = {}
       if (skill) where.exam.skill = skill
-      if (seriesId) where.exam.seriesId = parseInt(seriesId)
+      if (seriesId) where.exam.seriesId = seriesId
     }
 
     if (search) {
@@ -314,7 +310,7 @@ router.get('/attempts', authMiddleware, teacherOnly, validate(attemptsQuerySchem
     const [attempts, total] = await Promise.all([
       prisma.attempt.findMany({
         where,
-        skip, take: parseInt(limit),
+        skip, take: limit,
         orderBy,
         include: {
           user: { select: { id: true, name: true, email: true } },
@@ -324,7 +320,7 @@ router.get('/attempts', authMiddleware, teacherOnly, validate(attemptsQuerySchem
       prisma.attempt.count({ where })
     ])
 
-    res.json({ attempts, total, page: parseInt(page), pages: Math.ceil(total / parseInt(limit)) })
+    res.json({ attempts, total, page, pages: Math.ceil(total / limit) })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
   }

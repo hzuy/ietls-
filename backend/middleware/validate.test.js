@@ -41,8 +41,10 @@ describe('validate middleware', () => {
     })
   })
 
-  it('validates req.query when target is query', () => {
+  it('validates req.query and exposes coerced data on req.validatedQuery', () => {
     const middleware = validate(testSchema, 'query')
+    // Express 5 makes req.query a getter-only property; the middleware must not
+    // try to reassign it, and must surface validated data on req.validatedQuery.
     const req = { query: { name: 'Alice', age: '30' } }
     const res = { status: vi.fn(), json: vi.fn() }
     const next = vi.fn()
@@ -50,6 +52,7 @@ describe('validate middleware', () => {
     middleware(req, res, next)
 
     expect(next).toHaveBeenCalled()
-    expect(req.query).toEqual({ name: 'Alice', age: 30 })
+    expect(req.validatedQuery).toEqual({ name: 'Alice', age: 30 }) // Coerced
+    expect(req.query).toEqual({ name: 'Alice', age: '30' }) // Original untouched
   })
 })

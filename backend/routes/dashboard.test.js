@@ -81,6 +81,34 @@ describe('Dashboard Router & Optimizations', () => {
     expect(res.body.message).toBe('Dữ liệu không hợp lệ')
   })
 
+  it('GET /api/admin/attempts forwards validated query filters to Prisma (B3)', async () => {
+    await request(app)
+      .get('/api/admin/attempts?search=alice&skill=writing&seriesId=4&scoreMin=6&scoreMax=8&sortBy=score&sortOrder=asc&page=3&limit=10')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .expect(200)
+
+    const call = prismaMock.attempt.findMany.mock.calls.at(-1)[0]
+    expect(call.skip).toBe(20) // (page 3 - 1) * limit 10
+    expect(call.take).toBe(10)
+    expect(call.orderBy).toEqual({ score: { sort: 'asc', nulls: 'last' } })
+    expect(call.where.exam).toEqual({ skill: 'writing', seriesId: 4 })
+    expect(call.where.score).toEqual({ gte: 6, lte: 8 })
+    expect(call.where.user.OR[0].name.contains).toBe('alice')
+  })
+
+  it('GET /api/admin/attempts applies default page/limit/sort when no query given', async () => {
+    await request(app)
+      .get('/api/admin/attempts')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .expect(200)
+
+    const call = prismaMock.attempt.findMany.mock.calls.at(-1)[0]
+    expect(call.skip).toBe(0)
+    expect(call.take).toBe(20)
+    expect(call.orderBy).toEqual({ createdAt: 'desc' })
+    expect(call.where).toEqual({ finishedAt: { not: null } })
+  })
+
   it('POST /api/admin/attempts/export rejects empty attemptIds with 400', async () => {
     const res = await request(app)
       .post('/api/admin/attempts/export')

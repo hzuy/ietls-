@@ -13,7 +13,10 @@ function validate(schema, target = 'body') {
       })
     }
     if (target === 'query') {
-      req.query = result.data
+      // Express 5: req.query is a getter-only property — assigning to it is
+      // silently ignored. Expose the validated/coerced data on a new field
+      // and have query-validated routes read from req.validatedQuery.
+      req.validatedQuery = result.data
     } else {
       req.body = result.data
     }
