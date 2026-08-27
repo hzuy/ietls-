@@ -171,50 +171,189 @@ export default function Home() {
   const requireAuth = (path) => { if (user) navigate(path); else openAuthModal('login') }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+    <div className="min-h-screen">
       <Navbar />
 
       {/* ── Hero ────────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden border-b border-slate-200" style={{ background: '#EEF2FF' }}>
-        {/* Decorative circles */}
-        <div className="pointer-events-none absolute -top-20 -right-20 w-96 h-96 rounded-full" style={{ background: 'rgba(37,99,235,0.06)' }} aria-hidden="true" />
-        <div className="pointer-events-none absolute -bottom-16 -left-16 w-64 h-64 rounded-full" style={{ background: 'rgba(37,99,235,0.04)' }} aria-hidden="true" />
+      <section className="relative overflow-hidden border-b border-slate-200">
+        {/* Scattered dot pattern */}
+        <div className="bg-dots" aria-hidden="true" />
 
         <div className="app-container section-py relative">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-12">
-            <div className="flex-1 anim-fade-up">
-              <h1 className="mb-5 leading-tight font-extrabold" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-4xl)', color: '#111827' }}>
-                Luyện thi <span style={{ color: 'var(--primary)' }}>IELTS</span> chuyên nghiệp cùng AI
+          <div className="flex flex-col md:flex-row items-center justify-between gap-10 md:gap-16">
+
+            {/* Left — text block */}
+            <div className="flex-1 anim-fade-up" style={{ maxWidth: '44ch' }}>
+              <h1 className="mb-5 font-extrabold" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-4xl)', color: 'var(--ink)', lineHeight: 1.05 }}>
+                Luyện thi <span style={{ color: 'var(--primary)' }}>IELTS</span>{' '}
+                chuyên nghiệp cùng AI
               </h1>
-              <p className="max-w-lg leading-relaxed mb-2" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-lg)', color: 'var(--muted)' }}>
-                Kho đề thi thực tế từ Cambridge, hỗ trợ chấm điểm và nhận xét chi tiết bằng trí tuệ nhân tạo.
+              <p className="leading-relaxed mb-2" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-lg)', color: 'var(--muted)' }}>
+                Kho đề thi thực tế từ Cambridge, chấm điểm và nhận xét chi tiết bằng trí tuệ nhân tạo.
               </p>
               <p className="mb-8" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-base)', color: 'var(--subtle)' }}>
                 Nâng band thần tốc ngay hôm nay.
               </p>
-              <button className="btn-primary" onClick={() => navigate('/cambridge')}>Bắt đầu ngay</button>
+              <div className="flex flex-wrap gap-3">
+                <button className="btn-primary" onClick={() => navigate('/cambridge')}>Bắt đầu ngay</button>
+                <button className="btn-secondary" onClick={() => navigate('/full-test')}>Xem bộ đề</button>
+              </div>
             </div>
-          </div>
-        </div>
-      </section>
 
-      {/* ── Full Test CTA Banner ─────────────────────────────────────────────── */}
-      <section style={{ background: 'var(--ink)' }}>
-        <div className="app-container flex flex-col md:flex-row items-start md:items-center justify-between gap-6" style={{ paddingBlock: 'clamp(1.5rem, 4vw, 2rem)' }}>
-          <div>
-            <p className="mb-1.5 font-semibold tracking-widest uppercase" style={{ fontSize: 'var(--fs-xs)', color: '#7AB3FF', letterSpacing: '0.08em' }}>
-              IELTS FULL TEST
-            </p>
-            <h2 className="font-bold text-white mb-1.5" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-2xl)', margin: 0 }}>
-              Luyện thi trọn bộ 4 kỹ năng
-            </h2>
-            <p style={{ fontSize: 'var(--fs-sm)', color: '#8BA5C8', fontFamily: 'var(--font-body)', margin: 0 }}>
-              Bộ đề Cambridge chính thức — đánh giá toàn diện Listening, Reading, Writing, Speaking
-            </p>
+            {/* Right — AI Neural Network (desktop only) */}
+            <div className="hidden md:flex items-center justify-center flex-shrink-0 anim-fade-in delay-2" aria-hidden="true">
+              <div className="hero-net-wrap">
+                <svg className="hero-net-svg" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <defs>
+                    <radialGradient id="net-core-grad" cx="35%" cy="30%" r="70%" fx="35%" fy="30%">
+                      <stop offset="0%"   style={{stopColor:'var(--net-grad-0)'}} />
+                      <stop offset="50%"  style={{stopColor:'var(--net-grad-50)'}} />
+                      <stop offset="100%" style={{stopColor:'var(--net-grad-100)'}} />
+                    </radialGradient>
+                    {/* Glow blur for core halo */}
+                    <filter id="net-glow-f" x="-100%" y="-100%" width="300%" height="300%">
+                      <feGaussianBlur stdDeviation="10" />
+                    </filter>
+                    {/* Bloom for data-flow dots */}
+                    <filter id="net-dot-f" x="-200%" y="-200%" width="500%" height="500%">
+                      <feGaussianBlur stdDeviation="2" result="blur" />
+                      <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+                    </filter>
+                  </defs>
+
+                  {/* ── Orbit group — entire constellation rotates CW 30s ── */}
+                  <g className="net-orbit">
+                    {/* Spokes: Core(200,200) → each satellite */}
+                    <line x1="200" y1="200" x2="281" y2="119" stroke="var(--net-line-stroke)" strokeWidth="1.5" />
+                    <line x1="200" y1="200" x2="119" y2="119" stroke="var(--net-line-stroke)" strokeWidth="1.5" />
+                    <line x1="200" y1="200" x2="119" y2="281" stroke="var(--net-line-stroke)" strokeWidth="1.5" />
+                    <line x1="200" y1="200" x2="281" y2="281" stroke="var(--net-line-stroke)" strokeWidth="1.5" />
+                    {/* Diamond ring CW: S1(281,119)→S4(281,281)→S3(119,281)→S2(119,119)→S1 */}
+                    <line x1="281" y1="119" x2="281" y2="281" stroke="var(--net-line-stroke)" strokeWidth="1.5" />
+                    <line x1="281" y1="281" x2="119" y2="281" stroke="var(--net-line-stroke)" strokeWidth="1.5" />
+                    <line x1="119" y1="281" x2="119" y2="119" stroke="var(--net-line-stroke)" strokeWidth="1.5" />
+                    <line x1="119" y1="119" x2="281" y2="119" stroke="var(--net-line-stroke)" strokeWidth="1.5" />
+                    {/* Diagonal S1→S3 — dimmer, dashed, no data-flow dot */}
+                    <line x1="281" y1="119" x2="119" y2="281" stroke="var(--net-line-dim)" strokeWidth="1" strokeDasharray="4 3" />
+
+                    {/* Data-flow dots — outward on spokes (4 dots, staggered) */}
+                    <circle className="net-flow-dot" r="3" fill="var(--net-dot-fill)" filter="url(#net-dot-f)">
+                      <animateMotion dur="2.2s" repeatCount="indefinite" path="M200,200 L281,119" />
+                    </circle>
+                    <circle className="net-flow-dot" r="3" fill="var(--net-dot-fill)" filter="url(#net-dot-f)">
+                      <animateMotion dur="2.2s" begin="-1.65s" repeatCount="indefinite" path="M200,200 L119,119" />
+                    </circle>
+                    <circle className="net-flow-dot" r="3" fill="var(--net-dot-fill)" filter="url(#net-dot-f)">
+                      <animateMotion dur="2.2s" begin="-0.55s" repeatCount="indefinite" path="M200,200 L119,281" />
+                    </circle>
+                    <circle className="net-flow-dot" r="3" fill="var(--net-dot-fill)" filter="url(#net-dot-f)">
+                      <animateMotion dur="2.2s" begin="-1.1s" repeatCount="indefinite" path="M200,200 L281,281" />
+                    </circle>
+                    {/* Data-flow dots — CW on diamond ring (4 dots evenly staggered) */}
+                    <circle className="net-flow-dot" r="2.5" fill="var(--net-dot-fill)" filter="url(#net-dot-f)">
+                      <animateMotion dur="7s" repeatCount="indefinite"
+                        path="M281,119 L281,281 L119,281 L119,119 L281,119" />
+                    </circle>
+                    <circle className="net-flow-dot" r="2.5" fill="var(--net-dot-fill)" filter="url(#net-dot-f)">
+                      <animateMotion dur="7s" begin="-1.75s" repeatCount="indefinite"
+                        path="M281,119 L281,281 L119,281 L119,119 L281,119" />
+                    </circle>
+                    <circle className="net-flow-dot" r="2.5" fill="var(--net-dot-fill)" filter="url(#net-dot-f)">
+                      <animateMotion dur="7s" begin="-3.5s" repeatCount="indefinite"
+                        path="M281,119 L281,281 L119,281 L119,119 L281,119" />
+                    </circle>
+                    <circle className="net-flow-dot" r="2.5" fill="var(--net-dot-fill)" filter="url(#net-dot-f)">
+                      <animateMotion dur="7s" begin="-5.25s" repeatCount="indefinite"
+                        path="M281,119 L281,281 L119,281 L119,119 L281,119" />
+                    </circle>
+
+                    {/* Decorator dots at orbit r=72 */}
+                    <circle cx="272" cy="200" r="4.5" fill="var(--net-dec-fill)" />
+                    <circle cx="200" cy="128" r="4.5" fill="var(--net-dec-fill)" />
+                    <circle cx="128" cy="200" r="4.5" fill="var(--net-dec-fill)" />
+                    <circle cx="200" cy="272" r="4.5" fill="var(--net-dec-fill)" />
+
+                    {/* S1 — Listening (top-right 281,119) */}
+                    <circle cx="281" cy="119" r="26" fill="var(--net-node-bg)" stroke="var(--net-node-border)" strokeWidth="1.5" />
+                    {/* net-icon-counter: bounding box = (269,107,24,24) → center = (281,119) = node center ✓ */}
+                    <g className="net-icon-counter">
+                      <svg x="269" y="107" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="var(--net-node-icon)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/>
+                      </svg>
+                    </g>
+
+                    {/* S2 — Reading (top-left 119,119) */}
+                    <circle cx="119" cy="119" r="26" fill="var(--net-node-bg)" stroke="var(--net-node-border)" strokeWidth="1.5" />
+                    {/* bounding box = (107,107,24,24) → center = (119,119) ✓ */}
+                    <g className="net-icon-counter">
+                      <svg x="107" y="107" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="var(--net-node-icon)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 5v16"/>
+                        <path d="M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z"/>
+                      </svg>
+                    </g>
+
+                    {/* S3 — Writing (bottom-left 119,281) */}
+                    <circle cx="119" cy="281" r="26" fill="var(--net-node-bg)" stroke="var(--net-node-border)" strokeWidth="1.5" />
+                    {/* bounding box = (107,269,24,24) → center = (119,281) ✓ */}
+                    <g className="net-icon-counter">
+                      <svg x="107" y="269" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="var(--net-node-icon)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M15.707 21.293a1 1 0 0 1-1.414 0l-1.586-1.586a1 1 0 0 1 0-1.414l5.586-5.586a1 1 0 0 1 1.414 0l1.586 1.586a1 1 0 0 1 0 1.414z"/>
+                        <path d="m18 13-1.375-6.874a1 1 0 0 0-.746-.776L3.235 2.028a1 1 0 0 0-1.207 1.207L5.35 15.879a1 1 0 0 0 .776.746L13 18"/>
+                        <path d="m2.3 2.3 7.286 7.286"/>
+                        <circle cx="11" cy="11" r="2"/>
+                      </svg>
+                    </g>
+
+                    {/* S4 — Speaking (bottom-right 281,281) */}
+                    <circle cx="281" cy="281" r="26" fill="var(--net-node-bg)" stroke="var(--net-node-border)" strokeWidth="1.5" />
+                    {/* bounding box = (269,269,24,24) → center = (281,281) ✓ */}
+                    <g className="net-icon-counter">
+                      <svg x="269" y="269" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="var(--net-node-icon)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 19v3"/>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                        <rect x="9" y="2" width="6" height="13" rx="3"/>
+                      </svg>
+                    </g>
+                  </g>
+
+                  {/* ── Core — static, always centered at (200,200) ── */}
+                  <g className="net-core-breathe">
+                    {/* Glow halo — blurred, animates opacity */}
+                    <circle cx="200" cy="200" r="54" fill="var(--net-core-glow)"
+                      className="net-glow-halo" filter="url(#net-glow-f)" opacity="0.5" />
+                    {/* Sphere */}
+                    <circle cx="200" cy="200" r="38"
+                      fill="url(#net-core-grad)" stroke="var(--net-core-border)" strokeWidth="1.5" />
+                    {/* BrainCircuit icon — 34×34, centered at (200,200)
+                        Wrapped in <g> rotating 20° CW around (200,200) to correct the icon's inherent leftward lean */}
+                    <g transform="rotate(20, 200, 200)">
+                    <svg x="183" y="183" width="34" height="34" viewBox="0 0 24 24" fill="none"
+                      stroke="var(--net-core-icon)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/>
+                      <path d="M9 13a4.5 4.5 0 0 0 3-4"/>
+                      <path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/>
+                      <path d="M3.477 10.896a4 4 0 0 1 .585-.396"/>
+                      <path d="M6 18a4 4 0 0 1-1.967-.516"/>
+                      <path d="M12 13h4"/>
+                      <path d="M12 18h6a2 2 0 0 1 2 2v1"/>
+                      <path d="M12 8h8"/>
+                      <path d="M16 8V5a2 2 0 0 1 2-2"/>
+                      <circle cx="16" cy="13" r=".5" fill="var(--net-core-icon)" stroke="none"/>
+                      <circle cx="18" cy="3"  r=".5" fill="var(--net-core-icon)" stroke="none"/>
+                      <circle cx="20" cy="21" r=".5" fill="var(--net-core-icon)" stroke="none"/>
+                      <circle cx="20" cy="8"  r=".5" fill="var(--net-core-icon)" stroke="none"/>
+                    </svg>
+                    </g>
+                  </g>
+                </svg>
+              </div>
+            </div>
+
           </div>
-          <button onClick={() => navigate('/full-test')} className="btn-primary shrink-0">
-            Xem tất cả bộ đề →
-          </button>
         </div>
       </section>
 
