@@ -262,12 +262,12 @@ export default function Attempts() {
           </div>
         </div>
 
-        {/* Filter Card — DÒNG 1: lọc theo danh mục · DÒNG 2: lọc theo khoảng giá trị */}
+        {/* Filter Card — lưới 4 cột đồng nhất: mọi hàng phủ đủ chiều ngang, nút Đặt lại là ô cuối lưới */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs mb-6 w-full">
-          {/* DÒNG 1 — Lọc theo danh mục: Tìm kiếm (rộng nhất) + Kỹ năng + Bộ đề */}
-          <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-end">
-            {/* Tìm kiếm — chiếm phần lớn chiều rộng */}
-            <div className="flex-1 min-w-[220px]">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+
+            {/* Tìm kiếm — 2/4 cột (rộng gấp đôi các ô còn lại) */}
+            <div className="md:col-span-2">
               <label className="text-xs font-medium text-slate-500 mb-1 block">Tìm kiếm</label>
               <div className="relative">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -282,7 +282,7 @@ export default function Attempts() {
             </div>
 
             {/* Kỹ năng */}
-            <div className="w-full sm:w-44">
+            <div>
               <label className="text-xs font-medium text-slate-500 mb-1 block">Kỹ năng</label>
               <div className="relative w-full">
                 <select
@@ -298,7 +298,7 @@ export default function Attempts() {
             </div>
 
             {/* Bộ đề */}
-            <div className="w-full sm:w-48">
+            <div>
               <label className="text-xs font-medium text-slate-500 mb-1 block">Bộ đề</label>
               <div className="relative w-full">
                 <select
@@ -312,14 +312,11 @@ export default function Attempts() {
                 <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             </div>
-          </div>
 
-          {/* DÒNG 2 — Lọc theo khoảng giá trị: Khoảng ngày + Khoảng Band (cùng ngôn ngữ thị giác) */}
-          <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-end mt-4">
-            {/* Khoảng ngày — 2 ô liền kề, gạch nối "–" ở giữa */}
-            <div className="w-full sm:w-auto">
+            {/* Khoảng ngày — 2/4 cột, thẳng hàng dưới ô Tìm kiếm */}
+            <div className="md:col-span-2">
               <label className="text-xs font-medium text-slate-500 mb-1 block">Khoảng ngày</label>
-              <div className="flex items-center border border-slate-200 rounded-lg h-10 bg-white w-full sm:w-[300px] focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-600 transition">
+              <div className="flex items-center border border-slate-200 rounded-lg h-10 bg-white w-full focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-600 transition">
                 <DatePicker
                   selected={dateFromObj}
                   onChange={handleDateFrom}
@@ -344,9 +341,9 @@ export default function Attempts() {
             </div>
 
             {/* Khoảng Band — cùng style với Khoảng ngày */}
-            <div className="w-full sm:w-auto">
+            <div>
               <label className="text-xs font-medium text-slate-500 mb-1 block">Khoảng Band</label>
-              <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 h-10 bg-white w-full sm:w-[200px] focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-600 transition">
+              <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 h-10 bg-white w-full focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-600 transition">
                 <input
                   type="number" min="0" max="9" step="0.5" placeholder="Từ" value={scoreMin}
                   onChange={handleScoreMinChange} onBlur={handleScoreMinBlur}
@@ -360,18 +357,18 @@ export default function Attempts() {
                 />
               </div>
             </div>
-          </div>
 
-          {/* HÀNG NÚT BẤM — chỉ còn "Đặt lại" (filter tự áp dụng qua useEffect) */}
-          <div className="flex items-center justify-end mt-4 pt-3 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={reset}
-              className="border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 px-4 h-10 rounded-lg text-sm font-medium flex items-center gap-1.5 transition cursor-pointer"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-              <span>Đặt lại</span>
-            </button>
+            {/* Đặt lại — ô cuối lưới, lấp khoảng trống bên phải hàng 2 (filter tự áp dụng qua useEffect) */}
+            <div>
+              <button
+                type="button"
+                onClick={reset}
+                className="w-full h-10 justify-center border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 px-4 rounded-lg text-sm font-medium flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                <span>Đặt lại</span>
+              </button>
+            </div>
           </div>
         </div>
 
