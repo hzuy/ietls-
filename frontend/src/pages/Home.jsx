@@ -320,7 +320,7 @@ export default function Home() {
                     </g>
                   </g>
 
-                  {/* ── Core — static, always centered at (200,200) ── */}
+                  {/* ── Core — sphere + glow breathe, outside orbit ── */}
                   <g className="net-core-breathe">
                     {/* Glow halo — blurred, animates opacity */}
                     <circle cx="200" cy="200" r="54" fill="var(--net-core-glow)"
@@ -328,7 +328,12 @@ export default function Home() {
                     {/* Sphere */}
                     <circle cx="200" cy="200" r="38"
                       fill="url(#net-core-grad)" stroke="var(--net-core-border)" strokeWidth="1.5" />
-                    {/* BrainCircuit icon — 34×34, centered at (200,200); no rotation applied */}
+                  </g>
+
+                  {/* ── BrainCircuit icon — direct child of main SVG, no animated parent ──
+                      Static rotate(45°) around icon center (200,200). No class, no animation.
+                      Only transform rule: rotate(45 200 200) — permanent, never overridden. */}
+                  <g transform="rotate(45 200 200)">
                     <svg x="183" y="183" width="34" height="34" viewBox="0 0 24 24" fill="none"
                       stroke="var(--net-core-icon)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/>
