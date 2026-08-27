@@ -331,9 +331,9 @@ export default function Home() {
                   </g>
 
                   {/* ── BrainCircuit icon — direct child of main SVG, no animated parent ──
-                      Static rotate(45°) around icon center (200,200). No class, no animation.
-                      Only transform rule: rotate(45 200 200) — permanent, never overridden. */}
-                  <g transform="rotate(45 200 200)">
+                      Static rotate(90°) around icon center (200,200). No class, no animation.
+                      Only transform rule: rotate(90 200 200) — permanent, never overridden. */}
+                  <g transform="rotate(90 200 200)">
                     <svg x="183" y="183" width="34" height="34" viewBox="0 0 24 24" fill="none"
                       stroke="var(--net-core-icon)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/>

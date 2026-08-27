@@ -48,7 +48,7 @@ export default function Footer() {
 
       {/* Main section */}
       <div className="max-w-6xl mx-auto px-6 py-12 md:py-16">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-8 md:gap-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-8 md:gap-12">
 
           {/* Col 1 — Brand */}
           <div className="md:col-span-2">
@@ -65,30 +65,30 @@ export default function Footer() {
               Nền tảng luyện thi IELTS chuyên nghiệp với AI phản hồi tức thì, giúp bạn đạt band score mục tiêu nhanh hơn.
             </p>
 
-            {/* Social icons */}
+            {/* Social icons — all custom SVG (lucide-react@1.26.0 has no brand icons) */}
             <div className="flex gap-3">
-              {[
-                {
-                  label: 'Facebook',
-                  svg: <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />,
-                },
-                {
-                  label: 'YouTube',
-                  svg: <>
-                    <path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46a2.78 2.78 0 0 0-1.95 1.96A29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58A2.78 2.78 0 0 0 3.41 19.6C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.95A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z" />
-                    <polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02" fill="currentColor" />
-                  </>,
-                },
-              ].map(({ label, svg }) => (
-                <a
-                  key={label}
-                  href="/"
-                  aria-label={label}
-                  className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-300 hover:bg-blue-600/20 hover:border-blue-600/50 hover:text-blue-400 transition-all duration-300"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">{svg}</svg>
-                </a>
-              ))}
+              {/* Facebook — TODO: replace href="#" with actual page URL */}
+              <a href="#" aria-label="Facebook" target="_blank" rel="noopener noreferrer"
+                className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-slate-300 hover:bg-white/20 hover:scale-105 transition-all duration-200">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>
+                </svg>
+              </a>
+              {/* YouTube — TODO: replace href="#" with actual channel URL */}
+              <a href="#" aria-label="YouTube" target="_blank" rel="noopener noreferrer"
+                className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-slate-300 hover:bg-white/20 hover:scale-105 transition-all duration-200">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M22.54 6.42a2.78 2.78 0 0 0-1.96-1.95C18.88 4 12 4 12 4s-6.88 0-8.58.46A2.78 2.78 0 0 0 1.46 6.42 29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58A2.78 2.78 0 0 0 3.42 19.6C5.12 20 12 20 12 20s6.88 0 8.58-.46a2.78 2.78 0 0 0 1.96-1.96A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z"/>
+                  <polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02"/>
+                </svg>
+              </a>
+              {/* TikTok — TODO: replace href="#" with actual TikTok profile URL */}
+              <a href="#" aria-label="TikTok" target="_blank" rel="noopener noreferrer"
+                className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-slate-300 hover:bg-white/20 hover:scale-105 transition-all duration-200">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.27 8.27 0 0 0 4.84 1.53V6.77a4.85 4.85 0 0 1-1.07-.08z"/>
+                </svg>
+              </a>
             </div>
           </div>
 

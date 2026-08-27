@@ -80,7 +80,7 @@ export default function AdminLayout({ children }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex font-['Nunito',sans-serif]">
+    <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
       <aside className="w-56 bg-white border-r border-gray-100 flex flex-col shrink-0 sticky top-0 h-screen">
         {/* Logo */}
@@ -114,7 +114,7 @@ export default function AdminLayout({ children }) {
               >
                 <IconComp
                   size={20}
-                  strokeWidth={1.75}
+                  strokeWidth={2}
                   className={`shrink-0 transition-colors ${
                     isActive ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'
                   }`}
@@ -128,17 +128,20 @@ export default function AdminLayout({ children }) {
               </NavLink>
             )
           })}
-          <button
-            onClick={() => setShowLogout(true)}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-red-50 hover:text-red-600 transition group"
+          <a
+            href="#"
+            onClick={(e) => { e.preventDefault(); setShowLogout(true) }}
+            role="button"
+            tabIndex={0}
+            className={navCls(false)}
           >
             <LogOut
-              size={20}
-              strokeWidth={1.75}
-              className="shrink-0 text-slate-400 group-hover:text-red-600 transition-colors"
+              size={18}
+              strokeWidth={2}
+              className="shrink-0 transition-colors text-slate-400 group-hover:text-slate-600"
             />
-            <span>Đăng xuất</span>
-          </button>
+            <span className="flex-1">Đăng xuất</span>
+          </a>
         </nav>
       </aside>
 

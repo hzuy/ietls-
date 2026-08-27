@@ -280,7 +280,7 @@ export default function SeriesManager() {
       {delConfirm && (() => {
         const deletingItem = list.find(s => s.id === delConfirm)
         // BUG-09: Show number of tests that will be deleted
-        const testCount = deletingItem ? [...new Set((deletingItem.seriesExams || []).map(e => e.testNumber))].length : 0
+        const testCount = deletingItem ? [...new Set((deletingItem.exams || []).map(e => e.testNumber))].length : 0
         return (
           <div onClick={() => setDelConfirm(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
             <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">

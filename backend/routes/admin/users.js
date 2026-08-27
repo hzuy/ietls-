@@ -31,9 +31,14 @@ router.post('/make-admin', authMiddleware, adminOnly, validate(userIdSchema), as
 // ─── USERS ───────────────────────────────────────────────────────────────────
 router.get('/users', authMiddleware, adminOnly, async (req, res) => {
   try {
-    const { search = '', page = 1, limit = 20 } = req.query
+    const { search = '', page = 1, limit = 20, status = '', sort = 'newest' } = req.query
     const skip = (parseInt(page) - 1) * parseInt(limit)
     const baseWhere = { role: 'user' }
+
+    // Apply status filter
+    if (status === 'active') baseWhere.isLocked = false
+    if (status === 'locked') baseWhere.isLocked = true
+
     const where = search ? {
       ...baseWhere,
       OR: [
@@ -41,10 +46,16 @@ router.get('/users', authMiddleware, adminOnly, async (req, res) => {
         { email: { contains: search, mode: 'insensitive' } }
       ]
     } : baseWhere
+
+    // Determine orderBy (band sort is done post-query)
+    let orderBy = { createdAt: 'desc' }
+    if (sort === 'oldest') orderBy = { createdAt: 'asc' }
+    else if (sort === 'az') orderBy = { name: 'asc' }
+
     const [users, total, totalActive, totalLocked] = await Promise.all([
       prisma.user.findMany({
         where, skip, take: parseInt(limit),
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         select: {
           id: true, name: true, email: true, role: true,
           isLocked: true, createdAt: true,
@@ -52,8 +63,8 @@ router.get('/users', authMiddleware, adminOnly, async (req, res) => {
         }
       }),
       prisma.user.count({ where }),
-      prisma.user.count({ where: { ...baseWhere, isLocked: false } }),
-      prisma.user.count({ where: { ...baseWhere, isLocked: true } }),
+      prisma.user.count({ where: { role: 'user', isLocked: false } }),
+      prisma.user.count({ where: { role: 'user', isLocked: true } }),
     ])
 
     const userIds = users.map(u => u.id)
@@ -72,12 +83,19 @@ router.get('/users', authMiddleware, adminOnly, async (req, res) => {
     const avgMap = Object.fromEntries(avgScores.map(a => [a.userId, a._avg.score]))
     const lastMap = Object.fromEntries(lastAttempts.map(a => [a.userId, a._max.createdAt]))
 
+    let mergedUsers = users.map(u => ({
+      ...u,
+      avgScore: avgMap[u.id] ?? null,
+      lastAttemptAt: lastMap[u.id] ?? null,
+    }))
+
+    // Band sort: sort merged array by avgScore descending
+    if (sort === 'band') {
+      mergedUsers.sort((a, b) => (b.avgScore ?? -1) - (a.avgScore ?? -1))
+    }
+
     res.json({
-      users: users.map(u => ({
-        ...u,
-        avgScore: avgMap[u.id] ?? null,
-        lastAttemptAt: lastMap[u.id] ?? null,
-      })),
+      users: mergedUsers,
       total,
       totalActive,
       totalLocked,
@@ -229,6 +247,9 @@ router.put('/accounts/:id', authMiddleware, teacherOrAdmin, validate(updateAccou
       return res.status(403).json({ message: 'Không có quyền truy cập' })
     }
     const { name, role, isLocked, password } = req.body
+    if (req.user.role !== 'admin' && role !== undefined) {
+      return res.status(403).json({ message: 'Chỉ admin mới có thể thay đổi role' })
+    }
     const data = {}
     if (name) data.name = name
     if (password && password.trim()) {
@@ -325,6 +346,28 @@ router.post('/remove-staff', authMiddleware, adminOnly, validate(userIdSchema), 
       select: { id: true, name: true, email: true, role: true }
     })
     res.json({ message: 'Đã xóa quyền staff', user })
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
+// ─── RESET PASSWORD ───────────────────────────────────────────────────────────
+router.post('/users/:id/reset-password', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id)
+    const user = await prisma.user.findUnique({ where: { id }, select: { id: true } })
+    if (!user) return res.status(404).json({ message: 'Không tìm thấy user' })
+
+    // Generate 8-char password: uppercase + lowercase + digits (no ambiguous chars)
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
+    let pwd = ''
+    for (let i = 0; i < 8; i++) pwd += chars[Math.floor(Math.random() * chars.length)]
+
+    const hashed = await bcrypt.hash(pwd, 10)
+    await prisma.user.update({ where: { id }, data: { password: hashed } })
+
+    // Return plaintext ONCE — never log it
+    res.json({ newPassword: pwd })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
   }

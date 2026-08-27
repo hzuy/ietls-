@@ -70,10 +70,39 @@ router.get('/admin/exams-list', authMiddleware, adminOnly, async (req, res) => {
   }
 })
 
+// Helper: kiểm tra xem danh sách exams có trùng skill trong cùng testNumber không
+// Trả về mô tả lỗi nếu có trùng, null nếu hợp lệ
+async function checkDuplicateSkillPerTest(exams, prisma) {
+  if (!exams || exams.length === 0) return null
+  const examIds = exams.map(e => e.examId)
+  const examRecords = await prisma.exam.findMany({
+    where: { id: { in: examIds } },
+    select: { id: true, skill: true, title: true }
+  })
+  // Map examId → { skill, title }
+  const examInfo = {}
+  for (const e of examRecords) examInfo[e.id] = e
+
+  // Check: trong cùng testNumber, mỗi skill chỉ xuất hiện 1 lần
+  const seen = {} // key: `${testNumber}:${skill}` → title đã thấy
+  for (const { examId, testNumber } of exams) {
+    const info = examInfo[examId]
+    if (!info) continue
+    const key = `${testNumber}:${info.skill}`
+    if (seen[key]) {
+      return `Test ${testNumber}: có 2 đề "${info.skill}" — "${seen[key]}" và "${info.title}". Mỗi testNumber chỉ được có 1 đề mỗi kỹ năng.`
+    }
+    seen[key] = info.title
+  }
+  return null
+}
+
 // POST /admin — create series
 router.post('/admin', authMiddleware, adminOnly, validate(createSeriesSchema), async (req, res) => {
   try {
     const { name, description, type, exams } = req.body
+    const conflict = await checkDuplicateSkillPerTest(exams, prisma)
+    if (conflict) return res.status(400).json({ message: conflict })
     const series = await prisma.series.create({
       data: {
         name: name.trim(),
@@ -95,6 +124,8 @@ router.put('/admin/:id', authMiddleware, adminOnly, validate(updateSeriesSchema)
   try {
     const id = parseInt(req.params.id)
     const { name, description, type, exams } = req.body
+    const conflict = await checkDuplicateSkillPerTest(exams, prisma)
+    if (conflict) return res.status(400).json({ message: conflict })
     await prisma.seriesExam.deleteMany({ where: { seriesId: id } })
     const data = {}
     if (name !== undefined) data.name = name.trim()

@@ -7,7 +7,7 @@ const createSeriesSchema = z.object({
   type: z.string().optional().default('academic'),
   exams: z.array(z.object({
     examId: z.coerce.number({ message: 'examId phải là số' }),
-    testNumber: z.coerce.number().optional(),
+    testNumber: z.coerce.number().int().min(1, { message: 'testNumber phải là số nguyên dương (≥ 1)' }).optional(),
   })).optional().default([]),
 })
 
@@ -18,7 +18,7 @@ const updateSeriesSchema = z.object({
   type: z.string().optional(),
   exams: z.array(z.object({
     examId: z.coerce.number({ message: 'examId phải là số' }),
-    testNumber: z.coerce.number().optional(),
+    testNumber: z.coerce.number().int().min(1, { message: 'testNumber phải là số nguyên dương (≥ 1)' }).optional(),
   })).optional(),
 })
 

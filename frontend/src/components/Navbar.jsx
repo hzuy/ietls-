@@ -204,10 +204,8 @@ export default function Navbar() {
             </NavDropdown>
           </nav>
 
-          {/* Right: desktop auth + mobile hamburger */}
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Desktop auth */}
-            <div className="hidden md:flex items-center gap-2 flex-nowrap shrink-0">
+          {/* Desktop auth */}
+          <div className="hidden md:flex items-center gap-2 flex-nowrap shrink-0">
               {isLoggedIn ? (
                 <>
                   {/* Bot — progress link */}
@@ -246,7 +244,7 @@ export default function Navbar() {
                         role="menu"
                         style={{
                           position: 'absolute', right: 0, top: 'calc(100% + 8px)',
-                          minWidth: 180,
+                          minWidth: 215,
                           background: 'var(--surface)',
                           border: '1px solid var(--border)',
                           borderRadius: 'var(--radius-md)',
@@ -260,7 +258,7 @@ export default function Navbar() {
                           role="menuitem"
                           onClick={() => setUserMenuOpen(false)}
                           className="no-underline"
-                          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', fontWeight: 500, transition: 'background 0.15s ease', textDecoration: 'none' }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', fontWeight: 500, transition: 'background 0.15s ease', textDecoration: 'none', whiteSpace: 'nowrap' }}
                           onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-raised)'}
                           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                         >
@@ -276,7 +274,7 @@ export default function Navbar() {
                             padding: '8px 12px', borderRadius: 'var(--radius-sm)',
                             background: 'transparent', border: 'none', cursor: 'pointer',
                             color: '#DC2626', fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', fontWeight: 500,
-                            transition: 'background 0.15s ease', textAlign: 'left',
+                            transition: 'background 0.15s ease', textAlign: 'left', whiteSpace: 'nowrap',
                           }}
                           onMouseEnter={e => e.currentTarget.style.background = '#FEF2F2'}
                           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
@@ -310,7 +308,6 @@ export default function Navbar() {
                 <line x1="3" y1="14" x2="17" y2="14"/>
               </svg>
             </button>
-          </div>
         </div>
       </header>
 

@@ -151,6 +151,7 @@ model Attempt {
   answers    String?
   finishedAt DateTime?
   createdAt  DateTime  @default(now())
+  isSeeded   Boolean   @default(false)
 
   user            User             @relation(fields: [userId], references: [id])
   exam            Exam             @relation(fields: [examId], references: [id])

@@ -190,7 +190,13 @@ table th { font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase;
 table td { font-size: var(--fs-sm); }
 
 /* ─── Admin sidebar ─────────────────────────────────────────────────────────── */
-aside nav a, aside nav button { font-size: var(--fs-base); font-weight: 500; }
+aside nav a, aside nav button { font-family: var(--font-body); font-size: var(--fs-base); font-weight: 500; }
+/* Neutralize the global button:hover lift inside sidebar — nav items must stay flat */
+aside nav button:hover {
+  transform: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
 
 /* ─── Animations ────────────────────────────────────────────────────────────── */
 @keyframes fadeUp {

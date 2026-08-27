@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { getAdminUser, toggleUserLock, deleteAdminUser } from '../../services/adminService'
+import { getAdminUser, toggleUserLock, deleteAdminUser, resetUserPassword } from '../../services/adminService'
 import AdminLayout from '../../components/AdminLayout'
-
-
-const SKILL_LABEL = { reading: 'Reading', listening: 'Listening', writing: 'Writing', speaking: 'Speaking' }
+import { KeyRound } from 'lucide-react'
+import { ADMIN_SKILL_COLORS, SKILL_LABEL, SKILL_ORDER } from '../../utils/adminSkillColors'
 
 export default function UserDetail() {
   const { id } = useParams()
@@ -12,6 +11,8 @@ export default function UserDetail() {
   const [loading, setLoading] = useState(true)
   const [togglingLock, setTogglingLock] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [confirmReset, setConfirmReset] = useState(false)
+  const [newPassword, setNewPassword] = useState(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -51,6 +52,14 @@ export default function UserDetail() {
     } catch (err) { alert(err.response?.data?.message || 'Lỗi xóa') }
   }
 
+  const handleResetPassword = async () => {
+    setConfirmReset(false)
+    try {
+      const result = await resetUserPassword(user.id)
+      setNewPassword(result.newPassword)
+    } catch { alert('Lỗi reset mật khẩu') }
+  }
+
   return (
     <AdminLayout>
       <div className="p-6 max-w-5xl mx-auto">
@@ -68,7 +77,7 @@ export default function UserDetail() {
               <h1 className="text-lg font-bold text-gray-800">{user.name}</h1>
               <p className="text-sm text-gray-400">{user.email}</p>
               <div className="flex gap-2 mt-1">
-                <span className="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 font-medium">{user.role}</span>
+                <span className="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 font-medium capitalize">{user.role}</span>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${user.isLocked ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-700'}`}>
                   {user.isLocked ? 'Đã khoá' : 'Hoạt động'}
                 </span>
@@ -83,6 +92,11 @@ export default function UserDetail() {
                   className={`px-3 py-1.5 text-xs rounded-lg border font-medium transition ${user.isLocked ? 'border-green-200 text-green-600 hover:bg-green-50' : 'border-orange-200 text-orange-500 hover:bg-orange-50'}`}>
                   {togglingLock ? '...' : user.isLocked ? 'Mở khoá' : 'Khoá'}
                 </button>
+                <button onClick={() => setConfirmReset(true)}
+                  className="px-3 py-1.5 text-xs rounded-lg border border-orange-200 text-orange-500 hover:bg-orange-50 font-medium transition flex items-center gap-1">
+                  <KeyRound size={14} />
+                  Reset MK
+                </button>
                 <button onClick={() => setConfirmDelete(true)}
                   className="px-3 py-1.5 text-xs rounded-lg border border-red-200 text-red-500 hover:bg-red-50 font-medium transition">
                   Xóa
@@ -93,17 +107,21 @@ export default function UserDetail() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
           <div className="bg-blue-50 rounded-xl p-4">
             <div className="text-2xl font-bold text-[#1D4ED8]">{totalAttempts}</div>
             <div className="text-xs text-gray-500 mt-0.5">Tổng lượt thi</div>
           </div>
-          {Object.entries(skillStats).map(([skill, score]) => (
-            <div key={skill} className="bg-gray-50 rounded-xl p-4">
-              <div className="text-2xl font-bold text-gray-700">{score != null ? score.toFixed(1) : '—'}</div>
-              <div className="text-xs text-gray-500 mt-0.5">Band TB {SKILL_LABEL[skill]}</div>
-            </div>
-          ))}
+          {SKILL_ORDER.map(skill => {
+            const score = skillStats[skill]
+            const colors = ADMIN_SKILL_COLORS[skill]
+            return (
+              <div key={skill} className="rounded-xl p-4" style={{ backgroundColor: colors.bg }}>
+                <div className="text-2xl font-bold" style={{ color: colors.text }}>{score != null ? score.toFixed(1) : '—'}</div>
+                <div className="text-xs text-gray-500 mt-0.5">Band TB {SKILL_LABEL[skill]}</div>
+              </div>
+            )
+          })}
         </div>
 
         {/* Attempt history */}
@@ -131,11 +149,16 @@ export default function UserDetail() {
                   </tr>
                 </thead>
                 <tbody>
-                  {attempts.map(a => (
-                    <tr key={a.id} className="border-b border-gray-50 hover:bg-gray-50">
+                  {attempts.map((a, idx) => (
+                    <tr key={a.id} className={`border-b border-gray-50 hover:bg-gray-50 ${idx % 2 === 1 ? 'bg-gray-50/50' : ''}`}>
                       <td className="px-5 py-3 text-gray-700">{a.exam?.title}</td>
                       <td className="px-4 py-3">
-                        <span className="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 font-medium">
+                        <span
+                          className="px-2 py-0.5 rounded-full text-xs font-medium"
+                          style={{
+                            backgroundColor: ADMIN_SKILL_COLORS[a.exam?.skill]?.bg,
+                            color: ADMIN_SKILL_COLORS[a.exam?.skill]?.text
+                          }}>
                           {SKILL_LABEL[a.exam?.skill]}
                         </span>
                       </td>
@@ -153,6 +176,39 @@ export default function UserDetail() {
           )}
         </div>
       </div>
+
+      {/* Reset password confirm modal */}
+      {confirmReset && (
+        <div onClick={() => setConfirmReset(false)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <h3 className="font-bold text-gray-800 mb-2">Reset mật khẩu</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Tạo mật khẩu ngẫu nhiên mới cho <strong>{user.name}</strong>? Mật khẩu cũ sẽ không còn hợp lệ.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setConfirmReset(false)} className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">Huỷ</button>
+              <button onClick={handleResetPassword} className="px-4 py-2 rounded-xl bg-orange-500 text-white text-sm font-bold hover:bg-orange-600 transition">Reset</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset password result modal */}
+      {newPassword && (
+        <div onClick={() => setNewPassword(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <h3 className="font-bold text-gray-800 mb-2">Mật khẩu mới</h3>
+            <p className="text-sm text-gray-600 mb-3">Mật khẩu mới của <strong>{user.name}</strong>:</p>
+            <code className="block w-full text-center text-lg font-mono font-bold tracking-widest bg-gray-100 rounded-xl px-4 py-3 mb-3 text-gray-800 select-all">
+              {newPassword}
+            </code>
+            <p className="text-xs text-orange-600 mb-5">Chỉ hiển thị 1 lần — hãy gửi cho user ngay</p>
+            <div className="flex justify-end">
+              <button onClick={() => setNewPassword(null)} className="px-4 py-2 rounded-xl bg-[#1D4ED8] text-white text-sm font-medium hover:bg-blue-700 transition">Đã copy / Đóng</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* BUG-07: Delete confirmation modal */}
       {confirmDelete && (

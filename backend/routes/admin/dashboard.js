@@ -168,9 +168,9 @@ async function fetchDashboardOverviewData() {
     skillDist,
     recent,
   ] = await Promise.all([
-    prisma.user.count(),
-    prisma.user.count({ where: { createdAt: { gte: startOfThisMonth } } }),
-    prisma.user.count({ where: { createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
+    prisma.user.count({ where: { role: 'user' } }),
+    prisma.user.count({ where: { role: 'user', createdAt: { gte: startOfThisMonth } } }),
+    prisma.user.count({ where: { role: 'user', createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
     prisma.attempt.count({ where: { finishedAt: { gte: startOfToday } } }),
     prisma.attempt.aggregate({ where: { score: { not: null } }, _avg: { score: true } }),
     prisma.exam.count(),
@@ -477,37 +477,40 @@ router.get('/attempts/export', authMiddleware, teacherOnly, validate(attemptsQue
 
 // ─── ANALYTICS FETCHER ───────────────────────────────────────────────────────
 async function fetchAnalyticsData(period) {
-  const days = period === 'week' ? 7 : period === 'quarter' ? 90 : 30
-  const since = new Date()
-  since.setDate(since.getDate() - days)
+  const isAll = period === 'all'
+  const days = period === 'week' ? 7 : 30
+  const since = isAll ? null : (() => { const d = new Date(); d.setDate(d.getDate() - days); return d })()
+  // dateWhere: empty object when period=all (no date filter), otherwise restrict by since
+  const dateWhere = since ? { createdAt: { gte: since } } : {}
 
   const [
-    totalAttempts, totalUsers, avgBandRaw, skillCountBySkill, skillAvgBySkill, topUsers,
+    totalAttempts, totalUsers, totalUsersAll, avgBandRaw, skillCountBySkill, skillAvgBySkill, topUsers,
     attemptsByDay,
     bandDistribution,
   ] = await Promise.all([
-    prisma.attempt.count({ where: { finishedAt: { not: null }, createdAt: { gte: since } } }),
-    prisma.user.count({ where: { createdAt: { gte: since } } }),
-    prisma.attempt.aggregate({ where: { score: { not: null }, createdAt: { gte: since } }, _avg: { score: true } }),
+    prisma.attempt.count({ where: { finishedAt: { not: null }, ...dateWhere } }),
+    prisma.user.count({ where: { role: 'user', ...dateWhere } }),
+    prisma.user.count({ where: { role: 'user' } }), // total across all time — not period-filtered
+    prisma.attempt.aggregate({ where: { score: { not: null }, ...dateWhere }, _avg: { score: true } }),
     prisma.attempt.groupBy({
       by: ['examId'],
-      where: { finishedAt: { not: null }, createdAt: { gte: since } },
+      where: { finishedAt: { not: null }, ...dateWhere },
       _count: { id: true },
     }),
     prisma.attempt.groupBy({
       by: ['examId'],
-      where: { finishedAt: { not: null }, createdAt: { gte: since }, score: { not: null } },
+      where: { finishedAt: { not: null }, ...dateWhere, score: { not: null } },
       _avg: { score: true },
     }),
     prisma.attempt.groupBy({
       by: ['userId'],
-      where: { score: { not: null }, createdAt: { gte: since } },
+      where: { score: { not: null }, ...dateWhere },
       _avg: { score: true },
       _count: { id: true },
       orderBy: { _avg: { score: 'desc' } },
       take: 10
     }),
-    getAttemptsByDay(since, days),
+    getAttemptsByDay(since, isAll ? null : days),
     getBandDistribution(),
   ])
 
@@ -548,7 +551,7 @@ async function fetchAnalyticsData(period) {
   }))
 
   return {
-    overview: { totalAttempts, totalUsers, avgBand: avgBandRaw._avg.score },
+    overview: { totalAttempts, totalUsers, totalUsersAll, avgBand: avgBandRaw._avg.score },
     skillBreakdown,
     topUsers: topUsersResult,
     attemptsByDay,

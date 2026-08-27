@@ -1,9 +1,23 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Eye, EyeOff } from 'lucide-react'
-import { getAdminAccounts, createAdminAccount, updateAdminAccount, deleteAdminAccount } from '../../services/adminService'
+import { Eye, EyeOff, Pencil, Lock, Unlock, Trash2 } from 'lucide-react'
+import { getAdminAccounts, createAdminAccount, updateAdminAccount, deleteAdminAccount, toggleUserLock } from '../../services/adminService'
 import AdminLayout from '../../components/AdminLayout'
 
+
+const AVATAR_COLORS = [
+  'bg-[#1D4ED8]', 'bg-green-500', 'bg-purple-500', 'bg-orange-500',
+  'bg-pink-500', 'bg-indigo-500', 'bg-teal-500', 'bg-cyan-600',
+]
+function avatarInitials(name) {
+  if (!name) return '?'
+  const parts = name.trim().split(/\s+/)
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  return name.slice(0, 2).toUpperCase()
+}
+function avatarColorIdx(id) {
+  return Math.abs(typeof id === 'number' ? id : String(id).split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)) % AVATAR_COLORS.length
+}
 
 const emptyForm = { name: '', email: '', password: '', role: 'teacher' }
 
@@ -17,6 +31,9 @@ export default function Accounts() {
   const [submitting, setSubmitting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [error, setError] = useState('')
+  const [togglingId, setTogglingId] = useState(null)
+  const [confirmLock, setConfirmLock] = useState(null)
+  const [confirmUnlock, setConfirmUnlock] = useState(null)
   const navigate = useNavigate()
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
 
@@ -73,6 +90,17 @@ export default function Accounts() {
       await deleteAdminAccount(confirmDelete.id)
       setConfirmDelete(null); fetchAccounts()
     } catch (err) { alert(err.response?.data?.message || 'Lỗi xóa') }
+  }
+
+  const executeLock = async (accId, wasLocked) => {
+    setConfirmLock(null)
+    setConfirmUnlock(null)
+    setTogglingId(accId)
+    try {
+      const result = await toggleUserLock(accId)
+      setAccounts(prev => prev.map(a => a.id === accId ? { ...a, isLocked: result.isLocked } : a))
+    } catch { alert('Lỗi thao tác') }
+    finally { setTogglingId(null) }
   }
 
   const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString('vi-VN') : '—'
@@ -141,7 +169,10 @@ export default function Accounts() {
               {error && <p className="text-sm text-red-500">{error}</p>}
               <div className="flex gap-2 pt-1">
                 <button type="submit" disabled={submitting}
-                  className="px-4 py-2 rounded-xl bg-[#1D4ED8] text-white text-sm font-medium hover:bg-blue-700 transition disabled:opacity-60">
+                  className="px-4 py-2 rounded-xl bg-[#1D4ED8] text-white text-sm font-medium hover:bg-blue-700 transition disabled:opacity-70 flex items-center gap-2">
+                  {submitting && (
+                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  )}
                   {submitting ? 'Đang lưu...' : editingId ? 'Cập nhật' : 'Tạo tài khoản'}
                 </button>
                 <button type="button" onClick={() => setShowForm(false)}
@@ -160,59 +191,89 @@ export default function Accounts() {
           ) : accounts.length === 0 ? (
             <p className="text-center text-gray-400 py-12 text-sm">Chưa có tài khoản nội bộ nào</p>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-xs text-gray-400 bg-gray-50 border-b border-gray-100">
-                  <th className="px-5 py-3 text-left font-medium">Tên / Email</th>
-                  <th className="px-4 py-3 text-left font-medium">Role</th>
-                  <th className="px-4 py-3 text-left font-medium">Ngày tạo</th>
-                  <th className="px-4 py-3 text-left font-medium">Trạng thái</th>
-                  <th className="px-4 py-3 text-left font-medium">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {accounts.map(acc => {
-                  const isSelf = acc.email === currentUser.email
-                  return (
-                  <tr key={acc.id} className={`border-b border-gray-50 ${isSelf ? 'bg-blue-50 hover:bg-blue-100' : 'hover:bg-gray-50'}`}>
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-2">
-                        <div>
-                          <p className="font-medium text-gray-800">{acc.name}</p>
-                          <p className="text-xs text-gray-400">{acc.email}</p>
-                        </div>
-                        {isSelf && (
-                          <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-blue-100 text-blue-600 border border-blue-200">Bạn</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${acc.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                        {acc.role === 'admin' ? 'Admin' : 'Teacher'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-400">{fmtDate(acc.createdAt)}</td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${acc.isLocked ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-700'}`}>
-                        {acc.isLocked ? 'Khoá' : 'Active'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-1.5">
-                        <button onClick={() => openEdit(acc)} className="px-2.5 py-1 rounded-lg text-xs border border-gray-200 text-gray-600 hover:bg-gray-50">Sửa</button>
-                        <button
-                          onClick={() => !isSelf && setConfirmDelete({ id: acc.id, name: acc.name })}
-                          disabled={isSelf}
-                          className={`px-2.5 py-1 rounded-lg text-xs border transition ${isSelf ? 'border-gray-100 text-gray-300 cursor-not-allowed' : 'border-blue-200 text-red-500 hover:bg-blue-50'}`}>
-                          Xóa
-                        </button>
-                      </div>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs text-gray-400 bg-gray-50 border-b border-gray-100">
+                    <th className="px-5 py-3 text-left font-medium">Tên / Email</th>
+                    <th className="px-4 py-3 text-left font-medium">Role</th>
+                    <th className="px-4 py-3 text-left font-medium">Ngày tạo</th>
+                    <th className="px-4 py-3 text-left font-medium">Trạng thái</th>
+                    <th className="px-4 py-3 text-left font-medium">Thao tác</th>
                   </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {accounts.map((acc, idx) => {
+                    const isSelf = acc.email === currentUser.email
+                    return (
+                    <tr key={acc.id} className={`border-b border-gray-50 ${isSelf ? 'bg-blue-50 hover:bg-blue-100' : `${idx % 2 === 1 ? 'bg-gray-50/50' : ''} hover:bg-gray-50`}`}>
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full ${AVATAR_COLORS[avatarColorIdx(acc.id)]} text-white text-xs font-bold flex items-center justify-center shrink-0`}>
+                            {avatarInitials(acc.name)}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-gray-800">{acc.name}</p>
+                              {isSelf && (
+                                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-blue-100 text-blue-600 border border-blue-200">Bạn</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-400">{acc.email}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${acc.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                          {acc.role === 'admin' ? 'Admin' : 'Teacher'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-400">{fmtDate(acc.createdAt)}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${acc.isLocked ? 'bg-red-50 text-red-600' : 'bg-green-100 text-green-700'}`}>
+                          {acc.isLocked ? 'Khoá' : 'Hoạt động'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-1.5">
+                          <button onClick={() => openEdit(acc)} title="Sửa tài khoản"
+                            className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 transition">
+                            <Pencil size={15} />
+                          </button>
+                          {!isSelf && (
+                            acc.isLocked ? (
+                              <button
+                                onClick={() => setConfirmUnlock({ id: acc.id, name: acc.name })}
+                                disabled={togglingId === acc.id}
+                                title="Mở khoá"
+                                className="p-1.5 rounded-lg border border-green-200 text-green-600 hover:bg-green-50 transition">
+                                <Unlock size={15} />
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => setConfirmLock({ id: acc.id, name: acc.name })}
+                                disabled={togglingId === acc.id}
+                                title="Khoá tài khoản"
+                                className="p-1.5 rounded-lg border border-orange-200 text-orange-500 hover:bg-orange-50 transition">
+                                <Lock size={15} />
+                              </button>
+                            )
+                          )}
+                          <button
+                            onClick={() => !isSelf && setConfirmDelete({ id: acc.id, name: acc.name })}
+                            disabled={isSelf}
+                            title="Xóa tài khoản"
+                            className={`p-1.5 rounded-lg border transition ${isSelf ? 'border-gray-100 text-gray-300 cursor-not-allowed' : 'border-red-200 text-red-500 hover:bg-red-50'}`}>
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
@@ -226,6 +287,38 @@ export default function Accounts() {
             <div className="flex gap-3 justify-end">
               <button onClick={() => setConfirmDelete(null)} className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">Huỷ</button>
               <button onClick={handleDelete} className="px-4 py-2 rounded-xl text-white text-sm font-bold" style={{ background: '#dc2626' }}>Xóa</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmLock && (
+        <div onClick={() => setConfirmLock(null)}
+          style={{ position:'fixed', inset:0, zIndex:9999, backgroundColor:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
+          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <h3 className="font-bold text-gray-800 mb-2">Khoá tài khoản</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Khoá tài khoản <strong>{confirmLock.name}</strong>? Nhân sự sẽ không thể đăng nhập cho đến khi được mở khoá.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setConfirmLock(null)} className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">Huỷ</button>
+              <button onClick={() => executeLock(confirmLock.id, false)} className="px-4 py-2 rounded-xl bg-orange-500 text-white text-sm font-bold hover:bg-orange-600 transition">Khoá</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmUnlock && (
+        <div onClick={() => setConfirmUnlock(null)}
+          style={{ position:'fixed', inset:0, zIndex:9999, backgroundColor:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
+          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <h3 className="font-bold text-gray-800 mb-2">Mở khoá tài khoản</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Mở khoá tài khoản <strong>{confirmUnlock.name}</strong>? Nhân sự sẽ có thể đăng nhập trở lại.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setConfirmUnlock(null)} className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">Huỷ</button>
+              <button onClick={() => executeLock(confirmUnlock.id, true)} className="px-4 py-2 rounded-xl bg-green-500 text-white text-sm font-bold hover:bg-green-600 transition">Mở khoá</button>
             </div>
           </div>
         </div>

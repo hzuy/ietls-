@@ -9,6 +9,7 @@ export const getAdminUsers = (params) => api.get('/admin/users', { params }).the
 export const getAdminUser = (id) => api.get(`/admin/users/${id}`).then(r => r.data)
 export const toggleUserLock = (userId) => api.put(`/admin/users/${userId}/toggle-lock`).then(r => r.data)
 export const deleteAdminUser = (id) => api.delete(`/admin/users/${id}`).then(r => r.data)
+export const resetUserPassword = (id) => api.post(`/admin/users/${id}/reset-password`).then(r => r.data)
 
 // ─── Staff ────────────────────────────────────────────────────────────────────
 export const getAdminStaff = () => api.get('/admin/staff').then(r => r.data)
