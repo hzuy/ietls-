@@ -33,15 +33,19 @@ export default function Admin() {
     getExamCounts().then(data => setTabCounts(data)).catch(() => {})
   }
 
-  const fetchSkillExams = (skill, page = 1, search = '', seriesId = '', force = false) => {
+  const fetchSkillExams = (skill, {
+    page = 1, search = '', seriesId = '', status = 'all',
+    sortBy = 'createdAt', sortOrder = 'desc', force = false,
+  } = {}) => {
     if (!skill || skill === 'cambridge') return
-    if (!force && tabCache[skill] && page === 1 && !search && !seriesId) {
+    const isPristine = page === 1 && !search && !seriesId && status === 'all' && sortBy === 'createdAt' && sortOrder === 'desc'
+    if (!force && tabCache[skill] && isPristine) {
       return
     }
     setLoading(true)
-    getExams({ skill, page, limit: 20, search, seriesId })
+    getExams({ skill, page, limit: 20, search, seriesId, status, sortBy, sortOrder })
       .then(res => {
-        const payload = Array.isArray(res) ? { exams: res, total: res.length, page: 1, pages: 1 } : res
+        const payload = Array.isArray(res) ? { exams: res, total: res.length, page: 1, pages: 1, stats: null } : res
         setTabCache(prev => ({ ...prev, [skill]: payload }))
       })
       .catch(err => {
@@ -53,7 +57,7 @@ export default function Admin() {
   const handleRefresh = (skill = activeTab) => {
     fetchCounts()
     setTabCache(prev => ({ ...prev, [skill]: null }))
-    fetchSkillExams(skill, 1, '', '', true)
+    fetchSkillExams(skill, { force: true })
   }
 
   useEffect(() => {
@@ -109,10 +113,10 @@ export default function Admin() {
         <Routes>
           <Route index element={<Navigate to="cambridge" replace />} />
           <Route path="cambridge" element={<CambridgeTab initialSeriesList={examSeries} onRefresh={() => handleRefresh('reading')} />} />
-          <Route path="reading"   element={<ReadingTab exams={tabCache.reading?.exams || []} paginationData={tabCache.reading} fetchExams={(p, s, sid) => fetchSkillExams('reading', p, s, sid, true)} onRefresh={() => handleRefresh('reading')} examSeries={examSeries} loading={loading} />} />
-          <Route path="listening" element={<ListeningTab exams={tabCache.listening?.exams || []} paginationData={tabCache.listening} fetchExams={(p, s, sid) => fetchSkillExams('listening', p, s, sid, true)} onRefresh={() => handleRefresh('listening')} examSeries={examSeries} loading={loading} />} />
-          <Route path="writing"   element={<WritingTab exams={tabCache.writing?.exams || []} paginationData={tabCache.writing} fetchExams={(p, s, sid) => fetchSkillExams('writing', p, s, sid, true)} onRefresh={() => handleRefresh('writing')} examSeries={examSeries} loading={loading} />} />
-          <Route path="speaking"  element={<SpeakingTab exams={tabCache.speaking?.exams || []} paginationData={tabCache.speaking} fetchExams={(p, s, sid) => fetchSkillExams('speaking', p, s, sid, true)} onRefresh={() => handleRefresh('speaking')} examSeries={examSeries} loading={loading} />} />
+          <Route path="reading"   element={<ReadingTab exams={tabCache.reading?.exams || []} paginationData={tabCache.reading} fetchExams={(opts) => fetchSkillExams('reading', { ...opts, force: true })} onRefresh={() => handleRefresh('reading')} examSeries={examSeries} loading={loading} />} />
+          <Route path="listening" element={<ListeningTab exams={tabCache.listening?.exams || []} paginationData={tabCache.listening} fetchExams={(opts) => fetchSkillExams('listening', { ...opts, force: true })} onRefresh={() => handleRefresh('listening')} examSeries={examSeries} loading={loading} />} />
+          <Route path="writing"   element={<WritingTab exams={tabCache.writing?.exams || []} paginationData={tabCache.writing} fetchExams={(opts) => fetchSkillExams('writing', { ...opts, force: true })} onRefresh={() => handleRefresh('writing')} examSeries={examSeries} loading={loading} />} />
+          <Route path="speaking"  element={<SpeakingTab exams={tabCache.speaking?.exams || []} paginationData={tabCache.speaking} fetchExams={(opts) => fetchSkillExams('speaking', { ...opts, force: true })} onRefresh={() => handleRefresh('speaking')} examSeries={examSeries} loading={loading} />} />
         </Routes>
       </div>
     </AdminLayout>

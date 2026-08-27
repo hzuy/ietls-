@@ -31,7 +31,11 @@ const prismaMock = {
   attempt: {
     groupBy: vi.fn().mockResolvedValue([
       { examId: 1, _avg: { score: 7.5 } }
-    ])
+    ]),
+    aggregate: vi.fn().mockResolvedValue({
+      _count: { _all: 42 },
+      _avg: { score: 6.8 }
+    })
   }
 }
 
@@ -76,5 +80,30 @@ describe('Admin Exams Router & Pagination', () => {
     expect(res.body).toHaveProperty('pages', 1)
     expect(res.body.exams.length).toBe(1)
     expect(res.body.exams[0].avgScore).toBe(7.5)
+  })
+
+  it('GET /api/admin/exams returns global stats (not page-scoped) when skill is given', async () => {
+    const res = await request(app)
+      .get('/api/admin/exams?skill=reading')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .expect(200)
+
+    expect(res.body.stats).toEqual({
+      totalExams: 1,
+      noQuestionsCount: 1,
+      totalAttempts: 42,
+      avgBand: 6.8
+    })
+  })
+
+  it('GET /api/admin/exams applies status=no_questions and sortBy=attempts to the Prisma query', async () => {
+    await request(app)
+      .get('/api/admin/exams?skill=reading&status=no_questions&sortBy=attempts&sortOrder=asc')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .expect(200)
+
+    const call = prismaMock.exam.findMany.mock.calls.at(-1)[0]
+    expect(call.where).toHaveProperty('NOT')
+    expect(call.orderBy).toEqual({ attempts: { _count: 'asc' } })
   })
 })

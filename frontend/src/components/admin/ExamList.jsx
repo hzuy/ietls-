@@ -1,115 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
-import { Search, RotateCcw, AlertTriangle } from 'lucide-react'
 
 import { formatBand } from '../../utils/ielts'
 import useDebounce from '../../hooks/useDebounce'
-import {
-  READING_Q_TYPES, LISTENING_Q_TYPES,
-  TYPES_WITH_MCQ_OPTIONS, TYPES_WITH_DYNAMIC_OPTIONS, TYPES_WITH_IMAGE,
-  ANSWER_PLACEHOLDER,
-  inputCls, labelCls, btnSecondary, btnDanger,
-} from './adminConstants'
+import { btnSecondary, btnDanger } from './adminConstants'
 
-function QuestionEditor({ question, questionIndex, onUpdate, onRemove, skill = 'reading' }) {
-  const updateField = (field, val) => onUpdate(questionIndex, field, val)
-  const updateOption = (oi, val) => {
-    const opts = [...(question.options || [])]
-    opts[oi] = val
-    onUpdate(questionIndex, 'options', opts)
-  }
-  const addOption    = () => onUpdate(questionIndex, 'options', [...(question.options || []), ''])
-  const removeOption = (oi) => onUpdate(questionIndex, 'options', (question.options || []).filter((_, i) => i !== oi))
-
-  const types         = skill === 'listening' ? LISTENING_Q_TYPES : READING_Q_TYPES
-  const isMcqOpts     = TYPES_WITH_MCQ_OPTIONS.includes(question.type)
-  const isDynamicOpts = TYPES_WITH_DYNAMIC_OPTIONS.includes(question.type)
-  const hasImage      = TYPES_WITH_IMAGE.includes(question.type)
-
-  const handleTypeChange = (newType) => {
-    const newOpts = TYPES_WITH_MCQ_OPTIONS.includes(newType)     ? ['', '', '', '']
-                  : TYPES_WITH_DYNAMIC_OPTIONS.includes(newType) ? ['']
-                  : null
-    onUpdate(questionIndex, 'type', newType)
-    onUpdate(questionIndex, 'options', newOpts)
-  }
-
-  return (
-    <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-bold text-gray-500">Câu {question.number}</span>
-        <button type="button" onClick={() => onRemove(questionIndex)} className={btnDanger}>Xóa</button>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className={labelCls}>Loại câu hỏi</label>
-          <select className={inputCls} value={question.type} onChange={e => handleTypeChange(e.target.value)}>
-            {types.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className={labelCls}>Số thứ tự</label>
-          <input type="number" className={inputCls} value={question.number}
-            onChange={e => updateField('number', parseInt(e.target.value) || 1)} />
-        </div>
-      </div>
-
-      <div>
-        <label className={labelCls}>Nội dung câu hỏi</label>
-        <textarea className={inputCls} rows={2} placeholder="Nhập câu hỏi / mệnh đề..."
-          value={question.questionText} onChange={e => updateField('questionText', e.target.value)} />
-      </div>
-
-      {/* MCQ fixed A/B/C/D options */}
-      {isMcqOpts && (
-        <div>
-          <label className={labelCls}>Các lựa chọn</label>
-          <div className="grid grid-cols-2 gap-2">
-            {(question.options || ['', '', '', '']).map((opt, oi) => (
-              <input key={oi} className={inputCls}
-                placeholder={`${String.fromCharCode(65 + oi)}. ...`}
-                value={opt} onChange={e => updateOption(oi, e.target.value)} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Dynamic options for matching types */}
-      {isDynamicOpts && (
-        <div>
-          <label className={labelCls}>Danh sách lựa chọn</label>
-          <div className="space-y-1.5">
-            {(question.options || ['']).map((opt, oi) => (
-              <div key={oi} className="flex gap-2 items-center">
-                <input className={inputCls} placeholder={`Lựa chọn ${oi + 1}...`}
-                  value={opt} onChange={e => updateOption(oi, e.target.value)} />
-                <button type="button" onClick={() => removeOption(oi)}
-                  className="text-blue-500 hover:text-[#1D4ED8] text-sm px-1 shrink-0">✕</button>
-              </div>
-            ))}
-            <button type="button" onClick={addOption}
-              className="text-xs text-blue-600 hover:text-[#1D4ED8] font-semibold">+ Thêm lựa chọn</button>
-          </div>
-        </div>
-      )}
-
-      {/* Image URL for map/diagram */}
-      {hasImage && (
-        <div>
-          <label className={labelCls}>URL hình ảnh (map/diagram)</label>
-          <input className={inputCls} placeholder="https://... (để trống nếu chưa có)"
-            value={question.imageUrl || ''} onChange={e => updateField('imageUrl', e.target.value)} />
-        </div>
-      )}
-
-      <div>
-        <label className={labelCls}>Đáp án đúng</label>
-        <input className={`${inputCls} border-[#e2e8f0] focus:border-[#3B82F6] focus:ring-blue-100`}
-          placeholder={ANSWER_PLACEHOLDER[question.type] || 'Đáp án đúng'}
-          value={question.correctAnswer} onChange={e => updateField('correctAnswer', e.target.value)} />
-      </div>
-    </div>
-  )
+// Bản đồ tùy chọn sort (UI) → cặp { sortBy, sortOrder } gửi lên GET /admin/exams
+const SORT_MAP = {
+  newest:   { sortBy: 'createdAt', sortOrder: 'desc' },
+  oldest:   { sortBy: 'createdAt', sortOrder: 'asc' },
+  name:     { sortBy: 'title',     sortOrder: 'asc' },
+  attempts: { sortBy: 'attempts',  sortOrder: 'desc' },
+  score:    { sortBy: 'score',     sortOrder: 'desc' },
 }
 
 function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries = [], paginationData, fetchExams, loading }) {
@@ -126,26 +27,34 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
   const totalPages = paginationData?.pages || 1
   const currentPage = paginationData?.page || 1
   const totalCount = paginationData?.total || exams.length
+  // Số liệu tổng quan toàn DB (theo skill + bộ đề + tìm kiếm) — do backend tính,
+  // không phải cộng dồn trên mảng exams (chỉ chứa dữ liệu trang hiện tại).
+  const stats = paginationData?.stats || null
+
+  // Gọi API với bộ lọc hiện tại; `overrides` cho phép truyền giá trị state mới
+  // ngay khi vừa setState (React setState là bất đồng bộ).
+  const runFetch = (overrides = {}) => {
+    if (!fetchExams) return
+    const sort = SORT_MAP[sortBy] || SORT_MAP.newest
+    fetchExams({
+      page: 1,
+      search: debouncedSearch,
+      seriesId: filterSeries,
+      status: filterStatus,
+      sortBy: sort.sortBy,
+      sortOrder: sort.sortOrder,
+      ...overrides,
+    })
+  }
 
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false
       return
     }
-    if (fetchExams) {
-      fetchExams(1, debouncedSearch, filterSeries)
-    }
+    runFetch()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch])
-
-  const getHasQuestions = (exam) => {
-    switch (exam.skill) {
-      case 'reading':   return exam.passages?.some(p => (p._count?.questionGroups ?? 0) > 0) ?? false
-      case 'listening': return exam.listeningSections?.some(s => (s._count?.questionGroups ?? 0) > 0) ?? false
-      case 'writing':   return (exam.writingTasks?.length ?? 0) > 0
-      case 'speaking':  return exam.speakingParts?.some(p => (p._count?.questions ?? 0) > 0) ?? false
-      default: return false
-    }
-  }
 
   const getQuestionBadge = (exam) => {
     let count, total
@@ -171,47 +80,35 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
     setFilterSeries('')
     setFilterStatus('all')
     setSortBy('newest')
-    if (fetchExams) fetchExams(1, '', '')
+    if (fetchExams) fetchExams({ page: 1, search: '', seriesId: '', status: 'all', sortBy: 'createdAt', sortOrder: 'desc' })
   }
 
   const handleSeriesChange = (val) => {
     setFilterSeries(val)
-    if (fetchExams) fetchExams(1, debouncedSearch, val)
+    runFetch({ seriesId: val })
+  }
+
+  const handleStatusChange = (val) => {
+    setFilterStatus(val)
+    runFetch({ status: val })
+  }
+
+  const handleSortChange = (val) => {
+    setSortBy(val)
+    const sort = SORT_MAP[val] || SORT_MAP.newest
+    runFetch({ sortBy: sort.sortBy, sortOrder: sort.sortOrder })
   }
 
   const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= totalPages && fetchExams) {
-      fetchExams(newPage, debouncedSearch, filterSeries)
+    if (newPage >= 1 && newPage <= totalPages) {
+      runFetch({ page: newPage })
     }
   }
 
   const hasActiveFilter = search || filterSeries || filterStatus !== 'all' || sortBy !== 'newest'
 
-  // Stats (from current page skillExams)
-  const totalAttempts = skillExams.reduce((s, e) => s + (e._count?.attempts ?? 0), 0)
-  const examsWithScore = skillExams.filter(e => e.avgScore != null && e.avgScore > 0)
-  const avgBand = examsWithScore.length > 0
-    ? formatBand(examsWithScore.reduce((s, e) => s + e.avgScore, 0) / examsWithScore.length)
-    : null
-  const noQuestionsCount = skillExams.filter(e => !getHasQuestions(e)).length
-
-  // Filter + sort
-  let filtered = skillExams
-    .filter(e => !search || e.title.toLowerCase().includes(search.toLowerCase()))
-    .filter(e => !filterSeries || e.seriesId?.toString() === filterSeries)
-    .filter(e => {
-      if (filterStatus === 'has_questions') return getHasQuestions(e)
-      if (filterStatus === 'no_questions')  return !getHasQuestions(e)
-      return true
-    })
-
-  filtered = [...filtered].sort((a, b) => {
-    if (sortBy === 'oldest')   return new Date(a.createdAt) - new Date(b.createdAt)
-    if (sortBy === 'name')     return a.title.localeCompare(b.title, 'vi')
-    if (sortBy === 'attempts') return (b._count?.attempts ?? 0) - (a._count?.attempts ?? 0)
-    if (sortBy === 'score')    return (b.avgScore ?? -1) - (a.avgScore ?? -1)
-    return new Date(b.createdAt) - new Date(a.createdAt) // newest
-  })
+  // Lọc + sắp xếp do backend đảm nhiệm — `exams` đã là đúng trang, đúng thứ tự.
+  const filtered = skillExams
 
   useEffect(() => {
     if (!confirmDelete) return
@@ -246,13 +143,13 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
 
   return (
     <>
-      {/* Stats cards */}
+      {/* Stats cards — số liệu toàn DB theo skill/bộ đề/tìm kiếm (từ backend) */}
       <div className="grid grid-cols-2 gap-3 mb-5 sm:grid-cols-4">
         {[
-          { label: 'Tổng đề',         value: skillExams.length,        color: 'bg-blue-50 text-[#1D4ED8]' },
-          { label: 'Tổng lượt làm',   value: totalAttempts,            color: 'bg-green-50 text-green-700' },
-          { label: 'Band TB',          value: avgBand ?? '—',           color: 'bg-purple-50 text-purple-700' },
-          { label: 'Chưa có câu hỏi', value: noQuestionsCount,         color: noQuestionsCount > 0 ? 'bg-orange-50 text-orange-600' : 'bg-gray-50 text-gray-400' },
+          { label: 'Tổng đề',         value: stats ? stats.totalExams : '—',            color: 'bg-blue-50 text-[#1D4ED8]' },
+          { label: 'Tổng lượt làm',   value: stats ? stats.totalAttempts : '—',         color: 'bg-green-50 text-green-700' },
+          { label: 'Band TB',          value: stats && stats.avgBand != null ? formatBand(stats.avgBand) : '—', color: 'bg-purple-50 text-purple-700' },
+          { label: 'Chưa có câu hỏi', value: stats ? stats.noQuestionsCount : '—',      color: (stats?.noQuestionsCount ?? 0) > 0 ? 'bg-orange-50 text-orange-600' : 'bg-gray-50 text-gray-400' },
         ].map(card => (
           <div key={card.label} className={`rounded-xl p-3 ${card.color} border border-white`}>
             <div className="text-xl font-bold">{card.value}</div>
@@ -280,7 +177,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
         </select>
         <select
           value={filterStatus}
-          onChange={e => setFilterStatus(e.target.value)}
+          onChange={e => handleStatusChange(e.target.value)}
           className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1D4ED8] bg-white"
         >
           <option value="all">Tất cả trạng thái</option>
@@ -289,7 +186,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
         </select>
         <select
           value={sortBy}
-          onChange={e => setSortBy(e.target.value)}
+          onChange={e => handleSortChange(e.target.value)}
           className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1D4ED8] bg-white"
         >
           <option value="newest">Mới nhất</option>
@@ -308,13 +205,13 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
 
       {/* Result count */}
       {hasActiveFilter && (
-        <p className="text-xs text-gray-400 mb-3">Hiển thị {filtered.length} đề trên trang này ({totalCount} đề tất cả)</p>
+        <p className="text-xs text-gray-400 mb-3">{totalCount} đề khớp bộ lọc · đang xem trang {currentPage}/{totalPages}</p>
       )}
 
       {/* Exam list */}
       {filtered.length === 0 ? (
         <div className="text-center text-gray-400 py-8 text-sm">
-          {skillExams.length === 0 ? 'Chưa có đề nào. Tạo đề đầu tiên!' : 'Không tìm thấy đề nào khớp với bộ lọc.'}
+          {hasActiveFilter ? 'Không tìm thấy đề nào khớp với bộ lọc.' : 'Chưa có đề nào. Tạo đề đầu tiên!'}
         </div>
       ) : (
         <div className="space-y-2">
@@ -455,5 +352,4 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
   )
 }
 
-export { QuestionEditor }
 export default ExamList

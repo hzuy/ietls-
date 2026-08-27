@@ -24,25 +24,72 @@ router.get('/exams/counts', authMiddleware, teacherOnly, async (req, res) => {
   }
 })
 
+// Prisma relation filter "đề đã có ít nhất 1 câu hỏi", theo từng skill.
+// Dùng cho cả filter status (has/no_questions) và stats card "Chưa có câu hỏi".
+function hasQuestionsFilterFor(skill) {
+  switch (skill) {
+    case 'reading':
+      return { passages: { some: { OR: [{ questionGroups: { some: {} } }, { questions: { some: { groupId: null } } }] } } }
+    case 'listening':
+      return { listeningSections: { some: { OR: [{ questionGroups: { some: {} } }, { questions: { some: { groupId: null } } }] } } }
+    case 'writing':
+      return { writingTasks: { some: {} } }
+    case 'speaking':
+      return { speakingParts: { some: { questions: { some: {} } } } }
+    default:
+      return null
+  }
+}
+
 // ─── GET EXAMS (PAGINATED & FILTERED) ───────────────────────────────────────
 router.get('/exams', authMiddleware, teacherOnly, async (req, res) => {
   try {
-    const { skill, search = '', seriesId, page = 1, limit = 20 } = req.query
+    const { skill, search = '', seriesId, page = 1, limit = 20, status = 'all', sortBy = 'createdAt', sortOrder = 'desc' } = req.query
     const parsedPage = Math.max(1, parseInt(page) || 1)
     const parsedLimit = Math.min(500, Math.max(1, parseInt(limit) || 20))
     const skip = (parsedPage - 1) * parsedLimit
 
-    const where = { deletedAt: null }
-    if (skill) where.skill = skill
-    if (seriesId) where.seriesId = parseInt(seriesId)
-    if (search) {
-      where.title = { contains: search, mode: 'insensitive' }
+    // baseWhere: skill + bộ đề + tìm kiếm — dùng cho stats tổng quan
+    const baseWhere = { deletedAt: null }
+    if (skill) baseWhere.skill = skill
+    if (seriesId) baseWhere.seriesId = parseInt(seriesId)
+    if (search) baseWhere.title = { contains: search, mode: 'insensitive' }
+
+    // where: baseWhere + filter trạng thái câu hỏi (áp cho danh sách + phân trang)
+    const hasQ = hasQuestionsFilterFor(skill)
+    const where = { ...baseWhere }
+    if (hasQ && status === 'has_questions') Object.assign(where, hasQ)
+    if (hasQ && status === 'no_questions') where.NOT = hasQ
+
+    // Sắp xếp — sortBy: createdAt | title | attempts | score
+    const SORT_FIELDS = new Set(['createdAt', 'title', 'attempts', 'score'])
+    const sb = SORT_FIELDS.has(sortBy) ? sortBy : 'createdAt'
+    const so = sortOrder === 'asc' ? 'asc' : 'desc'
+    let orderBy
+    if (sb === 'attempts') {
+      orderBy = { attempts: { _count: so } }
+    } else if (sb === 'score') {
+      // FALLBACK: avgScore là giá trị dẫn xuất (tính sau query, theo trang), chưa
+      // ORDER BY được ở tầng DB. Tạm xấp xỉ "Band cao nhất" = nhiều lượt làm nhất
+      // rồi mới nhất. TODO: thêm cột Exam.avgScore để sắp xếp chính xác.
+      orderBy = [{ attempts: { _count: 'desc' } }, { createdAt: 'desc' }]
+    } else {
+      orderBy = { [sb]: so }
     }
 
-    const [exams, total] = await Promise.all([
+    // Stats tổng quan chạy song song với query danh sách (không phụ thuộc kết quả)
+    const statsPromise = skill
+      ? Promise.all([
+          prisma.exam.count({ where: baseWhere }),
+          hasQ ? prisma.exam.count({ where: { ...baseWhere, NOT: hasQ } }) : Promise.resolve(0),
+          prisma.attempt.aggregate({ where: { exam: baseWhere }, _count: { _all: true }, _avg: { score: true } }),
+        ])
+      : Promise.resolve(null)
+
+    const [exams, total, statsRaw] = await Promise.all([
       prisma.exam.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         skip,
         take: parsedLimit,
         select: {
@@ -74,7 +121,8 @@ router.get('/exams', authMiddleware, teacherOnly, async (req, res) => {
           _count: { select: { attempts: true } }
         }
       }),
-      prisma.exam.count({ where })
+      prisma.exam.count({ where }),
+      statsPromise
     ])
 
     const examIds = exams.map(e => e.id)
@@ -101,11 +149,21 @@ router.get('/exams', authMiddleware, teacherOnly, async (req, res) => {
       return { ...e, avgScore: avgScoreMap[e.id] ?? null, questionCount }
     })
 
+    // Stats tổng quan: toàn DB theo baseWhere (skill + bộ đề + tìm kiếm),
+    // KHÔNG giới hạn trang, KHÔNG áp filter trạng thái câu hỏi.
+    const stats = statsRaw ? {
+      totalExams: statsRaw[0],
+      noQuestionsCount: statsRaw[1],
+      totalAttempts: statsRaw[2]._count._all,
+      avgBand: statsRaw[2]._avg.score, // null khi chưa có lượt nào có điểm
+    } : null
+
     res.json({
       exams: data,
       total,
       page: parsedPage,
-      pages: Math.ceil(total / parsedLimit)
+      pages: Math.ceil(total / parsedLimit),
+      stats
     })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })

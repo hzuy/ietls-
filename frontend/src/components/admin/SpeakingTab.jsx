@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import api from '../../utils/axios'
-import { emptySpeakingForm, inputCls, labelCls, btnPrimary, btnSecondary, btnGhost, useExamSeriesList, useSeriesBooks } from './adminConstants'
+import { emptySpeakingForm, inputCls, labelCls, btnPrimary, btnSecondary, useExamSeriesList, useSeriesBooks } from './adminConstants'
 import ExamList from './ExamList'
 import InlinePreviewPanel from '../common/InlinePreviewPanel'
 
