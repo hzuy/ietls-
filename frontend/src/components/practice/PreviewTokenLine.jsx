@@ -1,7 +1,7 @@
 ﻿export function PreviewTokenLine({ content, questions, showAnswers, tokenNumMap = {} }) {
   const parts = (content || '').split(/(\[Q:\d+\])/)
   return (
-    <p className="text-sm leading-8 text-gray-700">
+    <p className="text-sm leading-8 text-slate-800">
       {parts.map((part, i) => {
         const match = part.match(/\[Q:(\d+)\]/)
         if (match) {

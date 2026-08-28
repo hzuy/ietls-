@@ -318,8 +318,14 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   const [toast, setToast] = useState('')
   const [draftBanner, setDraftBanner] = useState(null)
   const [editHighlight, setEditHighlight] = useState(false)
+  const previewRef = useRef(null)
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
+
+  // Scroll the preview panel into view once it has rendered (not when hidden).
+  useEffect(() => {
+    if (showPreview) previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [showPreview])
 
   // On mount: purge stale draft_reading_* keys (older than 7 days) so
   // abandoned drafts don't accumulate in localStorage forever.
@@ -724,14 +730,16 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       </div>
 
       {showPreview && (
-        <InlinePreviewPanel
-          title={form.title || 'Reading'}
-          showAnswers={showAnswers}
-          setShowAnswers={setShowAnswers}
-          onClose={() => setShowPreview(false)}
-        >
-          <ReadingFormPreview form={form} showAnswers={showAnswers} />
-        </InlinePreviewPanel>
+        <div ref={previewRef} style={{ scrollMarginTop: 16 }}>
+          <InlinePreviewPanel
+            title={form.title || 'Reading'}
+            showAnswers={showAnswers}
+            setShowAnswers={setShowAnswers}
+            onClose={() => setShowPreview(false)}
+          >
+            <ReadingFormPreview form={form} showAnswers={showAnswers} />
+          </InlinePreviewPanel>
+        </div>
       )}
 
       <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">

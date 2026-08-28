@@ -30,7 +30,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
           <div key={qi} className="mb-3 pl-1">
             <div className="flex gap-2 items-start mb-1.5">
               <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">{qStart + qi}</span>
-              <p className="text-sm text-gray-700 leading-5">{q.questionText}</p>
+              <p className="text-sm text-slate-800 leading-5">{q.questionText}</p>
             </div>
             <div className="flex gap-2 pl-7">
               {choices.map(c => (
@@ -68,7 +68,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
             {(group.questions || []).map((q, qi) => (
               <div key={qi} className="flex gap-2 items-center text-sm">
                 <span className="w-5 h-5 rounded-full bg-[#eff6ff] text-[#1D4ED8] font-bold text-xs flex items-center justify-center shrink-0">{qStart + qi}</span>
-                <span className="flex-1 text-gray-700">{q.questionText}</span>
+                <span className="flex-1 text-slate-800">{q.questionText}</span>
                 <span className={`border-b-2 ${showAnswers ? 'border-[#1D4ED8] text-[#1D4ED8] font-semibold' : 'border-gray-200 text-gray-400'} min-w-24 text-center text-sm`}>
                   {showAnswers ? q.correctAnswer : '___'}
                 </span>
@@ -89,7 +89,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
           const opts = Array.isArray(q.options) ? q.options : (q.options ? JSON.parse(q.options) : [])
           return (
             <div key={qi} className="mb-4">
-              <p className="text-sm text-gray-800 mb-2 flex gap-2">
+              <p className="text-sm text-slate-800 mb-2 flex gap-2">
                 <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">{qStart + qi}</span>
                 <span>{q.questionText}</span>
               </p>
@@ -125,7 +125,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
           return (
             <div key={qi} className="mb-4">
               {q.questionText && (
-                <p className="text-sm text-gray-800 mb-2 flex gap-2">
+                <p className="text-sm text-slate-800 mb-2 flex gap-2">
                   <span className="font-bold text-gray-700 shrink-0">{qS}–{qE}.</span>
                   <span>{q.questionText}</span>
                 </p>
@@ -166,7 +166,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
         {(group.questions || []).map((q, qi) => (
           <div key={qi} className="flex items-center gap-2 mb-2 text-sm">
             <span className="w-6 text-xs font-bold text-gray-500 shrink-0">{qStart + qi}.</span>
-            <span className="flex-1 text-gray-700">{q.questionText}</span>
+            <span className="flex-1 text-slate-800">{q.questionText}</span>
             <span className={`font-bold text-sm ${showAnswers ? 'text-[#1D4ED8]' : 'text-gray-300'}`}>{showAnswers ? q.correctAnswer : '—'}</span>
           </div>
         ))}
@@ -201,7 +201,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
                     <tr key={qi} className="border-b border-gray-100 last:border-b-0">
                       <td className="px-4 py-2.5 border-r border-gray-200 align-middle">
                         <span className="font-bold text-[#1D4ED8] mr-1.5 text-xs">{qStart + qi}.</span>
-                        <span className="text-gray-700 text-xs leading-snug">{q.questionText}</span>
+                        <span className="text-slate-800 text-xs leading-snug">{q.questionText}</span>
                       </td>
                       {letters.map(l => {
                         const isCorrect = showAnswers && correct === l
@@ -222,7 +222,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
           (group.questions || []).map((q, qi) => (
             <div key={qi} className="flex items-center gap-2 mb-2 text-sm">
               <span className="w-6 text-xs font-bold text-gray-500 shrink-0">{qStart + qi}.</span>
-              <span className="flex-1 text-gray-700">{q.questionText}</span>
+              <span className="flex-1 text-slate-800">{q.questionText}</span>
               <span className={`font-bold text-sm ${showAnswers ? 'text-[#1D4ED8]' : 'text-gray-300'}`}>{showAnswers ? q.correctAnswer : '—'}</span>
             </div>
           ))
@@ -257,7 +257,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
                 const content = line.contentWithTokens || line.content || ''
                 const parts   = content.split(/(\[Q:\d+\])/)
                 return (
-                  <p key={li} className="text-sm leading-8 text-gray-700">
+                  <p key={li} className="text-sm leading-8 text-slate-800">
                     {parts.map((part, pi) => {
                       const match = part.match(/\[Q:(\d+)\]/)
                       if (match) {
@@ -300,7 +300,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
               const answerOpt = opts.find(o => (o.letter || o.optionLetter) === answer)
               return (
                 <div key={qi} className="bg-white rounded-xl border border-gray-200 p-3">
-                  <p className="text-sm text-gray-800 mb-2 leading-relaxed flex gap-2">
+                  <p className="text-sm text-slate-800 mb-2 leading-relaxed flex gap-2">
                     <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#eff6ff] text-[#1D4ED8] font-bold text-xs shrink-0 mt-0.5">{qStart + qi}</span>
                     <span>{q.questionText}</span>
                   </p>
@@ -387,7 +387,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
               const answerHeading = headings.find(h => (h.letter || h.optionLetter) === answer)
               return (
                 <div key={qi} className="bg-white rounded-xl border border-gray-200 p-3">
-                  <p className="text-sm text-gray-800 mb-2 flex gap-2 items-start">
+                  <p className="text-sm text-slate-800 mb-2 flex gap-2 items-start">
                     <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-[#1D4ED8] font-bold text-xs shrink-0 mt-0.5">{qStart + qi}</span>
                     <span>
                       <span className="font-semibold">Paragraph {paraKey}</span>
