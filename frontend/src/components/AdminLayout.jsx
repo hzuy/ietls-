@@ -36,11 +36,14 @@ const NAV_ALL = [
   { to: '/admin/profile',   label: 'Cài đặt',           icon: Settings,    roles: ['admin', 'teacher'] },
 ]
 
+// Weight: inactive = font-light (300), active = font-normal (400). Be Vietnam
+// Pro 300 & 400 are both loaded via the Google Fonts @import (no synthesis).
+// Active is set apart by color + pill background, not a heavier weight.
 const navCls = (isActive) =>
-  `flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-normal transition group ${
+  `flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition group ${
     isActive
-      ? 'bg-blue-50/80 text-blue-600 font-medium'
-      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+      ? 'bg-blue-50/80 text-blue-600 font-normal'
+      : 'text-slate-600 font-light hover:bg-slate-100 hover:text-slate-900'
   }`
 
 export default function AdminLayout({ children }) {

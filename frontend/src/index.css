@@ -190,7 +190,11 @@ table th { font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase;
 table td { font-size: var(--fs-sm); }
 
 /* ─── Admin sidebar ─────────────────────────────────────────────────────────── */
-aside nav a, aside nav button { font-family: var(--font-body); font-size: var(--fs-base); font-weight: 500; }
+/* Only pin the font-family here. This rule is unlayered, so it outranks every
+   Tailwind utility — font-size / font-weight are left to `navCls` in
+   AdminLayout.jsx (text-sm + font-light / font-normal) instead of being forced
+   to 17px / 500 here where utilities can't override them. */
+aside nav a, aside nav button { font-family: var(--font-body); }
 /* Neutralize the global button:hover lift inside sidebar — nav items must stay flat */
 aside nav button:hover {
   transform: none !important;
