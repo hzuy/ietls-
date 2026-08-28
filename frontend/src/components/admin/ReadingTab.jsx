@@ -247,29 +247,36 @@ function SpeakingFormPreview({ form }) {
       </div>
     )
 
-    if (activePart === 3) return (
-      <div className="flex gap-4">
-        <div className="flex-1 min-w-0">
-          {form.part3.description && <p className="text-sm text-slate-500 italic mb-3 border-l-2 border-[#bfdbfe] pl-3">{form.part3.description}</p>}
-          <div className="space-y-3">
-            {form.part3.topics.map((topic, ti) => (
-              <div key={ti} className="bg-white rounded-lg border border-[#e2e8f0] p-3">
-                {topic.label && <p className="text-xs font-bold text-[#1D4ED8] uppercase tracking-wide mb-2 pb-1.5 border-b border-[#e2e8f0]">{topic.label}</p>}
-                <div className="space-y-1.5">
-                  {topic.questions.filter(q => q.trim()).map((q, qi) => (
-                    <div key={qi} className="flex gap-2 text-sm text-slate-700">
-                      <span className="w-5 h-5 shrink-0 rounded-full bg-[#eff6ff] text-[#1D4ED8] font-bold text-xs flex items-center justify-center mt-0.5">{qi + 1}</span>
-                      <span>{q}</span>
+    if (activePart === 3) {
+      const realTopics = form.part3.topics.filter(t => t.label.trim() || t.questions.some(q => q.trim()))
+      return (
+        <div className="flex gap-4">
+          <div className="flex-1 min-w-0">
+            {form.part3.description && <p className="text-sm text-slate-500 italic mb-3 border-l-2 border-[#bfdbfe] pl-3">{form.part3.description}</p>}
+            {realTopics.length === 0 ? (
+              <p className="text-sm text-slate-400 italic">Chưa có chủ đề nào</p>
+            ) : (
+              <div className="space-y-3">
+                {realTopics.map((topic, ti) => (
+                  <div key={ti} className="bg-white rounded-lg border border-[#e2e8f0] p-3">
+                    {topic.label && <p className="text-xs font-bold text-[#1D4ED8] uppercase tracking-wide mb-2 pb-1.5 border-b border-[#e2e8f0]">{topic.label}</p>}
+                    <div className="space-y-1.5">
+                      {topic.questions.filter(q => q.trim()).map((q, qi) => (
+                        <div key={qi} className="flex gap-2 text-sm text-slate-700">
+                          <span className="w-5 h-5 shrink-0 rounded-full bg-[#eff6ff] text-[#1D4ED8] font-bold text-xs flex items-center justify-center mt-0.5">{qi + 1}</span>
+                          <span>{q}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
+          <div className="w-52 shrink-0"><SpeakingRecordMockup /></div>
         </div>
-        <div className="w-52 shrink-0"><SpeakingRecordMockup /></div>
-      </div>
-    )
+      )
+    }
   }
 
   return (

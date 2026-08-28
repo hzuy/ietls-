@@ -10,6 +10,9 @@ import { SpeakingFormPreview } from './ReadingTab'
 
 // ─── TAB: SPEAKING ────────────────────────────────────────────────────────────
 
+const DRAFT_PREFIX = 'draft_speaking_'
+const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
+
 function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchExams, loading, loadError }) {
   const [form, setForm] = useState(emptySpeakingForm())
   const liveExamSeries = useExamSeriesList()
@@ -17,20 +20,44 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [editingId, setEditingId] = useState(null)
+  const [loadingEdit, setLoadingEdit] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
-  const [showAnswers, setShowAnswers] = useState(false)
   const [toast, setToast] = useState('')
   const [draftBanner, setDraftBanner] = useState(null)
   const [editHighlight, setEditHighlight] = useState(false)
   const formRef = useRef(null)
+  const previewRef = useRef(null)
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
+
+  // Scroll the preview panel into view once it has rendered.
+  useEffect(() => {
+    if (showPreview) previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [showPreview])
+
+  // On mount: purge stale draft_speaking_* keys older than 7 days.
+  useEffect(() => {
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i)
+        if (!k || !k.startsWith(DRAFT_PREFIX)) continue
+        try {
+          const parsed = JSON.parse(localStorage.getItem(k))
+          const savedAt = parsed && parsed._savedAt
+          if (savedAt && Date.now() - savedAt > DRAFT_MAX_AGE_MS) localStorage.removeItem(k)
+        } catch { localStorage.removeItem(k) }
+      }
+    } catch { /* localStorage unavailable */ }
+  }, [])
 
   useEffect(() => {
     const key = `draft_speaking_${editingId || 'new'}`
     const saved = localStorage.getItem(key)
     if (saved) {
-      try { setDraftBanner({ key, data: JSON.parse(saved) }) }
+      try {
+        const { _savedAt, ...data } = JSON.parse(saved)
+        setDraftBanner({ key, data, savedAt: _savedAt })
+      }
       catch { localStorage.removeItem(key) }
     } else { setDraftBanner(null) }
   }, [editingId])
@@ -39,17 +66,23 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
     if (!form.title && !editingId) return
     const key = `draft_speaking_${editingId || 'new'}`
     const timer = setTimeout(() => {
-      localStorage.setItem(key, JSON.stringify(form))
-      const now = new Date()
-      const hh = now.getHours().toString().padStart(2, '0')
-      const mm = now.getMinutes().toString().padStart(2, '0')
-      setToast(`Đã lưu bản nháp lúc ${hh}:${mm}`)
-      setTimeout(() => setToast(''), 3000)
+      try {
+        localStorage.setItem(key, JSON.stringify({ ...form, _savedAt: Date.now() }))
+        const now = new Date()
+        const hh = now.getHours().toString().padStart(2, '0')
+        const mm = now.getMinutes().toString().padStart(2, '0')
+        setToast(`Đã lưu bản nháp lúc ${hh}:${mm}`)
+        setTimeout(() => setToast(''), 3000)
+      } catch {
+        setToast('Không lưu được nháp (bộ nhớ đầy)')
+        setTimeout(() => setToast(''), 3000)
+      }
     }, 2000)
     return () => clearTimeout(timer)
   }, [form, editingId])
 
   const loadForEdit = async (id) => {
+    setLoadingEdit(true)
     try {
       const res = await api.get(`/admin/exams/${id}`)
       const exam = res.data
@@ -95,10 +128,17 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
       setEditHighlight(true)
       setTimeout(() => setEditHighlight(false), 2000)
       window.scrollTo({ top: 0, behavior: 'smooth' })
-    } catch { alert('Lỗi tải đề để sửa') }
+    } catch {
+      setError('Lỗi tải đề để sửa. Thử lại.')
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+    finally { setLoadingEdit(false) }
   }
 
-  const cancelEdit = () => { setEditingId(null); setForm(emptySpeakingForm()); setEditHighlight(false) }
+  const cancelEdit = () => {
+    if (editingId) localStorage.removeItem(`draft_speaking_${editingId}`)
+    setEditingId(null); setForm(emptySpeakingForm()); setEditHighlight(false); setDraftBanner(null)
+  }
 
   // ── Part 1 helpers ─────────────────────────────────────────────
   const updateP1Question = (idx, val) => {
@@ -218,7 +258,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
     try {
       await api.delete(`/admin/exams/${id}`)
       onRefresh()
-    } catch { alert('Lỗi xóa đề') }
+    } catch { showToast('Lỗi xóa đề') }
   }
 
   return (
@@ -228,7 +268,14 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
           {toast}
         </div>
       )}
-      <form ref={formRef} onSubmit={handleSubmit} className={`bg-white rounded-2xl p-6 border shadow-sm transition-all duration-500 ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-slate-100'}`}>
+      <div className="relative">
+      {loadingEdit && (
+        <div className="absolute inset-0 z-20 rounded-2xl bg-white/70 backdrop-blur-[1px] flex items-center justify-center">
+          <span className="text-sm font-semibold text-slate-500">Đang tải đề để sửa…</span>
+        </div>
+      )}
+      <form ref={formRef} onSubmit={handleSubmit} aria-busy={loadingEdit}
+        className={`bg-white rounded-2xl p-6 border shadow-sm transition-all duration-500 ${loadingEdit ? 'opacity-60 pointer-events-none select-none' : ''} ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-slate-100'}`}>
         <h3 className="font-bold text-slate-800 mb-5">{editingId ? `Sửa đề Speaking #${editingId}` : 'Tạo đề Speaking mới'}</h3>
 
         {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-lg mb-4 text-sm whitespace-pre-line">{error}</div>}
@@ -426,7 +473,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
           </div>
         </div>
 
-        <button type="submit" disabled={submitting} className={btnPrimary + ' w-full'}>
+        <button type="submit" disabled={submitting || loadingEdit} className={btnPrimary + ' w-full'}>
           {submitting ? 'Đang lưu...' : editingId ? 'Cập nhật đề Speaking' : 'Tạo đề Speaking'}
         </button>
         <button
@@ -437,16 +484,18 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
           {showPreview ? '▲ Thu gọn preview' : '👁 Xem trước nội dung đề'}
         </button>
       </form>
+      </div>
 
       {showPreview && (
-        <InlinePreviewPanel
-          title={form.title || 'Speaking'}
-          showAnswers={showAnswers}
-          setShowAnswers={setShowAnswers}
-          onClose={() => setShowPreview(false)}
-        >
-          <SpeakingFormPreview form={form} />
-        </InlinePreviewPanel>
+        <div ref={previewRef} style={{ scrollMarginTop: 16 }}>
+          <InlinePreviewPanel
+            title={form.title || 'Speaking'}
+            hideAnswers
+            onClose={() => setShowPreview(false)}
+          >
+            <SpeakingFormPreview form={form} />
+          </InlinePreviewPanel>
+        </div>
       )}
 
       <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">

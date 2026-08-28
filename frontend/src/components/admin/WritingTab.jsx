@@ -102,6 +102,9 @@ function WritingFormPreview({ form }) {
 
 // ─── TAB: WRITING ─────────────────────────────────────────────────────────────
 
+const DRAFT_PREFIX = 'draft_writing_'
+const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
+
 function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchExams, loading, loadError }) {
   const [form, setForm] = useState(emptyWritingForm())
   const liveExamSeries = useExamSeriesList()
@@ -109,36 +112,60 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [editingId, setEditingId] = useState(null)
+  const [loadingEdit, setLoadingEdit] = useState(false)
   const [toast, setToast] = useState('')
   const [draftBanner, setDraftBanner] = useState(null)
   const [editHighlight, setEditHighlight] = useState(false)
   const [imgUploading, setImgUploading] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
-  const [showAnswers, setShowAnswers] = useState(false)
   const formRef = useRef(null)
+  const previewRef = useRef(null)
   const imgRef = useRef(null)
 
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
+
   const uploadTask1Image = async (file) => {
-    if (file.size > 5 * 1024 * 1024) { alert('Ảnh tối đa 5MB'); return }
+    if (file.size > 5 * 1024 * 1024) { showToast('Ảnh tối đa 5MB'); return }
     const ext = file.name.split('.').pop().toLowerCase()
-    if (!['png', 'jpg', 'jpeg'].includes(ext)) { alert('Chỉ chấp nhận PNG hoặc JPG'); return }
+    if (!['png', 'jpg', 'jpeg'].includes(ext)) { showToast('Chỉ chấp nhận PNG hoặc JPG'); return }
     setImgUploading(true)
     try {
       const fd = new FormData()
       fd.append('image', file)
       const res = await api.post('/admin/upload-image', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
       setForm(f => ({ ...f, task1: { ...f.task1, imageUrl: res.data.imageUrl } }))
-    } catch { alert('Lỗi upload ảnh') }
+    } catch { showToast('Lỗi upload ảnh — thử lại sau') }
     finally { setImgUploading(false) }
   }
 
-  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
+  // Scroll the preview panel into view once it has rendered.
+  useEffect(() => {
+    if (showPreview) previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [showPreview])
+
+  // On mount: purge stale draft_writing_* keys older than 7 days.
+  useEffect(() => {
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i)
+        if (!k || !k.startsWith(DRAFT_PREFIX)) continue
+        try {
+          const parsed = JSON.parse(localStorage.getItem(k))
+          const savedAt = parsed && parsed._savedAt
+          if (savedAt && Date.now() - savedAt > DRAFT_MAX_AGE_MS) localStorage.removeItem(k)
+        } catch { localStorage.removeItem(k) }
+      }
+    } catch { /* localStorage unavailable */ }
+  }, [])
 
   useEffect(() => {
     const key = `draft_writing_${editingId || 'new'}`
     const saved = localStorage.getItem(key)
     if (saved) {
-      try { setDraftBanner({ key, data: JSON.parse(saved) }) }
+      try {
+        const { _savedAt, ...data } = JSON.parse(saved)
+        setDraftBanner({ key, data, savedAt: _savedAt })
+      }
       catch { localStorage.removeItem(key) }
     } else { setDraftBanner(null) }
   }, [editingId])
@@ -147,17 +174,23 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     if (!form.title && !editingId) return
     const key = `draft_writing_${editingId || 'new'}`
     const timer = setTimeout(() => {
-      localStorage.setItem(key, JSON.stringify(form))
-      const now = new Date()
-      const hh = now.getHours().toString().padStart(2, '0')
-      const mm = now.getMinutes().toString().padStart(2, '0')
-      setToast(`Đã lưu bản nháp lúc ${hh}:${mm}`)
-      setTimeout(() => setToast(''), 3000)
+      try {
+        localStorage.setItem(key, JSON.stringify({ ...form, _savedAt: Date.now() }))
+        const now = new Date()
+        const hh = now.getHours().toString().padStart(2, '0')
+        const mm = now.getMinutes().toString().padStart(2, '0')
+        setToast(`Đã lưu bản nháp lúc ${hh}:${mm}`)
+        setTimeout(() => setToast(''), 3000)
+      } catch {
+        setToast('Không lưu được nháp (bộ nhớ đầy)')
+        setTimeout(() => setToast(''), 3000)
+      }
     }, 2000)
     return () => clearTimeout(timer)
   }, [form, editingId])
 
   const loadForEdit = async (id) => {
+    setLoadingEdit(true)
     try {
       const res = await api.get(`/admin/exams/${id}`)
       const exam = res.data
@@ -175,10 +208,17 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       setEditHighlight(true)
       setTimeout(() => setEditHighlight(false), 2000)
       window.scrollTo({ top: 0, behavior: 'smooth' })
-    } catch { alert('Lỗi tải đề để sửa') }
+    } catch {
+      setError('Lỗi tải đề để sửa. Thử lại.')
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+    finally { setLoadingEdit(false) }
   }
 
-  const cancelEdit = () => { setEditingId(null); setForm(emptyWritingForm()); setEditHighlight(false) }
+  const cancelEdit = () => {
+    if (editingId) localStorage.removeItem(`draft_writing_${editingId}`)
+    setEditingId(null); setForm(emptyWritingForm()); setEditHighlight(false); setDraftBanner(null)
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -229,7 +269,7 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     try {
       await api.delete(`/admin/exams/${id}`)
       onRefresh()
-    } catch { alert('Lỗi xóa đề') }
+    } catch { showToast('Lỗi xóa đề') }
   }
 
   return (
@@ -239,7 +279,14 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
           {toast}
         </div>
       )}
-      <form ref={formRef} onSubmit={handleSubmit} className={`bg-white rounded-2xl p-6 border shadow-sm transition-all duration-500 ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-slate-100'}`}>
+      <div className="relative">
+      {loadingEdit && (
+        <div className="absolute inset-0 z-20 rounded-2xl bg-white/70 backdrop-blur-[1px] flex items-center justify-center">
+          <span className="text-sm font-semibold text-slate-500">Đang tải đề để sửa…</span>
+        </div>
+      )}
+      <form ref={formRef} onSubmit={handleSubmit} aria-busy={loadingEdit}
+        className={`bg-white rounded-2xl p-6 border shadow-sm transition-all duration-500 ${loadingEdit ? 'opacity-60 pointer-events-none select-none' : ''} ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-slate-100'}`}>
         <h3 className="font-bold text-slate-800 mb-5">{editingId ? `Sửa đề Writing #${editingId}` : 'Tạo đề Writing mới'}</h3>
 
         {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-lg mb-4 text-sm whitespace-pre-line">{error}</div>}
@@ -259,7 +306,13 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         {editingId && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex items-center justify-between">
             <span className="text-sm font-semibold text-amber-700">Đang sửa đề #{editingId}</span>
-            <button type="button" onClick={cancelEdit} className={btnSecondary + ' text-xs'}>Hủy sửa</button>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => setShowPreview(v => !v)}
+                className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-blue-200 bg-white text-blue-500 hover:border-blue-400 hover:text-blue-700 transition">
+                {showPreview ? 'Ẩn preview' : 'Preview'}
+              </button>
+              <button type="button" onClick={cancelEdit} className={btnSecondary + ' text-xs'}>Hủy sửa</button>
+            </div>
           </div>
         )}
 
@@ -348,7 +401,7 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
           </div>
         </div>
 
-        <button type="submit" disabled={submitting} className={btnPrimary + ' w-full'}>
+        <button type="submit" disabled={submitting || loadingEdit} className={btnPrimary + ' w-full'}>
           {submitting ? 'Đang lưu...' : editingId ? 'Cập nhật đề Writing' : 'Tạo đề Writing'}
         </button>
         <button
@@ -359,16 +412,18 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
           {showPreview ? '▲ Thu gọn preview' : '👁 Xem trước nội dung đề'}
         </button>
       </form>
+      </div>
 
       {showPreview && (
-        <InlinePreviewPanel
-          title={form.title || 'Writing'}
-          showAnswers={showAnswers}
-          setShowAnswers={setShowAnswers}
-          onClose={() => setShowPreview(false)}
-        >
-          <WritingFormPreview form={form} />
-        </InlinePreviewPanel>
+        <div ref={previewRef} style={{ scrollMarginTop: 16 }}>
+          <InlinePreviewPanel
+            title={form.title || 'Writing'}
+            hideAnswers
+            onClose={() => setShowPreview(false)}
+          >
+            <WritingFormPreview form={form} />
+          </InlinePreviewPanel>
+        </div>
       )}
 
       <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
