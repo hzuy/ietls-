@@ -2,7 +2,22 @@ import { useState, useEffect } from 'react'
 import AdminLayout from '../../components/AdminLayout'
 
 import { getAdminTrash, restoreTrashItem, permanentDeleteTrashItem, purgeTrash } from '../../services/adminService'
-import { Trash2, RotateCcw, AlertTriangle } from 'lucide-react'
+import { Trash2, RotateCcw, AlertTriangle, BookOpen, Headphones, PenLine, Mic, Layers, Book } from 'lucide-react'
+
+// Semantic icon per content type — shown as a fallback when there is no thumbnail
+// (or the thumbnail file is missing). exam_series never has an image.
+const TYPE_ICON = {
+  reading_practice:   BookOpen,
+  listening_practice: Headphones,
+  writing_sample:     PenLine,
+  speaking_sample:    Mic,
+  exam_reading:       BookOpen,
+  exam_listening:     Headphones,
+  exam_writing:       PenLine,
+  exam_speaking:      Mic,
+  exam_series:        Layers,
+  book:               Book,
+}
 
 const TYPE_LABEL = {
   reading_practice:   'Reading Practice',
@@ -51,6 +66,23 @@ const resolveImg = (url) => {
   return `${API_BASE}${url}`
 }
 
+// 40×40 thumbnail cell: real image when we have one that loads, otherwise a
+// semantic type icon. exam_series always renders the icon (backend never sends
+// an image for it), and a broken/missing image file falls back to the icon too.
+function ThumbCell({ item }) {
+  const [imgFailed, setImgFailed] = useState(false)
+  const Icon = TYPE_ICON[item.type] || Trash2
+  const src = item.type === 'exam_series' ? null : resolveImg(item.thumbnailUrl)
+  const showImg = src && !imgFailed
+  return (
+    <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center">
+      {showImg
+        ? <img src={src} alt="" className="w-full h-full object-cover" onError={() => setImgFailed(true)} />
+        : <Icon size={16} strokeWidth={1} className="text-slate-400" />}
+    </div>
+  )
+}
+
 export default function Trash() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
@@ -58,6 +90,11 @@ export default function Trash() {
   const [confirming, setConfirming] = useState(null)
   const [purgeConfirm, setPurgeConfirm] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [toast, setToast] = useState(null)          // { kind: 'error' | 'success', msg }
+  const [rowErrors, setRowErrors] = useState({})    // { `${type}-${id}`: message } — rows whose last action failed
+
+  const rowKey = (item) => `${item.type}-${item.id}`
+  const showToast = (kind, msg) => { setToast({ kind, msg }); setTimeout(() => setToast(null), 5000) }
 
   const load = async () => {
     setLoading(true)
@@ -73,9 +110,15 @@ export default function Trash() {
     setBusy(true)
     try {
       await restoreTrashItem(item.type, item.id)
+      setRowErrors(prev => { const n = { ...prev }; delete n[rowKey(item)]; return n })
       setConfirming(null)
       load()
-    } catch (err) { alert(err.response?.data?.message || 'Lỗi khôi phục') }
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Lỗi khôi phục — thử lại sau'
+      setRowErrors(prev => ({ ...prev, [rowKey(item)]: msg }))
+      setConfirming(null)
+      showToast('error', msg)
+    }
     setBusy(false)
   }
 
@@ -83,9 +126,16 @@ export default function Trash() {
     setBusy(true)
     try {
       await permanentDeleteTrashItem(item.type, item.id)
+      setRowErrors(prev => { const n = { ...prev }; delete n[rowKey(item)]; return n })
       setConfirming(null)
       load()
-    } catch (err) { alert(err.response?.data?.message || 'Lỗi xóa') }
+    } catch (err) {
+      // Keep the failed row visible and flagged instead of letting it silently vanish.
+      const msg = err.response?.data?.message || 'Lỗi xóa vĩnh viễn — thử lại sau'
+      setRowErrors(prev => ({ ...prev, [rowKey(item)]: msg }))
+      setConfirming(null)
+      showToast('error', msg)
+    }
     setBusy(false)
   }
 
@@ -93,9 +143,14 @@ export default function Trash() {
     setBusy(true)
     try {
       await purgeTrash()
+      setRowErrors({})
       setPurgeConfirm(false)
       load()
-    } catch (err) { alert(err.response?.data?.message || 'Lỗi dọn rác') }
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Lỗi dọn rác — thử lại sau'
+      setPurgeConfirm(false)
+      showToast('error', msg)
+    }
     setBusy(false)
   }
 
@@ -111,7 +166,7 @@ export default function Trash() {
               <Trash2 size={24} className="text-slate-700" strokeWidth={2} />
               <h1 className="text-xl font-bold text-gray-800">Thùng rác</h1>
             </div>
-            <p className="text-sm text-gray-500 mt-0.5">Các mục đã xóa — tự động xóa vĩnh viễn sau 30 ngày</p>
+            <p className="text-sm text-gray-500 mt-0.5">Các mục đã xóa — tự động dọn sau 30 ngày</p>
           </div>
           {items.length > 0 && (
             <button
@@ -168,25 +223,31 @@ export default function Trash() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filtered.map(item => (
-                  <tr key={item.type + item.id} className="hover:bg-gray-50 transition">
-                    <td className="px-4 py-3">
-                      <div style={{ width: 40, height: 40, borderRadius: 8, overflow: 'hidden', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {resolveImg(item.thumbnailUrl)
-                          ? <img src={resolveImg(item.thumbnailUrl)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          : <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" stroke="#cbd5e1" strokeWidth="1.5"/><path d="M21 15l-5-5L5 21" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round"/></svg>}
-                      </div>
+                {filtered.map(item => {
+                  const err = rowErrors[rowKey(item)]
+                  return (
+                  <tr key={item.type + item.id} className={`transition ${err ? 'bg-red-50/60 hover:bg-red-50' : 'hover:bg-gray-50'}`}>
+                    <td className="px-4 py-3 align-top">
+                      <ThumbCell item={item} />
                     </td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-800">{item.title}</td>
-                    <td className="px-4 py-3 hidden sm:table-cell">
+                    <td className="px-4 py-3 text-sm font-medium text-gray-800 align-top">
+                      {item.title}
+                      {err && (
+                        <div className="flex items-start gap-1 mt-1 text-xs font-normal text-red-600">
+                          <AlertTriangle size={13} className="mt-px shrink-0" />
+                          <span>{err}</span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 hidden sm:table-cell align-top">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${TYPE_COLOR[item.type] || 'bg-gray-100 text-gray-600'}`}>
                         {TYPE_LABEL[item.type] || item.type}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500 hidden sm:table-cell">
+                    <td className="px-4 py-3 text-sm text-gray-500 hidden sm:table-cell align-top">
                       {new Date(item.deletedAt).toLocaleDateString('vi-VN')}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 align-top">
                       <div className="flex items-center gap-2 justify-end">
                         <button
                           onClick={() => setConfirming({ ...item, action: 'restore' })}
@@ -198,12 +259,13 @@ export default function Trash() {
                           onClick={() => setConfirming({ ...item, action: 'delete' })}
                           className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 transition"
                         >
-                          Xóa vĩnh viễn
+                          {err ? 'Thử lại' : 'Xóa vĩnh viễn'}
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -281,6 +343,19 @@ export default function Trash() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Toast — persistent-ish (5s), replaces alert() */}
+      {toast && (
+        <div
+          onClick={() => setToast(null)}
+          className={`fixed bottom-4 right-4 z-[10000] max-w-sm text-sm px-4 py-3 rounded-xl shadow-lg cursor-pointer flex items-start gap-2 ${
+            toast.kind === 'error' ? 'bg-red-600 text-white' : 'bg-slate-800 text-white'
+          }`}
+        >
+          {toast.kind === 'error' && <AlertTriangle size={16} className="mt-px shrink-0" />}
+          <span>{toast.msg}</span>
         </div>
       )}
     </AdminLayout>

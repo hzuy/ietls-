@@ -4,20 +4,44 @@ const prisma = require('../../lib/prisma')
 const authMiddleware = require('../../middleware/auth')
 const { teacherOrAdmin } = require('../../lib/roles')
 
-// Cascade-safe hard delete for Exam records
-// No-cascade FKs on Exam: Attempt.examId, WritingAnswer.taskId, SpeakingAnswer.partId
+// The 4 real per-skill exam types. NOTE: 'exam_series' also begins with 'exam_',
+// so it must be matched by an explicit branch — never by a startsWith('exam_') test.
+const EXAM_SKILL_TYPES = ['exam_reading', 'exam_listening', 'exam_writing', 'exam_speaking']
+
+// Cascade-safe hard delete for Exam records, wrapped in a single transaction so a
+// mid-way failure never leaves an exam half-deleted.
+//
+// Auto-cascade FKs (handled by the DB): Exam→Passage→Question, Exam→ListeningSection→Question,
+//   Exam→WritingTask, Exam→SpeakingPart→SpeakingQuestion, Attempt→QuestionAnswer.
+// No-cascade FKs that must be cleared here first:
+//   Attempt.examId, WritingAnswer.taskId, SpeakingAnswer.partId,
+//   AnswerLog.questionId  (AnswerLog.attemptId is SetNull, but .questionId is Restrict —
+//   leftover AnswerLog rows are what make the Question cascade blow up with a 500).
 async function hardDeleteExams(examIds) {
   if (!examIds.length) return
-  const [taskIds, partIds] = await Promise.all([
+  const [taskIds, partIds, questionIds] = await Promise.all([
     prisma.writingTask.findMany({ where: { examId: { in: examIds } }, select: { id: true } }).then(r => r.map(t => t.id)),
     prisma.speakingPart.findMany({ where: { examId: { in: examIds } }, select: { id: true } }).then(r => r.map(p => p.id)),
+    prisma.question.findMany({
+      where: {
+        OR: [
+          { passage: { examId: { in: examIds } } },
+          { listeningSection: { examId: { in: examIds } } },
+        ],
+      },
+      select: { id: true },
+    }).then(r => r.map(q => q.id)),
   ])
-  await Promise.all([
-    prisma.attempt.deleteMany({ where: { examId: { in: examIds } } }),
-    taskIds.length ? prisma.writingAnswer.deleteMany({ where: { taskId: { in: taskIds } } }) : Promise.resolve(),
-    partIds.length ? prisma.speakingAnswer.deleteMany({ where: { partId: { in: partIds } } }) : Promise.resolve(),
-  ])
-  await prisma.exam.deleteMany({ where: { id: { in: examIds } } })
+
+  await prisma.$transaction(async (tx) => {
+    if (questionIds.length) {
+      await tx.answerLog.deleteMany({ where: { questionId: { in: questionIds } } })
+    }
+    await tx.attempt.deleteMany({ where: { examId: { in: examIds } } })
+    if (taskIds.length) await tx.writingAnswer.deleteMany({ where: { taskId: { in: taskIds } } })
+    if (partIds.length) await tx.speakingAnswer.deleteMany({ where: { partId: { in: partIds } } })
+    await tx.exam.deleteMany({ where: { id: { in: examIds } } })
+  })
 }
 
 // ─── TRASH COUNT (lightweight — for sidebar badge) ───────────────────────────
@@ -140,7 +164,7 @@ router.post('/trash/:type/:id/restore', authMiddleware, teacherOrAdmin, async (r
       await prisma.writingSample.update({ where: { id: numId }, data: { deletedAt: null } })
     } else if (type === 'speaking_sample') {
       await prisma.speakingSample.update({ where: { id: numId }, data: { deletedAt: null } })
-    } else if (type.startsWith('exam_')) {
+    } else if (EXAM_SKILL_TYPES.includes(type)) {
       await prisma.exam.update({ where: { id: numId }, data: { deletedAt: null } })
     } else if (type === 'exam_series') {
       await prisma.examSeries.update({ where: { id: numId }, data: { deletedAt: null } })
@@ -190,9 +214,23 @@ router.delete('/trash/:type/:id/permanent', authMiddleware, teacherOrAdmin, asyn
       await prisma.writingSample.delete({ where: { id: numId } })
     } else if (type === 'speaking_sample') {
       await prisma.speakingSample.delete({ where: { id: numId } })
-    } else if (type.startsWith('exam_')) {
+    } else if (EXAM_SKILL_TYPES.includes(type)) {
       await hardDeleteExams([numId])
     } else if (type === 'exam_series') {
+      // A trashed series can still own LIVE books/exams — soft-deleting a series
+      // never touches its children. Permanently deleting it now would cascade-drop
+      // the BookCovers and orphan the live Exams (seriesId → null). Refuse until the
+      // children are dealt with.
+      const [liveBooks, liveExams] = await Promise.all([
+        prisma.bookCover.count({ where: { seriesId: numId, deletedAt: null } }),
+        prisma.exam.count({ where: { seriesId: numId, deletedAt: null } }),
+      ])
+      const liveTotal = liveBooks + liveExams
+      if (liveTotal > 0) {
+        return res.status(409).json({
+          message: `Bộ đề còn ${liveTotal} đề/cuốn đang hoạt động — vui lòng xóa các mục con trước khi xóa vĩnh viễn bộ đề này.`,
+        })
+      }
       await prisma.examSeries.delete({ where: { id: numId } })
     } else if (type === 'book') {
       const book = await prisma.bookCover.findUnique({ where: { id: numId }, select: { seriesId: true, bookNumber: true } })
