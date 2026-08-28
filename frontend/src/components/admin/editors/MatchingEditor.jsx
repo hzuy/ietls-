@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import api from '../../../utils/axios'
-import { inputCls, labelCls, btnSecondary, getQuestionGroupTheme } from '../adminConstants'
+import { inputCls, labelCls, btnSecondary, toImgSrc, getQuestionGroupTheme } from '../adminConstants'
 
 export default function MatchingEditor({ group = {}, onChange }) {
   const groupType = group?.type || 'matching'
@@ -68,7 +68,7 @@ export default function MatchingEditor({ group = {}, onChange }) {
           </div>
           {group.imageUrl && (
             <img
-              src={group.imageUrl.startsWith('/') ? `http://localhost:3001${group.imageUrl}` : group.imageUrl}
+              src={toImgSrc(group.imageUrl)}
               alt="map/diagram" className="mt-2 max-h-56 rounded-xl border object-contain w-full bg-gray-50" />
           )}
         </div>

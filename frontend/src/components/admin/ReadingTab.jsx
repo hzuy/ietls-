@@ -484,7 +484,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   }
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Xóa đề này?')) return
+    // Xác nhận đã do modal của ExamList đảm nhiệm trước khi gọi onDelete
     try {
       await api.delete(`/admin/exams/${id}`)
       onRefresh()
@@ -503,7 +503,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
           {editingId ? `Sửa đề Reading #${editingId}` : 'Tạo đề Reading mới'}
         </h3>
 
-        {error && <div className="bg-blue-50 border border-blue-200 text-blue-600 p-3 rounded-xl mb-4 text-sm">{error}</div>}
+        {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-xl mb-4 text-sm">{error}</div>}
 
         {draftBanner && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 flex items-center justify-between">
