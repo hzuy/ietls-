@@ -147,7 +147,7 @@ export default function AdminLayout({ children }) {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 min-w-0 overflow-y-auto" style={{ scrollbarGutter: 'stable' }}>
+      <main className="admin-main flex-1 min-w-0 overflow-y-auto" style={{ scrollbarGutter: 'stable' }}>
         {children}
       </main>
 

@@ -195,6 +195,15 @@ table td { font-size: var(--fs-sm); }
    AdminLayout.jsx (text-sm + font-light / font-normal) instead of being forced
    to 17px / 500 here where utilities can't override them. */
 aside nav a, aside nav button { font-family: var(--font-body); }
+
+/* ─── Admin content forms ───────────────────────────────────────────────────── */
+/* `input, textarea, select, button { font-size: var(--fs-base) }` above is
+   unlayered, so it forces every form control to ~17px and silently overrides the
+   `text-sm` in inputCls / the editors. That size only exists to dodge iOS Safari
+   focus-zoom; the Admin panel is desktop-only, so pull controls back to --fs-sm
+   (14px) here for consistency with the rest of the panel. Labels already sit at
+   text-xs via labelCls and are unaffected. */
+.admin-main :is(input, textarea, select) { font-size: var(--fs-sm); }
 /* Neutralize the global button:hover lift inside sidebar — nav items must stay flat */
 aside nav button:hover {
   transform: none !important;
