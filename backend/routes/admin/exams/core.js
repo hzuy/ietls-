@@ -518,33 +518,52 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
 
     if (existing.skill === 'speaking') {
       const { part1, part2, part3 } = req.body
-      // Delete SpeakingAnswers first to avoid FK constraint
-      const oldParts = await prisma.speakingPart.findMany({ where: { examId: id }, select: { id: true } })
-      const oldPartIds = oldParts.map(p => p.id)
-      if (oldPartIds.length) await prisma.speakingAnswer.deleteMany({ where: { partId: { in: oldPartIds } } })
-      await prisma.speakingPart.deleteMany({ where: { examId: id } })
-      const updated = await prisma.exam.update({
-        where: { id },
-        data: {
-          title, bookNumber: bn, testNumber: tn,
-          speakingParts: {
-            create: [
-              {
-                number: 1, cueCard: part1.cueCard || null,
-                questions: { create: part1.questions.filter(q => q.trim()).map((q, i) => ({ orderNum: i + 1, questionText: q })) }
-              },
-              {
-                number: 2, cueCard: part2.cueCard || null,
-                questions: { create: part2.questions.filter(q => q.trim()).map((q, i) => ({ orderNum: i + 1, questionText: q })) }
-              },
-              {
-                number: 3, cueCard: part3.cueCard || null,
-                questions: { create: part3.questions.filter(q => q.trim()).map((q, i) => ({ orderNum: i + 1, questionText: q })) }
-              }
-            ]
+      const srcByNumber = { 1: part1, 2: part2, 3: part3 }
+
+      // Speaking has NO Attempt row — SpeakingAnswer (transcript + AI scores of past
+      // attempts) IS the student's record, and its partId FK is required with no
+      // cascade. So reuse the existing SpeakingPart rows (always Part 1/2/3) instead
+      // of deleting them: update cueCard, replace only the SpeakingQuestion rows
+      // (which carry no incoming FK). SpeakingAnswer rows keep their partId link and
+      // are fully preserved — no data loss, not even orphaned.
+      const existingParts = await prisma.speakingPart.findMany({
+        where: { examId: id }, select: { id: true, number: true }
+      })
+      const partIdByNumber = new Map(existingParts.map(p => [p.number, p.id]))
+
+      await prisma.$transaction(async (tx) => {
+        await tx.exam.update({ where: { id }, data: { title, bookNumber: bn, testNumber: tn } })
+
+        for (const number of [1, 2, 3]) {
+          const src = srcByNumber[number] || {}
+          const cueCard = src.cueCard || null
+          const questions = (src.questions || [])
+            .filter(q => q.trim())
+            .map((q, i) => ({ orderNum: i + 1, questionText: q }))
+
+          const partId = partIdByNumber.get(number)
+          if (partId) {
+            await tx.speakingPart.update({ where: { id: partId }, data: { cueCard } })
+            await tx.speakingQuestion.deleteMany({ where: { partId } })
+            if (questions.length) {
+              await tx.speakingQuestion.createMany({ data: questions.map(q => ({ ...q, partId })) })
+            }
+          } else {
+            await tx.speakingPart.create({
+              data: { examId: id, number, cueCard, questions: { create: questions } }
+            })
           }
-        },
-        include: { speakingParts: { include: { questions: true } } }
+        }
+      })
+
+      const updated = await prisma.exam.findUnique({
+        where: { id },
+        include: {
+          speakingParts: {
+            orderBy: { number: 'asc' },
+            include: { questions: { orderBy: { orderNum: 'asc' } } }
+          }
+        }
       })
       return res.json(updated)
     }
