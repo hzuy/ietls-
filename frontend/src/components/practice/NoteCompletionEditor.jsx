@@ -1,6 +1,17 @@
 import { useRef } from 'react'
 import { getQuestionGroupTheme } from '../../utils/practiceConfig'
 
+// Đồng bộ group.questions với các token [Q:n] còn thực sự tồn tại trong nội dung.
+// Khi người dùng xóa token khỏi text, câu hỏi tương ứng phải bị loại (tránh câu "mồ côi").
+function syncQuestionsToTokens(contentStrings, questions, qNumberStart) {
+  const present = new Set()
+  for (const s of contentStrings) for (const m of (s || '').matchAll(/\[Q:(\d+)\]/g)) present.add(Number(m[1]))
+  const kept = (questions || []).filter(q => present.has(q.number))
+  const maxNum = kept.length ? Math.max(...kept.map(q => q.number)) : qNumberStart
+  return { questions: kept, qNumberEnd: Math.max(qNumberStart, maxNum) }
+}
+const noteContents = (sections) => (sections || []).flatMap(ns => (ns.lines || []).map(l => l.content))
+
 export default function NoteCompletionEditor({ group, onChange }) {
   const lineRefs = useRef({})
   const theme = getQuestionGroupTheme(group?.type || 'note_completion')
@@ -39,7 +50,7 @@ export default function NoteCompletionEditor({ group, onChange }) {
     const sections = group.noteSections.map((ns, i) => i !== nsi ? ns : {
       ...ns, lines: ns.lines.map((l, j) => j !== li ? l : { ...l, content: val })
     })
-    onChange({ ...group, noteSections: sections })
+    onChange({ ...group, noteSections: sections, ...syncQuestionsToTokens(noteContents(sections), group.questions, group.qNumberStart) })
   }
 
   const updateLineType = (nsi, li, type) => {
@@ -60,7 +71,7 @@ export default function NoteCompletionEditor({ group, onChange }) {
     const sections = group.noteSections.map((ns, i) => i !== nsi ? ns : {
       ...ns, lines: ns.lines.filter((_, j) => j !== li)
     })
-    onChange({ ...group, noteSections: sections })
+    onChange({ ...group, noteSections: sections, ...syncQuestionsToTokens(noteContents(sections), group.questions, group.qNumberStart) })
   }
 
   const addSection = () => {
@@ -68,7 +79,8 @@ export default function NoteCompletionEditor({ group, onChange }) {
   }
 
   const removeSection = (nsi) => {
-    onChange({ ...group, noteSections: group.noteSections.filter((_, i) => i !== nsi) })
+    const sections = group.noteSections.filter((_, i) => i !== nsi)
+    onChange({ ...group, noteSections: sections, ...syncQuestionsToTokens(noteContents(sections), group.questions, group.qNumberStart) })
   }
 
   const updateSectionTitle = (nsi, val) => {

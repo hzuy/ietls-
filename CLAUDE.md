@@ -159,3 +159,7 @@ cd frontend && npx vitest run src/hooks/useDebounce.test.js
 | BUG-26 | `backend/routes/listening.js:141` | Same for Listening |
 | BUG-26 | `backend/routes/writing.js:175` | Same for Writing |
 | BUG-28 | `backend/routes/admin/trash.js:56` | Auto-purge soft-deleted items older than 30 days |
+
+### Known issues — cần audit riêng sau
+
+- **`PUT /admin/exams/:id` tái sinh toàn bộ Question ID mỗi lần sửa đề.** Route này `passage.deleteMany` + tạo lại tất cả passage/question với ID mới trên mỗi lần cập nhật nội dung. Hệ quả: `attempt.answers` (JSON key theo questionId) và các dòng `QuestionAnswer` của những lượt thi ĐÃ tồn tại trước khi sửa đề bị lệch/mồ côi — không tái chấm lại được, và breakdown chi tiết theo từng câu của lượt cũ bị mất. Cần audit riêng: có nên **giữ nguyên Question ID khi update** (diff nội dung, chỉ update field thay đổi, chỉ tạo/xóa câu thực sự thêm/bớt) thay vì xóa-tạo-lại, để bảo toàn lịch sử answer của học viên đã làm bài. Ảnh hưởng: tất cả 4 skill dùng chung pattern này trong `routes/admin/exams/core.js` (PUT) + `reading.js`/`listening.js`/`writing.js`/`speaking.js` (POST create).

@@ -1,6 +1,16 @@
 import { useState, useRef } from 'react'
 import { inputCls, labelCls, getQuestionGroupTheme } from '../../utils/practiceConfig'
 
+// Đồng bộ group.questions với các token [Q:n] còn thực sự tồn tại trong nội dung bảng.
+// Khi người dùng xóa token khỏi ô/hàng/cột, câu hỏi tương ứng phải bị loại (tránh câu "mồ côi").
+function syncQuestionsToTokens(contentStrings, questions, qNumberStart) {
+  const present = new Set()
+  for (const s of contentStrings) for (const m of (s || '').matchAll(/\[Q:(\d+)\]/g)) present.add(Number(m[1]))
+  const kept = (questions || []).filter(q => present.has(q.number))
+  const maxNum = kept.length ? Math.max(...kept.map(q => q.number)) : qNumberStart
+  return { questions: kept, qNumberEnd: Math.max(qNumberStart, maxNum) }
+}
+
 export default function TableCompletionEditor({ group, onChange }) {
   const cellRefs = useRef({})
   const theme = getQuestionGroupTheme(group?.type || 'table_completion')
@@ -27,7 +37,7 @@ export default function TableCompletionEditor({ group, onChange }) {
   tokenOrder.forEach((n, idx) => { tokenDisplayMap[n] = group.qNumberStart + idx })
 
   const updateSection = (newLines, newTitle = section.title) => {
-    onChange({ ...group, noteSections: [{ title: newTitle, lines: newLines }] })
+    onChange({ ...group, noteSections: [{ title: newTitle, lines: newLines }], ...syncQuestionsToTokens(newLines.map(l => l.content), group.questions || [], group.qNumberStart) })
   }
 
   const updateTitle = (val) => updateSection(section.lines, val)
@@ -48,7 +58,7 @@ export default function TableCompletionEditor({ group, onChange }) {
     cells[colIdx] = val
     newDataLines[rowIdx] = { ...newDataLines[rowIdx], content: cells.slice(0, colCount).join('|') }
     const newLines = [headingLine, ...newDataLines]
-    onChange({ ...group, noteSections: [{ title: section.title, lines: newLines }] })
+    onChange({ ...group, noteSections: [{ title: section.title, lines: newLines }], ...syncQuestionsToTokens(newLines.map(l => l.content), group.questions || [], group.qNumberStart) })
   }
 
   const insertBlank = (rowIdx, colIdx) => {
