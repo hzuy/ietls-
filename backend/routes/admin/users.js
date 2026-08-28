@@ -4,6 +4,7 @@ const router = express.Router()
 const prisma = require('../../lib/prisma')
 const authMiddleware = require('../../middleware/auth')
 const validate = require('../../middleware/validate')
+const { roundBand } = require('../../lib/scoreUtils')
 const { adminOnly, teacherOrAdmin } = require('../../lib/roles')
 const {
   adminChangePasswordSchema,
@@ -80,7 +81,7 @@ router.get('/users', authMiddleware, adminOnly, async (req, res) => {
         _max: { createdAt: true }
       })
     ])
-    const avgMap = Object.fromEntries(avgScores.map(a => [a.userId, a._avg.score]))
+    const avgMap = Object.fromEntries(avgScores.map(a => [a.userId, roundBand(a._avg.score)]))
     const lastMap = Object.fromEntries(lastAttempts.map(a => [a.userId, a._max.createdAt]))
 
     let mergedUsers = users.map(u => ({
@@ -142,7 +143,7 @@ router.get('/users/:id', authMiddleware, adminOnly, async (req, res) => {
     })
     const skillStats = Object.fromEntries(
       Object.entries(bySkill).map(([s, scores]) => [
-        s, scores.length > 0 ? (scores.reduce((a,b) => a+b, 0) / scores.length) : null
+        s, scores.length > 0 ? roundBand(scores.reduce((a,b) => a+b, 0) / scores.length) : null
       ])
     )
 

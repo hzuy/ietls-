@@ -1,7 +1,27 @@
 import { describe, it, expect } from 'vitest'
-const { getReadingBand, getListeningBand, ieltsOverall } = require('./scoreUtils')
+const { getReadingBand, getListeningBand, ieltsOverall, roundBand } = require('./scoreUtils')
 
 describe('scoreUtils', () => {
+  describe('roundBand', () => {
+    it('rounds to the nearest valid IELTS 0.5 step', () => {
+      expect(roundBand(6.1)).toBe(6.0)   // < .25 down
+      expect(roundBand(6.24)).toBe(6.0)
+      expect(roundBand(6.25)).toBe(6.5)  // .25 up
+      expect(roundBand(6.5)).toBe(6.5)
+      expect(roundBand(6.74)).toBe(6.5)
+      expect(roundBand(6.75)).toBe(7.0)  // .75 up
+      expect(roundBand(0.1)).toBe(0)     // "0.1" bug — must not stay 0.1
+      expect(roundBand(0.6)).toBe(0.5)   // "0.6" bug
+    })
+    it('passes null / NaN through and clamps to [0, 9]', () => {
+      expect(roundBand(null)).toBe(null)
+      expect(roundBand(undefined)).toBe(null)
+      expect(roundBand(NaN)).toBe(null)
+      expect(roundBand(9.4)).toBe(9)
+      expect(roundBand(-1)).toBe(0)
+    })
+  })
+
   describe('ieltsOverall', () => {
     it('Case 1: avg = 6.25 (.25 rounds to .5) -> 6.5', () => {
       expect(ieltsOverall([6.5, 6.5, 6.0, 6.0])).toBe(6.5)

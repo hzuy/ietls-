@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
 import { getMe, updateProfile, changePassword, getUserStats } from '../services/userService'
 import { User, BarChart2, Lock } from 'lucide-react'
+import { formatBand } from '../utils/ielts'
 
 const TABS = [
   { id: 'info',     label: 'Thông tin cá nhân', Icon: User },
@@ -250,7 +251,7 @@ export default function UserProfile() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {[
                       { label: 'Bài đã làm', value: stats?.totalAttempts ?? 0, suffix: ' bài' },
-                      { label: 'Band trung bình', value: stats?.avgBand ? (Math.round(stats.avgBand * 10) / 10).toFixed(1) : '0.0', suffix: '' },
+                      { label: 'Band trung bình', value: stats?.avgBand ? formatBand(stats.avgBand) : '0.0', suffix: '' },
                       { label: 'Streak', value: stats?.streak ?? 0, suffix: ' ngày' },
                     ].map(({ label, value, suffix }) => (
                       <div key={label} className="card-base p-6 text-center">
@@ -269,7 +270,7 @@ export default function UserProfile() {
                     </h3>
                     {SKILLS.map(({ key, label }) => {
                       const band = stats?.bandBySkill?.[key]
-                      const roundedBand = band != null ? (Math.round(band * 10) / 10).toFixed(1) : '0.0'
+                      const roundedBand = band ? formatBand(band) : '0.0'
                       const pct = band != null ? Math.min((band / 9) * 100, 100) : 0
                       return (
                         <div key={key} className="mb-6 last:mb-0">

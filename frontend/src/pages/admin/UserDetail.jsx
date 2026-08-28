@@ -4,6 +4,7 @@ import { getAdminUser, toggleUserLock, deleteAdminUser, resetUserPassword } from
 import AdminLayout from '../../components/AdminLayout'
 import { KeyRound } from 'lucide-react'
 import { ADMIN_SKILL_COLORS, SKILL_LABEL, SKILL_ORDER } from '../../utils/adminSkillColors'
+import { formatBand } from '../../utils/ielts'
 
 export default function UserDetail() {
   const { id } = useParams()
@@ -117,7 +118,7 @@ export default function UserDetail() {
             const colors = ADMIN_SKILL_COLORS[skill]
             return (
               <div key={skill} className="rounded-xl p-4" style={{ backgroundColor: colors.bg }}>
-                <div className="text-2xl font-bold" style={{ color: colors.text }}>{score != null ? score.toFixed(1) : '—'}</div>
+                <div className="text-2xl font-bold" style={{ color: colors.text }}>{formatBand(score)}</div>
                 <div className="text-xs text-slate-500 mt-0.5">Band TB {SKILL_LABEL[skill]}</div>
               </div>
             )

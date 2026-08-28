@@ -7,6 +7,7 @@ const authMiddleware = require('../../middleware/auth')
 const validate = require('../../middleware/validate')
 const { teacherOrAdmin, teacherOnly } = require('../../lib/roles')
 const { attemptsQuerySchema } = require('../../validators/submissionValidator')
+const { roundBand } = require('../../lib/scoreUtils')
 
 // ─── STALE-WHILE-REVALIDATE CACHE & STAMPEDE PROTECTION ───────────────────────
 const cache = new Map()
@@ -236,7 +237,7 @@ async function fetchDashboardOverviewData() {
     stats: {
       totalUsers, usersThisMonth, usersLastMonth,
       attemptsToday,
-      avgBand: avgBandRaw._avg.score || 0,
+      avgBand: roundBand(avgBandRaw._avg.score) || 0,
       totalExams,
     },
     registrationsByDay,
@@ -487,7 +488,7 @@ async function fetchAnalyticsData(period) {
   })
   const skillBreakdown = Object.entries(bySkill).map(([skill, { count, totalScore, scoreCount }]) => ({
     skill, count,
-    avgScore: scoreCount > 0 ? (totalScore / scoreCount) : null
+    avgScore: scoreCount > 0 ? roundBand(totalScore / scoreCount) : null
   }))
 
   const topUserIds = topUsers.map(u => u.userId)
@@ -498,12 +499,12 @@ async function fetchAnalyticsData(period) {
   const userMap = Object.fromEntries(topUserInfo.map(u => [u.id, u]))
   const topUsersResult = topUsers.map(u => ({
     ...userMap[u.userId],
-    avgScore: u._avg.score,
+    avgScore: roundBand(u._avg.score),
     attemptCount: u._count.id
   }))
 
   return {
-    overview: { totalAttempts, totalUsers, totalUsersAll, avgBand: avgBandRaw._avg.score },
+    overview: { totalAttempts, totalUsers, totalUsersAll, avgBand: roundBand(avgBandRaw._avg.score) },
     skillBreakdown,
     topUsers: topUsersResult,
     attemptsByDay,

@@ -34,6 +34,14 @@ function getListeningBand(correct) {
   return 0
 }
 
+// Round a single band value to the nearest valid IELTS step (0, 0.5, 1.0, …).
+// Ties (x.25 / x.75) round up — matching ieltsOverall's frac rule and the
+// frontend roundIELTS helper. Pass null/NaN through; clamp to [0, 9].
+function roundBand(score) {
+  if (score == null || Number.isNaN(score)) return null
+  return Math.max(0, Math.min(9, Math.round(score * 2) / 2))
+}
+
 function ieltsOverall(scores) {
   if (!scores || !scores.length) return 0
   const validScores = scores.filter(s => typeof s === 'number' && !isNaN(s))
@@ -53,5 +61,6 @@ function ieltsOverall(scores) {
 module.exports = {
   getReadingBand,
   getListeningBand,
+  roundBand,
   ieltsOverall,
 }

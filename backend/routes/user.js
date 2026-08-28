@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const prisma = require('../lib/prisma')
 const authMiddleware = require('../middleware/auth')
+const { roundBand, ieltsOverall } = require('../lib/scoreUtils')
 
 // GET /api/user/stats — thống kê luyện thi của user đang đăng nhập
 router.get('/stats', authMiddleware, async (req, res) => {
@@ -30,7 +31,7 @@ router.get('/stats', authMiddleware, async (req, res) => {
       }
     }
 
-    const avg = arr => arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : null
+    const avg = arr => arr.length ? roundBand(arr.reduce((s, v) => s + v, 0) / arr.length) : null
     const bandBySkill = {
       reading:   avg(skillScores.reading),
       listening: avg(skillScores.listening),
@@ -39,7 +40,7 @@ router.get('/stats', authMiddleware, async (req, res) => {
     }
 
     const activeBands = Object.values(bandBySkill).filter(v => v !== null)
-    const avgBand = activeBands.length ? activeBands.reduce((s, v) => s + v, 0) / activeBands.length : 0
+    const avgBand = activeBands.length ? ieltsOverall(activeBands) : 0
 
     // Streak — số ngày liên tiếp có bài hoàn thành (tính từ hôm nay hoặc hôm qua)
     // Lấy tối đa 366 ngày gần nhất — đủ cho bất kỳ streak thực tế nào
