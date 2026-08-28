@@ -1,3 +1,11 @@
+/**
+ * LƯU Ý KIẾN TRÚC: Đây là 1 trong 2 bản implementation song song cho loại câu hỏi này.
+ * Bản kia: src/components/admin/editors/MCQGroupEditor.jsx
+ * 2 bản đã fork khác nhau (xem chi tiết trong CLAUDE.md — phần "Known Issues").
+ * Khi sửa bug hoặc thêm tính năng ở đây, cân nhắc đồng bộ sang bản kia nếu áp dụng được.
+ * Kế hoạch dài hạn: hợp nhất thành 1 bản tham số hóa (numberingMode: auto/manual, themeSource)
+ * — chưa thực hiện, cần đánh giá riêng.
+ */
 import { getQuestionGroupTheme } from '../../utils/practiceConfig'
 
 export default function MCQGroupEditor({ group, onChange }) {
@@ -46,8 +54,12 @@ export default function MCQGroupEditor({ group, onChange }) {
 
   const removeOption = (qi, oi) => {
     const q = group.questions[qi]
+    const removedText = (q.options || defaultOpts)[oi]
     const opts = (q.options || defaultOpts).filter((_, i) => i !== oi)
-    onChange({ ...group, questions: group.questions.map((item, i) => i !== qi ? item : { ...item, options: opts }) })
+    // Drop the removed option from correctAnswer so no stale reference to a
+    // no-longer-existing option is left behind (ported from admin/editors).
+    const correctAnswer = (q.correctAnswer || '').split(',').filter(c => c && c !== removedText).join(',')
+    onChange({ ...group, questions: group.questions.map((item, i) => i !== qi ? item : { ...item, options: opts, correctAnswer }) })
   }
 
   const toggleCorrect = (qi, optVal) => {
@@ -75,6 +87,8 @@ export default function MCQGroupEditor({ group, onChange }) {
       {group.questions.map((q, qi) => {
         const opts = q.options || defaultOpts
         const correctList = (q.correctAnswer || '').split(',').filter(Boolean)
+        const correctCount = correctList.length
+        const warn = isMulti && correctCount !== maxChoices
         return (
           <div key={qi} className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-xl p-3 space-y-2`}>
             <div className="flex items-center justify-between">
@@ -107,6 +121,12 @@ export default function MCQGroupEditor({ group, onChange }) {
                   )
                 })}
                 <button type="button" onClick={() => addOption(qi)} className={`text-xs ${theme.subBoxText} font-semibold hover:underline mt-1`}>+ Thêm lựa chọn</button>
+                {warn && (
+                  <p className={`text-xs font-semibold mt-1 ${correctCount < maxChoices ? 'text-amber-600' : 'text-red-500'}`}>
+                    ⚠ Đang chọn {correctCount}/{maxChoices} đáp án đúng
+                    {correctCount < maxChoices ? ` — cần chọn thêm ${maxChoices - correctCount}` : ` — chọn thừa ${correctCount - maxChoices}`}
+                  </p>
+                )}
               </div>
             ) : (
               <>

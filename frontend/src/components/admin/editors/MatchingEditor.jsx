@@ -1,3 +1,11 @@
+/**
+ * LƯU Ý KIẾN TRÚC: Đây là 1 trong 2 bản implementation song song cho loại câu hỏi này.
+ * Bản kia: src/components/practice/MatchingEditor.jsx
+ * 2 bản đã fork khác nhau (xem chi tiết trong CLAUDE.md — phần "Known Issues").
+ * Khi sửa bug hoặc thêm tính năng ở đây, cân nhắc đồng bộ sang bản kia nếu áp dụng được.
+ * Kế hoạch dài hạn: hợp nhất thành 1 bản tham số hóa (numberingMode: auto/manual, themeSource)
+ * — chưa thực hiện, cần đánh giá riêng.
+ */
 import { useState, useRef } from 'react'
 import api from '../../../utils/axios'
 import { inputCls, labelCls, btnSecondary, toImgSrc, getQuestionGroupTheme } from '../adminConstants'
