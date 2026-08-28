@@ -71,7 +71,7 @@ export default function SummaryCompletionEditorSimple({ group, onChange }) {
 
   return (
     <div className="space-y-3">
-      <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl p-3">
+      <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg p-3">
         <div className="flex items-center justify-between mb-2">
           <p className="text-xs font-bold text-[#1D4ED8]">Word Bank</p>
           <button type="button" onClick={addMatchOpt} className="text-xs text-[#1D4ED8] font-semibold hover:underline">+ Thêm từ</button>
@@ -89,7 +89,7 @@ export default function SummaryCompletionEditorSimple({ group, onChange }) {
           ))}
         </div>
       </div>
-      <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl p-4">
+      <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg p-4">
         <p className="text-xs font-bold text-[#1D4ED8] mb-3">Nội dung Summary (dùng [Q:N] để chèn ô trống)</p>
         {noteSections.map((ns, nsi) => (
           <div key={nsi} className="space-y-2">
@@ -106,12 +106,12 @@ export default function SummaryCompletionEditorSimple({ group, onChange }) {
                 </button>
               </div>
             ))}
-            <button type="button" onClick={() => addLine(nsi)} className="text-xs text-gray-400 hover:text-gray-600 font-medium">+ Thêm dòng</button>
+            <button type="button" onClick={() => addLine(nsi)} className="text-xs text-slate-400 hover:text-slate-600 font-medium">+ Thêm dòng</button>
           </div>
         ))}
       </div>
       {tokenOrder.length > 0 && (
-        <div className="bg-[#eff6ff] border border-[#bfdbfe] rounded-xl p-3">
+        <div className="bg-[#eff6ff] border border-[#bfdbfe] rounded-lg p-3">
           <p className="text-xs font-bold text-[#1D4ED8] mb-2">Đáp án (chọn từ Word Bank)</p>
           <div className="grid grid-cols-2 gap-2">
             {tokenOrder.map(tokenNum => {

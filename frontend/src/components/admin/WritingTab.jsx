@@ -46,7 +46,7 @@ function WritingFormPreview({ form }) {
             <div onClick={() => setLightbox(toImgSrc(task.data.imageUrl))}
               className="relative cursor-pointer group mb-4 inline-block w-full">
               <img src={toImgSrc(task.data.imageUrl)} alt="Task 1 visual"
-                className="w-full rounded-xl border border-gray-200 object-contain" />
+                className="w-full rounded-lg border border-slate-200 object-contain" />
               <div style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.5)', color: 'white', borderRadius: 6, padding: '3px 8px', fontSize: 11, opacity: 0, transition: 'opacity 0.15s' }}
                 className="group-hover:opacity-100">
                 Phóng to
@@ -54,22 +54,22 @@ function WritingFormPreview({ form }) {
             </div>
           )}
           {task.data.prompt ? (
-            <p className="text-sm text-gray-700 leading-7">{task.data.prompt}</p>
+            <p className="text-sm text-slate-700 leading-7">{task.data.prompt}</p>
           ) : (
-            <p className="text-sm text-gray-400 italic">Chưa có đề bài</p>
+            <p className="text-sm text-slate-400 italic">Chưa có đề bài</p>
           )}
-          <div className="mt-5 pt-4 border-t border-gray-100 space-y-1">
-            <p className="text-xs text-gray-400">Tối thiểu <span className="font-bold text-gray-600">{task.minWords} từ</span></p>
-            <p className="text-xs text-gray-400">Khuyến nghị: <span className="font-medium text-gray-500">{task.timeHint}</span></p>
+          <div className="mt-5 pt-4 border-t border-slate-100 space-y-1">
+            <p className="text-xs text-slate-400">Tối thiểu <span className="font-bold text-slate-600">{task.minWords} từ</span></p>
+            <p className="text-xs text-slate-400">Khuyến nghị: <span className="font-medium text-slate-500">{task.timeHint}</span></p>
           </div>
         </div>
 
         {/* Right: essay area demo */}
         <div className="w-80 shrink-0 flex flex-col gap-2">
-          <div className="bg-white rounded-xl border border-gray-200 flex-1 flex flex-col overflow-hidden">
-            <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
-              <span className="text-xs font-semibold text-gray-500">Bài viết Task {task.num}</span>
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-400">
+          <div className="bg-white rounded-lg border border-slate-200 flex-1 flex flex-col overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500">Bài viết Task {task.num}</span>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-400">
                 0/{task.minWords} từ
               </span>
             </div>
@@ -79,9 +79,9 @@ function WritingFormPreview({ form }) {
               style={{ backgroundColor: '#f8fafc', flex: 1, minHeight: 200, padding: '16px', fontSize: 13, lineHeight: 1.75, resize: 'none', border: 'none', outline: 'none', color: '#9ca3af', cursor: 'not-allowed' }}
             />
           </div>
-          <p className="text-[10px] text-gray-300 italic text-center">Khu vực demo — không nhập được trong preview</p>
+          <p className="text-[10px] text-slate-300 italic text-center">Khu vực demo — không nhập được trong preview</p>
           <button type="button" disabled
-            className="w-full py-2.5 rounded-xl bg-gray-200 text-gray-400 text-sm font-bold cursor-not-allowed opacity-60">
+            className="w-full py-2.5 rounded-lg bg-slate-200 text-slate-400 text-sm font-bold cursor-not-allowed opacity-60">
             Nộp Task {task.num} để AI chấm
           </button>
         </div>
@@ -225,17 +225,17 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   return (
     <div className="space-y-6">
       {toast && (
-        <div className="fixed bottom-4 right-4 bg-gray-800 text-white text-sm px-4 py-2 rounded-xl shadow-lg z-50">
+        <div className="fixed bottom-4 right-4 bg-slate-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg z-50">
           {toast}
         </div>
       )}
-      <form ref={formRef} onSubmit={handleSubmit} className={`bg-white rounded-2xl p-6 border shadow-sm transition-all duration-500 ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-gray-100'}`}>
-        <h3 className="font-bold text-gray-800 mb-5">{editingId ? `Sửa đề Writing #${editingId}` : 'Tạo đề Writing mới'}</h3>
+      <form ref={formRef} onSubmit={handleSubmit} className={`bg-white rounded-2xl p-6 border shadow-sm transition-all duration-500 ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-slate-100'}`}>
+        <h3 className="font-bold text-slate-800 mb-5">{editingId ? `Sửa đề Writing #${editingId}` : 'Tạo đề Writing mới'}</h3>
 
-        {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-xl mb-4 text-sm">{error}</div>}
+        {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-lg mb-4 text-sm">{error}</div>}
 
         {draftBanner && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 flex items-center justify-between">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 flex items-center justify-between">
             <span className="text-sm text-yellow-700">Có bản nháp chưa lưu. Khôi phục?</span>
             <div className="flex gap-2">
               <button type="button" onClick={() => { setForm(draftBanner.data); setDraftBanner(null) }}
@@ -247,7 +247,7 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         )}
 
         {editingId && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-center justify-between">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex items-center justify-between">
             <span className="text-sm font-semibold text-amber-700">Đang sửa đề #{editingId}</span>
             <button type="button" onClick={cancelEdit} className={btnSecondary + ' text-xs'}>Hủy sửa</button>
           </div>
@@ -260,7 +260,7 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
               value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
           </div>
         </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-5">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-5">
           <p className="text-xs font-bold text-blue-700 mb-2">Gắn nhãn bộ đề (tuỳ chọn)</p>
           <div className="grid grid-cols-3 gap-3">
             <div>
@@ -291,7 +291,7 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         <div className="border border-amber-200 rounded-2xl p-5 mb-5 bg-amber-50/30">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-7 h-7 rounded-full bg-amber-100 text-amber-700 text-xs font-bold flex items-center justify-center">1</div>
-            <span className="font-semibold text-gray-700">Task 1 — Mô tả biểu đồ / bản đồ / quy trình (tối thiểu 150 từ)</span>
+            <span className="font-semibold text-slate-700">Task 1 — Mô tả biểu đồ / bản đồ / quy trình (tối thiểu 150 từ)</span>
           </div>
           <div className="mb-4">
             <label className={labelCls}>Hình ảnh (biểu đồ / bản đồ) — tùy chọn</label>
@@ -310,9 +310,9 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
             {form.task1.imageUrl && (
               <img
                 src={toImgSrc(form.task1.imageUrl)}
-                alt="task1 preview" className="mt-2 max-h-48 rounded-xl border object-contain w-full bg-gray-50" />
+                alt="task1 preview" className="mt-2 max-h-48 rounded-lg border object-contain w-full bg-slate-50" />
             )}
-            <p className="text-xs text-gray-400 mt-1">PNG hoặc JPG, tối đa 5MB</p>
+            <p className="text-xs text-slate-400 mt-1">PNG hoặc JPG, tối đa 5MB</p>
           </div>
           <div>
             <label className={labelCls}>Đề bài Task 1</label>
@@ -327,7 +327,7 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         <div className="border border-blue-200 rounded-2xl p-5 mb-6 bg-blue-50/30">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">2</div>
-            <span className="font-semibold text-gray-700">Task 2 — Viết luận (tối thiểu 250 từ)</span>
+            <span className="font-semibold text-slate-700">Task 2 — Viết luận (tối thiểu 250 từ)</span>
           </div>
           <div>
             <label className={labelCls}>Đề bài Task 2 (Essay)</label>
@@ -344,7 +344,7 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         <button
           type="button"
           onClick={() => setShowPreview(v => !v)}
-          className={`w-full py-2.5 rounded-xl border-2 text-sm font-semibold transition ${showPreview ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-dashed border-gray-200 text-gray-400 hover:border-indigo-300 hover:text-indigo-600'}`}
+          className={`w-full py-2.5 rounded-lg border-2 text-sm font-semibold transition ${showPreview ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-dashed border-slate-200 text-slate-400 hover:border-indigo-300 hover:text-indigo-600'}`}
         >
           {showPreview ? '▲ Thu gọn preview' : '👁 Xem trước nội dung đề'}
         </button>
@@ -361,8 +361,8 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         </InlinePreviewPanel>
       )}
 
-      <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-        <h3 className="font-bold text-gray-800 mb-4">Danh sách đề Writing ({paginationData?.total ?? exams.length})</h3>
+      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+        <h3 className="font-bold text-slate-800 mb-4">Danh sách đề Writing ({paginationData?.total ?? exams.length})</h3>
         <ExamList exams={exams} skill="writing" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} error={loadError} />
       </div>
     </div>

@@ -75,11 +75,11 @@ export default function MatchingEditor({ group, onChange }) {
           </div>
           {group.imageUrl && (
             <img src={toImgSrc(group.imageUrl)}
-              alt="map/diagram" className="mt-2 max-h-56 rounded-xl border object-contain w-full bg-gray-50" />
+              alt="map/diagram" className="mt-2 max-h-56 rounded-lg border object-contain w-full bg-slate-50" />
           )}
         </div>
       )}
-      <div className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-xl p-3.5`}>
+      <div className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-lg p-3.5`}>
         <div className="flex items-center justify-between mb-2">
           <p className={`text-xs font-bold ${theme.subBoxText}`}>Danh sách lựa chọn (A, B, C...)</p>
           <button type="button" onClick={addOption} className={`text-xs ${theme.subBoxText} font-semibold hover:underline`}>+ Thêm</button>
@@ -99,7 +99,7 @@ export default function MatchingEditor({ group, onChange }) {
       </div>
       <div className="space-y-2">
         {group.questions.map((q, qi) => (
-          <div key={qi} className={`flex items-center gap-2 ${theme.subBoxBg} rounded-xl p-2.5 border ${theme.subBoxBorder}`}>
+          <div key={qi} className={`flex items-center gap-2 ${theme.subBoxBg} rounded-lg p-2.5 border ${theme.subBoxBorder}`}>
             <span className={`text-xs font-bold ${theme.subBoxText} w-10 shrink-0`}>Q{q.number}:</span>
             <input className={`flex-1 border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-sm focus:outline-none`}
               placeholder="Đối tượng cần matching (VD: Cafe, Shop...)"
@@ -121,7 +121,7 @@ export default function MatchingEditor({ group, onChange }) {
           </div>
         ))}
         <button type="button" onClick={addQuestion}
-          className={`w-full border-2 border-dashed ${theme.subBoxBorder} ${theme.subBoxText} bg-white/50 hover:bg-white rounded-xl py-2 text-sm font-semibold transition`}>
+          className={`w-full border-2 border-dashed ${theme.subBoxBorder} ${theme.subBoxText} bg-white/50 hover:bg-white rounded-lg py-2 text-sm font-semibold transition`}>
           + Thêm câu hỏi
         </button>
       </div>

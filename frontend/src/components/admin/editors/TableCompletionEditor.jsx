@@ -136,18 +136,18 @@ export default function TableCompletionEditor({ group, onChange }) {
           onChange={e => updateTitle(e.target.value)}
         />
       </div>
-      <div className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-xl p-4`}>
+      <div className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-lg p-4`}>
         <div className="flex items-center gap-3 mb-3">
           <p className={`text-xs font-bold ${theme.subBoxText}`}>Bảng Table Completion</p>
           <div className="flex items-center gap-2 ml-auto">
-            <span className="text-xs text-gray-500">Số cột:</span>
+            <span className="text-xs text-slate-500">Số cột:</span>
             <button type="button" onClick={() => colCount > 2 && setColCount(colCount - 1)}
               disabled={colCount <= 2}
-              className="w-6 h-6 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-30 text-xs font-bold transition">−</button>
-            <span className="w-5 text-center text-sm font-bold text-gray-700">{colCount}</span>
+              className="w-6 h-6 flex items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 text-xs font-bold transition">−</button>
+            <span className="w-5 text-center text-sm font-bold text-slate-700">{colCount}</span>
             <button type="button" onClick={() => colCount < 6 && setColCount(colCount + 1)}
               disabled={colCount >= 6}
-              className="w-6 h-6 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-30 text-xs font-bold transition">+</button>
+              className="w-6 h-6 flex items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 text-xs font-bold transition">+</button>
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -170,9 +170,9 @@ export default function TableCompletionEditor({ group, onChange }) {
               {dataLines.map((dl, ri) => {
                 const cells = (dl.content || '').split('|')
                 return (
-                  <tr key={ri} className={ri % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <tr key={ri} className={ri % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                     {Array.from({ length: colCount }, (_, ci) => (
-                      <td key={ci} className="px-2 py-1.5 border border-gray-200 align-top min-w-[100px]">
+                      <td key={ci} className="px-2 py-1.5 border border-slate-200 align-top min-w-[100px]">
                         <div className="flex items-start gap-1">
                           <textarea
                             ref={el => { cellRefs.current[`${ri}-${ci}`] = el }}
@@ -190,7 +190,7 @@ export default function TableCompletionEditor({ group, onChange }) {
                         </div>
                       </td>
                     ))}
-                    <td className="border border-gray-200 px-1 text-center align-middle">
+                    <td className="border border-slate-200 px-1 text-center align-middle">
                       {dataLines.length > 1 && (
                         <button type="button" onClick={() => removeRow(ri)}
                           className="text-red-500 hover:text-red-600 text-xs">✕</button>
@@ -207,10 +207,10 @@ export default function TableCompletionEditor({ group, onChange }) {
       </div>
 
       {tokenOrder.length > 0 && (
-        <div className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-xl p-3`}>
+        <div className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-lg p-3`}>
           <div className="flex items-center justify-between mb-2">
             <p className={`text-xs font-bold ${theme.subBoxText}`}>Đáp án (từ ô trống trong bảng)</p>
-            <p className="text-[10px] text-gray-400">Dùng <span className="font-mono bg-gray-100 px-1 rounded">/</span> để tách nhiều đáp án. VD: <span className="font-mono">word1/word2</span></p>
+            <p className="text-[10px] text-slate-400">Dùng <span className="font-mono bg-slate-100 px-1 rounded">/</span> để tách nhiều đáp án. VD: <span className="font-mono">word1/word2</span></p>
           </div>
           <div className="grid grid-cols-2 gap-2">
             {tokenOrder.map(tokenNum => {

@@ -454,10 +454,10 @@ export const emptySpeakingForm = () => ({
 })
 
 // ─── STYLES ──────────────────────────────────────────────────────────────────
-export const inputCls = 'w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition'
-export const labelCls = 'block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide'
-export const btnPrimary = 'bg-[#1D4ED8] text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed'
-export const btnSecondary = 'border border-gray-200 text-gray-600 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition'
+export const inputCls = 'w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition'
+export const labelCls = 'block text-xs font-semibold text-slate-600 mb-1'
+export const btnPrimary = 'bg-blue-600 text-white px-5 py-2.5 rounded-lg font-semibold text-sm hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed'
+export const btnSecondary = 'border border-slate-200 text-slate-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 transition'
 export const btnDanger = 'text-rose-600 hover:text-rose-700 text-xs px-2 py-1 rounded-lg hover:bg-rose-50 transition font-medium'
 
 export const SERVER_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '')

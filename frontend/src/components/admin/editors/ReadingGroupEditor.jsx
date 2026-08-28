@@ -18,14 +18,14 @@ export default function ReadingGroupEditor({ group = {}, onChange, onRemove, onM
         <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${theme.badge}`}>
           {typeLabel}
         </span>
-        <span className="text-xs text-gray-500 font-semibold">Câu {group.qNumberStart}–{group.qNumberEnd}</span>
+        <span className="text-xs text-slate-500 font-semibold">Câu {group.qNumberStart}–{group.qNumberEnd}</span>
         <div className="flex-1" />
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">
             <button type="button" onClick={onMoveUp} disabled={isFirst}
-              className="w-6 h-6 flex items-center justify-center rounded-lg border border-gray-200/80 bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-50 disabled:opacity-30 text-xs transition">▲</button>
+              className="w-6 h-6 flex items-center justify-center rounded-lg border border-slate-200/80 bg-white text-slate-500 hover:text-slate-700 hover:bg-slate-50 disabled:opacity-30 text-xs transition">▲</button>
             <button type="button" onClick={onMoveDown} disabled={isLast}
-              className="w-6 h-6 flex items-center justify-center rounded-lg border border-gray-200/80 bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-50 disabled:opacity-30 text-xs transition">▼</button>
+              className="w-6 h-6 flex items-center justify-center rounded-lg border border-slate-200/80 bg-white text-slate-500 hover:text-slate-700 hover:bg-slate-50 disabled:opacity-30 text-xs transition">▼</button>
           </div>
           <button type="button" onClick={onRemove}
             className="text-red-500 hover:text-red-600 text-xs font-semibold px-2.5 py-1 rounded-lg hover:bg-red-50/80 transition">
@@ -62,7 +62,7 @@ export default function ReadingGroupEditor({ group = {}, onChange, onRemove, onM
               <input type="checkbox" checked={group.canReuse || false}
                 onChange={e => onChange({ ...group, canReuse: e.target.checked })}
                 className="accent-[#1D4ED8]" />
-              <span className="text-xs text-gray-600 font-medium">Cho phép dùng lại chữ cái (mỗi đoạn có thể khớp nhiều câu)</span>
+              <span className="text-xs text-slate-600 font-medium">Cho phép dùng lại chữ cái (mỗi đoạn có thể khớp nhiều câu)</span>
             </label>
             <MatchingEditor group={group} onChange={onChange} />
           </div>
@@ -76,7 +76,7 @@ export default function ReadingGroupEditor({ group = {}, onChange, onRemove, onM
               <input type="checkbox" checked={group.canReuse || false}
                 onChange={e => onChange({ ...group, canReuse: e.target.checked })}
                 className="accent-[#1D4ED8]" />
-              <span className="text-xs text-gray-600 font-medium">Cho phép dùng lại chữ cái (mỗi lựa chọn có thể khớp nhiều câu)</span>
+              <span className="text-xs text-slate-600 font-medium">Cho phép dùng lại chữ cái (mỗi lựa chọn có thể khớp nhiều câu)</span>
             </label>
             <MatchingEditor group={group} onChange={onChange} />
           </div>

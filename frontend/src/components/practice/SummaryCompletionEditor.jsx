@@ -98,17 +98,17 @@ export default function SummaryCompletionEditor({ group, onChange }) {
 
   return (
     <div className="space-y-4">
-      <div className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-xl p-3.5`}>
+      <div className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-lg p-3.5`}>
         <div className="flex items-center justify-between mb-2">
           <p className={`text-xs font-bold ${theme.subBoxText}`}>Word Bank (Khung từ vựng A, B, C...)</p>
           <button type="button" onClick={addOption} className={`text-xs ${theme.subBoxText} font-semibold hover:underline`}>+ Thêm lựa chọn</button>
         </div>
         <div className="grid grid-cols-2 gap-2">
           {matchingOptions.map((mo, oi) => (
-            <div key={oi} className="flex items-center gap-1.5 bg-white/80 rounded-lg p-1 border border-gray-200">
+            <div key={oi} className="flex items-center gap-1.5 bg-white/80 rounded-lg p-1 border border-slate-200">
               <input className={`w-8 border ${theme.subBoxBorder} rounded px-1 py-0.5 text-xs text-center font-bold focus:outline-none bg-white`}
                 value={mo.letter} onChange={e => updateOption(oi, 'letter', e.target.value)} />
-              <input className="flex-1 border border-gray-200 rounded px-2 py-0.5 text-xs focus:outline-none focus:border-lime-500 bg-white"
+              <input className="flex-1 border border-slate-200 rounded px-2 py-0.5 text-xs focus:outline-none focus:border-lime-500 bg-white"
                 placeholder="Từ/cụm từ..."
                 value={mo.text} onChange={e => updateOption(oi, 'text', e.target.value)} />
               <button type="button" onClick={() => removeOption(oi)} className="text-red-400 hover:text-red-600 text-xs px-1">✕</button>
@@ -117,7 +117,7 @@ export default function SummaryCompletionEditor({ group, onChange }) {
         </div>
       </div>
 
-      <div className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-xl p-4`}>
+      <div className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-lg p-4`}>
         <div className="flex items-center justify-between mb-3">
           <p className={`text-xs font-bold ${theme.subBoxText}`}>Nội dung đoạn Summary</p>
           <button type="button" onClick={addSection} className={`text-xs ${theme.subBoxText} font-semibold hover:underline`}>+ Thêm phần</button>
@@ -126,24 +126,24 @@ export default function SummaryCompletionEditor({ group, onChange }) {
           {noteSections.map((ns, nsi) => (
             <div key={nsi} className={`bg-white rounded-lg border ${theme.subBoxBorder} p-3`}>
               <input
-                className="w-full border border-gray-200 rounded-lg px-2 py-1 text-sm font-semibold placeholder-gray-300 focus:outline-none mb-2"
+                className="w-full border border-slate-200 rounded-lg px-2 py-1 text-sm font-semibold placeholder-slate-300 focus:outline-none mb-2"
                 placeholder="Tiêu đề phần (tùy chọn)"
                 value={ns.title} onChange={e => updateSectionTitle(nsi, e.target.value)} />
               <div className="space-y-2">
                 {ns.lines.map((line, li) => {
                   const isHeading = line.lineType === 'heading'
                   return (
-                    <div key={li} className={`flex items-start gap-2 rounded-lg p-1 ${isHeading ? 'bg-gray-50' : ''}`}>
+                    <div key={li} className={`flex items-start gap-2 rounded-lg p-1 ${isHeading ? 'bg-slate-50' : ''}`}>
                       <button type="button"
                         title={isHeading ? 'Heading — click để đổi sang Nội dung' : 'Nội dung — click để đổi sang Heading'}
                         onClick={() => updateLineType(nsi, li, isHeading ? 'content' : 'heading')}
-                        className={`shrink-0 text-[10px] font-bold w-6 h-6 flex items-center justify-center rounded border transition ${isHeading ? 'bg-gray-200 text-gray-600 border-gray-300 hover:bg-gray-300' : `${theme.subBoxBtn} ${theme.subBoxHover}`}`}>
+                        className={`shrink-0 text-[10px] font-bold w-6 h-6 flex items-center justify-center rounded border transition ${isHeading ? 'bg-slate-200 text-slate-600 border-slate-300 hover:bg-slate-300' : `${theme.subBoxBtn} ${theme.subBoxHover}`}`}>
                         {isHeading ? 'H' : '•'}
                       </button>
                       <textarea
                         ref={el => lineRefs.current[`${nsi}-${li}`] = el}
                         rows={1}
-                        className={`flex-1 border rounded-lg px-2 py-1 text-sm resize-none focus:outline-none font-mono ${isHeading ? 'font-bold border-gray-300 focus:border-gray-400 bg-gray-50 text-gray-700' : `${theme.subBoxBorder} focus:border-lime-500`}`}
+                        className={`flex-1 border rounded-lg px-2 py-1 text-sm resize-none focus:outline-none font-mono ${isHeading ? 'font-bold border-slate-300 focus:border-slate-400 bg-slate-50 text-slate-700' : `${theme.subBoxBorder} focus:border-lime-500`}`}
                         placeholder={isHeading ? 'VD: THE PARK / BENEFITS OF...' : `VD: The process was [Q:${group.qNumberStart}] in the early stages.`}
                         value={line.content}
                         onChange={e => updateLine(nsi, li, e.target.value)}
@@ -161,7 +161,7 @@ export default function SummaryCompletionEditor({ group, onChange }) {
                     </div>
                   )
                 })}
-                <button type="button" onClick={() => addLine(nsi)} className="text-xs text-gray-400 hover:text-gray-600 font-medium">+ Thêm dòng</button>
+                <button type="button" onClick={() => addLine(nsi)} className="text-xs text-slate-400 hover:text-slate-600 font-medium">+ Thêm dòng</button>
               </div>
             </div>
           ))}
@@ -169,7 +169,7 @@ export default function SummaryCompletionEditor({ group, onChange }) {
       </div>
 
       {group.questions.length > 0 && (
-        <div className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-xl p-3`}>
+        <div className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-lg p-3`}>
           <p className={`text-xs font-bold ${theme.subBoxText} mb-2`}>Đáp án (chữ cái từ Word Bank)</p>
           <div className="grid grid-cols-2 gap-2">
             {group.questions.map(q => {

@@ -22,7 +22,7 @@ export default function TrueFalseEditor({ group, onChange }) {
   return (
     <div className="space-y-2">
       {group.questions.map((q, qi) => (
-        <div key={qi} className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-xl p-3 space-y-2`}>
+        <div key={qi} className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-lg p-3 space-y-2`}>
           <div className="flex items-center justify-between">
             <span className={`text-xs font-bold ${theme.subBoxText}`}>Câu {q.number}</span>
             <button type="button" onClick={() => removeQuestion(qi)} className="text-red-500 hover:text-red-600 text-xs">✕ Xóa</button>
@@ -39,7 +39,7 @@ export default function TrueFalseEditor({ group, onChange }) {
         </div>
       ))}
       <button type="button" onClick={addQuestion}
-        className={`w-full border-2 border-dashed ${theme.subBoxBorder} ${theme.subBoxText} bg-white/50 hover:bg-white rounded-xl py-2 text-sm font-semibold transition`}>
+        className={`w-full border-2 border-dashed ${theme.subBoxBorder} ${theme.subBoxText} bg-white/50 hover:bg-white rounded-lg py-2 text-sm font-semibold transition`}>
         + Thêm câu phát biểu
       </button>
     </div>

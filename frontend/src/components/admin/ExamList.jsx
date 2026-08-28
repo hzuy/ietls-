@@ -157,7 +157,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
           { label: 'Band TB',          value: stats && stats.avgBand != null ? formatBand(stats.avgBand) : '—', color: 'bg-slate-50 text-slate-700' },
           { label: 'Chưa có câu hỏi', value: stats ? stats.noQuestionsCount : '—',      color: (stats?.noQuestionsCount ?? 0) > 0 ? 'bg-amber-50 text-amber-700' : 'bg-slate-50 text-slate-400' },
         ].map(card => (
-          <div key={card.label} className={`rounded-xl p-3 ${card.color} border border-slate-200/60`}>
+          <div key={card.label} className={`rounded-lg p-3 ${card.color} border border-slate-200/60`}>
             <div className="text-xl font-bold">{card.value}</div>
             <div className="text-xs mt-0.5 opacity-75">{card.label}</div>
           </div>
@@ -173,14 +173,14 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
           placeholder="Tìm theo tên đề..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="flex-1 min-w-[160px] px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#1D4ED8] bg-white"
+          className="flex-1 min-w-[160px] px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-[#1D4ED8] bg-white"
         />
         <label htmlFor="examlist-series" className="sr-only">Lọc theo bộ đề</label>
         <select
           id="examlist-series"
           value={filterSeries}
           onChange={e => handleSeriesChange(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#1D4ED8] bg-white"
+          className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-[#1D4ED8] bg-white"
         >
           <option value="">Tất cả bộ đề</option>
           {examSeries.map(s => <option key={s.id} value={s.id.toString()}>{s.name}</option>)}
@@ -190,7 +190,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
           id="examlist-status"
           value={filterStatus}
           onChange={e => handleStatusChange(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#1D4ED8] bg-white"
+          className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-[#1D4ED8] bg-white"
         >
           <option value="all">Tất cả trạng thái</option>
           <option value="has_questions">Có câu hỏi</option>
@@ -201,7 +201,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
           id="examlist-sort"
           value={sortBy}
           onChange={e => handleSortChange(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#1D4ED8] bg-white"
+          className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-[#1D4ED8] bg-white"
         >
           <option value="newest">Mới nhất</option>
           <option value="oldest">Cũ nhất</option>
@@ -212,14 +212,14 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
         {hasActiveFilter && (
           <button
             onClick={resetFilters}
-            className="px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition bg-white"
+            className="px-3 py-2 text-sm border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition bg-white"
           >Reset</button>
         )}
       </div>
 
       {/* Result count */}
       {hasActiveFilter && (
-        <p className="text-xs text-gray-400 mb-3">{totalCount} đề khớp bộ lọc · đang xem trang {currentPage}/{totalPages}</p>
+        <p className="text-xs text-slate-400 mb-3">{totalCount} đề khớp bộ lọc · đang xem trang {currentPage}/{totalPages}</p>
       )}
 
       {/* Exam list */}
@@ -229,13 +229,13 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
           <button
             type="button"
             onClick={() => runFetch()}
-            className="mt-3 px-4 py-2 rounded-lg border border-gray-200 text-gray-600 font-medium hover:bg-gray-50 transition"
+            className="mt-3 px-4 py-2 rounded-lg border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition"
           >Thử lại</button>
         </div>
       ) : loading && filtered.length === 0 ? (
         <SkeletonTable rows={6} cols={3} />
       ) : filtered.length === 0 ? (
-        <div className="text-center text-gray-400 py-8 text-sm">
+        <div className="text-center text-slate-400 py-8 text-sm">
           {hasActiveFilter ? 'Không tìm thấy đề nào khớp với bộ lọc.' : 'Chưa có đề nào. Tạo đề đầu tiên!'}
         </div>
       ) : (
@@ -247,11 +247,11 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
               <div key={exam.id}
                 style={isEditing ? { background: '#eff6ff', borderLeft: '3px solid #1D4ED8' } : {}}
                 className={`bg-white rounded-lg p-4 border flex items-center justify-between transition
-                  ${isEditing ? 'border-[#bfdbfe]' : 'border-gray-100 hover:border-gray-200'}`}>
+                  ${isEditing ? 'border-[#bfdbfe]' : 'border-slate-100 hover:border-slate-200'}`}>
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className={`font-semibold text-sm ${isEditing ? 'text-[#1D4ED8]' : 'text-gray-800'}`}>
+                      <p className={`font-semibold text-sm ${isEditing ? 'text-[#1D4ED8]' : 'text-slate-800'}`}>
                         {exam.title}
                       </p>
                       {isEditing && (
@@ -275,10 +275,10 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
                           Cambridge {exam.bookNumber} · Test {exam.testNumber}
                         </span>
                       )}
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-slate-400">
                         {formatDate(exam.createdAt)}
                       </span>
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-slate-400">
                         {exam._count?.attempts ?? 0} lượt làm
                       </span>
                       {exam.avgScore != null && exam.avgScore > 0 && (
@@ -318,16 +318,16 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
 
       {/* Pagination Controls */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
-          <span className="text-xs text-gray-500">
-            Hiển thị trang <span className="font-semibold text-gray-700">{currentPage}</span> / <span className="font-semibold text-gray-700">{totalPages}</span> ({totalCount} đề)
+        <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100">
+          <span className="text-xs text-slate-500">
+            Hiển thị trang <span className="font-semibold text-slate-700">{currentPage}</span> / <span className="font-semibold text-slate-700">{totalPages}</span> ({totalCount} đề)
           </span>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage <= 1 || loading}
-              className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
             >
               ← Trang trước
             </button>
@@ -335,7 +335,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
               type="button"
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage >= totalPages || loading}
-              className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
             >
               Trang sau →
             </button>
@@ -354,18 +354,18 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
             role="dialog"
             aria-modal="true"
             aria-labelledby="examlist-delete-title"
-            className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm"
+            className="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm"
           >
-            <h3 id="examlist-delete-title" className="font-bold text-gray-800 text-base mb-2">Xác nhận xóa</h3>
-            <p className="text-sm text-gray-600 leading-relaxed mb-6">
-              Bạn có chắc muốn xóa đề <span className="font-semibold text-gray-800">"{confirmDelete.title}"</span> không? Hành động này không thể hoàn tác.
+            <h3 id="examlist-delete-title" className="font-bold text-slate-800 text-base mb-2">Xác nhận xóa</h3>
+            <p className="text-sm text-slate-600 leading-relaxed mb-6">
+              Bạn có chắc muốn xóa đề <span className="font-semibold text-slate-800">"{confirmDelete.title}"</span> không? Hành động này không thể hoàn tác.
             </p>
             <div className="flex gap-3 justify-end">
               <button
                 type="button"
                 autoFocus
                 onClick={() => setConfirmDelete(null)}
-                className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition"
+                className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition"
               >Quay lại</button>
               <button
                 type="button"

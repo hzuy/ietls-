@@ -200,17 +200,17 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
   return (
     <div className="space-y-6">
       {toast && (
-        <div className="fixed bottom-4 right-4 bg-gray-800 text-white text-sm px-4 py-2 rounded-xl shadow-lg z-50">
+        <div className="fixed bottom-4 right-4 bg-slate-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg z-50">
           {toast}
         </div>
       )}
-      <form ref={formRef} onSubmit={handleSubmit} className={`bg-white rounded-2xl p-6 border shadow-sm transition-all duration-500 ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-gray-100'}`}>
-        <h3 className="font-bold text-gray-800 mb-5">{editingId ? `Sửa đề Speaking #${editingId}` : 'Tạo đề Speaking mới'}</h3>
+      <form ref={formRef} onSubmit={handleSubmit} className={`bg-white rounded-2xl p-6 border shadow-sm transition-all duration-500 ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-slate-100'}`}>
+        <h3 className="font-bold text-slate-800 mb-5">{editingId ? `Sửa đề Speaking #${editingId}` : 'Tạo đề Speaking mới'}</h3>
 
-        {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-xl mb-4 text-sm">{error}</div>}
+        {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-lg mb-4 text-sm">{error}</div>}
 
         {draftBanner && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 flex items-center justify-between">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 flex items-center justify-between">
             <span className="text-sm text-yellow-700">Có bản nháp chưa lưu. Khôi phục?</span>
             <div className="flex gap-2">
               <button type="button" onClick={() => { setForm(draftBanner.data); setDraftBanner(null) }}
@@ -222,7 +222,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
         )}
 
         {editingId && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-center justify-between">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex items-center justify-between">
             <span className="text-sm font-semibold text-amber-700">Đang sửa đề #{editingId}</span>
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => setShowPreview(v => !v)}
@@ -240,7 +240,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
             value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
         </div>
 
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-5">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-5">
           <p className="text-xs font-bold text-blue-700 mb-2">Gắn nhãn bộ đề (tuỳ chọn)</p>
           <div className="grid grid-cols-3 gap-3">
             <div>
@@ -370,7 +370,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
 
           <div className="space-y-4">
             {form.part3.topics.map((topic, ti) => (
-              <div key={ti} className="bg-amber-100/50 border border-amber-200 rounded-xl p-4">
+              <div key={ti} className="bg-amber-100/50 border border-amber-200 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <input className={`${inputCls} bg-white border-amber-200`} placeholder={`VD: School rules`}
                     value={topic.label} onChange={e => updateTopicLabel(ti, e.target.value)} />
@@ -408,7 +408,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
         <button
           type="button"
           onClick={() => setShowPreview(v => !v)}
-          className={`w-full py-2.5 rounded-xl border-2 text-sm font-semibold transition ${showPreview ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-dashed border-gray-200 text-gray-400 hover:border-indigo-300 hover:text-indigo-600'}`}
+          className={`w-full py-2.5 rounded-lg border-2 text-sm font-semibold transition ${showPreview ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-dashed border-slate-200 text-slate-400 hover:border-indigo-300 hover:text-indigo-600'}`}
         >
           {showPreview ? '▲ Thu gọn preview' : '👁 Xem trước nội dung đề'}
         </button>
@@ -425,8 +425,8 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
         </InlinePreviewPanel>
       )}
 
-      <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-        <h3 className="font-bold text-gray-800 mb-4">Danh sách đề Speaking ({paginationData?.total ?? exams.length})</h3>
+      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+        <h3 className="font-bold text-slate-800 mb-4">Danh sách đề Speaking ({paginationData?.total ?? exams.length})</h3>
         <ExamList exams={exams} skill="speaking" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} error={loadError} />
       </div>
     </div>

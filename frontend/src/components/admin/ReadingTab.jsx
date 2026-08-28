@@ -39,7 +39,7 @@ function ListeningFormPreview({ form, showAnswers }) {
               }}
             >
               Section {s.number}
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>
                 {total}
               </span>
             </button>
@@ -51,7 +51,7 @@ function ListeningFormPreview({ form, showAnswers }) {
       {section && (
         <div>
           {section.context && (
-            <p className="text-xs text-gray-500 italic mb-3 border-l-2 border-[#bfdbfe] pl-2">{section.context}</p>
+            <p className="text-xs text-slate-500 italic mb-3 border-l-2 border-[#bfdbfe] pl-2">{section.context}</p>
           )}
           {section.questionGroups.length > 0 ? (
             <div className="space-y-3">
@@ -60,7 +60,7 @@ function ListeningFormPreview({ form, showAnswers }) {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-gray-400 italic">Chưa có câu hỏi</p>
+            <p className="text-sm text-slate-400 italic">Chưa có câu hỏi</p>
           )}
         </div>
       )}
@@ -119,7 +119,7 @@ function ReadingFormPreview({ form, showAnswers }) {
               key={pi}
               type="button"
               onClick={() => setActivePassage(pi)}
-              className={`text-xs font-bold px-3 py-1.5 rounded-lg transition ${activePassage === pi ? 'bg-[#1D4ED8] text-white' : 'bg-gray-100 text-gray-600 hover:bg-[#eff6ff] hover:text-[#1D4ED8]'}`}
+              className={`text-xs font-bold px-3 py-1.5 rounded-lg transition ${activePassage === pi ? 'bg-[#1D4ED8] text-white' : 'bg-slate-100 text-slate-600 hover:bg-[#eff6ff] hover:text-[#1D4ED8]'}`}
             >
               Passage {p.number}
             </button>
@@ -129,17 +129,17 @@ function ReadingFormPreview({ form, showAnswers }) {
       {passage && (
         <div
           ref={containerRef}
-          className="flex border border-gray-200 rounded-xl overflow-hidden"
+          className="flex border border-slate-200 rounded-lg overflow-hidden"
           style={{ minHeight: 400, userSelect: dragging ? 'none' : 'auto' }}
         >
           {/* Left: Passage text */}
           <div className="overflow-y-auto bg-white p-5" style={{ width: `${leftPct}%`, maxHeight: 600, flexShrink: 0 }}>
-            {passage.title && <h2 className="font-bold text-gray-800 text-sm mb-1">{passage.title}</h2>}
-            {passage.subtitle && <p className="text-xs text-gray-500 italic mb-3">{passage.subtitle}</p>}
+            {passage.title && <h2 className="font-bold text-slate-800 text-sm mb-1">{passage.title}</h2>}
+            {passage.subtitle && <p className="text-xs text-slate-500 italic mb-3">{passage.subtitle}</p>}
             {passage.body ? (
-              <div className="text-sm text-gray-700 leading-7 whitespace-pre-wrap">{passage.body}</div>
+              <div className="text-sm text-slate-700 leading-7 whitespace-pre-wrap">{passage.body}</div>
             ) : (
-              <p className="text-sm text-gray-400 italic">Chưa có nội dung bài đọc</p>
+              <p className="text-sm text-slate-400 italic">Chưa có nội dung bài đọc</p>
             )}
           </div>
 
@@ -152,7 +152,7 @@ function ReadingFormPreview({ form, showAnswers }) {
           />
 
           {/* Right: Questions */}
-          <div className="flex-1 overflow-y-auto bg-gray-50 p-5" style={{ maxHeight: 600 }}>
+          <div className="flex-1 overflow-y-auto bg-slate-50 p-5" style={{ maxHeight: 600 }}>
             {sortedGroups.length > 0 ? (
               <div className="space-y-3">
                 {sortedGroups.map((group, gi) => (
@@ -160,7 +160,7 @@ function ReadingFormPreview({ form, showAnswers }) {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-gray-400 italic">Chưa có câu hỏi cho passage này</p>
+              <p className="text-sm text-slate-400 italic">Chưa có câu hỏi cho passage này</p>
             )}
           </div>
         </div>
@@ -188,17 +188,17 @@ function SpeakingRecordMockup() {
           <line x1="9" y1="22" x2="15" y2="22" stroke="white" strokeWidth="2" strokeLinecap="round"/>
         </svg>
       </button>
-      <p className="text-xs text-gray-400 font-medium">Sẵn sàng ghi âm</p>
+      <p className="text-xs text-slate-400 font-medium">Sẵn sàng ghi âm</p>
       {/* Play back */}
       <div className="flex items-center gap-2 w-full mt-1">
         <button type="button" disabled
-          className="w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center opacity-40 cursor-default">
+          className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center opacity-40 cursor-default">
           <svg width="12" height="12" viewBox="0 0 16 16" fill="#1D4ED8"><polygon points="4,2 14,8 4,14"/></svg>
         </button>
-        <div className="flex-1 h-1.5 rounded-full bg-gray-100" />
-        <span className="text-xs text-gray-300 font-mono">0:00</span>
+        <div className="flex-1 h-1.5 rounded-full bg-slate-100" />
+        <span className="text-xs text-slate-300 font-mono">0:00</span>
       </div>
-      <p className="text-[10px] text-gray-300 italic text-center mt-1">Giao diện ghi âm — chỉ xem trước, không hoạt động trong preview</p>
+      <p className="text-[10px] text-slate-300 italic text-center mt-1">Giao diện ghi âm — chỉ xem trước, không hoạt động trong preview</p>
     </div>
   )
 }
@@ -215,15 +215,15 @@ function SpeakingFormPreview({ form }) {
     if (activePart === 1) return (
       <div className="flex gap-4">
         <div className="flex-1 min-w-0">
-          {form.part1.description && <p className="text-sm text-gray-600 italic mb-3 border-l-2 border-[#bfdbfe] pl-3">{form.part1.description}</p>}
+          {form.part1.description && <p className="text-sm text-slate-600 italic mb-3 border-l-2 border-[#bfdbfe] pl-3">{form.part1.description}</p>}
           <div className="space-y-2">
             {form.part1.questions.filter(q => q.trim()).map((q, i) => (
               <div key={i} className="flex gap-2.5">
                 <span className="w-6 h-6 shrink-0 rounded-full bg-[#eff6ff] text-[#1D4ED8] font-bold text-xs flex items-center justify-center">{i + 1}</span>
-                <p className="text-sm text-gray-700">{q}</p>
+                <p className="text-sm text-slate-700">{q}</p>
               </div>
             ))}
-            {form.part1.questions.filter(q => q.trim()).length === 0 && <p className="text-sm text-gray-400 italic">Chưa có câu hỏi</p>}
+            {form.part1.questions.filter(q => q.trim()).length === 0 && <p className="text-sm text-slate-400 italic">Chưa có câu hỏi</p>}
           </div>
         </div>
         <div className="w-52 shrink-0"><SpeakingRecordMockup /></div>
@@ -233,14 +233,14 @@ function SpeakingFormPreview({ form }) {
     if (activePart === 2) return (
       <div className="flex gap-4">
         <div className="flex-1 min-w-0">
-          {form.part2.instructions && <p className="text-sm text-gray-500 italic mb-3">{form.part2.instructions}</p>}
+          {form.part2.instructions && <p className="text-sm text-slate-500 italic mb-3">{form.part2.instructions}</p>}
           {form.part2.cueCard ? (
             <div className="bg-[#eff6ff] border-l-4 border-[#1D4ED8] rounded-r-xl p-4">
               <p className="text-xs font-bold text-[#1D4ED8] uppercase tracking-wide mb-2">Cue Card</p>
-              <p className="text-sm text-gray-800 leading-7 whitespace-pre-wrap font-medium">{form.part2.cueCard}</p>
+              <p className="text-sm text-slate-800 leading-7 whitespace-pre-wrap font-medium">{form.part2.cueCard}</p>
             </div>
           ) : (
-            <p className="text-sm text-gray-400 italic">Chưa có Cue Card</p>
+            <p className="text-sm text-slate-400 italic">Chưa có Cue Card</p>
           )}
         </div>
         <div className="w-52 shrink-0"><SpeakingRecordMockup /></div>
@@ -250,14 +250,14 @@ function SpeakingFormPreview({ form }) {
     if (activePart === 3) return (
       <div className="flex gap-4">
         <div className="flex-1 min-w-0">
-          {form.part3.description && <p className="text-sm text-gray-500 italic mb-3 border-l-2 border-[#bfdbfe] pl-3">{form.part3.description}</p>}
+          {form.part3.description && <p className="text-sm text-slate-500 italic mb-3 border-l-2 border-[#bfdbfe] pl-3">{form.part3.description}</p>}
           <div className="space-y-3">
             {form.part3.topics.map((topic, ti) => (
-              <div key={ti} className="bg-white rounded-xl border border-[#e2e8f0] p-3">
+              <div key={ti} className="bg-white rounded-lg border border-[#e2e8f0] p-3">
                 {topic.label && <p className="text-xs font-bold text-[#1D4ED8] uppercase tracking-wide mb-2 pb-1.5 border-b border-[#e2e8f0]">{topic.label}</p>}
                 <div className="space-y-1.5">
                   {topic.questions.filter(q => q.trim()).map((q, qi) => (
-                    <div key={qi} className="flex gap-2 text-sm text-gray-700">
+                    <div key={qi} className="flex gap-2 text-sm text-slate-700">
                       <span className="w-5 h-5 shrink-0 rounded-full bg-[#eff6ff] text-[#1D4ED8] font-bold text-xs flex items-center justify-center mt-0.5">{qi + 1}</span>
                       <span>{q}</span>
                     </div>
@@ -536,26 +536,26 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   return (
     <div className="space-y-6">
       {toast && (
-        <div className="fixed bottom-4 right-4 bg-gray-800 text-white text-sm px-4 py-2 rounded-xl shadow-lg z-50">
+        <div className="fixed bottom-4 right-4 bg-slate-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg z-50">
           {toast}
         </div>
       )}
       <div className="relative">
       {loadingEdit && (
         <div className="absolute inset-0 z-20 rounded-2xl bg-white/70 backdrop-blur-[1px] flex items-center justify-center">
-          <span className="text-sm font-semibold text-gray-500">Đang tải đề để sửa…</span>
+          <span className="text-sm font-semibold text-slate-500">Đang tải đề để sửa…</span>
         </div>
       )}
       <form onSubmit={handleSubmit} aria-busy={loadingEdit}
-        className={`bg-white rounded-2xl p-6 border shadow-sm transition-all duration-500 ${loadingEdit ? 'opacity-60 pointer-events-none select-none' : ''} ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-gray-100'}`}>
-        <h3 className="font-bold text-gray-800 mb-5">
+        className={`bg-white rounded-2xl p-6 border shadow-sm transition-all duration-500 ${loadingEdit ? 'opacity-60 pointer-events-none select-none' : ''} ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-slate-100'}`}>
+        <h3 className="font-bold text-slate-800 mb-5">
           {editingId ? `Sửa đề Reading #${editingId}` : 'Tạo đề Reading mới'}
         </h3>
 
-        {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-xl mb-4 text-sm">{error}</div>}
+        {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-lg mb-4 text-sm">{error}</div>}
 
         {draftBanner && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 flex items-center justify-between">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 flex items-center justify-between">
             <span className="text-sm text-yellow-700">Có bản nháp chưa lưu. Khôi phục?</span>
             <div className="flex gap-2">
               <button type="button" onClick={() => { setForm(draftBanner.data); setDraftBanner(null) }}
@@ -567,7 +567,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         )}
 
         {editingId && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-center justify-between">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex items-center justify-between">
             <span className="text-sm font-semibold text-amber-700">Đang sửa đề #{editingId}</span>
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => setShowPreview(v => !v)}
@@ -585,7 +585,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
             value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
         </div>
 
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-5">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-5">
           <p className="text-xs font-bold text-blue-700 mb-2">Gắn nhãn bộ đề (tuỳ chọn)</p>
           <div className="grid grid-cols-3 gap-3">
             <div>
@@ -617,7 +617,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
           {form.passages.map((passage, pi) => {
             const totalQs = passage.questionGroups.reduce((a, g) => a + (g.qNumberEnd - g.qNumberStart + 1), 0)
             return (
-              <div key={pi} className="border border-gray-200 rounded-2xl overflow-hidden">
+              <div key={pi} className="border border-slate-200 rounded-2xl overflow-hidden">
                 <button
                   type="button"
                   onClick={() => setOpenPassage(openPassage === pi ? -1 : pi)}
@@ -653,7 +653,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
                         <input type="checkbox" checked={passage.letteredParagraphs}
                           onChange={e => updatePassage(pi, 'letteredParagraphs', e.target.checked)}
                           className="accent-[#1D4ED8]" />
-                        <span className="text-xs text-gray-600 font-medium">Đoạn văn có ký hiệu chữ cái (A, B, C...) — dùng cho Matching Paragraph</span>
+                        <span className="text-xs text-slate-600 font-medium">Đoạn văn có ký hiệu chữ cái (A, B, C...) — dùng cho Matching Paragraph</span>
                       </label>
                     </div>
 
@@ -683,28 +683,28 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
                       </div>
 
                       {addingGroupPassage === pi ? (
-                        <div className="border border-dashed border-[#1D4ED8] rounded-xl p-4">
-                          <p className="text-xs font-bold text-gray-600 mb-3">Chọn loại nhóm câu hỏi:</p>
+                        <div className="border border-dashed border-[#1D4ED8] rounded-lg p-4">
+                          <p className="text-xs font-bold text-slate-600 mb-3">Chọn loại nhóm câu hỏi:</p>
                           <div className="grid grid-cols-2 gap-2">
                             {READING_GROUP_TYPES.map(t => (
                               <button
                                 key={t.value}
                                 type="button"
                                 onClick={() => addGroup(pi, t.value)}
-                                className="text-left px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 hover:border-[#1D4ED8] hover:text-[#1D4ED8] hover:bg-blue-50 transition font-medium"
+                                className="text-left px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 hover:border-[#1D4ED8] hover:text-[#1D4ED8] hover:bg-blue-50 transition font-medium"
                               >
                                 {t.label}
                               </button>
                             ))}
                           </div>
                           <button type="button" onClick={() => setAddingGroupPassage(null)}
-                            className="mt-2 text-xs text-gray-400 hover:text-gray-600">Hủy</button>
+                            className="mt-2 text-xs text-slate-400 hover:text-slate-600">Hủy</button>
                         </div>
                       ) : (
                         <button
                           type="button"
                           onClick={() => setAddingGroupPassage(pi)}
-                          className="w-full border-2 border-dashed border-gray-200 rounded-xl py-3 text-sm text-gray-400 hover:border-[#1D4ED8] hover:text-[#1D4ED8] transition font-medium">
+                          className="w-full border-2 border-dashed border-slate-200 rounded-lg py-3 text-sm text-slate-400 hover:border-[#1D4ED8] hover:text-[#1D4ED8] transition font-medium">
                           + Thêm nhóm câu hỏi
                         </button>
                       )}
@@ -722,7 +722,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         <button
           type="button"
           onClick={() => setShowPreview(v => !v)}
-          className={`w-full py-2.5 rounded-xl border-2 text-sm font-semibold transition ${showPreview ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-dashed border-gray-200 text-gray-400 hover:border-indigo-300 hover:text-indigo-600'}`}
+          className={`w-full py-2.5 rounded-lg border-2 text-sm font-semibold transition ${showPreview ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-dashed border-slate-200 text-slate-400 hover:border-indigo-300 hover:text-indigo-600'}`}
         >
           {showPreview ? '▲ Thu gọn preview' : '👁 Xem trước nội dung đề'}
         </button>
@@ -742,8 +742,8 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         </div>
       )}
 
-      <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-        <h3 className="font-bold text-gray-800 mb-4">Danh sách đề Reading ({paginationData?.total ?? exams.length})</h3>
+      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+        <h3 className="font-bold text-slate-800 mb-4">Danh sách đề Reading ({paginationData?.total ?? exams.length})</h3>
         <ExamList exams={exams} skill="reading" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} error={loadError} />
       </div>
     </div>

@@ -55,12 +55,12 @@ export default function DiagramLabelEditor({ group, onChange }) {
         </div>
         {group.imageUrl && (
           <img src={toImgSrc(group.imageUrl)}
-            alt="diagram" className="mt-2 max-h-64 rounded-xl border object-contain w-full bg-gray-50" />
+            alt="diagram" className="mt-2 max-h-64 rounded-lg border object-contain w-full bg-slate-50" />
         )}
       </div>
       <div className="space-y-2">
         {group.questions.map((q, qi) => (
-          <div key={qi} className={`${theme.subBoxBg} rounded-xl border ${theme.subBoxBorder} p-3 space-y-2`}>
+          <div key={qi} className={`${theme.subBoxBg} rounded-lg border ${theme.subBoxBorder} p-3 space-y-2`}>
             <div className="flex items-center gap-2">
               <span className={`text-xs font-bold ${theme.subBoxText} w-10 shrink-0`}>Q{q.number}:</span>
               <input className={`flex-1 border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-sm focus:outline-none`}
@@ -69,16 +69,16 @@ export default function DiagramLabelEditor({ group, onChange }) {
               <button type="button" onClick={() => removeQuestion(qi)} className="text-red-400 hover:text-red-600 text-xs">✕</button>
             </div>
             <div className="flex items-center gap-2 pl-12">
-              <span className="text-xs text-gray-500 shrink-0">Đáp án:</span>
+              <span className="text-xs text-slate-500 shrink-0">Đáp án:</span>
               <input className={`flex-1 border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-sm focus:outline-none`}
                 placeholder="VD: arch hoặc stone arch/arch stone"
                 value={q.correctAnswer || ''} onChange={e => updateQ(qi, 'correctAnswer', e.target.value)} />
-              <span className="text-[10px] text-gray-400">Dùng / để tách nhiều đáp án</span>
+              <span className="text-[10px] text-slate-400">Dùng / để tách nhiều đáp án</span>
             </div>
           </div>
         ))}
         <button type="button" onClick={addQuestion}
-          className={`w-full border-2 border-dashed ${theme.subBoxBorder} ${theme.subBoxText} bg-white/50 hover:bg-white rounded-xl py-2 text-sm font-semibold transition`}>
+          className={`w-full border-2 border-dashed ${theme.subBoxBorder} ${theme.subBoxText} bg-white/50 hover:bg-white rounded-lg py-2 text-sm font-semibold transition`}>
           + Thêm câu hỏi
         </button>
       </div>

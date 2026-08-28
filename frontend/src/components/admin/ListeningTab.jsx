@@ -33,15 +33,15 @@ function GroupEditor({ group = {}, onChange, onRemove }) {
         <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${theme.badge}`}>
           {typeLabel}
         </span>
-        <span className="text-xs text-gray-500 font-semibold">
+        <span className="text-xs text-slate-500 font-semibold">
           Câu {group.qNumberStart}–{group.qNumberEnd}
         </span>
         <div className="flex-1" />
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">
-            <label className="text-xs text-gray-400">Từ câu</label>
+            <label className="text-xs text-slate-400">Từ câu</label>
             <input type="number" min={1}
-              className="w-14 border border-gray-200 rounded px-1 py-0.5 text-xs text-center focus:outline-none"
+              className="w-14 border border-slate-200 rounded px-1 py-0.5 text-xs text-center focus:outline-none"
               value={group.qNumberStart}
               onChange={e => {
                 const newStart = parseInt(e.target.value) || 1
@@ -85,7 +85,7 @@ function GroupEditor({ group = {}, onChange, onRemove }) {
                 <input type="checkbox" checked={group.canReuse || false}
                   onChange={e => onChange({ ...group, canReuse: e.target.checked })}
                   className="accent-[#1D4ED8]" />
-                <span className="text-xs text-gray-600 font-medium">Cho phép dùng lại chữ cái (mỗi lựa chọn có thể khớp nhiều câu)</span>
+                <span className="text-xs text-slate-600 font-medium">Cho phép dùng lại chữ cái (mỗi lựa chọn có thể khớp nhiều câu)</span>
               </label>
             )}
             <MatchingEditor group={group} onChange={onChange} />
@@ -100,7 +100,7 @@ function GroupEditor({ group = {}, onChange, onRemove }) {
               <input type="checkbox" checked={group.canReuse || false}
                 onChange={e => onChange({ ...group, canReuse: e.target.checked })}
                 className="accent-[#1D4ED8]" />
-              <span className="text-xs text-gray-600 font-medium">Cho phép dùng lại chữ cái (mỗi lựa chọn có thể khớp nhiều câu)</span>
+              <span className="text-xs text-slate-600 font-medium">Cho phép dùng lại chữ cái (mỗi lựa chọn có thể khớp nhiều câu)</span>
             </label>
             <MatchingEditor group={group} onChange={onChange} />
           </div>
@@ -327,19 +327,19 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   return (
     <div className="space-y-6">
       {toast && (
-        <div className="fixed bottom-4 right-4 bg-gray-800 text-white text-sm px-4 py-2 rounded-xl shadow-lg z-50">
+        <div className="fixed bottom-4 right-4 bg-slate-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg z-50">
           {toast}
         </div>
       )}
-      <form ref={formRef} onSubmit={handleSubmit} className={`bg-white rounded-2xl p-6 border shadow-sm transition-all duration-500 ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-gray-100'}`}>
-        <h3 className="font-bold text-gray-800 mb-5">
+      <form ref={formRef} onSubmit={handleSubmit} className={`bg-white rounded-2xl p-6 border shadow-sm transition-all duration-500 ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-slate-100'}`}>
+        <h3 className="font-bold text-slate-800 mb-5">
           {editingId ? `Sửa đề Listening #${editingId}` : 'Tạo đề Listening mới'}
         </h3>
 
-        {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-xl mb-4 text-sm">{error}</div>}
+        {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-lg mb-4 text-sm">{error}</div>}
 
         {draftBanner && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 flex items-center justify-between">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 flex items-center justify-between">
             <span className="text-sm text-yellow-700">Có bản nháp chưa lưu. Khôi phục?</span>
             <div className="flex gap-2">
               <button type="button" onClick={() => { setForm(draftBanner.data); setDraftBanner(null) }}
@@ -351,7 +351,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         )}
 
         {editingId && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-center justify-between">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex items-center justify-between">
             <span className="text-sm font-semibold text-amber-700">Đang sửa đề #{editingId}</span>
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => setShowPreview(v => !v)}
@@ -368,7 +368,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
           <input className={inputCls} required placeholder="VD: Cambridge 19 Test 1 Listening"
             value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
         </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-5">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-5">
           <p className="text-xs font-bold text-blue-700 mb-2">Gắn nhãn bộ đề (tuỳ chọn)</p>
           <div className="grid grid-cols-3 gap-3">
             <div>
@@ -397,21 +397,21 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
 
         <div className="space-y-3 mb-5">
           {form.sections.map((section, si) => (
-            <div key={si} className="border border-gray-200 rounded-2xl overflow-hidden">
+            <div key={si} className="border border-slate-200 rounded-2xl overflow-hidden">
               <button
                 type="button"
                 onClick={() => setOpenSection(openSection === si ? -1 : si)}
-                className="w-full flex items-center justify-between px-5 py-3 bg-gray-50 hover:bg-gray-100 transition"
+                className="w-full flex items-center justify-between px-5 py-3 bg-slate-50 hover:bg-slate-100 transition"
               >
                 <div className="flex flex-col items-start text-left">
-                  <span className="font-bold text-sm text-gray-800">Section {section.number}</span>
-                  <span className="text-xs text-gray-400 mt-0.5">{SECTION_HINTS[section.number] || ''}</span>
+                  <span className="font-bold text-sm text-slate-800">Section {section.number}</span>
+                  <span className="text-xs text-slate-400 mt-0.5">{SECTION_HINTS[section.number] || ''}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400">{section.questionGroups.length} nhóm · {section.questionGroups.reduce((a, g) => a + (g.qNumberEnd - g.qNumberStart + 1), 0)} câu</span>
+                  <span className="text-xs text-slate-400">{section.questionGroups.length} nhóm · {section.questionGroups.reduce((a, g) => a + (g.qNumberEnd - g.qNumberStart + 1), 0)} câu</span>
                   {section.audioUrl && <span className="text-xs bg-[#eff6ff] text-[#1D4ED8] font-semibold px-2 py-0.5 rounded-full">🎵 Audio</span>}
                   {section.transcript && <span className="text-xs bg-blue-100 text-blue-600 font-semibold px-2 py-0.5 rounded-full">Transcript</span>}
-                  <span className="text-gray-400 text-xs">{openSection === si ? '▲' : '▼'}</span>
+                  <span className="text-slate-400 text-xs">{openSection === si ? '▲' : '▼'}</span>
                 </div>
               </button>
 
@@ -484,13 +484,13 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
                               type="button"
                               onClick={() => moveGroup(si, gi, -1)}
                               disabled={gi === 0}
-                              className="w-6 h-6 flex items-center justify-center rounded border border-gray-200 text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-25 text-xs transition"
+                              className="w-6 h-6 flex items-center justify-center rounded border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-25 text-xs transition"
                               title="Di chuyển lên">▲</button>
                             <button
                               type="button"
                               onClick={() => moveGroup(si, gi, 1)}
                               disabled={gi === section.questionGroups.length - 1}
-                              className="w-6 h-6 flex items-center justify-center rounded border border-gray-200 text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-25 text-xs transition"
+                              className="w-6 h-6 flex items-center justify-center rounded border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-25 text-xs transition"
                               title="Di chuyển xuống">▼</button>
                           </div>
                           <div className="flex-1">
@@ -505,28 +505,28 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
                     </div>
 
                     {addingGroupSection === si ? (
-                      <div className="border border-dashed border-[#1D4ED8] rounded-xl p-4">
-                        <p className="text-xs font-bold text-gray-600 mb-3">Chọn loại nhóm câu hỏi:</p>
+                      <div className="border border-dashed border-[#1D4ED8] rounded-lg p-4">
+                        <p className="text-xs font-bold text-slate-600 mb-3">Chọn loại nhóm câu hỏi:</p>
                         <div className="grid grid-cols-2 gap-2">
                           {GROUP_TYPES.map(t => (
                             <button
                               key={t.value}
                               type="button"
                               onClick={() => addGroup(si, t.value)}
-                              className="text-left px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 hover:border-[#1D4ED8] hover:text-[#1D4ED8] hover:bg-blue-50 transition font-medium"
+                              className="text-left px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 hover:border-[#1D4ED8] hover:text-[#1D4ED8] hover:bg-blue-50 transition font-medium"
                             >
                               {t.label}
                             </button>
                           ))}
                         </div>
                         <button type="button" onClick={() => setAddingGroupSection(null)}
-                          className="mt-2 text-xs text-gray-400 hover:text-gray-600">Hủy</button>
+                          className="mt-2 text-xs text-slate-400 hover:text-slate-600">Hủy</button>
                       </div>
                     ) : (
                       <button
                         type="button"
                         onClick={() => setAddingGroupSection(si)}
-                        className="w-full border-2 border-dashed border-gray-200 rounded-xl py-3 text-sm text-gray-400 hover:border-[#1D4ED8] hover:text-[#1D4ED8] transition font-medium">
+                        className="w-full border-2 border-dashed border-slate-200 rounded-lg py-3 text-sm text-slate-400 hover:border-[#1D4ED8] hover:text-[#1D4ED8] transition font-medium">
                         + Thêm nhóm câu hỏi
                       </button>
                     )}
@@ -543,7 +543,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         <button
           type="button"
           onClick={() => setShowPreview(v => !v)}
-          className={`w-full py-2.5 rounded-xl border-2 text-sm font-semibold transition ${showPreview ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-dashed border-gray-200 text-gray-400 hover:border-indigo-300 hover:text-indigo-600'}`}
+          className={`w-full py-2.5 rounded-lg border-2 text-sm font-semibold transition ${showPreview ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-dashed border-slate-200 text-slate-400 hover:border-indigo-300 hover:text-indigo-600'}`}
         >
           {showPreview ? '▲ Thu gọn preview' : '👁 Xem trước nội dung đề'}
         </button>
@@ -560,8 +560,8 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         </InlinePreviewPanel>
       )}
 
-      <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-        <h3 className="font-bold text-gray-800 mb-4">Danh sách đề Listening ({paginationData?.total ?? exams.length})</h3>
+      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+        <h3 className="font-bold text-slate-800 mb-4">Danh sách đề Listening ({paginationData?.total ?? exams.length})</h3>
         <ExamList exams={exams} skill="listening" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} error={loadError} />
       </div>
     </div>

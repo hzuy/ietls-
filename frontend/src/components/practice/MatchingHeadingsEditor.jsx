@@ -46,7 +46,7 @@ export default function MatchingHeadingsEditor({ group, onChange }) {
 
   return (
     <div className="space-y-3">
-      <div className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-xl p-3.5`}>
+      <div className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-lg p-3.5`}>
         <div className="flex items-center justify-between mb-2">
           <p className={`text-xs font-bold ${theme.subBoxText}`}>Danh sách Heading</p>
           <button type="button" onClick={addHeading} className={`text-xs ${theme.subBoxText} font-semibold hover:underline`}>+ Thêm heading</button>
@@ -69,7 +69,7 @@ export default function MatchingHeadingsEditor({ group, onChange }) {
         {paragraphs.map((q, i) => {
           const [paraKey, paraLabel] = (q.questionText || '|').split('|')
           return (
-            <div key={i} className={`${theme.subBoxBg} rounded-xl border ${theme.subBoxBorder} p-3 space-y-2`}>
+            <div key={i} className={`${theme.subBoxBg} rounded-lg border ${theme.subBoxBorder} p-3 space-y-2`}>
               <div className="flex items-center gap-2">
                 <span className={`text-xs font-bold ${theme.subBoxText} shrink-0`}>Q{q.number}:</span>
                 <input className={`w-10 border ${theme.subBoxBorder} bg-white rounded px-1 py-1 text-xs text-center font-bold focus:outline-none`}
@@ -81,7 +81,7 @@ export default function MatchingHeadingsEditor({ group, onChange }) {
                 <button type="button" onClick={() => removeParagraph(i)} className="text-red-400 hover:text-red-600 text-xs">✕</button>
               </div>
               <div className="flex items-center gap-2 pl-14">
-                <span className="text-xs text-gray-500 shrink-0">Đáp án:</span>
+                <span className="text-xs text-slate-500 shrink-0">Đáp án:</span>
                 <select className={`flex-1 border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-sm focus:outline-none`}
                   value={q.correctAnswer || ''} onChange={e => updateAnswer(i, e.target.value)}>
                   <option value="">-- Chọn heading --</option>
@@ -94,7 +94,7 @@ export default function MatchingHeadingsEditor({ group, onChange }) {
           )
         })}
         <button type="button" onClick={addParagraph}
-          className={`w-full border-2 border-dashed ${theme.subBoxBorder} ${theme.subBoxText} bg-white/50 hover:bg-white rounded-xl py-2 text-sm font-semibold transition`}>
+          className={`w-full border-2 border-dashed ${theme.subBoxBorder} ${theme.subBoxText} bg-white/50 hover:bg-white rounded-lg py-2 text-sm font-semibold transition`}>
           + Thêm đoạn văn (paragraph)
         </button>
       </div>

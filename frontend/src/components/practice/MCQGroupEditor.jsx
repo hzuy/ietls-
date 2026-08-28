@@ -96,7 +96,7 @@ export default function MCQGroupEditor({ group, onChange }) {
     <div className="space-y-3">
       {isMulti && (
         <div className="flex items-center gap-2">
-          <label className="text-xs font-semibold text-gray-600">Số lượng đáp án cần chọn (maxChoices):</label>
+          <label className="text-xs font-semibold text-slate-600">Số lượng đáp án cần chọn (maxChoices):</label>
           <input type="number" min={2} max={5} className="w-16 border rounded px-2 py-1 text-sm font-bold text-center"
             value={maxChoices}
             onChange={e => {
@@ -125,7 +125,7 @@ export default function MCQGroupEditor({ group, onChange }) {
           if (t && trimmedOpts.some((u, j) => j !== i && u === t)) dupOptIdx.add(i)
         })
         return (
-          <div key={qi} className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-xl p-3 space-y-2`}>
+          <div key={qi} className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-lg p-3 space-y-2`}>
             <div className="flex items-center justify-between">
               <span className={`text-xs font-bold ${theme.subBoxText}`}>
                 {isMulti ? `Câu ${group.qNumberStart + qi * maxChoices}–${group.qNumberStart + qi * maxChoices + maxChoices - 1}` : `Câu ${q.number}`}
@@ -138,14 +138,14 @@ export default function MCQGroupEditor({ group, onChange }) {
               value={q.questionText} onChange={e => updateQ(qi, 'questionText', e.target.value)} />
             {isMulti ? (
               <div className="space-y-1.5">
-                <p className="text-[10px] text-gray-500 font-medium">Tick ô bên phải để đánh dấu đáp án đúng</p>
+                <p className="text-[10px] text-slate-500 font-medium">Tick ô bên phải để đánh dấu đáp án đúng</p>
                 {opts.map((opt, oi) => {
                   const letter = String.fromCharCode(65 + oi)
                   const isCorrect = correctIdx.has(oi)
                   return (
                     <div key={oi} className={`flex items-center gap-2 rounded-lg px-2 py-1 ${isCorrect ? `${theme.subBoxBg} border ${theme.subBoxBorder}` : 'border border-transparent'}`}>
-                      <span className="text-xs font-bold text-gray-500 w-5 shrink-0">{letter}.</span>
-                      <input className={`flex-1 border rounded-lg px-2 py-1 text-sm focus:outline-none bg-white ${dupOptIdx.has(oi) ? 'border-red-400 ring-1 ring-red-200' : isCorrect ? `${theme.subBoxBorder} font-semibold` : 'border-gray-200'}`}
+                      <span className="text-xs font-bold text-slate-500 w-5 shrink-0">{letter}.</span>
+                      <input className={`flex-1 border rounded-lg px-2 py-1 text-sm focus:outline-none bg-white ${dupOptIdx.has(oi) ? 'border-red-400 ring-1 ring-red-200' : isCorrect ? `${theme.subBoxBorder} font-semibold` : 'border-slate-200'}`}
                         placeholder={`Lựa chọn ${letter}...`} value={opt} onChange={e => updateOption(qi, oi, e.target.value)} />
                       <input type="checkbox" checked={isCorrect} disabled={!opt.trim()} onChange={() => toggleCorrectAt(qi, oi)}
                         title="Đánh dấu đáp án đúng" className={`w-4 h-4 ${theme.accentColor} shrink-0 cursor-pointer`} />
@@ -165,14 +165,14 @@ export default function MCQGroupEditor({ group, onChange }) {
               </div>
             ) : (
               <div className="space-y-1.5">
-                <p className="text-[10px] text-gray-500 font-medium">Chọn nút tròn bên phải để đánh dấu đáp án đúng</p>
+                <p className="text-[10px] text-slate-500 font-medium">Chọn nút tròn bên phải để đánh dấu đáp án đúng</p>
                 {opts.map((opt, oi) => {
                   const letter = String.fromCharCode(65 + oi)
                   const isCorrect = correctIdx.has(oi)
                   return (
                     <div key={oi} className={`flex items-center gap-2 rounded-lg px-2 py-1 ${isCorrect ? `${theme.subBoxBg} border ${theme.subBoxBorder}` : 'border border-transparent'}`}>
-                      <span className="text-xs font-bold text-gray-500 w-5 shrink-0">{letter}.</span>
-                      <input className={`flex-1 border rounded-lg px-2 py-1 text-sm focus:outline-none bg-white ${dupOptIdx.has(oi) ? 'border-red-400 ring-1 ring-red-200' : isCorrect ? `${theme.subBoxBorder} font-semibold` : 'border-gray-200'}`}
+                      <span className="text-xs font-bold text-slate-500 w-5 shrink-0">{letter}.</span>
+                      <input className={`flex-1 border rounded-lg px-2 py-1 text-sm focus:outline-none bg-white ${dupOptIdx.has(oi) ? 'border-red-400 ring-1 ring-red-200' : isCorrect ? `${theme.subBoxBorder} font-semibold` : 'border-slate-200'}`}
                         placeholder={`Lựa chọn ${letter}...`} value={opt} onChange={e => updateOption(qi, oi, e.target.value)} />
                       <input type="radio" name={`mcq-correct-${group.qNumberStart}-${qi}`} checked={isCorrect} disabled={!opt.trim()}
                         onClick={() => setSingleCorrect(qi, oi)} onChange={() => {}}
@@ -194,7 +194,7 @@ export default function MCQGroupEditor({ group, onChange }) {
         )
       })}
       <button type="button" onClick={addQuestion}
-        className="w-full border-2 border-dashed border-blue-200 rounded-xl py-2 text-sm text-blue-400 hover:border-blue-400 hover:text-blue-600 transition font-medium">
+        className="w-full border-2 border-dashed border-blue-200 rounded-lg py-2 text-sm text-blue-400 hover:border-blue-400 hover:text-blue-600 transition font-medium">
         + Thêm câu hỏi {isMulti ? 'MCQ Multi' : 'MCQ'}
       </button>
     </div>

@@ -27,19 +27,19 @@ function ReadingGroupEditor({ group, onChange, onRemove, onMoveUp, onMoveDown, i
   const typeLabel = READING_GROUP_TYPES.find(t => t.value === group.type)?.label || group.type
 
   return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden mb-3">
-      <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
-        <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${GROUP_TYPE_COLORS[group.type] || 'bg-gray-100 text-gray-700 border-gray-300'}`}>
+    <div className="border border-slate-200 rounded-lg overflow-hidden mb-3">
+      <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
+        <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${GROUP_TYPE_COLORS[group.type] || 'bg-slate-100 text-slate-700 border-slate-300'}`}>
           {typeLabel}
         </span>
-        <span className="text-xs text-gray-500 font-medium">Câu {group.qNumberStart}–{group.qNumberEnd}</span>
+        <span className="text-xs text-slate-500 font-medium">Câu {group.qNumberStart}–{group.qNumberEnd}</span>
         <div className="flex-1" />
         <div className="flex items-center gap-2">
           <div className="flex flex-col gap-0.5">
             <button type="button" onClick={onMoveUp} disabled={isFirst}
-              className="w-5 h-5 flex items-center justify-center rounded border border-gray-200 text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-25 text-xs transition">▲</button>
+              className="w-5 h-5 flex items-center justify-center rounded border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-25 text-xs transition">▲</button>
             <button type="button" onClick={onMoveDown} disabled={isLast}
-              className="w-5 h-5 flex items-center justify-center rounded border border-gray-200 text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-25 text-xs transition">▼</button>
+              className="w-5 h-5 flex items-center justify-center rounded border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-25 text-xs transition">▼</button>
           </div>
           <button type="button" onClick={onRemove}
             className="text-blue-500 hover:text-blue-600 text-xs font-medium px-2 py-0.5 rounded hover:bg-blue-50">
@@ -75,7 +75,7 @@ function ReadingGroupEditor({ group, onChange, onRemove, onMoveUp, onMoveDown, i
               <input type="checkbox" checked={group.canReuse || false}
                 onChange={e => onChange({ ...group, canReuse: e.target.checked })}
                 className="accent-[#1D4ED8]" />
-              <span className="text-xs text-gray-600 font-medium">Cho phép dùng lại chữ cái (mỗi đoạn có thể khớp nhiều câu)</span>
+              <span className="text-xs text-slate-600 font-medium">Cho phép dùng lại chữ cái (mỗi đoạn có thể khớp nhiều câu)</span>
             </label>
             <MatchingEditor group={group} onChange={onChange} />
           </div>
@@ -89,7 +89,7 @@ function ReadingGroupEditor({ group, onChange, onRemove, onMoveUp, onMoveDown, i
               <input type="checkbox" checked={group.canReuse || false}
                 onChange={e => onChange({ ...group, canReuse: e.target.checked })}
                 className="accent-[#1D4ED8]" />
-              <span className="text-xs text-gray-600 font-medium">Cho phép dùng lại đáp án (mỗi đáp án có thể khớp nhiều câu)</span>
+              <span className="text-xs text-slate-600 font-medium">Cho phép dùng lại đáp án (mỗi đáp án có thể khớp nhiều câu)</span>
             </label>
             <MatchingEditor group={group} onChange={onChange} />
           </div>
@@ -103,7 +103,7 @@ function ReadingGroupEditor({ group, onChange, onRemove, onMoveUp, onMoveDown, i
               <input type="checkbox" checked={group.canReuse || false}
                 onChange={e => onChange({ ...group, canReuse: e.target.checked })}
                 className="accent-green-600" />
-              <span className="text-xs text-gray-600 font-medium">Cho phép dùng lại heading (heading có thể khớp nhiều đoạn)</span>
+              <span className="text-xs text-slate-600 font-medium">Cho phép dùng lại heading (heading có thể khớp nhiều đoạn)</span>
             </label>
             <MatchingHeadingsEditor group={group} onChange={onChange} />
           </div>
@@ -151,7 +151,7 @@ function ReadingPracticePreviewModal({ form, showAnswers, setShowAnswers, onClos
           <div className="flex items-center gap-3">
             <span className="text-sm font-bold text-indigo-800">Xem trước — {form.title || 'Reading Practice'}</span>
             <button type="button" onClick={() => setShowAnswers(v => !v)}
-              className={`text-xs px-3 py-1 rounded-full font-semibold transition ${showAnswers ? 'bg-[#1D4ED8] text-white' : 'bg-white border border-gray-200 text-gray-500 hover:border-[#bfdbfe] hover:text-[#1D4ED8]'}`}>
+              className={`text-xs px-3 py-1 rounded-full font-semibold transition ${showAnswers ? 'bg-[#1D4ED8] text-white' : 'bg-white border border-slate-200 text-slate-500 hover:border-[#bfdbfe] hover:text-[#1D4ED8]'}`}>
               {showAnswers ? 'Ẩn đáp án' : 'Hiện đáp án'}
             </button>
           </div>
@@ -164,17 +164,17 @@ function ReadingPracticePreviewModal({ form, showAnswers, setShowAnswers, onClos
           style={{ userSelect: dragging ? 'none' : 'auto' }}>
           <div className="overflow-y-auto bg-white px-8 py-6" style={{ width: `${leftPct}%`, flexShrink: 0 }}>
             {form.passage
-              ? <p className="text-sm text-gray-700 leading-7 whitespace-pre-wrap">{form.passage}</p>
-              : <p className="text-sm text-gray-400 italic">Chưa có nội dung passage</p>}
+              ? <p className="text-sm text-slate-700 leading-7 whitespace-pre-wrap">{form.passage}</p>
+              : <p className="text-sm text-slate-400 italic">Chưa có nội dung passage</p>}
           </div>
           <div onMouseDown={onDividerMouseDown}
             style={{ width: 5, cursor: 'col-resize', flexShrink: 0, background: dragging ? '#3B82F6' : '#e5e7eb', transition: dragging ? 'none' : 'background 0.15s' }}
             onMouseEnter={e => { if (!dragging) e.currentTarget.style.background = '#93c5fd' }}
             onMouseLeave={e => { if (!dragging) e.currentTarget.style.background = '#e5e7eb' }} />
-          <div className="flex-1 overflow-y-auto bg-gray-50 px-6 py-6">
+          <div className="flex-1 overflow-y-auto bg-slate-50 px-6 py-6">
             {form.questionGroups.length > 0
               ? form.questionGroups.map((g, gi) => <AdminGroupPreview key={gi} group={g} showAnswers={showAnswers} />)
-              : <p className="text-sm text-gray-400 italic text-center mt-10">Chưa có câu hỏi</p>}
+              : <p className="text-sm text-slate-400 italic text-center mt-10">Chưa có câu hỏi</p>}
           </div>
         </div>
       </div>
@@ -333,50 +333,50 @@ export default function ReadingPractice() {
       <AdminLayout>
         <div className="p-6 max-w-5xl">
           <div className="flex items-center gap-3 mb-6">
-            <button onClick={() => { clearDraft(); setIsDirty(false); setView('list') }} className="text-gray-500 hover:text-gray-700 text-xl font-bold transition">←</button>
-            <h1 className="text-xl font-bold text-gray-800">
+            <button onClick={() => { clearDraft(); setIsDirty(false); setView('list') }} className="text-slate-500 hover:text-slate-700 text-xl font-bold transition">←</button>
+            <h1 className="text-xl font-bold text-slate-800">
               {editing ? 'Chỉnh sửa bài Reading Practice' : 'Thêm bài Reading Practice mới'}
             </h1>
           </div>
 
           {draftBanner && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 flex items-center justify-between">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 flex items-center justify-between">
               <span className="text-sm text-yellow-700">📋 Bạn có bản nháp chưa lưu. Khôi phục không?</span>
               <div className="flex gap-2">
                 <button onClick={() => { setForm(draftBanner.data); setDraftBanner(null); setIsDirty(true) }}
                   className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-yellow-100 hover:bg-yellow-200 text-yellow-800 border border-yellow-300 transition">Khôi phục</button>
                 <button onClick={() => { localStorage.removeItem(DRAFT_KEY); setDraftBanner(null) }}
-                  className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 transition">Bỏ qua</button>
+                  className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 transition">Bỏ qua</button>
               </div>
             </div>
           )}
           {draftSavedAt && !draftBanner && (
-            <div className="text-xs text-gray-400 mb-2">💾 Đã lưu nháp lúc {draftSavedAt}</div>
+            <div className="text-xs text-slate-400 mb-2">💾 Đã lưu nháp lúc {draftSavedAt}</div>
           )}
 
           <div className="grid gap-5" style={{ gridTemplateColumns: '1fr 280px', alignItems: 'start' }}>
             <div className="space-y-4">
-              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                <label className={labelCls}>Tên bài <span className="text-red-500 normal-case font-normal">*</span></label>
+              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+                <label className={labelCls}>Tên bài <span className="text-red-500 font-normal">*</span></label>
                 <input value={form.title} onChange={e => { setForm(f => ({ ...f, title: e.target.value })); setIsDirty(true) }}
                   placeholder="VD: Academic Reading — Nature and Wildlife"
                   className={inputCls} />
               </div>
 
-              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
                 <label className={labelCls}>Passage (nội dung bài đọc)</label>
                 <textarea value={form.passage} onChange={e => { setForm(f => ({ ...f, passage: e.target.value })); setIsDirty(true) }}
                   rows={14} placeholder="Nhập nội dung passage..."
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 resize-y font-mono"
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-400 resize-y font-mono"
                   style={{ lineHeight: 1.7 }} />
               </div>
 
-              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <label className={labelCls + ' mb-0'}>Nhóm câu hỏi</label>
                   <div className="flex items-center gap-2">
                     <select value={addGroupType} onChange={e => setAddGroupType(e.target.value)}
-                      className="text-sm border border-gray-200 rounded-xl px-3 py-1.5 focus:outline-none focus:border-blue-400 bg-white">
+                      className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400 bg-white">
                       {READING_GROUP_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                     </select>
                     <button type="button" onClick={handleAddGroup} className={btnPrimary + ' py-1.5 px-3'}>
@@ -385,7 +385,7 @@ export default function ReadingPractice() {
                   </div>
                 </div>
                 {form.questionGroups.length === 0 ? (
-                  <div className="text-center text-gray-400 text-sm py-8 border-2 border-dashed border-gray-200 rounded-xl">
+                  <div className="text-center text-slate-400 text-sm py-8 border-2 border-dashed border-slate-200 rounded-lg">
                     Chưa có nhóm câu hỏi nào. Chọn loại và bấm "+ Thêm nhóm".
                   </div>
                 ) : (
@@ -406,7 +406,7 @@ export default function ReadingPractice() {
             </div>
 
             <div className="space-y-3" style={{ position: 'sticky', top: 24, alignSelf: 'flex-start' }}>
-              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
                 <label className={labelCls}>Ảnh bìa</label>
                 {form.thumbPreview ? (
                   <div className="relative mb-2">
@@ -416,14 +416,14 @@ export default function ReadingPractice() {
                   </div>
                 ) : (
                   <button onClick={() => thumbRef.current.click()}
-                    className="w-full border-2 border-dashed border-gray-200 rounded-lg bg-gray-50 hover:border-blue-300 hover:bg-blue-50/30 transition flex flex-col items-center justify-center gap-2 text-gray-400 text-sm cursor-pointer"
+                    className="w-full border-2 border-dashed border-slate-200 rounded-lg bg-slate-50 hover:border-blue-300 hover:bg-blue-50/30 transition flex flex-col items-center justify-center gap-2 text-slate-400 text-sm cursor-pointer"
                     style={{ aspectRatio: '16/9' }}>
                     <svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                     Chọn ảnh bìa
                   </button>
                 )}
                 <input ref={thumbRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleThumbPick} />
-                <p className="text-xs text-gray-400 mt-1.5">jpg, png, webp — tối đa 5MB</p>
+                <p className="text-xs text-slate-400 mt-1.5">jpg, png, webp — tối đa 5MB</p>
               </div>
 
               <button type="button" onClick={() => setShowPreview(true)}
@@ -457,34 +457,34 @@ export default function ReadingPractice() {
       <div className="p-6 max-w-5xl">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-xl font-bold text-gray-800">Reading Practice</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Bài luyện đọc riêng lẻ — hiển thị trên trang chủ</p>
+            <h1 className="text-xl font-bold text-slate-800">Reading Practice</h1>
+            <p className="text-sm text-slate-500 mt-0.5">Bài luyện đọc riêng lẻ — hiển thị trên trang chủ</p>
           </div>
           <button onClick={openAdd}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1D4ED8] text-white text-sm font-semibold hover:bg-[#1D4ED8] transition">
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1D4ED8] text-white text-sm font-semibold hover:bg-[#1D4ED8] transition">
             + Thêm mới
           </button>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+        <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
           {loading ? (
-            <div className="p-10 text-center text-sm text-gray-400">Đang tải...</div>
+            <div className="p-10 text-center text-sm text-slate-400">Đang tải...</div>
           ) : list.length === 0 ? (
-            <div className="p-10 text-center text-sm text-gray-400">Chưa có bài nào. Bấm "+ Thêm mới" để bắt đầu.</div>
+            <div className="p-10 text-center text-sm text-slate-400">Chưa có bài nào. Bấm "+ Thêm mới" để bắt đầu.</div>
           ) : (
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 w-16">Ảnh</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Tên bài</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 hidden sm:table-cell">Số câu</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 hidden sm:table-cell">Ngày tạo</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500">Hành động</th>
+                <tr className="border-b border-slate-100 bg-slate-50">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 w-16">Ảnh</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">Tên bài</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 hidden sm:table-cell">Số câu</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 hidden sm:table-cell">Ngày tạo</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500">Hành động</th>
                 </tr>
               </thead>
               <tbody>
                 {list.map(item => (
-                  <tr key={item.id} className="border-b border-gray-50 hover:bg-gray-50 transition">
+                  <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50 transition">
                     <td className="px-4 py-3">
                       <div style={{ width: 60, height: 40, borderRadius: 6, overflow: 'hidden', background: '#f1f5f9', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {resolveImg(item.thumbnailUrl)
@@ -492,7 +492,7 @@ export default function ReadingPractice() {
                           : <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" stroke="#cbd5e1" strokeWidth="1.5"/><path d="M21 15l-5-5L5 21" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round"/></svg>}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-800">{item.title}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-slate-800">{item.title}</td>
                     <td className="px-4 py-3 hidden sm:table-cell">
                       {(() => {
                         const count = item.questionCount ?? 0; const total = 40
@@ -501,10 +501,10 @@ export default function ReadingPractice() {
                         return <span style={{ background: bg, color, borderRadius: 9999, padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>{count}/{total}</span>
                       })()}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500 hidden sm:table-cell">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</td>
+                    <td className="px-4 py-3 text-sm text-slate-500 hidden sm:table-cell">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => openEdit(item)} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium transition">Sửa</button>
+                        <button onClick={() => openEdit(item)} className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium transition">Sửa</button>
                         <button onClick={() => setDelConfirm(item.id)} className="text-xs px-3 py-1.5 rounded-lg border border-blue-200 text-red-500 hover:bg-blue-50 font-medium transition">Xóa</button>
                       </div>
                     </td>
@@ -521,12 +521,12 @@ export default function ReadingPractice() {
           <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-xl">🗑️</div>
-              <h3 className="font-bold text-gray-800">Xóa bài đọc?</h3>
+              <h3 className="font-bold text-slate-800">Xóa bài đọc?</h3>
             </div>
-            <p className="text-sm text-gray-500 mb-5">Hành động này không thể hoàn tác.</p>
+            <p className="text-sm text-slate-500 mb-5">Hành động này không thể hoàn tác.</p>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setDelConfirm(null)} className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 font-medium">Hủy</button>
-              <button onClick={() => handleDelete(delConfirm)} className="px-4 py-2 rounded-xl bg-blue-500 text-white text-sm font-bold hover:bg-blue-600 transition">Xóa</button>
+              <button onClick={() => setDelConfirm(null)} className="px-4 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 font-medium">Hủy</button>
+              <button onClick={() => handleDelete(delConfirm)} className="px-4 py-2 rounded-lg bg-blue-500 text-white text-sm font-bold hover:bg-blue-600 transition">Xóa</button>
             </div>
           </div>
         </div>
