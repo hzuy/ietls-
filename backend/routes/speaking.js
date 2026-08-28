@@ -6,7 +6,7 @@ const fs = require('fs')
 const authMiddleware = require('../middleware/auth')
 const validate = require('../middleware/validate')
 const { speakingSubmitSchema, transcribeSchema } = require('../validators/submissionValidator')
-const { cleanJsonRaw, repairTruncatedJson } = require('../services/cambridge/jsonSanitizer')
+const { cleanJsonRaw, repairTruncatedJson } = require('../services/json/jsonSanitizer')
 
 const router = express.Router()
 const prisma = require('../lib/prisma')

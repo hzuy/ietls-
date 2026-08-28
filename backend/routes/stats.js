@@ -3,7 +3,7 @@ const groqSdk = require('groq-sdk')
 const Groq = groqSdk.Groq || groqSdk.default || groqSdk
 const authMiddleware = require('../middleware/auth')
 const prisma = require('../lib/prisma')
-const { cleanJsonRaw, repairTruncatedJson } = require('../services/cambridge/jsonSanitizer')
+const { cleanJsonRaw, repairTruncatedJson } = require('../services/json/jsonSanitizer')
 
 const router = express.Router()
 

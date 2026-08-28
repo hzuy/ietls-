@@ -3,7 +3,7 @@ const Groq = require('groq-sdk')
 const authMiddleware = require('../middleware/auth')
 const validate = require('../middleware/validate')
 const { writingSubmitSchema } = require('../validators/submissionValidator')
-const { cleanJsonRaw, repairTruncatedJson } = require('../services/cambridge/jsonSanitizer')
+const { cleanJsonRaw, repairTruncatedJson } = require('../services/json/jsonSanitizer')
 
 const router = express.Router()
 const prisma = require('../lib/prisma')

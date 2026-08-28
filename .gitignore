@@ -9,6 +9,10 @@ node_modules/
 # Build output
 frontend/dist/
 
+# Test coverage reports (generated)
+coverage/
+**/coverage/
+
 # Uploads (audio/images - không commit lên git)
 backend/uploads/*
 !backend/uploads/.gitkeep
