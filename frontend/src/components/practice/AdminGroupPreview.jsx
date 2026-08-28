@@ -88,6 +88,8 @@ export default function AdminGroupPreview({ group, showAnswers }) {
         <Banner />
         {(group.questions || []).map((q, qi) => {
           const opts = Array.isArray(q.options) ? q.options : (q.options ? JSON.parse(q.options) : [])
+          const shownOpts = opts.filter(o => o && String(o).trim())
+          const correctIdx = showAnswers ? new Set(deriveCorrectIndices(q.correctAnswer, shownOpts)) : new Set()
           return (
             <div key={qi} className="mb-4">
               <p className="text-sm text-slate-800 mb-2 flex gap-2">
@@ -95,8 +97,8 @@ export default function AdminGroupPreview({ group, showAnswers }) {
                 <span>{q.questionText}</span>
               </p>
               <div className="space-y-1 pl-8">
-                {opts.filter(o => o && o.trim()).map((opt, oi) => {
-                  const isCorrect = showAnswers && q.correctAnswer === opt
+                {shownOpts.map((opt, oi) => {
+                  const isCorrect = correctIdx.has(oi)
                   return (
                     <div key={oi} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm ${isCorrect ? 'bg-[#eff6ff] border border-[#bfdbfe] text-[#1D4ED8]' : 'text-gray-600'}`}>
                       <span className="text-xs text-gray-400 shrink-0">{String.fromCharCode(65 + oi)}.</span>

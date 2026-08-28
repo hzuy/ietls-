@@ -51,6 +51,32 @@ describe('correctAnswerFromIndices', () => {
   })
 })
 
+describe('single-MCQ radio selection (0 or 1 index)', () => {
+  const opts = ['London', 'Paris', 'Rome', 'Berlin']
+
+  it('loads the stored answer onto exactly one option', () => {
+    expect(deriveCorrectIndices('Rome', opts)).toEqual([2])
+  })
+
+  it('flags a stored answer that matches no option (legacy typo)', () => {
+    // real case: q1441 — "literacy irelated" vs option "literacy is related"
+    expect(deriveCorrectIndices('there is evidence that literacy irelated to external factors. ', [
+      ' children cannot read and write as well as they used to. ',
+      'academic work has improved over the last 20 years. ',
+      'there is evidence that literacy is related to external factors. ',
+      'there are opposing arguments that are equally convincing.',
+    ])).toEqual([])
+  })
+
+  it('selecting an index writes back the verbatim option text', () => {
+    expect(correctAnswerFromIndices([1], opts)).toBe('Paris')
+  })
+
+  it('clearing (empty index array) writes an empty string', () => {
+    expect(correctAnswerFromIndices([], opts)).toBe('')
+  })
+})
+
 describe('reindexAfterRemoval', () => {
   it('drops the removed index and shifts later ones down by one', () => {
     expect(reindexAfterRemoval([0, 2, 3], 1)).toEqual([0, 1, 2])
