@@ -7,6 +7,7 @@
  * — chưa thực hiện, cần đánh giá riêng.
  */
 import { getQuestionGroupTheme } from '../../utils/practiceConfig'
+import { deriveCorrectIndices, correctAnswerFromIndices, reindexAfterRemoval } from '../../utils/mcqAnswer'
 
 export default function MCQGroupEditor({ group, onChange }) {
   const isMulti = group.type === 'mcq_multi'
@@ -39,34 +40,44 @@ export default function MCQGroupEditor({ group, onChange }) {
     onChange({ ...group, questions: group.questions.map((q, i) => i !== qi ? q : { ...q, [field]: val }) })
   }
 
+  const patchQ = (qi, patch) =>
+    onChange({ ...group, questions: group.questions.map((item, i) => i !== qi ? item : { ...item, ...patch }) })
+
   const updateOption = (qi, oi, val) => {
     const q = group.questions[qi]
-    const opts = [...(q.options || defaultOpts)]
+    const oldOpts = q.options || defaultOpts
+    const opts = [...oldOpts]
     opts[oi] = val
-    onChange({ ...group, questions: group.questions.map((item, i) => i !== qi ? item : { ...item, options: opts }) })
+    if (!isMulti) return patchQ(qi, { options: opts })
+    // multi: keep correctAnswer pinned to the same option positions after a
+    // text edit (index-based, so renaming the correct option follows it).
+    const correctAnswer = correctAnswerFromIndices(deriveCorrectIndices(q.correctAnswer, oldOpts), opts)
+    patchQ(qi, { options: opts, correctAnswer })
   }
 
   const addOption = (qi) => {
     const q = group.questions[qi]
-    const opts = [...(q.options || defaultOpts), '']
-    onChange({ ...group, questions: group.questions.map((item, i) => i !== qi ? item : { ...item, options: opts }) })
+    patchQ(qi, { options: [...(q.options || defaultOpts), ''] })
   }
 
   const removeOption = (qi, oi) => {
     const q = group.questions[qi]
-    const removedText = (q.options || defaultOpts)[oi]
-    const opts = (q.options || defaultOpts).filter((_, i) => i !== oi)
-    // Drop the removed option from correctAnswer so no stale reference to a
-    // no-longer-existing option is left behind (ported from admin/editors).
-    const correctAnswer = (q.correctAnswer || '').split(',').filter(c => c && c !== removedText).join(',')
-    onChange({ ...group, questions: group.questions.map((item, i) => i !== qi ? item : { ...item, options: opts, correctAnswer }) })
+    const oldOpts = q.options || defaultOpts
+    const opts = oldOpts.filter((_, i) => i !== oi)
+    // Shift correct indices to their new positions, then re-serialize — never
+    // filter correctAnswer by text (two options could share it).
+    const nextIdx = reindexAfterRemoval(deriveCorrectIndices(q.correctAnswer, oldOpts), oi)
+    patchQ(qi, { options: opts, correctAnswer: correctAnswerFromIndices(nextIdx, opts) })
   }
 
-  const toggleCorrect = (qi, optVal) => {
+  // Toggle a single option BY INDEX — independent of whether its text matches
+  // any other option.
+  const toggleCorrectAt = (qi, oi) => {
     const q = group.questions[qi]
-    const current = (q.correctAnswer || '').split(',').filter(Boolean)
-    const next = current.includes(optVal) ? current.filter(x => x !== optVal) : [...current, optVal]
-    onChange({ ...group, questions: group.questions.map((item, i) => i !== qi ? item : { ...item, correctAnswer: next.join(',') }) })
+    const opts = q.options || defaultOpts
+    const cur = deriveCorrectIndices(q.correctAnswer, opts)
+    const next = cur.includes(oi) ? cur.filter(x => x !== oi) : [...cur, oi]
+    patchQ(qi, { correctAnswer: correctAnswerFromIndices(next, opts) })
   }
 
   return (
@@ -86,8 +97,10 @@ export default function MCQGroupEditor({ group, onChange }) {
       )}
       {group.questions.map((q, qi) => {
         const opts = q.options || defaultOpts
-        const correctList = (q.correctAnswer || '').split(',').filter(Boolean)
-        const correctCount = correctList.length
+        // Which options are marked correct — tracked as an index Set, derived
+        // from the stored text once per render, never re-matched per option.
+        const correctIdx = new Set(deriveCorrectIndices(q.correctAnswer, opts))
+        const correctCount = correctIdx.size
         const warn = isMulti && correctCount !== maxChoices
         // Flag options whose trimmed text duplicates another option in this question.
         // correctAnswer matches options by text, so identical texts are ambiguous —
@@ -114,13 +127,13 @@ export default function MCQGroupEditor({ group, onChange }) {
                 <p className="text-[10px] text-gray-500 font-medium">Tick ô bên phải để đánh dấu đáp án đúng</p>
                 {opts.map((opt, oi) => {
                   const letter = String.fromCharCode(65 + oi)
-                  const isCorrect = correctList.includes(opt)
+                  const isCorrect = correctIdx.has(oi)
                   return (
                     <div key={oi} className={`flex items-center gap-2 rounded-lg px-2 py-1 ${isCorrect ? `${theme.subBoxBg} border ${theme.subBoxBorder}` : 'border border-transparent'}`}>
                       <span className="text-xs font-bold text-gray-500 w-5 shrink-0">{letter}.</span>
                       <input className={`flex-1 border rounded-lg px-2 py-1 text-sm focus:outline-none bg-white ${dupOptIdx.has(oi) ? 'border-red-400 ring-1 ring-red-200' : isCorrect ? `${theme.subBoxBorder} font-semibold` : 'border-gray-200'}`}
                         placeholder={`Lựa chọn ${letter}...`} value={opt} onChange={e => updateOption(qi, oi, e.target.value)} />
-                      <input type="checkbox" checked={isCorrect} disabled={!opt.trim()} onChange={() => toggleCorrect(qi, opt)}
+                      <input type="checkbox" checked={isCorrect} disabled={!opt.trim()} onChange={() => toggleCorrectAt(qi, oi)}
                         title="Đánh dấu đáp án đúng" className={`w-4 h-4 ${theme.accentColor} shrink-0 cursor-pointer`} />
                       {opts.length > 2 && (
                         <button type="button" onClick={() => removeOption(qi, oi)} className="text-red-400 hover:text-red-600 text-xs shrink-0">✕</button>

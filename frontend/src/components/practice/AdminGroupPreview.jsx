@@ -1,5 +1,6 @@
 import { PreviewTokenLine, buildTokenNumMap } from './PreviewTokenLine'
 import { toImgSrc, getQuestionTypeTheme } from '../../utils/practiceConfig'
+import { deriveCorrectIndices } from '../../utils/mcqAnswer'
 
 // Unified preview for all question group types (Reading + Listening admin)
 export default function AdminGroupPreview({ group, showAnswers }) {
@@ -121,7 +122,10 @@ export default function AdminGroupPreview({ group, showAnswers }) {
           const qS = qStart + qi * maxChoices
           const qE = qS + maxChoices - 1
           const opts = Array.isArray(q.options) ? q.options : (q.options ? JSON.parse(q.options) : [])
-          const correctList = showAnswers ? (q.correctAnswer || '').split(',').filter(Boolean) : []
+          const shownOpts = opts.filter(o => o && String(o).trim())
+          // Match the stored answer text to option POSITIONS in the same list
+          // we render, so identical/near-identical option texts stay distinct.
+          const correctIdx = showAnswers ? new Set(deriveCorrectIndices(q.correctAnswer, shownOpts)) : new Set()
           return (
             <div key={qi} className="mb-4">
               {q.questionText && (
@@ -131,8 +135,8 @@ export default function AdminGroupPreview({ group, showAnswers }) {
                 </p>
               )}
               <div className="space-y-1 pl-2">
-                {opts.filter(o => o && o.trim()).map((opt, oi) => {
-                  const isCorrect = showAnswers && correctList.includes(opt)
+                {shownOpts.map((opt, oi) => {
+                  const isCorrect = correctIdx.has(oi)
                   return (
                     <div key={oi} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm ${isCorrect ? 'bg-[#eff6ff] border border-[#bfdbfe] text-[#1D4ED8]' : 'text-gray-600'}`}>
                       <span className="text-xs text-gray-400 shrink-0">{String.fromCharCode(65 + oi)}.</span>
