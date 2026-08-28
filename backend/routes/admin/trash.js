@@ -169,12 +169,22 @@ router.post('/trash/:type/:id/restore', authMiddleware, teacherOrAdmin, async (r
     } else if (type === 'exam_series') {
       await prisma.examSeries.update({ where: { id: numId }, data: { deletedAt: null } })
     } else if (type === 'book') {
-      // Restore BookCover + all exams in this book
-      const book = await prisma.bookCover.findUnique({ where: { id: numId }, select: { seriesId: true, bookNumber: true } })
+      // Restore the BookCover + only the exams that were soft-deleted *together with it*
+      // (deleteBook stamps the cover and its exams with the same timestamp). Exams that
+      // had been deleted independently earlier keep an older deletedAt and must stay in
+      // the trash.
+      const book = await prisma.bookCover.findUnique({ where: { id: numId }, select: { seriesId: true, bookNumber: true, deletedAt: true } })
       if (book) {
         await Promise.all([
           prisma.bookCover.update({ where: { id: numId }, data: { deletedAt: null } }),
-          prisma.exam.updateMany({ where: { seriesId: book.seriesId, bookNumber: book.bookNumber }, data: { deletedAt: null } }),
+          prisma.exam.updateMany({
+            where: {
+              seriesId: book.seriesId,
+              bookNumber: book.bookNumber,
+              deletedAt: book.deletedAt ? { gte: book.deletedAt } : { not: null },
+            },
+            data: { deletedAt: null },
+          }),
         ])
       }
     } else {
