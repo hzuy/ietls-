@@ -140,7 +140,27 @@ const questionGroupSchema = z.discriminatedUnion('type', [
   createMcqSchema('mcq'),
   createMcqSchema('mcq_multi'),
   createMcqSchema('short_answer'),
-])
+]).superRefine((group, ctx) => {
+  // MCQ correctAnswer is stored/scored by matching option TEXT, so two options
+  // with identical trimmed text in the same question are ambiguous (ticking one
+  // reads as ticking all, and scoring can't tell them apart). Reject them.
+  if (group.type !== 'mcq' && group.type !== 'mcq_multi') return
+  ;(group.questions || []).forEach((q, qi) => {
+    const seen = new Set()
+    ;(q.options || []).forEach((opt) => {
+      const t = String(opt || '').trim()
+      if (!t) return
+      if (seen.has(t)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['questions', qi, 'options'],
+          message: `Câu ${q.number ?? qi + 1}: các lựa chọn không được trùng nội dung ("${t}")`,
+        })
+      }
+      seen.add(t)
+    })
+  })
+})
 
 // ─── PASSAGE & SECTION SCHEMAS ───────────────────────────────────────────────
 const passageSchema = z.object({

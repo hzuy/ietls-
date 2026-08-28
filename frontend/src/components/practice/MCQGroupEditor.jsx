@@ -89,6 +89,14 @@ export default function MCQGroupEditor({ group, onChange }) {
         const correctList = (q.correctAnswer || '').split(',').filter(Boolean)
         const correctCount = correctList.length
         const warn = isMulti && correctCount !== maxChoices
+        // Flag options whose trimmed text duplicates another option in this question.
+        // correctAnswer matches options by text, so identical texts are ambiguous —
+        // block save (backend also refuses, see adminExamValidator).
+        const trimmedOpts = opts.map(o => (o || '').trim())
+        const dupOptIdx = new Set()
+        trimmedOpts.forEach((t, i) => {
+          if (t && trimmedOpts.some((u, j) => j !== i && u === t)) dupOptIdx.add(i)
+        })
         return (
           <div key={qi} className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-xl p-3 space-y-2`}>
             <div className="flex items-center justify-between">
@@ -110,7 +118,7 @@ export default function MCQGroupEditor({ group, onChange }) {
                   return (
                     <div key={oi} className={`flex items-center gap-2 rounded-lg px-2 py-1 ${isCorrect ? `${theme.subBoxBg} border ${theme.subBoxBorder}` : 'border border-transparent'}`}>
                       <span className="text-xs font-bold text-gray-500 w-5 shrink-0">{letter}.</span>
-                      <input className={`flex-1 border rounded-lg px-2 py-1 text-sm focus:outline-none ${isCorrect ? `${theme.subBoxBorder} bg-white font-semibold` : 'border-gray-200 bg-white'}`}
+                      <input className={`flex-1 border rounded-lg px-2 py-1 text-sm focus:outline-none bg-white ${dupOptIdx.has(oi) ? 'border-red-400 ring-1 ring-red-200' : isCorrect ? `${theme.subBoxBorder} font-semibold` : 'border-gray-200'}`}
                         placeholder={`Lựa chọn ${letter}...`} value={opt} onChange={e => updateOption(qi, oi, e.target.value)} />
                       <input type="checkbox" checked={isCorrect} disabled={!opt.trim()} onChange={() => toggleCorrect(qi, opt)}
                         title="Đánh dấu đáp án đúng" className={`w-4 h-4 ${theme.accentColor} shrink-0 cursor-pointer`} />
@@ -133,7 +141,7 @@ export default function MCQGroupEditor({ group, onChange }) {
                 <div className="grid grid-cols-2 gap-1.5">
                   {opts.map((opt, oi) => (
                     <input key={oi}
-                      className="border border-blue-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-blue-400"
+                      className={`border rounded-lg px-2 py-1 text-sm focus:outline-none ${dupOptIdx.has(oi) ? 'border-red-400 ring-1 ring-red-200' : 'border-blue-200 focus:border-blue-400'}`}
                       placeholder={`${String.fromCharCode(65 + oi)}. ...`}
                       value={opt} onChange={e => updateOption(qi, oi, e.target.value)} />
                   ))}
@@ -142,6 +150,9 @@ export default function MCQGroupEditor({ group, onChange }) {
                   placeholder="Đáp án đúng (VD: A. text)"
                   value={q.correctAnswer} onChange={e => updateQ(qi, 'correctAnswer', e.target.value)} />
               </>
+            )}
+            {dupOptIdx.size > 0 && (
+              <p className="text-xs font-semibold text-red-500 mt-1">Các lựa chọn không được trùng nội dung</p>
             )}
           </div>
         )

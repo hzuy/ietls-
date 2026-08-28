@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 const {
   createSampleSchema,
+  createPracticeSchema,
   transcribeUploadSchema,
   bookCoverSchema,
   examSeriesSchema,
@@ -19,6 +20,33 @@ describe('contentValidator', () => {
       const res = createSampleSchema.safeParse(invalid)
       expect(res.success).toBe(false)
       expect(res.error.issues[0].message).toBe('Thiếu tiêu đề')
+    })
+  })
+
+  describe('createPracticeSchema — MCQ duplicate-option guard', () => {
+    const withGroup = (options) => ({
+      title: 'Practice A',
+      questions: [{ type: 'mcq_multi', qNumberStart: 1, qNumberEnd: 2, maxChoices: 2,
+        questions: [{ number: 1, options, correctAnswer: '' }] }],
+    })
+
+    it('fails when a question has two identical option texts', () => {
+      const res = createPracticeSchema.safeParse(withGroup(['x', 'x']))
+      expect(res.success).toBe(false)
+      expect(res.error.issues.some(i => /không được trùng nội dung/.test(i.message))).toBe(true)
+    })
+
+    it('passes with distinct options', () => {
+      const res = createPracticeSchema.safeParse(withGroup(['x', 'y', 'z']))
+      expect(res.success).toBe(true)
+    })
+
+    it('passes for non-MCQ groups', () => {
+      const res = createPracticeSchema.safeParse({
+        title: 'Practice B',
+        questions: [{ type: 'matching', qNumberStart: 1, qNumberEnd: 3, questions: [] }],
+      })
+      expect(res.success).toBe(true)
     })
   })
 

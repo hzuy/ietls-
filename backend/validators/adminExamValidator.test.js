@@ -66,6 +66,40 @@ describe('adminExamValidator', () => {
     })
   })
 
+  describe('MCQ duplicate-option guard', () => {
+    const withMcq = (options) => ({
+      title: 'Test Exam',
+      passages: [{
+        number: 1,
+        questionGroups: [{
+          qNumberStart: 1, qNumberEnd: 2, type: 'mcq_multi', maxChoices: 2,
+          questions: [{ number: 1, questionText: 'Q', options, correctAnswer: '' }],
+        }],
+      }],
+    })
+
+    it('fails when two options in one question have identical text', () => {
+      const res = createReadingExamSchema.safeParse(withMcq(['a', 'a', 'b']))
+      expect(res.success).toBe(false)
+      expect(res.error.issues.some(i => /không được trùng nội dung/.test(i.message))).toBe(true)
+    })
+
+    it('fails on duplicates that differ only by surrounding whitespace', () => {
+      const res = createReadingExamSchema.safeParse(withMcq(['cat', ' cat ', 'dog']))
+      expect(res.success).toBe(false)
+    })
+
+    it('passes when all options are distinct', () => {
+      const res = createReadingExamSchema.safeParse(withMcq(['a', 'b', 'c', 'd']))
+      expect(res.success).toBe(true)
+    })
+
+    it('ignores blank options (multiple empties are not "duplicates")', () => {
+      const res = createReadingExamSchema.safeParse(withMcq(['a', 'b', '', '']))
+      expect(res.success).toBe(true)
+    })
+  })
+
   describe('cambridgeExtractSchema Refine Checks', () => {
     it('passes when startPage <= endPage', () => {
       const valid = { dataFile: 'test.json', skill: 'reading', startPage: 10, endPage: 15 }
