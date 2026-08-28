@@ -4,24 +4,9 @@ import Modal from '../../components/common/Modal'
 import { SkeletonTable } from '../../components/skeletons'
 
 import { getAdminTrash, restoreTrashItem, permanentDeleteTrashItem, purgeTrash } from '../../services/adminService'
-import { Trash2, RotateCcw, AlertTriangle, BookOpen, Headphones, PenLine, Mic, Layers, Book } from 'lucide-react'
+import { Trash2, RotateCcw, AlertTriangle } from 'lucide-react'
 
 const PURGE_DAYS = 30
-
-// Semantic icon per content type — shown as a fallback when there is no thumbnail
-// (or the thumbnail file is missing). exam_series never has an image.
-const TYPE_ICON = {
-  reading_practice:   BookOpen,
-  listening_practice: Headphones,
-  writing_sample:     PenLine,
-  speaking_sample:    Mic,
-  exam_reading:       BookOpen,
-  exam_listening:     Headphones,
-  exam_writing:       PenLine,
-  exam_speaking:      Mic,
-  exam_series:        Layers,
-  book:               Book,
-}
 
 const TYPE_LABEL = {
   reading_practice:   'Reading Practice',
@@ -54,33 +39,9 @@ const TABS = [
   { key: 'book',               label: 'Cuốn sách' },
 ]
 
-const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '')
-const resolveImg = (url) => {
-  if (!url) return null
-  if (url.startsWith('http')) return url
-  return `${API_BASE}${url}`
-}
-
 // Whole days left before the 30-day auto-purge removes this item.
 const daysUntilPurge = (deletedAt) =>
   Math.ceil((new Date(deletedAt).getTime() + PURGE_DAYS * 86_400_000 - Date.now()) / 86_400_000)
-
-// 40×40 thumbnail cell: real image when we have one that loads, otherwise a
-// semantic type icon. exam_series always renders the icon (backend never sends
-// an image for it), and a broken/missing image file falls back to the icon too.
-function ThumbCell({ item }) {
-  const [imgFailed, setImgFailed] = useState(false)
-  const Icon = TYPE_ICON[item.type] || Trash2
-  const src = item.type === 'exam_series' ? null : resolveImg(item.thumbnailUrl)
-  const showImg = src && !imgFailed
-  return (
-    <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center">
-      {showImg
-        ? <img src={src} alt="" className="w-full h-full object-cover" onError={() => setImgFailed(true)} />
-        : <Icon size={16} strokeWidth={1} className="text-slate-400" />}
-    </div>
-  )
-}
 
 export default function Trash() {
   const [items, setItems] = useState([])
@@ -212,7 +173,7 @@ export default function Trash() {
 
         <div id="trash-panel" role="tabpanel">
         {loading ? (
-          <SkeletonTable rows={6} cols={5} />
+          <SkeletonTable rows={6} cols={4} />
         ) : filtered.length === 0 ? (
           <div className="text-center py-20">
             <Trash2 size={48} strokeWidth={1.5} className="text-slate-300 mx-auto mb-3" />
@@ -223,11 +184,10 @@ export default function Trash() {
             <table className="w-full">
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 w-14">Ảnh</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">Tên</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 hidden sm:table-cell">Loại</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 hidden sm:table-cell">Ngày xóa</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500">Hành động</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 hidden sm:table-cell w-40">Loại</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 hidden sm:table-cell w-44">Ngày xóa</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 w-52">Hành động</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -236,9 +196,6 @@ export default function Trash() {
                   const daysLeft = daysUntilPurge(item.deletedAt)
                   return (
                     <tr key={item.type + item.id} className={`transition ${err ? 'bg-rose-50/60 hover:bg-rose-50' : 'hover:bg-slate-50'}`}>
-                      <td className="px-4 py-3 align-top">
-                        <ThumbCell item={item} />
-                      </td>
                       <td className="px-4 py-3 text-sm font-medium text-slate-800 align-top">
                         {item.title}
                         {err && (
