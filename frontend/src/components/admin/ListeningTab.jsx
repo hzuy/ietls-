@@ -433,7 +433,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
                     {section.audioUrl && (
                       <audio
                         controls
-                        src={section.audioUrl.startsWith('/') ? `http://localhost:3001${section.audioUrl}` : section.audioUrl}
+                        src={toImgSrc(section.audioUrl)}
                         className="w-full mt-2 rounded-lg"
                         style={{ height: '40px' }}
                       />

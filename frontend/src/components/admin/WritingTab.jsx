@@ -309,7 +309,7 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
             </div>
             {form.task1.imageUrl && (
               <img
-                src={form.task1.imageUrl.startsWith('/') ? `http://localhost:3001${form.task1.imageUrl}` : form.task1.imageUrl}
+                src={toImgSrc(form.task1.imageUrl)}
                 alt="task1 preview" className="mt-2 max-h-48 rounded-xl border object-contain w-full bg-gray-50" />
             )}
             <p className="text-xs text-gray-400 mt-1">PNG hoặc JPG, tối đa 5MB</p>
