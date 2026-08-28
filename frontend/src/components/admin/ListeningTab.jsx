@@ -16,6 +16,9 @@ import TableCompletionEditor from './editors/TableCompletionEditor'
 import NoteCompletionEditor from './editors/NoteCompletionEditor'
 import MCQGroupEditor from './editors/MCQGroupEditor'
 import MatchingEditor from './editors/MatchingEditor'
+// Quick unblock: ListeningFormPreview hiện được định nghĩa trong ReadingTab.jsx
+// và export ra. Tách sang file dùng chung để dành cho đợt refactor sau.
+import { ListeningFormPreview } from './ReadingTab'
 
 // ─── TAB: LISTENING ───────────────────────────────────────────────────────────
 
