@@ -76,9 +76,9 @@ function SeriesCard({ s, onManage, onEdit, onDelete }) {
         </div>
       </div>
       <div className="flex gap-2 mt-auto">
-        <button onClick={() => onManage(s)} className="flex-1 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition">Xem</button>
-        <button onClick={() => onEdit(s)} className="py-1.5 px-3 rounded-lg border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50 transition">Sửa tên</button>
-        <button onClick={() => setConfirmDelete(true)} className="py-1.5 px-3 rounded-lg border border-rose-200 text-rose-600 text-xs font-semibold hover:bg-rose-50 transition">Xóa</button>
+        <button onClick={() => onManage(s)} className="flex-1 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition">Xem</button>
+        <button onClick={() => onEdit(s)} className="py-1.5 px-3 rounded-lg border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition">Sửa tên</button>
+        <button onClick={() => setConfirmDelete(true)} className="py-1.5 px-3 rounded-lg border border-rose-200 text-rose-600 text-sm font-medium hover:bg-rose-50 transition">Xóa</button>
       </div>
       {confirmDelete && (
         <Modal onClose={() => setConfirmDelete(false)} title="Xóa bộ đề" size="xs">
@@ -174,7 +174,7 @@ function SeriesDetailView({ series, books, booksError, onBack, onBooksChanged, s
         <button
           onClick={handleAddBook}
           disabled={addingBook}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-50"
         >
           + Thêm cuốn
         </button>
@@ -189,7 +189,7 @@ function SeriesDetailView({ series, books, booksError, onBack, onBooksChanged, s
           <div className="text-3xl mb-2">📚</div>
           <p className="text-sm text-slate-500 mb-4">Chưa có cuốn nào trong bộ đề này</p>
           <button onClick={handleAddBook} disabled={addingBook}
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition disabled:opacity-50">
+            className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-50">
             + Thêm cuốn đầu tiên
           </button>
         </div>

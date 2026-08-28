@@ -94,8 +94,8 @@ export default function AdminLayout({ children }) {
               <span className="text-white text-xs font-bold">A</span>
             </div>
             <div>
-              <p className="text-sm font-bold text-gray-800">Admin Panel</p>
-              <p className="text-[10px] text-gray-400">IELTS Management</p>
+              <p className="text-sm font-semibold text-slate-800">Admin Panel</p>
+              <p className="text-xs text-slate-500">IELTS Management</p>
             </div>
           </div>
         </div>
@@ -123,7 +123,7 @@ export default function AdminLayout({ children }) {
                 />
                 <span className="flex-1">{item.label}</span>
                 {item.trash && trashCount > 0 && (
-                  <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500 text-white leading-none">
+                  <span className="ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full bg-blue-500 text-white leading-none">
                     {trashCount}
                   </span>
                 )}

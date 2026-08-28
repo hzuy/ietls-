@@ -121,11 +121,11 @@ function CambridgeTab({ initialSeriesList = [] }) {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-bold text-slate-800">Quản lý IELTS Test</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Quản lý các bộ đề và cuốn sách IELTS</p>
+              <p className="text-sm text-slate-500 mt-0.5">Quản lý các bộ đề và cuốn sách IELTS</p>
             </div>
             <button
               onClick={() => setShowAdd(v => !v)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition"
             >
               + Thêm bộ đề mới
             </button>
@@ -141,7 +141,7 @@ function CambridgeTab({ initialSeriesList = [] }) {
                 onChange={e => setNewName(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') handleAddSeries(); if (e.key === 'Escape') { setShowAdd(false); setNewName('') } }}
               />
-              <button onClick={handleAddSeries} className="px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition">Tạo</button>
+              <button onClick={handleAddSeries} className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition">Tạo</button>
               <button onClick={() => { setShowAdd(false); setNewName('') }} className="px-3 py-2 rounded-lg border border-slate-200 text-slate-500 text-xs hover:bg-slate-50 transition">Hủy</button>
             </div>
           )}
@@ -157,7 +157,7 @@ function CambridgeTab({ initialSeriesList = [] }) {
               <div className="text-3xl mb-2">📚</div>
               <p className="text-sm text-slate-500 mb-4">Chưa có bộ đề nào</p>
               <button onClick={() => setShowAdd(true)}
-                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition">
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition">
                 + Tạo bộ đề đầu tiên
               </button>
             </div>
@@ -174,7 +174,7 @@ function CambridgeTab({ initialSeriesList = [] }) {
                       onKeyDown={e => { if (e.key === 'Enter') handleEditSeries(s.id); if (e.key === 'Escape') setEditId(null) }}
                     />
                     <div className="flex gap-2">
-                      <button onClick={() => handleEditSeries(s.id)} className="flex-1 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition">Lưu</button>
+                      <button onClick={() => handleEditSeries(s.id)} className="flex-1 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition">Lưu</button>
                       <button onClick={() => setEditId(null)} className="py-1.5 px-3 rounded-lg border border-slate-200 text-slate-500 text-xs">Hủy</button>
                     </div>
                   </div>

@@ -492,11 +492,11 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
                 className="w-full flex items-center justify-between px-5 py-3 bg-slate-50 hover:bg-slate-100 transition"
               >
                 <div className="flex flex-col items-start text-left">
-                  <span className="font-bold text-sm text-slate-800">Section {section.number}</span>
-                  <span className="text-xs text-slate-400 mt-0.5">{SECTION_HINTS[section.number] || ''}</span>
+                  <span className="font-semibold text-base text-slate-800">Section {section.number}</span>
+                  <span className="text-sm text-slate-500 mt-0.5">{SECTION_HINTS[section.number] || ''}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400">{section.questionGroups.length} nhóm · {section.questionGroups.reduce((a, g) => a + (g.qNumberEnd - g.qNumberStart + 1), 0)} câu</span>
+                  <span className="text-sm text-slate-500">{section.questionGroups.length} nhóm · {section.questionGroups.reduce((a, g) => a + (g.qNumberEnd - g.qNumberStart + 1), 0)} câu</span>
                   {section.audioUrl && <span className="text-xs bg-[#eff6ff] text-[#1D4ED8] font-semibold px-2 py-0.5 rounded-full">🎵 Audio</span>}
                   {section.transcript && <span className="text-xs bg-blue-100 text-blue-600 font-semibold px-2 py-0.5 rounded-full">Transcript</span>}
                   <span className="text-slate-400 text-xs">{openSection === si ? '▲' : '▼'}</span>

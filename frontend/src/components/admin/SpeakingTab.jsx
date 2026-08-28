@@ -343,8 +343,8 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
           <div className="flex items-center gap-2 mb-4">
             <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">1</div>
             <div>
-              <span className="font-bold text-slate-800">Part 1 — Introduction & Interview</span>
-              <p className="text-xs text-slate-500 mt-0.5">Examiner hỏi về chủ đề quen thuộc trong cuộc sống</p>
+              <span className="font-semibold text-base text-slate-800">Part 1 — Introduction & Interview</span>
+              <p className="text-sm text-slate-500 mt-0.5">Examiner hỏi về chủ đề quen thuộc trong cuộc sống</p>
             </div>
           </div>
           <div className="mb-3">
@@ -380,8 +380,8 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
           <div className="flex items-center gap-2 mb-4">
             <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">2</div>
             <div>
-              <span className="font-bold text-slate-800">Part 2 — Individual Long Turn (Cue Card)</span>
-              <p className="text-xs text-slate-500 mt-0.5">Thí sinh chuẩn bị 1 phút, nói 1–2 phút</p>
+              <span className="font-semibold text-base text-slate-800">Part 2 — Individual Long Turn (Cue Card)</span>
+              <p className="text-sm text-slate-500 mt-0.5">Thí sinh chuẩn bị 1 phút, nói 1–2 phút</p>
             </div>
           </div>
           <div className="mb-3">
@@ -424,8 +424,8 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">3</div>
               <div>
-                <span className="font-bold text-slate-800">Part 3 — Two-way Discussion</span>
-                <p className="text-xs text-slate-500 mt-0.5">Nhiều chủ đề thảo luận, mỗi chủ đề có nhiều câu hỏi</p>
+                <span className="font-semibold text-base text-slate-800">Part 3 — Two-way Discussion</span>
+                <p className="text-sm text-slate-500 mt-0.5">Nhiều chủ đề thảo luận, mỗi chủ đề có nhiều câu hỏi</p>
               </div>
             </div>
             <button type="button" onClick={addTopic} className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition">+ Thêm chủ đề</button>

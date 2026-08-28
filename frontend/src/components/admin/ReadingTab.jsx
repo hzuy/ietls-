@@ -628,15 +628,15 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
                 <button
                   type="button"
                   onClick={() => setOpenPassage(openPassage === pi ? -1 : pi)}
-                  className="w-full flex items-center justify-between px-5 py-3 bg-blue-50 hover:bg-blue-100 transition"
+                  className="w-full flex items-center justify-between px-5 py-3 bg-slate-50 hover:bg-slate-100 transition"
                 >
                   <div className="flex flex-col items-start text-left">
-                    <span className="font-bold text-sm text-blue-800">Passage {passage.number}</span>
-                    <span className="text-xs text-blue-500 mt-0.5">{passage.title || '(chưa đặt tiêu đề)'}</span>
+                    <span className="font-semibold text-base text-slate-800">Passage {passage.number}</span>
+                    <span className="text-sm text-slate-500 mt-0.5">{passage.title || '(chưa đặt tiêu đề)'}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-blue-400">{passage.questionGroups.length} nhóm · {totalQs} câu</span>
-                    <span className="text-blue-400 text-xs">{openPassage === pi ? '▲' : '▼'}</span>
+                    <span className="text-sm text-slate-500">{passage.questionGroups.length} nhóm · {totalQs} câu</span>
+                    <span className="text-slate-400 text-xs">{openPassage === pi ? '▲' : '▼'}</span>
                   </div>
                 </button>
 
