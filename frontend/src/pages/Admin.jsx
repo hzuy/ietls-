@@ -115,7 +115,7 @@ export default function Admin() {
         {/* Tab Content via Nested Routes */}
         <Routes>
           <Route index element={<Navigate to="cambridge" replace />} />
-          <Route path="cambridge" element={<CambridgeTab initialSeriesList={examSeries} onRefresh={() => handleRefresh('reading')} />} />
+          <Route path="cambridge" element={<CambridgeTab initialSeriesList={examSeries} />} />
           <Route path="reading"   element={<ReadingTab exams={tabCache.reading?.exams || []} paginationData={tabCache.reading} fetchExams={(opts) => fetchSkillExams('reading', { ...opts, force: true })} onRefresh={() => handleRefresh('reading')} examSeries={examSeries} loading={loading} loadError={!!loadError.reading} />} />
           <Route path="listening" element={<ListeningTab exams={tabCache.listening?.exams || []} paginationData={tabCache.listening} fetchExams={(opts) => fetchSkillExams('listening', { ...opts, force: true })} onRefresh={() => handleRefresh('listening')} examSeries={examSeries} loading={loading} loadError={!!loadError.listening} />} />
           <Route path="writing"   element={<WritingTab exams={tabCache.writing?.exams || []} paginationData={tabCache.writing} fetchExams={(opts) => fetchSkillExams('writing', { ...opts, force: true })} onRefresh={() => handleRefresh('writing')} examSeries={examSeries} loading={loading} loadError={!!loadError.writing} />} />

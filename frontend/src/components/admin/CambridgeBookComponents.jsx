@@ -1,16 +1,8 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import api from '../../utils/axios'
-import { SERVER_BASE, inputCls, labelCls, btnPrimary, btnSecondary } from './adminConstants'
+import { SERVER_BASE } from './adminConstants'
 
-// ─── CAMBRIDGE BOOK MODAL — Cover + PDF Import ────────────────────────────────
-
-const SKILL_COLOR_CLASS = {
-  reading:   'bg-[#1D4ED8] border-[#1D4ED8] text-white',
-  listening: 'bg-[#1D4ED8] border-[#1D4ED8] text-white',
-  writing:   'bg-[#1D4ED8] border-[#1D4ED8] text-white',
-  speaking:  'bg-[#1D4ED8] border-[#1D4ED8] text-white',
-}
-const SKILL_LABEL = { reading: 'Reading', listening: 'Listening', writing: 'Writing', speaking: 'Speaking' }
+// ─── CAMBRIDGE BOOK MODAL — Cover upload ──────────────────────────────────────
 
 function CoverTab({ bookNumber, seriesId, coverUrl, onCoverUploaded }) {
   const [uploading, setUploading] = useState(false)
@@ -38,7 +30,7 @@ function CoverTab({ bookNumber, seriesId, coverUrl, onCoverUploaded }) {
           : <div className="text-5xl mb-3">📚</div>}
         <p className="text-sm font-semibold text-slate-600">{coverUrl ? 'Click để đổi ảnh bìa' : 'Click để upload ảnh bìa'}</p>
         <p className="text-xs text-slate-400 mt-1">JPG, PNG, WebP — tối đa 20MB</p>
-        {uploading && <p className="text-xs text-red-500 mt-2 font-medium">Đang upload...</p>}
+        {uploading && <p className="text-xs text-slate-500 mt-2 font-medium">Đang upload...</p>}
       </div>
       <input ref={inputRef} type="file" accept="image/*" className="hidden"
         onChange={e => { if (e.target.files[0]) upload(e.target.files[0]); e.target.value = '' }} />
@@ -46,212 +38,7 @@ function CoverTab({ bookNumber, seriesId, coverUrl, onCoverUploaded }) {
   )
 }
 
-function PDFImportTab({ bookNumber, seriesId, onRefresh }) {
-  const [pdfFile, setPdfFile] = useState(null)
-  const [pdfMeta, setPdfMeta] = useState(null)   // { dataFile, originalName, pageCount }
-  const [uploading, setUploading] = useState(false)
-  const [selectedTest, setSelectedTest] = useState(1)
-  const [selectedSkill, setSelectedSkill] = useState('reading')
-  const [pageRange, setPageRange] = useState({ start: 0, end: 0 })
-  const [answerRange, setAnswerRange] = useState({ start: 0, end: 0 })
-  const [extracting, setExtracting] = useState(false)
-  const [results, setResults] = useState([])
-  const [error, setError] = useState('')
-  const pdfRef = useRef(null)
-
-  // Heuristic page-range suggestion based on Cambridge IELTS structure
-  const suggestRange = useCallback((pageCount, testNum, skill) => {
-    const front = 8
-    const answerLen = Math.max(20, Math.floor(pageCount * 0.13))
-    const contentEnd = pageCount - answerLen
-    const perTest = Math.floor((contentEnd - front) / 4)
-    const ts = front + (testNum - 1) * perTest
-    const offsets = { listening: [0, 12], reading: [13, 36], writing: [37, 41], speaking: [42, 46] }
-    const [ds, de] = offsets[skill] || [0, perTest - 1]
-    return {
-      content: { start: Math.min(ts + ds + 1, pageCount), end: Math.min(ts + de, pageCount) },
-      answer:  { start: contentEnd + 1, end: pageCount }
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!pdfMeta) return
-    const { content, answer } = suggestRange(pdfMeta.pageCount, selectedTest, selectedSkill)
-    setPageRange(content)
-    if (selectedSkill === 'reading' || selectedSkill === 'listening') setAnswerRange(answer)
-  }, [selectedTest, selectedSkill, pdfMeta, suggestRange])
-
-  const handleUpload = async () => {
-    if (!pdfFile) return
-    setUploading(true); setError('')
-    try {
-      const fd = new FormData()
-      fd.append('pdf', pdfFile)
-      const res = await api.post('/admin/cambridge/upload-pdf', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 180000
-      })
-      setPdfMeta(res.data)
-    } catch (e) {
-      setError(e.response?.data?.message || 'Lỗi đọc PDF')
-    } finally { setUploading(false) }
-  }
-
-  const handleExtract = async () => {
-    setExtracting(true); setError('')
-    try {
-      const res = await api.post('/admin/cambridge/extract-save', {
-        dataFile: pdfMeta.dataFile,
-        bookNumber,
-        seriesId,
-        testNumber: selectedTest,
-        skill: selectedSkill,
-        startPage: pageRange.start,
-        endPage: pageRange.end,
-        answerStart: (selectedSkill === 'reading' || selectedSkill === 'listening') ? answerRange.start : 0,
-        answerEnd:   (selectedSkill === 'reading' || selectedSkill === 'listening') ? answerRange.end   : 0,
-      }, { timeout: 180000 })
-      setResults(r => [...r, res.data])
-      onRefresh?.()
-    } catch (e) {
-      setError(e.response?.data?.message || 'Lỗi trích xuất')
-    } finally { setExtracting(false) }
-  }
-
-  return (
-    <div className="space-y-4">
-      {!pdfMeta ? (
-        <>
-          <div
-            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition ${pdfFile ? 'border-blue-400 bg-blue-50/30' : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'}`}
-            onClick={() => pdfRef.current?.click()}
-          >
-            <div className="text-4xl mb-2">{pdfFile ? '📄' : '📁'}</div>
-            {pdfFile
-              ? <><p className="font-semibold text-slate-800 text-sm">{pdfFile.name}</p><p className="text-xs text-slate-400 mt-1">{(pdfFile.size/1024/1024).toFixed(1)} MB</p></>
-              : <><p className="font-semibold text-slate-600 text-sm">Kéo thả hoặc click để chọn file PDF</p><p className="text-xs text-slate-400 mt-1">Tối đa 300MB</p></>}
-          </div>
-          <input ref={pdfRef} type="file" accept=".pdf" className="hidden"
-            onChange={e => { if (e.target.files[0]) setPdfFile(e.target.files[0]); e.target.value = '' }} />
-          {error && <div className="bg-blue-50 border border-blue-200 text-blue-600 p-3 rounded-lg text-sm">{error}</div>}
-          <button onClick={handleUpload} disabled={!pdfFile || uploading} className={btnPrimary + ' w-full'}>
-            {uploading
-              ? <span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/>Đang đọc PDF... (1–2 phút)</span>
-              : 'Đọc PDF →'}
-          </button>
-        </>
-      ) : (
-        <>
-          {/* File info bar */}
-          <div className="flex items-center justify-between bg-slate-50 rounded-lg px-4 py-3 border border-slate-100">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">📄</span>
-              <div>
-                <p className="text-sm font-semibold text-slate-800 leading-tight">{pdfMeta.originalName}</p>
-                <p className="text-xs text-slate-400">{pdfMeta.pageCount} trang</p>
-              </div>
-            </div>
-            <button onClick={() => { setPdfMeta(null); setPdfFile(null); setResults([]) }} className={btnSecondary + ' text-xs py-1'}>Đổi file</button>
-          </div>
-
-          {/* Already extracted */}
-          {results.length > 0 && (
-            <div className="space-y-1.5">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Đã trích xuất</p>
-              {results.map((r, i) => (
-                <div key={i} className={`flex items-center justify-between rounded-lg px-3 py-2 border ${r.questionCount > 0 ? 'bg-[#eff6ff] border-blue-200' : 'bg-amber-50 border-amber-200'}`}>
-                  <span className={`text-sm font-semibold truncate ${r.questionCount > 0 ? 'text-[#1D4ED8]' : 'text-amber-700'}`}>{r.title}</span>
-                  <span className={`text-xs shrink-0 ml-2 font-bold ${r.questionCount > 0 ? 'text-[#1D4ED8]' : 'text-amber-600'}`}>
-                    {r.questionCount > 0 ? `${r.questionCount} câu ✓` : '⚠ 0 câu — kiểm tra lại'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {error && <div className="bg-blue-50 border border-blue-200 text-blue-600 p-3 rounded-lg text-sm">{error}</div>}
-
-          {/* Select Test */}
-          <div>
-            <label className={labelCls}>Chọn Test</label>
-            <div className="flex gap-2">
-              {[1,2,3,4].map(n => (
-                <button key={n} type="button" onClick={() => setSelectedTest(n)}
-                  className={`flex-1 py-2 rounded-lg text-sm font-semibold border-2 transition ${selectedTest === n ? 'bg-[#1D4ED8] text-white border-[#1D4ED8]' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}>
-                  Test {n}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Select Skill */}
-          <div>
-            <label className={labelCls}>Chọn Kỹ năng</label>
-            <div className="grid grid-cols-4 gap-2">
-              {['reading','listening','writing','speaking'].map(sk => (
-                <button key={sk} type="button" onClick={() => setSelectedSkill(sk)}
-                  className={`py-2 rounded-lg text-xs font-bold border-2 transition ${selectedSkill === sk ? SKILL_COLOR_CLASS[sk] : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'}`}>
-                  {SKILL_LABEL[sk]}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Page ranges */}
-          <div className="bg-slate-50 rounded-lg p-4 space-y-3 border border-slate-100">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Phạm vi trang — AI tự gợi ý, có thể chỉnh</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelCls}>Trang bắt đầu ({SKILL_LABEL[selectedSkill]})</label>
-                <input type="text" inputMode="numeric" className={inputCls}
-                  value={pageRange.start || ''}
-                  placeholder="0"
-                  onChange={e => { const v = e.target.value.replace(/\D/g,''); setPageRange(p => ({ ...p, start: v === '' ? 0 : parseInt(v) })) }} />
-              </div>
-              <div>
-                <label className={labelCls}>Trang kết thúc</label>
-                <input type="text" inputMode="numeric" className={inputCls}
-                  value={pageRange.end || ''}
-                  placeholder="0"
-                  onChange={e => { const v = e.target.value.replace(/\D/g,''); setPageRange(p => ({ ...p, end: v === '' ? 0 : parseInt(v) })) }} />
-              </div>
-            </div>
-            {(selectedSkill === 'reading' || selectedSkill === 'listening') && (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelCls}>Trang đáp án — từ</label>
-                  <input type="text" inputMode="numeric" className={inputCls}
-                    value={answerRange.start || ''}
-                    placeholder="0"
-                    onChange={e => { const v = e.target.value.replace(/\D/g,''); setAnswerRange(a => ({ ...a, start: v === '' ? 0 : parseInt(v) })) }} />
-                </div>
-                <div>
-                  <label className={labelCls}>Trang đáp án — đến</label>
-                  <input type="text" inputMode="numeric" className={inputCls}
-                    value={answerRange.end || ''}
-                    placeholder="0"
-                    onChange={e => { const v = e.target.value.replace(/\D/g,''); setAnswerRange(a => ({ ...a, end: v === '' ? 0 : parseInt(v) })) }} />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Extract button */}
-          <button onClick={handleExtract} disabled={extracting} className={btnPrimary + ' w-full'}>
-            {extracting
-              ? <span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/>AI đang trích xuất... (30–90 giây)</span>
-              : `Trích xuất Test ${selectedTest} · ${SKILL_LABEL[selectedSkill]}`}
-          </button>
-          <p className="text-xs text-center text-slate-400">Có thể trích xuất nhiều lần với các tổ hợp Test + Kỹ năng khác nhau từ cùng 1 PDF</p>
-        </>
-      )}
-    </div>
-  )
-}
-
-function BookModal({ bookNumber, seriesId, seriesName, coverUrl, onClose, onCoverUploaded, onRefresh }) {
-  const [tab, setTab] = useState('cover')
-
+function BookModal({ bookNumber, seriesId, seriesName, coverUrl, onClose, onCoverUploaded }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
@@ -262,24 +49,13 @@ function BookModal({ bookNumber, seriesId, seriesName, coverUrl, onClose, onCove
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
           <div className="flex items-center gap-3">
             {coverUrl && <img src={`${SERVER_BASE}${coverUrl}`} alt="" className="w-8 h-10 rounded object-cover shadow" />}
-            <h2 className="font-extrabold text-slate-800">{seriesName} {bookNumber}</h2>
+            <h2 className="font-extrabold text-slate-800">{seriesName} {bookNumber} — Ảnh bìa</h2>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 font-bold transition">✕</button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-slate-100 shrink-0">
-          {[{k:'cover',l:'Ảnh bìa'},{k:'pdf',l:'Import đề từ PDF'}].map(({k,l}) => (
-            <button key={k} onClick={() => setTab(k)}
-              className={`px-5 py-3 text-sm font-semibold transition border-b-2 ${tab === k ? 'border-[#1D4ED8] text-[#1D4ED8]' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
-              {l}
-            </button>
-          ))}
-        </div>
-
-        <div className="p-5 overflow-y-auto">
-          {tab === 'cover' && <CoverTab bookNumber={bookNumber} seriesId={seriesId} coverUrl={coverUrl} onCoverUploaded={onCoverUploaded} />}
-          {tab === 'pdf'   && <PDFImportTab bookNumber={bookNumber} seriesId={seriesId} onRefresh={onRefresh} />}
+        <div className="p-5">
+          <CoverTab bookNumber={bookNumber} seriesId={seriesId} coverUrl={coverUrl} onCoverUploaded={onCoverUploaded} />
         </div>
       </div>
     </div>
@@ -318,7 +94,7 @@ function SeriesCard({ s, onManage, onEdit, onDelete }) {
   )
 }
 
-function SeriesDetailView({ series, books, onBack, onBooksChanged, onRefresh }) {
+function SeriesDetailView({ series, books, onBack, onBooksChanged }) {
   const [openModal, setOpenModal] = useState(null) // bookNumber
   const [addingBook, setAddingBook] = useState(false)
   const [deleteBook, setDeleteBook] = useState(null) // bookNumber
@@ -384,7 +160,7 @@ function SeriesDetailView({ series, books, onBack, onBooksChanged, onRefresh }) 
           <button onClick={onBack} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 transition text-sm font-bold">←</button>
           <div>
             <h3 className="font-bold text-slate-800">{series.name}</h3>
-            <p className="text-xs text-slate-400 mt-0.5">{books.length} cuốn · click vào cuốn để upload ảnh bìa hoặc import đề từ PDF</p>
+            <p className="text-xs text-slate-400 mt-0.5">{books.length} cuốn · click vào cuốn để upload ảnh bìa</p>
           </div>
         </div>
         <button
@@ -449,7 +225,6 @@ function SeriesDetailView({ series, books, onBack, onBooksChanged, onRefresh }) 
           coverUrl={coverMap[openModal]}
           onClose={() => setOpenModal(null)}
           onCoverUploaded={url => setCoverMap(c => ({ ...c, [openModal]: url }))}
-          onRefresh={onRefresh}
         />
       )}
 

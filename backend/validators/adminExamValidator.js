@@ -257,41 +257,10 @@ const updateExamSchema = z.object({
   }).optional(),
 })
 
-// ─── CAMBRIDGE EXTRACT SCHEMAS ───────────────────────────────────────────────
-const cambridgeExtractBase = z.object({
-  dataFile: z.string({ message: 'dataFile là bắt buộc' }).min(1, { message: 'dataFile không được để trống' }),
-  skill: z.enum(['reading', 'listening', 'writing', 'speaking'], { message: 'Skill không hợp lệ' }),
-  testNumber: z.coerce.number().optional(),
-  bookNumber: z.coerce.number().optional(),
-  startPage: z.coerce.number().optional(),
-  endPage: z.coerce.number().optional(),
-  answerStart: z.coerce.number().optional(),
-  answerEnd: z.coerce.number().optional(),
-  seriesId: z.coerce.number().optional(),
-  bookTitle: z.string().optional(),
-})
-
-const cambridgeRefine = data => {
-  if (data.startPage && data.endPage) {
-    return data.startPage <= data.endPage
-  }
-  return true
-}
-
-const cambridgeRefineOpts = {
-  message: 'Trang bắt đầu phải nhỏ hơn hoặc bằng trang kết thúc',
-  path: ['startPage'],
-}
-
-const cambridgeExtractSchema = cambridgeExtractBase.refine(cambridgeRefine, cambridgeRefineOpts)
-const cambridgeExtractSaveSchema = cambridgeExtractBase.refine(cambridgeRefine, cambridgeRefineOpts)
-
 module.exports = {
   createReadingExamSchema,
   createListeningExamSchema,
   createWritingExamSchema,
   createSpeakingExamSchema,
   updateExamSchema,
-  cambridgeExtractSchema,
-  cambridgeExtractSaveSchema,
 }

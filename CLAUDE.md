@@ -120,7 +120,7 @@ cd frontend && npx vitest run src/hooks/useDebounce.test.js
 - **Full Test** — 4-skill coordination, results only unlocked when all skills done; parallel DB queries (reduced ~200 sequential queries to 4). No dedicated test file.
 - **Stats / Progress Analysis** — Error breakdown by question type, trend charts, per-criterion trend badges for Writing & Speaking, AI Advisor endpoint (`POST /stats/advice`, rate-limited 5/user/day). Tests in `routes/stats.test.js`.
 - **Chatbot** — Context-aware assistant (pulls user stats + band history); rate-limited 20 messages/user/hour; system-prompt injection protection; conversation capped at 6 messages. Tests in `routes/chatbot.test.js`.
-- **Admin panel** — Full CRUD for all content types (Reading, Listening, Writing, Speaking exams; Series; Writing & Speaking samples; Users); soft-delete / Trash recovery; image & audio upload; Cambridge PDF ingestion pipeline. Sub-routes under `backend/routes/admin/`.
+- **Admin panel** — Full CRUD for all content types (Reading, Listening, Writing, Speaking exams; Series/Books; Writing & Speaking samples; Users); soft-delete / Trash recovery; image & audio upload. Sub-routes under `backend/routes/admin/`. (The Cambridge PDF import pipeline was removed — unused, 0 real attempts, produced flat questions the group-based editors couldn't round-trip.)
 - **Auth / User profile** — Register, login (bcryptjs + JWT 7-day), profile page, password change, streak tracking.
 - **Series & Practice** — Browse/manage exam series and standalone practice exams; leaderboard per series.
 

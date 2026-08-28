@@ -1,22 +1,12 @@
 import { useState, useEffect } from 'react'
 import api from '../../utils/axios'
-import { inputCls, labelCls } from './adminConstants'
-import { SeriesCard, SeriesDetailView, BookModal } from './CambridgeBookComponents'
+import { SeriesCard, SeriesDetailView } from './CambridgeBookComponents'
 
-// ─── TAB: CAMBRIDGE IMPORT ────────────────────────────────────────────────────
-
-const SKILLS_LIST = ['reading', 'listening', 'writing', 'speaking']
-const skillLabel = { reading: 'Reading', listening: 'Listening', writing: 'Writing', speaking: 'Speaking' }
-const skillColor = {
-  reading: 'border-[#bfdbfe] bg-[#eff6ff] text-[#1D4ED8]',
-  listening: 'border-[#bfdbfe] bg-[#eff6ff] text-[#1D4ED8]',
-  writing: 'border-[#bfdbfe] bg-[#eff6ff] text-[#1D4ED8]',
-  speaking: 'border-[#bfdbfe] bg-[#eff6ff] text-[#1D4ED8]',
-}
+// ─── TAB: SERIES & BOOKS ──────────────────────────────────────────────────────
 
 let cachedSeriesList = null
 
-function CambridgeTab({ onRefresh, initialSeriesList = [] }) {
+function CambridgeTab({ initialSeriesList = [] }) {
   const [seriesList, setSeriesList] = useState(cachedSeriesList || initialSeriesList)
   const [activeSeries, setActiveSeries] = useState(null)
   const [activeBooks, setActiveBooks] = useState([])
@@ -95,7 +85,6 @@ function CambridgeTab({ onRefresh, initialSeriesList = [] }) {
         books={activeBooks}
         onBack={() => { setActiveSeries(null); fetchSeries() }}
         onBooksChanged={() => fetchBooks(activeSeries.id)}
-        onRefresh={onRefresh}
       />
     )
   }

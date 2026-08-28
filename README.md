@@ -471,9 +471,6 @@ PORT=3001
 | `POST` | `/api/admin/exams/:id/cover` | Upload ảnh bìa cho đề |
 | `GET` | `/api/admin/exam-series` | Danh sách Cambridge series |
 | `POST` | `/api/admin/exam-series` | Tạo series mới |
-| `POST` | `/api/admin/cambridge/upload` | Upload PDF Cambridge |
-| `POST` | `/api/admin/cambridge/extract` | Trích xuất nội dung từ PDF |
-| `POST` | `/api/admin/cambridge/extract-save` | Trích xuất và lưu vào DB |
 | `POST` | `/api/admin/make-admin` | Nâng quyền admin cho user |
 
 ---

@@ -36,15 +36,6 @@ export const uploadAudio = (formData) =>
 export const transcribeAudio = (audioUrl) =>
   api.post('/admin/transcribe', { audioUrl }).then(r => r.data)
 
-// ─── Cambridge PDF Upload ─────────────────────────────────────────────────────
-export const uploadCambridgePdf = (formData, onUploadProgress) =>
-  api.post('/admin/cambridge/upload-pdf', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-    onUploadProgress,
-  }).then(r => r.data)
-export const extractAndSaveCambridge = (payload) =>
-  api.post('/admin/cambridge/extract-save', payload).then(r => r.data)
-
 // ─── Exam List (public-facing) ────────────────────────────────────────────────
 export const getReadingExams = () => api.get('/reading/exams').then(r => r.data)
 export const getListeningExams = () => api.get('/listening/exams').then(r => r.data)

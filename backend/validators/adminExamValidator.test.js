@@ -3,7 +3,6 @@ const {
   createReadingExamSchema,
   createListeningExamSchema,
   createWritingExamSchema,
-  cambridgeExtractSchema,
 } = require('./adminExamValidator')
 
 describe('adminExamValidator', () => {
@@ -97,21 +96,6 @@ describe('adminExamValidator', () => {
     it('ignores blank options (multiple empties are not "duplicates")', () => {
       const res = createReadingExamSchema.safeParse(withMcq(['a', 'b', '', '']))
       expect(res.success).toBe(true)
-    })
-  })
-
-  describe('cambridgeExtractSchema Refine Checks', () => {
-    it('passes when startPage <= endPage', () => {
-      const valid = { dataFile: 'test.json', skill: 'reading', startPage: 10, endPage: 15 }
-      const res = cambridgeExtractSchema.safeParse(valid)
-      expect(res.success).toBe(true)
-    })
-
-    it('fails when startPage > endPage with explicit Vietnamese message', () => {
-      const invalid = { dataFile: 'test.json', skill: 'reading', startPage: 20, endPage: 10 }
-      const res = cambridgeExtractSchema.safeParse(invalid)
-      expect(res.success).toBe(false)
-      expect(res.error.issues[0].message).toBe('Trang bắt đầu phải nhỏ hơn hoặc bằng trang kết thúc')
     })
   })
 })
