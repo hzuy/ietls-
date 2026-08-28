@@ -37,9 +37,9 @@ const NAV_ALL = [
 ]
 
 const navCls = (isActive) =>
-  `flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition group ${
+  `flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-normal transition group ${
     isActive
-      ? 'bg-blue-50/80 text-blue-600 font-semibold'
+      ? 'bg-blue-50/80 text-blue-600 font-medium'
       : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
   }`
 
