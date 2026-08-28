@@ -1,24 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import api from '../../utils/axios'
 import {
-  READING_GROUP_TYPES, READING_GROUP_INSTRUCTIONS,
+  READING_GROUP_TYPES,
   emptyReadingForm, emptyReadingGroupOf,
   recalcAllGroupNumbers, getGroupSlots,
   inputCls, labelCls, btnPrimary, btnSecondary,
-  toImgSrc,
   useExamSeriesList, useSeriesBooks,
 } from './adminConstants'
 import InlinePreviewPanel from '../common/InlinePreviewPanel'
 import ExamList from './ExamList'
-import TrueFalseEditor from '../practice/TrueFalseEditor'
-import SummaryCompletionEditor from '../practice/SummaryCompletionEditor'
-import NoteCompletionEditor from '../practice/NoteCompletionEditor'
-import TableCompletionEditor from '../practice/TableCompletionEditor'
-import MCQGroupEditor from '../practice/MCQGroupEditor'
-import MatchingEditor from '../practice/MatchingEditor'
-import DiagramLabelEditor from '../practice/DiagramLabelEditor'
 import AdminGroupPreview from '../practice/AdminGroupPreview'
-import { PreviewTokenLine, buildTokenNumMap } from '../practice/PreviewTokenLine'
 import ReadingGroupEditor from './editors/ReadingGroupEditor'
 
 // ─── TAB: READING ─────────────────────────────────────────────────────────────
@@ -88,24 +79,35 @@ function ReadingFormPreview({ form, showAnswers }) {
     ? [...(passage.questionGroups || [])].sort((a, b) => a.qNumberStart - b.qNumberStart)
     : []
 
-  const onDividerMouseDown = useCallback((e) => {
+  const onDividerPointerDown = useCallback((e) => {
     e.preventDefault()
-    setDragging(true)
     const container = containerRef.current
+    const divider = e.currentTarget
     if (!container) return
 
-    const onMouseMove = (ev) => {
+    // Capture the pointer on the divider itself so move/up events keep
+    // firing even when the cursor is released outside the browser window.
+    try { divider.setPointerCapture(e.pointerId) } catch { /* unsupported */ }
+    setDragging(true)
+
+    const onPointerMove = (ev) => {
       const rect = container.getBoundingClientRect()
       const pct = ((ev.clientX - rect.left) / rect.width) * 100
       setLeftPct(Math.min(75, Math.max(25, pct)))
     }
-    const onMouseUp = () => {
+    const stop = () => {
       setDragging(false)
-      document.removeEventListener('mousemove', onMouseMove)
-      document.removeEventListener('mouseup', onMouseUp)
+      try { divider.releasePointerCapture(e.pointerId) } catch { /* noop */ }
+      divider.removeEventListener('pointermove', onPointerMove)
+      divider.removeEventListener('pointerup', stop)
+      divider.removeEventListener('pointercancel', stop)
+      window.removeEventListener('mouseleave', stop)
     }
-    document.addEventListener('mousemove', onMouseMove)
-    document.addEventListener('mouseup', onMouseUp)
+    divider.addEventListener('pointermove', onPointerMove)
+    divider.addEventListener('pointerup', stop)
+    divider.addEventListener('pointercancel', stop)
+    // Fallback: end the drag if the mouse leaves the window entirely.
+    window.addEventListener('mouseleave', stop)
   }, [])
 
   return (
@@ -143,8 +145,8 @@ function ReadingFormPreview({ form, showAnswers }) {
 
           {/* Divider */}
           <div
-            onMouseDown={onDividerMouseDown}
-            style={{ width: 5, cursor: 'col-resize', flexShrink: 0, background: dragging ? '#3B82F6' : '#e5e7eb', transition: dragging ? 'none' : 'background 0.15s' }}
+            onPointerDown={onDividerPointerDown}
+            style={{ width: 5, cursor: 'col-resize', flexShrink: 0, touchAction: 'none', background: dragging ? '#3B82F6' : '#e5e7eb', transition: dragging ? 'none' : 'background 0.15s' }}
             onMouseEnter={e => { if (!dragging) e.currentTarget.style.background = '#93c5fd' }}
             onMouseLeave={e => { if (!dragging) e.currentTarget.style.background = '#e5e7eb' }}
           />
@@ -298,6 +300,9 @@ function SpeakingFormPreview({ form }) {
 }
 // ─── TAB: READING ─────────────────────────────────────────────────────────────
 
+const DRAFT_PREFIX = 'draft_reading_'
+const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
+
 function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchExams, loading, loadError }) {
   const [form, setForm] = useState(emptyReadingForm())
   const liveExamSeries = useExamSeriesList()
@@ -313,15 +318,38 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   const [toast, setToast] = useState('')
   const [draftBanner, setDraftBanner] = useState(null)
   const [editHighlight, setEditHighlight] = useState(false)
-  const formRef = useRef(null)
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
+
+  // On mount: purge stale draft_reading_* keys (older than 7 days) so
+  // abandoned drafts don't accumulate in localStorage forever.
+  useEffect(() => {
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i)
+        if (!k || !k.startsWith(DRAFT_PREFIX)) continue
+        try {
+          const parsed = JSON.parse(localStorage.getItem(k))
+          const savedAt = parsed && parsed._savedAt
+          // Drop drafts we can date to older than the max age. Drafts with no
+          // timestamp (created before this field existed) are left alone —
+          // they pick one up on the next autosave.
+          if (savedAt && Date.now() - savedAt > DRAFT_MAX_AGE_MS) {
+            localStorage.removeItem(k)
+          }
+        } catch { localStorage.removeItem(k) }
+      }
+    } catch { /* localStorage unavailable */ }
+  }, [])
 
   useEffect(() => {
     const key = `draft_reading_${editingId || 'new'}`
     const saved = localStorage.getItem(key)
     if (saved) {
-      try { setDraftBanner({ key, data: JSON.parse(saved) }) }
+      try {
+        const { _savedAt, ...data } = JSON.parse(saved)
+        setDraftBanner({ key, data, savedAt: _savedAt })
+      }
       catch { localStorage.removeItem(key) }
     } else { setDraftBanner(null) }
   }, [editingId])
@@ -330,12 +358,17 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     if (!form.title && !editingId) return
     const key = `draft_reading_${editingId || 'new'}`
     const timer = setTimeout(() => {
-      localStorage.setItem(key, JSON.stringify(form))
-      const now = new Date()
-      const hh = now.getHours().toString().padStart(2, '0')
-      const mm = now.getMinutes().toString().padStart(2, '0')
-      setToast(`Đã lưu bản nháp lúc ${hh}:${mm}`)
-      setTimeout(() => setToast(''), 3000)
+      try {
+        localStorage.setItem(key, JSON.stringify({ ...form, _savedAt: Date.now() }))
+        const now = new Date()
+        const hh = now.getHours().toString().padStart(2, '0')
+        const mm = now.getMinutes().toString().padStart(2, '0')
+        setToast(`Đã lưu bản nháp lúc ${hh}:${mm}`)
+        setTimeout(() => setToast(''), 3000)
+      } catch {
+        setToast('Không lưu được nháp (bộ nhớ đầy)')
+        setTimeout(() => setToast(''), 3000)
+      }
     }, 2000)
     return () => clearTimeout(timer)
   }, [form, editingId])
@@ -389,7 +422,10 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     finally { setLoadingEdit(false) }
   }
 
-  const cancelEdit = () => { setEditingId(null); setForm(emptyReadingForm()); setOpenPassage(0); setEditHighlight(false) }
+  const cancelEdit = () => {
+    if (editingId) localStorage.removeItem(`draft_reading_${editingId}`)
+    setEditingId(null); setForm(emptyReadingForm()); setOpenPassage(0); setEditHighlight(false); setDraftBanner(null)
+  }
 
   const updatePassage = (pi, field, val) => {
     const p = [...form.passages]
@@ -498,7 +534,14 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
           {toast}
         </div>
       )}
-      <form ref={formRef} onSubmit={handleSubmit} className={`bg-white rounded-2xl p-6 border shadow-sm transition-all duration-500 ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-gray-100'}`}>
+      <div className="relative">
+      {loadingEdit && (
+        <div className="absolute inset-0 z-20 rounded-2xl bg-white/70 backdrop-blur-[1px] flex items-center justify-center">
+          <span className="text-sm font-semibold text-gray-500">Đang tải đề để sửa…</span>
+        </div>
+      )}
+      <form onSubmit={handleSubmit} aria-busy={loadingEdit}
+        className={`bg-white rounded-2xl p-6 border shadow-sm transition-all duration-500 ${loadingEdit ? 'opacity-60 pointer-events-none select-none' : ''} ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-gray-100'}`}>
         <h3 className="font-bold text-gray-800 mb-5">
           {editingId ? `Sửa đề Reading #${editingId}` : 'Tạo đề Reading mới'}
         </h3>
@@ -667,7 +710,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
           })}
         </div>
 
-        <button type="submit" disabled={submitting} className={btnPrimary + ' w-full'}>
+        <button type="submit" disabled={submitting || loadingEdit} className={btnPrimary + ' w-full'}>
           {submitting ? 'Đang lưu...' : editingId ? 'Cập nhật đề Reading' : 'Tạo đề Reading'}
         </button>
         <button
@@ -678,6 +721,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
           {showPreview ? '▲ Thu gọn preview' : '👁 Xem trước nội dung đề'}
         </button>
       </form>
+      </div>
 
       {showPreview && (
         <InlinePreviewPanel
