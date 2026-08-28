@@ -750,5 +750,5 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   )
 }
 
-export { useExamSeriesList, useSeriesBooks, InlinePreviewPanel, ListeningFormPreview }
+export { useExamSeriesList, useSeriesBooks, InlinePreviewPanel, ListeningFormPreview, SpeakingFormPreview }
 export default ReadingTab

@@ -3,6 +3,10 @@ import api from '../../utils/axios'
 import { emptySpeakingForm, inputCls, labelCls, btnPrimary, btnSecondary, useExamSeriesList, useSeriesBooks } from './adminConstants'
 import ExamList from './ExamList'
 import InlinePreviewPanel from '../common/InlinePreviewPanel'
+// SpeakingFormPreview is defined in ReadingTab.jsx alongside the other form
+// previews and re-exported; extracting the previews into a shared module is
+// deferred to a later refactor.
+import { SpeakingFormPreview } from './ReadingTab'
 
 // ─── TAB: SPEAKING ────────────────────────────────────────────────────────────
 
