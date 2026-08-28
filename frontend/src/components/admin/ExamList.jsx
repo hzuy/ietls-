@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { formatBand } from '../../utils/ielts'
 import useDebounce from '../../hooks/useDebounce'
 import { btnSecondary, btnDanger } from './adminConstants'
+import { SkeletonTable } from '../skeletons'
 
 // Bản đồ tùy chọn sort (UI) → cặp { sortBy, sortOrder } gửi lên GET /admin/exams
 const SORT_MAP = {
@@ -13,7 +14,7 @@ const SORT_MAP = {
   score:    { sortBy: 'score',     sortOrder: 'desc' },
 }
 
-function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries = [], paginationData, fetchExams, loading }) {
+function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries = [], paginationData, fetchExams, loading, error }) {
   const [loadingId, setLoadingId] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [search, setSearch] = useState('')
@@ -47,6 +48,9 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
     })
   }
 
+  // Chỉ theo dõi debouncedSearch. Các bộ lọc khác (bộ đề / trạng thái / sắp xếp)
+  // đã tự gọi API trong handler của chúng — không đưa vào deps để tránh fetch kép.
+  // runFetch() đọc state hiện tại tại thời điểm effect chạy (sau commit) nên không bị stale.
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false
@@ -68,12 +72,14 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
         count = (exam.speakingParts || []).filter(p => (p._count?.questions ?? 0) > 0).length; total = 3; break
       default: return null
     }
-    const bg    = count === total ? '#dcfce7' : count > total ? '#fee2e2' : '#f1f5f9'
-    const color = count === total ? '#15803d' : count > total ? '#dc2626' : '#64748b'
-    return { text: `${count}/${total}`, bg, color }
+    const over  = count > total
+    const bg    = count === total ? '#dcfce7' : over ? '#fee2e2' : '#f1f5f9'
+    const color = count === total ? '#15803d' : over ? '#dc2626' : '#64748b'
+    return { text: `${count}/${total}`, bg, color, title: over ? 'Số câu vượt chuẩn — kiểm tra dữ liệu' : undefined }
   }
 
-  const skillExams = (Array.isArray(exams) ? exams : []).filter(e => e.skill === skill || !e.skill)
+  // Backend đã lọc theo skill; giữ guard nhẹ phòng dữ liệu bất thường.
+  const skillExams = (Array.isArray(exams) ? exams : []).filter(e => e.skill === skill)
 
   const resetFilters = () => {
     setSearch('')
@@ -146,12 +152,12 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
       {/* Stats cards — số liệu toàn DB theo skill/bộ đề/tìm kiếm (từ backend) */}
       <div className="grid grid-cols-2 gap-3 mb-5 sm:grid-cols-4">
         {[
-          { label: 'Tổng đề',         value: stats ? stats.totalExams : '—',            color: 'bg-blue-50 text-[#1D4ED8]' },
-          { label: 'Tổng lượt làm',   value: stats ? stats.totalAttempts : '—',         color: 'bg-green-50 text-green-700' },
-          { label: 'Band TB',          value: stats && stats.avgBand != null ? formatBand(stats.avgBand) : '—', color: 'bg-purple-50 text-purple-700' },
-          { label: 'Chưa có câu hỏi', value: stats ? stats.noQuestionsCount : '—',      color: (stats?.noQuestionsCount ?? 0) > 0 ? 'bg-orange-50 text-orange-600' : 'bg-gray-50 text-gray-400' },
+          { label: 'Tổng đề',         value: stats ? stats.totalExams : '—',            color: 'bg-blue-50 text-blue-700' },
+          { label: 'Tổng lượt làm',   value: stats ? stats.totalAttempts : '—',         color: 'bg-emerald-50 text-emerald-700' },
+          { label: 'Band TB',          value: stats && stats.avgBand != null ? formatBand(stats.avgBand) : '—', color: 'bg-slate-50 text-slate-700' },
+          { label: 'Chưa có câu hỏi', value: stats ? stats.noQuestionsCount : '—',      color: (stats?.noQuestionsCount ?? 0) > 0 ? 'bg-amber-50 text-amber-700' : 'bg-slate-50 text-slate-400' },
         ].map(card => (
-          <div key={card.label} className={`rounded-xl p-3 ${card.color} border border-white`}>
+          <div key={card.label} className={`rounded-xl p-3 ${card.color} border border-slate-200/60`}>
             <div className="text-xl font-bold">{card.value}</div>
             <div className="text-xs mt-0.5 opacity-75">{card.label}</div>
           </div>
@@ -160,34 +166,42 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
 
       {/* Search + Filter */}
       <div className="flex flex-wrap gap-2 mb-4">
+        <label htmlFor="examlist-search" className="sr-only">Tìm theo tên đề</label>
         <input
+          id="examlist-search"
           type="text"
           placeholder="Tìm theo tên đề..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="flex-1 min-w-[160px] px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1D4ED8] bg-white"
+          className="flex-1 min-w-[160px] px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#1D4ED8] bg-white"
         />
+        <label htmlFor="examlist-series" className="sr-only">Lọc theo bộ đề</label>
         <select
+          id="examlist-series"
           value={filterSeries}
           onChange={e => handleSeriesChange(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1D4ED8] bg-white"
+          className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#1D4ED8] bg-white"
         >
           <option value="">Tất cả bộ đề</option>
           {examSeries.map(s => <option key={s.id} value={s.id.toString()}>{s.name}</option>)}
         </select>
+        <label htmlFor="examlist-status" className="sr-only">Lọc theo trạng thái câu hỏi</label>
         <select
+          id="examlist-status"
           value={filterStatus}
           onChange={e => handleStatusChange(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1D4ED8] bg-white"
+          className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#1D4ED8] bg-white"
         >
           <option value="all">Tất cả trạng thái</option>
           <option value="has_questions">Có câu hỏi</option>
           <option value="no_questions">Chưa có câu hỏi</option>
         </select>
+        <label htmlFor="examlist-sort" className="sr-only">Sắp xếp</label>
         <select
+          id="examlist-sort"
           value={sortBy}
           onChange={e => handleSortChange(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1D4ED8] bg-white"
+          className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#1D4ED8] bg-white"
         >
           <option value="newest">Mới nhất</option>
           <option value="oldest">Cũ nhất</option>
@@ -198,7 +212,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
         {hasActiveFilter && (
           <button
             onClick={resetFilters}
-            className="px-3 py-2 text-sm border border-gray-200 rounded-xl text-gray-500 hover:bg-gray-50 transition bg-white"
+            className="px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition bg-white"
           >Reset</button>
         )}
       </div>
@@ -209,19 +223,30 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
       )}
 
       {/* Exam list */}
-      {filtered.length === 0 ? (
+      {error ? (
+        <div className="text-center py-10 text-sm">
+          <p className="text-rose-600 font-medium">Không tải được danh sách.</p>
+          <button
+            type="button"
+            onClick={() => runFetch()}
+            className="mt-3 px-4 py-2 rounded-lg border border-gray-200 text-gray-600 font-medium hover:bg-gray-50 transition"
+          >Thử lại</button>
+        </div>
+      ) : loading && filtered.length === 0 ? (
+        <SkeletonTable rows={6} cols={3} />
+      ) : filtered.length === 0 ? (
         <div className="text-center text-gray-400 py-8 text-sm">
           {hasActiveFilter ? 'Không tìm thấy đề nào khớp với bộ lọc.' : 'Chưa có đề nào. Tạo đề đầu tiên!'}
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className={`space-y-2 transition-opacity ${loading ? 'opacity-60 pointer-events-none' : ''}`}>
           {filtered.map(exam => {
             const isEditing = exam.id === editingId
             const isLoading = exam.id === loadingId
             return (
               <div key={exam.id}
                 style={isEditing ? { background: '#eff6ff', borderLeft: '3px solid #1D4ED8' } : {}}
-                className={`bg-white rounded-xl p-4 border flex items-center justify-between transition
+                className={`bg-white rounded-lg p-4 border flex items-center justify-between transition
                   ${isEditing ? 'border-[#bfdbfe]' : 'border-gray-100 hover:border-gray-200'}`}>
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                   <div className="min-w-0 flex-1">
@@ -238,7 +263,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
                         const badge = getQuestionBadge(exam)
                         if (!badge) return null
                         return (
-                          <span style={{ background: badge.bg, color: badge.color, borderRadius: 9999, padding: '2px 8px', fontSize: 10, fontWeight: 600, flexShrink: 0 }}>
+                          <span title={badge.title} style={{ background: badge.bg, color: badge.color, borderRadius: 9999, padding: '2px 8px', fontSize: 10, fontWeight: 600, flexShrink: 0 }}>
                             {badge.text}
                           </span>
                         )
@@ -302,7 +327,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
               type="button"
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage <= 1 || loading}
-              className="px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
             >
               ← Trang trước
             </button>
@@ -310,7 +335,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
               type="button"
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage >= totalPages || loading}
-              className="px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
             >
               Trang sau →
             </button>
@@ -322,26 +347,30 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
       {confirmDelete && (
         <div
           onClick={() => setConfirmDelete(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/45"
         >
           <div
             onClick={e => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="examlist-delete-title"
+            className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm"
           >
-            <h3 className="font-bold text-gray-800 text-base mb-2">Xác nhận xóa</h3>
+            <h3 id="examlist-delete-title" className="font-bold text-gray-800 text-base mb-2">Xác nhận xóa</h3>
             <p className="text-sm text-gray-600 leading-relaxed mb-6">
               Bạn có chắc muốn xóa đề <span className="font-semibold text-gray-800">"{confirmDelete.title}"</span> không? Hành động này không thể hoàn tác.
             </p>
             <div className="flex gap-3 justify-end">
               <button
                 type="button"
+                autoFocus
                 onClick={() => setConfirmDelete(null)}
-                className="px-4 py-2 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition"
+                className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition"
               >Quay lại</button>
               <button
                 type="button"
                 onClick={handleDeleteConfirm}
-                className="px-4 py-2 rounded-xl text-white text-sm font-bold transition"
+                className="px-4 py-2 rounded-lg text-white text-sm font-bold transition"
                 style={{ background: '#dc2626' }}
               >Xóa</button>
             </div>

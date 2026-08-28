@@ -113,7 +113,7 @@ function GroupEditor({ group = {}, onChange, onRemove }) {
   )
 }
 
-function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetchExams, loading }) {
+function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetchExams, loading, loadError }) {
   const [form, setForm] = useState(emptyListeningForm())
   const liveExamSeries = useExamSeriesList()
   const seriesBooks = useSeriesBooks(form.seriesId)
@@ -562,7 +562,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
 
       <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
         <h3 className="font-bold text-gray-800 mb-4">Danh sách đề Listening ({paginationData?.total ?? exams.length})</h3>
-        <ExamList exams={exams} skill="listening" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} />
+        <ExamList exams={exams} skill="listening" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} error={loadError} />
       </div>
     </div>
   )

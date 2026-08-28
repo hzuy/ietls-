@@ -22,6 +22,7 @@ export default function Admin() {
   const [tabCounts, setTabCounts] = useState({ reading: 0, listening: 0, writing: 0, speaking: 0 })
   const [tabCache, setTabCache] = useState({ reading: null, listening: null, writing: null, speaking: null })
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState({}) // { [skill]: true } khi fetch danh sách lỗi
   const [examSeries, setExamSeries] = useState([])
   const navigate = useNavigate()
   const location = useLocation()
@@ -42,6 +43,7 @@ export default function Admin() {
     if (!force && tabCache[skill] && isPristine) {
       return
     }
+    setLoadError(prev => (prev[skill] ? { ...prev, [skill]: false } : prev)) // xóa lỗi cũ khi thử lại
     setLoading(true)
     getExams({ skill, page, limit: 20, search, seriesId, status, sortBy, sortOrder })
       .then(res => {
@@ -50,6 +52,7 @@ export default function Admin() {
       })
       .catch(err => {
         if (err.response?.status === 403) navigate('/')
+        else setLoadError(prev => ({ ...prev, [skill]: true }))
       })
       .finally(() => setLoading(false))
   }
@@ -113,10 +116,10 @@ export default function Admin() {
         <Routes>
           <Route index element={<Navigate to="cambridge" replace />} />
           <Route path="cambridge" element={<CambridgeTab initialSeriesList={examSeries} onRefresh={() => handleRefresh('reading')} />} />
-          <Route path="reading"   element={<ReadingTab exams={tabCache.reading?.exams || []} paginationData={tabCache.reading} fetchExams={(opts) => fetchSkillExams('reading', { ...opts, force: true })} onRefresh={() => handleRefresh('reading')} examSeries={examSeries} loading={loading} />} />
-          <Route path="listening" element={<ListeningTab exams={tabCache.listening?.exams || []} paginationData={tabCache.listening} fetchExams={(opts) => fetchSkillExams('listening', { ...opts, force: true })} onRefresh={() => handleRefresh('listening')} examSeries={examSeries} loading={loading} />} />
-          <Route path="writing"   element={<WritingTab exams={tabCache.writing?.exams || []} paginationData={tabCache.writing} fetchExams={(opts) => fetchSkillExams('writing', { ...opts, force: true })} onRefresh={() => handleRefresh('writing')} examSeries={examSeries} loading={loading} />} />
-          <Route path="speaking"  element={<SpeakingTab exams={tabCache.speaking?.exams || []} paginationData={tabCache.speaking} fetchExams={(opts) => fetchSkillExams('speaking', { ...opts, force: true })} onRefresh={() => handleRefresh('speaking')} examSeries={examSeries} loading={loading} />} />
+          <Route path="reading"   element={<ReadingTab exams={tabCache.reading?.exams || []} paginationData={tabCache.reading} fetchExams={(opts) => fetchSkillExams('reading', { ...opts, force: true })} onRefresh={() => handleRefresh('reading')} examSeries={examSeries} loading={loading} loadError={!!loadError.reading} />} />
+          <Route path="listening" element={<ListeningTab exams={tabCache.listening?.exams || []} paginationData={tabCache.listening} fetchExams={(opts) => fetchSkillExams('listening', { ...opts, force: true })} onRefresh={() => handleRefresh('listening')} examSeries={examSeries} loading={loading} loadError={!!loadError.listening} />} />
+          <Route path="writing"   element={<WritingTab exams={tabCache.writing?.exams || []} paginationData={tabCache.writing} fetchExams={(opts) => fetchSkillExams('writing', { ...opts, force: true })} onRefresh={() => handleRefresh('writing')} examSeries={examSeries} loading={loading} loadError={!!loadError.writing} />} />
+          <Route path="speaking"  element={<SpeakingTab exams={tabCache.speaking?.exams || []} paginationData={tabCache.speaking} fetchExams={(opts) => fetchSkillExams('speaking', { ...opts, force: true })} onRefresh={() => handleRefresh('speaking')} examSeries={examSeries} loading={loading} loadError={!!loadError.speaking} />} />
         </Routes>
       </div>
     </AdminLayout>

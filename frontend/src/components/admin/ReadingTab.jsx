@@ -298,7 +298,7 @@ function SpeakingFormPreview({ form }) {
 }
 // ─── TAB: READING ─────────────────────────────────────────────────────────────
 
-function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchExams, loading }) {
+function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchExams, loading, loadError }) {
   const [form, setForm] = useState(emptyReadingForm())
   const liveExamSeries = useExamSeriesList()
   const seriesBooks = useSeriesBooks(form.seriesId)
@@ -692,7 +692,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
 
       <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
         <h3 className="font-bold text-gray-800 mb-4">Danh sách đề Reading ({paginationData?.total ?? exams.length})</h3>
-        <ExamList exams={exams} skill="reading" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} />
+        <ExamList exams={exams} skill="reading" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} error={loadError} />
       </div>
     </div>
   )
