@@ -1,13 +1,22 @@
 import { PreviewTokenLine, buildTokenNumMap } from './PreviewTokenLine'
-import { toImgSrc, getQuestionTypeTheme } from '../../utils/practiceConfig'
+import { toImgSrc } from '../../utils/practiceConfig'
 import { deriveCorrectIndices } from '../../utils/mcqAnswer'
+
+// Every question-group card in the preview uses one neutral slate/blue style —
+// the type badge is the only per-type differentiator. (The per-type colour
+// themes from practiceConfig are still used by the group editors.)
+const PREVIEW_THEME = {
+  cardBg: 'bg-slate-50',
+  cardBorder: 'border-slate-200',
+  badge: 'bg-blue-50 text-blue-700 border-blue-200',
+}
 
 // Unified preview for all question group types (Reading + Listening admin)
 export default function AdminGroupPreview({ group, showAnswers }) {
   const qStart     = group.qNumberStart
   const qEnd       = group.qNumberEnd
   const maxChoices = group.maxChoices || 2
-  const theme      = getQuestionTypeTheme(group.type)
+  const theme      = PREVIEW_THEME
 
   const Banner = () => (
     <div className={`${theme.cardBg} border ${theme.cardBorder} rounded-xl p-3.5 mb-3 text-sm flex flex-col gap-1`}>
