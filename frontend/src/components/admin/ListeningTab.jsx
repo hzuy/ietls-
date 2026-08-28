@@ -104,6 +104,9 @@ function GroupEditor({ group = {}, onChange, onRemove }) {
   )
 }
 
+const DRAFT_PREFIX = 'draft_listening_'
+const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
+
 function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetchExams, loading, loadError }) {
   const [form, setForm] = useState(emptyListeningForm())
   const liveExamSeries = useExamSeriesList()
@@ -123,14 +126,44 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   const [draftBanner, setDraftBanner] = useState(null)
   const [editHighlight, setEditHighlight] = useState(false)
   const formRef = useRef(null)
+  const previewRef = useRef(null)
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
+
+  // Scroll the preview panel into view once it has rendered (not when hidden).
+  useEffect(() => {
+    if (showPreview) previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [showPreview])
+
+  // On mount: purge stale draft_listening_* keys (older than 7 days) so
+  // abandoned drafts don't accumulate in localStorage forever.
+  useEffect(() => {
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i)
+        if (!k || !k.startsWith(DRAFT_PREFIX)) continue
+        try {
+          const parsed = JSON.parse(localStorage.getItem(k))
+          const savedAt = parsed && parsed._savedAt
+          // Drop drafts we can date to older than the max age. Drafts with no
+          // timestamp (created before this field existed) are left alone —
+          // they pick one up on the next autosave.
+          if (savedAt && Date.now() - savedAt > DRAFT_MAX_AGE_MS) {
+            localStorage.removeItem(k)
+          }
+        } catch { localStorage.removeItem(k) }
+      }
+    } catch { /* localStorage unavailable */ }
+  }, [])
 
   useEffect(() => {
     const key = `draft_listening_${editingId || 'new'}`
     const saved = localStorage.getItem(key)
     if (saved) {
-      try { setDraftBanner({ key, data: JSON.parse(saved) }) }
+      try {
+        const { _savedAt, ...data } = JSON.parse(saved)
+        setDraftBanner({ key, data, savedAt: _savedAt })
+      }
       catch { localStorage.removeItem(key) }
     } else { setDraftBanner(null) }
   }, [editingId])
@@ -139,12 +172,17 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     if (!form.title && !editingId) return
     const key = `draft_listening_${editingId || 'new'}`
     const timer = setTimeout(() => {
-      localStorage.setItem(key, JSON.stringify(form))
-      const now = new Date()
-      const hh = now.getHours().toString().padStart(2, '0')
-      const mm = now.getMinutes().toString().padStart(2, '0')
-      setToast(`Đã lưu bản nháp lúc ${hh}:${mm}`)
-      setTimeout(() => setToast(''), 3000)
+      try {
+        localStorage.setItem(key, JSON.stringify({ ...form, _savedAt: Date.now() }))
+        const now = new Date()
+        const hh = now.getHours().toString().padStart(2, '0')
+        const mm = now.getMinutes().toString().padStart(2, '0')
+        setToast(`Đã lưu bản nháp lúc ${hh}:${mm}`)
+        setTimeout(() => setToast(''), 3000)
+      } catch {
+        setToast('Không lưu được nháp (bộ nhớ đầy)')
+        setTimeout(() => setToast(''), 3000)
+      }
     }, 2000)
     return () => clearTimeout(timer)
   }, [form, editingId])
@@ -190,11 +228,17 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       setEditHighlight(true)
       setTimeout(() => setEditHighlight(false), 2000)
       window.scrollTo({ top: 0, behavior: 'smooth' })
-    } catch { alert('Lỗi tải đề để sửa') }
+    } catch {
+      setError('Lỗi tải đề để sửa. Thử lại.')
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
     finally { setLoadingEdit(false) }
   }
 
-  const cancelEdit = () => { setEditingId(null); setForm(emptyListeningForm()); setOpenSection(0); setEditHighlight(false) }
+  const cancelEdit = () => {
+    if (editingId) localStorage.removeItem(`draft_listening_${editingId}`)
+    setEditingId(null); setForm(emptyListeningForm()); setOpenSection(0); setEditHighlight(false); setDraftBanner(null)
+  }
 
   // All form mutations use the functional setForm(prev => …) form so that async
   // callbacks (audio upload / AI transcription, which resolve seconds later)
@@ -215,7 +259,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       formData.append('audio', file)
       const res = await api.post('/admin/upload-audio', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
       updateSection(si, 'audioUrl', res.data.audioUrl)
-    } catch { alert('Lỗi upload audio') }
+    } catch { showToast('Lỗi upload audio — kiểm tra định dạng (mp3/wav/ogg/m4a/aac) và dung lượng (≤ 100MB)') }
     finally { setUploading(u => ({ ...u, [si]: false })) }
   }
 
@@ -226,7 +270,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     try {
       const res = await api.post('/admin/transcribe', { audioUrl })
       updateSection(si, 'transcript', res.data.transcript || '')
-    } catch { alert('Lỗi phiên âm audio') }
+    } catch { showToast('Lỗi phiên âm audio — thử lại sau') }
     finally { setTranscribing(t => ({ ...t, [si]: false })) }
   }
 
@@ -279,8 +323,34 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setSubmitting(true)
     setError('')
+
+    // Client-side guardrails before hitting the API
+    const problems = []
+    if (!form.title.trim()) problems.push('Chưa nhập tên đề')
+    form.sections.forEach(s => {
+      if (s.questionGroups.length > 0 && !(s.audioUrl || '').trim()) {
+        problems.push(`Section ${s.number}: có nhóm câu hỏi nhưng chưa có file audio`)
+      }
+      s.questionGroups.forEach(g => {
+        if (getGroupSlots(g) === 0) {
+          const label = GROUP_TYPES.find(t => t.value === g.type)?.label || g.type
+          problems.push(`Section ${s.number}: nhóm "${label}" chưa có câu hỏi nào`)
+        }
+      })
+    })
+    if (problems.length) {
+      setError('Không thể lưu đề:\n• ' + problems.join('\n• '))
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
+
+    const totalQ = form.sections.reduce(
+      (a, s) => a + s.questionGroups.reduce((b, g) => b + (g.qNumberEnd - g.qNumberStart + 1), 0), 0
+    )
+    if (totalQ !== 40 && !window.confirm(`Tổng số câu hiện tại là ${totalQ}, không phải 40. Vẫn lưu?`)) return
+
+    setSubmitting(true)
     try {
       const payload = {
         title: form.title,
@@ -330,7 +400,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     try {
       await api.delete(`/admin/exams/${id}`)
       onRefresh()
-    } catch { alert('Lỗi xóa đề') }
+    } catch { showToast('Lỗi xóa đề') }
   }
 
   return (
@@ -340,12 +410,19 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
           {toast}
         </div>
       )}
-      <form ref={formRef} onSubmit={handleSubmit} className={`bg-white rounded-2xl p-6 border shadow-sm transition-all duration-500 ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-slate-100'}`}>
+      <div className="relative">
+      {loadingEdit && (
+        <div className="absolute inset-0 z-20 rounded-2xl bg-white/70 backdrop-blur-[1px] flex items-center justify-center">
+          <span className="text-sm font-semibold text-slate-500">Đang tải đề để sửa…</span>
+        </div>
+      )}
+      <form ref={formRef} onSubmit={handleSubmit} aria-busy={loadingEdit}
+        className={`bg-white rounded-2xl p-6 border shadow-sm transition-all duration-500 ${loadingEdit ? 'opacity-60 pointer-events-none select-none' : ''} ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-slate-100'}`}>
         <h3 className="font-bold text-slate-800 mb-5">
           {editingId ? `Sửa đề Listening #${editingId}` : 'Tạo đề Listening mới'}
         </h3>
 
-        {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-lg mb-4 text-sm">{error}</div>}
+        {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-lg mb-4 text-sm whitespace-pre-line">{error}</div>}
 
         {draftBanner && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 flex items-center justify-between">
@@ -410,6 +487,8 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
               <button
                 type="button"
                 onClick={() => setOpenSection(openSection === si ? -1 : si)}
+                aria-expanded={openSection === si}
+                aria-controls={`ls-section-panel-${si}`}
                 className="w-full flex items-center justify-between px-5 py-3 bg-slate-50 hover:bg-slate-100 transition"
               >
                 <div className="flex flex-col items-start text-left">
@@ -425,7 +504,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
               </button>
 
               {openSection === si && (
-                <div className="p-5 space-y-4">
+                <div id={`ls-section-panel-${si}`} role="region" aria-label={`Section ${section.number}`} className="p-5 space-y-4">
                   <div>
                     <label className={labelCls}>File MP3 — Section {section.number}</label>
                     <div className="flex gap-2">
@@ -546,7 +625,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
           ))}
         </div>
 
-        <button type="submit" disabled={submitting} className={btnPrimary + ' w-full'}>
+        <button type="submit" disabled={submitting || loadingEdit} className={btnPrimary + ' w-full'}>
           {submitting ? 'Đang lưu...' : editingId ? 'Cập nhật đề Listening' : '💾 Tạo đề Listening'}
         </button>
         <button
@@ -557,16 +636,19 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
           {showPreview ? '▲ Thu gọn preview' : '👁 Xem trước nội dung đề'}
         </button>
       </form>
+      </div>
 
       {showPreview && (
-        <InlinePreviewPanel
-          title={form.title || 'Listening'}
-          showAnswers={showAnswers}
-          setShowAnswers={setShowAnswers}
-          onClose={() => setShowPreview(false)}
-        >
-          <ListeningFormPreview form={form} showAnswers={showAnswers} />
-        </InlinePreviewPanel>
+        <div ref={previewRef} style={{ scrollMarginTop: 16 }}>
+          <InlinePreviewPanel
+            title={form.title || 'Listening'}
+            showAnswers={showAnswers}
+            setShowAnswers={setShowAnswers}
+            onClose={() => setShowPreview(false)}
+          >
+            <ListeningFormPreview form={form} showAnswers={showAnswers} />
+          </InlinePreviewPanel>
+        </div>
       )}
 
       <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
