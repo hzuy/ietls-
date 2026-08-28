@@ -392,6 +392,13 @@ export const recalcAllGroupNumbers = (passages) => {
   }))
 }
 
+// ─── LISTENING GROUP NUMBERING ──────────────────────────────────────────────
+// IELTS Listening is numbered continuously 1..40 across all 4 sections, exactly
+// like Reading across its 3 passages. Sections and passages both expose
+// `.questionGroups`, and recalcAllGroupNumbers touches nothing else, so the
+// Reading implementation applies unchanged — one shared rule, one code path.
+export const recalcAllListeningNumbers = recalcAllGroupNumbers
+
 export const emptyReadingGroupOf = (type, startNum = 1) => ({
   _id: Date.now() + Math.random(),
   type,

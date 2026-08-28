@@ -7,6 +7,7 @@ import {
   SERVER_BASE, toImgSrc,
   useExamSeriesList, useSeriesBooks,
   getQuestionTypeTheme,
+  recalcAllListeningNumbers, getGroupSlots,
 } from './adminConstants'
 import ExamList from './ExamList'
 import DiagramLabelEditor from '../practice/DiagramLabelEditor'
@@ -39,24 +40,11 @@ function GroupEditor({ group = {}, onChange, onRemove }) {
         <span className="text-xs text-slate-500 font-semibold">
           Câu {group.qNumberStart}–{group.qNumberEnd}
         </span>
+        <span className="text-[10px] text-slate-400">tự động đánh số</span>
         <div className="flex-1" />
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1">
-            <label className="text-xs text-slate-400">Từ câu</label>
-            <input type="number" min={1}
-              className="w-14 border border-slate-200 rounded px-1 py-0.5 text-xs text-center focus:outline-none"
-              value={group.qNumberStart}
-              onChange={e => {
-                const newStart = parseInt(e.target.value) || 1
-                const newGroup = { ...group, qNumberStart: newStart }
-                if (group.type === 'mcq_multi') {
-                  newGroup.qNumberEnd = Math.max(newStart, newStart + group.questions.length * (group.maxChoices || 2) - 1)
-                }
-                onChange(newGroup)
-              }} />
-          </div>
           <button type="button" onClick={onRemove}
-            className="text-blue-500 hover:text-blue-600 text-xs font-medium px-2 py-0.5 rounded hover:bg-blue-50">
+            className="text-red-500 hover:text-red-600 text-xs font-semibold px-2 py-0.5 rounded hover:bg-red-50">
             Xóa nhóm
           </button>
         </div>
@@ -208,10 +196,16 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
 
   const cancelEdit = () => { setEditingId(null); setForm(emptyListeningForm()); setOpenSection(0); setEditHighlight(false) }
 
+  // All form mutations use the functional setForm(prev => …) form so that async
+  // callbacks (audio upload / AI transcription, which resolve seconds later)
+  // merge into the LATEST form state instead of overwriting edits made while
+  // the request was in flight.
   const updateSection = (si, field, val) => {
-    const s = [...form.sections]
-    s[si] = { ...s[si], [field]: val }
-    setForm({ ...form, sections: s })
+    setForm(prev => {
+      const s = [...prev.sections]
+      s[si] = { ...s[si], [field]: val }
+      return { ...prev, sections: s }
+    })
   }
 
   const uploadAudio = async (si, file) => {
@@ -226,7 +220,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   }
 
   const transcribeAudio = async (si) => {
-    const audioUrl = form.sections[si].audioUrl
+    const audioUrl = form.sections[si]?.audioUrl
     if (!audioUrl) return
     setTranscribing(t => ({ ...t, [si]: true }))
     try {
@@ -236,39 +230,51 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     finally { setTranscribing(t => ({ ...t, [si]: false })) }
   }
 
+  // Question numbers run continuously 1..40 across all four sections and are
+  // recomputed by recalcAllListeningNumbers after every structural change
+  // (same mechanism ReadingTab uses across its passages). Admins never type
+  // numbers by hand.
   const addGroup = (si, type) => {
-    const s = [...form.sections]
-    const lastGroup = s[si].questionGroups[s[si].questionGroups.length - 1]
-    const startNum = lastGroup ? lastGroup.qNumberEnd + 1 : 1
-    const newGroup = emptyGroupOf(type, startNum)
-    newGroup.qNumberEnd = startNum
-    s[si] = { ...s[si], questionGroups: [...s[si].questionGroups, newGroup] }
-    setForm({ ...form, sections: s })
+    setForm(prev => {
+      const s = [...prev.sections]
+      const newGroup = emptyGroupOf(type, 1) // start is a placeholder; recalc fixes it
+      s[si] = { ...s[si], questionGroups: [...s[si].questionGroups, newGroup] }
+      return { ...prev, sections: recalcAllListeningNumbers(s) }
+    })
     setAddingGroupSection(null)
   }
 
   const updateGroup = (si, gi, newGroup) => {
-    const s = [...form.sections]
-    const groups = [...s[si].questionGroups]
-    groups[gi] = newGroup
-    s[si] = { ...s[si], questionGroups: groups }
-    setForm({ ...form, sections: s })
+    setForm(prev => {
+      const s = [...prev.sections]
+      const groups = [...s[si].questionGroups]
+      const prevSlots = getGroupSlots(groups[gi])
+      const nextSlots = getGroupSlots(newGroup)
+      groups[gi] = newGroup
+      s[si] = { ...s[si], questionGroups: groups }
+      // Only recalc downstream numbers when the question count changed
+      return { ...prev, sections: prevSlots !== nextSlots ? recalcAllListeningNumbers(s) : s }
+    })
   }
 
   const removeGroup = (si, gi) => {
-    const s = [...form.sections]
-    s[si] = { ...s[si], questionGroups: s[si].questionGroups.filter((_, i) => i !== gi) }
-    setForm({ ...form, sections: s })
+    setForm(prev => {
+      const s = [...prev.sections]
+      s[si] = { ...s[si], questionGroups: s[si].questionGroups.filter((_, i) => i !== gi) }
+      return { ...prev, sections: recalcAllListeningNumbers(s) }
+    })
   }
 
   const moveGroup = (si, gi, dir) => {
-    const s = [...form.sections]
-    const groups = [...s[si].questionGroups]
-    const ni = gi + dir
-    if (ni < 0 || ni >= groups.length) return
-    ;[groups[gi], groups[ni]] = [groups[ni], groups[gi]]
-    s[si] = { ...s[si], questionGroups: groups }
-    setForm({ ...form, sections: s })
+    setForm(prev => {
+      const s = [...prev.sections]
+      const groups = [...s[si].questionGroups]
+      const ni = gi + dir
+      if (ni < 0 || ni >= groups.length) return prev
+      ;[groups[gi], groups[ni]] = [groups[ni], groups[gi]]
+      s[si] = { ...s[si], questionGroups: groups }
+      return { ...prev, sections: recalcAllListeningNumbers(s) }
+    })
   }
 
   const handleSubmit = async (e) => {
