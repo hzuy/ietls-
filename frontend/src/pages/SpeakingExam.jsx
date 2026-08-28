@@ -461,12 +461,13 @@ export default function SpeakingExam() {
 
           {/* Part 3 content */}
           {part.number === 3 && (() => {
+            // Every ##TOPIC## marker (bare "##TOPIC##:" included) starts a new topic
+            // group; questions before the first marker fall into a leading group.
             const groups = []
             let currentTopic = null
             for (const q of part.questions) {
               if (q.questionText.startsWith('##TOPIC##:')) {
-                const label = q.questionText.replace('##TOPIC##:', '')
-                currentTopic = { label, questions: [] }
+                currentTopic = { label: q.questionText.slice('##TOPIC##:'.length), questions: [] }
                 groups.push(currentTopic)
               } else {
                 if (!currentTopic) { currentTopic = { label: '', questions: [] }; groups.push(currentTopic) }
@@ -481,8 +482,8 @@ export default function SpeakingExam() {
                 <div className="flex flex-col gap-5">
                   {groups.map((group, gi) => (
                     <div key={gi} className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-col gap-3">
-                      {group.label && (
-                        <p className="text-sky-600 text-xs font-bold uppercase tracking-wider pb-2 border-b border-slate-100 m-0">{group.label}</p>
+                      {(group.label || groups.length > 1) && (
+                        <p className="text-sky-600 text-xs font-bold uppercase tracking-wider pb-2 border-b border-slate-100 m-0">{group.label || `Chủ đề ${gi + 1}`}</p>
                       )}
                       <div className="flex flex-col gap-3">
                         {group.questions.map((q, qi) => (

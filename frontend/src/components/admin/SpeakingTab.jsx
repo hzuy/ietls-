@@ -53,19 +53,23 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
       const p2 = exam.speakingParts.find(p => p.number === 2)
       const p3 = exam.speakingParts.find(p => p.number === 3)
 
-      // Reconstruct Part 3 topic groups from ##TOPIC## markers
+      // Reconstruct Part 3 topic groups from ##TOPIC## markers. Every marker starts
+      // a new topic — including a bare "##TOPIC##:" (empty label), which is a valid
+      // boundary. Questions before the first marker (legacy data) go into an
+      // unlabelled leading topic.
       const part3Topics = []
       let currentTopic = null
+      const pushTopic = (t) => part3Topics.push({ ...t, questions: t.questions.length ? t.questions : [''] })
       for (const q of (p3?.questions || [])) {
         if (q.questionText.startsWith('##TOPIC##:')) {
-          if (currentTopic) part3Topics.push(currentTopic)
-          currentTopic = { label: q.questionText.replace('##TOPIC##:', ''), questions: [] }
+          if (currentTopic) pushTopic(currentTopic)
+          currentTopic = { label: q.questionText.slice('##TOPIC##:'.length), questions: [] }
         } else {
           if (!currentTopic) currentTopic = { label: '', questions: [] }
           currentTopic.questions.push(q.questionText)
         }
       }
-      if (currentTopic) part3Topics.push(currentTopic)
+      if (currentTopic) pushTopic(currentTopic)
       if (!part3Topics.length) part3Topics.push({ label: '', questions: [''] })
 
       setForm({
@@ -151,11 +155,15 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
     setSubmitting(true)
     setError('')
     try {
-      // Flatten Part 3 topics → questions with ##TOPIC## markers
-      const part3Questions = form.part3.topics.flatMap(t => [
-        t.label.trim() ? `##TOPIC##:${t.label.trim()}` : null,
-        ...t.questions.filter(q => q.trim())
-      ]).filter(Boolean)
+      // Flatten Part 3 topics → questions with a ##TOPIC## marker before each topic.
+      // The marker is ALWAYS emitted (bare "##TOPIC##:" when the label is empty) so
+      // an unlabelled topic keeps its boundary instead of merging into the previous
+      // one. A topic with neither a label nor any question is dropped entirely.
+      const part3Questions = form.part3.topics.flatMap(t => {
+        const qs = t.questions.filter(q => q.trim())
+        if (!t.label.trim() && qs.length === 0) return []
+        return [`##TOPIC##:${t.label.trim()}`, ...qs]
+      })
 
       const p2CueCard = form.part2.instructions.trim()
         ? `${form.part2.instructions.trim()}\n===\n${form.part2.cueCard}`
