@@ -74,9 +74,9 @@ function SeriesCard({ s, onManage, onEdit, onDelete }) {
         </div>
       </div>
       <div className="flex gap-2 mt-auto">
-        <button onClick={() => onManage(s)} className="flex-1 py-1.5 rounded-lg bg-[#1D4ED8] text-white text-xs font-bold hover:bg-[#1D4ED8] transition">Xem</button>
+        <button onClick={() => onManage(s)} className="flex-1 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition">Xem</button>
         <button onClick={() => onEdit(s)} className="py-1.5 px-3 rounded-lg border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50 transition">Sửa tên</button>
-        <button onClick={() => setConfirmDelete(true)} className="py-1.5 px-3 rounded-lg border border-blue-200 text-red-500 text-xs font-semibold hover:bg-blue-50 transition">Xóa</button>
+        <button onClick={() => setConfirmDelete(true)} className="py-1.5 px-3 rounded-lg border border-rose-200 text-rose-600 text-xs font-semibold hover:bg-rose-50 transition">Xóa</button>
       </div>
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setConfirmDelete(false)}>
@@ -85,7 +85,7 @@ function SeriesCard({ s, onManage, onEdit, onDelete }) {
             <p className="text-sm text-slate-500 mb-4">Tất cả thông tin trong bộ đề <strong>{s.name}</strong> sẽ bị xóa.</p>
             <div className="flex gap-2">
               <button onClick={() => setConfirmDelete(false)} className="flex-1 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm font-semibold">Hủy</button>
-              <button onClick={() => { setConfirmDelete(false); onDelete(s.id) }} className="flex-1 py-2 rounded-lg bg-[#dc2626] text-white text-sm font-bold">Xóa</button>
+              <button onClick={() => { setConfirmDelete(false); onDelete(s.id) }} className="flex-1 py-2 rounded-lg bg-rose-600 text-white text-sm font-bold hover:bg-rose-700 transition">Xóa</button>
             </div>
           </div>
         </div>
@@ -166,7 +166,7 @@ function SeriesDetailView({ series, books, onBack, onBooksChanged }) {
         <button
           onClick={handleAddBook}
           disabled={addingBook}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1D4ED8] text-white text-xs font-bold hover:bg-[#1D4ED8] transition disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition disabled:opacity-50"
         >
           + Thêm cuốn
         </button>
@@ -208,7 +208,7 @@ function SeriesDetailView({ series, books, onBack, onBooksChanged }) {
                 onChange={e => setEditValue(e.target.value)}
                 onBlur={commitEdit}
                 onKeyDown={handleEditKeyDown}
-                className="w-12 text-xs text-center border border-[#1D4ED8] rounded px-1 py-0.5 outline-none font-medium"
+                className="w-12 text-xs text-center border border-blue-600 rounded px-1 py-0.5 outline-none font-medium"
               />
             ) : (
               <span className="text-xs text-slate-500 font-medium">{b.bookNumber}</span>
@@ -235,7 +235,7 @@ function SeriesDetailView({ series, books, onBack, onBooksChanged }) {
             <p className="text-sm text-slate-500 mb-4">Tất cả đề thi (Reading, Listening, Writing, Speaking) trong cuốn này sẽ bị xóa vĩnh viễn.</p>
             <div className="flex gap-2">
               <button onClick={() => setDeleteBook(null)} className="flex-1 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm font-semibold">Hủy</button>
-              <button onClick={() => handleDeleteBook(deleteBook)} className="flex-1 py-2 rounded-lg bg-[#dc2626] text-white text-sm font-bold">Xóa</button>
+              <button onClick={() => handleDeleteBook(deleteBook)} className="flex-1 py-2 rounded-lg bg-rose-600 text-white text-sm font-bold hover:bg-rose-700 transition">Xóa</button>
             </div>
           </div>
         </div>

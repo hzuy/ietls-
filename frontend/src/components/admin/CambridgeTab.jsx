@@ -99,7 +99,7 @@ function CambridgeTab({ initialSeriesList = [] }) {
           </div>
           <button
             onClick={() => setShowAdd(v => !v)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1D4ED8] text-white text-xs font-bold hover:bg-[#1D4ED8] transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition"
           >
             + Thêm bộ đề mới
           </button>
@@ -109,13 +109,13 @@ function CambridgeTab({ initialSeriesList = [] }) {
           <div className="flex gap-2 mb-4">
             <input
               autoFocus
-              className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-[#1D4ED8] outline-none"
+              className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-600 outline-none"
               placeholder="Tên bộ đề (VD: IELTS Practice Test Plus)"
               value={newName}
               onChange={e => setNewName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleAddSeries(); if (e.key === 'Escape') { setShowAdd(false); setNewName('') } }}
             />
-            <button onClick={handleAddSeries} className="px-3 py-2 rounded-lg bg-[#1D4ED8] text-white text-xs font-bold hover:bg-[#1D4ED8] transition">Tạo</button>
+            <button onClick={handleAddSeries} className="px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition">Tạo</button>
             <button onClick={() => { setShowAdd(false); setNewName('') }} className="px-3 py-2 rounded-lg border border-slate-200 text-slate-500 text-xs hover:bg-slate-50 transition">Hủy</button>
           </div>
         )}
@@ -126,16 +126,16 @@ function CambridgeTab({ initialSeriesList = [] }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {seriesList.map(s => (
               editId === s.id ? (
-                <div key={s.id} className="bg-white border border-[#1D4ED8] rounded-2xl p-4 shadow-sm flex flex-col gap-2">
+                <div key={s.id} className="bg-white border border-blue-600 rounded-2xl p-4 shadow-sm flex flex-col gap-2">
                   <input
                     autoFocus
-                    className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-[#1D4ED8] outline-none"
+                    className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-600 outline-none"
                     value={editName}
                     onChange={e => setEditName(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') handleEditSeries(s.id); if (e.key === 'Escape') setEditId(null) }}
                   />
                   <div className="flex gap-2">
-                    <button onClick={() => handleEditSeries(s.id)} className="flex-1 py-1.5 rounded-lg bg-[#1D4ED8] text-white text-xs font-bold">Lưu</button>
+                    <button onClick={() => handleEditSeries(s.id)} className="flex-1 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition">Lưu</button>
                     <button onClick={() => setEditId(null)} className="py-1.5 px-3 rounded-lg border border-slate-200 text-slate-500 text-xs">Hủy</button>
                   </div>
                 </div>
