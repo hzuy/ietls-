@@ -36,14 +36,17 @@ const NAV_ALL = [
   { to: '/admin/profile',   label: 'Cài đặt',           icon: Settings,    roles: ['admin', 'teacher'] },
 ]
 
-// Weight: inactive = font-light (300), active = font-normal (400). Be Vietnam
-// Pro 300 & 400 are both loaded via the Google Fonts @import (no synthesis).
-// Active is set apart by color + pill background, not a heavier weight.
+// Single source of truth for every sidebar entry (nav links + logout).
 const navCls = (isActive) =>
-  `flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition group ${
+  `flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition group ${
     isActive
-      ? 'bg-blue-50/80 text-blue-600 font-normal'
-      : 'text-slate-600 font-light hover:bg-slate-100 hover:text-slate-900'
+      ? 'bg-blue-50/80 text-blue-600 font-semibold'
+      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+  }`
+
+const navIconCls = (isActive) =>
+  `shrink-0 transition-colors ${
+    isActive ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'
   }`
 
 export default function AdminLayout({ children }) {
@@ -116,9 +119,7 @@ export default function AdminLayout({ children }) {
                 <IconComp
                   size={20}
                   strokeWidth={2}
-                  className={`shrink-0 transition-colors ${
-                    isActive ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'
-                  }`}
+                  className={navIconCls(isActive)}
                 />
                 <span className="flex-1">{item.label}</span>
                 {item.trash && trashCount > 0 && (
@@ -139,7 +140,7 @@ export default function AdminLayout({ children }) {
             <LogOut
               size={18}
               strokeWidth={2}
-              className="shrink-0 transition-colors text-slate-400 group-hover:text-slate-600"
+              className={navIconCls(false)}
             />
             <span className="flex-1">Đăng xuất</span>
           </a>
