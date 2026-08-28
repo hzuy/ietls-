@@ -268,17 +268,17 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
         </div>
 
         {/* ── Part 1 ── */}
-        <div className="border border-sky-300 rounded-2xl p-5 mb-4 bg-sky-50/70">
+        <div className="border border-slate-200 rounded-2xl p-5 mb-4 bg-slate-50">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-7 h-7 rounded-full bg-sky-500 text-white text-xs font-bold flex items-center justify-center">1</div>
+            <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">1</div>
             <div>
-              <span className="font-bold text-sky-900">Part 1 — Introduction & Interview</span>
-              <p className="text-xs text-sky-700/80 mt-0.5">Examiner hỏi về chủ đề quen thuộc trong cuộc sống</p>
+              <span className="font-bold text-slate-800">Part 1 — Introduction & Interview</span>
+              <p className="text-xs text-slate-500 mt-0.5">Examiner hỏi về chủ đề quen thuộc trong cuộc sống</p>
             </div>
           </div>
           <div className="mb-3">
             <label className={labelCls}>Mô tả / Hướng dẫn cho thí sinh</label>
-            <textarea className={`${inputCls} h-20 resize-none bg-sky-100/50 border-sky-200 focus:bg-white`}
+            <textarea className={`${inputCls} h-20 resize-none`}
               placeholder="VD: The examiner asks you about yourself, your home, work or studies and other familiar topics."
               value={form.part1.description}
               onChange={e => setForm({ ...form, part1: { ...form.part1, description: e.target.value } })} />
@@ -286,12 +286,12 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className={labelCls}>Câu hỏi</label>
-              <button type="button" onClick={addP1Question} className="text-xs font-semibold text-sky-700 hover:text-sky-900 transition">+ Thêm câu</button>
+              <button type="button" onClick={addP1Question} className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition">+ Thêm câu</button>
             </div>
             <div className="space-y-2">
               {form.part1.questions.map((q, idx) => (
                 <div key={idx} className="flex gap-2">
-                  <input className={`${inputCls} bg-sky-100/50 border-sky-200 focus:bg-white`}
+                  <input className={inputCls}
                     placeholder={`VD: Can you find food from many different countries where you live? [Why/Why not?]`}
                     value={q} onChange={e => updateP1Question(idx, e.target.value)} />
                   {form.part1.questions.length > 1 && (
@@ -305,24 +305,24 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
         </div>
 
         {/* ── Part 2 ── */}
-        <div className="border border-purple-300 rounded-2xl p-5 mb-4 bg-purple-50/70">
+        <div className="border border-slate-200 rounded-2xl p-5 mb-4 bg-slate-50">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-7 h-7 rounded-full bg-purple-500 text-white text-xs font-bold flex items-center justify-center">2</div>
+            <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">2</div>
             <div>
-              <span className="font-bold text-purple-900">Part 2 — Individual Long Turn (Cue Card)</span>
-              <p className="text-xs text-purple-700/80 mt-0.5">Thí sinh chuẩn bị 1 phút, nói 1–2 phút</p>
+              <span className="font-bold text-slate-800">Part 2 — Individual Long Turn (Cue Card)</span>
+              <p className="text-xs text-slate-500 mt-0.5">Thí sinh chuẩn bị 1 phút, nói 1–2 phút</p>
             </div>
           </div>
           <div className="mb-3">
             <label className={labelCls}>Mô tả / Hướng dẫn cho thí sinh</label>
-            <textarea className={`${inputCls} h-16 resize-none bg-purple-100/50 border-purple-200 focus:bg-white`}
+            <textarea className={`${inputCls} h-16 resize-none`}
               placeholder="VD: You will have to talk about the topic for one to two minutes..."
               value={form.part2.instructions}
               onChange={e => setForm({ ...form, part2: { ...form.part2, instructions: e.target.value } })} />
           </div>
           <div className="mb-4">
             <label className={labelCls}>Nội dung Cue Card</label>
-            <textarea className={`${inputCls} h-36 resize-none bg-purple-100/50 border-purple-200 focus:bg-white`}
+            <textarea className={`${inputCls} h-36 resize-none`}
               placeholder={`Describe a law that was introduced in your country and that you thought was a very good idea.\n\nYou should say:\n  what the law was\n  who introduced it\n  when and why it was introduced\nand explain why you thought this law was such a good idea.`}
               value={form.part2.cueCard}
               onChange={e => setForm({ ...form, part2: { ...form.part2, cueCard: e.target.value } })} />
@@ -330,12 +330,12 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className={labelCls}>Follow-up questions (tùy chọn)</label>
-              <button type="button" onClick={addP2Question} className="text-xs font-semibold text-purple-700 hover:text-purple-900 transition">+ Thêm câu</button>
+              <button type="button" onClick={addP2Question} className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition">+ Thêm câu</button>
             </div>
             <div className="space-y-2">
               {form.part2.questions.map((q, idx) => (
                 <div key={idx} className="flex gap-2">
-                  <input className={`${inputCls} bg-purple-100/50 border-purple-200 focus:bg-white`} placeholder={`Follow-up ${idx + 1}...`}
+                  <input className={inputCls} placeholder={`Follow-up ${idx + 1}...`}
                     value={q} onChange={e => updateP2Question(idx, e.target.value)} />
                   {form.part2.questions.length > 1 && (
                     <button type="button" onClick={() => removeP2Question(idx)}
@@ -348,21 +348,21 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
         </div>
 
         {/* ── Part 3 ── */}
-        <div className="border border-amber-300 rounded-2xl p-5 mb-6 bg-amber-50/70">
+        <div className="border border-slate-200 rounded-2xl p-5 mb-6 bg-slate-50">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">3</div>
+              <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">3</div>
               <div>
-                <span className="font-bold text-amber-900">Part 3 — Two-way Discussion</span>
-                <p className="text-xs text-amber-700/80 mt-0.5">Nhiều chủ đề thảo luận, mỗi chủ đề có nhiều câu hỏi</p>
+                <span className="font-bold text-slate-800">Part 3 — Two-way Discussion</span>
+                <p className="text-xs text-slate-500 mt-0.5">Nhiều chủ đề thảo luận, mỗi chủ đề có nhiều câu hỏi</p>
               </div>
             </div>
-            <button type="button" onClick={addTopic} className="text-xs font-semibold text-amber-700 hover:text-amber-900 transition">+ Thêm chủ đề</button>
+            <button type="button" onClick={addTopic} className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition">+ Thêm chủ đề</button>
           </div>
 
           <div className="mb-4">
             <label className={labelCls}>Mô tả / Hướng dẫn cho thí sinh</label>
-            <textarea className={`${inputCls} h-16 resize-none bg-amber-100/50 border-amber-200 focus:bg-white`}
+            <textarea className={`${inputCls} h-16 resize-none`}
               placeholder="VD: Discussion topics: The examiner will ask you questions about the following topics."
               value={form.part3.description}
               onChange={e => setForm({ ...form, part3: { ...form.part3, description: e.target.value } })} />
@@ -370,9 +370,9 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
 
           <div className="space-y-4">
             {form.part3.topics.map((topic, ti) => (
-              <div key={ti} className="bg-amber-100/50 border border-amber-200 rounded-lg p-4">
+              <div key={ti} className="bg-white border border-slate-200 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <input className={`${inputCls} bg-white border-amber-200`} placeholder={`VD: School rules`}
+                  <input className={inputCls} placeholder={`VD: School rules`}
                     value={topic.label} onChange={e => updateTopicLabel(ti, e.target.value)} />
                   {form.part3.topics.length > 1 && (
                     <button type="button" onClick={() => removeTopic(ti)}
@@ -384,7 +384,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
                 <div className="space-y-2">
                   {topic.questions.map((q, qi) => (
                     <div key={qi} className="flex gap-2">
-                      <input className={`${inputCls} bg-white border-amber-200`}
+                      <input className={inputCls}
                         placeholder={`VD: What kinds of rules are common in a school?`}
                         value={q} onChange={e => updateTopicQuestion(ti, qi, e.target.value)} />
                       {topic.questions.length > 1 && (
@@ -393,7 +393,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
                       )}
                     </div>
                   ))}
-                  <button type="button" onClick={() => addTopicQuestion(ti)} className="text-xs font-semibold text-amber-700 hover:text-amber-900 transition">
+                  <button type="button" onClick={() => addTopicQuestion(ti)} className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition">
                     + Thêm câu hỏi
                   </button>
                 </div>

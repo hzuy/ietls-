@@ -288,9 +288,9 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         </div>
 
         {/* Task 1 */}
-        <div className="border border-amber-200 rounded-2xl p-5 mb-5 bg-amber-50/30">
+        <div className="border border-slate-200 rounded-2xl p-5 mb-5 bg-slate-50">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-7 h-7 rounded-full bg-amber-100 text-amber-700 text-xs font-bold flex items-center justify-center">1</div>
+            <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">1</div>
             <span className="font-semibold text-slate-700">Task 1 — Mô tả biểu đồ / bản đồ / quy trình (tối thiểu 150 từ)</span>
           </div>
           <div className="mb-4">
@@ -324,9 +324,9 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         </div>
 
         {/* Task 2 */}
-        <div className="border border-blue-200 rounded-2xl p-5 mb-6 bg-blue-50/30">
+        <div className="border border-slate-200 rounded-2xl p-5 mb-6 bg-slate-50">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">2</div>
+            <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">2</div>
             <span className="font-semibold text-slate-700">Task 2 — Viết luận (tối thiểu 250 từ)</span>
           </div>
           <div>
