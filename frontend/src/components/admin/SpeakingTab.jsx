@@ -152,8 +152,20 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setSubmitting(true)
     setError('')
+
+    const p1Count = form.part1.questions.filter(q => q.trim()).length
+    const p3Count = form.part3.topics.reduce((n, t) => n + t.questions.filter(q => q.trim()).length, 0)
+    const problems = []
+    if (!form.title.trim()) problems.push('Chưa nhập tên đề')
+    if (p1Count === 0 && p3Count === 0) problems.push('Part 1 và Part 3 đều chưa có câu hỏi nào')
+    if (problems.length) {
+      setError('Không thể lưu đề:\n• ' + problems.join('\n• '))
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
+
+    setSubmitting(true)
     try {
       // Flatten Part 3 topics → questions with a ##TOPIC## marker before each topic.
       // The marker is ALWAYS emitted (bare "##TOPIC##:" when the label is empty) so
@@ -215,7 +227,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
       <form ref={formRef} onSubmit={handleSubmit} className={`bg-white rounded-2xl p-6 border shadow-sm transition-all duration-500 ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-slate-100'}`}>
         <h3 className="font-bold text-slate-800 mb-5">{editingId ? `Sửa đề Speaking #${editingId}` : 'Tạo đề Speaking mới'}</h3>
 
-        {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-lg mb-4 text-sm">{error}</div>}
+        {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-lg mb-4 text-sm whitespace-pre-line">{error}</div>}
 
         {draftBanner && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 flex items-center justify-between">

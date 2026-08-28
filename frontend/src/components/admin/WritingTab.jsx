@@ -22,12 +22,11 @@ function WritingFormPreview({ form }) {
       <div className="flex gap-1.5 mb-4">
         {tasks.map(t => (
           <button key={t.num} type="button" onClick={() => setActiveTask(t.num)}
-            style={{
-              background: activeTask === t.num ? '#1D4ED8' : '#fff',
-              color: activeTask === t.num ? '#fff' : '#1e293b',
-              borderColor: activeTask === t.num ? '#1D4ED8' : '#e2e8f0',
-            }}
-            className="px-4 py-1.5 rounded-lg border text-sm font-medium transition">
+            className={`px-4 py-1.5 rounded-lg border text-sm font-medium transition ${
+              activeTask === t.num
+                ? 'bg-blue-600 border-blue-600 text-white'
+                : 'bg-white border-slate-200 text-slate-800'
+            }`}>
             Task {t.num}
           </button>
         ))}
@@ -36,9 +35,9 @@ function WritingFormPreview({ form }) {
       {/* Content */}
       <div className="flex gap-4" style={{ minHeight: 320 }}>
         {/* Left: task prompt */}
-        <div className="flex-1 min-w-0 bg-white rounded-2xl border border-[#bfdbfe] p-5 overflow-y-auto" style={{ maxHeight: 480 }}>
+        <div className="flex-1 min-w-0 bg-white rounded-2xl border border-blue-200 p-5 overflow-y-auto" style={{ maxHeight: 480 }}>
           <div className="flex items-center gap-2 mb-3">
-            <span className="px-2.5 py-0.5 rounded-lg bg-[#1D4ED8] text-white text-xs font-bold uppercase tracking-wide">
+            <span className="px-2.5 py-0.5 rounded-lg bg-blue-600 text-white text-xs font-bold uppercase tracking-wide">
               TASK {task.num}
             </span>
           </div>
@@ -47,8 +46,7 @@ function WritingFormPreview({ form }) {
               className="relative cursor-pointer group mb-4 inline-block w-full">
               <img src={toImgSrc(task.data.imageUrl)} alt="Task 1 visual"
                 className="w-full rounded-lg border border-slate-200 object-contain" />
-              <div style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.5)', color: 'white', borderRadius: 6, padding: '3px 8px', fontSize: 11, opacity: 0, transition: 'opacity 0.15s' }}
-                className="group-hover:opacity-100">
+              <div className="absolute bottom-2 right-2 bg-black/50 text-white rounded px-2 py-0.5 text-[11px] opacity-0 group-hover:opacity-100 transition-opacity">
                 Phóng to
               </div>
             </div>
@@ -90,11 +88,12 @@ function WritingFormPreview({ form }) {
       {/* Lightbox */}
       {lightbox && (
         <div onClick={() => setLightbox(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.82)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <button onClick={() => setLightbox(null)}
-            style={{ position: 'fixed', top: 16, right: 20, zIndex: 10000, background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', borderRadius: '50%', width: 36, height: 36, fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-6">
+          <button onClick={() => setLightbox(null)} aria-label="Đóng"
+            className="fixed top-4 right-5 z-[60] w-9 h-9 rounded-full bg-white/15 text-white text-xl flex items-center justify-center">✕</button>
           <img src={lightbox} alt="Task visual fullsize" onClick={e => e.stopPropagation()}
-            style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: 12, boxShadow: '0 8px 40px rgba(0,0,0,0.6)', objectFit: 'contain' }} />
+            className="max-w-full max-h-[90vh] rounded-xl object-contain"
+            style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.6)' }} />
         </div>
       )}
     </div>
@@ -183,8 +182,19 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setSubmitting(true)
     setError('')
+
+    const problems = []
+    if (!form.title.trim()) problems.push('Chưa nhập tên đề')
+    if (!form.task1.prompt.trim()) problems.push('Task 1: chưa nhập đề bài')
+    if (!form.task2.prompt.trim()) problems.push('Task 2: chưa nhập đề bài')
+    if (problems.length) {
+      setError('Không thể lưu đề:\n• ' + problems.join('\n• '))
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
+
+    setSubmitting(true)
     try {
       const payload = {
         title: form.title,
@@ -232,7 +242,7 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       <form ref={formRef} onSubmit={handleSubmit} className={`bg-white rounded-2xl p-6 border shadow-sm transition-all duration-500 ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-slate-100'}`}>
         <h3 className="font-bold text-slate-800 mb-5">{editingId ? `Sửa đề Writing #${editingId}` : 'Tạo đề Writing mới'}</h3>
 
-        {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-lg mb-4 text-sm">{error}</div>}
+        {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-lg mb-4 text-sm whitespace-pre-line">{error}</div>}
 
         {draftBanner && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 flex items-center justify-between">
@@ -302,7 +312,7 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
               </button>
               {form.task1.imageUrl && (
                 <button type="button" onClick={() => setForm(f => ({ ...f, task1: { ...f.task1, imageUrl: '' } }))}
-                  className="text-blue-500 hover:text-blue-600 text-xs px-2">✕ Xóa ảnh</button>
+                  className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 text-xs px-2 py-1 rounded transition">✕ Xóa ảnh</button>
               )}
               <input ref={imgRef} type="file" accept=".png,.jpg,.jpeg" className="hidden"
                 onChange={e => { if (e.target.files[0]) uploadTask1Image(e.target.files[0]); e.target.value = '' }} />
