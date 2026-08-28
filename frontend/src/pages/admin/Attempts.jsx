@@ -6,9 +6,98 @@ import { getAdminAttempts, getAdminAttemptsExport, getAdminExamSeriesForFilter }
 import AdminLayout from '../../components/AdminLayout'
 import { SkeletonTable } from '../../components/skeletons'
 import { ADMIN_SKILL_COLORS, SKILL_LABEL } from '../../utils/adminSkillColors'
+import Modal from '../../components/common/Modal'
 
 import { Download, RotateCcw, Eye, Search, Calendar, ChevronLeft, ChevronRight, ChevronDown, ArrowUpDown } from 'lucide-react'
 import { useDebounce } from '../../hooks/useDebounce'
+
+const CRITERION_LABEL = {
+  task_achievement: 'Task Achievement / Response',
+  task_response: 'Task Response',
+  coherence_cohesion: 'Coherence & Cohesion',
+  lexical_resource: 'Lexical Resource',
+  grammatical_range: 'Grammatical Range & Accuracy',
+  fluency: 'Fluency & Coherence',
+  vocabulary: 'Lexical Resource',
+  grammar: 'Grammatical Range & Accuracy',
+  pronunciation: 'Pronunciation',
+}
+
+const fmtDateTime = (d) =>
+  new Date(d).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+
+function DetailRow({ label, children }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <dt className="text-slate-500 shrink-0">{label}</dt>
+      <dd className="text-slate-800 font-medium text-right">{children}</dd>
+    </div>
+  )
+}
+
+function AttemptDetailModal({ attempt: a, onClose }) {
+  let criteria = null
+  if (a.exam?.skill === 'writing' || a.exam?.skill === 'speaking') {
+    try {
+      const parsed = JSON.parse(a.aiFeedback || '{}')
+      if (parsed && parsed.criteria && Object.keys(parsed.criteria).length) criteria = parsed.criteria
+    } catch { /* aiFeedback not JSON / not graded yet */ }
+  }
+
+  // R/L nộp bài tức thì → createdAt ≈ finishedAt; chỉ hiện "Hoàn thành lúc" khi lệch đáng kể
+  const durationMs = a.finishedAt ? new Date(a.finishedAt) - new Date(a.createdAt) : 0
+  const showFinished = a.finishedAt && durationMs > 60_000
+
+  return (
+    <Modal onClose={onClose} title={`Chi tiết lượt thi #${a.id}`} size="md">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
+        <h2 className="font-bold text-slate-800">Chi tiết lượt thi</h2>
+        <button onClick={onClose} aria-label="Đóng"
+          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 font-bold transition">✕</button>
+      </div>
+
+      <div className="p-5 space-y-4 text-sm">
+        <div>
+          <p className="font-semibold text-slate-800">{a.user?.name || '—'}</p>
+          <p className="text-xs text-slate-500">{a.user?.email || ''}</p>
+        </div>
+
+        <dl className="space-y-2.5 pt-3 border-t border-slate-100">
+          <DetailRow label="Kỹ năng">{SKILL_LABEL[a.exam?.skill] || a.exam?.skill || '—'}</DetailRow>
+          <DetailRow label="Đề thi">{a.exam?.title || '—'}</DetailRow>
+          <DetailRow label="Band">{getBandPill(a.score)}</DetailRow>
+          <DetailRow label="Ngày làm bài">{fmtDateTime(a.createdAt)}</DetailRow>
+          {showFinished && (
+            <>
+              <DetailRow label="Hoàn thành lúc">{fmtDateTime(a.finishedAt)}</DetailRow>
+              <DetailRow label="Thời gian làm">{Math.round(durationMs / 60_000)} phút</DetailRow>
+            </>
+          )}
+        </dl>
+
+        {criteria && (
+          <div className="pt-3 border-t border-slate-100">
+            <p className="text-xs font-semibold text-slate-500 mb-2">Band theo tiêu chí</p>
+            <div className="space-y-1.5">
+              {Object.entries(criteria).map(([key, v]) => (
+                <div key={key} className="flex items-center justify-between">
+                  <span className="text-slate-600">{CRITERION_LABEL[key] || key.replace(/_/g, ' ')}</span>
+                  <span className="font-semibold text-slate-800">
+                    {v && v.score != null ? Number(v.score).toFixed(1) : '—'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {(a.exam?.skill === 'writing' || a.exam?.skill === 'speaking') && !criteria && a.score == null && (
+          <p className="text-xs text-slate-400 italic pt-2">Đề đang được AI chấm — chưa có điểm chi tiết.</p>
+        )}
+      </div>
+    </Modal>
+  )
+}
 
 function getBandPill(score) {
   if (score == null) return <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">Đang chấm</span>
@@ -55,6 +144,7 @@ export default function Attempts() {
   const [seriesId, setSeriesId] = useState('')
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
+  const [detailAttempt, setDetailAttempt] = useState(null)
   const navigate = useNavigate()
 
   const today = new Date()
@@ -434,16 +524,15 @@ export default function Attempts() {
                         {new Date(a.createdAt).toLocaleDateString('vi-VN')}
                       </td>
                       <td className="px-4 py-3.5 text-right">
-                        {a.user?.id && (
-                          <a
-                            href={`/admin/users/${a.user.id}`}
-                            title="Xem chi tiết người dùng"
-                            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 hover:text-blue-600 transition shadow-xs"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>Chi tiết</span>
-                          </a>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => setDetailAttempt(a)}
+                          title="Xem tóm tắt lượt thi"
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 hover:text-blue-600 transition shadow-xs"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Chi tiết</span>
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -477,6 +566,10 @@ export default function Attempts() {
         </div>
         )}
       </div>
+
+      {detailAttempt && (
+        <AttemptDetailModal attempt={detailAttempt} onClose={() => setDetailAttempt(null)} />
+      )}
     </AdminLayout>
   )
 }
