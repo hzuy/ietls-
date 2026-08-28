@@ -2,31 +2,30 @@ import { PreviewTokenLine, buildTokenNumMap } from './PreviewTokenLine'
 import { toImgSrc } from '../../utils/practiceConfig'
 import { deriveCorrectIndices } from '../../utils/mcqAnswer'
 
-// Every question-group card in the preview uses one neutral slate/blue style —
-// the type badge is the only per-type differentiator. (The per-type colour
-// themes from practiceConfig are still used by the group editors.)
-const PREVIEW_THEME = {
-  cardBg: 'bg-slate-50',
-  cardBorder: 'border-slate-200',
-  badge: 'bg-blue-50 text-blue-700 border-blue-200',
-}
+// Every question-group card in the preview shares one blue tint — the outer
+// card wrapper (added to each branch's `mb-4` div) is bg-blue-50/30 with a
+// border-blue-200 border, and the header strip below is a touch darker
+// (bg-blue-100/50). The type badge is the only per-type differentiator.
+// (The per-type colour themes in practiceConfig are still used by the editors.)
+const BADGE_CLASS = 'bg-blue-50 text-blue-700 border-blue-200'
 
 // Unified preview for all question group types (Reading + Listening admin)
 export default function AdminGroupPreview({ group, showAnswers }) {
   const qStart     = group.qNumberStart
   const qEnd       = group.qNumberEnd
   const maxChoices = group.maxChoices || 2
-  const theme      = PREVIEW_THEME
 
+  // Header strip: bleeds to the card edges (negative x/top margin), sits a
+  // shade darker than the card body, with a bottom divider.
   const Banner = () => (
-    <div className={`${theme.cardBg} border ${theme.cardBorder} rounded-xl p-3.5 mb-3 text-sm flex flex-col gap-1`}>
+    <div className="-mx-3.5 -mt-3.5 mb-3.5 px-3.5 py-3 bg-blue-100/50 border-b border-blue-200 text-sm flex flex-col gap-1">
       <div className="flex items-center justify-between">
-        <p className="font-bold text-gray-800 mb-0">Questions {qStart}–{qEnd}</p>
-        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${theme.badge}`}>
+        <p className="font-bold text-slate-700 mb-0">Questions {qStart}–{qEnd}</p>
+        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${BADGE_CLASS}`}>
           {group.type}
         </span>
       </div>
-      {group.instruction && <p className="text-gray-600 text-xs margin-0 mt-0.5">{group.instruction}</p>}
+      {group.instruction && <p className="text-slate-600 text-xs mt-0.5">{group.instruction}</p>}
     </div>
   )
 
@@ -34,7 +33,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
   if (group.type === 'true_false_ng' || group.type === 'yes_no_ng') {
     const choices = group.type === 'true_false_ng' ? ['TRUE', 'FALSE', 'NOT GIVEN'] : ['YES', 'NO', 'NOT GIVEN']
     return (
-      <div className="mb-4">
+      <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/30 p-3.5 overflow-hidden">
         <Banner />
         {(group.questions || []).map((q, qi) => (
           <div key={qi} className="mb-3 pl-1">
@@ -58,13 +57,13 @@ export default function AdminGroupPreview({ group, showAnswers }) {
     const hasSections = (group.noteSections || []).length > 0
     const tokenNumMap = hasSections ? buildTokenNumMap(group) : {}
     return (
-      <div className="mb-4">
+      <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/30 p-3.5 overflow-hidden">
         <Banner />
         {hasSections ? (
           (group.noteSections || []).map((ns, nsi) => (
             <div key={nsi} className="mb-3">
               {ns.title && <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">{ns.title}</p>}
-              <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }} className="rounded-lg p-3 space-y-1">
+              <div className="rounded-lg p-3 space-y-1 bg-white border border-blue-100">
                 {(ns.lines || []).map((line, li) => (
                   line.lineType === 'heading'
                     ? <p key={li} className="font-bold text-[#1e293b] text-[0.95rem] pt-1 pb-0.5">{line.content || ''}</p>
@@ -93,7 +92,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
   // ── MCQ (single answer) ───────────────────────────────────────────────────
   if (group.type === 'mcq') {
     return (
-      <div className="mb-4">
+      <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/30 p-3.5 overflow-hidden">
         <Banner />
         {(group.questions || []).map((q, qi) => {
           const opts = Array.isArray(q.options) ? q.options : (q.options ? JSON.parse(q.options) : [])
@@ -127,7 +126,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
   // ── MCQ Multi ─────────────────────────────────────────────────────────────
   if (group.type === 'mcq_multi') {
     return (
-      <div className="mb-4">
+      <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/30 p-3.5 overflow-hidden">
         <Banner />
         {(group.questions || []).map((q, qi) => {
           const qS = qStart + qi * maxChoices
@@ -167,7 +166,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
   // ── Matching Information (Reading) / Matching (Listening) ─────────────────
   if (group.type === 'matching_information' || group.type === 'matching') {
     return (
-      <div className="mb-4">
+      <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/30 p-3.5 overflow-hidden">
         <Banner />
         {(group.matchingOptions || []).length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-3">
@@ -193,7 +192,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
   if (group.type === 'map_diagram') {
     const letters = (group.matchingOptions || []).map(mo => mo.letter || mo.optionLetter).filter(Boolean)
     return (
-      <div className="mb-4">
+      <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/30 p-3.5 overflow-hidden">
         <Banner />
         {group.imageUrl && (
           <img src={toImgSrc(group.imageUrl)} alt="diagram" className="w-full max-w-sm rounded-lg mb-3 border" />
@@ -251,9 +250,9 @@ export default function AdminGroupPreview({ group, showAnswers }) {
     const wordBank    = group.matchingOptions || []
     const tokenNumMap = buildTokenNumMap(group)
     return (
-      <div className="mb-4">
+      <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/30 p-3.5 overflow-hidden">
         <Banner />
-        <div className="rounded-xl p-3 border border-[#e2e8f0] bg-white mb-3">
+        <div className="rounded-xl p-3 border border-blue-100 bg-white mb-3">
           <p className="text-xs font-bold text-gray-500 uppercase mb-2">Word Bank</p>
           <div className="flex flex-wrap gap-2">
             {wordBank.map((wb, wi) => (
@@ -267,7 +266,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
         {(group.noteSections || []).map((ns, nsi) => (
           <div key={nsi} className="mb-3">
             {ns.title && <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">{ns.title}</p>}
-            <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }} className="rounded-lg p-3 space-y-1">
+            <div className="rounded-lg p-3 space-y-1 bg-white border border-blue-100">
               {(ns.lines || []).map((line, li) => {
                 const content = line.contentWithTokens || line.content || ''
                 const parts   = content.split(/(\[Q:\d+\])/)
@@ -306,7 +305,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
   if (group.type === 'matching_drag') {
     const opts = group.matchingOptions || []
     return (
-      <div className="mb-4">
+      <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/30 p-3.5 overflow-hidden">
         <Banner />
         <div className="flex gap-3">
           <div className="flex-1 space-y-2">
@@ -352,7 +351,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
   // ── Diagram Label Completion ──────────────────────────────────────────────
   if (group.type === 'diagram_label') {
     return (
-      <div className="mb-4">
+      <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/30 p-3.5 overflow-hidden">
         <Banner />
         {group.imageUrl && (
           <img src={toImgSrc(group.imageUrl)}
@@ -381,7 +380,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
   if (group.type === 'matching_headings') {
     const headings = group.matchingOptions || []
     return (
-      <div className="mb-4">
+      <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/30 p-3.5 overflow-hidden">
         <Banner />
         <div className="flex gap-3">
           <div className="w-48 shrink-0">
@@ -431,14 +430,14 @@ export default function AdminGroupPreview({ group, showAnswers }) {
   // ── Table Completion ──────────────────────────────────────────────────────
   if (group.type === 'table_completion') {
     const section = (group.noteSections || [])[0]
-    if (!section) return <div className="mb-4"><Banner /></div>
+    if (!section) return <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/30 p-3.5 overflow-hidden"><Banner /></div>
     const tLines      = section.lines || []
     const tHeaderLine = tLines.find(l => l.lineType === 'heading')
     const tDataLines  = tLines.filter(l => l.lineType !== 'heading')
     const tHeaders    = tHeaderLine ? (tHeaderLine.content || '').split('|') : []
     const tokenNumMap = buildTokenNumMap(group)
     return (
-      <div className="mb-4">
+      <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/30 p-3.5 overflow-hidden">
         <Banner />
         {section.title && <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">{section.title}</p>}
         <div className="overflow-x-auto rounded-lg border border-gray-200">
@@ -473,7 +472,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
   }
 
   return (
-    <div className="mb-4">
+    <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/30 p-3.5 overflow-hidden">
       <Banner />
       <p className="text-xs text-gray-400 italic px-1">Dạng câu hỏi: <span className="font-mono">{group.type}</span></p>
     </div>
