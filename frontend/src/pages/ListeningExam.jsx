@@ -244,7 +244,7 @@ export default function ListeningExam() {
       {/* Header */}
       <header style={{ background: 'var(--ink)', borderBottom: '1px solid rgba(201,168,76,0.15)', padding: '8px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-          <button aria-label="Đóng bài thi" onClick={() => previewMode ? navigate('/admin') : setShowExitConfirm(true)} style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', fontWeight: 700, fontSize: 14, cursor: 'pointer', flexShrink: 0 }}>✕</button>
+          <button aria-label="Đóng bài thi" onClick={() => previewMode ? navigate('/admin') : setShowExitConfirm(true)} className="bg-white/10 hover:bg-white/20 transition-colors" style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', border: 'none', color: 'white', fontWeight: 700, fontSize: 14, cursor: 'pointer', flexShrink: 0 }}>✕</button>
           <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{exam.title}</span>
           {previewMode && <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, background: 'var(--primary)', color: 'var(--ink)', padding: '2px 8px', borderRadius: 99, fontWeight: 700, flexShrink: 0 }}>Chế độ Preview</span>}
         </div>
@@ -252,7 +252,8 @@ export default function ListeningExam() {
           {previewMode ? (
             <button
               onClick={() => setShowAnswers(v => !v)}
-              style={{ fontFamily: 'var(--font-body)', fontSize: 12, padding: '4px 12px', borderRadius: 99, fontWeight: 600, border: 'none', cursor: 'pointer', background: showAnswers ? 'var(--skill-l-color)' : 'rgba(255,255,255,0.12)', color: 'white' }}
+              className={showAnswers ? 'bg-[var(--skill-l-color)] text-white hover:opacity-90 transition' : 'bg-white/10 text-white hover:bg-white/20 transition'}
+              style={{ fontFamily: 'var(--font-body)', fontSize: 12, padding: '4px 12px', borderRadius: 99, fontWeight: 600, border: 'none', cursor: 'pointer' }}
             >
               {showAnswers ? 'Ẩn đáp án' : 'Hiện đáp án'}
             </button>
@@ -386,7 +387,7 @@ export default function ListeningExam() {
             <div className="flex items-center shrink-0">
               <button
                 onClick={() => setShowConfirm(true)}
-                className="bg-[#dc2626] hover:bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-sm transition"
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl font-bold text-sm transition-colors"
               >
                 Nộp bài
               </button>
@@ -471,7 +472,8 @@ export default function ListeningExam() {
               <button
                 onClick={() => { setShowConfirm(false); doSubmit() }}
                 disabled={submitting}
-                style={{ flex: 1, padding: '10px 0', borderRadius: '12px', background: '#dc2626', color: 'white', fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 700, border: 'none', cursor: 'pointer', opacity: submitting ? 0.5 : 1 }}
+                className="btn-danger"
+                style={{ flex: 1, padding: '10px 0', borderRadius: '12px', fontSize: 14, opacity: submitting ? 0.5 : 1 }}
               >
                 {submitting ? 'Đang chấm...' : 'Nộp bài'}
               </button>

@@ -70,7 +70,8 @@ function ImageLightbox({ src, onClose }) {
     >
       <button
         onClick={onClose}
-        style={{ position: 'fixed', top: 16, right: 20, zIndex: 10000, background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', borderRadius: '50%', width: 36, height: 36, fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}
+        className="bg-white/15 hover:bg-white/25 transition-colors"
+        style={{ position: 'fixed', top: 16, right: 20, zIndex: 10000, border: 'none', color: 'white', borderRadius: '50%', width: 36, height: 36, fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}
       >✕</button>
       <img
         src={src}

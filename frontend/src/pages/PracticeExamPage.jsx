@@ -290,17 +290,17 @@ function ReadingPracticeExam({ exam, onBack }) {
           <div className="flex flex-wrap gap-2 flex-1 justify-center">
             {navItems.map(({ number, qId }) => (
               <button key={number} onClick={() => jumpToQuestion(number)}
-                className="w-9 h-9 rounded-lg text-sm font-bold transition-all flex items-center justify-center border"
-                style={qId && answers[qId]
-                  ? { backgroundColor: 'var(--ink)', borderColor: 'var(--ink)', color: '#fff' }
-                  : { backgroundColor: '#fff', borderColor: 'var(--border)', color: 'var(--ink)' }}>
+                className={`w-9 h-9 rounded-lg text-sm font-bold transition-all flex items-center justify-center border ${
+                  qId && answers[qId]
+                    ? 'bg-[#002D5B] border-[#002D5B] text-white shadow-sm'
+                    : 'bg-white border-gray-300 text-[#002D5B] hover:border-[#0066FF] hover:text-[#0066FF]'
+                }`}>
                 {number}
               </button>
             ))}
           </div>
           <button onClick={() => setShowConfirm(true)}
-            className="text-white px-4 py-2 rounded-xl font-bold text-sm transition shrink-0"
-            style={{ backgroundColor: '#dc2626' }}>
+            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl font-bold text-sm transition-colors shrink-0">
             Nộp bài
           </button>
         </div>
@@ -322,7 +322,7 @@ function ReadingPracticeExam({ exam, onBack }) {
             <p className="text-sm font-semibold mb-6" style={{ color: 'var(--color-heading)' }}>Đã làm: <span style={{ color: 'var(--color-primary)' }}>{answered}/{totalSlots}</span> câu</p>
             <div className="flex gap-3">
               <button onClick={() => setShowConfirm(false)} className="flex-1 py-2.5 rounded-xl btn-secondary text-sm font-semibold transition">Tiếp tục làm</button>
-              <button onClick={() => { setShowConfirm(false); doSubmit() }} className="flex-1 py-2.5 rounded-xl text-white text-sm font-bold transition" style={{ backgroundColor: '#dc2626' }}>Nộp bài</button>
+              <button onClick={() => { setShowConfirm(false); doSubmit() }} className="flex-1 py-2.5 rounded-xl btn-danger text-sm font-bold transition">Nộp bài</button>
             </div>
           </div>
         </div>
@@ -546,17 +546,17 @@ function ListeningPracticeExam({ exam, onBack }) {
           <div className="flex flex-wrap gap-2 flex-1 justify-center">
             {navItems.map(({ number }) => (
               <button key={number} onClick={() => jumpToQuestion(number)}
-                className="w-9 h-9 rounded-lg text-sm font-bold transition-all flex items-center justify-center border"
-                style={answers[number]
-                  ? { backgroundColor: 'var(--ink)', borderColor: 'var(--ink)', color: '#fff' }
-                  : { backgroundColor: '#fff', borderColor: 'var(--border)', color: 'var(--ink)' }}>
+                className={`w-9 h-9 rounded-lg text-sm font-bold transition-all flex items-center justify-center border ${
+                  answers[number]
+                    ? 'bg-[#002D5B] border-[#002D5B] text-white shadow-sm'
+                    : 'bg-white border-gray-300 text-[#002D5B] hover:border-[#0066FF] hover:text-[#0066FF]'
+                }`}>
                 {number}
               </button>
             ))}
           </div>
           <button onClick={() => setShowConfirm(true)}
-            className="text-white px-4 py-2 rounded-xl font-bold text-sm transition shrink-0"
-            style={{ backgroundColor: '#dc2626' }}>
+            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl font-bold text-sm transition-colors shrink-0">
             Nộp bài
           </button>
         </div>
@@ -578,7 +578,7 @@ function ListeningPracticeExam({ exam, onBack }) {
             <p className="text-sm font-semibold mb-6" style={{ color: 'var(--color-heading)' }}>Đã làm: <span style={{ color: 'var(--color-primary)' }}>{answered}/{totalSlots}</span> câu</p>
             <div className="flex gap-3">
               <button onClick={() => setShowConfirm(false)} className="flex-1 py-2.5 rounded-xl btn-secondary text-sm font-semibold transition">Tiếp tục làm</button>
-              <button onClick={() => { setShowConfirm(false); doSubmit() }} className="flex-1 py-2.5 rounded-xl text-white text-sm font-bold transition" style={{ backgroundColor: '#dc2626' }}>Nộp bài</button>
+              <button onClick={() => { setShowConfirm(false); doSubmit() }} className="flex-1 py-2.5 rounded-xl btn-danger text-sm font-bold transition">Nộp bài</button>
             </div>
           </div>
         </div>
