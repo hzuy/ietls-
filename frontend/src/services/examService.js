@@ -1,15 +1,16 @@
 import api from '../utils/axios'
+import { notifyTrashChanged } from './adminService'
 
 // ─── Exam Series ──────────────────────────────────────────────────────────────
 export const getExamSeries = () => api.get('/admin/exam-series').then(r => r.data)
 export const createExamSeries = (name) => api.post('/admin/exam-series', { name }).then(r => r.data)
 export const updateExamSeries = (id, name) => api.put(`/admin/exam-series/${id}`, { name }).then(r => r.data)
-export const deleteExamSeries = (id) => api.delete(`/admin/exam-series/${id}`).then(r => r.data)
+export const deleteExamSeries = (id) => api.delete(`/admin/exam-series/${id}`).then(r => { notifyTrashChanged(); return r.data })
 
 // ─── Books (within series) ────────────────────────────────────────────────────
 export const getSeriesBooks = (seriesId) => api.get(`/admin/exam-series/${seriesId}/books`).then(r => r.data)
 export const addSeriesBook = (seriesId) => api.post(`/admin/exam-series/${seriesId}/books`).then(r => r.data)
-export const deleteSeriesBook = (seriesId, bookNumber) => api.delete(`/admin/exam-series/${seriesId}/books/${bookNumber}`).then(r => r.data)
+export const deleteSeriesBook = (seriesId, bookNumber) => api.delete(`/admin/exam-series/${seriesId}/books/${bookNumber}`).then(r => { notifyTrashChanged(); return r.data })
 export const updateSeriesBookNumber = (seriesId, bookNumber, newNumber) =>
   api.put(`/admin/exam-series/${seriesId}/books/${bookNumber}`, { bookNumber: newNumber }).then(r => r.data)
 export const uploadSeriesCover = (seriesId, bookNumber, formData) =>
@@ -26,7 +27,7 @@ export const createListeningExam = (payload) => api.post('/admin/exams/listening
 export const createWritingExam = (payload) => api.post('/admin/exams/writing', payload).then(r => r.data)
 export const createSpeakingExam = (payload) => api.post('/admin/exams/speaking', payload).then(r => r.data)
 export const updateExam = (id, payload) => api.put(`/admin/exams/${id}`, payload).then(r => r.data)
-export const deleteExam = (id) => api.delete(`/admin/exams/${id}`).then(r => r.data)
+export const deleteExam = (id) => api.delete(`/admin/exams/${id}`).then(r => { notifyTrashChanged(); return r.data })
 
 // ─── Exam Assets ──────────────────────────────────────────────────────────────
 export const uploadImage = (formData) =>

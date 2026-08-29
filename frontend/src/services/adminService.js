@@ -70,4 +70,41 @@ export const getAdminTrash = (page = 1, limit = 50) => api.get('/admin/trash', {
 export const restoreTrashItem = (type, id) => api.post(`/admin/trash/${type}/${id}/restore`).then(r => r.data)
 export const permanentDeleteTrashItem = (type, id) => api.delete(`/admin/trash/${type}/${id}/permanent`).then(r => r.data)
 export const purgeTrash = () => api.delete('/admin/trash/purge').then(r => r.data)
-export const getTrashCount = () => api.get('/admin/trash/count').then(r => r.data.count)
+
+// Sidebar badge count — cached in sessionStorage (TTL 5 phút) so route changes don't
+// re-hit the API, but any trash-mutating action (restore / permanent delete / purge /
+// soft-delete from another page) calls notifyTrashChanged() to drop the cache and
+// push a fresh count to every mounted listener (AdminLayout) immediately.
+const TRASH_COUNT_KEY = '__trashCount__'
+const TRASH_COUNT_TTL = 5 * 60 * 1000
+const _trashCountListeners = new Set()
+
+export const getTrashCount = async ({ force = false } = {}) => {
+  if (!force) {
+    try {
+      const cached = sessionStorage.getItem(TRASH_COUNT_KEY)
+      if (cached) {
+        const { count, ts } = JSON.parse(cached)
+        if (Date.now() - ts < TRASH_COUNT_TTL) return count
+      }
+    } catch { /* ignore malformed / unavailable storage */ }
+  }
+  const count = await api.get('/admin/trash/count').then(r => r.data.count)
+  try {
+    sessionStorage.setItem(TRASH_COUNT_KEY, JSON.stringify({ count, ts: Date.now() }))
+  } catch { /* ignore */ }
+  return count
+}
+
+// Subscribe to "trash changed" pings. Returns an unsubscribe fn.
+export const onTrashChanged = (fn) => {
+  _trashCountListeners.add(fn)
+  return () => { _trashCountListeners.delete(fn) }
+}
+
+// Call after any action that adds/removes trash items. Invalidates the cached count
+// and notifies listeners so they can refetch.
+export const notifyTrashChanged = () => {
+  try { sessionStorage.removeItem(TRASH_COUNT_KEY) } catch { /* ignore */ }
+  _trashCountListeners.forEach(fn => { try { fn() } catch { /* listener error must not break others */ } })
+}

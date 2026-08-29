@@ -3,7 +3,7 @@ import AdminLayout from '../../components/AdminLayout'
 import Modal from '../../components/common/Modal'
 import { SkeletonTable } from '../../components/skeletons'
 
-import { getAdminTrash, restoreTrashItem, permanentDeleteTrashItem, purgeTrash } from '../../services/adminService'
+import { getAdminTrash, restoreTrashItem, permanentDeleteTrashItem, purgeTrash, notifyTrashChanged } from '../../services/adminService'
 import { Trash2, RotateCcw, AlertTriangle } from 'lucide-react'
 
 const PURGE_DAYS = 30
@@ -72,6 +72,7 @@ export default function Trash() {
       await restoreTrashItem(item.type, item.id)
       setRowErrors(prev => { const n = { ...prev }; delete n[rowKey(item)]; return n })
       setConfirming(null)
+      notifyTrashChanged()
       load()
     } catch (err) {
       const msg = err.response?.data?.message || 'Lỗi khôi phục — thử lại sau'
@@ -88,6 +89,7 @@ export default function Trash() {
       await permanentDeleteTrashItem(item.type, item.id)
       setRowErrors(prev => { const n = { ...prev }; delete n[rowKey(item)]; return n })
       setConfirming(null)
+      notifyTrashChanged()
       load()
     } catch (err) {
       // Keep the failed row visible and flagged instead of letting it silently vanish.
@@ -105,6 +107,7 @@ export default function Trash() {
       await purgeTrash()
       setRowErrors({})
       setPurgeConfirm(false)
+      notifyTrashChanged()
       load()
     } catch (err) {
       const msg = err.response?.data?.message || 'Lỗi dọn rác — thử lại sau'

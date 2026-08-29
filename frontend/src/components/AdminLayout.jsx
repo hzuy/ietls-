@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { getTrashCount } from '../services/adminService'
+import { getTrashCount, onTrashChanged } from '../services/adminService'
 import {
   LayoutDashboard,
   Users,
@@ -57,27 +57,22 @@ export default function AdminLayout({ children }) {
   const [showLogout, setShowLogout] = useState(false)
   const [trashCount, setTrashCount] = useState(0)
 
-  useEffect(() => {
-    if (role !== 'teacher' && role !== 'admin') return
-    const CACHE_KEY = '__trashCount__'
-    const CACHE_TTL = 5 * 60 * 1000
-    try {
-      const cached = sessionStorage.getItem(CACHE_KEY)
-      if (cached) {
-        const { count, ts } = JSON.parse(cached)
-        if (Date.now() - ts < CACHE_TTL) {
-          setTrashCount(count)
-          return
-        }
-      }
-    } catch {}
-    getTrashCount()
-      .then(count => {
-        setTrashCount(count)
-        sessionStorage.setItem(CACHE_KEY, JSON.stringify({ count, ts: Date.now() }))
-      })
+  const isStaff = role === 'teacher' || role === 'admin'
+
+  const refreshTrashCount = useCallback((force = false) => {
+    if (!isStaff) return
+    getTrashCount({ force })
+      .then(setTrashCount)
       .catch(() => {})
-  }, [])
+  }, [isStaff])
+
+  // Initial load (cache-aware) + live sync: any restore / permanent-delete / purge /
+  // soft-delete elsewhere fires notifyTrashChanged() → refetch a fresh count now.
+  useEffect(() => {
+    refreshTrashCount()
+    const unsubscribe = onTrashChanged(() => refreshTrashCount(true))
+    return unsubscribe
+  }, [refreshTrashCount])
 
   const handleLogout = () => {
     authLogout()

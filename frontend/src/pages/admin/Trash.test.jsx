@@ -63,6 +63,48 @@ describe('Trash page — P3 modal + a11y + error handling', () => {
     expect(dialog.contains(document.activeElement) || document.activeElement === dialog).toBe(true)
   })
 
+  it('pings notifyTrashChanged after a successful restore (sidebar badge sync)', async () => {
+    vi.spyOn(adminService, 'restoreTrashItem').mockResolvedValue({})
+    const notify = vi.spyOn(adminService, 'notifyTrashChanged').mockImplementation(() => {})
+    render(<Trash />)
+    await screen.findByText('Đề Reading A')
+
+    fireEvent.click(screen.getAllByText('Khôi phục')[0])
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Khôi phục' }))
+
+    await waitFor(() => expect(notify).toHaveBeenCalled())
+  })
+
+  it('pings notifyTrashChanged after "Dọn sạch thùng rác"', async () => {
+    vi.spyOn(adminService, 'purgeTrash').mockResolvedValue({})
+    const notify = vi.spyOn(adminService, 'notifyTrashChanged').mockImplementation(() => {})
+    render(<Trash />)
+    await screen.findByText('Đề Reading A')
+
+    fireEvent.click(screen.getByText('Dọn sạch thùng rác'))
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Xóa tất cả' }))
+
+    await waitFor(() => expect(notify).toHaveBeenCalled())
+  })
+
+  it('does NOT ping notifyTrashChanged when the action fails', async () => {
+    vi.spyOn(adminService, 'permanentDeleteTrashItem').mockRejectedValue({
+      response: { data: { message: 'nope' } },
+    })
+    const notify = vi.spyOn(adminService, 'notifyTrashChanged').mockImplementation(() => {})
+    render(<Trash />)
+    await screen.findByText('Đề Reading A')
+
+    fireEvent.click(screen.getAllByText('Xóa vĩnh viễn')[0])
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Xóa vĩnh viễn' }))
+
+    await screen.findAllByText('nope')
+    expect(notify).not.toHaveBeenCalled()
+  })
+
   it('P0-3: a failed permanent delete keeps the row and shows the backend message', async () => {
     vi.spyOn(adminService, 'permanentDeleteTrashItem').mockRejectedValue({
       response: { data: { message: 'Bộ đề còn 2 đề/cuốn đang hoạt động — vui lòng xóa các mục con trước.' } },

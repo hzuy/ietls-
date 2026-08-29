@@ -1,11 +1,12 @@
 import api from '../utils/axios'
+import { notifyTrashChanged } from './adminService'
 
 // ─── Reading Practice ─────────────────────────────────────────────────────────
 export const getReadingPracticeList = () => api.get('/practice/admin/reading').then(r => r.data)
 export const getReadingPractice = (id) => api.get(`/practice/admin/reading/${id}`).then(r => r.data)
 export const createReadingPractice = (body) => api.post('/practice/admin/reading', body).then(r => r.data)
 export const updateReadingPractice = (id, body) => api.put(`/practice/admin/reading/${id}`, body).then(r => r.data)
-export const deleteReadingPractice = (id) => api.delete(`/practice/admin/reading/${id}`).then(r => r.data)
+export const deleteReadingPractice = (id) => api.delete(`/practice/admin/reading/${id}`).then(r => { notifyTrashChanged(); return r.data })
 export const uploadReadingThumbnail = (id, formData) =>
   api.post(`/practice/admin/reading/${id}/thumbnail`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
@@ -16,7 +17,7 @@ export const getListeningPracticeList = () => api.get('/practice/admin/listening
 export const getListeningPractice = (id) => api.get(`/practice/admin/listening/${id}`).then(r => r.data)
 export const createListeningPractice = (body) => api.post('/practice/admin/listening', body).then(r => r.data)
 export const updateListeningPractice = (id, body) => api.put(`/practice/admin/listening/${id}`, body).then(r => r.data)
-export const deleteListeningPractice = (id) => api.delete(`/practice/admin/listening/${id}`).then(r => r.data)
+export const deleteListeningPractice = (id) => api.delete(`/practice/admin/listening/${id}`).then(r => { notifyTrashChanged(); return r.data })
 export const uploadListeningThumbnail = (id, formData) =>
   api.post(`/practice/admin/listening/${id}/thumbnail`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
