@@ -364,7 +364,7 @@ export default function ReadingExam() {
   const passageQuestions = getPassageQuestions(passage)
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: 'var(--surface-raised)' }}>
+    <div className="h-dvh flex flex-col overflow-hidden" style={{ backgroundColor: 'var(--surface-raised)' }}>
       {/* Header */}
       <header style={{ background: 'var(--ink)', borderBottom: '1px solid rgba(201,168,76,0.15)', padding: '8px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>

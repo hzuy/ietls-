@@ -39,12 +39,13 @@ function ImageLightbox({ src, onClose }) {
   return (
     <div
       onClick={onClose}
-      style={{ position: 'fixed', inset: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.82)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', overflow: 'auto' }}
+      className="p-3 sm:p-6"
+      style={{ position: 'fixed', inset: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.82)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'auto' }}
     >
       <button
         onClick={onClose}
         className="bg-white/15 hover:bg-white/25 transition-colors"
-        style={{ position: 'fixed', top: 16, right: 20, zIndex: 10000, border: 'none', color: 'white', borderRadius: '50%', width: 36, height: 36, fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}
+        style={{ position: 'fixed', top: 16, right: 20, zIndex: 10000, border: 'none', color: 'white', borderRadius: '50%', width: 44, height: 44, fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}
       >✕</button>
       <img
         src={src}
@@ -77,6 +78,18 @@ export default function WritingExam() {
   const [showExitConfirm, setShowExitConfirm] = useState(false)
   const [fullTestStatus, setFullTestStatus] = useState(null)
   const pollTimerRef = useRef(null)
+
+  // ── Layout mobile ──────────────────────────────────────────────────────────
+  // isMobile: cùng pattern resize listener + breakpoint 768 với ReadingExam.
+  // mobileView: CHỈ dùng cho toggle 2 panel trên mobile. Tách biệt HOÀN TOÀN khỏi
+  // activeTask và mọi effect/state khác — chuyển view không đụng gì tới bài làm.
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
+  const [mobileView, setMobileView] = useState('prompt') // 'prompt' | 'writing'
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
 
   const writingTasks = exam?.writingTasks || []
   const allSubmitted = writingTasks.length > 0 && writingTasks.every(t => results[t.id])
@@ -232,6 +245,17 @@ export default function WritingExam() {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [showExitConfirm, exitGuard.prompt, exitGuard.stay])
+
+  // Đồng bộ mobileView theo task đang xem: đổi task → về 'prompt' (đọc đề trước);
+  // task đã nộp / đang chấm → ép 'writing' để thấy card trạng thái thay vì bị che.
+  // Deps KHÔNG có `essays` → gõ bài không làm effect chạy lại → toggle tay giữ nguyên.
+  useEffect(() => {
+    if (!exam) return
+    const t = exam.writingTasks[activeTask]
+    if (!t) return
+    const done = !!results[t.id] || submittedTaskIds.includes(t.id)
+    setMobileView(done || gradingTask === t.id ? 'writing' : 'prompt')
+  }, [exam, activeTask, results, submittedTaskIds, gradingTask])
 
   const setEssay = (taskId, text) => setEssays(e => ({ ...e, [taskId]: text }))
 
@@ -435,7 +459,7 @@ export default function WritingExam() {
   const taskDone = isTaskDone(task.id)
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-slate-50">
+    <div className="h-dvh flex flex-col overflow-hidden bg-slate-50">
       {/* Header */}
       <header className="bg-[#0B2345] border-b border-slate-800 px-6 py-4 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3 min-w-0">
@@ -460,10 +484,28 @@ export default function WritingExam() {
         ))}
       </div>
 
+      {/* Mobile view toggle — chỉ render trên mobile; state riêng, không đụng activeTask */}
+      {isMobile && (
+        <div className="flex flex-shrink-0 border-b border-slate-200 bg-white">
+          <button
+            onClick={() => setMobileView('prompt')}
+            className={`flex-1 py-2.5 text-sm font-semibold border-b-2 transition-colors ${mobileView === 'prompt' ? 'border-purple-500 text-purple-700 bg-purple-50/60' : 'border-transparent text-slate-500'}`}
+          >
+            Đề bài
+          </button>
+          <button
+            onClick={() => setMobileView('writing')}
+            className={`flex-1 py-2.5 text-sm font-semibold border-b-2 transition-colors ${mobileView === 'writing' ? 'border-purple-500 text-purple-700 bg-purple-50/60' : 'border-transparent text-slate-500'}`}
+          >
+            Bài viết · {words} từ
+          </button>
+        </div>
+      )}
+
       {/* Body */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left: Task prompt */}
-        <div className="w-2/5 overflow-y-auto bg-white p-6 border-r border-slate-200 flex flex-col gap-5">
+        <div className={`overflow-y-auto bg-white p-6 border-r border-slate-200 flex flex-col gap-5 ${isMobile ? (mobileView === 'prompt' ? 'w-full' : 'hidden') : 'w-2/5'}`}>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-purple-50 border border-purple-100 text-purple-600 font-bold text-sm flex items-center justify-center">{task.number}</div>
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Task {task.number}</span>
@@ -489,7 +531,7 @@ export default function WritingExam() {
         </div>
 
         {/* Right: Essay area */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-slate-50 p-8">
+        <div className={`flex-1 flex flex-col overflow-hidden bg-slate-50 p-8 ${isMobile && mobileView !== 'writing' ? 'hidden' : ''}`}>
           {taskDone ? (
             <div className="flex-1 bg-white rounded-2xl border border-slate-200 p-8 flex flex-col items-center justify-center text-center max-w-xl mx-auto w-full self-center shadow-sm">
               <div className="text-4xl mb-4">✅</div>

@@ -39,6 +39,19 @@ export default function SpeakingExam() {
   const [fullTestStatus, setFullTestStatus] = useState(null)
   const pollTimerRef = useRef(null)
 
+  // ── Layout mobile ──────────────────────────────────────────────────────────
+  // isMobile: cùng pattern resize listener + breakpoint 768 với ReadingExam.
+  // mobileView: CHỈ dùng cho toggle 2 panel trên mobile. Tách biệt HOÀN TOÀN khỏi
+  // activePart — chuyển view KHÔNG nằm trong deps của useEffect(forceCleanupAll,
+  // [activePart]), nên xem lại câu hỏi giữa lúc ghi âm không làm dừng/mất bản ghi.
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
+  const [mobileView, setMobileView] = useState('questions') // 'questions' | 'recording'
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+
   const speakingParts = exam?.speakingParts || []
   const allSubmitted = speakingParts.length > 0 && speakingParts.every(p => results[p.id])
   const isPartDone = (pid) => !!results[pid] || submittedPartIds.includes(pid)
@@ -221,6 +234,21 @@ export default function SpeakingExam() {
   useEffect(() => {
     forceCleanupAll()
   }, [activePart, forceCleanupAll])
+
+  // ── Đồng bộ mobileView (chỉ ảnh hưởng layout mobile) ────────────────────────
+  // Đổi part → về 'questions' (đọc câu hỏi trước). KHÔNG bao giờ tự ép ngược về
+  // 'questions' ngoài lúc đổi part — user tự toggle. `mobileView` KHÔNG có ở đây
+  // lẫn ở effect forceCleanupAll → toggle view không đụng phiên ghi âm.
+  useEffect(() => { setMobileView('questions') }, [activePart])
+  // Ép sang 'recording' khi panel phải có hoạt động cần thấy (đang ghi/nhận dạng/
+  // chấm, hoặc part đã nộp) — chỉ đẩy một chiều.
+  useEffect(() => {
+    if (!exam) return
+    const p = exam.speakingParts[activePart]
+    if (!p) return
+    const done = !!results[p.id] || submittedPartIds.includes(p.id)
+    if (done || gradingPart === p.id || isRecording || isTranscribing) setMobileView('recording')
+  }, [exam, activePart, results, submittedPartIds, gradingPart, isRecording, isTranscribing])
 
   const handleBack = useCallback(() => {
     if (exam?.seriesId) {
@@ -455,7 +483,7 @@ export default function SpeakingExam() {
   const partDone = isPartDone(part.id)
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-slate-50">
+    <div className="h-dvh flex flex-col overflow-hidden bg-slate-50">
       {/* Header */}
       <header className="bg-[#0B2345] border-b border-slate-800 px-6 py-4 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3 min-w-0">
@@ -492,10 +520,28 @@ export default function SpeakingExam() {
         ))}
       </div>
 
+      {/* Mobile view toggle — chỉ render trên mobile; state riêng, không đụng activePart */}
+      {isMobile && (
+        <div className="flex flex-shrink-0 border-b border-slate-200 bg-white">
+          <button
+            onClick={() => setMobileView('questions')}
+            className={`flex-1 py-2.5 text-sm font-semibold border-b-2 transition-colors ${mobileView === 'questions' ? 'border-sky-500 text-sky-700 bg-sky-50/60' : 'border-transparent text-slate-500'}`}
+          >
+            Câu hỏi
+          </button>
+          <button
+            onClick={() => setMobileView('recording')}
+            className={`flex-1 py-2.5 text-sm font-semibold border-b-2 transition-colors ${mobileView === 'recording' ? 'border-sky-500 text-sky-700 bg-sky-50/60' : 'border-transparent text-slate-500'}`}
+          >
+            Ghi âm{wordCount > 0 ? ` · ${wordCount} từ` : ''}
+          </button>
+        </div>
+      )}
+
       {/* Body */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left: questions */}
-        <div className="w-2/5 overflow-y-auto bg-white border-r border-slate-200 flex flex-col">
+        <div className={`overflow-y-auto bg-white border-r border-slate-200 flex flex-col ${isMobile ? (mobileView === 'questions' ? 'w-full' : 'hidden') : 'w-2/5'}`}>
           {/* Part banner */}
           <div className="bg-[#0B2345] px-5 py-3 text-xs font-bold text-white uppercase tracking-wider">
             {part.number === 1 && 'Part 1 — Introduction & Interview'}
@@ -597,7 +643,7 @@ export default function SpeakingExam() {
         </div>
 
         {/* Right: recording */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-slate-50 p-6">
+        <div className={`flex-1 flex flex-col overflow-hidden bg-slate-50 p-6 ${isMobile && mobileView !== 'recording' ? 'hidden' : ''}`}>
           {previewMode ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-6 max-w-md mx-auto">
               <div className="text-4xl mb-4">👁</div>
@@ -642,7 +688,7 @@ export default function SpeakingExam() {
               {/* Recording area */}
               {isRecording ? (
                 /* ── 1. Compact horizontal bar while recording ─────────────── */
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-4 flex items-center justify-between gap-3 transition-all duration-300">
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-4 flex flex-wrap items-center justify-between gap-3 transition-all duration-300">
                   {/* Left: Recording indicator */}
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
