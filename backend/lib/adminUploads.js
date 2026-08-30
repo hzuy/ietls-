@@ -19,9 +19,9 @@ const upload = multer({
     const allowed = ['.mp3', '.wav', '.ogg', '.m4a', '.aac']
     const ext = path.extname(file.originalname).toLowerCase()
     if (allowed.includes(ext)) cb(null, true)
-    else cb(new Error('Chỉ chấp nhận file audio'))
+    else cb(Object.assign(new Error('Chỉ chấp nhận file audio (mp3/wav/ogg/m4a/aac)'), { code: 'INVALID_FILE_TYPE' }))
   },
-  limits: { fileSize: 100 * 1024 * 1024 } // 100MB
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB
 })
 
 const imageUpload = multer({
@@ -30,7 +30,7 @@ const imageUpload = multer({
     const allowed = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg']
     const ext = path.extname(file.originalname).toLowerCase()
     if (allowed.includes(ext)) cb(null, true)
-    else cb(new Error('Chỉ chấp nhận file ảnh (jpg, png, gif, webp)'))
+    else cb(Object.assign(new Error('Chỉ chấp nhận file ảnh (jpg, png, gif, webp, svg)'), { code: 'INVALID_FILE_TYPE' }))
   },
   limits: { fileSize: 20 * 1024 * 1024 } // 20MB
 })

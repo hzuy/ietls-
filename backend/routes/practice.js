@@ -25,7 +25,7 @@ const thumbUpload = multer({
   fileFilter: (req, file, cb) => {
     const allowed = ['.jpg', '.jpeg', '.png', '.webp']
     if (allowed.includes(path.extname(file.originalname).toLowerCase())) cb(null, true)
-    else cb(new Error('Chỉ chấp nhận jpg/png/webp'))
+    else cb(Object.assign(new Error('Chỉ chấp nhận ảnh jpg/png/webp'), { code: 'INVALID_FILE_TYPE' }))
   },
   limits: { fileSize: 5 * 1024 * 1024 }
 })
@@ -43,9 +43,9 @@ const audioUpload = multer({
   fileFilter: (req, file, cb) => {
     const allowed = ['.mp3', '.wav', '.ogg', '.m4a', '.aac']
     if (allowed.includes(path.extname(file.originalname).toLowerCase())) cb(null, true)
-    else cb(new Error('Chỉ chấp nhận file audio'))
+    else cb(Object.assign(new Error('Chỉ chấp nhận file audio (mp3/wav/ogg/m4a/aac)'), { code: 'INVALID_FILE_TYPE' }))
   },
-  limits: { fileSize: 100 * 1024 * 1024 }
+  limits: { fileSize: 50 * 1024 * 1024 }
 })
 
 const teacherOrAdmin = (req, res, next) => {
@@ -253,7 +253,21 @@ router.put('/admin/:skill/:id', authMiddleware, teacherOrAdmin, validate(updateP
   }
 })
 
-// ─── ADMIN: upload thumbnail ──────────────────────────────────────────────────
+// ─── ADMIN: upload file → trả URL (KHÔNG gắn record) ─────────────────────────
+// Dùng khi TẠO MỚI: upload file trước, lấy URL, rồi mới tạo record với URL trong
+// body → upload fail thì không có record mồ côi thiếu file. Tái dùng đúng
+// thumbUpload/audioUpload (5MB / 50MB, lọc type) như endpoint /:id/* bên dưới.
+router.post('/admin/:skill/upload-thumbnail', authMiddleware, teacherOrAdmin, thumbUpload.single('thumbnail'), (req, res) => {
+  if (!req.file) return res.status(400).json({ message: 'Không có file' })
+  res.json({ url: `/uploads/thumbnails/${req.file.filename}` })
+})
+
+router.post('/admin/listening/upload-audio', authMiddleware, teacherOrAdmin, audioUpload.single('audio'), (req, res) => {
+  if (!req.file) return res.status(400).json({ message: 'Không có file' })
+  res.json({ url: `/uploads/${req.file.filename}` })
+})
+
+// ─── ADMIN: upload thumbnail (gắn thẳng vào record :id — giữ cho tương thích) ──
 router.post('/admin/:skill/:id/thumbnail', authMiddleware, teacherOrAdmin, thumbUpload.single('thumbnail'), async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
   try {

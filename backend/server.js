@@ -1,6 +1,7 @@
 const express = require('express')
 const cors = require('cors')
 const compression = require('compression')
+const multer = require('multer')
 const path = require('path')
 require('dotenv').config()
 
@@ -54,6 +55,23 @@ app.use('/api/chatbot', chatbotRoutes)
 app.use('/uploads/thumbnails', express.static(path.join(__dirname, 'uploads', 'thumbnails')))
 
 app.get('/', (req, res) => res.json({ message: 'IELTS App API đang chạy!' }))
+
+// ─── Upload error handler ────────────────────────────────────────────────────
+// Lỗi từ multer (vượt size, sai định dạng file) mặc định lọt thành HTML/plain 500,
+// khiến frontend chỉ thấy "Lỗi lưu" chung chung. Bắt riêng, trả JSON { message }.
+// Mọi lỗi khác giữ nguyên (chuyển tiếp cho error handler mặc định của Express).
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ message: 'File vượt quá dung lượng cho phép' })
+    }
+    return res.status(400).json({ message: err.message || 'Lỗi tải file' })
+  }
+  if (err && err.code === 'INVALID_FILE_TYPE') {
+    return res.status(400).json({ message: err.message })
+  }
+  next(err)
+})
 
 const PORT = process.env.PORT || 3001
 if (require.main === module) {

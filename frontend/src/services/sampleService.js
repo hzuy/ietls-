@@ -14,6 +14,11 @@ export const uploadWritingSampleThumbnail = (id, formData) =>
   api.post(`/samples/admin/writing/${id}/thumbnail`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }).then(r => r.data)
+// Upload file trước, trả { url } — dùng khi tạo/sửa: upload xong mới ghi record.
+export const uploadWritingSampleThumbnailFile = (formData) =>
+  api.post('/samples/admin/writing/upload-thumbnail', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data)
 
 // ─── Admin Speaking Samples ───────────────────────────────────────────────────
 export const getSpeakingSamples = () => api.get('/samples/admin/speaking').then(r => r.data)
@@ -23,5 +28,10 @@ export const updateSpeakingSample = (id, body) => api.put(`/samples/admin/speaki
 export const deleteSpeakingSample = (id) => api.delete(`/samples/admin/speaking/${id}`).then(r => { notifyTrashChanged(); return r.data })
 export const uploadSpeakingSampleThumbnail = (id, formData) =>
   api.post(`/samples/admin/speaking/${id}/thumbnail`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data)
+// Upload file trước, trả { url } — dùng khi tạo/sửa: upload xong mới ghi record.
+export const uploadSpeakingSampleThumbnailFile = (formData) =>
+  api.post('/samples/admin/speaking/upload-thumbnail', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }).then(r => r.data)

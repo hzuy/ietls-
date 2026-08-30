@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import AdminLayout from '../../components/AdminLayout'
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges'
+import { validateImageFile } from '../../utils/fileValidation'
 import {
   getReadingPracticeList, getReadingPractice,
   createReadingPractice, updateReadingPractice,
-  deleteReadingPractice, uploadReadingThumbnail,
+  deleteReadingPractice, uploadReadingThumbnailFile,
 } from '../../services/practiceService'
 import {
   resolveImg, recalcGroups,
@@ -266,6 +267,8 @@ export default function ReadingPractice() {
   const handleThumbPick = (e) => {
     const file = e.target.files[0]
     if (!file) return
+    const v = validateImageFile(file)
+    if (!v.ok) { alert(v.error); e.target.value = ''; return }
     setForm(f => ({ ...f, thumbFile: file, thumbPreview: URL.createObjectURL(file) }))
     setIsDirty(true)
   }
@@ -279,27 +282,34 @@ export default function ReadingPractice() {
 
     setSaving(true)
     try {
+      // ── Bước 1: upload ảnh mới (nếu có) TRƯỚC — record chỉ ghi khi file đã lên xong ──
+      let thumbnailUrl = form.thumbnailUrl
+      if (form.thumbFile) {
+        const fd = new FormData(); fd.append('thumbnail', form.thumbFile)
+        try {
+          thumbnailUrl = (await uploadReadingThumbnailFile(fd)).url
+        } catch (e) {
+          alert(e.response?.data?.message || 'Tải ảnh bìa lên thất bại. Bài chưa được lưu, vui lòng thử lại.')
+          return
+        }
+      }
+
+      // ── Bước 2: ghi record với URL đã có sẵn ──
       const body = {
         title: form.title.trim(),
         passage: form.passage,
+        thumbnailUrl: thumbnailUrl || null,
         questions: form.questionGroups.map((group, index) => ({ ...group, orderIndex: index }))
       }
+      if (!editing) await createReadingPractice(body)
+      else await updateReadingPractice(editing.id, body)
 
-      let id
-      if (!editing) {
-        const res = await createReadingPractice(body); id = res.id
-      } else {
-        await updateReadingPractice(editing.id, body); id = editing.id
-      }
-      if (form.thumbFile) {
-        const fd = new FormData(); fd.append('thumbnail', form.thumbFile)
-        await uploadReadingThumbnail(id, fd)
-      }
       clearDraft(); setIsDirty(false); setView('list'); load()
     } catch (err) {
       alert(err.response?.data?.message || 'Lỗi lưu bài thi')
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   const handleDelete = async (id) => {

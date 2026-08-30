@@ -31,6 +31,7 @@ const createSampleSchema = z.object({
   level: z.string().nullable().optional(),
   examType: z.string().nullable().optional(),
   content: z.string().nullable().optional(),
+  thumbnailUrl: z.string().nullable().optional(),
   tags: z.array(z.string()).nullable().optional().default([]),
 })
 
@@ -40,6 +41,7 @@ const updateSampleSchema = z.object({
   level: z.string().nullable().optional(),
   examType: z.string().nullable().optional(),
   content: z.string().nullable().optional(),
+  thumbnailUrl: z.string().nullable().optional(),
   tags: z.array(z.string()).nullable().optional(),
 })
 

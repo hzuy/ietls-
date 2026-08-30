@@ -24,7 +24,7 @@ const thumbUpload = multer({
   fileFilter: (req, file, cb) => {
     const allowed = ['.jpg', '.jpeg', '.png', '.webp']
     if (allowed.includes(path.extname(file.originalname).toLowerCase())) cb(null, true)
-    else cb(new Error('Chỉ chấp nhận jpg/png/webp'))
+    else cb(Object.assign(new Error('Chỉ chấp nhận ảnh jpg/png/webp'), { code: 'INVALID_FILE_TYPE' }))
   },
   limits: { fileSize: 5 * 1024 * 1024 }
 })
@@ -144,9 +144,9 @@ router.get('/admin/speaking/:id', authMiddleware, teacherOrAdmin, async (req, re
 // ─── ADMIN: create ────────────────────────────────────────────────────────────
 router.post('/admin/writing', authMiddleware, teacherOrAdmin, validate(createSampleSchema), async (req, res) => {
   try {
-    const { title, level, examType, content, tags } = req.body
+    const { title, level, examType, content, thumbnailUrl, tags } = req.body
     const s = await prisma.writingSample.create({
-      data: { title: title.trim(), level: level || null, examType: examType || null, content: content || null, tags: tags ? JSON.stringify(tags) : null }
+      data: { title: title.trim(), level: level || null, examType: examType || null, content: content || null, thumbnailUrl: thumbnailUrl || null, tags: tags ? JSON.stringify(tags) : null }
     })
     res.status(201).json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
   } catch (err) {
@@ -156,9 +156,9 @@ router.post('/admin/writing', authMiddleware, teacherOrAdmin, validate(createSam
 
 router.post('/admin/speaking', authMiddleware, teacherOrAdmin, validate(createSampleSchema), async (req, res) => {
   try {
-    const { title, level, examType, content, tags } = req.body
+    const { title, level, examType, content, thumbnailUrl, tags } = req.body
     const s = await prisma.speakingSample.create({
-      data: { title: title.trim(), level: level || null, examType: examType || null, content: content || null, tags: tags ? JSON.stringify(tags) : null }
+      data: { title: title.trim(), level: level || null, examType: examType || null, content: content || null, thumbnailUrl: thumbnailUrl || null, tags: tags ? JSON.stringify(tags) : null }
     })
     res.status(201).json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
   } catch (err) {
@@ -169,12 +169,13 @@ router.post('/admin/speaking', authMiddleware, teacherOrAdmin, validate(createSa
 // ─── ADMIN: update ────────────────────────────────────────────────────────────
 router.put('/admin/writing/:id', authMiddleware, teacherOrAdmin, validate(updateSampleSchema), async (req, res) => {
   try {
-    const { title, level, examType, content, tags } = req.body
+    const { title, level, examType, content, thumbnailUrl, tags } = req.body
     const data = {}
     if (title !== undefined) data.title = title.trim()
     if (level !== undefined) data.level = level || null
     if (examType !== undefined) data.examType = examType || null
     if (content !== undefined) data.content = content
+    if (thumbnailUrl !== undefined) data.thumbnailUrl = thumbnailUrl
     if (tags !== undefined) data.tags = JSON.stringify(tags)
     const s = await prisma.writingSample.update({ where: { id: parseInt(req.params.id) }, data })
     res.json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
@@ -185,12 +186,13 @@ router.put('/admin/writing/:id', authMiddleware, teacherOrAdmin, validate(update
 
 router.put('/admin/speaking/:id', authMiddleware, teacherOrAdmin, validate(updateSampleSchema), async (req, res) => {
   try {
-    const { title, level, examType, content, tags } = req.body
+    const { title, level, examType, content, thumbnailUrl, tags } = req.body
     const data = {}
     if (title !== undefined) data.title = title.trim()
     if (level !== undefined) data.level = level || null
     if (examType !== undefined) data.examType = examType || null
     if (content !== undefined) data.content = content
+    if (thumbnailUrl !== undefined) data.thumbnailUrl = thumbnailUrl
     if (tags !== undefined) data.tags = JSON.stringify(tags)
     const s = await prisma.speakingSample.update({ where: { id: parseInt(req.params.id) }, data })
     res.json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
@@ -199,7 +201,18 @@ router.put('/admin/speaking/:id', authMiddleware, teacherOrAdmin, validate(updat
   }
 })
 
-// ─── ADMIN: upload thumbnail ──────────────────────────────────────────────────
+// ─── ADMIN: upload thumbnail file → trả URL (KHÔNG gắn record) ────────────────
+// Dùng khi tạo mới: upload trước, lấy URL, rồi mới ghi record → upload fail thì
+// không có record mồ côi thiếu ảnh. Tái dùng thumbUpload (5MB, jpg/png/webp)
+// giống endpoint /:id/thumbnail bên dưới.
+const uploadThumbToUrl = (req, res) => {
+  if (!req.file) return res.status(400).json({ message: 'Không có file' })
+  res.json({ url: `/uploads/thumbnails/${req.file.filename}` })
+}
+router.post('/admin/writing/upload-thumbnail', authMiddleware, teacherOrAdmin, thumbUpload.single('thumbnail'), uploadThumbToUrl)
+router.post('/admin/speaking/upload-thumbnail', authMiddleware, teacherOrAdmin, thumbUpload.single('thumbnail'), uploadThumbToUrl)
+
+// ─── ADMIN: upload thumbnail (gắn thẳng vào record :id — giữ cho tương thích) ──
 router.post('/admin/writing/:id/thumbnail', authMiddleware, teacherOrAdmin,
   thumbUpload.single('thumbnail'), async (req, res) => {
     if (!req.file) return res.status(400).json({ message: 'Không có file' })

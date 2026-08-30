@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import AdminLayout from '../../components/AdminLayout'
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges'
+import { validateImageFile } from '../../utils/fileValidation'
 
 import RichTextEditor from '../../components/RichTextEditor'
-import { getSpeakingSamples, getSpeakingSample, createSpeakingSample, updateSpeakingSample, deleteSpeakingSample, uploadSpeakingSampleThumbnail } from '../../services/sampleService'
+import { getSpeakingSamples, getSpeakingSample, createSpeakingSample, updateSpeakingSample, deleteSpeakingSample, uploadSpeakingSampleThumbnailFile } from '../../services/sampleService'
 
 const BACKEND_URL = import.meta.env.VITE_API_URL?.replace(/\/api$/, '') || 'http://localhost:3001'
 const resolveImg = (url) => !url ? null : url.startsWith('http') ? url : BACKEND_URL + url
@@ -111,6 +112,14 @@ export default function SpeakingSamples() {
     setForm(f => ({ ...f, tags: [...f.tags, t], tagInput: '' }))
   }
 
+  const handleThumbPick = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    const v = validateImageFile(file)
+    if (!v.ok) { alert(v.error); e.target.value = ''; return }
+    setForm(prev => ({ ...prev, thumbFile: file, thumbPreview: URL.createObjectURL(file) }))
+  }
+
   const handleSave = async () => {
     if (!form.title.trim()) { alert('Vui lòng nhập tên bài'); return }
     // BUG-15: Validate content not empty
@@ -118,17 +127,29 @@ export default function SpeakingSamples() {
     if (!plainContent) { alert('Vui lòng nhập nội dung bài mẫu'); return }
     setSaving(true)
     try {
-      const body = { title: form.title.trim(), level: form.level || null, examType: form.examType.trim() || null, content: form.content, tags: form.tags }
-      let id
-      if (!editing) { const res = await createSpeakingSample(body); id = res.id }
-      else { await updateSpeakingSample(editing.id, body); id = editing.id }
+      // ── Bước 1: upload ảnh mới (nếu có) TRƯỚC — record chỉ ghi khi file đã lên xong ──
+      let thumbnailUrl = form.thumbnailUrl
       if (form.thumbFile) {
         const fd = new FormData(); fd.append('thumbnail', form.thumbFile)
-        await uploadSpeakingSampleThumbnail(id, fd)
+        try {
+          thumbnailUrl = (await uploadSpeakingSampleThumbnailFile(fd)).url
+        } catch (e) {
+          alert(e.response?.data?.message || 'Tải ảnh bìa lên thất bại. Bài chưa được lưu, vui lòng thử lại.')
+          return
+        }
       }
+
+      // ── Bước 2: ghi record với URL đã có sẵn ──
+      const body = { title: form.title.trim(), level: form.level || null, examType: form.examType.trim() || null, content: form.content, thumbnailUrl: thumbnailUrl || null, tags: form.tags }
+      if (!editing) await createSpeakingSample(body)
+      else await updateSpeakingSample(editing.id, body)
+
       setIsDirty(false); clearDraft(); setView('list'); load()
-    } catch (err) { alert(err.response?.data?.message || 'Lỗi lưu') }
-    setSaving(false)
+    } catch (err) {
+      alert(err.response?.data?.message || 'Lỗi lưu')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleDelete = async (id) => {
@@ -223,7 +244,7 @@ export default function SpeakingSamples() {
                     Chọn ảnh bìa
                   </button>
                 )}
-                <input ref={thumbRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={e => { const f = e.target.files[0]; if (f) setForm(prev => ({ ...prev, thumbFile: f, thumbPreview: URL.createObjectURL(f) })) }} />
+                <input ref={thumbRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={handleThumbPick} />
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => setView('list')} className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 font-medium">Hủy</button>

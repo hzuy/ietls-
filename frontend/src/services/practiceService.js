@@ -11,6 +11,11 @@ export const uploadReadingThumbnail = (id, formData) =>
   api.post(`/practice/admin/reading/${id}/thumbnail`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }).then(r => r.data)
+// Upload file trước, trả { url } — dùng khi tạo/sửa: upload xong mới ghi record.
+export const uploadReadingThumbnailFile = (formData) =>
+  api.post('/practice/admin/reading/upload-thumbnail', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data)
 
 // ─── Listening Practice ───────────────────────────────────────────────────────
 export const getListeningPracticeList = () => api.get('/practice/admin/listening').then(r => r.data)
@@ -24,6 +29,15 @@ export const uploadListeningThumbnail = (id, formData) =>
   }).then(r => r.data)
 export const uploadListeningAudio = (id, formData) =>
   api.post(`/practice/admin/listening/${id}/audio`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data)
+// Upload file trước, trả { url } — dùng khi tạo/sửa: upload xong mới ghi record.
+export const uploadListeningThumbnailFile = (formData) =>
+  api.post('/practice/admin/listening/upload-thumbnail', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data)
+export const uploadListeningAudioFile = (formData) =>
+  api.post('/practice/admin/listening/upload-audio', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }).then(r => r.data)
 

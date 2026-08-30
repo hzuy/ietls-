@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import AdminLayout from '../../components/AdminLayout'
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges'
+import { validateImageFile, validateAudioFile } from '../../utils/fileValidation'
 import {
   getListeningPracticeList, getListeningPractice,
   createListeningPractice, updateListeningPractice,
-  deleteListeningPractice, uploadListeningThumbnail, uploadListeningAudio,
+  deleteListeningPractice, uploadListeningThumbnailFile, uploadListeningAudioFile,
 } from '../../services/practiceService'
 import {
   resolveImg, recalcGroups,
@@ -252,8 +253,18 @@ export default function ListeningPractice() {
   const handleThumbPick = (e) => {
     const file = e.target.files[0]
     if (!file) return
-    if (file.size > 5 * 1024 * 1024) { alert('Ảnh phải nhỏ hơn 5MB'); return }
+    const v = validateImageFile(file)
+    if (!v.ok) { alert(v.error); e.target.value = ''; return }
     setForm(f => ({ ...f, thumbFile: file, thumbPreview: URL.createObjectURL(file) }))
+    setIsDirty(true)
+  }
+
+  const handleAudioPick = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    const v = validateAudioFile(file)
+    if (!v.ok) { alert(v.error); e.target.value = ''; return }
+    setForm(prev => ({ ...prev, audioFile: file, audioName: file.name }))
     setIsDirty(true)
   }
 
@@ -263,35 +274,53 @@ export default function ListeningPractice() {
       alert('Bài thi phải có ít nhất một nhóm câu hỏi')
       return
     }
+    // Audio "bắt buộc" mềm — cho lưu nháp ý tưởng, nhưng cảnh báo rõ hậu quả.
+    if (!form.audioUrl && !form.audioFile) {
+      if (!window.confirm('Bài Listening chưa có file audio. Học viên sẽ không nghe được và không làm được bài. Vẫn lưu?')) return
+    }
 
     setSaving(true)
     try {
+      // ── Bước 1: upload file mới (nếu có) TRƯỚC — record chỉ ghi khi file đã lên xong ──
+      let thumbnailUrl = form.thumbnailUrl
+      if (form.thumbFile) {
+        const fd = new FormData(); fd.append('thumbnail', form.thumbFile)
+        try {
+          thumbnailUrl = (await uploadListeningThumbnailFile(fd)).url
+        } catch (e) {
+          alert(e.response?.data?.message || 'Tải ảnh bìa lên thất bại. Bài chưa được lưu, vui lòng thử lại.')
+          return
+        }
+      }
+
+      let audioUrl = form.audioUrl
+      if (form.audioFile) {
+        const fd = new FormData(); fd.append('audio', form.audioFile)
+        try {
+          audioUrl = (await uploadListeningAudioFile(fd)).url
+        } catch (e) {
+          alert(e.response?.data?.message || 'Tải file audio lên thất bại. Bài chưa được lưu, vui lòng thử lại.')
+          return
+        }
+      }
+
+      // ── Bước 2: ghi record với URL đã có sẵn ──
       const body = {
         title: form.title.trim(),
         passage: form.context,
-        audioUrl: form.audioUrl,
+        thumbnailUrl: thumbnailUrl || null,
+        audioUrl: audioUrl || null,
         questions: form.questionGroups.map((group, index) => ({ ...group, orderIndex: index }))
       }
+      if (!editing) await createListeningPractice(body)
+      else await updateListeningPractice(editing.id, body)
 
-      let id
-      if (!editing) {
-        const res = await createListeningPractice(body); id = res.id
-      } else {
-        await updateListeningPractice(editing.id, body); id = editing.id
-      }
-      if (form.thumbFile) {
-        const fd = new FormData(); fd.append('thumbnail', form.thumbFile)
-        await uploadListeningThumbnail(id, fd)
-      }
-      if (form.audioFile) {
-        const fd = new FormData(); fd.append('audio', form.audioFile)
-        await uploadListeningAudio(id, fd)
-      }
       clearDraft(); setIsDirty(false); setView('list'); load()
     } catch (err) {
       alert(err.response?.data?.message || 'Lỗi lưu bài thi')
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   const handleDelete = async (id) => {
@@ -422,7 +451,7 @@ export default function ListeningPractice() {
                   </button>
                 )}
                 <input ref={audioRef} type="file" accept=".mp3,.wav,.ogg,.m4a,.aac" className="hidden"
-                  onChange={e => { const f = e.target.files[0]; if (f) setForm(prev => ({ ...prev, audioFile: f, audioName: f.name })) }} />
+                  onChange={handleAudioPick} />
               </div>
 
               <button type="button" onClick={() => setShowPreview(true)}
@@ -491,7 +520,7 @@ export default function ListeningPractice() {
                       <td className="px-4 py-3 hidden sm:table-cell">
                         {item.audioUrl
                           ? <span className="text-xs text-green-600 font-medium">🎵 Có audio</span>
-                          : <span className="text-xs text-slate-400">—</span>}
+                          : <span className="text-xs text-amber-600 font-medium">⚠ Thiếu audio</span>}
                       </td>
                       <td className="px-4 py-3 hidden sm:table-cell">
                         {(() => {
