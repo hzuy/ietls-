@@ -216,7 +216,7 @@ Trả về JSON (không có gì khác):
 
 router.post('/exams/:id/submit', authMiddleware, validate(writingSubmitSchema), async (req, res) => {
   try {
-    const { taskId, essay } = req.body
+    const { taskId, essay, autoSubmit } = req.body
     const examId = parseInt(req.params.id)
     const task = await prisma.writingTask.findUnique({ where: { id: taskId } })
     if (!task) return res.status(404).json({ message: 'Không tìm thấy task' })
@@ -234,9 +234,40 @@ router.post('/exams/:id/submit', authMiddleware, validate(writingSubmitSchema), 
       }
     }
 
-    const wordCount = essay.trim().split(/\s+/).length
-    if (wordCount < 50) return res.status(400).json({ message: 'Bài viết quá ngắn!' })
+    const wordCount = essay.trim() ? essay.trim().split(/\s+/).length : 0
 
+    if (wordCount < 50) {
+      // Nộp thủ công: giữ nguyên hành vi cũ — chặn bài dưới 50 từ.
+      if (!autoSubmit) return res.status(400).json({ message: 'Bài viết quá ngắn!' })
+
+      // Tự động nộp khi hết giờ, bài dưới 50 từ (kể cả rỗng): ghi thẳng band 0,
+      // KHÔNG gọi Groq — không đủ nội dung để AI chấm.
+      const feedback = {
+        overall: 0,
+        criteria: {
+          task_achievement:   { score: 0, comment: 'Không đủ dữ liệu để chấm' },
+          coherence_cohesion: { score: 0, comment: 'Không đủ dữ liệu để chấm' },
+          lexical_resource:   { score: 0, comment: 'Không đủ dữ liệu để chấm' },
+          grammatical_range:  { score: 0, comment: 'Không đủ dữ liệu để chấm' },
+        },
+        strengths: [],
+        improvements: ['Bài viết chưa đủ nội dung để đánh giá.'],
+      }
+      const zeroAnswer = await prisma.writingAnswer.create({
+        data: {
+          userId: req.user.userId,
+          taskId,
+          essayText: essay,
+          wordCount,
+          status: 'graded',
+          aiScore: 0,
+          aiFeedback: JSON.stringify(feedback),
+        }
+      })
+      return res.json({ answerId: zeroAnswer.id, status: 'graded', ...feedback, wordCount })
+    }
+
+    // wordCount >= 50: luồng chấm AI bình thường (autoSubmit hay không đều như nhau).
     const writingAnswer = await prisma.writingAnswer.create({
       data: {
         userId: req.user.userId,

@@ -20,6 +20,9 @@ const listeningSubmitSchema = z.object({
 const writingSubmitSchema = z.object({
   taskId: z.coerce.number({ message: 'taskId phải là số' }).int({ message: 'taskId phải là số nguyên' }).positive({ message: 'taskId không hợp lệ' }),
   essay: z.string({ message: 'essay là bắt buộc' }),
+  // Chỉ do client đặt = true khi tự động nộp lúc hết giờ (không phải hành động
+  // tự nguyện). Cho phép bỏ qua gate tối thiểu 50 từ ở handler.
+  autoSubmit: z.boolean().optional(),
 })
 
 // 4. Speaking Submit Schema

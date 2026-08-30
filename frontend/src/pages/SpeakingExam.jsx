@@ -17,6 +17,10 @@ const CRITERIA_LABELS = {
   pronunciation: 'Pronunciation',
 }
 
+// Part 2 chuẩn IELTS: 1 phút chuẩn bị + tối đa 2 phút nói.
+const PART2_PREP_SECONDS = 60
+const PART2_SPEAK_SECONDS = 120
+
 export default function SpeakingExam() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -133,6 +137,14 @@ export default function SpeakingExam() {
     return `${m}:${s}`
   }
 
+  // ── Timer riêng cho Part 2 ─────────────────────────────────────────────────
+  // Chạy ĐỘC LẬP với mobileView (toggle Câu hỏi/Ghi âm): các effect dưới KHÔNG có
+  // mobileView trong deps → đổi view không dừng/reset đồng hồ prep hay đếm ngược nói.
+  const [prepActive, setPrepActive] = useState(false)
+  const [prepSecondsLeft, setPrepSecondsLeft] = useState(PART2_PREP_SECONDS)
+  const part2PrepDoneRef = useRef(false) // đã qua/skip prep → không hiện lại card khi re-record
+  const skipPrep = () => { part2PrepDoneRef.current = true; setPrepActive(false) }
+
   const handleTogglePlayback = useCallback(() => {
     if (!audioRef.current) return
     if (isPlayingAudio) {
@@ -241,14 +253,45 @@ export default function SpeakingExam() {
   // lẫn ở effect forceCleanupAll → toggle view không đụng phiên ghi âm.
   useEffect(() => { setMobileView('questions') }, [activePart])
   // Ép sang 'recording' khi panel phải có hoạt động cần thấy (đang ghi/nhận dạng/
-  // chấm, hoặc part đã nộp) — chỉ đẩy một chiều.
+  // chấm, part đã nộp, hoặc đang ở prep Part 2) — chỉ đẩy một chiều.
   useEffect(() => {
     if (!exam) return
     const p = exam.speakingParts[activePart]
     if (!p) return
     const done = !!results[p.id] || submittedPartIds.includes(p.id)
-    if (done || gradingPart === p.id || isRecording || isTranscribing) setMobileView('recording')
-  }, [exam, activePart, results, submittedPartIds, gradingPart, isRecording, isTranscribing])
+    if (done || gradingPart === p.id || isRecording || isTranscribing || prepActive) setMobileView('recording')
+  }, [exam, activePart, results, submittedPartIds, gradingPart, isRecording, isTranscribing, prepActive])
+
+  // ── Part 2: mở card "Chuẩn bị" khi vào Part 2 lần đầu (chưa nộp, chưa qua prep).
+  // Rời Part 2 hoặc part đã nộp → tắt. part2PrepDoneRef chặn hiện lại khi re-record.
+  useEffect(() => {
+    const p = exam?.speakingParts?.[activePart]
+    const done = p ? (!!results[p.id] || submittedPartIds.includes(p.id)) : false
+    const eligible = !previewMode && p?.number === 2 && !part2PrepDoneRef.current && !done
+    setPrepActive(eligible)
+    if (eligible) setPrepSecondsLeft(PART2_PREP_SECONDS)
+  }, [activePart, exam, previewMode, results, submittedPartIds])
+
+  // Đếm ngược prep 60s — tick + kết thúc đều trong callback interval (bất đồng bộ).
+  useEffect(() => {
+    if (!prepActive) return
+    let n = PART2_PREP_SECONDS
+    const iv = setInterval(() => {
+      n -= 1
+      setPrepSecondsLeft(n)
+      if (n <= 0) { clearInterval(iv); part2PrepDoneRef.current = true; setPrepActive(false) }
+    }, 1000)
+    return () => clearInterval(iv)
+  }, [prepActive])
+
+  // Đang ghi Part 2 và chạm 120s → tự dừng (bản ghi giữ nguyên, nộp như thường).
+  // Dựa trên recordingSeconds đếm-lên sẵn có của hook, không tạo interval mới.
+  useEffect(() => {
+    if (!isRecording) return
+    const p = exam?.speakingParts?.[activePart]
+    if (p?.number !== 2) return
+    if (recordingSeconds >= PART2_SPEAK_SECONDS) stopRecording()
+  }, [isRecording, recordingSeconds, activePart, exam, stopRecording])
 
   const handleBack = useCallback(() => {
     if (exam?.seriesId) {
@@ -710,8 +753,10 @@ export default function SpeakingExam() {
                         />
                       ))}
                     </div>
-                    <span className="text-slate-600 text-xs font-mono font-bold select-none">
-                      {formatTime(recordingSeconds)}
+                    <span className={`text-xs font-mono font-bold select-none ${part.number === 2 && (PART2_SPEAK_SECONDS - recordingSeconds) <= 20 ? 'text-red-600' : 'text-slate-600'}`}>
+                      {part.number === 2
+                        ? formatTime(Math.max(0, PART2_SPEAK_SECONDS - recordingSeconds))
+                        : formatTime(recordingSeconds)}
                     </span>
                   </div>
 
@@ -739,6 +784,23 @@ export default function SpeakingExam() {
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex items-center justify-center gap-3">
                   <div className="w-5 h-5 border-2 border-sky-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
                   <span className="text-slate-700 text-sm font-semibold">Đang nhận dạng giọng nói...</span>
+                </div>
+              ) : prepActive ? (
+                /* ── 2b. Part 2 — card "Chuẩn bị" 60s (đếm ngược, có nút skip) ── */
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 flex flex-col items-center text-center gap-3">
+                  <p className="text-sky-600 text-xs font-bold uppercase tracking-wider m-0">Thời gian chuẩn bị</p>
+                  <div className="text-5xl font-mono font-extrabold tracking-tight" style={{ color: '#0B2345' }}>
+                    {formatTime(prepSecondsLeft)}
+                  </div>
+                  <p className="text-slate-500 text-sm leading-relaxed m-0 max-w-xs">
+                    Bạn có 1 phút để chuẩn bị. Ghi lại ý chính rồi bắt đầu nói (tối đa 2 phút).
+                  </p>
+                  <button
+                    onClick={skipPrep}
+                    className="btn-primary mt-2 px-6 py-2.5 rounded-xl font-bold text-sm"
+                  >
+                    Bắt đầu ngay
+                  </button>
                 </div>
               ) : (
                 /* ── 3. Idle state (Before recording OR after transcript received) ── */

@@ -9,6 +9,7 @@ import { PenTool, ArrowLeft } from 'lucide-react'
 import ConfirmExitModal from '../components/ConfirmExitModal'
 import { useExitGuard } from '../hooks/useExitGuard'
 import { renderFeedbackList } from '../utils/feedbackList'
+import { isTaskComplete, countUnsubmitted } from '../utils/writingTasks'
 
 const DEFAULT_WRITING_TIME = 60 * 60
 const SERVER_BASE = 'http://localhost:3001'
@@ -74,10 +75,21 @@ export default function WritingExam() {
   const [gradingTask, setGradingTask] = useState(null)
   const [gradingError, setGradingError] = useState(null)
   const [timeLeft, setTimeLeft] = useState(DEFAULT_WRITING_TIME)
+  const [totalMinutes, setTotalMinutes] = useState(DEFAULT_WRITING_TIME / 60) // hiển thị ở start-screen
   const [lightbox, setLightbox] = useState(null)
   const [showExitConfirm, setShowExitConfirm] = useState(false)
   const [fullTestStatus, setFullTestStatus] = useState(null)
   const pollTimerRef = useRef(null)
+
+  // ── Hết giờ → tự động nộp ──────────────────────────────────────────────────
+  // timeUp: modal chặn (không đóng được) đang hiện. autoSubmitCountdown: 5→0 giây
+  // trước khi tự kích hoạt. autoSubmitting: overlay "đang nộp & chấm" đè lên nhánh
+  // exam cho tới khi allDone. autoSubmitDoneRef: chốt để runAutoSubmit chỉ chạy 1 lần.
+  const [timeUp, setTimeUp] = useState(false)
+  const [autoSubmitCountdown, setAutoSubmitCountdown] = useState(5)
+  const [autoSubmitting, setAutoSubmitting] = useState(false)
+  const [autoSubmitError, setAutoSubmitError] = useState(false)
+  const autoSubmitDoneRef = useRef(false)
 
   // ── Layout mobile ──────────────────────────────────────────────────────────
   // isMobile: cùng pattern resize listener + breakpoint 768 với ReadingExam.
@@ -93,7 +105,7 @@ export default function WritingExam() {
 
   const writingTasks = exam?.writingTasks || []
   const allSubmitted = writingTasks.length > 0 && writingTasks.every(t => results[t.id])
-  const isTaskDone = (tid) => !!results[tid] || submittedTaskIds.includes(tid)
+  const isTaskDone = (tid) => isTaskComplete(tid, results, submittedTaskIds)
 
   // Snapshot của draft đã lưu gần nhất — để so cho điều kiện enabled của useExitGuard.
   const [savedDraftJSON, setSavedDraftJSON] = useState('{"essays":{},"submittedTaskIds":[]}')
@@ -151,7 +163,7 @@ export default function WritingExam() {
     getAdminSettings()
       .then(settings => {
         const mins = parseInt(settings.writing_time)
-        if (!isNaN(mins) && mins > 0) setTimeLeft(mins * 60)
+        if (!isNaN(mins) && mins > 0) { setTimeLeft(mins * 60); setTotalMinutes(mins) }
       })
       .catch(() => {})
     Promise.all([
@@ -237,6 +249,14 @@ export default function WritingExam() {
     return () => clearInterval(t)
   }, [phase, timeLeft])
 
+  // Đồng hồ chạm 0 giữa lúc thi → lưu bản nháp cuối + bật modal chặn (một lần).
+  useEffect(() => {
+    if (phase !== 'exam' || timeLeft > 0) return
+    if (timeUp || autoSubmitting || allSubmitted || autoSubmitDoneRef.current) return
+    persistDraftNow()
+    setTimeUp(true)
+  }, [phase, timeLeft, timeUp, autoSubmitting, allSubmitted, persistDraftNow])
+
   useEffect(() => {
     if (!showExitConfirm && !exitGuard.prompt) return
     const handler = (e) => {
@@ -312,6 +332,48 @@ export default function WritingExam() {
     }
   }
 
+  // ── Auto-submit khi hết giờ ────────────────────────────────────────────────
+  // Nộp mọi task chưa hoàn thành với cờ autoSubmit (backend bỏ qua gate 50 từ;
+  // bài rỗng/quá ngắn → band 0 trả về ngay, không qua Groq). Tái dùng pollStatus
+  // cho task ≥ 50 từ. Task đã xong (isTaskDone) không bị đụng. Chạy đúng 1 lần.
+  const runAutoSubmit = useCallback(async () => {
+    if (autoSubmitDoneRef.current) return
+    autoSubmitDoneRef.current = true
+    setTimeUp(false)
+    setAutoSubmitError(false)
+    setAutoSubmitting(true)
+    persistDraftNow()
+    for (const t of (exam?.writingTasks || [])) {
+      if (isTaskComplete(t.id, results, submittedTaskIds)) continue
+      try {
+        const r = await submitWritingExam(id, t.id, essays[t.id] || '', true)
+        setSubmittedTaskIds(ids => ids.includes(t.id) ? ids : [...ids, t.id])
+        if (r.answerId && r.status === 'pending') {
+          pollStatus(r.answerId, t)
+        } else {
+          setResults(prev => ({ ...prev, [t.id]: r }))
+        }
+      } catch {
+        autoSubmitDoneRef.current = false // cho phép bấm "Thử lại"
+        setAutoSubmitError(true)
+      }
+    }
+  }, [exam, results, submittedTaskIds, essays, id, persistDraftNow])
+
+  // Đếm ngược 5s trong modal hết giờ → tự kích hoạt nộp nếu user không bấm.
+  // Tick + gọi runAutoSubmit đều nằm trong callback của interval (bất đồng bộ) để
+  // không setState đồng bộ trong effect. Countdown luôn bắt đầu từ 5.
+  useEffect(() => {
+    if (!timeUp) return
+    let n = 5
+    const iv = setInterval(() => {
+      n -= 1
+      setAutoSubmitCountdown(n)
+      if (n <= 0) { clearInterval(iv); runAutoSubmit() }
+    }, 1000)
+    return () => clearInterval(iv)
+  }, [timeUp, runAutoSubmit])
+
   if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-400 text-sm">Đang tải đề...</div>
   if (!exam) return <div className="min-h-screen flex items-center justify-center text-gray-400 text-sm">Không tìm thấy đề thi.</div>
 
@@ -326,12 +388,13 @@ export default function WritingExam() {
         </div>
         <h1 className="text-slate-900 text-xl font-bold mb-2 tracking-tight">{exam.title}</h1>
         <p className="text-slate-600 text-sm mb-1">{exam.writingTasks.length} Tasks</p>
-        <p className="text-slate-600 text-sm mb-6">Thời gian: <span className="font-bold text-purple-600">60 phút</span></p>
-        
+        <p className="text-slate-600 text-sm mb-6">Thời gian: <span className="font-bold text-purple-600">{totalMinutes} phút</span></p>
+
         <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 text-left text-sm text-slate-600 mb-8 flex flex-col gap-2.5 leading-relaxed w-full">
           <p className="m-0">• Task 1: mô tả biểu đồ/bản đồ — tối thiểu 150 từ (~20 phút)</p>
           <p className="m-0">• Task 2: viết luận — tối thiểu 250 từ (~40 phút)</p>
           <p className="m-0">• AI chấm điểm theo 4 tiêu chí IELTS</p>
+          <p className="m-0">• Bài sẽ tự nộp khi hết giờ</p>
         </div>
         
         <button
@@ -467,7 +530,7 @@ export default function WritingExam() {
           <span className="font-sans text-sm font-semibold text-white overflow-hidden text-overflow-ellipsis white-space-nowrap">{exam.title}</span>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
-          <div className={`font-mono font-bold text-sm px-3.5 py-1.5 rounded-lg text-white ${timeLeft < 300 ? 'bg-blue-500' : timeLeft < 600 ? 'bg-amber-600' : 'bg-white/15'}`}>
+          <div className={`font-mono font-bold text-sm px-3.5 py-1.5 rounded-lg text-white ${timeLeft < 300 ? 'bg-red-600' : timeLeft < 600 ? 'bg-amber-600' : 'bg-white/15'}`}>
             {fmt(timeLeft)}
           </div>
         </div>
@@ -597,6 +660,53 @@ export default function WritingExam() {
           else { await exitGuard.disarm(); handleBack() }
         }}
       />
+
+      {/* Modal hết giờ — CHẶN, không đóng được bằng ESC / click nền */}
+      {timeUp && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white rounded-[24px] shadow-xl max-w-sm w-full p-8 text-center flex flex-col items-center">
+            <div className="text-4xl mb-3">⏰</div>
+            <h2 className="text-slate-900 text-lg font-bold mb-2">Hết giờ làm bài</h2>
+            <p className="text-slate-600 text-sm leading-relaxed mb-6">
+              Hệ thống sẽ nộp {countUnsubmitted(exam.writingTasks, results, submittedTaskIds)} task chưa hoàn thành của bạn.
+            </p>
+            <button
+              onClick={() => runAutoSubmit()}
+              className="btn-primary w-full py-3 rounded-xl font-bold text-sm"
+            >
+              Nộp bài ngay
+            </button>
+            <p className="text-slate-400 text-xs mt-3">Tự động nộp sau {autoSubmitCountdown}s</p>
+          </div>
+        </div>
+      )}
+
+      {/* Overlay đang nộp & chấm — đè lên nhánh exam cho tới khi allDone */}
+      {autoSubmitting && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white rounded-[24px] shadow-xl max-w-sm w-full p-8 text-center flex flex-col items-center">
+            {autoSubmitError ? (
+              <>
+                <div className="text-4xl mb-3">⚠️</div>
+                <h2 className="text-slate-900 text-lg font-bold mb-2">Nộp bài chưa hoàn tất</h2>
+                <p className="text-slate-600 text-sm leading-relaxed mb-6">Một số task chưa nộp được. Vui lòng thử lại.</p>
+                <button
+                  onClick={() => runAutoSubmit()}
+                  className="btn-primary w-full py-3 rounded-xl font-bold text-sm"
+                >
+                  Thử lại
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="w-10 h-10 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mb-4" />
+                <h2 className="text-slate-900 text-lg font-bold mb-2">Đang nộp &amp; chấm bài…</h2>
+                <p className="text-slate-600 text-sm leading-relaxed">Vui lòng chờ trong giây lát.</p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

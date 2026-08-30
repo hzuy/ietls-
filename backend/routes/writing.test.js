@@ -92,6 +92,89 @@ describe('Writing Submission Routes', () => {
       expect(res.body.message).toBe('Bài viết quá ngắn!')
     })
 
+    describe('autoSubmit — tự động nộp khi hết giờ', () => {
+      it('autoSubmit=true + bài dưới 50 từ → 200 graded band 0, KHÔNG gọi AI', async () => {
+        prismaMock.writingTask.findUnique.mockResolvedValue({ id: 10, examId: 1, prompt: 'p', number: 1 })
+        prismaMock.setting.findUnique.mockResolvedValue(null)
+        prismaMock.writingAnswer.create.mockResolvedValue({ id: 77 })
+
+        const res = await request(app)
+          .post('/api/writing/exams/1/submit')
+          .set('Authorization', `Bearer ${getTestToken()}`)
+          .send({ taskId: 10, essay: 'this essay is way too short', autoSubmit: true })
+
+        expect(res.status).toBe(200)
+        expect(res.body.status).toBe('graded')
+        expect(res.body.answerId).toBe(77)
+        expect(res.body.overall).toBe(0)
+        expect(res.body.criteria.task_achievement.score).toBe(0)
+        expect(res.body.criteria.grammatical_range.comment).toBe('Không đủ dữ liệu để chấm')
+        expect(res.body.strengths).toEqual([])
+        expect(res.body.improvements).toEqual(['Bài viết chưa đủ nội dung để đánh giá.'])
+        // create ghi thẳng status graded + aiScore 0
+        expect(prismaMock.writingAnswer.create).toHaveBeenCalledWith(
+          expect.objectContaining({ data: expect.objectContaining({ status: 'graded', aiScore: 0 }) })
+        )
+        // processWritingAI (Groq) không chạy → không có update status 'grading'
+        expect(prismaMock.writingAnswer.update).not.toHaveBeenCalled()
+      })
+
+      it('autoSubmit=true + essay RỖNG → 200 graded, wordCount 0, không gọi AI', async () => {
+        prismaMock.writingTask.findUnique.mockResolvedValue({ id: 10, examId: 1, prompt: 'p', number: 2 })
+        prismaMock.setting.findUnique.mockResolvedValue(null)
+        prismaMock.writingAnswer.create.mockResolvedValue({ id: 78 })
+
+        const res = await request(app)
+          .post('/api/writing/exams/1/submit')
+          .set('Authorization', `Bearer ${getTestToken()}`)
+          .send({ taskId: 10, essay: '', autoSubmit: true })
+
+        expect(res.status).toBe(200)
+        expect(res.body.status).toBe('graded')
+        expect(res.body.wordCount).toBe(0)
+        expect(prismaMock.writingAnswer.create).toHaveBeenCalledWith(
+          expect.objectContaining({ data: expect.objectContaining({ wordCount: 0, status: 'graded' }) })
+        )
+        expect(prismaMock.writingAnswer.update).not.toHaveBeenCalled()
+      })
+
+      it('autoSubmit=true + bài >= 50 từ → luồng AI bình thường (status pending)', async () => {
+        prismaMock.writingTask.findUnique.mockResolvedValue({ id: 10, examId: 1, prompt: 'Task 1 prompt', number: 1 })
+        prismaMock.setting.findUnique.mockResolvedValue(null)
+        prismaMock.writingAnswer.create.mockResolvedValue({ id: 79, status: 'pending', userId: 1 })
+        prismaMock.writingAnswer.findUnique.mockResolvedValue({ id: 79, userId: 1 })
+        prismaMock.writingAnswer.update.mockResolvedValue({ id: 79, status: 'graded' })
+        prismaMock.writingCriterionLog.createMany.mockResolvedValue({ count: 4 })
+
+        const res = await request(app)
+          .post('/api/writing/exams/1/submit')
+          .set('Authorization', `Bearer ${getTestToken()}`)
+          .send({ taskId: 10, essay: sampleEssay, autoSubmit: true })
+
+        expect(res.status).toBe(200)
+        expect(res.body.status).toBe('pending')
+        expect(res.body.answerId).toBe(79)
+        expect(res.body.wordCount).toBe(60)
+        expect(prismaMock.writingAnswer.create).toHaveBeenCalledWith(
+          expect.objectContaining({ data: expect.objectContaining({ status: 'pending' }) })
+        )
+      })
+
+      it('autoSubmit=false tường minh + bài dưới 50 từ → vẫn 400 như cũ, không tạo answer', async () => {
+        prismaMock.writingTask.findUnique.mockResolvedValue({ id: 10, examId: 1, prompt: 'p', number: 1 })
+        prismaMock.setting.findUnique.mockResolvedValue(null)
+
+        const res = await request(app)
+          .post('/api/writing/exams/1/submit')
+          .set('Authorization', `Bearer ${getTestToken()}`)
+          .send({ taskId: 10, essay: 'still too short', autoSubmit: false })
+
+        expect(res.status).toBe(400)
+        expect(res.body.message).toBe('Bài viết quá ngắn!')
+        expect(prismaMock.writingAnswer.create).not.toHaveBeenCalled()
+      })
+    })
+
     it('creates WritingCriterionLog entries for the 4 IELTS criteria upon AI grading completion', async () => {
       prismaMock.writingTask.findUnique.mockResolvedValue({ id: 10, examId: 1, prompt: 'Task 1 prompt', number: 1 })
       prismaMock.setting.findUnique.mockResolvedValue(null)
