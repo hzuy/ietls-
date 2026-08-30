@@ -345,7 +345,7 @@ export default function ReadingPractice() {
               <div className="flex gap-2">
                 <button onClick={() => { setForm(draftBanner.data); setDraftBanner(null); setIsDirty(true) }}
                   className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-yellow-100 hover:bg-yellow-200 text-yellow-800 border border-yellow-300 transition">Khôi phục</button>
-                <button onClick={() => { localStorage.removeItem(DRAFT_KEY); setDraftBanner(null) }}
+                <button onClick={() => { localStorage.removeItem(getDraftKey()); setDraftBanner(null) }}
                   className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 transition">Bỏ qua</button>
               </div>
             </div>
