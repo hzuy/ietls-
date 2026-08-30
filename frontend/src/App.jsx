@@ -5,6 +5,7 @@ import { AuthProvider } from './context/AuthContext'
 import Footer from './components/Footer'
 import ErrorBoundary from './components/ErrorBoundary'
 import { getAdminSettings } from './services/adminService'
+import { purgeExpiredDrafts } from './services/draftService'
 
 // Eagerly loaded — critical path pages (always needed on first render)
 import Home from './pages/Home'
@@ -99,6 +100,7 @@ function FooterWrapper() {
 // and store system_announcement for display in Navbar
 function AppEffects() {
   useEffect(() => {
+    purgeExpiredDrafts() // dọn draft localStorage quá 7 ngày (1 lần / phiên)
     getAdminSettings()
       .then(settings => {
         if (settings.site_name && settings.site_name.trim()) {

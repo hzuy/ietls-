@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { getSpeakingExam, submitSpeakingExam, getSpeakingStatus, getFullTestStatus, getSpeakingMyResults } from '../services/examService'
-import { saveDraft, loadDraft, clearDraft, isDataEmpty } from '../services/draftService'
+import { saveDraft, loadDraft, clearDraft, isDataEmpty, formatSavedAt } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
 import { useSpeechRecording } from '../hooks/useSpeechRecording'
 import { Mic, ArrowLeft, X, Square, Play, Pause } from 'lucide-react'
@@ -62,6 +62,7 @@ export default function SpeakingExam() {
 
   // Snapshot của draft đã lưu gần nhất — để so cho điều kiện enabled của useExitGuard.
   const [savedDraftJSON, setSavedDraftJSON] = useState('{"transcripts":{},"submittedPartIds":[]}')
+  const [lastSavedAt, setLastSavedAt] = useState(null) // mốc lưu nháp gần nhất — cho indicator header
 
   useEffect(() => {
     return () => {
@@ -92,6 +93,7 @@ export default function SpeakingExam() {
     }
     saveDraft({ userId, examId: id, skillType: 'speaking', data, timeRemaining: null })
     setSavedDraftJSON(JSON.stringify(data))
+    setLastSavedAt(new Date())
   }, [id])
   useEffect(() => {
     if (phase !== 'exam' || previewMode) return
@@ -200,6 +202,7 @@ export default function SpeakingExam() {
             draftIds = Array.isArray(draft.data.submittedPartIds) ? draft.data.submittedPartIds : []
             setTranscripts(prev => ({ ...prev, ...draftTranscripts }))
             setSubmittedPartIds(prev => Array.from(new Set([...prev, ...draftIds])))
+            if (draft.savedAt) setLastSavedAt(new Date(draft.savedAt))
           }
           setPhase('exam')
         }
@@ -541,8 +544,15 @@ export default function SpeakingExam() {
           )}
         </div>
         {!previewMode && (
-          <div className="text-slate-400 text-xs font-semibold">
-            {exam.speakingParts.filter(p => isPartDone(p.id)).length}/{exam.speakingParts.length} parts hoàn thành
+          <div className="flex items-center gap-3 flex-shrink-0">
+            {lastSavedAt && (
+              <span className="font-sans text-[11px] text-white/45 whitespace-nowrap">
+                ✓ Đã lưu {formatSavedAt(lastSavedAt)}
+              </span>
+            )}
+            <span className="text-slate-400 text-xs font-semibold">
+              {exam.speakingParts.filter(p => isPartDone(p.id)).length}/{exam.speakingParts.length} parts hoàn thành
+            </span>
           </div>
         )}
       </header>

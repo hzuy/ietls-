@@ -11,6 +11,17 @@
 
 const PREFIX = 'ielts_draft'
 
+// Draft quá 7 ngày coi như bị bỏ — không mời resume nữa, và bị dọn khỏi localStorage.
+export const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000
+
+// True nếu draft đã quá hạn. savedAt không parse được (NaN) → KHÔNG coi là hết hạn
+// (an toàn: giữ nguyên hành vi cũ thay vì xoá nhầm).
+function isExpired(draft) {
+  const t = Date.parse(draft?.savedAt)
+  if (Number.isNaN(t)) return false
+  return Date.now() - t > DRAFT_TTL_MS
+}
+
 /**
  * Build a unique draft key.
  * @param {string|number} userId
@@ -68,6 +79,9 @@ export function loadDraft(userId, examId, skillType) {
   try {
     const raw = localStorage.getItem(draftKey(userId, examId, skillType))
     const draft = raw ? JSON.parse(raw) : null
+    // Lớp 1 (bỏ qua): draft quá hạn → coi như không tồn tại. checkDraft gọi
+    // loadDraft nên tự kế thừa (badge biến mất, resume không nạp). Không xoá ở đây.
+    if (draft && isExpired(draft)) return null
     // Backward-compat: drafts lưu trước khi đổi field `answers` → `data`
     if (draft && draft.data === undefined && draft.answers !== undefined) {
       draft.data = draft.answers
@@ -86,6 +100,40 @@ export function clearDraft(userId, examId, skillType) {
   try {
     localStorage.removeItem(draftKey(userId, examId, skillType))
   } catch {}
+}
+
+/**
+ * Lớp 2 (dọn nền): quét mọi key `ielts_draft_*` trong localStorage, xoá hẳn cái
+ * quá hạn. An toàn vì lớp 1 (loadDraft/checkDraft) đã ngừng dùng chúng từ trước.
+ * Gọi 1 lần lúc app mount. Mỗi key bọc try/catch riêng — 1 key hỏng không chặn phần còn lại.
+ */
+export function purgeExpiredDrafts() {
+  let keys
+  try {
+    keys = Object.keys(localStorage).filter(k => k.startsWith(`${PREFIX}_`))
+  } catch {
+    return
+  }
+  for (const key of keys) {
+    try {
+      const raw = localStorage.getItem(key)
+      if (!raw) continue
+      if (isExpired(JSON.parse(raw))) localStorage.removeItem(key)
+    } catch {
+      // key rác / JSON hỏng → bỏ qua, không xoá (giữ an toàn)
+    }
+  }
+}
+
+/**
+ * Format một mốc thời gian lưu nháp thành "HH:mm" cho indicator ở header runner.
+ * Nhận Date | ISO string | epoch ms. Trả '' nếu null/không hợp lệ.
+ */
+export function formatSavedAt(value) {
+  if (value == null) return ''
+  const d = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
 /**

@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { getReadingExam, getReadingExamWithAnswers, submitReadingExam, getFullTestStatus } from '../services/examService'
 import { getAdminSettings } from '../services/adminService'
-import { saveDraft, loadDraft, clearDraft } from '../services/draftService'
+import { saveDraft, loadDraft, clearDraft, formatSavedAt } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
 import { BookOpen, ArrowLeft } from 'lucide-react'
 import MatchingTickGrid from '../components/MatchingTickGrid'
@@ -54,6 +54,7 @@ export default function ReadingExam() {
   const bodyRef = useRef(null)
   const isDraggingRef = useRef(false)
   const savedDraftRef = useRef('{}')  // JSON của answers đã ghi vào draft gần nhất
+  const [lastSavedAt, setLastSavedAt] = useState(null) // mốc lưu nháp gần nhất — cho indicator header
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
   const [splitRatio, setSplitRatio] = useState(() => {
     const saved = localStorage.getItem('reading-split-ratio')
@@ -85,6 +86,7 @@ export default function ReadingExam() {
     }
     saveDraft({ userId, examId: id, skillType: 'reading', data: answers, timeRemaining: timeLeft })
     savedDraftRef.current = JSON.stringify(answers)
+    setLastSavedAt(new Date())
   }, [id])
   useEffect(() => {
     if (phase !== 'exam' || previewMode) return
@@ -117,6 +119,7 @@ export default function ReadingExam() {
             setAnswers(draft.data)
             savedDraftRef.current = JSON.stringify(draft.data)
             if (draft.timeRemaining != null) setTimeLeft(draft.timeRemaining)
+            if (draft.savedAt) setLastSavedAt(new Date(draft.savedAt))
           }
           setPhase('exam')
         }
@@ -383,6 +386,11 @@ export default function ReadingExam() {
             </button>
           ) : (
             <>
+              {lastSavedAt && (
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>
+                  ✓ Đã lưu {formatSavedAt(lastSavedAt)}
+                </span>
+              )}
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{answered}/{totalSlots} câu</span>
               <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 14, padding: '4px 12px', borderRadius: 'var(--radius-sm)', background: timeLeft < 300 ? '#dc2626' : timeLeft < 600 ? '#d97706' : 'rgba(255,255,255,0.15)', color: timeLeft < 600 && timeLeft >= 300 ? '#fff' : 'white' }}>
                 {fmt(timeLeft)}

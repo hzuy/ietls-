@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { getWritingExam, submitWritingExam, getWritingStatus, getFullTestStatus, getWritingMyResults } from '../services/examService'
 import { getAdminSettings } from '../services/adminService'
-import { saveDraft, loadDraft, clearDraft, isDataEmpty } from '../services/draftService'
+import { saveDraft, loadDraft, clearDraft, isDataEmpty, formatSavedAt } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
 import { PenTool, ArrowLeft } from 'lucide-react'
 import ConfirmExitModal from '../components/ConfirmExitModal'
@@ -109,6 +109,7 @@ export default function WritingExam() {
 
   // Snapshot của draft đã lưu gần nhất — để so cho điều kiện enabled của useExitGuard.
   const [savedDraftJSON, setSavedDraftJSON] = useState('{"essays":{},"submittedTaskIds":[]}')
+  const [lastSavedAt, setLastSavedAt] = useState(null) // mốc lưu nháp gần nhất — cho indicator header
 
   useEffect(() => {
     return () => {
@@ -139,6 +140,7 @@ export default function WritingExam() {
     }
     saveDraft({ userId, examId: id, skillType: 'writing', data, timeRemaining: timeLeft })
     setSavedDraftJSON(JSON.stringify(data))
+    setLastSavedAt(new Date())
   }, [id])
   useEffect(() => {
     if (phase !== 'exam') return
@@ -207,6 +209,7 @@ export default function WritingExam() {
             setEssays(draftEssays)
             setSubmittedTaskIds(prev => Array.from(new Set([...prev, ...draftIds])))
             if (draft.timeRemaining != null) setTimeLeft(draft.timeRemaining)
+            if (draft.savedAt) setLastSavedAt(new Date(draft.savedAt))
           }
           setPhase('exam')
         }
@@ -530,6 +533,11 @@ export default function WritingExam() {
           <span className="font-sans text-sm font-semibold text-white overflow-hidden text-overflow-ellipsis white-space-nowrap">{exam.title}</span>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
+          {lastSavedAt && (
+            <span className="font-sans text-[11px] text-white/45 whitespace-nowrap">
+              ✓ Đã lưu {formatSavedAt(lastSavedAt)}
+            </span>
+          )}
           <div className={`font-mono font-bold text-sm px-3.5 py-1.5 rounded-lg text-white ${timeLeft < 300 ? 'bg-red-600' : timeLeft < 600 ? 'bg-amber-600' : 'bg-white/15'}`}>
             {fmt(timeLeft)}
           </div>
