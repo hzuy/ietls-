@@ -313,6 +313,7 @@ export default function ReadingPractice() {
   }
   const handleGroupRemove = (i) => {
     setForm(f => ({ ...f, questionGroups: recalcGroups(f.questionGroups.filter((_, idx) => idx !== i)) }))
+    setIsDirty(true)
   }
   const handleGroupMove = (i, dir) => {
     const arr = [...form.questionGroups]; const j = i + dir
@@ -333,7 +334,7 @@ export default function ReadingPractice() {
       <AdminLayout>
         <div className="p-6 max-w-5xl">
           <div className="flex items-center gap-3 mb-6">
-            <button onClick={() => { clearDraft(); setIsDirty(false); setView('list') }} className="text-slate-500 hover:text-slate-700 text-xl font-bold transition">←</button>
+            <button onClick={() => { setIsDirty(false); setView('list') }} className="text-slate-500 hover:text-slate-700 text-xl font-bold transition">←</button>
             <h1 className="text-xl font-bold text-slate-800">
               {editing ? 'Chỉnh sửa bài Reading Practice' : 'Thêm bài Reading Practice mới'}
             </h1>
@@ -432,7 +433,7 @@ export default function ReadingPractice() {
               </button>
 
               <div className="flex gap-2">
-                <button onClick={() => { clearDraft(); setView('list') }} className={btnSecondary + ' flex-1 justify-center'}>Hủy</button>
+                <button onClick={() => setView('list')} className={btnSecondary + ' flex-1 justify-center'}>Hủy</button>
                 <button onClick={handleSave} disabled={saving} className={btnPrimary + ' flex-1 justify-center'}>
                   {saving ? 'Đang lưu...' : 'Lưu bài'}
                 </button>

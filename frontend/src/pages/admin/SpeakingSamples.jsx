@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import AdminLayout from '../../components/AdminLayout'
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges'
 
 import RichTextEditor from '../../components/RichTextEditor'
 import { getSpeakingSamples, getSpeakingSample, createSpeakingSample, updateSpeakingSample, deleteSpeakingSample, uploadSpeakingSampleThumbnail } from '../../services/sampleService'
@@ -29,6 +30,9 @@ const EXAM_TYPE_PLACEHOLDER = {
 
 const EMPTY_FORM = { title: '', level: '', examType: '', content: '', tagInput: '', tags: [], thumbnailUrl: null, thumbPreview: null, thumbFile: null }
 
+// Chữ ký nội dung form (bỏ qua tagInput — chỉ là buffer gõ dở) để phát hiện thay đổi chưa lưu.
+const formSig = (f) => JSON.stringify([f.title, f.level, f.examType, f.content, f.tags, f.thumbnailUrl, !!f.thumbFile])
+
 export default function SpeakingSamples() {
   const [list, setList] = useState([])
   const [loading, setLoading] = useState(true)
@@ -39,7 +43,18 @@ export default function SpeakingSamples() {
   const [delConfirm, setDelConfirm] = useState(null)
   const [draftBanner, setDraftBanner] = useState(null)
   const [draftSavedAt, setDraftSavedAt] = useState(null)
+  const [isDirty, setIsDirty] = useState(false)
+  const pristineRef = useRef('')
   const thumbRef = useRef()
+
+  // Cảnh báo đóng tab / F5 khi form có thay đổi chưa lưu (in-app nav xử lý ở AdminLayout — Bước 3).
+  useUnsavedChanges(view === 'form' && isDirty)
+
+  // isDirty = form hiện tại khác snapshot lúc mở form (openAdd/openEdit đặt lại pristineRef).
+  useEffect(() => {
+    if (view !== 'form') return
+    setIsDirty(formSig(form) !== pristineRef.current)
+  }, [form, view])
 
   const getDraftKey = () => `draft_speaking_sample_${editing?.id || 'new'}`
 
@@ -75,13 +90,18 @@ export default function SpeakingSamples() {
 
   useEffect(() => { load() }, [])
 
-  const openAdd = () => { setForm(EMPTY_FORM); setEditing(null); setView('form') }
+  const openAdd = () => {
+    pristineRef.current = formSig(EMPTY_FORM)
+    setForm(EMPTY_FORM); setEditing(null); setIsDirty(false); setView('form')
+  }
 
   const openEdit = async (item) => {
     try {
       const data = await getSpeakingSample(item.id)
-      setForm({ title: data.title, level: data.level || '', examType: data.examType || '', content: data.content || '', tagInput: '', tags: data.tags || [], thumbnailUrl: data.thumbnailUrl, thumbPreview: resolveImg(data.thumbnailUrl), thumbFile: null })
-      setEditing(data); setView('form')
+      const next = { title: data.title, level: data.level || '', examType: data.examType || '', content: data.content || '', tagInput: '', tags: data.tags || [], thumbnailUrl: data.thumbnailUrl, thumbPreview: resolveImg(data.thumbnailUrl), thumbFile: null }
+      pristineRef.current = formSig(next)
+      setForm(next)
+      setEditing(data); setIsDirty(false); setView('form')
     } catch { alert('Lỗi tải') }
   }
 
@@ -106,7 +126,7 @@ export default function SpeakingSamples() {
         const fd = new FormData(); fd.append('thumbnail', form.thumbFile)
         await uploadSpeakingSampleThumbnail(id, fd)
       }
-      clearDraft(); setView('list'); load()
+      setIsDirty(false); clearDraft(); setView('list'); load()
     } catch (err) { alert(err.response?.data?.message || 'Lỗi lưu') }
     setSaving(false)
   }
@@ -121,7 +141,7 @@ export default function SpeakingSamples() {
       <AdminLayout>
         <div className="p-6 max-w-4xl">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-            <button onClick={() => { clearDraft(); setView('list') }} style={{ color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', fontSize: 20 }}>←</button>
+            <button onClick={() => setView('list')} style={{ color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', fontSize: 20 }}>←</button>
             <h1 className="text-xl font-bold text-gray-800">{editing ? 'Chỉnh sửa Speaking Sample' : 'Thêm Speaking Sample mới'}</h1>
           </div>
 
@@ -206,7 +226,7 @@ export default function SpeakingSamples() {
                 <input ref={thumbRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={e => { const f = e.target.files[0]; if (f) setForm(prev => ({ ...prev, thumbFile: f, thumbPreview: URL.createObjectURL(f) })) }} />
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => { clearDraft(); setView('list') }} className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 font-medium">Hủy</button>
+                <button onClick={() => setView('list')} className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 font-medium">Hủy</button>
                 <button onClick={handleSave} disabled={saving} className="flex-1 px-4 py-2.5 rounded-xl bg-[#1D4ED8] text-white text-sm font-bold hover:bg-[#1D4ED8] transition disabled:opacity-50">{saving ? 'Đang lưu...' : 'Lưu'}</button>
               </div>
             </div>

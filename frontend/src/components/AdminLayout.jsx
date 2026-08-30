@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useFormDirty } from '../context/FormDirtyContext'
+import { NAV_LEAVE_MSG } from '../hooks/useUnsavedChanges'
 import { getTrashCount, onTrashChanged } from '../services/adminService'
 import {
   LayoutDashboard,
@@ -53,7 +55,11 @@ export default function AdminLayout({ children }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { role, handleLogout: authLogout } = useAuth()
+  const isDirty = useFormDirty()
   const NAV = NAV_ALL.filter(item => item.roles.includes(role))
+
+  // Chặn điều hướng in-app khi form đang dở: trả false nếu người dùng chọn ở lại.
+  const confirmLeave = () => !isDirty || window.confirm(NAV_LEAVE_MSG)
   const [showLogout, setShowLogout] = useState(false)
   const [trashCount, setTrashCount] = useState(0)
 
@@ -109,6 +115,7 @@ export default function AdminLayout({ children }) {
                 key={item.to + item.label}
                 to={item.to}
                 end={item.end}
+                onClick={(e) => { if (!isActive && !confirmLeave()) e.preventDefault() }}
                 className={navCls(isActive)}
               >
                 <IconComp
@@ -127,7 +134,7 @@ export default function AdminLayout({ children }) {
           })}
           <a
             href="#"
-            onClick={(e) => { e.preventDefault(); setShowLogout(true) }}
+            onClick={(e) => { e.preventDefault(); if (confirmLeave()) setShowLogout(true) }}
             role="button"
             tabIndex={0}
             className={navCls(false)}

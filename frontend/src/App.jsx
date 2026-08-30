@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import { AuthProvider } from './context/AuthContext'
+import { FormDirtyProvider } from './context/FormDirtyContext'
 import Footer from './components/Footer'
 import ErrorBoundary from './components/ErrorBoundary'
 import { getAdminSettings } from './services/adminService'
@@ -123,6 +124,7 @@ export default function App() {
       <BrowserRouter>
         <AuthProvider>
           <AppEffects />
+          <FormDirtyProvider>
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/login" element={<Navigate to="/" replace state={{ authModal: 'login' }} />} />
@@ -177,6 +179,7 @@ export default function App() {
             </Routes>
           </Suspense>
           <FooterWrapper />
+          </FormDirtyProvider>
         </AuthProvider>
       </BrowserRouter>
     </ErrorBoundary>

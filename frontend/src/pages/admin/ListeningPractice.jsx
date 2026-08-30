@@ -232,6 +232,7 @@ export default function ListeningPractice() {
   }
   const handleGroupRemove = (i) => {
     setForm(f => ({ ...f, questionGroups: recalcGroups(f.questionGroups.filter((_, idx) => idx !== i)) }))
+    setIsDirty(true)
   }
   const handleGroupMove = (i, dir) => {
     setForm(f => {
@@ -240,6 +241,7 @@ export default function ListeningPractice() {
       ;[arr[i], arr[j]] = [arr[j], arr[i]]
       return { ...f, questionGroups: recalcGroups(arr) }
     })
+    setIsDirty(true)
   }
   const handleAddGroup = () => {
     const lastEnd = form.questionGroups.length > 0 ? form.questionGroups[form.questionGroups.length - 1].qNumberEnd : 0
@@ -303,7 +305,7 @@ export default function ListeningPractice() {
       <AdminLayout>
         <div className="p-6 max-w-5xl">
           <div className="flex items-center gap-3 mb-6">
-            <button onClick={() => { clearDraft(); setIsDirty(false); setView('list') }} className="text-slate-500 hover:text-slate-700 text-xl font-bold transition">←</button>
+            <button onClick={() => { setIsDirty(false); setView('list') }} className="text-slate-500 hover:text-slate-700 text-xl font-bold transition">←</button>
             <h1 className="text-xl font-bold text-slate-800">
               {editing ? 'Chỉnh sửa bài Listening Practice' : 'Thêm bài Listening Practice mới'}
             </h1>
@@ -429,7 +431,7 @@ export default function ListeningPractice() {
               </button>
 
               <div className="flex gap-2">
-                <button onClick={() => { clearDraft(); setView('list') }} className={btnSecondary + ' flex-1 justify-center'}>Hủy</button>
+                <button onClick={() => setView('list')} className={btnSecondary + ' flex-1 justify-center'}>Hủy</button>
                 <button onClick={handleSave} disabled={saving} className={btnPrimary + ' flex-1 justify-center'}>
                   {saving ? 'Đang lưu...' : 'Lưu bài'}
                 </button>
