@@ -8,8 +8,8 @@ const mockTranscribe = vi.fn().mockResolvedValue({ text: 'Hello world transcript
 
 const prismaMock = {
   setting: { findUnique: vi.fn() },
-  speakingPart: { findUnique: vi.fn() },
-  speakingAnswer: { create: vi.fn(), update: vi.fn(), findUnique: vi.fn() },
+  speakingPart: { findUnique: vi.fn(), findMany: vi.fn() },
+  speakingAnswer: { create: vi.fn(), update: vi.fn(), findUnique: vi.fn(), findMany: vi.fn() },
   speakingCriterionLog: { createMany: vi.fn() },
   attempt: { count: vi.fn() },
 }
@@ -164,6 +164,114 @@ describe('Speaking Routes & AI Criterion Logging', () => {
 
       expect(res.status).toBe(200)
       expect(res.body.status).toBe('pending')
+    })
+  })
+
+  describe('GET /api/speaking/exams/:id/my-results (Tầng 4 — khôi phục kết quả đã chấm)', () => {
+    const fb = (overall) => JSON.stringify({
+      overall,
+      criteria: { fluency: { score: overall, comment: 'x' } },
+      strengths: 'ok', improvements: 'more',
+    })
+
+    it('returns the LATEST graded answer per part when a part was submitted multiple times, incl. transcript', async () => {
+      prismaMock.speakingPart.findMany.mockResolvedValue([{ id: 20 }, { id: 21 }])
+      // route queries orderBy createdAt desc → newest first
+      prismaMock.speakingAnswer.findMany.mockResolvedValue([
+        { id: 902, partId: 20, status: 'graded', transcript: 'newest answer', aiFeedback: fb(7) },
+        { id: 901, partId: 20, status: 'graded', transcript: 'older answer', aiFeedback: fb(5.5) },
+        { id: 911, partId: 21, status: 'graded', transcript: 'part 21 answer', aiFeedback: fb(6) },
+      ])
+
+      const res = await request(app)
+        .get('/api/speaking/exams/1/my-results')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+
+      expect(res.status).toBe(200)
+      expect(res.body).toHaveLength(2)
+      const p20 = res.body.find(r => r.partId === 20)
+      expect(p20.answerId).toBe(902)
+      expect(p20.overall).toBe(7)
+      expect(p20.transcript).toBe('newest answer')
+      expect(p20.status).toBe('graded')
+    })
+
+    it('scopes the answer query to the authenticated user (userId in where clause)', async () => {
+      prismaMock.speakingPart.findMany.mockResolvedValue([{ id: 20 }])
+      prismaMock.speakingAnswer.findMany.mockResolvedValue([])
+
+      await request(app)
+        .get('/api/speaking/exams/1/my-results')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+
+      expect(prismaMock.speakingAnswer.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ userId: 1, partId: { in: [20] } }),
+        })
+      )
+    })
+
+    it('skips pending / failed answers — only graded entries appear', async () => {
+      prismaMock.speakingPart.findMany.mockResolvedValue([{ id: 20 }, { id: 21 }, { id: 22 }])
+      prismaMock.speakingAnswer.findMany.mockResolvedValue([
+        { id: 1001, partId: 20, status: 'graded', transcript: 't', aiFeedback: fb(6) },
+        { id: 1002, partId: 21, status: 'grading', transcript: 't', aiFeedback: null },
+        { id: 1003, partId: 22, status: 'failed', transcript: 't', aiFeedback: null },
+      ])
+
+      const res = await request(app)
+        .get('/api/speaking/exams/1/my-results')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+
+      expect(res.status).toBe(200)
+      expect(res.body).toHaveLength(1)
+      expect(res.body[0].partId).toBe(20)
+    })
+
+    it('omits parts that were never submitted', async () => {
+      prismaMock.speakingPart.findMany.mockResolvedValue([{ id: 20 }, { id: 21 }, { id: 22 }])
+      prismaMock.speakingAnswer.findMany.mockResolvedValue([
+        { id: 1101, partId: 21, status: 'graded', transcript: 't', aiFeedback: fb(6) },
+      ])
+
+      const res = await request(app)
+        .get('/api/speaking/exams/1/my-results')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+
+      expect(res.body.map(r => r.partId)).toEqual([21])
+    })
+
+    it('a corrupt aiFeedback JSON is skipped, the rest of the response still returns', async () => {
+      prismaMock.speakingPart.findMany.mockResolvedValue([{ id: 20 }, { id: 21 }])
+      prismaMock.speakingAnswer.findMany.mockResolvedValue([
+        { id: 1201, partId: 20, status: 'graded', transcript: 't', aiFeedback: 'not json{' },
+        { id: 1202, partId: 21, status: 'graded', transcript: 't', aiFeedback: fb(6.5) },
+      ])
+
+      const res = await request(app)
+        .get('/api/speaking/exams/1/my-results')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+
+      expect(res.status).toBe(200)
+      expect(res.body).toHaveLength(1)
+      expect(res.body[0].partId).toBe(21)
+    })
+
+    it('returns [] when the exam has no speaking parts', async () => {
+      prismaMock.speakingPart.findMany.mockResolvedValue([])
+
+      const res = await request(app)
+        .get('/api/speaking/exams/999/my-results')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+
+      expect(res.status).toBe(200)
+      expect(res.body).toEqual([])
+      expect(prismaMock.speakingAnswer.findMany).not.toHaveBeenCalled()
+    })
+
+    it('returns 401 without a token', async () => {
+      const res = await request(app).get('/api/speaking/exams/1/my-results')
+      expect(res.status).toBe(401)
     })
   })
 })

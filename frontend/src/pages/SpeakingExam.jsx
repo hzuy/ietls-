@@ -1,37 +1,20 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
-import { getSpeakingExam, submitSpeakingExam, getSpeakingStatus, getFullTestStatus } from '../services/examService'
+import { getSpeakingExam, submitSpeakingExam, getSpeakingStatus, getFullTestStatus, getSpeakingMyResults } from '../services/examService'
 import { saveDraft, loadDraft, clearDraft, isDataEmpty } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
 import { useSpeechRecording } from '../hooks/useSpeechRecording'
 import { Mic, ArrowLeft, X, Square, Play, Pause } from 'lucide-react'
 import ConfirmExitModal from '../components/ConfirmExitModal'
 import { useExitGuard } from '../hooks/useExitGuard'
+import { renderFeedbackList } from '../utils/feedbackList'
 
 const CRITERIA_LABELS = {
   fluency: 'Fluency',
   vocabulary: 'Vocabulary',
   grammar: 'Grammar',
   pronunciation: 'Pronunciation',
-}
-
-function renderFeedbackList(text, bulletColorClass = 'text-sky-600') {
-  if (!text) return null
-  const items = text.split(/\r?\n|•|-|\*/).map(s => s.trim()).filter(Boolean)
-  if (items.length <= 1) {
-    return <p className="text-slate-600 text-sm leading-relaxed m-0 font-medium">{text}</p>
-  }
-  return (
-    <ul className="list-none p-0 m-0 flex flex-col gap-3">
-      {items.map((item, index) => (
-        <li key={index} className="flex items-start gap-2.5 text-slate-600 text-sm leading-relaxed font-medium">
-          <span className={`font-bold select-none ${bulletColorClass}`} style={{ marginTop: '2px' }}>•</span>
-          <span>{item}</span>
-        </li>
-      ))}
-    </ul>
-  )
 }
 
 export default function SpeakingExam() {
@@ -149,21 +132,62 @@ export default function SpeakingExam() {
   // ── Load exam ────────────────────────────────────────────────────────────────
   useEffect(() => {
     document.title = 'Bài thi Speaking | IELTS Pro'
-    getSpeakingExam(id)
-      .then(data => {
+    Promise.all([
+      getSpeakingExam(id),
+      // Tầng 4: khôi phục kết quả đã chấm từ server — độc lập với resume draft,
+      // gọi vô điều kiện. Lỗi ở đây KHÔNG được làm hỏng việc load đề.
+      getSpeakingMyResults(id).catch(() => []),
+    ])
+      .then(([data, myResults]) => {
         setExam(data)
+
+        // ── Khôi phục kết quả đã chấm (status 'graded') ─────────────────────
+        // Set `results` + `submittedPartIds` cho part có trong response, và
+        // `transcripts` (để ô "Bài nói của bạn" hiển thị lại đúng).
+        const restoredResults = {}
+        const restoredTranscripts = {}
+        const restoredIds = []
+        if (Array.isArray(myResults)) {
+          for (const entry of myResults) {
+            if (entry && entry.partId != null && entry.status === 'graded') {
+              restoredResults[entry.partId] = entry
+              restoredIds.push(entry.partId)
+              if (entry.transcript) restoredTranscripts[entry.partId] = entry.transcript
+            }
+          }
+        }
+        if (restoredIds.length > 0) {
+          // `...prev` sau cùng: nếu polling phiên này vừa set kết quả mới hơn thì giữ nguyên
+          setResults(prev => ({ ...restoredResults, ...prev }))
+          setSubmittedPartIds(prev => Array.from(new Set([...prev, ...restoredIds])))
+          setTranscripts(prev => ({ ...restoredTranscripts, ...prev }))
+        }
+
+        // ── Resume draft cục bộ (logic cũ, dùng functional update để không
+        //    clobber phần state mà nhánh khôi phục vừa set) ─────────────────
+        let draftTranscripts = null
+        let draftIds = []
         if (resumeMode && user) {
           const userId = user.id || user._id
           const draft = loadDraft(userId, id, 'speaking')
           if (draft?.data && !isDataEmpty(draft.data)) {
-            const trs = draft.data.transcripts || {}
-            const ids = Array.isArray(draft.data.submittedPartIds) ? draft.data.submittedPartIds : []
-            setTranscripts(trs)
-            setSubmittedPartIds(ids)
-            setSavedDraftJSON(JSON.stringify({ transcripts: trs, submittedPartIds: ids }))
+            draftTranscripts = draft.data.transcripts || {}
+            draftIds = Array.isArray(draft.data.submittedPartIds) ? draft.data.submittedPartIds : []
+            setTranscripts(prev => ({ ...prev, ...draftTranscripts }))
+            setSubmittedPartIds(prev => Array.from(new Set([...prev, ...draftIds])))
           }
           setPhase('exam')
         }
+
+        // Đồng bộ snapshot "đã lưu": khôi phục từ server KHÔNG được tự kích hoạt
+        // exit-guard (kết quả graded + transcript đã nằm trên server, không có
+        // gì để mất). Draft cục bộ đè lên transcript khôi phục nếu trùng part.
+        // Thứ tự [restoredIds, draftIds] khớp đúng thứ tự 2 functional update ở
+        // trên (nhánh khôi phục chạy trước) để JSON.stringify so bằng hasUnsavedWork.
+        setSavedDraftJSON(JSON.stringify({
+          transcripts: { ...restoredTranscripts, ...(draftTranscripts || {}) },
+          submittedPartIds: Array.from(new Set([...restoredIds, ...draftIds])),
+        }))
       })
       .catch(() => navigate('/full-test', { replace: true }))
       .finally(() => setLoading(false))

@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
-import { getWritingExam, submitWritingExam, getWritingStatus, getFullTestStatus } from '../services/examService'
+import { getWritingExam, submitWritingExam, getWritingStatus, getFullTestStatus, getWritingMyResults } from '../services/examService'
 import { getAdminSettings } from '../services/adminService'
 import { saveDraft, loadDraft, clearDraft, isDataEmpty } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
 import { PenTool, ArrowLeft } from 'lucide-react'
 import ConfirmExitModal from '../components/ConfirmExitModal'
 import { useExitGuard } from '../hooks/useExitGuard'
+import { renderFeedbackList } from '../utils/feedbackList'
 
 const DEFAULT_WRITING_TIME = 60 * 60
 const SERVER_BASE = 'http://localhost:3001'
@@ -19,37 +20,6 @@ function fmt(s) {
 
 function wc(text) {
   return text.trim() ? text.trim().split(/\s+/).length : 0
-}
-
-export function renderFeedbackList(input, bulletColorClass = 'text-purple-600') {
-  if (!input) return null
-
-  let items = []
-  if (typeof input === 'string') {
-    items = input.split(/\r?\n|•|-|\*/).map(s => s.trim()).filter(Boolean)
-  } else if (Array.isArray(input)) {
-    items = input.map(item => typeof item === 'string' ? item.trim() : String(item)).filter(Boolean)
-  } else if (typeof input === 'object' && input !== null) {
-    items = Object.values(input).map(val => typeof val === 'string' ? val.trim() : String(val)).filter(Boolean)
-  } else {
-    items = [String(input)]
-  }
-
-  if (items.length === 0) return null
-
-  if (items.length <= 1) {
-    return <p className="text-slate-600 text-sm leading-relaxed m-0 font-medium">{items[0]}</p>
-  }
-  return (
-    <ul className="list-none p-0 m-0 flex flex-col gap-3">
-      {items.map((item, index) => (
-        <li key={index} className="flex items-start gap-2.5 text-slate-600 text-sm leading-relaxed font-medium">
-          <span className={`font-bold select-none ${bulletColorClass}`} style={{ marginTop: '2px' }}>•</span>
-          <span>{item}</span>
-        </li>
-      ))}
-    </ul>
-  )
 }
 
 const CRITERIA_LABELS = {
@@ -171,22 +141,59 @@ export default function WritingExam() {
         if (!isNaN(mins) && mins > 0) setTimeLeft(mins * 60)
       })
       .catch(() => {})
-    getWritingExam(id)
-      .then(data => {
+    Promise.all([
+      getWritingExam(id),
+      // Tầng 4: khôi phục kết quả đã chấm từ server — độc lập với resume draft,
+      // gọi vô điều kiện. Lỗi ở đây KHÔNG được làm hỏng việc load đề.
+      getWritingMyResults(id).catch(() => []),
+    ])
+      .then(([data, myResults]) => {
         setExam(data)
+
+        // ── Khôi phục kết quả đã chấm (status 'graded') ─────────────────────
+        // Chỉ set `results` + `submittedTaskIds` cho task có trong response;
+        // KHÔNG đụng `essays` → task chưa nộp vẫn gõ tiếp bình thường.
+        const restoredResults = {}
+        const restoredIds = []
+        if (Array.isArray(myResults)) {
+          for (const entry of myResults) {
+            if (entry && entry.taskId != null && entry.status === 'graded') {
+              restoredResults[entry.taskId] = entry
+              restoredIds.push(entry.taskId)
+            }
+          }
+        }
+        if (restoredIds.length > 0) {
+          // `...prev` sau cùng: nếu polling phiên này vừa set kết quả mới hơn thì giữ nguyên
+          setResults(prev => ({ ...restoredResults, ...prev }))
+          setSubmittedTaskIds(prev => Array.from(new Set([...prev, ...restoredIds])))
+        }
+
+        // ── Resume draft cục bộ (logic cũ, dùng functional update để không
+        //    clobber phần submittedTaskIds mà nhánh khôi phục vừa set) ───────
+        let draftEssays = null
+        let draftIds = []
         if (resumeMode && user) {
           const userId = user.id || user._id
           const draft = loadDraft(userId, id, 'writing')
           if (draft?.data && !isDataEmpty(draft.data)) {
-            const esss = draft.data.essays || {}
-            const ids = Array.isArray(draft.data.submittedTaskIds) ? draft.data.submittedTaskIds : []
-            setEssays(esss)
-            setSubmittedTaskIds(ids)
-            setSavedDraftJSON(JSON.stringify({ essays: esss, submittedTaskIds: ids }))
+            draftEssays = draft.data.essays || {}
+            draftIds = Array.isArray(draft.data.submittedTaskIds) ? draft.data.submittedTaskIds : []
+            setEssays(draftEssays)
+            setSubmittedTaskIds(prev => Array.from(new Set([...prev, ...draftIds])))
             if (draft.timeRemaining != null) setTimeLeft(draft.timeRemaining)
           }
           setPhase('exam')
         }
+
+        // Đồng bộ snapshot "đã lưu": khôi phục từ server KHÔNG được tự kích hoạt
+        // exit-guard (kết quả graded đã nằm trên server, không có gì để mất).
+        // Thứ tự [restoredIds, draftIds] khớp đúng thứ tự 2 functional update ở
+        // trên (nhánh khôi phục chạy trước) để JSON.stringify so bằng hasUnsavedWork.
+        setSavedDraftJSON(JSON.stringify({
+          essays: draftEssays || {},
+          submittedTaskIds: Array.from(new Set([...restoredIds, ...draftIds])),
+        }))
       })
       .catch(() => navigate('/full-test', { replace: true }))
       .finally(() => setLoading(false))

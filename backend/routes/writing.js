@@ -60,6 +60,58 @@ router.get('/exams/:id', authMiddleware, async (req, res) => {
   }
 })
 
+// Khôi phục kết quả đã chấm của CHÍNH user cho 1 đề Writing (Tầng 4).
+// "Latest wins" theo taskId (pattern giống fulltest.js) — chỉ trả task đã có
+// answer với status 'graded' + aiFeedback parse được. Client merge thẳng vào
+// state `results` (key theo taskId) mà không phải sửa UI render.
+router.get('/exams/:id/my-results', authMiddleware, async (req, res) => {
+  try {
+    const examId = parseInt(req.params.id)
+    const userId = req.user.userId
+
+    const tasks = await prisma.writingTask.findMany({
+      where: { examId },
+      select: { id: true }
+    })
+    const taskIds = tasks.map(t => t.id)
+    if (taskIds.length === 0) return res.json([])
+
+    // userId trong where clause ngay từ đầu — không thể chạm answer của user khác
+    const answers = await prisma.writingAnswer.findMany({
+      where: { userId, taskId: { in: taskIds } },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, taskId: true, status: true, aiFeedback: true, wordCount: true }
+    })
+
+    // list đã desc theo createdAt → bản đầu tiên gặp cho mỗi task = mới nhất
+    const latestByTask = {}
+    for (const a of answers) {
+      if (!latestByTask[a.taskId]) latestByTask[a.taskId] = a
+    }
+
+    const results = []
+    for (const a of Object.values(latestByTask)) {
+      if (a.status !== 'graded' || !a.aiFeedback) continue
+      let feedback
+      try { feedback = JSON.parse(a.aiFeedback) } catch { continue }
+      results.push({
+        taskId: a.taskId,
+        answerId: a.id,
+        status: 'graded',
+        overall: feedback.overall,
+        criteria: feedback.criteria,
+        strengths: feedback.strengths,
+        improvements: feedback.improvements,
+        wordCount: a.wordCount
+      })
+    }
+
+    res.json(results)
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
 async function processWritingAI(answerId, taskPrompt, taskNumber, essay) {
   try {
     await prisma.writingAnswer.update({

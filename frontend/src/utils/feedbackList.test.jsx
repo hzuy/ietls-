@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { renderFeedbackList } from './WritingExam'
+import { renderFeedbackList } from './feedbackList'
 
-describe('WritingExam - renderFeedbackList', () => {
+describe('feedbackList - renderFeedbackList', () => {
   it('handles string input correctly', () => {
     const stringInput = 'Good vocabulary usage.\nClear paragraph structure.'
     render(renderFeedbackList(stringInput))

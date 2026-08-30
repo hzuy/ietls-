@@ -90,6 +90,59 @@ router.get('/exams/:id', authMiddleware, async (req, res) => {
   }
 })
 
+// Khôi phục kết quả đã chấm của CHÍNH user cho 1 đề Speaking (Tầng 4).
+// "Latest wins" theo partId (pattern giống fulltest.js) — chỉ trả part đã có
+// answer với status 'graded' + aiFeedback parse được. Kèm transcript để ô
+// "Bài nói của bạn" hiển thị đúng sau khi khôi phục. Client merge vào state
+// `results` (key theo partId) mà không phải sửa UI render.
+router.get('/exams/:id/my-results', authMiddleware, async (req, res) => {
+  try {
+    const examId = parseInt(req.params.id)
+    const userId = req.user.userId
+
+    const parts = await prisma.speakingPart.findMany({
+      where: { examId },
+      select: { id: true }
+    })
+    const partIds = parts.map(p => p.id)
+    if (partIds.length === 0) return res.json([])
+
+    // userId trong where clause ngay từ đầu — không thể chạm answer của user khác
+    const answers = await prisma.speakingAnswer.findMany({
+      where: { userId, partId: { in: partIds } },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, partId: true, status: true, aiFeedback: true, transcript: true }
+    })
+
+    // list đã desc theo createdAt → bản đầu tiên gặp cho mỗi part = mới nhất
+    const latestByPart = {}
+    for (const a of answers) {
+      if (!latestByPart[a.partId]) latestByPart[a.partId] = a
+    }
+
+    const results = []
+    for (const a of Object.values(latestByPart)) {
+      if (a.status !== 'graded' || !a.aiFeedback) continue
+      let feedback
+      try { feedback = JSON.parse(a.aiFeedback) } catch { continue }
+      results.push({
+        partId: a.partId,
+        answerId: a.id,
+        status: 'graded',
+        overall: feedback.overall,
+        criteria: feedback.criteria,
+        strengths: feedback.strengths,
+        improvements: feedback.improvements,
+        transcript: a.transcript
+      })
+    }
+
+    res.json(results)
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
 // ── POST /speaking/transcribe — Whisper STT fallback (Brave/Firefox/Safari) ──
 // Nhận chunk audio và dịch text. Dùng prompt context để tránh duplicate word khi chia chunk.
 router.post('/transcribe', authMiddleware, audioUpload.single('audio'), validate(transcribeSchema), async (req, res) => {

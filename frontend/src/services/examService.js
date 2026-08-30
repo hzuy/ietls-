@@ -58,6 +58,11 @@ export const submitSpeakingExam = (id, partId, transcript) => api.post(`/speakin
 export const getWritingStatus = (answerId) => api.get(`/writing/answers/${answerId}/status`).then(r => r.data)
 export const getSpeakingStatus = (answerId) => api.get(`/speaking/answers/${answerId}/status`).then(r => r.data)
 
+// Tầng 4: khôi phục kết quả đã chấm (status 'graded') của chính user cho 1 đề.
+// Trả mảng entry — Writing key theo taskId, Speaking key theo partId.
+export const getWritingMyResults = (id) => api.get(`/writing/exams/${id}/my-results`).then(r => r.data)
+export const getSpeakingMyResults = (id) => api.get(`/speaking/exams/${id}/my-results`).then(r => r.data)
+
 export const getFullTestStatus = (examId) => api.get(`/full-test/status?examId=${examId}`).then(r => r.data)
 export const getFullTestResult = (seriesId, bookNumber, testNumber) =>
   api.get(`/full-test/result?seriesId=${seriesId}&bookNumber=${bookNumber}&testNumber=${testNumber}`).then(r => r.data)
