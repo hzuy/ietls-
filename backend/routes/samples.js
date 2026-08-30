@@ -6,6 +6,7 @@ const authMiddleware = require('../middleware/auth')
 const validate = require('../middleware/validate')
 const prisma = require('../lib/prisma')
 const { createSampleSchema, updateSampleSchema } = require('../validators/contentValidator')
+const { sanitizeRichText } = require('../lib/sanitizeHtml')
 
 const router = express.Router()
 
@@ -146,7 +147,7 @@ router.post('/admin/writing', authMiddleware, teacherOrAdmin, validate(createSam
   try {
     const { title, level, examType, content, thumbnailUrl, tags } = req.body
     const s = await prisma.writingSample.create({
-      data: { title: title.trim(), level: level || null, examType: examType || null, content: content || null, thumbnailUrl: thumbnailUrl || null, tags: tags ? JSON.stringify(tags) : null }
+      data: { title: title.trim(), level: level || null, examType: examType || null, content: sanitizeRichText(content) || null, thumbnailUrl: thumbnailUrl || null, tags: tags ? JSON.stringify(tags) : null }
     })
     res.status(201).json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
   } catch (err) {
@@ -158,7 +159,7 @@ router.post('/admin/speaking', authMiddleware, teacherOrAdmin, validate(createSa
   try {
     const { title, level, examType, content, thumbnailUrl, tags } = req.body
     const s = await prisma.speakingSample.create({
-      data: { title: title.trim(), level: level || null, examType: examType || null, content: content || null, thumbnailUrl: thumbnailUrl || null, tags: tags ? JSON.stringify(tags) : null }
+      data: { title: title.trim(), level: level || null, examType: examType || null, content: sanitizeRichText(content) || null, thumbnailUrl: thumbnailUrl || null, tags: tags ? JSON.stringify(tags) : null }
     })
     res.status(201).json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
   } catch (err) {
@@ -174,7 +175,7 @@ router.put('/admin/writing/:id', authMiddleware, teacherOrAdmin, validate(update
     if (title !== undefined) data.title = title.trim()
     if (level !== undefined) data.level = level || null
     if (examType !== undefined) data.examType = examType || null
-    if (content !== undefined) data.content = content
+    if (content !== undefined) data.content = sanitizeRichText(content)
     if (thumbnailUrl !== undefined) data.thumbnailUrl = thumbnailUrl
     if (tags !== undefined) data.tags = JSON.stringify(tags)
     const s = await prisma.writingSample.update({ where: { id: parseInt(req.params.id) }, data })
@@ -191,7 +192,7 @@ router.put('/admin/speaking/:id', authMiddleware, teacherOrAdmin, validate(updat
     if (title !== undefined) data.title = title.trim()
     if (level !== undefined) data.level = level || null
     if (examType !== undefined) data.examType = examType || null
-    if (content !== undefined) data.content = content
+    if (content !== undefined) data.content = sanitizeRichText(content)
     if (thumbnailUrl !== undefined) data.thumbnailUrl = thumbnailUrl
     if (tags !== undefined) data.tags = JSON.stringify(tags)
     const s = await prisma.speakingSample.update({ where: { id: parseInt(req.params.id) }, data })

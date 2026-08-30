@@ -4,6 +4,7 @@ import Navbar from '../components/Navbar'
 
 import SampleHeader from '../components/SampleHeader'
 import { getSample } from '../services/sampleService'
+import { sanitizeRichText } from '../utils/sanitizeHtml'
 
 const BACKEND_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3001'
 
@@ -98,7 +99,7 @@ export default function SampleDetailPage({ skill }) {
             {sample.content ? (
               <div
                 className="rich-content"
-                dangerouslySetInnerHTML={{ __html: sample.content }}
+                dangerouslySetInnerHTML={{ __html: sanitizeRichText(sample.content) }}
                 style={{ fontFamily: 'var(--font-body)', fontSize: 17, lineHeight: 1.8, color: 'var(--text)' }}
               />
             ) : skill === 'speaking' && sample.parts?.length > 0 ? (
