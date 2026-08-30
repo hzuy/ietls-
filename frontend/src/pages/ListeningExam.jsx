@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { getListeningExam, getListeningExamWithAnswers, submitListeningExam, getFullTestStatus } from '../services/examService'
@@ -55,9 +55,39 @@ export default function ListeningExam() {
   const bottomBarRef = useRef(null)
   const savedDraftRef = useRef('{}')  // JSON của answers đã ghi vào draft gần nhất
 
+  // ── Autosave draft ─────────────────────────────────────────────────────────
+  // MỘT interval sống suốt phiên (deps [phase, previewMode, id]). KHÔNG đưa
+  // answers/timeLeft/user vào deps — đổi liên tục → interval bị reset, không bao
+  // giờ fire. Đọc state mới nhất qua ref (sync mỗi render). persistDraftNow() còn
+  // được useExitGuard gọi ngay tại mọi điểm thoát bài (onBeforeExit).
+  const autosaveRef = useRef(null)
+  useEffect(() => {
+    autosaveRef.current = {
+      answers, timeLeft,
+      userId: user ? (user.id || user._id) : null,
+    }
+  })
+  const persistDraftNow = useCallback(() => {
+    const { answers, timeLeft, userId } = autosaveRef.current
+    if (!userId || !id) return
+    // P3-2: đừng để answers rỗng ghi đè một draft cũ không rỗng
+    // (vd reload KHÔNG kèm ?resume=true → vào 'exam' với answers = {})
+    if (Object.keys(answers).length === 0) {
+      const existing = loadDraft(userId, id, 'listening')
+      if (existing?.data && Object.keys(existing.data).length > 0) return
+    }
+    saveDraft({ userId, examId: id, skillType: 'listening', data: answers, timeRemaining: timeLeft })
+    savedDraftRef.current = JSON.stringify(answers)
+  }, [id])
+  useEffect(() => {
+    if (phase !== 'exam' || previewMode) return
+    const interval = setInterval(persistDraftNow, 30000)
+    return () => clearInterval(interval)
+  }, [phase, previewMode, id, persistDraftNow])
+
   // Cảnh báo khi thoát bằng Back/Forward/refresh nếu có đáp án chưa ghi vào draft
   const hasUnsavedAnswers = JSON.stringify(answers) !== savedDraftRef.current
-  const exitGuard = useExitGuard(phase === 'exam' && !previewMode && hasUnsavedAnswers)
+  const exitGuard = useExitGuard(phase === 'exam' && !previewMode && hasUnsavedAnswers, persistDraftNow)
 
   useEffect(() => {
     document.title = 'Bài thi Listening | IELTS Pro'
@@ -75,9 +105,9 @@ export default function ListeningExam() {
         if (resumeMode && user) {
           const userId = user.id || user._id
           const draft = loadDraft(userId, id, 'listening')
-          if (draft?.answers && Object.keys(draft.answers).length > 0) {
-            setAnswers(draft.answers)
-            savedDraftRef.current = JSON.stringify(draft.answers)
+          if (draft?.data && Object.keys(draft.data).length > 0) {
+            setAnswers(draft.data)
+            savedDraftRef.current = JSON.stringify(draft.data)
             if (draft.timeRemaining != null) setTimeLeft(draft.timeRemaining)
           }
           setPhase('exam')
@@ -99,23 +129,6 @@ export default function ListeningExam() {
     const t = setInterval(() => setTimeLeft(s => s - 1), 1000)
     return () => clearInterval(t)
   }, [phase, timeLeft, result, previewMode])
-
-  // Auto-save draft every 30 seconds
-  useEffect(() => {
-    if (phase !== 'exam' || previewMode || !user || !id) return
-    const userId = user.id || user._id
-    const interval = setInterval(() => {
-      // P3-2: đừng để answers rỗng ghi đè một draft cũ không rỗng
-      // (vd reload KHÔNG kèm ?resume=true → vào 'exam' với answers = {})
-      if (Object.keys(answers).length === 0) {
-        const existing = loadDraft(userId, id, 'listening')
-        if (existing?.answers && Object.keys(existing.answers).length > 0) return
-      }
-      saveDraft({ userId, examId: id, skillType: 'listening', answers, timeRemaining: timeLeft })
-      savedDraftRef.current = JSON.stringify(answers)
-    }, 30000)
-    return () => clearInterval(interval)
-  }, [phase, answers, timeLeft, previewMode, user, id])
 
   useEffect(() => {
     if (audioRef.current) {
@@ -178,8 +191,9 @@ export default function ListeningExam() {
     setSubmitting(true)
     try {
       await submitListeningExam(id, answers)
-      if (user) clearDraft(user.id || user._id, id, 'listening')
+      // disarm() gọi persistDraftNow (onBeforeExit) → clearDraft PHẢI chạy SAU nó
       await exitGuard.disarm()
+      if (user) clearDraft(user.id || user._id, id, 'listening')
       navigate(`/listening/${id}/result`, { replace: true })
     } catch (e) {
       alert(e?.response?.data?.message || e?.message || 'Lỗi nộp bài thi. Vui lòng thử lại.')

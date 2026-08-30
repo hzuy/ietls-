@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { getWritingExam, submitWritingExam, getWritingStatus, getFullTestStatus } from '../services/examService'
 import { getAdminSettings } from '../services/adminService'
+import { saveDraft, loadDraft, clearDraft, isDataEmpty } from '../services/draftService'
+import { useAuth } from '../context/AuthContext'
 import { PenTool, ArrowLeft } from 'lucide-react'
 import ConfirmExitModal from '../components/ConfirmExitModal'
 import { useExitGuard } from '../hooks/useExitGuard'
@@ -87,12 +89,16 @@ function ImageLightbox({ src, onClose }) {
 export default function WritingExam() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const resumeMode = searchParams.get('resume') === 'true'
+  const { user } = useAuth()
   const [exam, setExam] = useState(null)
   const [loading, setLoading] = useState(true)
   const [phase, setPhase] = useState('start')
   const [activeTask, setActiveTask] = useState(0)
   const [essays, setEssays] = useState({}) // { taskId: text }
   const [results, setResults] = useState({}) // { taskId: result }
+  const [submittedTaskIds, setSubmittedTaskIds] = useState([]) // task đã nộp (kể cả phiên trước)
   const [submitting, setSubmitting] = useState(false)
   const [gradingTask, setGradingTask] = useState(null)
   const [gradingError, setGradingError] = useState(null)
@@ -102,12 +108,12 @@ export default function WritingExam() {
   const [fullTestStatus, setFullTestStatus] = useState(null)
   const pollTimerRef = useRef(null)
 
-  // Guard thoát: chưa có draftService/autosave ở batch này → điều kiện tạm là
-  // "có task đã gõ nội dung nhưng chưa nộp".
   const writingTasks = exam?.writingTasks || []
-  const hasUnsubmittedWork = writingTasks.some(t => (essays[t.id] || '').trim() && !results[t.id])
   const allSubmitted = writingTasks.length > 0 && writingTasks.every(t => results[t.id])
-  const exitGuard = useExitGuard(phase === 'exam' && hasUnsubmittedWork)
+  const isTaskDone = (tid) => !!results[tid] || submittedTaskIds.includes(tid)
+
+  // Snapshot của draft đã lưu gần nhất — để so cho điều kiện enabled của useExitGuard.
+  const [savedDraftJSON, setSavedDraftJSON] = useState('{"essays":{},"submittedTaskIds":[]}')
 
   useEffect(() => {
     return () => {
@@ -115,10 +121,46 @@ export default function WritingExam() {
     }
   }, [])
 
-  // Nộp hết task → gỡ sentinel để không nằm lại mồ côi trong history
+  // ── Autosave draft ─────────────────────────────────────────────────────────
+  // MỘT interval sống suốt phiên (deps [phase, id]). KHÔNG đưa essays/submittedTaskIds/
+  // timeLeft/user vào deps — đổi liên tục → interval bị reset, không bao giờ fire.
+  // Đọc state mới nhất qua ref. persistDraftNow() còn được useExitGuard gọi ngay
+  // tại mọi điểm thoát bài (onBeforeExit).
+  const autosaveRef = useRef(null)
   useEffect(() => {
-    if (allSubmitted) exitGuard.disarm()
-  }, [allSubmitted, exitGuard.disarm])
+    autosaveRef.current = {
+      essays, submittedTaskIds, timeLeft,
+      userId: user ? (user.id || user._id) : null,
+    }
+  })
+  const persistDraftNow = useCallback(() => {
+    const { essays, submittedTaskIds, timeLeft, userId } = autosaveRef.current
+    if (!userId || !id) return
+    const data = { essays, submittedTaskIds }
+    // P3-2: đừng để data rỗng ghi đè một draft cũ không rỗng
+    if (isDataEmpty(data)) {
+      const existing = loadDraft(userId, id, 'writing')
+      if (existing && !isDataEmpty(existing.data)) return
+    }
+    saveDraft({ userId, examId: id, skillType: 'writing', data, timeRemaining: timeLeft })
+    setSavedDraftJSON(JSON.stringify(data))
+  }, [id])
+  useEffect(() => {
+    if (phase !== 'exam') return
+    const interval = setInterval(persistDraftNow, 30000)
+    return () => clearInterval(interval)
+  }, [phase, id, persistDraftNow])
+
+  // Guard thoát: bật khi data hiện tại lệch với draft đã lưu.
+  const hasUnsavedWork = JSON.stringify({ essays, submittedTaskIds }) !== savedDraftJSON
+  const exitGuard = useExitGuard(phase === 'exam' && hasUnsavedWork, persistDraftNow)
+
+  // Nộp + chấm xong hết → gỡ sentinel + xoá draft
+  useEffect(() => {
+    if (!allSubmitted) return
+    exitGuard.disarm()
+    if (user && id) clearDraft(user.id || user._id, id, 'writing')
+  }, [allSubmitted, exitGuard.disarm, user, id])
 
   useEffect(() => {
     document.title = 'Bài thi Writing | IELTS Pro'
@@ -129,7 +171,25 @@ export default function WritingExam() {
         if (!isNaN(mins) && mins > 0) setTimeLeft(mins * 60)
       })
       .catch(() => {})
-    getWritingExam(id).then(data => setExam(data)).catch(() => navigate('/full-test', { replace: true })).finally(() => setLoading(false))
+    getWritingExam(id)
+      .then(data => {
+        setExam(data)
+        if (resumeMode && user) {
+          const userId = user.id || user._id
+          const draft = loadDraft(userId, id, 'writing')
+          if (draft?.data && !isDataEmpty(draft.data)) {
+            const esss = draft.data.essays || {}
+            const ids = Array.isArray(draft.data.submittedTaskIds) ? draft.data.submittedTaskIds : []
+            setEssays(esss)
+            setSubmittedTaskIds(ids)
+            setSavedDraftJSON(JSON.stringify({ essays: esss, submittedTaskIds: ids }))
+            if (draft.timeRemaining != null) setTimeLeft(draft.timeRemaining)
+          }
+          setPhase('exam')
+        }
+      })
+      .catch(() => navigate('/full-test', { replace: true }))
+      .finally(() => setLoading(false))
   }, [id])
 
   useEffect(() => {
@@ -206,6 +266,7 @@ export default function WritingExam() {
     setGradingTask(task.id)
     try {
       const r = await submitWritingExam(id, task.id, essay)
+      setSubmittedTaskIds(ids => ids.includes(task.id) ? ids : [...ids, task.id])
       if (r.answerId && r.status === 'pending') {
         pollStatus(r.answerId, task)
       } else {
@@ -364,7 +425,7 @@ export default function WritingExam() {
   const taskEssay = essays[task.id] || ''
   const words = wc(taskEssay)
   const minWords = task.minWords || (task.number === 1 ? 150 : 250)
-  const taskDone = !!results[task.id]
+  const taskDone = isTaskDone(task.id)
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-slate-50">
@@ -387,7 +448,7 @@ export default function WritingExam() {
           <button key={t.id} onClick={() => setActiveTask(i)}
             className={`px-5 py-3 text-sm font-medium border-none cursor-pointer border-b-2 transition-all duration-300 flex items-center gap-2 ${activeTask === i ? 'border-purple-500 bg-white/5 text-white' : 'border-transparent text-slate-400 hover:text-slate-200'}`}>
             Task {t.number}
-            {results[t.id] && <span className="text-[10px] bg-purple-600 text-white px-2 py-0.5 rounded-full font-bold">Đã nộp</span>}
+            {isTaskDone(t.id) && <span className="text-[10px] bg-purple-600 text-white px-2 py-0.5 rounded-full font-bold">Đã nộp</span>}
           </button>
         ))}
       </div>
@@ -427,7 +488,7 @@ export default function WritingExam() {
               <div className="text-4xl mb-4">✅</div>
               <p className="font-bold text-slate-800 text-lg mb-1">Task {task.number} đã được nộp!</p>
               <p className="text-slate-500 text-sm mb-6 leading-relaxed">Kết quả chi tiết từ AI sẽ hiển thị sau khi hoàn thành tất cả các tasks của bài thi viết.</p>
-              {exam.writingTasks.length > 1 && activeTask < exam.writingTasks.length - 1 && !results[exam.writingTasks[activeTask + 1]?.id] && (
+              {exam.writingTasks.length > 1 && activeTask < exam.writingTasks.length - 1 && !isTaskDone(exam.writingTasks[activeTask + 1]?.id) && (
                 <button onClick={() => setActiveTask(activeTask + 1)} className="btn-primary px-6 py-2.5 rounded-xl font-bold transition text-sm">
                   Làm Task {task.number + 1} →
                 </button>

@@ -23,6 +23,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  * beforeunload dialog giữa bài. Đây là hành vi đã biết, xử lý riêng ở P3-6.
  *
  * @param {boolean} enabled — bật/tắt guard; điều kiện kích hoạt do nơi gọi tự quyết.
+ * @param {(() => void)} [onBeforeExit] — hàm ĐỒNG BỘ (tuỳ chọn) chạy ngay trước MỌI
+ *   điểm thoát bài: đầu handler beforeunload, đầu leave(), đầu disarm(). Dùng để
+ *   flush draft xuống localStorage ngay lập tức (localStorage.setItem là sync nên
+ *   an toàn trong beforeunload). Lỗi trong hàm này được nuốt — không chặn việc thoát.
  * @returns {{ prompt: boolean, stay: () => void, leave: () => void, disarm: () => Promise<void> }}
  *   prompt — true khi một lần Back/Forward đang bị giữ lại chờ xác nhận.
  *   stay   — người dùng chọn ở lại làm tiếp → đóng prompt, chèn lại sentinel.
@@ -32,10 +36,17 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  *            bài thành công). "Ăn" nốt sentinel còn trong history để nó không nằm
  *            lại như một entry mồ côi, rồi resolve → nơi gọi navigate() tiếp.
  */
-export function useExitGuard(enabled) {
+export function useExitGuard(enabled, onBeforeExit) {
   const [prompt, setPrompt] = useState(false)
   const armedRef = useRef(false)   // sentinel có đang nằm trong history không
   const bypassRef = useRef(false)  // bỏ qua đúng 1 popstate kế tiếp (do leave() gây ra)
+
+  // Đọc onBeforeExit qua ref (sync mỗi render) → không phải đưa vào deps effect.
+  const onBeforeExitRef = useRef(onBeforeExit)
+  useEffect(() => { onBeforeExitRef.current = onBeforeExit })
+  const runBeforeExit = useCallback(() => {
+    try { onBeforeExitRef.current?.() } catch { /* lỗi lưu không được chặn việc thoát */ }
+  }, [])
 
   const arm = useCallback(() => {
     if (armedRef.current) return
@@ -54,6 +65,7 @@ export function useExitGuard(enabled) {
       setPrompt(true)
     }
     const onBeforeUnload = (e) => {
+      runBeforeExit()          // flush draft trước khi trình duyệt hiện dialog
       e.preventDefault()
       e.returnValue = ''
       return ''
@@ -65,7 +77,7 @@ export function useExitGuard(enabled) {
       window.removeEventListener('popstate', onPopState)
       window.removeEventListener('beforeunload', onBeforeUnload)
     }
-  }, [enabled, arm])
+  }, [enabled, arm, runBeforeExit])
 
   const stay = useCallback(() => {
     setPrompt(false)
@@ -73,12 +85,14 @@ export function useExitGuard(enabled) {
   }, [arm])
 
   const leave = useCallback(() => {
+    runBeforeExit()   // flush draft trước khi thả history.back()
     setPrompt(false)
     bypassRef.current = true
     window.history.back()
-  }, [])
+  }, [runBeforeExit])
 
   const disarm = useCallback(() => {
+    runBeforeExit()   // flush draft trước khi "ăn" sentinel (✕ → Thoát / nộp bài)
     setPrompt(false)
     if (!armedRef.current) return Promise.resolve()
     armedRef.current = false
@@ -97,7 +111,7 @@ export function useExitGuard(enabled) {
       // Fallback: back() không đi đâu (vd sentinel là entry đầu của tab)
       setTimeout(finish, 200)
     })
-  }, [])
+  }, [runBeforeExit])
 
   return { prompt, stay, leave, disarm }
 }

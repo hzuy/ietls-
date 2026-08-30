@@ -1,7 +1,12 @@
 /**
  * draftService.js
  * Manages in-progress exam drafts in localStorage.
- * Key format: draft_{userId}_{examId}_{skillType}
+ * Key format: ielts_draft_{userId}_{examId}_{skillType}
+ *
+ * `data` là payload tuỳ kỹ năng:
+ *   reading / listening → { [questionId]: answer }
+ *   writing             → { essays: { [taskId]: text }, submittedTaskIds: number[] }
+ *   speaking            → { transcripts: { [partId]: text }, submittedPartIds: number[] }
  */
 
 const PREFIX = 'ielts_draft'
@@ -17,17 +22,33 @@ function draftKey(userId, examId, skillType) {
 }
 
 /**
- * Save a draft.
- * @param {{ userId, examId, skillType, answers, timeRemaining, savedAt }} data
+ * Có phải "rỗng thực sự" không — không chứa nội dung gì đáng lưu.
+ * Đệ quy để xử lý được cả map phẳng (reading/listening) lẫn shape lồng
+ * (writing: { essays, submittedTaskIds } / speaking: { transcripts, submittedPartIds }).
  */
-export function saveDraft({ userId, examId, skillType, answers, timeRemaining }) {
+export function isDataEmpty(data) {
+  if (data == null) return true
+  if (typeof data === 'string') return data.trim() === ''
+  if (Array.isArray(data)) return data.every(isDataEmpty)
+  if (typeof data === 'object') {
+    const values = Object.values(data)
+    return values.length === 0 || values.every(isDataEmpty)
+  }
+  return false // number / boolean → coi là có nội dung
+}
+
+/**
+ * Save a draft.
+ * @param {{ userId, examId, skillType, data, timeRemaining }} payload
+ */
+export function saveDraft({ userId, examId, skillType, data, timeRemaining }) {
   if (!userId || !examId || !skillType) return
   const key = draftKey(userId, examId, skillType)
   const payload = {
     userId,
     examId,
     skillType,
-    answers: answers || {},
+    data: data || {},
     timeRemaining: timeRemaining ?? null,
     savedAt: new Date().toISOString(),
   }
@@ -46,7 +67,12 @@ export function loadDraft(userId, examId, skillType) {
   if (!userId || !examId || !skillType) return null
   try {
     const raw = localStorage.getItem(draftKey(userId, examId, skillType))
-    return raw ? JSON.parse(raw) : null
+    const draft = raw ? JSON.parse(raw) : null
+    // Backward-compat: drafts lưu trước khi đổi field `answers` → `data`
+    if (draft && draft.data === undefined && draft.answers !== undefined) {
+      draft.data = draft.answers
+    }
+    return draft
   } catch {
     return null
   }
@@ -63,16 +89,14 @@ export function clearDraft(userId, examId, skillType) {
 }
 
 /**
- * Check if a draft exists and return minimal info { hasDraft, savedAt }.
+ * Check if a draft exists with real content. Returns { hasDraft, savedAt, timeRemaining }.
  */
 export function checkDraft(userId, examId, skillType) {
   const draft = loadDraft(userId, examId, skillType)
-  if (!draft) return { hasDraft: false }
-  const answerCount = Object.keys(draft.answers || {}).length
+  if (!draft || isDataEmpty(draft.data)) return { hasDraft: false }
   return {
-    hasDraft: answerCount > 0,
+    hasDraft: true,
     savedAt: draft.savedAt,
-    answerCount,
     timeRemaining: draft.timeRemaining,
   }
 }

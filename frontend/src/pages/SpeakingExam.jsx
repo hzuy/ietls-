@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { getSpeakingExam, submitSpeakingExam, getSpeakingStatus, getFullTestStatus } from '../services/examService'
+import { saveDraft, loadDraft, clearDraft, isDataEmpty } from '../services/draftService'
+import { useAuth } from '../context/AuthContext'
 import { useSpeechRecording } from '../hooks/useSpeechRecording'
 import { Mic, ArrowLeft, X, Square, Play, Pause } from 'lucide-react'
 import ConfirmExitModal from '../components/ConfirmExitModal'
@@ -37,6 +39,8 @@ export default function SpeakingExam() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const previewMode = searchParams.get('preview') === 'true'
+  const resumeMode = searchParams.get('resume') === 'true'
+  const { user } = useAuth()
 
   const [exam, setExam] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -44,6 +48,7 @@ export default function SpeakingExam() {
   const [activePart, setActivePart] = useState(0)
   const [transcripts, setTranscripts] = useState({}) // { partId: text }
   const [results, setResults] = useState({})         // { partId: result }
+  const [submittedPartIds, setSubmittedPartIds] = useState([]) // part đã nộp (kể cả phiên trước)
   const [submitting, setSubmitting] = useState(false)
   const [gradingPart, setGradingPart] = useState(null)
   const [gradingError, setGradingError] = useState(null)
@@ -51,22 +56,59 @@ export default function SpeakingExam() {
   const [fullTestStatus, setFullTestStatus] = useState(null)
   const pollTimerRef = useRef(null)
 
-  // Guard thoát: chưa có draftService/autosave ở batch này → điều kiện tạm là
-  // "có part đã ghi/nói ra transcript nhưng chưa nộp".
   const speakingParts = exam?.speakingParts || []
-  const hasUnsubmittedWork = speakingParts.some(p => (transcripts[p.id] || '').trim() && !results[p.id])
   const allSubmitted = speakingParts.length > 0 && speakingParts.every(p => results[p.id])
-  const exitGuard = useExitGuard(phase === 'exam' && !previewMode && hasUnsubmittedWork)
+  const isPartDone = (pid) => !!results[pid] || submittedPartIds.includes(pid)
 
-  useEffect(() => {
-    if (allSubmitted) exitGuard.disarm()
-  }, [allSubmitted, exitGuard.disarm])
+  // Snapshot của draft đã lưu gần nhất — để so cho điều kiện enabled của useExitGuard.
+  const [savedDraftJSON, setSavedDraftJSON] = useState('{"transcripts":{},"submittedPartIds":[]}')
 
   useEffect(() => {
     return () => {
       if (pollTimerRef.current) clearTimeout(pollTimerRef.current)
     }
   }, [])
+
+  // ── Autosave draft ─────────────────────────────────────────────────────────
+  // MỘT interval sống suốt phiên (deps [phase, previewMode, id]). KHÔNG đưa
+  // transcripts/submittedPartIds/user vào deps — đổi liên tục khi ghi âm → interval
+  // bị reset, không bao giờ fire. Đọc state mới nhất qua ref. persistDraftNow() còn
+  // được useExitGuard gọi ngay tại mọi điểm thoát bài (onBeforeExit).
+  const autosaveRef = useRef(null)
+  useEffect(() => {
+    autosaveRef.current = {
+      transcripts, submittedPartIds,
+      userId: user ? (user.id || user._id) : null,
+    }
+  })
+  const persistDraftNow = useCallback(() => {
+    const { transcripts, submittedPartIds, userId } = autosaveRef.current
+    if (!userId || !id) return
+    const data = { transcripts, submittedPartIds }
+    // P3-2: đừng để data rỗng ghi đè một draft cũ không rỗng
+    if (isDataEmpty(data)) {
+      const existing = loadDraft(userId, id, 'speaking')
+      if (existing && !isDataEmpty(existing.data)) return
+    }
+    saveDraft({ userId, examId: id, skillType: 'speaking', data, timeRemaining: null })
+    setSavedDraftJSON(JSON.stringify(data))
+  }, [id])
+  useEffect(() => {
+    if (phase !== 'exam' || previewMode) return
+    const interval = setInterval(persistDraftNow, 30000)
+    return () => clearInterval(interval)
+  }, [phase, previewMode, id, persistDraftNow])
+
+  // Guard thoát: bật khi data hiện tại lệch với draft đã lưu.
+  const hasUnsavedWork = JSON.stringify({ transcripts, submittedPartIds }) !== savedDraftJSON
+  const exitGuard = useExitGuard(phase === 'exam' && !previewMode && hasUnsavedWork, persistDraftNow)
+
+  // Nộp + chấm xong hết → gỡ sentinel + xoá draft
+  useEffect(() => {
+    if (!allSubmitted) return
+    exitGuard.disarm()
+    if (user && id) clearDraft(user.id || user._id, id, 'speaking')
+  }, [allSubmitted, exitGuard.disarm, user, id])
 
   // ── Centralized Speech Recording Hook ──────────────────────────────────────
   const {
@@ -108,7 +150,21 @@ export default function SpeakingExam() {
   useEffect(() => {
     document.title = 'Bài thi Speaking | IELTS Pro'
     getSpeakingExam(id)
-      .then(data => setExam(data))
+      .then(data => {
+        setExam(data)
+        if (resumeMode && user) {
+          const userId = user.id || user._id
+          const draft = loadDraft(userId, id, 'speaking')
+          if (draft?.data && !isDataEmpty(draft.data)) {
+            const trs = draft.data.transcripts || {}
+            const ids = Array.isArray(draft.data.submittedPartIds) ? draft.data.submittedPartIds : []
+            setTranscripts(trs)
+            setSubmittedPartIds(ids)
+            setSavedDraftJSON(JSON.stringify({ transcripts: trs, submittedPartIds: ids }))
+          }
+          setPhase('exam')
+        }
+      })
       .catch(() => navigate('/full-test', { replace: true }))
       .finally(() => setLoading(false))
   }, [id, navigate])
@@ -199,6 +255,7 @@ export default function SpeakingExam() {
     setGradingPart(part.id)
     try {
       const r = await submitSpeakingExam(id, part.id, transcript)
+      setSubmittedPartIds(ids => ids.includes(part.id) ? ids : [...ids, part.id])
       if (r.answerId && r.status === 'pending') {
         pollStatus(r.answerId, part)
       } else {
@@ -371,7 +428,7 @@ export default function SpeakingExam() {
   const part = exam.speakingParts[activePart]
   const partTranscript = transcripts[part.id] || ''
   const wordCount = partTranscript.trim().split(/\s+/).filter(Boolean).length
-  const partDone = !!results[part.id]
+  const partDone = isPartDone(part.id)
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-slate-50">
@@ -390,7 +447,7 @@ export default function SpeakingExam() {
         </div>
         {!previewMode && (
           <div className="text-slate-400 text-xs font-semibold">
-            {exam.speakingParts.filter(p => results[p.id]).length}/{exam.speakingParts.length} parts hoàn thành
+            {exam.speakingParts.filter(p => isPartDone(p.id)).length}/{exam.speakingParts.length} parts hoàn thành
           </div>
         )}
       </header>
@@ -404,7 +461,7 @@ export default function SpeakingExam() {
             className={`px-5 py-3 text-sm font-medium border-none cursor-pointer border-b-2 transition-all duration-300 flex items-center gap-2 ${activePart === i ? 'border-sky-500 bg-white/5 text-white' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
           >
             Part {p.number}
-            {results[p.id] && (
+            {isPartDone(p.id) && (
               <span className="text-[10px] bg-sky-600 text-white px-2 py-0.5 rounded-full font-bold">Đã nộp</span>
             )}
           </button>
