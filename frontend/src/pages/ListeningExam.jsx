@@ -21,6 +21,7 @@ import { GroupBlock, QuestionBlock, groupByType } from '../components/exam/liste
 import { fmt } from '../utils/practiceUtils'
 import { toImgSrc } from '../utils/practiceConfig'
 import ConfirmExitModal from '../components/ConfirmExitModal'
+import { useExitGuard } from '../hooks/useExitGuard'
 
 
 const DEFAULT_LISTENING_TIME = 40 * 60
@@ -52,6 +53,11 @@ export default function ListeningExam() {
   const [bottomBarHeight, setBottomBarHeight] = useState(0)
   const audioRef = useRef(null)
   const bottomBarRef = useRef(null)
+  const savedDraftRef = useRef('{}')  // JSON của answers đã ghi vào draft gần nhất
+
+  // Cảnh báo khi thoát bằng Back/Forward/refresh nếu có đáp án chưa ghi vào draft
+  const hasUnsavedAnswers = JSON.stringify(answers) !== savedDraftRef.current
+  const exitGuard = useExitGuard(phase === 'exam' && !previewMode && hasUnsavedAnswers)
 
   useEffect(() => {
     document.title = 'Bài thi Listening | IELTS Pro'
@@ -71,6 +77,7 @@ export default function ListeningExam() {
           const draft = loadDraft(userId, id, 'listening')
           if (draft?.answers && Object.keys(draft.answers).length > 0) {
             setAnswers(draft.answers)
+            savedDraftRef.current = JSON.stringify(draft.answers)
             if (draft.timeRemaining != null) setTimeLeft(draft.timeRemaining)
           }
           setPhase('exam')
@@ -98,7 +105,14 @@ export default function ListeningExam() {
     if (phase !== 'exam' || previewMode || !user || !id) return
     const userId = user.id || user._id
     const interval = setInterval(() => {
+      // P3-2: đừng để answers rỗng ghi đè một draft cũ không rỗng
+      // (vd reload KHÔNG kèm ?resume=true → vào 'exam' với answers = {})
+      if (Object.keys(answers).length === 0) {
+        const existing = loadDraft(userId, id, 'listening')
+        if (existing?.answers && Object.keys(existing.answers).length > 0) return
+      }
       saveDraft({ userId, examId: id, skillType: 'listening', answers, timeRemaining: timeLeft })
+      savedDraftRef.current = JSON.stringify(answers)
     }, 30000)
     return () => clearInterval(interval)
   }, [phase, answers, timeLeft, previewMode, user, id])
@@ -118,11 +132,13 @@ export default function ListeningExam() {
   }, [showConfirm])
 
   useEffect(() => {
-    if (!showExitConfirm) return
-    const handler = (e) => { if (e.key === 'Escape') setShowExitConfirm(false) }
+    if (!showExitConfirm && !exitGuard.prompt) return
+    const handler = (e) => {
+      if (e.key === 'Escape') { setShowExitConfirm(false); exitGuard.stay() }
+    }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [showExitConfirm])
+  }, [showExitConfirm, exitGuard.prompt, exitGuard.stay])
 
   useEffect(() => {
     if (!showQuestionPanel) return
@@ -163,6 +179,7 @@ export default function ListeningExam() {
     try {
       await submitListeningExam(id, answers)
       if (user) clearDraft(user.id || user._id, id, 'listening')
+      await exitGuard.disarm()
       navigate(`/listening/${id}/result`, { replace: true })
     } catch (e) {
       alert(e?.response?.data?.message || e?.message || 'Lỗi nộp bài thi. Vui lòng thử lại.')
@@ -445,11 +462,15 @@ export default function ListeningExam() {
         </>
       )}
 
-      {/* Exit confirm modal */}
+      {/* Exit confirm modal — dùng chung cho nút ✕ và guard Back/Forward */}
       <ConfirmExitModal
-        isOpen={showExitConfirm}
-        onClose={() => setShowExitConfirm(false)}
-        onConfirm={handleBack}
+        isOpen={showExitConfirm || exitGuard.prompt}
+        onClose={() => { setShowExitConfirm(false); exitGuard.stay() }}
+        onConfirm={async () => {
+          setShowExitConfirm(false)
+          if (exitGuard.prompt) { exitGuard.leave() }
+          else { await exitGuard.disarm(); handleBack() }
+        }}
       />
 
       {/* Confirm submit modal */}

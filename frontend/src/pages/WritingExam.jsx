@@ -5,6 +5,7 @@ import { getWritingExam, submitWritingExam, getWritingStatus, getFullTestStatus 
 import { getAdminSettings } from '../services/adminService'
 import { PenTool, ArrowLeft } from 'lucide-react'
 import ConfirmExitModal from '../components/ConfirmExitModal'
+import { useExitGuard } from '../hooks/useExitGuard'
 
 const DEFAULT_WRITING_TIME = 60 * 60
 const SERVER_BASE = 'http://localhost:3001'
@@ -101,11 +102,23 @@ export default function WritingExam() {
   const [fullTestStatus, setFullTestStatus] = useState(null)
   const pollTimerRef = useRef(null)
 
+  // Guard thoát: chưa có draftService/autosave ở batch này → điều kiện tạm là
+  // "có task đã gõ nội dung nhưng chưa nộp".
+  const writingTasks = exam?.writingTasks || []
+  const hasUnsubmittedWork = writingTasks.some(t => (essays[t.id] || '').trim() && !results[t.id])
+  const allSubmitted = writingTasks.length > 0 && writingTasks.every(t => results[t.id])
+  const exitGuard = useExitGuard(phase === 'exam' && hasUnsubmittedWork)
+
   useEffect(() => {
     return () => {
       if (pollTimerRef.current) clearTimeout(pollTimerRef.current)
     }
   }, [])
+
+  // Nộp hết task → gỡ sentinel để không nằm lại mồ côi trong history
+  useEffect(() => {
+    if (allSubmitted) exitGuard.disarm()
+  }, [allSubmitted, exitGuard.disarm])
 
   useEffect(() => {
     document.title = 'Bài thi Writing | IELTS Pro'
@@ -145,11 +158,13 @@ export default function WritingExam() {
   }, [phase, timeLeft])
 
   useEffect(() => {
-    if (!showExitConfirm) return
-    const handler = (e) => { if (e.key === 'Escape') setShowExitConfirm(false) }
+    if (!showExitConfirm && !exitGuard.prompt) return
+    const handler = (e) => {
+      if (e.key === 'Escape') { setShowExitConfirm(false); exitGuard.stay() }
+    }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [showExitConfirm])
+  }, [showExitConfirm, exitGuard.prompt, exitGuard.stay])
 
   const setEssay = (taskId, text) => setEssays(e => ({ ...e, [taskId]: text }))
 
@@ -462,11 +477,15 @@ export default function WritingExam() {
         </div>
       </div>
 
-      {/* Exit confirm modal */}
+      {/* Exit confirm modal — dùng chung cho nút ✕ và guard Back/Forward */}
       <ConfirmExitModal
-        isOpen={showExitConfirm}
-        onClose={() => setShowExitConfirm(false)}
-        onConfirm={handleBack}
+        isOpen={showExitConfirm || exitGuard.prompt}
+        onClose={() => { setShowExitConfirm(false); exitGuard.stay() }}
+        onConfirm={async () => {
+          setShowExitConfirm(false)
+          if (exitGuard.prompt) { exitGuard.leave() }
+          else { await exitGuard.disarm(); handleBack() }
+        }}
       />
     </div>
   )

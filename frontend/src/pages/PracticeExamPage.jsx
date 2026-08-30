@@ -12,6 +12,7 @@ import MatchingHeadingsGroup from '../components/MatchingHeadingsGroup'
 import TableCompletionRender from '../components/TableCompletionRender'
 import SkillResult from '../components/SkillResult'
 import ConfirmExitModal from '../components/ConfirmExitModal'
+import { useExitGuard } from '../hooks/useExitGuard'
 
 import { normalizeGroup, fmt, buildListeningTokenMap } from '../utils/practiceUtils'
 import ReadingPracticeGroupBlock from '../components/practice/ReadingPracticeGroupBlock'
@@ -42,6 +43,9 @@ function ReadingPracticeExam({ exam, onBack }) {
     return (!isNaN(n) && n >= 25 && n <= 75) ? n : 50
   })
 
+  // Guard thoát: Practice không dùng draftService → điều kiện là "có bất kỳ answer nào"
+  const exitGuard = useExitGuard(phase === 'exam' && Object.keys(answers).length > 0)
+
   const groups = exam.questions?.groups || []
   const navItems = groups.flatMap(g => {
     const items = []
@@ -69,10 +73,12 @@ function ReadingPracticeExam({ exam, onBack }) {
   }, [showConfirm])
 
   useEffect(() => {
-    if (!showExitConfirm) return
-    const h = (e) => { if (e.key === 'Escape') setShowExitConfirm(false) }
+    if (!showExitConfirm && !exitGuard.prompt) return
+    const h = (e) => {
+      if (e.key === 'Escape') { setShowExitConfirm(false); exitGuard.stay() }
+    }
     window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h)
-  }, [showExitConfirm])
+  }, [showExitConfirm, exitGuard.prompt, exitGuard.stay])
 
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768)
@@ -106,7 +112,7 @@ function ReadingPracticeExam({ exam, onBack }) {
 
   const onAnswer = (qId, val) => setAnswers(a => ({ ...a, [qId]: val }))
 
-  const doSubmit = () => {
+  const doSubmit = async () => {
     let correct = 0
     let wrong = 0
     let missed = 0
@@ -171,6 +177,7 @@ function ReadingPracticeExam({ exam, onBack }) {
         }
       ]
     }
+    await exitGuard.disarm()
     setResult(formattedData)
     setPhase('result')
   }
@@ -308,9 +315,13 @@ function ReadingPracticeExam({ exam, onBack }) {
 
       {/* Exit confirm */}
       <ConfirmExitModal
-        isOpen={showExitConfirm}
-        onClose={() => setShowExitConfirm(false)}
-        onConfirm={onBack}
+        isOpen={showExitConfirm || exitGuard.prompt}
+        onClose={() => { setShowExitConfirm(false); exitGuard.stay() }}
+        onConfirm={async () => {
+          setShowExitConfirm(false)
+          if (exitGuard.prompt) { exitGuard.leave() }
+          else { await exitGuard.disarm(); onBack() }
+        }}
       />
 
       {/* Submit confirm */}
@@ -339,6 +350,9 @@ function ListeningPracticeExam({ exam, onBack }) {
   const [showExitConfirm, setShowExitConfirm] = useState(false)
   const [result, setResult] = useState(null)
 
+  // Guard thoát: Practice không dùng draftService → điều kiện là "có bất kỳ answer nào"
+  const exitGuard = useExitGuard(phase === 'exam' && Object.keys(answers).length > 0)
+
   const groups = exam.questions?.groups || []
 
   // Build navItems: one entry per question number
@@ -364,10 +378,12 @@ function ListeningPracticeExam({ exam, onBack }) {
   }, [showConfirm])
 
   useEffect(() => {
-    if (!showExitConfirm) return
-    const h = (e) => { if (e.key === 'Escape') setShowExitConfirm(false) }
+    if (!showExitConfirm && !exitGuard.prompt) return
+    const h = (e) => {
+      if (e.key === 'Escape') { setShowExitConfirm(false); exitGuard.stay() }
+    }
     window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h)
-  }, [showExitConfirm])
+  }, [showExitConfirm, exitGuard.prompt, exitGuard.stay])
 
   const onAnswer = (qNum, val) => setAnswers(a => ({ ...a, [qNum]: val }))
 
@@ -384,7 +400,7 @@ function ListeningPracticeExam({ exam, onBack }) {
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  const doSubmit = () => {
+  const doSubmit = async () => {
     let correct = 0
     let wrong = 0
     let missed = 0
@@ -458,6 +474,7 @@ function ListeningPracticeExam({ exam, onBack }) {
         }
       ]
     }
+    await exitGuard.disarm()
     setResult(formattedData)
     setPhase('result')
   }
@@ -564,9 +581,13 @@ function ListeningPracticeExam({ exam, onBack }) {
 
       {/* Exit confirm */}
       <ConfirmExitModal
-        isOpen={showExitConfirm}
-        onClose={() => setShowExitConfirm(false)}
-        onConfirm={onBack}
+        isOpen={showExitConfirm || exitGuard.prompt}
+        onClose={() => { setShowExitConfirm(false); exitGuard.stay() }}
+        onConfirm={async () => {
+          setShowExitConfirm(false)
+          if (exitGuard.prompt) { exitGuard.leave() }
+          else { await exitGuard.disarm(); onBack() }
+        }}
       />
 
       {/* Submit confirm */}

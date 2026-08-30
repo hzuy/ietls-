@@ -5,6 +5,7 @@ import { getSpeakingExam, submitSpeakingExam, getSpeakingStatus, getFullTestStat
 import { useSpeechRecording } from '../hooks/useSpeechRecording'
 import { Mic, ArrowLeft, X, Square, Play, Pause } from 'lucide-react'
 import ConfirmExitModal from '../components/ConfirmExitModal'
+import { useExitGuard } from '../hooks/useExitGuard'
 
 const CRITERIA_LABELS = {
   fluency: 'Fluency',
@@ -49,6 +50,17 @@ export default function SpeakingExam() {
   const [showExitConfirm, setShowExitConfirm] = useState(false)
   const [fullTestStatus, setFullTestStatus] = useState(null)
   const pollTimerRef = useRef(null)
+
+  // Guard thoát: chưa có draftService/autosave ở batch này → điều kiện tạm là
+  // "có part đã ghi/nói ra transcript nhưng chưa nộp".
+  const speakingParts = exam?.speakingParts || []
+  const hasUnsubmittedWork = speakingParts.some(p => (transcripts[p.id] || '').trim() && !results[p.id])
+  const allSubmitted = speakingParts.length > 0 && speakingParts.every(p => results[p.id])
+  const exitGuard = useExitGuard(phase === 'exam' && !previewMode && hasUnsubmittedWork)
+
+  useEffect(() => {
+    if (allSubmitted) exitGuard.disarm()
+  }, [allSubmitted, exitGuard.disarm])
 
   useEffect(() => {
     return () => {
@@ -107,11 +119,13 @@ export default function SpeakingExam() {
   }, [previewMode, exam, phase])
 
   useEffect(() => {
-    if (!showExitConfirm) return
-    const handler = (e) => { if (e.key === 'Escape') setShowExitConfirm(false) }
+    if (!showExitConfirm && !exitGuard.prompt) return
+    const handler = (e) => {
+      if (e.key === 'Escape') { setShowExitConfirm(false); exitGuard.stay() }
+    }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [showExitConfirm])
+  }, [showExitConfirm, exitGuard.prompt, exitGuard.stay])
 
   useEffect(() => {
     if (!exam) return
@@ -682,11 +696,15 @@ export default function SpeakingExam() {
         </div>
       </div>
 
-      {/* Exit confirm modal */}
+      {/* Exit confirm modal — dùng chung cho nút ✕ và guard Back/Forward */}
       <ConfirmExitModal
-        isOpen={showExitConfirm}
-        onClose={() => setShowExitConfirm(false)}
-        onConfirm={handleBack}
+        isOpen={showExitConfirm || exitGuard.prompt}
+        onClose={() => { setShowExitConfirm(false); exitGuard.stay() }}
+        onConfirm={async () => {
+          setShowExitConfirm(false)
+          if (exitGuard.prompt) { exitGuard.leave() }
+          else { await exitGuard.disarm(); handleBack() }
+        }}
       />
     </div>
   )
