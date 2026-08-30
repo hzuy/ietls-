@@ -205,12 +205,6 @@ aside nav a, aside nav button { font-family: var(--font-body); }
    consistent scale. Labels sit at text-xs via labelCls and are unaffected;
    section titles / meta text use <span>/<h*> and are unaffected. */
 .admin-main :is(input, textarea, select, button, [role="button"]) { font-size: var(--fs-sm); }
-/* Neutralize the global button:hover lift inside sidebar — nav items must stay flat */
-aside nav button:hover {
-  transform: none !important;
-  box-shadow: none !important;
-  filter: none !important;
-}
 
 /* ─── Animations ────────────────────────────────────────────────────────────── */
 @keyframes fadeUp {
@@ -264,11 +258,12 @@ aside nav button:hover {
   font-family: var(--font-body); font-size: var(--fs-sm); font-weight: 700;
   cursor: pointer; letter-spacing: 0.01em;
   box-shadow: 0 2px 8px rgba(26,86,219,0.3);
-  transition: background var(--transition), box-shadow var(--transition);
+  transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
 }
 .btn-primary:hover:not(:disabled) {
   background: var(--primary-hover);
   box-shadow: 0 4px 14px rgba(26,86,219,0.45);
+  transform: translateY(-1px);
 }
 .btn-primary:disabled, button:disabled {
   opacity: 0.6;
@@ -337,12 +332,13 @@ aside nav button:hover {
   color: var(--text);
   font-family: var(--font-body); font-size: var(--fs-sm); font-weight: 600;
   cursor: pointer;
-  transition: background var(--transition), border-color var(--transition), color var(--transition);
+  transition: background var(--transition), border-color var(--transition), color var(--transition), transform var(--transition);
 }
 .btn-secondary:hover:not(:disabled) {
   background: var(--surface-raised);
   border-color: var(--subtle);
   color: var(--ink-soft);
+  transform: translateY(-1px);
 }
 
 .btn-ghost {
@@ -367,11 +363,12 @@ aside nav button:hover {
   border: none; border-radius: var(--radius-pill);
   font-family: var(--font-body); font-size: var(--fs-sm); font-weight: 700;
   cursor: pointer;
-  transition: background var(--transition), box-shadow var(--transition);
+  transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
 }
 .btn-danger:hover:not(:disabled) {
   background: #b91c1c;
   box-shadow: 0 4px 14px rgba(220,38,38,0.4);
+  transform: translateY(-1px);
 }
 
 /* ─── Input base ─────────────────────────────────────────────────────────────
@@ -545,22 +542,24 @@ button:disabled {
 
 /* ─── Global Base UI Standardization (Subtle) ─────────────────────────────── */
 
-/* 1. Standard transition & 11. Cursor pointer */
-button, .btn, [class*="btn-"], input, textarea, select, a, .nav-item {
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+/* 1. Consistent timing for native form controls only.
+   Buttons / links / cards declare their own transitions per component. */
+input, textarea, select {
+  transition: border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 button, a, [role="button"] {
   cursor: pointer !important;
 }
 
-/* 2. Hover Button */
-button:hover, .btn:hover, [class*="btn-"]:hover {
-  transform: translateY(-1px) !important;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.08) !important;
-  filter: brightness(1.02) !important;
+/* 2. Opt-in hover lift — add `btn-hover-default` to a standalone <button> that
+   needs a lift. The .btn-* system classes already include their own lift. */
+.btn-hover-default {
+  transition: transform 0.2s, box-shadow 0.2s;
 }
-button:active, .btn:active, [class*="btn-"]:active {
-  transform: translateY(0) !important;
+.btn-hover-default:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(15,23,42,0.08);
 }
 
 /* 4. Navbar */
@@ -573,21 +572,18 @@ button:active, .btn:active, [class*="btn-"]:active {
 }
 .nav-item:hover:not(.active) {
   background: #F8FAFC !important;
-  transform: none !important;
 }
 .nav-item.active {
   background: #EFF6FF !important;
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08) !important;
   color: var(--primary) !important;
   font-weight: 600 !important;
-  transform: none !important;
 }
 
-/* 5. Link Hover */
+/* 5. Link Hover — default colour shift; call-site hover:* utilities override it */
 a:hover:not(.footer-link), .nav-link:hover {
-  color: var(--primary) !important;
-  text-decoration: none !important;
-  transform: none !important;
+  color: var(--primary);
+  text-decoration: none;
 }
 .footer-link:hover {
   color: #7AB3FF !important;

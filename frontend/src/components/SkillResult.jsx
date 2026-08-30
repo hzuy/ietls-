@@ -457,7 +457,7 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
           Không thể tải kết quả
         </h2>
         <p style={{ color: '#6b7280', marginBottom: 24, fontSize: 14 }}>{error}</p>
-        <button onClick={handleClose}
+        <button onClick={handleClose} className="btn-hover-default"
           style={{ background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 10,
             padding: '10px 24px', fontWeight: 600, cursor: 'pointer', fontSize: 14 }}>
           ← Quay lại
@@ -551,11 +551,12 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
               <button
                 onClick={() => answerKeyRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                className="btn-hover-default"
                 style={{
                   background: '#f59e0b', color: '#fff', border: 'none',
                   borderRadius: 10, padding: '10px 20px',
                   fontSize: 14, fontWeight: 600, cursor: 'pointer',
-                  transition: 'background 0.15s',
+                  transition: 'background 0.15s, transform 0.2s, box-shadow 0.2s',
                 }}
                 onMouseEnter={e => e.currentTarget.style.background = '#d97706'}
                 onMouseLeave={e => e.currentTarget.style.background = '#f59e0b'}
@@ -564,11 +565,12 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
               </button>
               <button
                 onClick={() => navigate('/progress')}
+                className="btn-hover-default"
                 style={{
                   background: '#1D4ED8', color: '#fff', border: 'none',
                   borderRadius: 10, padding: '10px 20px',
                   fontSize: 14, fontWeight: 600, cursor: 'pointer',
-                  transition: 'background 0.15s', display: 'flex', alignItems: 'center', gap: 6
+                  transition: 'background 0.15s, transform 0.2s, box-shadow 0.2s', display: 'flex', alignItems: 'center', gap: 6
                 }}
                 onMouseEnter={e => e.currentTarget.style.background = '#1e40af'}
                 onMouseLeave={e => e.currentTarget.style.background = '#1D4ED8'}

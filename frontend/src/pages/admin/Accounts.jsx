@@ -286,7 +286,7 @@ export default function Accounts() {
             <p className="text-sm text-gray-600 mb-6">Xóa tài khoản <strong>{confirmDelete.name}</strong>?</p>
             <div className="flex gap-3 justify-end">
               <button onClick={() => setConfirmDelete(null)} className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">Huỷ</button>
-              <button onClick={handleDelete} className="px-4 py-2 rounded-xl text-white text-sm font-bold" style={{ background: '#dc2626' }}>Xóa</button>
+              <button onClick={handleDelete} className="px-4 py-2 rounded-xl text-white text-sm font-bold transition-colors" style={{ background: '#dc2626' }} onMouseEnter={e => e.currentTarget.style.background = '#b91c1c'} onMouseLeave={e => e.currentTarget.style.background = '#dc2626'}>Xóa</button>
             </div>
           </div>
         </div>

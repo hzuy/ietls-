@@ -241,7 +241,7 @@ export default function FullTestDetail() {
                         })}
                       </div>
                     )}
-                    <button onClick={() => handleStart(test)} style={{ width: '100%', marginTop: 8, padding: '8px 0', borderRadius: 'var(--radius-md)', border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background var(--transition)' }}
+                    <button onClick={() => handleStart(test)} className="btn-hover-default" style={{ width: '100%', marginTop: 8, padding: '8px 0', borderRadius: 'var(--radius-md)', border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background var(--transition), transform .2s, box-shadow .2s' }}
                       onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
                       onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
                     >
@@ -310,7 +310,8 @@ export default function FullTestDetail() {
                       hasDraft ? (
                         <button
                           onClick={() => navigate(`${m.path}/${exam.id}?resume=true`)}
-                          style={{ padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: 'none', background: '#f59e0b', color: '#fff', fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          className="btn-hover-default"
+                          style={{ padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: 'none', background: '#f59e0b', color: '#fff', fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'transform .2s, box-shadow .2s' }}
                         >Tiếp tục →</button>
                       ) : (
                         <button

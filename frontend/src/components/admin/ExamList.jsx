@@ -372,6 +372,8 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
                 onClick={handleDeleteConfirm}
                 className="px-4 py-2 rounded-lg text-white text-sm font-bold transition"
                 style={{ background: '#dc2626' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#b91c1c'}
+                onMouseLeave={e => e.currentTarget.style.background = '#dc2626'}
               >Xóa</button>
             </div>
           </div>
