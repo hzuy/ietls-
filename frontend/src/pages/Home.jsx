@@ -13,7 +13,7 @@ const resolveImg = (url) => !url ? null : url.startsWith('http') ? url : BACKEND
 
 // Placeholder ảnh (khi item không có thumbnail) — riêng cho 2 loại card trang chủ:
 const BOOK_PLACEHOLDER = { bg: 'var(--primary-light)', icon: '📚' }                                   // V1 — Full Test book
-const PRACTICE_PLACEHOLDER = { bg: '#F1F5F9', icon: <BookOpen className="w-8 h-8 text-slate-400 stroke-[1.75]" /> } // V2 — Reading/Listening/Writing/Speaking
+const PRACTICE_PLACEHOLDER = { bg: 'var(--border-soft)', icon: <BookOpen className="w-8 h-8 text-slate-400 stroke-[1.75]" /> } // V2 — Reading/Listening/Writing/Speaking
 
 const SKILL_CARDS = [
   {

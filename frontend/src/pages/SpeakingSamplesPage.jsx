@@ -85,7 +85,7 @@ export default function SpeakingSamplesPage() {
       {/* Body */}
       <div className="app-container pt-4 pb-16 flex gap-8 items-start">
         {/* Sidebar */}
-        <aside className="w-56 shrink-0 bg-white rounded-[24px] border border-slate-200 p-5 sticky top-24 shadow-sm">
+        <aside className="w-56 shrink-0 bg-white rounded-2xl border border-slate-200 p-5 sticky top-24 shadow-sm">
           {/* Part filter */}
           <div className="mb-6">
             <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-1 mb-3" style={{ fontFamily: 'var(--font-body)' }}>Part</p>
@@ -154,7 +154,7 @@ export default function SpeakingSamplesPage() {
               ))}
             </div>
           ) : error ? (
-            <div className="text-center py-16 px-6 bg-white rounded-[24px] border border-slate-200 shadow-sm flex flex-col items-center">
+            <div className="text-center py-16 px-6 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center">
               <div className="w-16 h-16 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center mb-6 text-slate-400">
                 <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
               </div>
@@ -163,7 +163,7 @@ export default function SpeakingSamplesPage() {
               <button className="btn-primary px-8 py-3 text-[14px] font-bold" onClick={() => window.location.reload()}>Thử lại</button>
             </div>
           ) : filtered.length === 0 ? (
-            <div className="text-center py-16 px-6 bg-white rounded-[24px] border border-slate-200 shadow-sm flex flex-col items-center">
+            <div className="text-center py-16 px-6 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center">
               <div className="w-16 h-16 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center mb-6 text-slate-400">
                 <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
               </div>

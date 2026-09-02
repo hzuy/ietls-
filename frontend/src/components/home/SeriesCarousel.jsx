@@ -103,15 +103,13 @@ export default function SeriesCarousel({ children, count, title, to }) {
           {to && (
             <a
               href={to}
+              className="hover:opacity-70 transition-opacity duration-300"
               style={{
                 fontFamily: 'var(--font-body)',
                 fontSize: 'var(--fs-sm)', fontWeight: 600,
                 color: 'var(--primary)', textDecoration: 'none',
                 display: 'flex', alignItems: 'center', gap: 4,
-                transition: 'opacity var(--transition)',
               }}
-              onMouseEnter={e => e.currentTarget.style.opacity = '0.7'}
-              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
             >
               Xem tất cả →
             </a>
@@ -135,7 +133,7 @@ export default function SeriesCarousel({ children, count, title, to }) {
             boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
             border: '1px solid var(--border)',
             color: 'var(--text)', cursor: 'pointer',
-            opacity: 0, transition: 'all 0.2s ease',
+            opacity: 0, transition: 'all 0.2s var(--ease-out-quart)',
           }}
           className="group-hover/row:opacity-100 hover:text-slate-900 hover:border-slate-300"
         >
@@ -177,7 +175,7 @@ export default function SeriesCarousel({ children, count, title, to }) {
             boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
             border: '1px solid var(--border)',
             color: 'var(--text)', cursor: 'pointer',
-            opacity: 0, transition: 'all 0.2s ease',
+            opacity: 0, transition: 'all 0.2s var(--ease-out-quart)',
           }}
           className="group-hover/row:opacity-100 hover:text-slate-900 hover:border-slate-300"
         >

@@ -568,7 +568,7 @@ button, a, [role="button"] {
   border-radius: 12px !important;
   white-space: nowrap !important;
   flex-shrink: 0 !important;
-  transition: all .25s ease !important;
+  transition: all var(--transition) !important;
 }
 .nav-item:hover:not(.active) {
   background: #F8FAFC !important;

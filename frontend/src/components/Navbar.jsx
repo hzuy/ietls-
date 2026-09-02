@@ -39,7 +39,7 @@ function CustomDropItem({ to, icon, label, bold, active }) {
 }
 
 function NavDivider() {
-  return <div style={{ height: 1, background: '#E2E8F0', margin: '4px 8px' }} />
+  return <div style={{ height: 1, background: 'var(--border)', margin: '4px 8px' }} />
 }
 
 /* ── Mobile drawer link ─────────────────────────────────────────────────── */
@@ -124,7 +124,7 @@ export default function Navbar() {
     <>
       {/* Announcement banner */}
       {announcement && !announcementDismissed && (
-        <div style={{ background: '#fef3c7', borderBottom: '1px solid #fde68a', padding: '8px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 60 }}>
+        <div style={{ background: 'var(--warning-bg)', borderBottom: '1px solid #fde68a', padding: '8px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 60 }}>
           <span style={{ fontSize: 'var(--fs-sm)', color: '#92400e', fontFamily: 'var(--font-body)', lineHeight: 1.5, textAlign: 'center' }}>{announcement}</span>
           <button onClick={() => setAnnouncementDismissed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#92400e', fontSize: 16, padding: '0 4px', lineHeight: 1, opacity: 0.7, minHeight: 44, minWidth: 44 }} aria-label="Đóng thông báo">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
@@ -137,11 +137,11 @@ export default function Navbar() {
 
           {/* Logo */}
           <Link to="/" style={{ textDecoration: 'none' }} className="flex items-center gap-2 shrink-0 whitespace-nowrap">
-            <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(37,99,235,0.3)', flexShrink: 0 }}>
+            <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(37,99,235,0.3)', flexShrink: 0 }}>
               <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#fff' }} />
             </div>
             <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20, letterSpacing: '-0.02em', color: 'var(--ink)' }} className="whitespace-nowrap">
-              IELTS<span style={{ color: '#2563EB', fontWeight: 500 }}>Pro</span>
+              IELTS<span style={{ color: 'var(--primary)', fontWeight: 500 }}>Pro</span>
             </span>
           </Link>
 
@@ -227,7 +227,7 @@ export default function Navbar() {
                       aria-label="Tài khoản"
                       style={{
                         width: 36, height: 36, borderRadius: '50%',
-                        background: '#2563EB', border: '2px solid transparent',
+                        background: 'var(--primary)', border: '2px solid transparent',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         color: '#fff', fontSize: 13, fontWeight: 700,
                         cursor: 'pointer', flexShrink: 0, padding: 0,
@@ -273,7 +273,7 @@ export default function Navbar() {
                             display: 'flex', alignItems: 'center', gap: 10, width: '100%',
                             padding: '8px 12px', borderRadius: 'var(--radius-sm)',
                             background: 'transparent', border: 'none', cursor: 'pointer',
-                            color: '#DC2626', fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', fontWeight: 500,
+                            color: 'var(--error)', fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', fontWeight: 500,
                             transition: 'background 0.15s ease', textAlign: 'left', whiteSpace: 'nowrap',
                           }}
                           onMouseEnter={e => e.currentTarget.style.background = '#FEF2F2'}
@@ -297,7 +297,7 @@ export default function Navbar() {
             {/* Mobile hamburger */}
             <button
               className="md:hidden flex items-center justify-center rounded-xl border transition-colors"
-              style={{ width: 44, height: 44, flexShrink: 0, borderColor: '#E2E8F0', background: '#fff', color: '#334155' }}
+              style={{ width: 44, height: 44, flexShrink: 0, borderColor: 'var(--border)', background: '#fff', color: '#334155' }}
               onClick={() => setMobileOpen(true)}
               aria-label="Mở menu"
               aria-expanded={mobileOpen}
@@ -327,7 +327,7 @@ export default function Navbar() {
         style={{
           width: 'min(320px, 85vw)',
           transform: mobileOpen ? 'translateX(0)' : 'translateX(-100%)',
-          transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          transition: 'transform var(--transition)',
           boxShadow: mobileOpen ? '4px 0 24px rgba(15,23,42,0.2)' : 'none',
           overflowY: 'auto',
           background: '#fff',
@@ -337,13 +337,13 @@ export default function Navbar() {
         aria-label="Menu điều hướng"
       >
         {/* Drawer header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b" style={{ minHeight: 64, borderBottomColor: '#F1F5F9' }}>
+        <div className="flex items-center justify-between px-4 py-3 border-b" style={{ minHeight: 64, borderBottomColor: 'var(--border-soft)' }}>
           <Link to="/" onClick={closeMobile} style={{ textDecoration: 'none' }} className="flex items-center gap-2">
-            <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#fff' }} />
             </div>
             <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 18, letterSpacing: '-0.02em', color: 'var(--ink)' }}>
-              IELTS<span style={{ color: '#2563EB', fontWeight: 500 }}>Pro</span>
+              IELTS<span style={{ color: 'var(--primary)', fontWeight: 500 }}>Pro</span>
             </span>
           </Link>
           <button
@@ -385,10 +385,10 @@ export default function Navbar() {
           {isLoggedIn ? (
             <>
               <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 mb-1">
-                <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 15, flexShrink: 0 }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 15, flexShrink: 0 }}>
                   {user.name?.charAt(0)?.toUpperCase() || 'U'}
                 </div>
-                <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', fontWeight: 600, color: '#0B2345' }} className="truncate">{user.name}</span>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--ink)' }} className="truncate">{user.name}</span>
               </div>
               <MobileNavLink to="/profile" active={location.pathname === '/profile'} onClick={closeMobile}>Tài khoản</MobileNavLink>
               <MobileNavLink to="/progress" active={location.pathname === '/progress'} onClick={closeMobile}>Phân tích lỗi sai</MobileNavLink>

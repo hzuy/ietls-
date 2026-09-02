@@ -25,15 +25,13 @@ export default function SectionHeader({ title, to, count }) {
       </div>
       <Link
         to={to}
+        className="hover:opacity-70 transition-opacity duration-300"
         style={{
           fontFamily: 'var(--font-body)',
           fontSize: 'var(--fs-sm)', fontWeight: 600,
           color: 'var(--primary)', textDecoration: 'none',
           display: 'flex', alignItems: 'center', gap: 4,
-          transition: 'opacity var(--transition)',
         }}
-        onMouseEnter={e => e.currentTarget.style.opacity = '0.7'}
-        onMouseLeave={e => e.currentTarget.style.opacity = '1'}
       >
         Xem tất cả →
       </Link>

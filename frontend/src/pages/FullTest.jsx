@@ -160,7 +160,7 @@ function SeriesRow({ title, count, children }) {
         <button
           aria-label="Cuộn trái"
           onClick={() => scroll(-1)}
-          style={{ position: 'absolute', left: -20, top: '50%', transform: 'translateY(-50%)', zIndex: 10, width: 40, height: 40, borderRadius: '50%', display: showLeft ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', opacity: 0, transition: 'all 0.2s ease' }}
+          style={{ position: 'absolute', left: -20, top: '50%', transform: 'translateY(-50%)', zIndex: 10, width: 40, height: 40, borderRadius: '50%', display: showLeft ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', opacity: 0, transition: 'all 0.2s var(--ease-out-quart)' }}
           className="group-hover/row:opacity-100 hover:text-slate-900 hover:border-slate-300"
         >
           <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>
@@ -187,7 +187,7 @@ function SeriesRow({ title, count, children }) {
         <button
           aria-label="Cuộn phải"
           onClick={() => scroll(1)}
-          style={{ position: 'absolute', right: -20, top: '50%', transform: 'translateY(-50%)', zIndex: 10, width: 40, height: 40, borderRadius: '50%', display: showRight ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', opacity: 0, transition: 'all 0.2s ease' }}
+          style={{ position: 'absolute', right: -20, top: '50%', transform: 'translateY(-50%)', zIndex: 10, width: 40, height: 40, borderRadius: '50%', display: showRight ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', opacity: 0, transition: 'all 0.2s var(--ease-out-quart)' }}
           className="group-hover/row:opacity-100 hover:text-slate-900 hover:border-slate-300"
         >
           <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
@@ -266,7 +266,7 @@ export default function FullTest() {
 
       <div className="app-container pt-4 pb-16 relative">
         {fetchError ? (
-          <div className="text-center py-20 px-6 bg-white rounded-[24px] border border-slate-200 shadow-sm flex flex-col items-center">
+          <div className="text-center py-20 px-6 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center">
             <div className="w-16 h-16 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center mb-6 text-slate-400">
               <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
             </div>
