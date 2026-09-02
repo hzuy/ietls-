@@ -1,73 +1,56 @@
 import { useEffect, useState, useRef } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import Breadcrumb from '../components/common/Breadcrumb'
+import ContentCard from '../components/common/ContentCard'
+import { CONTENT_CARD_CONFIG } from '../components/common/contentCardConfig'
 
 const BACKEND_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '')
 const API_BASE = BACKEND_URL + '/api'
 const resolveImg = (url) => !url ? null : url.startsWith('http') ? url : BACKEND_URL + url
 
-function ThumbPlaceholder() {
-  return (
-    <div style={{ width: '100%', aspectRatio: '4/5', background: 'var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <span style={{ fontSize: 36 }}>📚</span>
-    </div>
-  )
-}
-
+// Wrapper mỏng quanh <ContentCard>: phần thân (thumb / title / meta / action) do
+// ContentCard lo; wrapper tự xử lý trạng thái "sắp có bài" khi !hasTests —
+// overlay badge, ảnh grayscale (qua .ft-series-card--soon .cc-thumb img), khoá click.
 function SeriesCard({ item, onClick }) {
-  const [hovered, setHovered] = useState(false)
-  const img = resolveImg(item.coverImageUrl)
   const hasTests = item.testCount > 0
 
   return (
     <div
-      onClick={hasTests ? onClick : null}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className={`card-base ${hasTests ? 'cursor-pointer' : 'opacity-80 cursor-default pointer-events-none'}`}
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-      }}
+      className={hasTests ? '' : 'ft-series-card--soon opacity-80 pointer-events-none'}
+      style={{ position: 'relative' }}
     >
-      {img
-        ? <div style={{ width: '100%', aspectRatio: '4/5', overflow: 'hidden', position: 'relative' }}>
-            <img
-              draggable="false"
-              src={img}
-              alt={item.title}
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: hasTests ? 'none' : 'grayscale(0.5)' }}
-            />
-            {!hasTests && (
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                <span style={{ background: 'rgba(255,255,255,0.92)', color: 'var(--color-heading)', fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 4, textTransform: 'uppercase', fontFamily: 'var(--font-body)' }}>Sắp có bài</span>
-              </div>
-            )}
-          </div>
-        : <ThumbPlaceholder />
-      }
-      <div style={{ padding: '12px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 13, color: 'var(--color-heading)', margin: 0, lineHeight: 1.4 }}>{item.title}</p>
-        <div style={{ display: 'flex', gap: 10, fontSize: 12, color: 'var(--color-body)', fontFamily: 'var(--font-mono)' }}>
-          {hasTests ? <span>{item.testCount} bài test</span> : <span>Chưa có bài</span>}
-        </div>
-        <button
-          disabled={!hasTests}
+      <ContentCard
+        hoverStyle="subtle"
+        image={resolveImg(item.coverImageUrl)}
+        imageAlt={item.title}
+        placeholder={CONTENT_CARD_CONFIG.fullTest.placeholder}
+        thumbAspect="4/5"
+        title={item.title}
+        titleClamp={2}
+        meta={{ type: 'count', text: hasTests ? `${item.testCount} bài test` : 'Chưa có bài' }}
+        action={hasTests
+          ? { label: 'Làm bài ngay →', decorative: true }
+          : { label: 'Làm bài ngay →', disabled: true, disabledLabel: 'Đang cập nhật' }}
+        onClick={hasTests ? onClick : undefined}
+      />
+
+      {!hasTests && (
+        <div
+          className="bg-black/40"
           style={{
-            marginTop: 4, padding: '6px 0', borderRadius: 'var(--radius-sm)', border: 'none',
-            background: hasTests ? 'var(--color-primary)' : 'var(--color-border)',
-            color: hasTests ? '#fff' : 'var(--subtle)',
-            fontSize: 12, fontWeight: 700,
-            cursor: hasTests ? 'pointer' : 'not-allowed',
-            fontFamily: 'var(--font-body)',
-            transition: 'opacity var(--transition)',
+            position: 'absolute', top: 0, left: 0, right: 0, aspectRatio: '4 / 5',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            borderTopLeftRadius: '1rem', borderTopRightRadius: '1rem', overflow: 'hidden',
           }}
         >
-          {hasTests ? 'Làm bài ngay →' : 'Đang cập nhật'}
-        </button>
-      </div>
+          <span style={{
+            background: 'rgba(255,255,255,0.92)', color: 'var(--ink-soft)',
+            fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 4,
+            textTransform: 'uppercase', fontFamily: 'var(--font-body)',
+          }}>Sắp có bài</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -169,15 +152,15 @@ function SeriesRow({ title, count, children }) {
   return (
     <section className="mb-12">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: 'var(--color-heading)', margin: 0 }}>{title}</h2>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, background: 'var(--primary-light)', color: 'var(--color-primary)', padding: '3px 10px', borderRadius: 20, border: '1px solid var(--color-border)' }}>{count}</span>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: 'var(--ink-soft)', margin: 0 }}>{title}</h2>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, background: 'var(--primary-light)', color: 'var(--primary)', padding: '3px 10px', borderRadius: 20, border: '1px solid var(--border)' }}>{count}</span>
       </div>
 
       <div className="relative group/row">
         <button
           aria-label="Cuộn trái"
           onClick={() => scroll(-1)}
-          style={{ position: 'absolute', left: -20, top: '50%', transform: 'translateY(-50%)', zIndex: 10, width: 40, height: 40, borderRadius: '50%', display: showLeft ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', background: 'var(--color-surface)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', border: '1px solid var(--color-border)', color: 'var(--color-body)', cursor: 'pointer', opacity: 0, transition: 'all 0.2s ease' }}
+          style={{ position: 'absolute', left: -20, top: '50%', transform: 'translateY(-50%)', zIndex: 10, width: 40, height: 40, borderRadius: '50%', display: showLeft ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', opacity: 0, transition: 'all 0.2s ease' }}
           className="group-hover/row:opacity-100 hover:text-slate-900 hover:border-slate-300"
         >
           <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>
@@ -204,7 +187,7 @@ function SeriesRow({ title, count, children }) {
         <button
           aria-label="Cuộn phải"
           onClick={() => scroll(1)}
-          style={{ position: 'absolute', right: -20, top: '50%', transform: 'translateY(-50%)', zIndex: 10, width: 40, height: 40, borderRadius: '50%', display: showRight ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', background: 'var(--color-surface)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', border: '1px solid var(--color-border)', color: 'var(--color-body)', cursor: 'pointer', opacity: 0, transition: 'all 0.2s ease' }}
+          style={{ position: 'absolute', right: -20, top: '50%', transform: 'translateY(-50%)', zIndex: 10, width: 40, height: 40, borderRadius: '50%', display: showRight ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', opacity: 0, transition: 'all 0.2s ease' }}
           className="group-hover/row:opacity-100 hover:text-slate-900 hover:border-slate-300"
         >
           <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
@@ -274,7 +257,7 @@ export default function FullTest() {
   }, [])
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-background)' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
       <Navbar />
 
       <div className="app-container pt-4 pb-0">
@@ -305,10 +288,10 @@ export default function FullTest() {
             ))}
           </div>
         ) : Object.keys(groupedData).length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '80px 0', background: 'var(--color-surface)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-xs)' }}>
+          <div style={{ textAlign: 'center', padding: '80px 0', background: 'var(--surface)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-xs)' }}>
             <div style={{ fontSize: 56, marginBottom: 24 }}>📭</div>
-            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: 'var(--color-heading)', margin: '0 0 8px' }}>Chưa có bộ đề nào</h3>
-            <p style={{ fontFamily: 'var(--font-body)', color: 'var(--color-body)', fontSize: 14 }}>Dữ liệu đang được cập nhật, vui lòng quay lại sau.</p>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: 'var(--ink-soft)', margin: '0 0 8px' }}>Chưa có bộ đề nào</h3>
+            <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text)', fontSize: 14 }}>Dữ liệu đang được cập nhật, vui lòng quay lại sau.</p>
           </div>
         ) : (
           Object.values(groupedData).map((series) => (
@@ -342,12 +325,15 @@ export default function FullTest() {
           background: transparent;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: var(--color-border);
+          background: var(--border);
           border-radius: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: var(--color-body);
+          background: var(--text);
         }
+
+        /* Card "sắp có bài" — chỉ làm xám ảnh thumb, không ảnh hưởng title/nút */
+        .ft-series-card--soon .cc-thumb img { filter: grayscale(0.5); }
       `}} />
     </div>
   )

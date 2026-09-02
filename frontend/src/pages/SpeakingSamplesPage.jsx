@@ -2,6 +2,8 @@
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import Breadcrumb from '../components/common/Breadcrumb'
+import ContentCard from '../components/common/ContentCard'
+import { CONTENT_CARD_CONFIG, buildSampleChips } from '../components/common/contentCardConfig'
 
 const BACKEND_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '')
 const API_BASE = BACKEND_URL + '/api'
@@ -14,52 +16,6 @@ const PART_OPTIONS = [
 ]
 
 const PART_LABELS = { task1: 'Part 1', task2: 'Part 2', task3: 'Part 3' }
-const PART_COLORS = {
-  task1: { bgVar: '--skill-s-bg', colorVar: '--skill-s-color', borderVar: '--skill-s-border' },
-  task2: { bgVar: '--surface-raised', colorVar: '--muted', borderVar: '--border' },
-  task3: { bgVar: '--skill-w-bg', colorVar: '--skill-w-color', borderVar: '--skill-w-border' },
-}
-
-function ThumbPlaceholder() {
-  return (
-    <div style={{ width: '100%', aspectRatio: '16/9', background: 'var(--skill-s-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <span style={{ fontSize: 32, opacity: 0.7 }}>🎤</span>
-    </div>
-  )
-}
-
-function SampleCard({ item, onClick }) {
-  const img = resolveImg(item.thumbnailUrl)
-  const partStyle = PART_COLORS[item.level] || PART_COLORS.task2
-  const partLabel = PART_LABELS[item.level] || 'Speaking'
-
-  return (
-    <div
-      onClick={onClick}
-      className="card-base flex flex-col h-full overflow-hidden cursor-pointer hover:shadow-md transition-all duration-300"
-    >
-      {img
-        ? <div className="w-full aspect-video overflow-hidden shrink-0">
-            <img src={img} alt={item.title} className="w-full h-full object-cover block" />
-          </div>
-        : <ThumbPlaceholder />
-      }
-      <div className="p-4 flex flex-col flex-1 gap-3">
-        <p className="font-semibold text-slate-900 text-[15px] leading-snug m-0">{item.title}</p>
-        <div className="flex flex-wrap gap-2 mt-auto">
-          <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: `var(${partStyle.bgVar})`, color: `var(${partStyle.colorVar})`, border: `1px solid var(${partStyle.borderVar})` }}>
-            {partLabel}
-          </span>
-          {item.examType && (
-            <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 20, background: 'var(--surface-raised)', color: 'var(--muted)', border: '1px solid var(--border)' }}>
-              {item.examType}
-            </span>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 function FilterBtn({ active, onClick, children }) {
   return (
@@ -219,7 +175,17 @@ export default function SpeakingSamplesPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {filtered.map((item, i) => (
                 <div key={item.id} className={`anim-fade-up delay-${Math.min(i + 1, 8)}`}>
-                  <SampleCard item={item} onClick={() => navigate(`/samples/speaking/${item.id}`)} />
+                  <ContentCard
+                    className="h-full"
+                    image={resolveImg(item.thumbnailUrl)}
+                    imageAlt={item.title}
+                    placeholder={CONTENT_CARD_CONFIG.speaking.placeholder}
+                    thumbAspect="16/9"
+                    title={item.title}
+                    meta={{ type: 'chips', chips: buildSampleChips('speaking', item) }}
+                    hoverStyle="subtle"
+                    onClick={() => navigate(`/samples/speaking/${item.id}`)}
+                  />
                 </div>
               ))}
             </div>

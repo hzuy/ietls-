@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import Breadcrumb from '../components/common/Breadcrumb'
+import ContentCard from '../components/common/ContentCard'
+import { CONTENT_CARD_CONFIG } from '../components/common/contentCardConfig'
 import { getTypesBySkill } from '../utils/questionTypes'
 
 const BACKEND_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '')
@@ -27,51 +29,6 @@ const SKILL_META = {
     borderVar: '--skill-l-border',
     path: '/practice/listening',
   },
-}
-
-function ThumbPlaceholder({ skill }) {
-  const meta = SKILL_META[skill]
-  return (
-    <div style={{ width: '100%', height: '160px', background: `var(${meta.bgVar})`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <span style={{ fontSize: 32 }}>{meta.icon}</span>
-    </div>
-  )
-}
-
-function PracticeCard({ item, skill, onClick }) {
-  const meta = SKILL_META[skill]
-  const img = resolveImg(item.thumbnailUrl)
-
-  return (
-    <div
-      onClick={onClick}
-      className="card-base cursor-pointer hover:shadow-md transition-all duration-300 flex flex-col h-full overflow-hidden"
-    >
-      <div className="w-full h-40 overflow-hidden shrink-0">
-        {img
-          ? <img src={img} alt={item.title} className="w-full h-full object-cover block" />
-          : <ThumbPlaceholder skill={skill} />
-        }
-      </div>
-
-      <div className="p-4 flex flex-col flex-1 gap-3">
-        <p className="font-semibold text-slate-900 leading-snug m-0 line-clamp-2 min-h-[44px]" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-base)' }}>
-          {item.title}
-        </p>
-
-        <div className="flex gap-2 text-slate-600 mt-auto" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}>
-          {item.questionCount > 0 && <span className="font-mono">{item.questionCount} câu hỏi</span>}
-        </div>
-
-        <button
-          className="btn-primary w-full py-2 font-bold mt-2"
-          style={{ fontSize: 'var(--fs-sm)' }}
-        >
-          Làm bài →
-        </button>
-      </div>
-    </div>
-  )
 }
 
 function SkeletonCard() {
@@ -116,6 +73,24 @@ export default function PracticeList({ skill: skillKey }) {
 
   const otherExams = exams.filter(e => !availableTypes.some(t => t.key === e.type))
 
+  const renderCard = (item, idx) => (
+    <div key={item.id} className={`anim-fade-up delay-${Math.min(idx + 1, 8)}`}>
+      <ContentCard
+        className="h-full"
+        image={resolveImg(item.thumbnailUrl)}
+        imageAlt={item.title}
+        placeholder={CONTENT_CARD_CONFIG[skill].placeholder}
+        thumbAspect="160px"
+        title={item.title}
+        titleClamp={2}
+        meta={item.questionCount > 0 ? { type: 'count', text: `${item.questionCount} câu hỏi` } : undefined}
+        action={{ label: 'Làm bài →', decorative: true }}
+        hoverStyle="subtle"
+        onClick={() => navigate(`/practice/${skill}/${item.id}`)}
+      />
+    </div>
+  )
+
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar />
@@ -151,7 +126,7 @@ export default function PracticeList({ skill: skillKey }) {
           </div>
         ) : (
           <>
-            {groupedExams.map((group, gi) => (
+            {groupedExams.map((group) => (
               <section key={group.key}>
                 <div className="flex items-center gap-3 mb-6">
                   <h2 className="text-[20px] font-bold text-slate-900 m-0" style={{ fontFamily: 'var(--font-display)' }}>{group.label}</h2>
@@ -160,15 +135,7 @@ export default function PracticeList({ skill: skillKey }) {
                   </span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
-                  {group.items.map((item, idx) => (
-                    <div key={item.id} className={`anim-fade-up delay-${Math.min(idx + 1, 8)}`}>
-                      <PracticeCard
-                        item={item}
-                        skill={skill}
-                        onClick={() => navigate(`/practice/${skill}/${item.id}`)}
-                      />
-                    </div>
-                  ))}
+                  {group.items.map((item, idx) => renderCard(item, idx))}
                 </div>
               </section>
             ))}
@@ -182,15 +149,7 @@ export default function PracticeList({ skill: skillKey }) {
                   </span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
-                  {otherExams.map((item, idx) => (
-                    <div key={item.id} className={`anim-fade-up delay-${Math.min(idx + 1, 8)}`}>
-                      <PracticeCard
-                        item={item}
-                        skill={skill}
-                        onClick={() => navigate(`/practice/${skill}/${item.id}`)}
-                      />
-                    </div>
-                  ))}
+                  {otherExams.map((item, idx) => renderCard(item, idx))}
                 </div>
               </section>
             )}

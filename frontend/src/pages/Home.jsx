@@ -1,14 +1,19 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { BookOpen } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import { useAuth } from '../context/AuthContext'
-import BookCard from '../components/home/BookCard'
-import PracticeCard from '../components/home/PracticeCard'
+import ContentCard from '../components/common/ContentCard'
 import SectionHeader from '../components/home/SectionHeader'
 import SeriesCarousel from '../components/home/SeriesCarousel'
 
 const BACKEND_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '')
 const API_BASE = BACKEND_URL + '/api'
+const resolveImg = (url) => !url ? null : url.startsWith('http') ? url : BACKEND_URL + url
+
+// Placeholder ảnh (khi item không có thumbnail) — riêng cho 2 loại card trang chủ:
+const BOOK_PLACEHOLDER = { bg: 'var(--primary-light)', icon: '📚' }                                   // V1 — Full Test book
+const PRACTICE_PLACEHOLDER = { bg: '#F1F5F9', icon: <BookOpen className="w-8 h-8 text-slate-400 stroke-[1.75]" /> } // V2 — Reading/Listening/Writing/Speaking
 
 const SKILL_CARDS = [
   {
@@ -374,7 +379,18 @@ export default function Home() {
               <SeriesCarousel key={series.seriesId} title={series.seriesName} count={`${series.books.length} cuốn`} to="/full-test">
                 {series.books.map((book, i) => (
                   <div key={book.title} className="flex-shrink-0 shrink-0 w-[180px] sm:w-[200px]" style={{ scrollSnapAlign: 'start' }}>
-                    <BookCard book={book} animClass={`anim-fade-up delay-${i % 4 + 1}`} onClick={() => navigate(`/full-test/${book.seriesId}?book=${book.bookNumber}`)} />
+                    <ContentCard
+                      className={`anim-fade-up delay-${i % 4 + 1}`}
+                      hoverStyle="showcase"
+                      image={resolveImg(book.coverImageUrl)}
+                      imageAlt={book.title}
+                      placeholder={BOOK_PLACEHOLDER}
+                      thumbAspect="160px"
+                      title={book.title}
+                      titleClamp={2}
+                      meta={{ type: 'count', text: `${book.testCount} bài test` }}
+                      onClick={() => navigate(`/full-test/${book.seriesId}?book=${book.bookNumber}`)}
+                    />
                   </div>
                 ))}
               </SeriesCarousel>
@@ -389,8 +405,19 @@ export default function Home() {
             {reading === null ? [0,1,2,3].map(i => <SkeletonCard key={i} />) :
              reading === 'error' ? <HomeSectionError /> :
              reading.slice(0, 4).map((item, i) => (
-               <PracticeCard key={item.id} item={item} skill="reading" animClass={`anim-fade-up delay-${i + 1}`}
-                 onAction={() => requireAuth(`/practice/reading/${item.id}`)} />
+               <ContentCard key={item.id}
+                 className={`anim-fade-up delay-${i + 1}`}
+                 hoverStyle="showcase"
+                 accentBar
+                 image={resolveImg(item.thumbnailUrl || item.coverImageUrl)}
+                 imageAlt={item.title}
+                 placeholder={PRACTICE_PLACEHOLDER}
+                 thumbAspect="160px"
+                 title={item.title}
+                 titleClamp={2}
+                 meta={item.questionCount != null ? { type: 'count', text: `${item.questionCount} câu` } : undefined}
+                 action={{ label: 'Làm bài', onClick: () => requireAuth(`/practice/reading/${item.id}`) }}
+               />
              ))}
           </div>
         </section>
@@ -402,8 +429,19 @@ export default function Home() {
             {listening === null ? [0,1,2,3].map(i => <SkeletonCard key={i} />) :
              listening === 'error' ? <HomeSectionError /> :
              listening.slice(0, 4).map((item, i) => (
-               <PracticeCard key={item.id} item={item} skill="listening" animClass={`anim-fade-up delay-${i + 1}`}
-                 onAction={() => requireAuth(`/practice/listening/${item.id}`)} />
+               <ContentCard key={item.id}
+                 className={`anim-fade-up delay-${i + 1}`}
+                 hoverStyle="showcase"
+                 accentBar
+                 image={resolveImg(item.thumbnailUrl || item.coverImageUrl)}
+                 imageAlt={item.title}
+                 placeholder={PRACTICE_PLACEHOLDER}
+                 thumbAspect="160px"
+                 title={item.title}
+                 titleClamp={2}
+                 meta={item.questionCount != null ? { type: 'count', text: `${item.questionCount} câu` } : undefined}
+                 action={{ label: 'Làm bài', onClick: () => requireAuth(`/practice/listening/${item.id}`) }}
+               />
              ))}
           </div>
         </section>
@@ -416,8 +454,19 @@ export default function Home() {
               {writingSamples === null ? [0,1,2,3].map(i => <SkeletonCard key={i} />) :
                writingSamples === 'error' ? <HomeSectionError /> :
                writingSamples.slice(0, 4).map((item, i) => (
-                 <PracticeCard key={item.id} item={item} skill="writing" animClass={`anim-fade-up delay-${i + 1}`}
-                   actionLabel="Xem bài mẫu" onAction={() => navigate(`/samples/writing/${item.id}`)} />
+                 <ContentCard key={item.id}
+                   className={`anim-fade-up delay-${i + 1}`}
+                   hoverStyle="showcase"
+                   accentBar
+                   image={resolveImg(item.thumbnailUrl || item.coverImageUrl)}
+                   imageAlt={item.title}
+                   placeholder={PRACTICE_PLACEHOLDER}
+                   thumbAspect="160px"
+                   title={item.title}
+                   titleClamp={2}
+                   meta={item.questionCount != null ? { type: 'count', text: `${item.questionCount} câu` } : undefined}
+                   action={{ label: 'Xem bài mẫu', onClick: () => navigate(`/samples/writing/${item.id}`) }}
+                 />
                ))}
             </div>
           </section>
@@ -431,8 +480,19 @@ export default function Home() {
               {speakingSamples === null ? [0,1,2,3].map(i => <SkeletonCard key={i} />) :
                speakingSamples === 'error' ? <HomeSectionError /> :
                speakingSamples.slice(0, 4).map((item, i) => (
-                 <PracticeCard key={item.id} item={item} skill="speaking" animClass={`anim-fade-up delay-${i + 1}`}
-                   actionLabel="Xem bài mẫu" onAction={() => navigate(`/samples/speaking/${item.id}`)} />
+                 <ContentCard key={item.id}
+                   className={`anim-fade-up delay-${i + 1}`}
+                   hoverStyle="showcase"
+                   accentBar
+                   image={resolveImg(item.thumbnailUrl || item.coverImageUrl)}
+                   imageAlt={item.title}
+                   placeholder={PRACTICE_PLACEHOLDER}
+                   thumbAspect="160px"
+                   title={item.title}
+                   titleClamp={2}
+                   meta={item.questionCount != null ? { type: 'count', text: `${item.questionCount} câu` } : undefined}
+                   action={{ label: 'Xem bài mẫu', onClick: () => navigate(`/samples/speaking/${item.id}`) }}
+                 />
                ))}
             </div>
           </section>
