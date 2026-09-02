@@ -184,7 +184,7 @@ export default function Home() {
 
             {/* Left — text block */}
             <div className="flex-1 anim-fade-up" style={{ maxWidth: '44ch' }}>
-              <h1 className="mb-5 font-extrabold" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-4xl)', color: 'var(--ink)', lineHeight: 1.05 }}>
+              <h1 className="mb-5 font-extrabold" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-4xl)', color: 'var(--ink-soft)', lineHeight: 1.05 }}>
                 Luyện thi <span style={{ color: 'var(--primary)' }}>IELTS</span>{' '}
                 chuyên nghiệp cùng AI
               </h1>

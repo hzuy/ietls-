@@ -86,7 +86,7 @@ export default function SeriesCarousel({ children, count, title, to }) {
               <h2 style={{
                 fontFamily: 'var(--font-display)',
                 fontSize: 'var(--fs-2xl)', fontWeight: 700,
-                color: 'var(--ink)', margin: 0, letterSpacing: '-0.01em',
+                color: 'var(--ink-soft)', margin: 0, letterSpacing: '-0.01em',
               }}>{title}</h2>
             )}
             {count && (
@@ -131,10 +131,10 @@ export default function SeriesCarousel({ children, count, title, to }) {
             width: 40, height: 40, borderRadius: '50%',
             display: showLeft ? 'flex' : 'none',
             alignItems: 'center', justifyContent: 'center',
-            background: 'var(--color-surface)',
+            background: 'var(--surface)',
             boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-            border: '1px solid var(--color-border)',
-            color: 'var(--color-body)', cursor: 'pointer',
+            border: '1px solid var(--border)',
+            color: 'var(--text)', cursor: 'pointer',
             opacity: 0, transition: 'all 0.2s ease',
           }}
           className="group-hover/row:opacity-100 hover:text-slate-900 hover:border-slate-300"
@@ -173,10 +173,10 @@ export default function SeriesCarousel({ children, count, title, to }) {
             width: 40, height: 40, borderRadius: '50%',
             display: showRight ? 'flex' : 'none',
             alignItems: 'center', justifyContent: 'center',
-            background: 'var(--color-surface)',
+            background: 'var(--surface)',
             boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-            border: '1px solid var(--color-border)',
-            color: 'var(--color-body)', cursor: 'pointer',
+            border: '1px solid var(--border)',
+            color: 'var(--text)', cursor: 'pointer',
             opacity: 0, transition: 'all 0.2s ease',
           }}
           className="group-hover/row:opacity-100 hover:text-slate-900 hover:border-slate-300"

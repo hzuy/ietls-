@@ -10,7 +10,7 @@ export default function SectionHeader({ title, to, count }) {
         <h2 style={{
           fontFamily: 'var(--font-display)',
           fontSize: 'var(--fs-2xl)', fontWeight: 700,
-          color: 'var(--ink)', margin: 0, letterSpacing: '-0.01em',
+          color: 'var(--ink-soft)', margin: 0, letterSpacing: '-0.01em',
         }}>{title}</h2>
         {count && (
           <span style={{

@@ -278,7 +278,7 @@ aside nav a, aside nav button { font-family: var(--font-body); }
 .card-base {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
+  border-radius: 1rem;      /* 16px — matches Tailwind rounded-2xl used by admin content cards */
   box-shadow: var(--shadow-sm);
   transition: box-shadow var(--transition), border-color var(--transition), transform var(--transition);
 }
@@ -290,12 +290,12 @@ aside nav a, aside nav button { font-family: var(--font-body); }
 .card-flat {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
+  border-radius: 1rem;      /* 16px — matches Tailwind rounded-2xl used by admin content cards */
 }
 .card-interactive {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
+  border-radius: 1rem;      /* 16px — matches Tailwind rounded-2xl used by admin content cards */
   box-shadow: var(--shadow-sm);
   transition: box-shadow var(--transition), border-color var(--transition), transform var(--transition);
   cursor: pointer;

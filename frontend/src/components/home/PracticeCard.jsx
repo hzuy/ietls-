@@ -32,7 +32,7 @@ export default function PracticeCard({ item, skill, onAction, actionLabel = 'Là
       className={`${animClass} card-base flex flex-col`}
       style={{
         overflow: 'hidden', cursor: 'pointer',
-        borderRadius: 'var(--radius-xl)',
+        borderRadius: '1rem',
         background: '#ffffff',
         border: hovered ? '1.5px solid #60A5FA' : '1px solid #e2e8f0',
         transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -82,7 +82,7 @@ export default function PracticeCard({ item, skill, onAction, actionLabel = 'Là
         <p style={{
           fontFamily: 'var(--font-body)',
           fontWeight: 700, fontSize: 'var(--fs-sm)',
-          color: 'var(--ink)', margin: '0 0 8px 0',
+          color: 'var(--ink-soft)', margin: '0 0 8px 0',
           lineHeight: 1.4, minHeight: '40px',
           display: '-webkit-box', WebkitLineClamp: 2,
           WebkitBoxOrient: 'vertical', overflow: 'hidden',

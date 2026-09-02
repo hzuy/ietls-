@@ -32,7 +32,7 @@ export default function BookCard({ book, onClick, animClass }) {
       style={{
         overflow: 'hidden', cursor: 'pointer',
         width: '180px', flexShrink: 0, minHeight: '260px',
-        borderRadius: 'var(--radius-xl)',
+        borderRadius: '1rem',
         background: '#ffffff',
         border: hovered ? '1.5px solid #60A5FA' : '1px solid #e2e8f0',
         transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -67,7 +67,7 @@ export default function BookCard({ book, onClick, animClass }) {
         <p style={{
           fontFamily: 'var(--font-body)',
           fontWeight: 700, fontSize: 'var(--fs-sm)',
-          color: hovered ? '#2563EB' : 'var(--ink)', margin: '0 0 4px',
+          color: hovered ? '#2563EB' : 'var(--ink-soft)', margin: '0 0 4px',
           lineHeight: 1.4, minHeight: '36px',
           display: '-webkit-box', WebkitLineClamp: 2,
           WebkitBoxOrient: 'vertical', overflow: 'hidden',
