@@ -46,6 +46,7 @@ const CONFIG = {
       task2: 'VD: Opinion essay, Discussion essay, Problem-solution...',
       '':    'VD: Bar chart, Opinion essay...',
     },
+    showTags: false,
     tagPlaceholder: 'VD: Task 1, Band 8.0... (Enter để thêm)',
     contentPlaceholder: 'Nhập nội dung bài mẫu Writing...',
     tagChipClass: 'bg-blue-50 text-[#1D4ED8]',
@@ -83,6 +84,7 @@ const CONFIG = {
       task3: 'VD: Abstract discussion, Society, Technology, Environment...',
       '':    'VD: Describe a person, Abstract discussion...',
     },
+    showTags: false,
     tagPlaceholder: 'VD: Part 2, Band 7.5... (Enter để thêm)',
     contentPlaceholder: 'Nhập nội dung bài mẫu Speaking (cue card, sample answer, tips...)',
     tagChipClass: 'bg-purple-50 text-purple-700',
@@ -142,7 +144,7 @@ export default function SampleManager({ kind }) {
   const openEdit = async (item) => {
     try {
       const data = await svc.get(item.id)
-      const next = { title: data.title, level: data.level || '', examType: data.examType || '', content: data.content || '', tagInput: '', tags: data.tags || [], thumbnailUrl: data.thumbnailUrl, thumbPreview: resolveImg(data.thumbnailUrl), thumbFile: null }
+      const next = { title: data.title, level: data.level || '', examType: data.examType || '', content: data.content || '', tagInput: '', tags: cfg.showTags ? (data.tags || []) : [], thumbnailUrl: data.thumbnailUrl, thumbPreview: resolveImg(data.thumbnailUrl), thumbFile: null }
       pristineRef.current = formSig(next)
       setForm(next)
       setEditing(data); setIsDirty(false); setView('form')
@@ -177,7 +179,11 @@ export default function SampleManager({ kind }) {
       }
 
       // ── Bước 2: ghi record với URL đã có sẵn ──
-      const body = { title: form.title.trim(), level: form.level || null, examType: form.examType.trim() || null, content: form.content, thumbnailUrl: thumbnailUrl || null, tags: form.tags }
+      const body = {
+        title: form.title.trim(), level: form.level || null, examType: form.examType.trim() || null,
+        content: form.content, thumbnailUrl: thumbnailUrl || null,
+        ...(cfg.showTags ? { tags: form.tags } : {}),
+      }
       if (!editing) await svc.create(body)
       else await svc.update(editing.id, body)
 
@@ -233,24 +239,26 @@ export default function SampleManager({ kind }) {
                     className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" />
                 </div>
                 {/* Tags */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Tags</label>
-                  <div className="flex flex-wrap gap-1.5 mb-2">
-                    {form.tags.map(t => (
-                      <span key={t} className={`inline-flex items-center gap-1 ${cfg.tagChipClass} rounded-full px-2.5 py-0.5 text-xs font-medium`}>
-                        {t}
-                        <button onClick={() => removeTag(t)} aria-label={`Xóa tag ${t}`} className={`bg-transparent border-0 cursor-pointer ${cfg.tagChipCloseClass} text-sm leading-none`}>×</button>
-                      </span>
-                    ))}
+                {cfg.showTags && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Tags</label>
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {form.tags.map(t => (
+                        <span key={t} className={`inline-flex items-center gap-1 ${cfg.tagChipClass} rounded-full px-2.5 py-0.5 text-xs font-medium`}>
+                          {t}
+                          <button onClick={() => removeTag(t)} aria-label={`Xóa tag ${t}`} className={`bg-transparent border-0 cursor-pointer ${cfg.tagChipCloseClass} text-sm leading-none`}>×</button>
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex gap-1.5">
+                      <input value={form.tagInput} onChange={e => setForm(f => ({ ...f, tagInput: e.target.value }))}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag() } }}
+                        placeholder={cfg.tagPlaceholder}
+                        className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" />
+                      <button onClick={addTag} className={`px-3 py-2 rounded-lg ${cfg.tagAddBtnClass} text-sm font-semibold`}>+ Thêm</button>
+                    </div>
                   </div>
-                  <div className="flex gap-1.5">
-                    <input value={form.tagInput} onChange={e => setForm(f => ({ ...f, tagInput: e.target.value }))}
-                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag() } }}
-                      placeholder={cfg.tagPlaceholder}
-                      className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" />
-                    <button onClick={addTag} className={`px-3 py-2 rounded-lg ${cfg.tagAddBtnClass} text-sm font-semibold`}>+ Thêm</button>
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* Rich text content */}
@@ -294,7 +302,7 @@ export default function SampleManager({ kind }) {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 w-16">Ảnh</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Tên bài</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 hidden sm:table-cell">{cfg.taskColHeader}</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 hidden sm:table-cell">Tags</th>
+                  {cfg.showTags && <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 hidden sm:table-cell">Tags</th>}
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 hidden sm:table-cell">Ngày tạo</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500">Hành động</th>
                 </tr></thead>
@@ -317,7 +325,7 @@ export default function SampleManager({ kind }) {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 hidden sm:table-cell"><div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{(item.tags || []).map(t => <span key={t} style={{ fontSize: 11, background: cfg.listChipStyle.background, color: cfg.listChipStyle.color, borderRadius: 4, padding: '1px 6px' }}>{t}</span>)}</div></td>
+                      {cfg.showTags && <td className="px-4 py-3 hidden sm:table-cell"><div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{(item.tags || []).map(t => <span key={t} style={{ fontSize: 11, background: cfg.listChipStyle.background, color: cfg.listChipStyle.color, borderRadius: 4, padding: '1px 6px' }}>{t}</span>)}</div></td>}
                       <td className="px-4 py-3 text-sm text-gray-500 hidden sm:table-cell">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</td>
                       <td className="px-4 py-3"><div className="flex items-center justify-end gap-2">
                         <button onClick={() => openEdit(item)} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium transition">Sửa</button>

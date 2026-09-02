@@ -2,8 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import AdminLayout from '../../components/AdminLayout'
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges'
 import { useDraftPersistence } from '../../hooks/useDraftPersistence'
+import { useCollapsibleGroups } from '../../hooks/useCollapsibleGroups'
 import { validateAudioFile } from '../../utils/fileValidation'
 import { ConfirmDeleteModal, DraftBanner, DraftSavedHint, AdminListHeader, ThumbnailPicker } from '../../components/admin/contentPageUI'
+import PracticeGroupCard from '../../components/admin/PracticeGroupCard'
 import {
   getListeningPracticeList, getListeningPractice,
   createListeningPractice, updateListeningPractice,
@@ -13,97 +15,8 @@ import {
   resolveImg, recalcGroups,
   LISTENING_GROUP_TYPES, emptyListeningGroupOf,
   inputCls, labelCls, btnPrimary, btnSecondary,
-  GROUP_TYPE_COLORS, getQuestionTypeTheme,
 } from '../../utils/practiceConfig'
-import TableCompletionEditor          from '../../components/practice/TableCompletionEditor'
-import NoteCompletionEditor           from '../../components/practice/NoteCompletionEditor'
-import SummaryCompletionEditorSimple  from '../../components/practice/SummaryCompletionEditorSimple'
-import MCQGroupEditor                 from '../../components/practice/MCQGroupEditor'
-import MatchingEditor                 from '../../components/practice/MatchingEditor'
-import MatchingHeadingsEditor         from '../../components/practice/MatchingHeadingsEditor'
-import DiagramLabelEditor             from '../../components/practice/DiagramLabelEditor'
-import AdminGroupPreview              from '../../components/practice/AdminGroupPreview'
-
-// ─── GROUP EDITOR ─────────────────────────────────────────────────────────────
-function ListeningGroupEditor({ group, onChange, onRemove, onMoveUp, onMoveDown, isFirst, isLast }) {
-  const typeLabel = LISTENING_GROUP_TYPES.find(t => t.value === group.type)?.label || group.type
-  const theme = getQuestionTypeTheme(group.type)
-
-  return (
-    <div className={`border ${theme.cardBorder} ${theme.cardBg} rounded-2xl overflow-hidden transition-all duration-200 mb-3 shadow-xs`}>
-      <div className={`flex items-center gap-3 px-4 py-3 border-b ${theme.headerBg}`}>
-        <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${theme.badge}`}>
-          {typeLabel}
-        </span>
-        <span className="text-xs text-slate-500 font-semibold">Câu {group.qNumberStart}–{group.qNumberEnd}</span>
-        <div className="flex-1" />
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1">
-            <button type="button" onClick={onMoveUp} disabled={isFirst}
-              className="w-6 h-6 flex items-center justify-center rounded-lg border border-slate-200/80 bg-white text-slate-500 hover:text-slate-700 hover:bg-slate-50 disabled:opacity-30 text-xs transition">▲</button>
-            <button type="button" onClick={onMoveDown} disabled={isLast}
-              className="w-6 h-6 flex items-center justify-center rounded-lg border border-slate-200/80 bg-white text-slate-500 hover:text-slate-700 hover:bg-slate-50 disabled:opacity-30 text-xs transition">▼</button>
-          </div>
-          <button type="button" onClick={onRemove}
-            className="text-red-500 hover:text-red-600 text-xs font-semibold px-2.5 py-1 rounded-lg hover:bg-red-50/80 transition">
-            Xóa nhóm
-          </button>
-        </div>
-      </div>
-
-      <div className="p-4 space-y-3">
-        <div>
-          <label className={labelCls}>Instruction (hiển thị cho học sinh)</label>
-          <textarea rows={2} className={`${inputCls} resize-none`}
-            placeholder="Hướng dẫn làm bài..."
-            value={group.instruction}
-            onChange={e => onChange({ ...group, instruction: e.target.value })} />
-        </div>
-
-        {group.type === 'note_completion' && (
-          <NoteCompletionEditor group={group} onChange={onChange} />
-        )}
-        {group.type === 'table_completion' && (
-          <TableCompletionEditor group={group} onChange={onChange} />
-        )}
-        {(group.type === 'mcq' || group.type === 'mcq_multi') && (
-          <MCQGroupEditor group={group} onChange={onChange} />
-        )}
-        {(group.type === 'matching' || group.type === 'map_diagram') && (
-          <MatchingEditor group={group} onChange={onChange} />
-        )}
-        {group.type === 'drag_word_bank' && (
-          <SummaryCompletionEditorSimple group={group} onChange={onChange} />
-        )}
-        {group.type === 'matching_drag' && (
-          <div className="space-y-3">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={group.canReuse || false}
-                onChange={e => onChange({ ...group, canReuse: e.target.checked })}
-                className="accent-[#1D4ED8]" />
-              <span className="text-xs text-slate-600 font-medium">Cho phép dùng lại đáp án (mỗi đáp án có thể khớp nhiều câu)</span>
-            </label>
-            <MatchingEditor group={group} onChange={onChange} />
-          </div>
-        )}
-        {group.type === 'diagram_label' && (
-          <DiagramLabelEditor group={group} onChange={onChange} />
-        )}
-        {group.type === 'matching_headings' && (
-          <div className="space-y-3">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={group.canReuse || false}
-                onChange={e => onChange({ ...group, canReuse: e.target.checked })}
-                className="accent-green-600" />
-              <span className="text-xs text-slate-600 font-medium">Cho phép dùng lại heading (heading có thể khớp nhiều đoạn)</span>
-            </label>
-            <MatchingHeadingsEditor group={group} onChange={onChange} />
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
+import AdminGroupPreview from '../../components/practice/AdminGroupPreview'
 
 // ─── PREVIEW MODAL ────────────────────────────────────────────────────────────
 function ListeningPracticePreviewModal({ form, showAnswers, setShowAnswers, onClose }) {
@@ -185,6 +98,9 @@ export default function ListeningPractice() {
   const { draftBanner, setDraftBanner, draftSavedAt, clearDraft } =
     useDraftPersistence(draftKey, form, { enabled: view === 'form', dirty: isDirty })
 
+  // Thu gọn/bung từng nhóm câu hỏi (mặc định thu gọn khi mở đề).
+  const groupCollapse = useCollapsibleGroups()
+
   const load = async () => {
     setLoading(true)
     try { setList(await getListeningPracticeList()) } catch {}
@@ -195,6 +111,7 @@ export default function ListeningPractice() {
 
   const openAdd = () => {
     pristineRef.current = formSig(EMPTY_FORM)
+    groupCollapse.setAll([])
     setForm(EMPTY_FORM); setEditing(null); setIsDirty(false); setView('form')
   }
 
@@ -216,6 +133,7 @@ export default function ListeningPractice() {
         thumbFile: null,
       }
       pristineRef.current = formSig(next)
+      groupCollapse.setAll([])
       setForm(next)
       setEditing(data); setIsDirty(false); setView('form')
     } catch { alert('Lỗi tải bài') }
@@ -237,7 +155,9 @@ export default function ListeningPractice() {
   }
   const handleAddGroup = () => {
     const lastEnd = form.questionGroups.length > 0 ? form.questionGroups[form.questionGroups.length - 1].qNumberEnd : 0
-    setForm(f => ({ ...f, questionGroups: [...f.questionGroups, emptyListeningGroupOf(addGroupType, lastEnd + 1)] }))
+    const newGroup = emptyListeningGroupOf(addGroupType, lastEnd + 1)
+    setForm(f => ({ ...f, questionGroups: [...f.questionGroups, newGroup] }))
+    groupCollapse.reveal(newGroup._id)
   }
 
   const handleAudioPick = (e) => {
@@ -321,7 +241,7 @@ export default function ListeningPractice() {
           </div>
 
           <DraftBanner draft={draftBanner}
-            onRestore={() => { setForm(draftBanner.data); setDraftBanner(null) }}
+            onRestore={() => { groupCollapse.setAll([]); setForm(draftBanner.data); setDraftBanner(null) }}
             onDismiss={clearDraft} />
           {!draftBanner && <DraftSavedHint at={draftSavedAt} />}
 
@@ -355,15 +275,27 @@ export default function ListeningPractice() {
                     </button>
                   </div>
                 </div>
+                {form.questionGroups.length > 1 && (
+                  <div className="flex justify-end gap-2 mb-2 text-xs">
+                    <button type="button" onClick={() => groupCollapse.setAll(form.questionGroups.map(g => g._id))}
+                      className="text-slate-500 hover:text-slate-700 font-medium">Mở tất cả</button>
+                    <span className="text-slate-300">·</span>
+                    <button type="button" onClick={() => groupCollapse.setAll([])}
+                      className="text-slate-500 hover:text-slate-700 font-medium">Thu gọn tất cả</button>
+                  </div>
+                )}
                 {form.questionGroups.length === 0 ? (
                   <div className="text-center text-slate-400 text-sm py-8 border-2 border-dashed border-slate-200 rounded-lg">
                     Chưa có nhóm câu hỏi nào. Chọn loại và bấm "+ Thêm nhóm".
                   </div>
                 ) : (
                   form.questionGroups.map((g, i) => (
-                    <ListeningGroupEditor
+                    <PracticeGroupCard
                       key={g._id || g.id || i}
+                      skill="listening"
                       group={g}
+                      expanded={groupCollapse.isExpanded(g._id)}
+                      onToggle={() => groupCollapse.toggle(g._id)}
                       onChange={updated => handleGroupChange(i, updated)}
                       onRemove={() => handleGroupRemove(i)}
                       onMoveUp={() => handleGroupMove(i, -1)}

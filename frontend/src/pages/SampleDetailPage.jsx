@@ -32,7 +32,8 @@ export default function SampleDetailPage({ skill }) {
   if (!sample) return null
 
   const taskLabel = TASK_LABELS[sample.level] || null
-  const tags = sample.tags || []
+  // Tags đã bỏ khỏi luồng soạn Writing/Speaking Sample → không hiển thị nữa.
+  // Dữ liệu tags cũ vẫn còn trong DB, chỉ không render.
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
@@ -71,26 +72,6 @@ export default function SampleDetailPage({ skill }) {
               title={sample.title}
               examType={sample.examType}
             />
-
-            {/* Tags */}
-            {tags.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 32 }}>
-                {tags.map(t => (
-                  <span key={t} style={{
-                    fontFamily: 'var(--font-body)',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    borderRadius: 20,
-                    padding: '5px 16px',
-                    background: 'var(--surface-raised)',
-                    color: 'var(--muted)',
-                    border: '1px solid var(--border)'
-                  }}>
-                    #{t}
-                  </span>
-                ))}
-              </div>
-            )}
 
             {/* Divider */}
             <div style={{ borderTop: '2px solid var(--border-soft)', marginBottom: 32 }} />

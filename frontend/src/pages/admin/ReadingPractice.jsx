@@ -2,7 +2,9 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import AdminLayout from '../../components/AdminLayout'
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges'
 import { useDraftPersistence } from '../../hooks/useDraftPersistence'
+import { useCollapsibleGroups } from '../../hooks/useCollapsibleGroups'
 import { ConfirmDeleteModal, DraftBanner, DraftSavedHint, AdminListHeader, ThumbnailPicker } from '../../components/admin/contentPageUI'
+import PracticeGroupCard from '../../components/admin/PracticeGroupCard'
 import {
   getReadingPracticeList, getReadingPractice,
   createReadingPractice, updateReadingPractice,
@@ -12,108 +14,8 @@ import {
   resolveImg, recalcGroups,
   READING_GROUP_TYPES, emptyReadingGroupOf,
   inputCls, labelCls, btnPrimary, btnSecondary,
-  GROUP_TYPE_COLORS,
 } from '../../utils/practiceConfig'
-import TrueFalseEditor         from '../../components/practice/TrueFalseEditor'
-import TableCompletionEditor   from '../../components/practice/TableCompletionEditor'
-import NoteCompletionEditor    from '../../components/practice/NoteCompletionEditor'
-import SummaryCompletionEditor from '../../components/practice/SummaryCompletionEditor'
-import MCQGroupEditor          from '../../components/practice/MCQGroupEditor'
-import MatchingEditor          from '../../components/practice/MatchingEditor'
-import MatchingHeadingsEditor  from '../../components/practice/MatchingHeadingsEditor'
-import DiagramLabelEditor      from '../../components/practice/DiagramLabelEditor'
-import AdminGroupPreview       from '../../components/practice/AdminGroupPreview'
-
-// ─── GROUP EDITOR ─────────────────────────────────────────────────────────────
-function ReadingGroupEditor({ group, onChange, onRemove, onMoveUp, onMoveDown, isFirst, isLast }) {
-  const typeLabel = READING_GROUP_TYPES.find(t => t.value === group.type)?.label || group.type
-
-  return (
-    <div className="border border-slate-200 rounded-lg overflow-hidden mb-3">
-      <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
-        <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${GROUP_TYPE_COLORS[group.type] || 'bg-slate-100 text-slate-700 border-slate-300'}`}>
-          {typeLabel}
-        </span>
-        <span className="text-xs text-slate-500 font-medium">Câu {group.qNumberStart}–{group.qNumberEnd}</span>
-        <div className="flex-1" />
-        <div className="flex items-center gap-2">
-          <div className="flex flex-col gap-0.5">
-            <button type="button" onClick={onMoveUp} disabled={isFirst}
-              className="w-5 h-5 flex items-center justify-center rounded border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-25 text-xs transition">▲</button>
-            <button type="button" onClick={onMoveDown} disabled={isLast}
-              className="w-5 h-5 flex items-center justify-center rounded border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-25 text-xs transition">▼</button>
-          </div>
-          <button type="button" onClick={onRemove}
-            className="text-blue-500 hover:text-blue-600 text-xs font-medium px-2 py-0.5 rounded hover:bg-blue-50">
-            Xóa nhóm
-          </button>
-        </div>
-      </div>
-
-      <div className="p-4 space-y-3">
-        <div>
-          <label className={labelCls}>Instruction (hiển thị cho học sinh)</label>
-          <textarea rows={2} className={`${inputCls} resize-none`}
-            placeholder="Hướng dẫn làm bài..."
-            value={group.instruction}
-            onChange={e => onChange({ ...group, instruction: e.target.value })} />
-        </div>
-
-        {(group.type === 'true_false_ng' || group.type === 'yes_no_ng') && (
-          <TrueFalseEditor group={group} onChange={onChange} />
-        )}
-        {group.type === 'note_completion' && (
-          <NoteCompletionEditor group={group} onChange={onChange} />
-        )}
-        {group.type === 'table_completion' && (
-          <TableCompletionEditor group={group} onChange={onChange} />
-        )}
-        {(group.type === 'mcq' || group.type === 'mcq_multi') && (
-          <MCQGroupEditor group={group} onChange={onChange} />
-        )}
-        {group.type === 'matching_information' && (
-          <div className="space-y-3">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={group.canReuse || false}
-                onChange={e => onChange({ ...group, canReuse: e.target.checked })}
-                className="accent-[#1D4ED8]" />
-              <span className="text-xs text-slate-600 font-medium">Cho phép dùng lại chữ cái (mỗi đoạn có thể khớp nhiều câu)</span>
-            </label>
-            <MatchingEditor group={group} onChange={onChange} />
-          </div>
-        )}
-        {group.type === 'drag_word_bank' && (
-          <SummaryCompletionEditor group={group} onChange={onChange} />
-        )}
-        {group.type === 'matching_drag' && (
-          <div className="space-y-3">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={group.canReuse || false}
-                onChange={e => onChange({ ...group, canReuse: e.target.checked })}
-                className="accent-[#1D4ED8]" />
-              <span className="text-xs text-slate-600 font-medium">Cho phép dùng lại đáp án (mỗi đáp án có thể khớp nhiều câu)</span>
-            </label>
-            <MatchingEditor group={group} onChange={onChange} />
-          </div>
-        )}
-        {group.type === 'diagram_label' && (
-          <DiagramLabelEditor group={group} onChange={onChange} />
-        )}
-        {group.type === 'matching_headings' && (
-          <div className="space-y-3">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={group.canReuse || false}
-                onChange={e => onChange({ ...group, canReuse: e.target.checked })}
-                className="accent-green-600" />
-              <span className="text-xs text-slate-600 font-medium">Cho phép dùng lại heading (heading có thể khớp nhiều đoạn)</span>
-            </label>
-            <MatchingHeadingsEditor group={group} onChange={onChange} />
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
+import AdminGroupPreview from '../../components/practice/AdminGroupPreview'
 
 // ─── PREVIEW MODAL ────────────────────────────────────────────────────────────
 function ReadingPracticePreviewModal({ form, showAnswers, setShowAnswers, onClose }) {
@@ -223,6 +125,9 @@ export default function ReadingPractice() {
   const { draftBanner, setDraftBanner, draftSavedAt, clearDraft } =
     useDraftPersistence(draftKey, form, { enabled: view === 'form', dirty: isDirty })
 
+  // Thu gọn/bung từng nhóm câu hỏi (mặc định thu gọn khi mở đề).
+  const groupCollapse = useCollapsibleGroups()
+
   const load = async () => {
     setLoading(true)
     try { setList(await getReadingPracticeList()) } catch {}
@@ -233,6 +138,7 @@ export default function ReadingPractice() {
 
   const openAdd = () => {
     pristineRef.current = formSig(EMPTY_FORM)
+    groupCollapse.setAll([])
     setForm(EMPTY_FORM); setEditing(null); setShowPreview(false); setIsDirty(false); setView('form')
   }
 
@@ -250,6 +156,7 @@ export default function ReadingPractice() {
         thumbFile: null,
       }
       pristineRef.current = formSig(next)
+      groupCollapse.setAll([])
       setForm(next)
       setEditing(data); setShowPreview(false); setIsDirty(false); setView('form')
     } catch { alert('Lỗi tải bài') }
@@ -313,7 +220,9 @@ export default function ReadingPractice() {
   }
   const handleAddGroup = () => {
     const lastEnd = form.questionGroups.length > 0 ? form.questionGroups[form.questionGroups.length - 1].qNumberEnd : 0
-    setForm(f => ({ ...f, questionGroups: [...f.questionGroups, emptyReadingGroupOf(addGroupType, lastEnd + 1)] }))
+    const newGroup = emptyReadingGroupOf(addGroupType, lastEnd + 1)
+    setForm(f => ({ ...f, questionGroups: [...f.questionGroups, newGroup] }))
+    groupCollapse.reveal(newGroup._id)
   }
 
   // ── FORM VIEW ────────────────────────────────────────────────────────────────
@@ -329,7 +238,7 @@ export default function ReadingPractice() {
           </div>
 
           <DraftBanner draft={draftBanner}
-            onRestore={() => { setForm(draftBanner.data); setDraftBanner(null) }}
+            onRestore={() => { groupCollapse.setAll([]); setForm(draftBanner.data); setDraftBanner(null) }}
             onDismiss={clearDraft} />
           {!draftBanner && <DraftSavedHint at={draftSavedAt} />}
 
@@ -363,15 +272,27 @@ export default function ReadingPractice() {
                     </button>
                   </div>
                 </div>
+                {form.questionGroups.length > 1 && (
+                  <div className="flex justify-end gap-2 mb-2 text-xs">
+                    <button type="button" onClick={() => groupCollapse.setAll(form.questionGroups.map(g => g._id))}
+                      className="text-slate-500 hover:text-slate-700 font-medium">Mở tất cả</button>
+                    <span className="text-slate-300">·</span>
+                    <button type="button" onClick={() => groupCollapse.setAll([])}
+                      className="text-slate-500 hover:text-slate-700 font-medium">Thu gọn tất cả</button>
+                  </div>
+                )}
                 {form.questionGroups.length === 0 ? (
                   <div className="text-center text-slate-400 text-sm py-8 border-2 border-dashed border-slate-200 rounded-lg">
                     Chưa có nhóm câu hỏi nào. Chọn loại và bấm "+ Thêm nhóm".
                   </div>
                 ) : (
                   form.questionGroups.map((g, i) => (
-                    <ReadingGroupEditor
+                    <PracticeGroupCard
                       key={g._id || g.id || i}
+                      skill="reading"
                       group={g}
+                      expanded={groupCollapse.isExpanded(g._id)}
+                      onToggle={() => groupCollapse.toggle(g._id)}
                       onChange={updated => handleGroupChange(i, updated)}
                       onRemove={() => handleGroupRemove(i)}
                       onMoveUp={() => handleGroupMove(i, -1)}

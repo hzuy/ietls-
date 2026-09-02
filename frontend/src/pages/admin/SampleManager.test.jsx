@@ -104,8 +104,9 @@ describe('SampleManager — smoke (Giai đoạn 0)', () => {
         examType: null,
         content: 'Nội dung bài mẫu tối thiểu.',
         thumbnailUrl: null,
-        tags: [],
       })
+      // Tags đã bỏ khỏi cả 2 kind → request không kèm field `tags`.
+      expect(sampleService[c.createFn].mock.calls[0][0]).not.toHaveProperty('tags')
       // Không gọi nhầm sang kind kia.
       expect(sampleService[c.otherCreateFn]).not.toHaveBeenCalled()
       // Quay lại list và refetch.
@@ -125,5 +126,27 @@ describe('SampleManager — smoke (Giai đoạn 0)', () => {
 
     await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('Vui lòng nhập nội dung bài mẫu'))
     expect(sampleService.createWritingSample).not.toHaveBeenCalled()
+  })
+
+  it.each(['writing', 'speaking'])('Tags: %s form không còn khối Tags', async (kind) => {
+    render(<SampleManager kind={kind} />)
+    fireEvent.click(await screen.findByRole('button', { name: '+ Thêm mới' }))
+    expect(screen.queryByText('Tags')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '+ Thêm' })).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['writing', 'getWritingSamples', 'Task 1'],
+    ['speaking', 'getSpeakingSamples', 'Part 1'],
+  ])('Tags: %s list không có cột "Tags", vẫn hiện badge task/part; tag cũ trong DB không render', async (kind, listFn, badge) => {
+    sampleService[listFn].mockResolvedValue([
+      { id: 5, title: 'Sample cũ', level: 'task1', examType: 'Đề X', tags: ['Band 8.0'], thumbnailUrl: null, createdAt: '2026-01-01T00:00:00Z' },
+    ])
+    render(<SampleManager kind={kind} />)
+
+    expect(await screen.findByText('Sample cũ')).toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'Tags' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Band 8.0')).not.toBeInTheDocument()
+    expect(screen.getByText(badge)).toBeInTheDocument()
   })
 })
