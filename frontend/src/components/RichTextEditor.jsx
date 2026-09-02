@@ -18,7 +18,7 @@ const TOOLBAR = [
   { cmd: 'justifyRight',  label: '→⬤', title: 'Căn phải' },
 ]
 
-export default function RichTextEditor({ value = '', onChange, placeholder = 'Nhập nội dung...' }) {
+export default function RichTextEditor({ value = '', onChange, placeholder = 'Nhập nội dung...', maxHeight }) {
   const editorRef = useRef(null)
 
   // Sync external value → DOM
@@ -85,6 +85,7 @@ export default function RichTextEditor({ value = '', onChange, placeholder = 'Nh
         style={{
           minHeight: 200, padding: 16, outline: 'none', fontSize: 14, lineHeight: 1.7,
           color: '#1e293b', fontFamily: 'inherit',
+          ...(maxHeight ? { maxHeight, overflowY: 'auto' } : {}),
         }}
         // CSS for placeholder via attribute (injected via global class)
       />

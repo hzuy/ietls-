@@ -209,6 +209,14 @@ export default function ReadingPractice() {
   // BUG-13: Block navigation when dirty (view === 'form' with changes)
   useUnsavedChanges(view === 'form' && isDirty)
 
+  // Escape đóng modal xác nhận xoá (port từ pattern preview modal)
+  useEffect(() => {
+    if (!delConfirm) return
+    const h = (e) => { if (e.key === 'Escape') setDelConfirm(null) }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [delConfirm])
+
   const getDraftKey = () => `draft_reading_practice_${editing?.id || 'new'}`
 
   useEffect(() => {
@@ -344,7 +352,7 @@ export default function ReadingPractice() {
       <AdminLayout>
         <div className="p-6 max-w-5xl">
           <div className="flex items-center gap-3 mb-6">
-            <button onClick={() => { setIsDirty(false); setView('list') }} className="text-slate-500 hover:text-slate-700 text-xl font-bold transition">←</button>
+            <button onClick={() => { setIsDirty(false); setView('list') }} aria-label="Quay lại danh sách" className="text-slate-500 hover:text-slate-700 text-xl font-bold transition">←</button>
             <h1 className="text-xl font-bold text-slate-800">
               {editing ? 'Chỉnh sửa bài Reading Practice' : 'Thêm bài Reading Practice mới'}
             </h1>
@@ -365,16 +373,16 @@ export default function ReadingPractice() {
             <div className="text-xs text-slate-400 mb-2">💾 Đã lưu nháp lúc {draftSavedAt}</div>
           )}
 
-          <div className="grid gap-5" style={{ gridTemplateColumns: '1fr 280px', alignItems: 'start' }}>
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
             <div className="space-y-4">
-              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+              <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
                 <label className={labelCls}>Tên bài <span className="text-red-500 font-normal">*</span></label>
                 <input value={form.title} onChange={e => { setForm(f => ({ ...f, title: e.target.value })); setIsDirty(true) }}
                   placeholder="VD: Academic Reading — Nature and Wildlife"
                   className={inputCls} />
               </div>
 
-              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+              <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
                 <label className={labelCls}>Passage (nội dung bài đọc)</label>
                 <textarea value={form.passage} onChange={e => { setForm(f => ({ ...f, passage: e.target.value })); setIsDirty(true) }}
                   rows={14} placeholder="Nhập nội dung passage..."
@@ -382,7 +390,7 @@ export default function ReadingPractice() {
                   style={{ lineHeight: 1.7 }} />
               </div>
 
-              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+              <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <label className={labelCls + ' mb-0'}>Nhóm câu hỏi</label>
                   <div className="flex items-center gap-2">
@@ -416,13 +424,14 @@ export default function ReadingPractice() {
               </div>
             </div>
 
-            <div className="space-y-3" style={{ position: 'sticky', top: 24, alignSelf: 'flex-start' }}>
-              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+            <div className="space-y-3 lg:sticky lg:top-6 lg:self-start">
+              <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
                 <label className={labelCls}>Ảnh bìa</label>
                 {form.thumbPreview ? (
                   <div className="relative mb-2">
                     <img src={form.thumbPreview} alt="" className="w-full rounded-lg object-cover" style={{ aspectRatio: '16/9' }} />
                     <button onClick={() => setForm(f => ({ ...f, thumbFile: null, thumbPreview: null, thumbnailUrl: null }))}
+                      aria-label="Xóa ảnh bìa"
                       className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-blue-500 text-white text-sm font-bold flex items-center justify-center border-2 border-white">×</button>
                   </div>
                 ) : (
@@ -472,7 +481,7 @@ export default function ReadingPractice() {
             <p className="text-sm text-slate-500 mt-0.5">Bài luyện đọc riêng lẻ — hiển thị trên trang chủ</p>
           </div>
           <button onClick={openAdd}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1D4ED8] text-white text-sm font-semibold hover:bg-[#1D4ED8] transition">
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1D4ED8] text-white text-sm font-semibold hover:bg-[#1e40af] transition">
             + Thêm mới
           </button>
         </div>
@@ -529,15 +538,15 @@ export default function ReadingPractice() {
 
       {delConfirm && (
         <div onClick={() => setDelConfirm(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+          <div onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="del-confirm-title" className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-xl">🗑️</div>
-              <h3 className="font-bold text-slate-800">Xóa bài đọc?</h3>
+              <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center text-xl">🗑️</div>
+              <h3 id="del-confirm-title" className="font-bold text-slate-800">Xóa bài đọc?</h3>
             </div>
             <p className="text-sm text-slate-500 mb-5">Hành động này không thể hoàn tác.</p>
             <div className="flex gap-3 justify-end">
               <button onClick={() => setDelConfirm(null)} className="px-4 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 font-medium">Hủy</button>
-              <button onClick={() => handleDelete(delConfirm)} className="px-4 py-2 rounded-lg bg-blue-500 text-white text-sm font-bold hover:bg-blue-600 transition">Xóa</button>
+              <button onClick={() => handleDelete(delConfirm)} className="px-4 py-2 rounded-lg bg-[#dc2626] text-white text-sm font-bold hover:bg-[#b91c1c] transition">Xóa</button>
             </div>
           </div>
         </div>

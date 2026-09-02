@@ -46,6 +46,14 @@ export default function WritingSamples() {
   // Cảnh báo đóng tab / F5 khi form có thay đổi chưa lưu (in-app nav xử lý ở AdminLayout — Bước 3).
   useUnsavedChanges(view === 'form' && isDirty)
 
+  // Escape đóng modal xác nhận xoá (port từ pattern preview modal Reading/Listening)
+  useEffect(() => {
+    if (!delConfirm) return
+    const h = (e) => { if (e.key === 'Escape') setDelConfirm(null) }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [delConfirm])
+
   // isDirty = form hiện tại khác snapshot lúc mở form (openAdd/openEdit đặt lại pristineRef).
   useEffect(() => {
     if (view !== 'form') return
@@ -159,100 +167,104 @@ export default function WritingSamples() {
   if (view === 'form') {
     return (
       <AdminLayout>
-        <div className="p-6 max-w-4xl">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-            <button onClick={() => setView('list')} style={{ color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', fontSize: 20 }}>←</button>
-            <h1 className="text-xl font-bold text-gray-800">{editing ? 'Chỉnh sửa Writing Sample' : 'Thêm Writing Sample mới'}</h1>
+        <div className="p-6 max-w-5xl">
+          <div className="flex items-center gap-3 mb-6">
+            <button onClick={() => setView('list')} aria-label="Quay lại danh sách" className="text-slate-500 hover:text-slate-700 text-xl font-bold transition">←</button>
+            <h1 className="text-xl font-bold text-slate-800">{editing ? 'Chỉnh sửa Writing Sample' : 'Thêm Writing Sample mới'}</h1>
           </div>
 
           {/* BUG-14: Draft banner */}
           {draftBanner && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 flex items-center justify-between">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 flex items-center justify-between">
               <span className="text-sm text-yellow-700">📋 Bạn có bản nháp chưa lưu. Khôi phục không?</span>
               <div className="flex gap-2">
                 <button onClick={() => { setForm(draftBanner.data); setDraftBanner(null) }}
                   className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-yellow-100 hover:bg-yellow-200 text-yellow-800 border border-yellow-300 transition">Khôi phục</button>
                 <button onClick={() => { clearDraft(); setDraftBanner(null) }}
-                  className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 transition">Bỏ qua</button>
+                  className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 transition">Bỏ qua</button>
               </div>
             </div>
           )}
           {draftSavedAt && !draftBanner && (
-            <div className="text-xs text-gray-400 mb-2">💾 Đã lưu nháp lúc {draftSavedAt}</div>
+            <div className="text-xs text-slate-400 mb-2">💾 Đã lưu nháp lúc {draftSavedAt}</div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 260px', gap: 20, alignItems: 'start' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+            <div className="flex flex-col gap-4">
               {/* Basic info */}
-              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                <div style={{ marginBottom: 14 }}>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">Tên bài <span className="text-red-500">*</span></label>
+              <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+                <div className="mb-3.5">
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Tên bài <span className="text-red-500 font-normal">*</span></label>
                   <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                     placeholder="VD: Cambridge IELTS 19 — Task 1 Sample Answer"
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400" />
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" />
                 </div>
-                <div style={{ marginBottom: 14 }}>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">Task</label>
+                <div className="mb-3.5">
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Task</label>
                   <select value={form.level} onChange={e => setForm(f => ({ ...f, level: e.target.value, examType: '' }))}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400">
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-400">
                     {TASKS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                 </div>
-                <div style={{ marginBottom: 14 }}>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">Dạng đề</label>
+                <div className="mb-3.5">
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Dạng đề</label>
                   <input value={form.examType} onChange={e => setForm(f => ({ ...f, examType: e.target.value }))}
                     placeholder={EXAM_TYPE_PLACEHOLDER[form.level] || EXAM_TYPE_PLACEHOLDER['']}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400" />
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" />
                 </div>
                 {/* Tags */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">Tags</label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Tags</label>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
                     {form.tags.map(t => (
-                      <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#eff6ff', color: '#1D4ED8', borderRadius: 20, padding: '3px 10px', fontSize: 12, fontWeight: 500 }}>
+                      <span key={t} className="inline-flex items-center gap-1 bg-blue-50 text-[#1D4ED8] rounded-full px-2.5 py-0.5 text-xs font-medium">
                         {t}
-                        <button onClick={() => removeTag(t)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1D4ED8', fontSize: 14, lineHeight: 1 }}>×</button>
+                        <button onClick={() => removeTag(t)} aria-label={`Xóa tag ${t}`} className="bg-transparent border-0 cursor-pointer text-[#1D4ED8] text-sm leading-none">×</button>
                       </span>
                     ))}
                   </div>
-                  <div style={{ display: 'flex', gap: 6 }}>
+                  <div className="flex gap-1.5">
                     <input value={form.tagInput} onChange={e => setForm(f => ({ ...f, tagInput: e.target.value }))}
                       onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag() } }}
                       placeholder="VD: Task 1, Band 8.0... (Enter để thêm)"
-                      className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400" />
-                    <button onClick={addTag} className="px-3 py-2 rounded-xl bg-blue-50 text-blue-600 text-sm font-semibold hover:bg-blue-100">+ Thêm</button>
+                      className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" />
+                    <button onClick={addTag} className="px-3 py-2 rounded-lg bg-blue-50 text-blue-600 text-sm font-semibold hover:bg-blue-100">+ Thêm</button>
                   </div>
                 </div>
               </div>
 
               {/* Rich text content */}
-              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                <label className="block text-xs font-semibold text-gray-600 mb-2">Nội dung bài mẫu</label>
+              <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+                <label className="block text-xs font-semibold text-slate-600 mb-2">Nội dung bài mẫu</label>
                 <RichTextEditor value={form.content} onChange={html => setForm(f => ({ ...f, content: html }))}
+                  maxHeight={520}
                   placeholder="Nhập nội dung bài mẫu Writing..." />
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                <label className="block text-xs font-semibold text-gray-600 mb-2">Ảnh bìa</label>
+            <div className="flex flex-col gap-3 lg:sticky lg:top-6 lg:self-start">
+              <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+                <label className="block text-xs font-semibold text-slate-600 mb-2">Ảnh bìa</label>
                 {form.thumbPreview ? (
-                  <div style={{ position: 'relative', marginBottom: 6 }}>
-                    <img src={form.thumbPreview} alt="" style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', borderRadius: 8 }} />
+                  <div className="relative mb-1.5">
+                    <img src={form.thumbPreview} alt="" className="w-full rounded-lg object-cover" style={{ aspectRatio: '16/9' }} />
                     <button onClick={() => setForm(f => ({ ...f, thumbFile: null, thumbPreview: null, thumbnailUrl: null }))}
-                      style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%', background: '#ef4444', color: 'white', border: 'none', cursor: 'pointer', fontSize: 14 }}>×</button>
+                      aria-label="Xóa ảnh bìa"
+                      className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#ef4444] text-white text-sm flex items-center justify-center border-0 cursor-pointer">×</button>
                   </div>
                 ) : (
-                  <button onClick={() => thumbRef.current.click()} style={{ width: '100%', aspectRatio: '16/9', border: '2px dashed #e2e8f0', borderRadius: 8, background: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer', color: '#94a3b8', fontSize: 13 }}>
+                  <button onClick={() => thumbRef.current.click()}
+                    className="w-full border-2 border-dashed border-slate-200 rounded-lg bg-slate-50 hover:border-blue-300 hover:bg-blue-50/30 transition flex flex-col items-center justify-center gap-1.5 text-slate-400 text-[13px] cursor-pointer"
+                    style={{ aspectRatio: '16/9' }}>
                     <svg width="22" height="22" fill="none" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                     Chọn ảnh bìa
                   </button>
                 )}
                 <input ref={thumbRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={handleThumbPick} />
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => setView('list')} className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 font-medium">Hủy</button>
-                <button onClick={handleSave} disabled={saving} className="flex-1 px-4 py-2.5 rounded-xl bg-[#1D4ED8] text-white text-sm font-bold hover:bg-[#1D4ED8] transition disabled:opacity-50">{saving ? 'Đang lưu...' : 'Lưu'}</button>
+              <div className="flex gap-2">
+                <button onClick={() => setView('list')} className="flex-1 px-4 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 font-medium">Hủy</button>
+                <button onClick={handleSave} disabled={saving} className="flex-1 px-4 py-2.5 rounded-lg bg-[#1D4ED8] text-white text-sm font-bold hover:bg-[#1e40af] transition disabled:opacity-50">{saving ? 'Đang lưu...' : 'Lưu'}</button>
               </div>
             </div>
           </div>
@@ -266,7 +278,7 @@ export default function WritingSamples() {
       <div className="p-6 max-w-5xl">
         <div className="flex items-center justify-between mb-6">
           <div><h1 className="text-xl font-bold text-gray-800">Writing Samples</h1><p className="text-sm text-gray-500 mt-0.5">Bài mẫu Writing — hiển thị trên trang chủ</p></div>
-          <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1D4ED8] text-white text-sm font-semibold hover:bg-[#1D4ED8] transition">+ Thêm mới</button>
+          <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1D4ED8] text-white text-sm font-semibold hover:bg-[#1e40af] transition">+ Thêm mới</button>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
           {loading ? <div className="p-10 text-center text-sm text-gray-400">Đang tải...</div>
@@ -315,12 +327,12 @@ export default function WritingSamples() {
       </div>
       {delConfirm && (
         <div onClick={() => setDelConfirm(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
-            <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-xl">🗑️</div><h3 className="font-bold text-gray-800">Xóa bài Writing?</h3></div>
+          <div onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="del-confirm-title" className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center text-xl">🗑️</div><h3 id="del-confirm-title" className="font-bold text-gray-800">Xóa bài Writing?</h3></div>
             <p className="text-sm text-gray-500 mb-5">Hành động này không thể hoàn tác.</p>
             <div className="flex gap-3 justify-end">
               <button onClick={() => setDelConfirm(null)} className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 font-medium">Hủy</button>
-              <button onClick={() => handleDelete(delConfirm)} className="px-4 py-2 rounded-xl bg-blue-500 text-white text-sm font-bold hover:bg-blue-600 transition">Xóa</button>
+              <button onClick={() => handleDelete(delConfirm)} className="px-4 py-2 rounded-xl bg-[#dc2626] text-white text-sm font-bold hover:bg-[#b91c1c] transition">Xóa</button>
             </div>
           </div>
         </div>
