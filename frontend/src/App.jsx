@@ -44,8 +44,7 @@ const Staff             = lazy(() => import('./pages/admin/Staff'))
 const Profile           = lazy(() => import('./pages/admin/Profile'))
 const ReadingPractice   = lazy(() => import('./pages/admin/ReadingPractice'))
 const ListeningPractice = lazy(() => import('./pages/admin/ListeningPractice'))
-const WritingSamples    = lazy(() => import('./pages/admin/WritingSamples'))
-const SpeakingSamples   = lazy(() => import('./pages/admin/SpeakingSamples'))
+const SampleManager     = lazy(() => import('./pages/admin/SampleManager'))
 const Trash             = lazy(() => import('./pages/admin/Trash'))
 
 function PageLoader() {
@@ -170,8 +169,8 @@ export default function App() {
               <Route path="/admin/profile"           element={<StaffRoute><Profile /></StaffRoute>} />
               <Route path="/admin/reading-practice"   element={<StaffRoute><ReadingPractice /></StaffRoute>} />
               <Route path="/admin/listening-practice" element={<StaffRoute><ListeningPractice /></StaffRoute>} />
-              <Route path="/admin/writing-samples"    element={<StaffRoute><WritingSamples /></StaffRoute>} />
-              <Route path="/admin/speaking-samples"   element={<StaffRoute><SpeakingSamples /></StaffRoute>} />
+              <Route path="/admin/writing-samples"    element={<StaffRoute><SampleManager kind="writing" /></StaffRoute>} />
+              <Route path="/admin/speaking-samples"   element={<StaffRoute><SampleManager kind="speaking" /></StaffRoute>} />
               <Route path="/admin/trash"             element={<StaffRoute><Trash /></StaffRoute>} />
 
               {/* 404 Route */}

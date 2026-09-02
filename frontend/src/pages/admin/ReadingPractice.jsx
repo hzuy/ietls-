@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import AdminLayout from '../../components/AdminLayout'
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges'
-import { validateImageFile } from '../../utils/fileValidation'
+import { useDraftPersistence } from '../../hooks/useDraftPersistence'
+import { ConfirmDeleteModal, DraftBanner, DraftSavedHint, AdminListHeader, ThumbnailPicker } from '../../components/admin/contentPageUI'
 import {
   getReadingPracticeList, getReadingPractice,
   createReadingPractice, updateReadingPractice,
@@ -189,6 +190,10 @@ const EMPTY_FORM = {
   thumbnailUrl: null, thumbPreview: null, thumbFile: null,
 }
 
+// Chữ ký nội dung form (bỏ thumbPreview — chỉ là blob/URL phái sinh) để phát hiện
+// thay đổi chưa lưu (derive-snapshot, giống SampleManager).
+const formSig = (f) => JSON.stringify([f.title, f.passage, f.questionGroups, f.thumbnailUrl, !!f.thumbFile])
+
 export default function ReadingPractice() {
   const [list, setList]               = useState([])
   const [loading, setLoading]         = useState(true)
@@ -200,46 +205,23 @@ export default function ReadingPractice() {
   const [addGroupType, setAddGroupType] = useState(READING_GROUP_TYPES[0].value)
   const [showPreview, setShowPreview] = useState(false)
   const [showAnswers, setShowAnswers] = useState(false)
-  const [draftBanner, setDraftBanner] = useState(null)
-  const [draftSavedAt, setDraftSavedAt] = useState(null)
-  // BUG-13: Track unsaved changes
+  // BUG-13: Track unsaved changes (derive-snapshot: formSig(form) vs pristineRef)
   const [isDirty, setIsDirty] = useState(false)
-  const thumbRef = useRef()
+  const pristineRef = useRef('')
 
   // BUG-13: Block navigation when dirty (view === 'form' with changes)
   useUnsavedChanges(view === 'form' && isDirty)
 
-  // Escape đóng modal xác nhận xoá (port từ pattern preview modal)
-  useEffect(() => {
-    if (!delConfirm) return
-    const h = (e) => { if (e.key === 'Escape') setDelConfirm(null) }
-    window.addEventListener('keydown', h)
-    return () => window.removeEventListener('keydown', h)
-  }, [delConfirm])
-
-  const getDraftKey = () => `draft_reading_practice_${editing?.id || 'new'}`
-
+  // isDirty = form hiện tại khác snapshot lúc mở form (openAdd/openEdit đặt lại pristineRef).
   useEffect(() => {
     if (view !== 'form') return
-    const key = getDraftKey()
-    const saved = localStorage.getItem(key)
-    if (saved) {
-      try { setDraftBanner({ data: JSON.parse(saved) }) }
-      catch { localStorage.removeItem(key) }
-    } else { setDraftBanner(null) }
-  }, [view, editing?.id])
+    setIsDirty(formSig(form) !== pristineRef.current)
+  }, [form, view])
 
-  useEffect(() => {
-    if (view !== 'form') return
-    if (!form.title && !form.passage && form.questionGroups.length === 0) return
-    const key = getDraftKey()
-    const timer = setTimeout(() => {
-      localStorage.setItem(key, JSON.stringify(form))
-      const now = new Date()
-      setDraftSavedAt(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
-    }, 2000)
-    return () => clearTimeout(timer)
-  }, [form, view, editing?.id])
+  // BUG-14: Draft auto-save (restore khi mở form, autosave 2s khi có thay đổi).
+  const draftKey = `draft_reading_practice_${editing?.id || 'new'}`
+  const { draftBanner, setDraftBanner, draftSavedAt, clearDraft } =
+    useDraftPersistence(draftKey, form, { enabled: view === 'form', dirty: isDirty })
 
   const load = async () => {
     setLoading(true)
@@ -249,9 +231,8 @@ export default function ReadingPractice() {
 
   useEffect(() => { load() }, [])
 
-  const clearDraft = () => { localStorage.removeItem(getDraftKey()); setDraftBanner(null); setDraftSavedAt(null) }
-
   const openAdd = () => {
+    pristineRef.current = formSig(EMPTY_FORM)
     setForm(EMPTY_FORM); setEditing(null); setShowPreview(false); setIsDirty(false); setView('form')
   }
 
@@ -261,24 +242,17 @@ export default function ReadingPractice() {
       const qData = data.questions
         ? (typeof data.questions === 'string' ? JSON.parse(data.questions) : data.questions)
         : { groups: [] }
-      setForm({
+      const next = {
         title: data.title, passage: data.passage || '',
         questionGroups: qData.groups || [],
         thumbnailUrl: data.thumbnailUrl,
         thumbPreview: resolveImg(data.thumbnailUrl),
         thumbFile: null,
-      })
+      }
+      pristineRef.current = formSig(next)
+      setForm(next)
       setEditing(data); setShowPreview(false); setIsDirty(false); setView('form')
     } catch { alert('Lỗi tải bài') }
-  }
-
-  const handleThumbPick = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    const v = validateImageFile(file)
-    if (!v.ok) { alert(v.error); e.target.value = ''; return }
-    setForm(f => ({ ...f, thumbFile: file, thumbPreview: URL.createObjectURL(file) }))
-    setIsDirty(true)
   }
 
   const handleSave = async () => {
@@ -327,23 +301,19 @@ export default function ReadingPractice() {
 
   const handleGroupChange = (i, updated) => {
     setForm(f => ({ ...f, questionGroups: recalcGroups(f.questionGroups.map((g, idx) => idx === i ? updated : g)) }))
-    setIsDirty(true)
   }
   const handleGroupRemove = (i) => {
     setForm(f => ({ ...f, questionGroups: recalcGroups(f.questionGroups.filter((_, idx) => idx !== i)) }))
-    setIsDirty(true)
   }
   const handleGroupMove = (i, dir) => {
     const arr = [...form.questionGroups]; const j = i + dir
     if (j < 0 || j >= arr.length) return
     ;[arr[i], arr[j]] = [arr[j], arr[i]]
     setForm(f => ({ ...f, questionGroups: recalcGroups(arr) }))
-    setIsDirty(true)
   }
   const handleAddGroup = () => {
     const lastEnd = form.questionGroups.length > 0 ? form.questionGroups[form.questionGroups.length - 1].qNumberEnd : 0
     setForm(f => ({ ...f, questionGroups: [...f.questionGroups, emptyReadingGroupOf(addGroupType, lastEnd + 1)] }))
-    setIsDirty(true)
   }
 
   // ── FORM VIEW ────────────────────────────────────────────────────────────────
@@ -358,33 +328,23 @@ export default function ReadingPractice() {
             </h1>
           </div>
 
-          {draftBanner && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 flex items-center justify-between">
-              <span className="text-sm text-yellow-700">📋 Bạn có bản nháp chưa lưu. Khôi phục không?</span>
-              <div className="flex gap-2">
-                <button onClick={() => { setForm(draftBanner.data); setDraftBanner(null); setIsDirty(true) }}
-                  className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-yellow-100 hover:bg-yellow-200 text-yellow-800 border border-yellow-300 transition">Khôi phục</button>
-                <button onClick={() => { localStorage.removeItem(getDraftKey()); setDraftBanner(null) }}
-                  className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 transition">Bỏ qua</button>
-              </div>
-            </div>
-          )}
-          {draftSavedAt && !draftBanner && (
-            <div className="text-xs text-slate-400 mb-2">💾 Đã lưu nháp lúc {draftSavedAt}</div>
-          )}
+          <DraftBanner draft={draftBanner}
+            onRestore={() => { setForm(draftBanner.data); setDraftBanner(null) }}
+            onDismiss={clearDraft} />
+          {!draftBanner && <DraftSavedHint at={draftSavedAt} />}
 
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
             <div className="space-y-4">
               <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
                 <label className={labelCls}>Tên bài <span className="text-red-500 font-normal">*</span></label>
-                <input value={form.title} onChange={e => { setForm(f => ({ ...f, title: e.target.value })); setIsDirty(true) }}
+                <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                   placeholder="VD: Academic Reading — Nature and Wildlife"
                   className={inputCls} />
               </div>
 
               <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
                 <label className={labelCls}>Passage (nội dung bài đọc)</label>
-                <textarea value={form.passage} onChange={e => { setForm(f => ({ ...f, passage: e.target.value })); setIsDirty(true) }}
+                <textarea value={form.passage} onChange={e => setForm(f => ({ ...f, passage: e.target.value }))}
                   rows={14} placeholder="Nhập nội dung passage..."
                   className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-400 resize-y font-mono"
                   style={{ lineHeight: 1.7 }} />
@@ -426,24 +386,12 @@ export default function ReadingPractice() {
 
             <div className="space-y-3 lg:sticky lg:top-6 lg:self-start">
               <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
-                <label className={labelCls}>Ảnh bìa</label>
-                {form.thumbPreview ? (
-                  <div className="relative mb-2">
-                    <img src={form.thumbPreview} alt="" className="w-full rounded-lg object-cover" style={{ aspectRatio: '16/9' }} />
-                    <button onClick={() => setForm(f => ({ ...f, thumbFile: null, thumbPreview: null, thumbnailUrl: null }))}
-                      aria-label="Xóa ảnh bìa"
-                      className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-blue-500 text-white text-sm font-bold flex items-center justify-center border-2 border-white">×</button>
-                  </div>
-                ) : (
-                  <button onClick={() => thumbRef.current.click()}
-                    className="w-full border-2 border-dashed border-slate-200 rounded-lg bg-slate-50 hover:border-blue-300 hover:bg-blue-50/30 transition flex flex-col items-center justify-center gap-2 text-slate-400 text-sm cursor-pointer"
-                    style={{ aspectRatio: '16/9' }}>
-                    <svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    Chọn ảnh bìa
-                  </button>
-                )}
-                <input ref={thumbRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleThumbPick} />
-                <p className="text-xs text-slate-400 mt-1.5">jpg, png, webp — tối đa 5MB</p>
+                <ThumbnailPicker
+                  preview={form.thumbPreview}
+                  onSelect={file => setForm(f => ({ ...f, thumbFile: file, thumbPreview: URL.createObjectURL(file) }))}
+                  onClear={() => setForm(f => ({ ...f, thumbFile: null, thumbPreview: null, thumbnailUrl: null }))}
+                  hint="jpg, png, webp — tối đa 5MB"
+                />
               </div>
 
               <button type="button" onClick={() => setShowPreview(true)}
@@ -475,16 +423,11 @@ export default function ReadingPractice() {
   return (
     <AdminLayout>
       <div className="p-6 max-w-5xl">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-xl font-bold text-slate-800">Reading Practice</h1>
-            <p className="text-sm text-slate-500 mt-0.5">Bài luyện đọc riêng lẻ — hiển thị trên trang chủ</p>
-          </div>
-          <button onClick={openAdd}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1D4ED8] text-white text-sm font-semibold hover:bg-[#1e40af] transition">
-            + Thêm mới
-          </button>
-        </div>
+        <AdminListHeader
+          title="Reading Practice"
+          subtitle="Bài luyện đọc riêng lẻ — hiển thị trên trang chủ"
+          onAdd={openAdd}
+        />
 
         <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
           {loading ? (
@@ -536,21 +479,12 @@ export default function ReadingPractice() {
         </div>
       </div>
 
-      {delConfirm && (
-        <div onClick={() => setDelConfirm(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="del-confirm-title" className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center text-xl">🗑️</div>
-              <h3 id="del-confirm-title" className="font-bold text-slate-800">Xóa bài đọc?</h3>
-            </div>
-            <p className="text-sm text-slate-500 mb-5">Hành động này không thể hoàn tác.</p>
-            <div className="flex gap-3 justify-end">
-              <button onClick={() => setDelConfirm(null)} className="px-4 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 font-medium">Hủy</button>
-              <button onClick={() => handleDelete(delConfirm)} className="px-4 py-2 rounded-lg bg-[#dc2626] text-white text-sm font-bold hover:bg-[#b91c1c] transition">Xóa</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDeleteModal
+        open={!!delConfirm}
+        title="Xóa bài đọc?"
+        onCancel={() => setDelConfirm(null)}
+        onConfirm={() => handleDelete(delConfirm)}
+      />
     </AdminLayout>
   )
 }
