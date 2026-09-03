@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import GatedLink from '../common/GatedLink'
 
 export default function SectionHeader({ title, to, count }) {
   return (
@@ -23,7 +23,7 @@ export default function SectionHeader({ title, to, count }) {
           }}>{count}</span>
         )}
       </div>
-      <Link
+      <GatedLink
         to={to}
         className="hover:opacity-70 transition-opacity duration-300"
         style={{
@@ -34,7 +34,7 @@ export default function SectionHeader({ title, to, count }) {
         }}
       >
         Xem tất cả →
-      </Link>
+      </GatedLink>
     </div>
   )
 }

@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { Bot, User, LogOut } from 'lucide-react'
-import { useNavigate, useLocation, Link } from 'react-router-dom'
+import { useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useAuthGate } from '../hooks/useAuthGate'
+import GatedLink from './common/GatedLink'
 import NavDropdown from './nav/NavDropdown'
 import LogoutConfirmModal from './nav/LogoutConfirmModal'
 
@@ -26,7 +28,7 @@ function NavBtn({ children, active, onClick, hasDropdown }) {
 
 function CustomDropItem({ to, icon, label, bold, active }) {
   return (
-    <Link to={to} className="block no-underline">
+    <GatedLink to={to} className="block no-underline">
       <div
         className={`flex items-center gap-2.5 px-4 py-2 transition-colors duration-300 whitespace-nowrap rounded-md mx-1 cursor-pointer ${active ? 'bg-blue-50 text-blue-600 font-semibold' : 'bg-transparent text-slate-700 hover:bg-slate-50 hover:text-blue-600'} ${bold ? 'font-semibold' : ''}`}
         style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}
@@ -34,7 +36,7 @@ function CustomDropItem({ to, icon, label, bold, active }) {
         {icon && <span>{icon}</span>}
         <span>{label}</span>
       </div>
-    </Link>
+    </GatedLink>
   )
 }
 
@@ -45,21 +47,21 @@ function NavDivider() {
 /* ── Mobile drawer link ─────────────────────────────────────────────────── */
 function MobileNavLink({ to, children, active, onClick }) {
   return (
-    <Link
+    <GatedLink
       to={to}
       onClick={onClick}
       className={`flex items-center px-4 py-3 rounded-xl no-underline transition-colors ${active ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-slate-700 hover:bg-slate-50'}`}
       style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-base)', minHeight: 44 }}
     >
       {children}
-    </Link>
+    </GatedLink>
   )
 }
 
 
 export default function Navbar() {
-  const navigate = useNavigate()
   const location = useLocation()
+  const gate = useAuthGate()
   const { user, openAuthModal, handleLogout } = useAuth()
   const isLoggedIn = !!user?.name
 
@@ -147,11 +149,11 @@ export default function Navbar() {
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1 md:gap-1.5 flex-nowrap whitespace-nowrap shrink-0">
-            <NavBtn active={location.pathname === '/'} onClick={() => navigate('/')}>Trang chủ</NavBtn>
+            <NavBtn active={location.pathname === '/'} onClick={() => gate('/')}>Trang chủ</NavBtn>
 
             <NavDropdown name="fulltest" isOpen={openDropdown === 'fulltest'} onOpen={openMenu} onClose={scheduleClose}
               dropdownStyle={{ minWidth: 250 }}
-              trigger={<NavBtn active={isFullTestActive} onClick={() => navigate('/full-test')} hasDropdown>Full Test</NavBtn>}
+              trigger={<NavBtn active={isFullTestActive} onClick={() => gate('/full-test')} hasDropdown>Full Test</NavBtn>}
             >
               <div style={{ padding: '4px 0' }}>
                 <CustomDropItem to="/full-test" label="Tất cả bộ đề" bold active={location.pathname === '/full-test'} />
@@ -161,8 +163,8 @@ export default function Navbar() {
               </div>
             </NavDropdown>
 
-            <NavBtn active={location.pathname.startsWith('/practice/reading')} onClick={() => navigate('/practice/reading')}>Reading</NavBtn>
-            <NavBtn active={location.pathname.startsWith('/practice/listening')} onClick={() => navigate('/practice/listening')}>Listening</NavBtn>
+            <NavBtn active={location.pathname.startsWith('/practice/reading')} onClick={() => gate('/practice/reading')}>Reading</NavBtn>
+            <NavBtn active={location.pathname.startsWith('/practice/listening')} onClick={() => gate('/practice/listening')}>Listening</NavBtn>
 
             <NavDropdown name="baimu" isOpen={openDropdown === 'baimu'} onOpen={openMenu} onClose={scheduleClose}
               dropdownStyle={{ width: 300 }}

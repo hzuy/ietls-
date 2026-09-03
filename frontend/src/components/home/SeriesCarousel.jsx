@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from 'react'
+import SectionHeader from './SectionHeader'
 
 /**
  * SeriesCarousel — dùng chung cho trang chủ và /full-test
@@ -78,42 +79,10 @@ export default function SeriesCarousel({ children, count, title, to }) {
 
   return (
     <section className="mb-12">
-      {/* Optional header */}
+      {/* Header — dùng chung <SectionHeader> (fix: trước đây tự vẽ + <a href> gây reload trang) */}
       {(title || to) && (
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {title && (
-              <h2 style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: 'var(--fs-2xl)', fontWeight: 700,
-                color: 'var(--ink-soft)', margin: 0, letterSpacing: '-0.01em',
-              }}>{title}</h2>
-            )}
-            {count && (
-              <span style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: 'var(--fs-xs)', fontWeight: 600,
-                color: 'var(--muted)',
-                background: 'var(--surface-raised)',
-                border: '1px solid var(--border)',
-                borderRadius: 20, padding: '2px 10px',
-              }}>{count}</span>
-            )}
-          </div>
-          {to && (
-            <a
-              href={to}
-              className="hover:opacity-70 transition-opacity duration-300"
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontSize: 'var(--fs-sm)', fontWeight: 600,
-                color: 'var(--primary)', textDecoration: 'none',
-                display: 'flex', alignItems: 'center', gap: 4,
-              }}
-            >
-              Xem tất cả →
-            </a>
-          )}
+        <div style={{ marginBottom: 20 }}>
+          <SectionHeader title={title} count={count} to={to} />
         </div>
       )}
 

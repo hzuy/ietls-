@@ -1,8 +1,8 @@
 import { useEffect, useState, useMemo } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { BookOpen } from 'lucide-react'
 import Navbar from '../components/Navbar'
-import { useAuth } from '../context/AuthContext'
+import { useAuthGate } from '../hooks/useAuthGate'
 import ContentCard from '../components/common/ContentCard'
 import SectionHeader from '../components/home/SectionHeader'
 import SeriesCarousel from '../components/home/SeriesCarousel'
@@ -89,10 +89,10 @@ function HomeSectionError() {
 /* SkillCard — hover effects via CSS (.skill-card / .skill-card-* classes),
    no JS state required. Skill colors passed as CSS custom props. */
 function SkillCard({ skill, animClass }) {
-  const navigate = useNavigate()
+  const gate = useAuthGate()
   return (
     <div
-      onClick={() => navigate(skill.to)}
+      onClick={() => gate(skill.to)}
       className={`${animClass} skill-card card-interactive h-full flex flex-col overflow-hidden`}
       style={{ '--_skill-bg': `var(${skill.bgVar})`, '--_skill-color': `var(${skill.colorVar})` }}
     >
@@ -124,7 +124,7 @@ function SkillCard({ skill, animClass }) {
 }
 
 export default function Home() {
-  const { user, openAuthModal } = useAuth()
+  const gate = useAuthGate()
   const navigate = useNavigate()
 
   const [fullTestsData, setFullTestsData] = useState(null)
@@ -173,8 +173,6 @@ export default function Home() {
     return Object.values(rows).map(r => ({ ...r, books: r.books.sort((a, b) => b.bookNumber - a.bookNumber) }))
   }, [fullTestsData])
 
-  const requireAuth = (path) => { if (user) navigate(path); else openAuthModal('login') }
-
   return (
     <div className="min-h-screen">
       <Navbar />
@@ -200,8 +198,8 @@ export default function Home() {
                 Nâng band thần tốc ngay hôm nay.
               </p>
               <div className="flex flex-wrap gap-3">
-                <button className="btn-primary" onClick={() => navigate('/cambridge')}>Bắt đầu ngay</button>
-                <button className="btn-secondary" onClick={() => navigate('/full-test')}>Xem bộ đề</button>
+                <button className="btn-primary" onClick={() => gate('/cambridge', { tab: 'register' })}>Bắt đầu ngay</button>
+                <button className="btn-secondary" onClick={() => gate('/full-test', { tab: 'register' })}>Xem bộ đề</button>
               </div>
             </div>
 
@@ -416,7 +414,7 @@ export default function Home() {
                  title={item.title}
                  titleClamp={2}
                  meta={item.questionCount != null ? { type: 'count', text: `${item.questionCount} câu` } : undefined}
-                 action={{ label: 'Làm bài', onClick: () => requireAuth(`/practice/reading/${item.id}`) }}
+                 action={{ label: 'Làm bài', onClick: () => gate(`/practice/reading/${item.id}`) }}
                />
              ))}
           </div>
@@ -440,7 +438,7 @@ export default function Home() {
                  title={item.title}
                  titleClamp={2}
                  meta={item.questionCount != null ? { type: 'count', text: `${item.questionCount} câu` } : undefined}
-                 action={{ label: 'Làm bài', onClick: () => requireAuth(`/practice/listening/${item.id}`) }}
+                 action={{ label: 'Làm bài', onClick: () => gate(`/practice/listening/${item.id}`) }}
                />
              ))}
           </div>

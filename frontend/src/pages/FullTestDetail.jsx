@@ -116,7 +116,8 @@ export default function FullTestDetail() {
   }, [user, bookData])
 
   const handleStart = (test) => {
-    if (!user) { openAuthModal('login'); return }
+    // Trang này public — gate ở nút. redirectTo = URL hiện tại để sau khi login quay lại đúng đề.
+    if (!user) { openAuthModal('login', location.pathname + location.search); return }
     setModal(test)
   }
 
