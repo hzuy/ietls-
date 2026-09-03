@@ -8,19 +8,13 @@ describe('ConfirmExitModal', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('mặc định: message trấn an autosave + nút xác nhận btn-secondary (trung tính)', () => {
+  it('mặc định: message trấn an autosave + nút "Thoát" là btn-danger (đỏ), nút huỷ là btn-primary', () => {
     render(<ConfirmExitModal isOpen onClose={() => {}} onConfirm={() => {}} />)
     expect(screen.getByText('Tiến trình sẽ được lưu tự động — bạn có thể quay lại làm tiếp sau.')).toBeInTheDocument()
     const confirm = screen.getByRole('button', { name: 'Thoát' })
-    expect(confirm).toHaveClass('btn-secondary')
-    expect(confirm).not.toHaveClass('btn-danger')
-  })
-
-  it('confirmTone="danger" → nút xác nhận btn-danger', () => {
-    render(<ConfirmExitModal isOpen confirmTone="danger" onClose={() => {}} onConfirm={() => {}} />)
-    const confirm = screen.getByRole('button', { name: 'Thoát' })
     expect(confirm).toHaveClass('btn-danger')
     expect(confirm).not.toHaveClass('btn-secondary')
+    expect(screen.getByRole('button', { name: 'Tiếp tục làm' })).toHaveClass('btn-primary')
   })
 
   it('message tuỳ biến (Speaking) hiển thị đúng', () => {

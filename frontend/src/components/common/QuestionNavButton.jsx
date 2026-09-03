@@ -4,10 +4,14 @@ import { useState } from 'react'
  * QuestionNavButton — nút số câu dùng chung cho MỌI navigator khi đang làm bài:
  * bottom bar + popover "Bảng câu hỏi" của Reading / Listening / Practice (6 chỗ).
  *
- * Bảng màu (token, đã chốt P6 — thống nhất giữa bottom bar và popover):
- *   chưa làm  — nền trắng / viền var(--border)  / chữ var(--ink)
- *   hover     — nền trắng / viền var(--primary) / chữ var(--primary)   (chỉ khi chưa làm)
- *   đã làm    — nền var(--ink) / viền var(--ink) / chữ trắng
+ * Bảng màu (token) — 3 tầng ngữ nghĩa tách bạch (đảo hướng "đã làm" so với P6-G):
+ *   • CHỌN đáp án (MCQ / TRUE-FALSE…)     = nền nhạt + chỉ báo   — KHÔNG thuộc component này
+ *   • TIẾN ĐỘ "đã làm" (component này)     = outline: nền + viền + chữ var(--primary)
+ *   • VỊ TRÍ đang xem (PassagePills.isActive) = tô đặc var(--primary) — KHÔNG thuộc component này
+ *
+ *   chưa làm  — nền trắng               / viền var(--border)  / chữ var(--ink)
+ *   hover     — nền trắng               / viền var(--primary) / chữ var(--primary)  (chỉ khi chưa làm)
+ *   đã làm    — nền var(--primary-light) / viền var(--primary) / chữ var(--primary)  (khớp PassagePills.isComplete)
  *
  * Radius cố định 8px (var(--radius-sm)) — nút chữ nhật bo góc, không phải hình tròn.
  *
@@ -21,12 +25,12 @@ export default function QuestionNavButton({ number, status, onClick, size = 32 }
   const [hovered, setHovered] = useState(false)
   const answered = status === 'answered'
 
-  const backgroundColor = answered ? 'var(--ink)' : '#ffffff'
+  const backgroundColor = answered ? 'var(--primary-light)' : '#ffffff'
   const borderColor = answered
-    ? 'var(--ink)'
+    ? 'var(--primary)'
     : hovered ? 'var(--primary)' : 'var(--border)'
   const color = answered
-    ? '#ffffff'
+    ? 'var(--primary)'
     : hovered ? 'var(--primary)' : 'var(--ink)'
 
   return (

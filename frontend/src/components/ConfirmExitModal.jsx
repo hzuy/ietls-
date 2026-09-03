@@ -6,9 +6,9 @@ import React from 'react';
  *
  * Centered horizontally & vertically across the entire viewport.
  * - "Tiếp tục làm" button: Primary action (blue / btn-primary)
- * - "Thoát" button: tone theo `confirmTone`:
- *     'neutral' (mặc định) → btn-secondary — dùng cho bài có autosave, thoát không mất gì
- *     'danger'             → btn-danger    — dùng cho Speaking: thoát là mất bản ghi đang ghi âm
+ * - "Thoát" button: luôn btn-danger (đỏ) — thoát bài là hành động phá huỷ,
+ *   dù có autosave thì vẫn là rời khỏi bài đang làm. Skill nào cần cảnh báo
+ *   riêng (Speaking — mất bản ghi âm) thì truyền `message` của nó.
  */
 export default function ConfirmExitModal({
   isOpen,
@@ -18,11 +18,8 @@ export default function ConfirmExitModal({
   message = "Tiến trình sẽ được lưu tự động — bạn có thể quay lại làm tiếp sau.",
   cancelText = "Tiếp tục làm",
   confirmText = "Thoát",
-  confirmTone = "neutral",
 }) {
   if (!isOpen) return null;
-
-  const confirmClass = confirmTone === "danger" ? "btn-danger" : "btn-secondary";
 
   return (
     <div
@@ -30,7 +27,8 @@ export default function ConfirmExitModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-[24px] border border-slate-200 p-8 shadow-xl max-w-sm w-full mx-auto"
+        className="bg-white border border-slate-200 p-8 shadow-xl max-w-sm w-full mx-auto"
+        style={{ borderRadius: 'var(--radius-lg)' }}
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-slate-900 text-lg font-bold mb-2 tracking-tight">
@@ -42,13 +40,13 @@ export default function ConfirmExitModal({
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="btn-primary flex-1 py-2.5 rounded-xl text-sm font-bold transition cursor-pointer"
+            className="btn-primary flex-1 py-2.5 text-sm font-bold transition cursor-pointer"
           >
             {cancelText}
           </button>
           <button
             onClick={onConfirm}
-            className={`${confirmClass} flex-1 py-2.5 rounded-xl text-sm font-bold transition cursor-pointer`}
+            className="btn-danger flex-1 py-2.5 text-sm font-bold transition cursor-pointer"
           >
             {confirmText}
           </button>

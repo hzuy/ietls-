@@ -13,8 +13,8 @@ export default function PassagePills({ items, activeIndex, onChange }) {
         const isActive   = activeIndex === i
         const isComplete = item.answered === item.total && item.total > 0
 
-        const bgColor     = isActive ? 'var(--ink)' : isComplete ? 'var(--primary-light)' : 'transparent'
-        const borderColor = isActive ? 'var(--ink)' : isComplete ? 'var(--border)' : 'transparent'
+        const bgColor     = isActive ? 'var(--primary)' : isComplete ? 'var(--primary-light)' : 'transparent'
+        const borderColor = isActive ? 'var(--primary)' : isComplete ? 'var(--border)' : 'transparent'
         const textColor   = isActive ? '#ffffff' : isComplete ? 'var(--primary)' : 'var(--subtle)'
 
         return (

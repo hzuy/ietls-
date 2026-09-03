@@ -16,12 +16,12 @@ describe('QuestionNavButton', () => {
     expect(btn.style.height).toBe('32px')
   })
 
-  it('đã làm: nền --ink / viền --ink / chữ trắng, aria-label ghi rõ đã trả lời', () => {
+  it('đã làm: outline — nền --primary-light / viền --primary / chữ --primary (không tô đặc), aria-label ghi rõ đã trả lời', () => {
     render(<QuestionNavButton number={12} status="answered" onClick={() => {}} />)
     const btn = screen.getByRole('button', { name: 'Câu 12 — đã trả lời' })
-    expect(btn.style.backgroundColor).toBe('var(--ink)')
-    expect(btn.style.border).toBe('1px solid var(--ink)')
-    expect(btn.style.color).toBe('rgb(255, 255, 255)')
+    expect(btn.style.backgroundColor).toBe('var(--primary-light)')
+    expect(btn.style.border).toBe('1px solid var(--primary)')
+    expect(btn.style.color).toBe('var(--primary)')
   })
 
   it('hover khi chưa làm → viền + chữ chuyển sang --primary', () => {
@@ -34,12 +34,12 @@ describe('QuestionNavButton', () => {
     expect(btn.style.border).toBe('1px solid var(--border)')
   })
 
-  it('hover khi đã làm → giữ nguyên tông --ink (không đổi)', () => {
+  it('hover khi đã làm → giữ nguyên tông outline --primary (không đổi)', () => {
     render(<QuestionNavButton number={5} status="answered" onClick={() => {}} />)
     const btn = screen.getByRole('button')
     fireEvent.mouseEnter(btn)
-    expect(btn.style.backgroundColor).toBe('var(--ink)')
-    expect(btn.style.color).toBe('rgb(255, 255, 255)')
+    expect(btn.style.backgroundColor).toBe('var(--primary-light)')
+    expect(btn.style.color).toBe('var(--primary)')
   })
 
   it('click gọi onClick', () => {

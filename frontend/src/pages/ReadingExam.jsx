@@ -13,6 +13,7 @@ import DiagramLabelGroup from '../components/DiagramLabelGroup'
 import MatchingHeadingsGroup from '../components/MatchingHeadingsGroup'
 import PassagePills from '../components/PassagePills'
 import QuestionNavButton from '../components/common/QuestionNavButton'
+import QuestionPanelPopover from '../components/common/QuestionPanelPopover'
 import TableCompletionRender from '../components/TableCompletionRender'
 import GroupBlock from '../components/exam/GroupBlock'
 import TypeHeader from '../components/exam/TypeHeaders'
@@ -408,10 +409,10 @@ export default function ReadingExam() {
           className="overflow-y-auto bg-white px-8 py-6 border-b md:border-b-0 md:border-r border-gray-200"
           style={{ width: isMobile ? '100%' : `${splitRatio}%` }}
         >
-          <h2 className="text-xl font-bold text-gray-900 text-center mb-1 leading-snug">{passage.title}</h2>
+          <h2 className="text-xl font-bold text-gray-900 text-center mb-1 leading-snug" style={{ fontFamily: 'var(--font-reading)' }}>{passage.title}</h2>
           {passage.subtitle && <p className="text-sm text-gray-500 text-center mb-2 italic">{passage.subtitle}</p>}
           <div className="w-16 h-0.5 bg-blue-500 mx-auto mb-6" />
-          <div className="text-gray-800 text-[0.92rem] leading-8 font-serif">
+          <div className="text-gray-800 text-[0.92rem] leading-8" style={{ fontFamily: 'var(--font-reading)' }}>
             {passage.body
               ? passage.body
                   .split(/\n\s*\n|\n/)
@@ -583,47 +584,20 @@ export default function ReadingExam() {
         </div>
       )}
 
-      {/* Question panel — popup bottom-left above bottom bar */}
+      {/* Question panel — popup bottom-left above bottom bar (shared component) */}
       {showQuestionPanel && (
-        <>
-          <div className="fixed inset-0 z-30" onClick={() => setShowQuestionPanel(false)} />
-          <div
-            className="fixed left-4 z-40 bg-white rounded-lg shadow-lg border border-gray-200 w-72 max-h-80 overflow-y-auto"
-            style={{ bottom: bottomBarHeight + 8 }}
-          >
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
-              <h3 className="font-bold text-gray-800 text-sm">Bảng câu hỏi</h3>
-              <button
-                aria-label="Đóng"
-                onClick={() => setShowQuestionPanel(false)}
-                className="w-6 h-6 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 text-xs font-bold transition"
-              >✕</button>
-            </div>
-            <div className="px-4 py-3 space-y-4">
-              {exam.passages.map((p, pi) => {
-                const navItems = [...getPassageNavItems(p)].sort((a, b) => a.number - b.number)
-                const isActive = activePassage === pi
-                return (
-                  <div key={pi}>
-                    <p className={`text-xs font-bold mb-2 ${isActive ? 'text-[var(--primary-hover)]' : 'text-gray-500'}`}>
-                      Passage {p.number}
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {navItems.map(({ number, qId }) => (
-                        <QuestionNavButton
-                          key={number}
-                          number={number}
-                          status={qId && answers[qId] ? 'answered' : 'unanswered'}
-                          onClick={() => { jumpToQuestion(number); setShowQuestionPanel(false) }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </>
+        <QuestionPanelPopover
+          bottomOffset={bottomBarHeight + 8}
+          activeIndex={activePassage}
+          onClose={() => setShowQuestionPanel(false)}
+          onJump={jumpToQuestion}
+          groups={exam.passages.map(p => ({
+            label: `Passage ${p.number}`,
+            items: [...getPassageNavItems(p)]
+              .sort((a, b) => a.number - b.number)
+              .map(({ number, qId }) => ({ number, answered: !!(qId && answers[qId]), ref: number })),
+          }))}
+        />
       )}
 
       {/* Exit confirm modal — dùng chung cho nút ✕ và guard Back/Forward */}
@@ -640,7 +614,7 @@ export default function ReadingExam() {
       {/* Confirm submit modal */}
       {showConfirm && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }} onClick={() => setShowConfirm(false)}>
-          <div style={{ background: 'var(--surface)', borderRadius: '16px', padding: 32, boxShadow: 'var(--shadow-md)', maxWidth: 360, width: '100%', border: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', padding: 32, boxShadow: 'var(--shadow-md)', maxWidth: 360, width: '100%', border: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-lg)', fontWeight: 700, color: 'var(--ink-soft)', marginBottom: 8 }}>Nộp bài?</h2>
             <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text)', fontSize: 'var(--fs-sm)', marginBottom: 8 }}>Bạn có chắc muốn nộp bài không?</p>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--ink-soft)', marginBottom: 24 }}>

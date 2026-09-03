@@ -59,43 +59,47 @@ export default function QuestionBlock({ q, globalIdx, answers, onAnswer, maxChoi
         </div>
       )}
 
-      {/* TRUE/FALSE/NOT GIVEN */}
+      {/* TRUE/FALSE/NOT GIVEN — radio-tick rows (khớp style MCQ single-choice) */}
       {q.type === 'true_false_ng' && (
-        <div className="flex gap-2 pl-8 flex-wrap">
+        <div className="space-y-1 pl-8">
           {['TRUE', 'FALSE', 'NOT GIVEN'].map(opt => {
             const displayAns = previewMode && showAnswers ? q.correctAnswer : answers[q.id]
             const isSelected = displayAns === opt
             return (
-              <button key={opt}
-                onClick={previewMode ? undefined : () => onAnswer(q.id, opt)}
-                disabled={previewMode}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold border-2 transition
-                  ${isSelected && previewMode && showAnswers ? 'bg-green-500 text-white border-green-500'
-                    : isSelected ? 'bg-blue-600 text-white border-blue-600'
-                    : 'border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600'}`}>
+              <label key={opt} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition
+                ${isSelected && previewMode && showAnswers ? 'bg-green-50 border border-green-400 text-green-700 cursor-default'
+                  : isSelected ? 'bg-blue-50 border border-blue-400 text-blue-700 cursor-pointer'
+                  : previewMode ? 'border border-transparent text-gray-500 cursor-default'
+                  : 'hover:bg-gray-50 border border-transparent cursor-pointer'}`}>
+                <input type="radio" name={`q${q.id}`} checked={isSelected}
+                  disabled={previewMode}
+                  onChange={previewMode ? undefined : () => onAnswer(q.id, opt)}
+                  className="accent-blue-600" />
                 {opt}
-              </button>
+              </label>
             )
           })}
         </div>
       )}
 
-      {/* YES/NO/NOT GIVEN */}
+      {/* YES/NO/NOT GIVEN — radio-tick rows (khớp style MCQ single-choice) */}
       {q.type === 'yes_no_ng' && (
-        <div className="flex gap-2 pl-8 flex-wrap">
+        <div className="space-y-1 pl-8">
           {['YES', 'NO', 'NOT GIVEN'].map(opt => {
             const displayAns = previewMode && showAnswers ? q.correctAnswer : answers[q.id]
             const isSelected = displayAns === opt
             return (
-              <button key={opt}
-                onClick={previewMode ? undefined : () => onAnswer(q.id, opt)}
-                disabled={previewMode}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold border-2 transition
-                  ${isSelected && previewMode && showAnswers ? 'bg-green-500 text-white border-green-500'
-                    : isSelected ? 'bg-blue-600 text-white border-blue-600'
-                    : 'border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600'}`}>
+              <label key={opt} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition
+                ${isSelected && previewMode && showAnswers ? 'bg-green-50 border border-green-400 text-green-700 cursor-default'
+                  : isSelected ? 'bg-blue-50 border border-blue-400 text-blue-700 cursor-pointer'
+                  : previewMode ? 'border border-transparent text-gray-500 cursor-default'
+                  : 'hover:bg-gray-50 border border-transparent cursor-pointer'}`}>
+                <input type="radio" name={`q${q.id}`} checked={isSelected}
+                  disabled={previewMode}
+                  onChange={previewMode ? undefined : () => onAnswer(q.id, opt)}
+                  className="accent-blue-600" />
                 {opt}
-              </button>
+              </label>
             )
           })}
         </div>

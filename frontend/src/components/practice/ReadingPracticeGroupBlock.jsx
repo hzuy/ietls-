@@ -208,14 +208,17 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
               <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-200 text-gray-700 font-bold text-xs shrink-0 mt-0.5">{q.number}</span>
               <span>{q.questionText}</span>
             </p>
-            <div className="flex gap-2 pl-8 flex-wrap">
-              {tfOpts.map(opt => (
-                <button key={opt} onClick={() => onAnswer(q.id, opt)}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold border-2 transition
-                    ${answers[q.id] === opt ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600'}`}>
-                  {opt}
-                </button>
-              ))}
+            <div className="space-y-1.5 pl-8">
+              {tfOpts.map(opt => {
+                const isSelected = answers[q.id] === opt
+                return (
+                  <label key={opt} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition cursor-pointer
+                    ${isSelected ? 'bg-blue-50 border border-blue-400 text-blue-700' : 'hover:bg-gray-50 border border-transparent'}`}>
+                    <input type="radio" name={`q${q.id}`} checked={isSelected} onChange={() => onAnswer(q.id, opt)} className="accent-blue-600 shrink-0" />
+                    <span>{opt}</span>
+                  </label>
+                )
+              })}
             </div>
           </div>
         ))}

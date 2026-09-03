@@ -14,6 +14,7 @@ import DiagramLabelGroup from '../components/DiagramLabelGroup'
 import MatchingHeadingsGroup from '../components/MatchingHeadingsGroup'
 import PassagePills from '../components/PassagePills'
 import QuestionNavButton from '../components/common/QuestionNavButton'
+import QuestionPanelPopover from '../components/common/QuestionPanelPopover'
 import TableCompletionRender from '../components/TableCompletionRender'
 import NoteCompletionGroup from '../components/exam/listening/NoteCompletionGroup'
 import MCQGroup from '../components/exam/listening/MCQGroup'
@@ -429,47 +430,20 @@ export default function ListeningExam() {
         </div>
       )}
 
-      {/* Question panel popup */}
+      {/* Question panel popup (shared component) */}
       {showQuestionPanel && (
-        <>
-          <div className="fixed inset-0 z-30" onClick={() => setShowQuestionPanel(false)} />
-          <div
-            className="fixed left-4 z-40 bg-white rounded-lg shadow-lg border border-gray-200 w-72 max-h-80 overflow-y-auto"
-            style={{ bottom: bottomBarHeight + 8 }}
-          >
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
-              <h3 className="font-bold text-gray-800 text-sm">Bảng câu hỏi</h3>
-              <button
-                aria-label="Đóng"
-                onClick={() => setShowQuestionPanel(false)}
-                className="w-6 h-6 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 text-xs font-bold transition"
-              >✕</button>
-            </div>
-            <div className="px-4 py-3 space-y-4">
-              {exam.listeningSections.map((s, si) => {
-                const slots = [...getSectionSlots(s)].sort((a, b) => a.number - b.number)
-                const isActive = activeSection === si
-                return (
-                  <div key={si}>
-                    <p className={`text-xs font-bold mb-2 ${isActive ? 'text-[var(--primary-hover)]' : 'text-gray-500'}`}>
-                      Section {s.number}
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {slots.map(slot => (
-                        <QuestionNavButton
-                          key={slot.number}
-                          number={slot.number}
-                          status={slot.qId && answers[slot.qId] ? 'answered' : 'unanswered'}
-                          onClick={() => { jumpToQuestion(slot); setShowQuestionPanel(false) }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </>
+        <QuestionPanelPopover
+          bottomOffset={bottomBarHeight + 8}
+          activeIndex={activeSection}
+          onClose={() => setShowQuestionPanel(false)}
+          onJump={jumpToQuestion}
+          groups={exam.listeningSections.map(s => ({
+            label: `Section ${s.number}`,
+            items: [...getSectionSlots(s)]
+              .sort((a, b) => a.number - b.number)
+              .map(slot => ({ number: slot.number, answered: !!(slot.qId && answers[slot.qId]), ref: slot })),
+          }))}
+        />
       )}
 
       {/* Exit confirm modal — dùng chung cho nút ✕ và guard Back/Forward */}
@@ -486,7 +460,7 @@ export default function ListeningExam() {
       {/* Confirm submit modal */}
       {showConfirm && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }} onClick={() => setShowConfirm(false)}>
-          <div style={{ background: 'var(--surface)', borderRadius: '16px', padding: 32, boxShadow: 'var(--shadow-md)', maxWidth: 360, width: '100%', border: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', padding: 32, boxShadow: 'var(--shadow-md)', maxWidth: 360, width: '100%', border: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-lg)', fontWeight: 700, color: 'var(--ink-soft)', marginBottom: 8 }}>Nộp bài?</h2>
             <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text)', fontSize: 'var(--fs-sm)', marginBottom: 8 }}>Bạn có chắc muốn nộp bài không?</p>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--ink-soft)', marginBottom: 24 }}>

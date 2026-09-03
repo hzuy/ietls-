@@ -314,9 +314,9 @@ function ReadingPracticeExam({ exam, onBack }) {
         {/* Left: Passage */}
         <div className="overflow-y-auto bg-white px-8 py-6 border-b md:border-b-0 md:border-r border-gray-200"
           style={{ width: isMobile ? '100%' : `${splitRatio}%` }}>
-          <h2 className="text-xl font-bold text-gray-900 text-center mb-1 leading-snug">{exam.title}</h2>
+          <h2 className="text-xl font-bold text-gray-900 text-center mb-1 leading-snug" style={{ fontFamily: 'var(--font-reading)' }}>{exam.title}</h2>
           <div className="w-16 h-0.5 bg-blue-500 mx-auto mb-6" />
-          <div className="text-gray-800 text-[0.92rem] leading-8 font-serif">
+          <div className="text-gray-800 text-[0.92rem] leading-8" style={{ fontFamily: 'var(--font-reading)' }}>
             {(exam.passage || '').split(/\n\s*\n|\n/).map(s => s.trim()).filter(Boolean).map((para, i) => (
               <p key={i} className="mb-5 indent-6">{para.charAt(0).toUpperCase() + para.slice(1)}</p>
             ))}
@@ -384,7 +384,7 @@ function ReadingPracticeExam({ exam, onBack }) {
       {/* Submit confirm */}
       {showConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowConfirm(false)}>
-          <div className="rounded-2xl p-8 shadow-2xl max-w-sm w-full mx-4" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px' }} onClick={e => e.stopPropagation()}>
+          <div className="p-8 shadow-2xl max-w-sm w-full mx-4" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }} onClick={e => e.stopPropagation()}>
             <h2 className="text-lg font-bold mb-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--ink-soft)' }}>Nộp bài?</h2>
             <p className="text-sm mb-2" style={{ color: 'var(--text)' }}>Bạn có chắc muốn nộp bài không?</p>
             <p className="text-sm font-semibold mb-6" style={{ color: 'var(--ink-soft)' }}>Đã làm: <span style={{ color: 'var(--primary)' }}>{answered}/{totalSlots}</span> câu</p>
@@ -706,7 +706,7 @@ function ListeningPracticeExam({ exam, onBack }) {
       {/* Submit confirm */}
       {showConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowConfirm(false)}>
-          <div className="rounded-2xl p-8 shadow-2xl max-w-sm w-full mx-4" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px' }} onClick={e => e.stopPropagation()}>
+          <div className="p-8 shadow-2xl max-w-sm w-full mx-4" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }} onClick={e => e.stopPropagation()}>
             <h2 className="text-lg font-bold mb-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--ink-soft)' }}>Nộp bài?</h2>
             <p className="text-sm mb-2" style={{ color: 'var(--text)' }}>Bạn có chắc muốn nộp bài không?</p>
             <p className="text-sm font-semibold mb-6" style={{ color: 'var(--ink-soft)' }}>Đã làm: <span style={{ color: 'var(--primary)' }}>{answered}/{totalSlots}</span> câu</p>
