@@ -13,6 +13,9 @@ import TableCompletionRender from '../components/TableCompletionRender'
 import SkillResult from '../components/SkillResult'
 import ConfirmExitModal from '../components/ConfirmExitModal'
 import { useExitGuard } from '../hooks/useExitGuard'
+import { usePracticeDraft } from '../hooks/usePracticeDraft'
+import { formatSavedAt } from '../services/draftService'
+import { useAuth } from '../context/AuthContext'
 
 import { normalizeGroup, fmt, buildListeningTokenMap } from '../utils/practiceUtils'
 import ReadingPracticeGroupBlock from '../components/practice/ReadingPracticeGroupBlock'
@@ -27,12 +30,15 @@ const LISTENING_FILL_TYPES = ['note_completion', 'table_completion', 'drag_word_
 
 // ─── Full ReadingExam-style UI for Reading Practice ───────────────────────────
 function ReadingPracticeExam({ exam, onBack }) {
+  const { user } = useAuth()
+  const userId = user ? (user.id || user._id) : null
   const [answers, setAnswers] = useState({})
   const [phase, setPhase] = useState('start')
   const [timeLeft, setTimeLeft] = useState(PRACTICE_TIME)
   const [showConfirm, setShowConfirm] = useState(false)
   const [showExitConfirm, setShowExitConfirm] = useState(false)
   const [result, setResult] = useState(null)
+  const [draftMeta, setDraftMeta] = useState(null) // { hasDraft, savedAt, timeRemaining, data } — nạp 1 lần lúc mount
   const bodyRef = useRef(null)
   const isDraggingRef = useRef(false)
   const [isDragging, setIsDragging] = useState(false)
@@ -43,8 +49,45 @@ function ReadingPracticeExam({ exam, onBack }) {
     return (!isNaN(n) && n >= 25 && n <= 75) ? n : 50
   })
 
-  // Guard thoát: Practice không dùng draftService → điều kiện là "có bất kỳ answer nào"
-  const exitGuard = useExitGuard(phase === 'exam' && Object.keys(answers).length > 0)
+  // Autosave 30s + resume — namespace 'practice-reading' để KHÔNG đè draft của bài
+  // thi Reading chính có cùng examId (PracticeExam.id trùng dải số với Exam.id).
+  const {
+    checkDraftOnMount, persistDraftNow, clearDraft, markSaved,
+    lastSavedAt, hasUnsavedChanges,
+  } = usePracticeDraft({
+    examId: exam.id,
+    skillType: 'practice-reading',
+    answers,
+    timeLeft,
+    userId,
+    enabled: phase === 'exam',
+  })
+
+  // Mount: có draft chưa nộp thì cho start-screen biết để hiện nút "Tiếp tục".
+  // KHÔNG tự prefill answers ở đây — người dùng chủ động chọn.
+  useEffect(() => {
+    if (!userId) return
+    const d = checkDraftOnMount()
+    if (d.hasDraft) setDraftMeta(d)
+  }, [userId, checkDraftOnMount])
+
+  // Guard thoát: chỉ cảnh báo khi có thay đổi CHƯA ghi vào draft (persistDraftNow
+  // được gọi ngay tại mọi điểm thoát qua onBeforeExit → flush trước khi rời).
+  const exitGuard = useExitGuard(phase === 'exam' && hasUnsavedChanges, persistDraftNow)
+
+  const resumeDraft = () => {
+    if (!draftMeta?.hasDraft) return
+    setAnswers(draftMeta.data)
+    setTimeLeft(Math.max(1, draftMeta.timeRemaining ?? PRACTICE_TIME))
+    markSaved(draftMeta.data, draftMeta.savedAt) // snapshot khớp → guard không nổ nhầm
+    setPhase('exam')
+  }
+
+  const startFresh = () => {
+    // Bỏ qua nháp nhưng KHÔNG xoá — chỉ xoá draft khi thực sự nộp bài.
+    setDraftMeta(null)
+    setPhase('exam')
+  }
 
   const groups = exam.questions?.groups || []
   const navItems = groups.flatMap(g => {
@@ -177,7 +220,10 @@ function ReadingPracticeExam({ exam, onBack }) {
         }
       ]
     }
+    // Thứ tự BẮT BUỘC: disarm() (chạy persistDraftNow qua onBeforeExit) TRƯỚC,
+    // clearDraft() SAU — nếu ngược lại, persist sẽ ghi draft sống lại cho bài đã nộp.
     await exitGuard.disarm()
+    clearDraft()
     setResult(formattedData)
     setPhase('result')
   }
@@ -209,9 +255,20 @@ function ReadingPracticeExam({ exam, onBack }) {
           <p>• Đọc passage bên trái, trả lời câu hỏi bên phải</p>
           <p>• Bài sẽ tự nộp khi hết giờ</p>
         </div>
-        <button onClick={() => setPhase('exam')} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 15, marginBottom: 8 }}>
-          Bắt đầu làm bài
-        </button>
+        {draftMeta?.hasDraft ? (
+          <>
+            <button onClick={resumeDraft} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 15, marginBottom: 8 }}>
+              Tiếp tục{draftMeta.savedAt ? ` (đã lưu ${formatSavedAt(draftMeta.savedAt)})` : ''} →
+            </button>
+            <button onClick={startFresh} className="w-full text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-all duration-200 ease-in-out font-medium text-xs cursor-pointer" style={{ width: '100%', padding: '10px 0', borderRadius: '12px', marginBottom: 4 }}>
+              Làm lại từ đầu
+            </button>
+          </>
+        ) : (
+          <button onClick={() => setPhase('exam')} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 15, marginBottom: 8 }}>
+            Bắt đầu làm bài
+          </button>
+        )}
         <button
           onClick={onBack}
           className="w-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all duration-200 ease-in-out font-medium text-sm flex items-center justify-center gap-1.5 cursor-pointer"
@@ -243,6 +300,9 @@ function ReadingPracticeExam({ exam, onBack }) {
           <span className="text-sm font-semibold truncate">{exam.title}</span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
+          {lastSavedAt && (
+            <span className="text-white/45 text-[11px] whitespace-nowrap">✓ Đã lưu {formatSavedAt(lastSavedAt)}</span>
+          )}
           <span className="text-blue-200 text-xs">{answered}/{totalSlots} câu</span>
           <div className={`font-mono font-bold text-sm px-3 py-1 rounded ${timeLeft < 300 ? 'bg-blue-500' : timeLeft < 600 ? 'bg-yellow-500 text-black' : 'bg-blue-700'}`}>
             {fmt(timeLeft)}
@@ -343,15 +403,56 @@ function ReadingPracticeExam({ exam, onBack }) {
 }
 
 function ListeningPracticeExam({ exam, onBack }) {
+  const { user } = useAuth()
+  const userId = user ? (user.id || user._id) : null
   const [answers, setAnswers] = useState({})
   const [phase, setPhase] = useState('start')
   const [timeLeft, setTimeLeft] = useState(LISTENING_TIME)
   const [showConfirm, setShowConfirm] = useState(false)
   const [showExitConfirm, setShowExitConfirm] = useState(false)
   const [result, setResult] = useState(null)
+  const [draftMeta, setDraftMeta] = useState(null) // { hasDraft, savedAt, timeRemaining, data } — nạp 1 lần lúc mount
 
-  // Guard thoát: Practice không dùng draftService → điều kiện là "có bất kỳ answer nào"
-  const exitGuard = useExitGuard(phase === 'exam' && Object.keys(answers).length > 0)
+  // Autosave 30s + resume — namespace 'practice-listening' để KHÔNG đè draft của
+  // bài thi Listening chính có cùng examId (PracticeExam.id trùng dải số với Exam.id;
+  // đã xác nhận id=19 tồn tại ở cả hai bảng, cùng skill listening).
+  const {
+    checkDraftOnMount, persistDraftNow, clearDraft, markSaved,
+    lastSavedAt, hasUnsavedChanges,
+  } = usePracticeDraft({
+    examId: exam.id,
+    skillType: 'practice-listening',
+    answers,
+    timeLeft,
+    userId,
+    enabled: phase === 'exam',
+  })
+
+  // Mount: có draft chưa nộp thì cho start-screen biết để hiện nút "Tiếp tục".
+  // KHÔNG tự prefill answers ở đây — người dùng chủ động chọn.
+  useEffect(() => {
+    if (!userId) return
+    const d = checkDraftOnMount()
+    if (d.hasDraft) setDraftMeta(d)
+  }, [userId, checkDraftOnMount])
+
+  // Guard thoát: chỉ cảnh báo khi có thay đổi CHƯA ghi vào draft (persistDraftNow
+  // được gọi ngay tại mọi điểm thoát qua onBeforeExit → flush trước khi rời).
+  const exitGuard = useExitGuard(phase === 'exam' && hasUnsavedChanges, persistDraftNow)
+
+  const resumeDraft = () => {
+    if (!draftMeta?.hasDraft) return
+    setAnswers(draftMeta.data)
+    setTimeLeft(Math.max(1, draftMeta.timeRemaining ?? LISTENING_TIME))
+    markSaved(draftMeta.data, draftMeta.savedAt) // snapshot khớp → guard không nổ nhầm
+    setPhase('exam')
+  }
+
+  const startFresh = () => {
+    // Bỏ qua nháp nhưng KHÔNG xoá — chỉ xoá draft khi thực sự nộp bài.
+    setDraftMeta(null)
+    setPhase('exam')
+  }
 
   const groups = exam.questions?.groups || []
 
@@ -474,7 +575,10 @@ function ListeningPracticeExam({ exam, onBack }) {
         }
       ]
     }
+    // Thứ tự BẮT BUỘC: disarm() (chạy persistDraftNow qua onBeforeExit) TRƯỚC,
+    // clearDraft() SAU — nếu ngược lại, persist sẽ ghi draft sống lại cho bài đã nộp.
     await exitGuard.disarm()
+    clearDraft()
     setResult(formattedData)
     setPhase('result')
   }
@@ -493,9 +597,20 @@ function ListeningPracticeExam({ exam, onBack }) {
           <p>• Nghe audio và trả lời các câu hỏi</p>
           <p>• Bài sẽ tự nộp khi hết giờ</p>
         </div>
-        <button onClick={() => setPhase('exam')} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 15, marginBottom: 8 }}>
-          Bắt đầu làm bài
-        </button>
+        {draftMeta?.hasDraft ? (
+          <>
+            <button onClick={resumeDraft} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 15, marginBottom: 8 }}>
+              Tiếp tục{draftMeta.savedAt ? ` (đã lưu ${formatSavedAt(draftMeta.savedAt)})` : ''} →
+            </button>
+            <button onClick={startFresh} className="w-full text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-all duration-200 ease-in-out font-medium text-xs cursor-pointer" style={{ width: '100%', padding: '10px 0', borderRadius: '12px', marginBottom: 4 }}>
+              Làm lại từ đầu
+            </button>
+          </>
+        ) : (
+          <button onClick={() => setPhase('exam')} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 15, marginBottom: 8 }}>
+            Bắt đầu làm bài
+          </button>
+        )}
         <button
           onClick={onBack}
           className="w-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all duration-200 ease-in-out font-medium text-sm flex items-center justify-center gap-1.5 cursor-pointer"
@@ -527,6 +642,9 @@ function ListeningPracticeExam({ exam, onBack }) {
           <span className="text-sm font-semibold truncate">{exam.title}</span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
+          {lastSavedAt && (
+            <span className="text-white/45 text-[11px] whitespace-nowrap">✓ Đã lưu {formatSavedAt(lastSavedAt)}</span>
+          )}
           <span className="text-blue-200 text-xs">{answered}/{totalSlots} câu</span>
           <div className={`font-mono font-bold text-sm px-3 py-1 rounded ${timeLeft < 120 ? 'bg-blue-500' : timeLeft < 300 ? 'bg-yellow-500 text-black' : 'bg-blue-700'}`}>
             {fmt(timeLeft)}
