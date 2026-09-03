@@ -6,57 +6,11 @@ import { useAuthGate } from '../hooks/useAuthGate'
 import ContentCard from '../components/common/ContentCard'
 import SectionHeader from '../components/home/SectionHeader'
 import SeriesCarousel from '../components/home/SeriesCarousel'
-
-const BACKEND_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '')
-const API_BASE = BACKEND_URL + '/api'
-const resolveImg = (url) => !url ? null : url.startsWith('http') ? url : BACKEND_URL + url
+import { API_BASE, BACKEND_URL, resolveImg } from '../utils/media'
 
 // Placeholder ảnh (khi item không có thumbnail) — riêng cho 2 loại card trang chủ:
 const BOOK_PLACEHOLDER = { bg: 'var(--primary-light)', icon: '📚' }                                   // V1 — Full Test book
 const PRACTICE_PLACEHOLDER = { bg: 'var(--border-soft)', icon: <BookOpen className="w-8 h-8 text-slate-400 stroke-[1.75]" /> } // V2 — Reading/Listening/Writing/Speaking
-
-const SKILL_CARDS = [
-  {
-    key: 'reading',
-    icon: '📖',
-    label: 'Reading',
-    desc: '3 passages · 40 câu · 60 phút',
-    colorVar: '--skill-r-color',
-    bgVar: '--skill-r-bg',
-    borderVar: '--skill-r-border',
-    to: '/practice/reading',
-  },
-  {
-    key: 'listening',
-    icon: '🎧',
-    label: 'Listening',
-    desc: '4 sections · 40 câu · 40 phút',
-    colorVar: '--skill-l-color',
-    bgVar: '--skill-l-bg',
-    borderVar: '--skill-l-border',
-    to: '/practice/listening',
-  },
-  {
-    key: 'writing',
-    icon: '✍️',
-    label: 'Writing',
-    desc: 'Task 1 + Task 2 · AI chấm điểm',
-    colorVar: '--skill-w-color',
-    bgVar: '--skill-w-bg',
-    borderVar: '--skill-w-border',
-    to: '/writing-samples',
-  },
-  {
-    key: 'speaking',
-    icon: '🎤',
-    label: 'Speaking',
-    desc: 'Part 1+2+3 · AI nhận xét',
-    colorVar: '--skill-s-color',
-    bgVar: '--skill-s-bg',
-    borderVar: '--skill-s-border',
-    to: '/speaking-samples',
-  },
-]
 
 function SkeletonCard() {
   return (
@@ -82,43 +36,6 @@ function HomeSectionError() {
       <p className="font-bold text-slate-900 mb-1" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-base)' }}>Lỗi tải dữ liệu</p>
       <p className="mb-4 max-w-sm" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', color: 'var(--muted)' }}>Không thể kết nối máy chủ.</p>
       <button className="btn-primary" onClick={() => window.location.reload()}>Thử lại</button>
-    </div>
-  )
-}
-
-/* SkillCard — hover effects via CSS (.skill-card / .skill-card-* classes),
-   no JS state required. Skill colors passed as CSS custom props. */
-function SkillCard({ skill, animClass }) {
-  const gate = useAuthGate()
-  return (
-    <div
-      onClick={() => gate(skill.to)}
-      className={`${animClass} skill-card card-interactive h-full flex flex-col overflow-hidden`}
-      style={{ '--_skill-bg': `var(${skill.bgVar})`, '--_skill-color': `var(${skill.colorVar})` }}
-    >
-      <div
-        className="w-full h-40 shrink-0 relative flex items-center justify-center"
-        style={{ background: `var(${skill.bgVar})` }}
-      >
-        <span className="skill-card-icon text-5xl">{skill.icon}</span>
-        <div
-          className="skill-card-bar absolute bottom-0 left-0 right-0 h-0.5"
-          style={{ background: `var(${skill.colorVar})` }}
-        />
-      </div>
-      <div className="p-4 flex flex-1 flex-col">
-        <h3 className="mb-2" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-lg)', fontWeight: 700, color: `var(${skill.colorVar})` }}>
-          {skill.label}
-        </h3>
-        <p className="leading-snug" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', color: 'var(--muted)' }}>
-          {skill.desc}
-        </p>
-        <button className="skill-card-action mt-auto w-full py-2.5 rounded-lg border-none font-bold cursor-pointer"
-          style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', minHeight: 44 }}
-        >
-          Luyện tập ngay
-        </button>
-      </div>
     </div>
   )
 }

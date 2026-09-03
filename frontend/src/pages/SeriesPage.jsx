@@ -2,9 +2,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import { Headphones, BookOpen, PenTool, Mic } from 'lucide-react'
-
-const BACKEND_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '')
-const resolveImg = (url) => !url ? null : url.startsWith('http') ? url : BACKEND_URL + url
+import { BACKEND_URL, resolveImg } from '../utils/media'
 
 const SKILL_ICONS = {
   listening: Headphones,

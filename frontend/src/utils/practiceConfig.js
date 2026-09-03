@@ -1,7 +1,7 @@
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
-export const BACKEND_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3001'
-export const resolveImg = (url) => !url ? null : url.startsWith('http') ? url : BACKEND_URL + url
-export const toImgSrc = (url) => (url || '').startsWith('/') ? `${BACKEND_URL}${url}` : (url || '')
+// URL ảnh/asset: nguồn chân lý ở ./media. Re-export giữ tên cũ để các editor +
+// trang admin đang import { BACKEND_URL, resolveImg, toImgSrc } từ đây không phải sửa.
+export { BACKEND_URL, resolveImg, toImgSrc } from './media'
 
 // ─── LEVELS ──────────────────────────────────────────────────────────────────
 export const LEVELS = ['beginner', 'intermediate', 'advanced']

@@ -273,7 +273,6 @@ aside nav a, aside nav button { font-family: var(--font-body); }
 /* ─── Card variants ──────────────────────────────────────────────────────────
    .card-base        — default: subtle shadow, hover lift + primary border
    .card-flat        — no shadow, no hover lift (dense lists, inner panels)
-   .card-interactive — stronger hover (exam cards, series cards, CTAs)
    ──────────────────────────────────────────────────────────────────────────── */
 .card-base {
   background: var(--surface);
@@ -291,19 +290,6 @@ aside nav a, aside nav button { font-family: var(--font-body); }
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 1rem;      /* 16px — matches Tailwind rounded-2xl used by admin content cards */
-}
-.card-interactive {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 1rem;      /* 16px — matches Tailwind rounded-2xl used by admin content cards */
-  box-shadow: var(--shadow-sm);
-  transition: box-shadow var(--transition), border-color var(--transition), transform var(--transition);
-  cursor: pointer;
-}
-.card-interactive:hover {
-  box-shadow: var(--shadow-lg);
-  border-color: var(--primary);
-  transform: translateY(-6px);
 }
 
 /* ─── Scrollbar ─────────────────────────────────────────────────────────────── */
@@ -412,25 +398,6 @@ button:disabled {
 .footer-link:hover {
   color: #93C5FD;  /* blue-300 — legible on dark red bg */
   opacity: 1;
-}
-
-/* ─── Skill card — CSS-only hover, no JS state needed ──────────────────────
-   Pass skill colors as --_skill-bg and --_skill-color CSS custom properties
-   on the .skill-card element; children reference them for coordinated hover.
-   ──────────────────────────────────────────────────────────────────────────── */
-.skill-card { cursor: pointer; }
-.skill-card-icon { display: block; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-.skill-card:hover .skill-card-icon { transform: scale(1.1); }
-.skill-card-bar { opacity: 0; transition: opacity var(--transition); }
-.skill-card:hover .skill-card-bar { opacity: 1; }
-.skill-card-action {
-  background: var(--_skill-bg, var(--primary-light));
-  color: var(--_skill-color, var(--primary));
-  transition: background var(--transition), color var(--transition);
-}
-.skill-card:hover .skill-card-action {
-  background: var(--_skill-color, var(--primary));
-  color: #fff;
 }
 
 /* ─── AI Neural Network Hero ────────────────────────────────────────────────── */

@@ -4,10 +4,7 @@ import Navbar from '../components/Navbar'
 import Breadcrumb from '../components/common/Breadcrumb'
 import ContentCard from '../components/common/ContentCard'
 import { CONTENT_CARD_CONFIG } from '../components/common/contentCardConfig'
-
-const BACKEND_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '')
-const API_BASE = BACKEND_URL + '/api'
-const resolveImg = (url) => !url ? null : url.startsWith('http') ? url : BACKEND_URL + url
+import { BACKEND_URL, resolveImg } from '../utils/media'
 
 // Wrapper mỏng quanh <ContentCard>: phần thân (thumb / title / meta / action) do
 // ContentCard lo; wrapper tự xử lý trạng thái "sắp có bài" khi !hasTests —

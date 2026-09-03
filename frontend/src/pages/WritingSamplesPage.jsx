@@ -4,10 +4,7 @@ import Navbar from '../components/Navbar'
 import Breadcrumb from '../components/common/Breadcrumb'
 import ContentCard from '../components/common/ContentCard'
 import { CONTENT_CARD_CONFIG, buildSampleChips } from '../components/common/contentCardConfig'
-
-const BACKEND_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '')
-const API_BASE = BACKEND_URL + '/api'
-const resolveImg = (url) => !url ? null : url.startsWith('http') ? url : BACKEND_URL + url
+import { API_BASE, resolveImg } from '../utils/media'
 
 const TASK_OPTIONS = [
   { value: 'task1', label: 'Task 1' },

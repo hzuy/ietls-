@@ -5,10 +5,7 @@ import Breadcrumb from '../components/common/Breadcrumb'
 import ContentCard from '../components/common/ContentCard'
 import { CONTENT_CARD_CONFIG } from '../components/common/contentCardConfig'
 import { getTypesBySkill } from '../utils/questionTypes'
-
-const BACKEND_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '')
-const API_BASE = BACKEND_URL + '/api'
-const resolveImg = (url) => !url ? null : url.startsWith('http') ? url : BACKEND_URL + url
+import { API_BASE, resolveImg } from '../utils/media'
 
 const SKILL_META = {
   reading: {

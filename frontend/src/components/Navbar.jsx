@@ -7,8 +7,6 @@ import GatedLink from './common/GatedLink'
 import NavDropdown from './nav/NavDropdown'
 import LogoutConfirmModal from './nav/LogoutConfirmModal'
 
-const BACKEND_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '')
-
 function NavBtn({ children, active, onClick, hasDropdown }) {
   return (
     <button
@@ -126,7 +124,7 @@ export default function Navbar() {
     <>
       {/* Announcement banner */}
       {announcement && !announcementDismissed && (
-        <div style={{ background: 'var(--warning-bg)', borderBottom: '1px solid #fde68a', padding: '8px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 60 }}>
+        <div style={{ background: 'var(--warning-bg)', borderBottom: '1px solid #fde68a', padding: '8px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
           <span style={{ fontSize: 'var(--fs-sm)', color: '#92400e', fontFamily: 'var(--font-body)', lineHeight: 1.5, textAlign: 'center' }}>{announcement}</span>
           <button onClick={() => setAnnouncementDismissed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#92400e', fontSize: 16, padding: '0 4px', lineHeight: 1, opacity: 0.7, minHeight: 44, minWidth: 44 }} aria-label="Đóng thông báo">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>

@@ -467,5 +467,6 @@ export const btnPrimary = 'bg-blue-600 text-white px-5 py-2.5 rounded-lg font-se
 export const btnSecondary = 'border border-slate-200 text-slate-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 transition'
 export const btnDanger = 'text-rose-600 hover:text-rose-700 text-xs px-2 py-1 rounded-lg hover:bg-rose-50 transition font-medium'
 
-export const SERVER_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '')
-export const toImgSrc = (url) => (url || '').startsWith('/') ? `${SERVER_BASE}${url}` : (url || '')
+// URL ảnh/asset: nguồn chân lý ở src/utils/media.js. Re-export giữ tên cũ để
+// mọi editor/tab admin đang import { SERVER_BASE, toImgSrc } từ đây không phải sửa.
+export { BACKEND_URL as SERVER_BASE, toImgSrc } from '../../utils/media'
