@@ -12,6 +12,7 @@ import MatchingDragGroup from '../components/MatchingDragGroup'
 import DiagramLabelGroup from '../components/DiagramLabelGroup'
 import MatchingHeadingsGroup from '../components/MatchingHeadingsGroup'
 import PassagePills from '../components/PassagePills'
+import QuestionNavButton from '../components/common/QuestionNavButton'
 import TableCompletionRender from '../components/TableCompletionRender'
 import GroupBlock from '../components/exam/GroupBlock'
 import TypeHeader from '../components/exam/TypeHeaders'
@@ -331,15 +332,15 @@ export default function ReadingExam() {
         <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200/80 flex items-center justify-center mx-auto mb-5">
           <BookOpen className="w-8 h-8 text-slate-600 stroke-[1.75]" />
         </div>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: 'var(--ink-soft)', marginBottom: 8 }}>{exam.title}</h1>
-        <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text)', fontSize: 14, marginBottom: 4 }}>{exam.passages.length} Passages · <span style={{ fontFamily: 'var(--font-mono)' }}>{totalSlots}</span> câu hỏi</p>
-        <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text)', fontSize: 14, marginBottom: 32 }}>Thời gian: <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--skill-r-color)' }}>60 phút</span></p>
-        <div style={{ background: 'var(--skill-r-bg)', borderRadius: 'var(--radius-md)', padding: 16, textAlign: 'left', fontSize: 14, color: 'var(--ink-soft)', marginBottom: 32, display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-xl)', fontWeight: 700, color: 'var(--ink-soft)', marginBottom: 8 }}>{exam.title}</h1>
+        <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text)', fontSize: 'var(--fs-sm)', marginBottom: 4 }}>{exam.passages.length} Passages · <span style={{ fontFamily: 'var(--font-mono)' }}>{totalSlots}</span> câu hỏi</p>
+        <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text)', fontSize: 'var(--fs-sm)', marginBottom: 32 }}>Thời gian: <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--skill-r-color)' }}>60 phút</span></p>
+        <div style={{ background: 'var(--skill-r-bg)', borderRadius: 'var(--radius-md)', padding: 16, textAlign: 'left', fontSize: 'var(--fs-sm)', color: 'var(--ink-soft)', marginBottom: 32, display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
           <p style={{ fontFamily: 'var(--font-body)', margin: 0 }}>• Đọc passage bên trái, trả lời câu hỏi bên phải</p>
           <p style={{ fontFamily: 'var(--font-body)', margin: 0 }}>• Có thể chuyển qua lại giữa các passage</p>
           <p style={{ fontFamily: 'var(--font-body)', margin: 0 }}>• Bài sẽ tự nộp khi hết giờ</p>
         </div>
-        <button onClick={() => setPhase('exam')} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 15, marginBottom: 8 }}>
+        <button onClick={() => setPhase('exam')} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 'var(--fs-base)', marginBottom: 8 }}>
           Bắt đầu làm bài
         </button>
         <button
@@ -371,27 +372,27 @@ export default function ReadingExam() {
       {/* Header */}
       <header style={{ background: 'var(--ink)', borderBottom: '1px solid rgba(201,168,76,0.15)', padding: '8px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-          <button aria-label="Đóng bài thi" onClick={() => previewMode ? navigate('/admin') : setShowExitConfirm(true)} className="bg-white/10 hover:bg-white/20 transition-colors" style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', border: 'none', color: 'white', fontWeight: 700, fontSize: 14, cursor: 'pointer', flexShrink: 0 }}>✕</button>
-          <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{exam.title}</span>
-          {previewMode && <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, background: 'var(--primary)', color: 'var(--ink)', padding: '2px 8px', borderRadius: 99, fontWeight: 700, flexShrink: 0 }}>Chế độ Preview</span>}
+          <button aria-label="Đóng bài thi" onClick={() => previewMode ? navigate('/admin') : setShowExitConfirm(true)} className="bg-white/10 hover:bg-white/20 transition-colors" style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', border: 'none', color: 'white', fontWeight: 700, fontSize: 'var(--fs-sm)', cursor: 'pointer', flexShrink: 0 }}>✕</button>
+          <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{exam.title}</span>
+          {previewMode && <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-xs)', background: 'var(--primary)', color: 'var(--ink)', padding: '2px 8px', borderRadius: 99, fontWeight: 700, flexShrink: 0 }}>Chế độ Preview</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
           {previewMode ? (
             <button
               onClick={() => setShowAnswers(v => !v)}
-              className={showAnswers ? 'bg-[var(--skill-l-color)] text-white hover:opacity-90 transition' : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition'}
-              style={{ fontFamily: 'var(--font-body)', fontSize: 12, padding: '4px 12px', borderRadius: 99, fontWeight: 600, border: 'none', cursor: 'pointer' }}
+              className={showAnswers ? 'bg-[var(--skill-r-color)] text-white hover:opacity-90 transition' : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition'}
+              style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-xs)', padding: '4px 12px', borderRadius: 99, fontWeight: 600, border: 'none', cursor: 'pointer' }}
             >
               {showAnswers ? 'Ẩn đáp án' : 'Hiện đáp án'}
             </button>
           ) : (
             <>
               {lastSavedAt && (
-                <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-xs)', color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>
                   ✓ Đã lưu {formatSavedAt(lastSavedAt)}
                 </span>
               )}
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{answered}/{totalSlots} câu</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-xs)', color: 'rgba(255,255,255,0.6)' }}>{answered}/{totalSlots} câu</span>
               <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 14, padding: '4px 12px', borderRadius: 'var(--radius-sm)', background: timeLeft < 300 ? '#dc2626' : timeLeft < 600 ? '#d97706' : 'rgba(255,255,255,0.15)', color: timeLeft < 600 && timeLeft >= 300 ? '#fff' : 'white' }}>
                 {fmt(timeLeft)}
               </div>
@@ -514,21 +515,14 @@ export default function ReadingExam() {
           {showNavNumbers && (
             <div className="px-6 py-4 border-b border-gray-100 flex justify-center bg-white">
               <div className="flex flex-wrap gap-3 justify-center max-w-5xl">
-                {getPassageNavItems(passage).map(({ number, qId }) => {
-                  const isAnswered = qId && answers[qId];
-                  return (
-                    <button
-                      key={number}
-                      onClick={() => jumpToQuestion(number)}
-                      className={`w-10 h-10 rounded-lg text-sm font-bold transition-all flex items-center justify-center border
-                        ${isAnswered
-                          ? 'bg-[#002D5B] border-[#002D5B] text-white shadow-sm'
-                          : 'bg-white border-gray-300 text-[#002D5B] hover:border-[#0066FF] hover:text-[#0066FF]'}`}
-                    >
-                      {number}
-                    </button>
-                  );
-                })}
+                {getPassageNavItems(passage).map(({ number, qId }) => (
+                  <QuestionNavButton
+                    key={number}
+                    number={number}
+                    status={qId && answers[qId] ? 'answered' : 'unanswered'}
+                    onClick={() => jumpToQuestion(number)}
+                  />
+                ))}
               </div>
             </div>
           )}
@@ -541,7 +535,7 @@ export default function ReadingExam() {
                 title="Bảng câu hỏi"
                 aria-label="Bảng câu hỏi"
                 onClick={() => setShowQuestionPanel(v => !v)}
-                className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all ${showQuestionPanel ? 'bg-[#0066FF] border-[#0066FF] text-white shadow-md' : 'bg-white border-gray-200 text-gray-400 hover:border-[#0066FF] hover:text-[#0066FF]'}`}
+                className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all ${showQuestionPanel ? 'bg-[var(--primary)] border-[var(--primary)] text-white shadow-md' : 'bg-white border-gray-200 text-gray-400 hover:border-[var(--primary)] hover:text-[var(--primary)]'}`}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="3" width="7" height="7"></rect>
@@ -554,7 +548,7 @@ export default function ReadingExam() {
                 title={showNavNumbers ? 'Thu gọn' : 'Mở rộng'}
                 aria-label={showNavNumbers ? 'Thu gọn' : 'Mở rộng'}
                 onClick={() => setShowNavNumbers(v => !v)}
-                className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-400 hover:border-[#002D5B] hover:text-[#002D5B] transition-all"
+                className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-400 hover:border-[var(--ink)] hover:text-[var(--ink)] transition-all"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   {showNavNumbers ? <polyline points="18 15 12 9 6 15"></polyline> : <polyline points="6 9 12 15 18 9"></polyline>}
@@ -616,18 +610,12 @@ export default function ReadingExam() {
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {navItems.map(({ number, qId }) => (
-                        <button
+                        <QuestionNavButton
                           key={number}
+                          number={number}
+                          status={qId && answers[qId] ? 'answered' : 'unanswered'}
                           onClick={() => { jumpToQuestion(number); setShowQuestionPanel(false) }}
-                          className={`w-8 h-8 rounded text-xs font-bold transition
-                            ${qId && answers[qId]
-                              ? 'bg-[var(--primary-hover)] border border-[var(--primary-hover)] text-white'
-                              : isActive
-                                ? 'bg-[var(--border-soft)] border border-slate-300 text-[var(--text)]'
-                                : 'bg-white border border-[var(--border)] text-slate-800'}`}
-                        >
-                          {number}
-                        </button>
+                        />
                       ))}
                     </div>
                   </div>
@@ -653,16 +641,16 @@ export default function ReadingExam() {
       {showConfirm && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }} onClick={() => setShowConfirm(false)}>
           <div style={{ background: 'var(--surface)', borderRadius: '16px', padding: 32, boxShadow: 'var(--shadow-md)', maxWidth: 360, width: '100%', border: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--ink-soft)', marginBottom: 8 }}>Nộp bài?</h2>
-            <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text)', fontSize: 14, marginBottom: 8 }}>Bạn có chắc muốn nộp bài không?</p>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--ink-soft)', marginBottom: 24 }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-lg)', fontWeight: 700, color: 'var(--ink-soft)', marginBottom: 8 }}>Nộp bài?</h2>
+            <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text)', fontSize: 'var(--fs-sm)', marginBottom: 8 }}>Bạn có chắc muốn nộp bài không?</p>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--ink-soft)', marginBottom: 24 }}>
               Đã làm: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--primary)' }}>{answered}/{totalSlots}</span> câu
             </p>
             <div style={{ display: 'flex', gap: 12 }}>
               <button
                 onClick={() => setShowConfirm(false)}
                 className="btn-secondary"
-                style={{ flex: 1, padding: '10px 0', borderRadius: '12px', fontSize: 14 }}
+                style={{ flex: 1, padding: '10px 0', borderRadius: '12px', fontSize: 'var(--fs-sm)' }}
               >
                 Tiếp tục làm
               </button>
@@ -670,7 +658,7 @@ export default function ReadingExam() {
                 onClick={() => { setShowConfirm(false); doSubmit() }}
                 disabled={submitting}
                 className="btn-danger"
-                style={{ flex: 1, padding: '10px 0', borderRadius: '12px', fontSize: 14, opacity: submitting ? 0.5 : 1 }}
+                style={{ flex: 1, padding: '10px 0', borderRadius: '12px', fontSize: 'var(--fs-sm)', opacity: submitting ? 0.5 : 1 }}
               >
                 {submitting ? 'Đang chấm...' : 'Nộp bài'}
               </button>

@@ -11,6 +11,7 @@ import DiagramLabelGroup from '../components/DiagramLabelGroup'
 import MatchingHeadingsGroup from '../components/MatchingHeadingsGroup'
 import TableCompletionRender from '../components/TableCompletionRender'
 import SkillResult from '../components/SkillResult'
+import QuestionNavButton from '../components/common/QuestionNavButton'
 import ConfirmExitModal from '../components/ConfirmExitModal'
 import { useExitGuard } from '../hooks/useExitGuard'
 import { usePracticeDraft } from '../hooks/usePracticeDraft'
@@ -255,7 +256,7 @@ function ReadingPracticeExam({ exam, onBack }) {
         </div>
         {draftMeta?.hasDraft ? (
           <>
-            <button onClick={resumeDraft} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 15, marginBottom: 8 }}>
+            <button onClick={resumeDraft} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 'var(--fs-base)', marginBottom: 8 }}>
               Tiếp tục{draftMeta.savedAt ? ` (đã lưu ${formatSavedAt(draftMeta.savedAt)})` : ''} →
             </button>
             <button onClick={startFresh} className="w-full text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-all duration-200 ease-in-out font-medium text-xs cursor-pointer" style={{ width: '100%', padding: '10px 0', borderRadius: '12px', marginBottom: 4 }}>
@@ -263,7 +264,7 @@ function ReadingPracticeExam({ exam, onBack }) {
             </button>
           </>
         ) : (
-          <button onClick={() => setPhase('exam')} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 15, marginBottom: 8 }}>
+          <button onClick={() => setPhase('exam')} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 'var(--fs-base)', marginBottom: 8 }}>
             Bắt đầu làm bài
           </button>
         )}
@@ -354,14 +355,12 @@ function ReadingPracticeExam({ exam, onBack }) {
           <span className="text-[13px] text-gray-400 shrink-0 min-w-[90px]">Đã làm {answered}/{totalSlots} câu</span>
           <div className="flex flex-wrap gap-2 flex-1 justify-center">
             {navItems.map(({ number, qId }) => (
-              <button key={number} onClick={() => jumpToQuestion(number)}
-                className={`w-9 h-9 rounded-lg text-sm font-bold transition-all flex items-center justify-center border ${
-                  qId && answers[qId]
-                    ? 'bg-[#002D5B] border-[#002D5B] text-white shadow-sm'
-                    : 'bg-white border-gray-300 text-[#002D5B] hover:border-[#0066FF] hover:text-[#0066FF]'
-                }`}>
-                {number}
-              </button>
+              <QuestionNavButton
+                key={number}
+                number={number}
+                status={qId && answers[qId] ? 'answered' : 'unanswered'}
+                onClick={() => jumpToQuestion(number)}
+              />
             ))}
           </div>
           <button onClick={() => setShowConfirm(true)}
@@ -597,7 +596,7 @@ function ListeningPracticeExam({ exam, onBack }) {
         </div>
         {draftMeta?.hasDraft ? (
           <>
-            <button onClick={resumeDraft} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 15, marginBottom: 8 }}>
+            <button onClick={resumeDraft} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 'var(--fs-base)', marginBottom: 8 }}>
               Tiếp tục{draftMeta.savedAt ? ` (đã lưu ${formatSavedAt(draftMeta.savedAt)})` : ''} →
             </button>
             <button onClick={startFresh} className="w-full text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-all duration-200 ease-in-out font-medium text-xs cursor-pointer" style={{ width: '100%', padding: '10px 0', borderRadius: '12px', marginBottom: 4 }}>
@@ -605,7 +604,7 @@ function ListeningPracticeExam({ exam, onBack }) {
             </button>
           </>
         ) : (
-          <button onClick={() => setPhase('exam')} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 15, marginBottom: 8 }}>
+          <button onClick={() => setPhase('exam')} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 'var(--fs-base)', marginBottom: 8 }}>
             Bắt đầu làm bài
           </button>
         )}
@@ -678,14 +677,12 @@ function ListeningPracticeExam({ exam, onBack }) {
           <span className="text-[13px] text-gray-400 shrink-0 min-w-[90px]">Đã làm {answered}/{totalSlots} câu</span>
           <div className="flex flex-wrap gap-2 flex-1 justify-center">
             {navItems.map(({ number }) => (
-              <button key={number} onClick={() => jumpToQuestion(number)}
-                className={`w-9 h-9 rounded-lg text-sm font-bold transition-all flex items-center justify-center border ${
-                  answers[number]
-                    ? 'bg-[#002D5B] border-[#002D5B] text-white shadow-sm'
-                    : 'bg-white border-gray-300 text-[#002D5B] hover:border-[#0066FF] hover:text-[#0066FF]'
-                }`}>
-                {number}
-              </button>
+              <QuestionNavButton
+                key={number}
+                number={number}
+                status={answers[number] ? 'answered' : 'unanswered'}
+                onClick={() => jumpToQuestion(number)}
+              />
             ))}
           </div>
           <button onClick={() => setShowConfirm(true)}

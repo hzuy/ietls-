@@ -1,23 +1,28 @@
 import React from 'react';
 
 /**
- * ConfirmExitModal — Shared exit confirmation modal for all 4 skills
- * (Reading, Listening, Writing, Speaking).
- * 
+ * ConfirmExitModal — Shared exit confirmation modal for all skills
+ * (Reading, Listening, Writing, Speaking, Practice).
+ *
  * Centered horizontally & vertically across the entire viewport.
  * - "Tiếp tục làm" button: Primary action (blue / btn-primary)
- * - "Thoát" button: Danger action (RED bg-red-600 hover:bg-red-700)
+ * - "Thoát" button: tone theo `confirmTone`:
+ *     'neutral' (mặc định) → btn-secondary — dùng cho bài có autosave, thoát không mất gì
+ *     'danger'             → btn-danger    — dùng cho Speaking: thoát là mất bản ghi đang ghi âm
  */
 export default function ConfirmExitModal({
   isOpen,
   onClose,
   onConfirm,
   title = "Thoát bài làm?",
-  message = "Tiến trình bài làm sẽ không được lưu nếu bạn thoát lúc này.",
+  message = "Tiến trình sẽ được lưu tự động — bạn có thể quay lại làm tiếp sau.",
   cancelText = "Tiếp tục làm",
   confirmText = "Thoát",
+  confirmTone = "neutral",
 }) {
   if (!isOpen) return null;
+
+  const confirmClass = confirmTone === "danger" ? "btn-danger" : "btn-secondary";
 
   return (
     <div
@@ -43,7 +48,7 @@ export default function ConfirmExitModal({
           </button>
           <button
             onClick={onConfirm}
-            className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm border-none cursor-pointer transition shadow-xs"
+            className={`${confirmClass} flex-1 py-2.5 rounded-xl text-sm font-bold transition cursor-pointer`}
           >
             {confirmText}
           </button>

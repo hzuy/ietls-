@@ -898,6 +898,8 @@ export default function SpeakingExam() {
       {/* Exit confirm modal — dùng chung cho nút ✕ và guard Back/Forward */}
       <ConfirmExitModal
         isOpen={showExitConfirm || exitGuard.prompt}
+        message="Bản ghi âm và câu trả lời chưa nộp sẽ bị mất nếu bạn thoát lúc này. Speaking không lưu tạm được."
+        confirmTone="danger"
         onClose={() => { setShowExitConfirm(false); exitGuard.stay() }}
         onConfirm={async () => {
           setShowExitConfirm(false)

@@ -22,7 +22,7 @@ export default function PassagePills({ items, activeIndex, onChange }) {
             key={i}
             onClick={() => onChange(i)}
             style={{
-              fontSize: 12,
+              fontSize: 'var(--fs-xs)',
               fontWeight: isActive ? 600 : 400,
               fontFamily: 'var(--font-body)',
               padding: '6px 14px',
@@ -56,7 +56,7 @@ export default function PassagePills({ items, activeIndex, onChange }) {
             }}
           >
             <span>{item.label}</span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, opacity: isActive ? 0.75 : 0.5 }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-xs)', opacity: isActive ? 0.75 : 0.5 }}>
               {item.answered}/{item.total}
             </span>
           </button>
