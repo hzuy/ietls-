@@ -326,15 +326,15 @@ export default function ReadingExam() {
   const allNavItems = exam.passages.flatMap(p => getPassageNavItems(p))
   const answered = allNavItems.filter(item => item.qId && answers[item.qId]).length
   if (phase === 'start') return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-background)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div className="flex flex-col items-center" style={{ background: 'var(--color-surface)', borderRadius: '24px', boxShadow: 'var(--shadow-md)', padding: 40, maxWidth: 448, width: '100%', textAlign: 'center', border: '1px solid var(--color-border)' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="flex flex-col items-center" style={{ background: 'var(--surface)', borderRadius: '16px', boxShadow: 'var(--shadow-md)', padding: 40, maxWidth: 448, width: '100%', textAlign: 'center', border: '1px solid var(--border)' }}>
         <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200/80 flex items-center justify-center mx-auto mb-5">
           <BookOpen className="w-8 h-8 text-slate-600 stroke-[1.75]" />
         </div>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: 'var(--color-heading)', marginBottom: 8 }}>{exam.title}</h1>
-        <p style={{ fontFamily: 'var(--font-body)', color: 'var(--color-body)', fontSize: 14, marginBottom: 4 }}>{exam.passages.length} Passages · <span style={{ fontFamily: 'var(--font-mono)' }}>{totalSlots}</span> câu hỏi</p>
-        <p style={{ fontFamily: 'var(--font-body)', color: 'var(--color-body)', fontSize: 14, marginBottom: 32 }}>Thời gian: <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--skill-r-color)' }}>60 phút</span></p>
-        <div style={{ background: 'var(--skill-r-bg)', borderRadius: 'var(--radius-md)', padding: 16, textAlign: 'left', fontSize: 14, color: 'var(--color-heading)', marginBottom: 32, display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: 'var(--ink-soft)', marginBottom: 8 }}>{exam.title}</h1>
+        <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text)', fontSize: 14, marginBottom: 4 }}>{exam.passages.length} Passages · <span style={{ fontFamily: 'var(--font-mono)' }}>{totalSlots}</span> câu hỏi</p>
+        <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text)', fontSize: 14, marginBottom: 32 }}>Thời gian: <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--skill-r-color)' }}>60 phút</span></p>
+        <div style={{ background: 'var(--skill-r-bg)', borderRadius: 'var(--radius-md)', padding: 16, textAlign: 'left', fontSize: 14, color: 'var(--ink-soft)', marginBottom: 32, display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
           <p style={{ fontFamily: 'var(--font-body)', margin: 0 }}>• Đọc passage bên trái, trả lời câu hỏi bên phải</p>
           <p style={{ fontFamily: 'var(--font-body)', margin: 0 }}>• Có thể chuyển qua lại giữa các passage</p>
           <p style={{ fontFamily: 'var(--font-body)', margin: 0 }}>• Bài sẽ tự nộp khi hết giờ</p>
@@ -611,7 +611,7 @@ export default function ReadingExam() {
                 const isActive = activePassage === pi
                 return (
                   <div key={pi}>
-                    <p className={`text-xs font-bold mb-2 ${isActive ? 'text-[#1D4ED8]' : 'text-gray-500'}`}>
+                    <p className={`text-xs font-bold mb-2 ${isActive ? 'text-[var(--primary-hover)]' : 'text-gray-500'}`}>
                       Passage {p.number}
                     </p>
                     <div className="flex flex-wrap gap-1.5">
@@ -621,10 +621,10 @@ export default function ReadingExam() {
                           onClick={() => { jumpToQuestion(number); setShowQuestionPanel(false) }}
                           className={`w-8 h-8 rounded text-xs font-bold transition
                             ${qId && answers[qId]
-                              ? 'bg-[#1D4ED8] border border-[#1D4ED8] text-white'
+                              ? 'bg-[var(--primary-hover)] border border-[var(--primary-hover)] text-white'
                               : isActive
-                                ? 'bg-[#f1f5f9] border border-[#cbd5e1] text-[#475569]'
-                                : 'bg-white border border-[#e2e8f0] text-[#1e293b]'}`}
+                                ? 'bg-[var(--border-soft)] border border-slate-300 text-[var(--text)]'
+                                : 'bg-white border border-[var(--border)] text-slate-800'}`}
                         >
                           {number}
                         </button>
@@ -652,11 +652,11 @@ export default function ReadingExam() {
       {/* Confirm submit modal */}
       {showConfirm && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }} onClick={() => setShowConfirm(false)}>
-          <div style={{ background: 'var(--color-surface)', borderRadius: '24px', padding: 32, boxShadow: 'var(--shadow-md)', maxWidth: 360, width: '100%', border: '1px solid var(--color-border)' }} onClick={e => e.stopPropagation()}>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--color-heading)', marginBottom: 8 }}>Nộp bài?</h2>
-            <p style={{ fontFamily: 'var(--font-body)', color: 'var(--color-body)', fontSize: 14, marginBottom: 8 }}>Bạn có chắc muốn nộp bài không?</p>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--color-heading)', marginBottom: 24 }}>
-              Đã làm: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-primary)' }}>{answered}/{totalSlots}</span> câu
+          <div style={{ background: 'var(--surface)', borderRadius: '16px', padding: 32, boxShadow: 'var(--shadow-md)', maxWidth: 360, width: '100%', border: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--ink-soft)', marginBottom: 8 }}>Nộp bài?</h2>
+            <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text)', fontSize: 14, marginBottom: 8 }}>Bạn có chắc muốn nộp bài không?</p>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--ink-soft)', marginBottom: 24 }}>
+              Đã làm: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--primary)' }}>{answered}/{totalSlots}</span> câu
             </p>
             <div style={{ display: 'flex', gap: 12 }}>
               <button

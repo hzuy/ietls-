@@ -81,14 +81,14 @@ export default function MatchingHeadingsGroup({ group, answers, onAnswer, previe
                     ${previewMode
                       ? 'border-gray-200 bg-white cursor-default'
                       : isSelected
-                      ? 'border-[#1D4ED8] bg-[#eff6ff] cursor-pointer shadow-sm'
+                      ? 'border-[var(--primary-hover)] bg-[var(--primary-light)] cursor-pointer shadow-sm'
                       : isDragging
                       ? 'opacity-40 border-gray-200 bg-white'
                       : isUsed
                       ? 'border-gray-200 bg-gray-50 opacity-40 cursor-grab'
                       : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/50 cursor-grab active:cursor-grabbing'}`}
                 >
-                  <span className="font-bold text-[#1D4ED8] shrink-0">{h.optionLetter}</span>
+                  <span className="font-bold text-[var(--primary-hover)] shrink-0">{h.optionLetter}</span>
                   <span className="text-gray-700 leading-relaxed">{h.optionText}</span>
                 </div>
               )
@@ -108,7 +108,7 @@ export default function MatchingHeadingsGroup({ group, answers, onAnswer, previe
             return (
               <div key={q.id} className="bg-white rounded-xl border border-gray-200 p-3">
                 <p className="text-sm text-gray-800 mb-2 flex gap-2 items-start leading-relaxed">
-                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-[#1D4ED8] font-bold text-xs shrink-0 mt-0.5">
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-[var(--primary-hover)] font-bold text-xs shrink-0 mt-0.5">
                     {q.number}
                   </span>
                   <span>
@@ -123,15 +123,15 @@ export default function MatchingHeadingsGroup({ group, answers, onAnswer, previe
                   onClick={() => handleParaClick(q.id)}
                   className={`min-h-[38px] rounded-lg border-2 px-3 py-1.5 flex items-center text-sm transition
                     ${!previewMode ? 'cursor-pointer' : ''}
-                    ${isOver ? 'border-[#1D4ED8] bg-[#eff6ff]'
-                    : answer ? 'border-[#1D4ED8] bg-[#eff6ff]'
+                    ${isOver ? 'border-[var(--primary-hover)] bg-[var(--primary-light)]'
+                    : answer ? 'border-[var(--primary-hover)] bg-[var(--primary-light)]'
                     : isClickable ? 'border-blue-400 border-dashed bg-blue-50/50'
                     : 'border-dashed border-gray-300 bg-gray-50'}`}
                 >
                   {answer ? (
                     <div className="flex items-center gap-2 w-full">
-                      <span className="font-bold text-[#1D4ED8] text-xs shrink-0">{answer}</span>
-                      <span className="text-[#1D4ED8] text-xs flex-1 leading-snug">{answerHeading?.optionText}</span>
+                      <span className="font-bold text-[var(--primary-hover)] text-xs shrink-0">{answer}</span>
+                      <span className="text-[var(--primary-hover)] text-xs flex-1 leading-snug">{answerHeading?.optionText}</span>
                       {!previewMode && (
                         <button onClick={e => clearSlot(q.id, e)} className="text-gray-400 hover:text-red-500 text-base leading-none shrink-0">×</button>
                       )}

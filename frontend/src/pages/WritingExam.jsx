@@ -10,10 +10,9 @@ import ConfirmExitModal from '../components/ConfirmExitModal'
 import { useExitGuard } from '../hooks/useExitGuard'
 import { renderFeedbackList } from '../utils/feedbackList'
 import { isTaskComplete, countUnsubmitted } from '../utils/writingTasks'
+import { toImgSrc } from '../utils/media'
 
 const DEFAULT_WRITING_TIME = 60 * 60
-const SERVER_BASE = 'http://localhost:3001'
-const toImgSrc = (url) => (url || '').startsWith('/') ? `${SERVER_BASE}${url}` : (url || '')
 
 function fmt(s) {
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
@@ -385,7 +384,7 @@ export default function WritingExam() {
   // ── Start ─────────────────────────────────────────────────────
   if (phase === 'start') return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-      <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm p-10 max-w-md w-full text-center flex flex-col items-center transition-all duration-300">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-10 max-w-md w-full text-center flex flex-col items-center transition-all duration-300">
         <div className="w-16 h-16 bg-slate-100 border border-slate-200/80 rounded-2xl flex items-center justify-center mx-auto mb-6">
           <PenTool className="w-8 h-8 text-slate-600 stroke-[1.75]" />
         </div>
@@ -426,7 +425,7 @@ export default function WritingExam() {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-600 font-sans">
         {/* Header */}
-        <div className="bg-[#0B2345] border-b border-slate-800 px-6 py-5">
+        <div className="bg-[var(--ink)] border-b border-slate-800 px-6 py-5">
           <div className="max-w-3xl mx-auto">
             <h1 className="text-white text-xl font-bold tracking-tight m-0">Kết quả Writing — AI chấm bài</h1>
             <p className="text-slate-400 text-xs mt-1 m-0 font-medium">{exam.title}</p>
@@ -437,9 +436,9 @@ export default function WritingExam() {
         <div className="app-container section-py">
           <div className="max-w-3xl mx-auto flex flex-col gap-8">
             {/* Overall band score card */}
-            <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm p-8 text-center transition-all duration-300">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center transition-all duration-300">
               <p className="text-slate-400 text-xs font-bold tracking-wider uppercase mb-1">Overall Band Score</p>
-              <div className="text-7xl font-extrabold font-mono tracking-tight my-4" style={{ color: '#0B2345' }}>
+              <div className="text-7xl font-extrabold font-mono tracking-tight my-4" style={{ color: 'var(--ink)' }}>
                 {overallBand}
               </div>
               <p className="text-slate-500 text-sm font-medium">
@@ -459,7 +458,7 @@ export default function WritingExam() {
                   
                   {/* Task score overview */}
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 text-center transition-all duration-300">
-                    <div className="text-5xl font-extrabold font-mono tracking-tight mb-1" style={{ color: '#0B2345' }}>
+                    <div className="text-5xl font-extrabold font-mono tracking-tight mb-1" style={{ color: 'var(--ink)' }}>
                       {r.overall}
                     </div>
                     <div className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Band Score</div>
@@ -470,7 +469,7 @@ export default function WritingExam() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {Object.entries(CRITERIA_LABELS).map(([key, label]) => (
                       <div key={key} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col transition-all duration-300">
-                        <div className="text-3xl font-extrabold font-mono mb-2" style={{ color: '#0B2345' }}>
+                        <div className="text-3xl font-extrabold font-mono mb-2" style={{ color: 'var(--ink)' }}>
                           {r.criteria[key]?.score}
                         </div>
                         <div className="text-slate-900 text-sm font-bold mb-2">{label}</div>
@@ -527,7 +526,7 @@ export default function WritingExam() {
   return (
     <div className="h-dvh flex flex-col overflow-hidden bg-slate-50">
       {/* Header */}
-      <header className="bg-[#0B2345] border-b border-slate-800 px-6 py-4 flex items-center justify-between flex-shrink-0">
+      <header className="bg-[var(--ink)] border-b border-slate-800 px-6 py-4 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <button aria-label="Đóng bài thi" onClick={() => setShowExitConfirm(true)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 border-none text-white font-bold text-sm cursor-pointer flex-shrink-0 transition-colors">✕</button>
           <span className="font-sans text-sm font-semibold text-white overflow-hidden text-overflow-ellipsis white-space-nowrap">{exam.title}</span>
@@ -545,7 +544,7 @@ export default function WritingExam() {
       </header>
 
       {/* Task tabs */}
-      <div className="bg-[#1e293b] flex flex-shrink-0 border-b border-slate-800">
+      <div className="bg-slate-800 flex flex-shrink-0 border-b border-slate-800">
         {exam.writingTasks.map((t, i) => (
           <button key={t.id} onClick={() => setActiveTask(i)}
             className={`px-5 py-3 text-sm font-medium border-none cursor-pointer border-b-2 transition-all duration-300 flex items-center gap-2 ${activeTask === i ? 'border-purple-500 bg-white/5 text-white' : 'border-transparent text-slate-400 hover:text-slate-200'}`}>
@@ -633,7 +632,7 @@ export default function WritingExam() {
                   </button>
                 </div>
               )}
-              <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm overflow-hidden flex-1 flex flex-col">
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex-1 flex flex-col">
                 <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                   <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Bài viết Task {task.number}</span>
                   <span className={`text-xs font-bold px-3 py-1 rounded-full ${words >= minWords ? 'bg-purple-100 text-purple-700' : words > 0 ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-400'}`}>
@@ -672,7 +671,7 @@ export default function WritingExam() {
       {/* Modal hết giờ — CHẶN, không đóng được bằng ESC / click nền */}
       {timeUp && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-white rounded-[24px] shadow-xl max-w-sm w-full p-8 text-center flex flex-col items-center">
+          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-8 text-center flex flex-col items-center">
             <div className="text-4xl mb-3">⏰</div>
             <h2 className="text-slate-900 text-lg font-bold mb-2">Hết giờ làm bài</h2>
             <p className="text-slate-600 text-sm leading-relaxed mb-6">
@@ -692,7 +691,7 @@ export default function WritingExam() {
       {/* Overlay đang nộp & chấm — đè lên nhánh exam cho tới khi allDone */}
       {autoSubmitting && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-white rounded-[24px] shadow-xl max-w-sm w-full p-8 text-center flex flex-col items-center">
+          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-8 text-center flex flex-col items-center">
             {autoSubmitError ? (
               <>
                 <div className="text-4xl mb-3">⚠️</div>

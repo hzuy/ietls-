@@ -6,8 +6,6 @@ import SampleHeader from '../components/SampleHeader'
 import { getSample } from '../services/sampleService'
 import { sanitizeRichText } from '../utils/sanitizeHtml'
 
-const BACKEND_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3001'
-
 const TASK_LABELS = { task1: 'Task 1', task2: 'Task 2', task3: 'Task 3' }
 
 export default function SampleDetailPage({ skill }) {

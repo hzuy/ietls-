@@ -28,7 +28,7 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
               <input type="text" value={val}
                 onChange={e => q && onAnswer(q.id, e.target.value)}
                 placeholder="..."
-                className="border-b-2 border-[#e2e8f0] focus:border-[#3B82F6] outline-none px-1 py-0.5 text-sm w-24 bg-white transition text-center" />
+                className="border-b-2 border-[var(--border)] focus:border-[var(--primary)] outline-none px-1 py-0.5 text-sm w-24 bg-white transition text-center" />
             </span>
           )
         }
@@ -48,7 +48,7 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
               <ul className="space-y-2">
                 {(ns.lines || []).map((line, li) => (
                   line.lineType === 'heading'
-                    ? <li key={li} className="list-none font-bold text-[#1e293b] text-[0.95rem] pt-1 pb-0.5">{line.contentWithTokens || line.content || ''}</li>
+                    ? <li key={li} className="list-none font-bold text-slate-800 text-[0.95rem] pt-1 pb-0.5">{line.contentWithTokens || line.content || ''}</li>
                     : <li key={li} className="flex items-start gap-1.5 text-gray-700 leading-relaxed">
                         <span className="text-gray-400 mt-1 shrink-0">•</span>
                         <span>{parseContent(line.contentWithTokens || line.content || '')}</span>

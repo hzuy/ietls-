@@ -240,15 +240,15 @@ export default function ListeningExam() {
 
   // ── Start ─────────────────────────────────────────────────────
   if (phase === 'start') return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-background)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div className="flex flex-col items-center" style={{ background: 'var(--color-surface)', borderRadius: '24px', boxShadow: 'var(--shadow-md)', padding: 40, maxWidth: 448, width: '100%', textAlign: 'center', border: '1px solid var(--color-border)' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="flex flex-col items-center" style={{ background: 'var(--surface)', borderRadius: '16px', boxShadow: 'var(--shadow-md)', padding: 40, maxWidth: 448, width: '100%', textAlign: 'center', border: '1px solid var(--border)' }}>
         <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200/80 flex items-center justify-center mx-auto mb-5">
           <Headphones className="w-8 h-8 text-slate-600 stroke-[1.75]" />
         </div>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: 'var(--color-heading)', marginBottom: 8 }}>{exam.title}</h1>
-        <p style={{ fontFamily: 'var(--font-body)', color: 'var(--color-body)', fontSize: 14, marginBottom: 4 }}>{exam.listeningSections.length} Sections · <span style={{ fontFamily: 'var(--font-mono)' }}>{allQ.length}</span> câu hỏi</p>
-        <p style={{ fontFamily: 'var(--font-body)', color: 'var(--color-body)', fontSize: 14, marginBottom: 32 }}>Thời gian: <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--skill-l-color)' }}>40 phút</span></p>
-        <div style={{ background: 'var(--skill-l-bg)', borderRadius: 'var(--radius-md)', padding: 16, textAlign: 'left', fontSize: 14, color: 'var(--color-heading)', marginBottom: 32, display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: 'var(--ink-soft)', marginBottom: 8 }}>{exam.title}</h1>
+        <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text)', fontSize: 14, marginBottom: 4 }}>{exam.listeningSections.length} Sections · <span style={{ fontFamily: 'var(--font-mono)' }}>{allQ.length}</span> câu hỏi</p>
+        <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text)', fontSize: 14, marginBottom: 32 }}>Thời gian: <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--skill-l-color)' }}>40 phút</span></p>
+        <div style={{ background: 'var(--skill-l-bg)', borderRadius: 'var(--radius-md)', padding: 16, textAlign: 'left', fontSize: 14, color: 'var(--ink-soft)', marginBottom: 32, display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
           <p style={{ fontFamily: 'var(--font-body)', margin: 0 }}>• Nghe audio rồi trả lời câu hỏi bên dưới</p>
           <p style={{ fontFamily: 'var(--font-body)', margin: 0 }}>• Có thể tua lại audio trong phần làm bài</p>
           <p style={{ fontFamily: 'var(--font-body)', margin: 0 }}>• Bài sẽ tự nộp khi hết giờ</p>
@@ -322,7 +322,7 @@ export default function ListeningExam() {
         <div className="max-w-3xl mx-auto px-6 py-6 space-y-4">
           {/* Questions */}
           <div className="bg-white rounded-xl p-5 shadow-sm">
-            <p className="text-xs font-bold text-[#1D4ED8] uppercase tracking-wider mb-5">
+            <p className="text-xs font-bold text-[var(--primary-hover)] uppercase tracking-wider mb-5">
               Section {section.number}
               {section.context && <span className="font-normal text-gray-400 ml-1">— {section.context}</span>}
             </p>
@@ -457,7 +457,7 @@ export default function ListeningExam() {
                 const isActive = activeSection === si
                 return (
                   <div key={si}>
-                    <p className={`text-xs font-bold mb-2 ${isActive ? 'text-[#1D4ED8]' : 'text-gray-500'}`}>
+                    <p className={`text-xs font-bold mb-2 ${isActive ? 'text-[var(--primary-hover)]' : 'text-gray-500'}`}>
                       Section {s.number}
                     </p>
                     <div className="flex flex-wrap gap-1.5">
@@ -467,10 +467,10 @@ export default function ListeningExam() {
                           onClick={() => { jumpToQuestion(slot); setShowQuestionPanel(false) }}
                           className={`w-8 h-8 rounded text-xs font-bold transition
                             ${slot.qId && answers[slot.qId]
-                              ? 'bg-[#1D4ED8] border border-[#1D4ED8] text-white'
+                              ? 'bg-[var(--primary-hover)] border border-[var(--primary-hover)] text-white'
                               : isActive
-                                ? 'bg-[#f1f5f9] border border-[#cbd5e1] text-[#475569]'
-                                : 'bg-white border border-[#e2e8f0] text-[#1e293b]'}`}
+                                ? 'bg-[var(--border-soft)] border border-slate-300 text-[var(--text)]'
+                                : 'bg-white border border-[var(--border)] text-slate-800'}`}
                         >
                           {slot.number}
                         </button>
@@ -498,11 +498,11 @@ export default function ListeningExam() {
       {/* Confirm submit modal */}
       {showConfirm && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }} onClick={() => setShowConfirm(false)}>
-          <div style={{ background: 'var(--color-surface)', borderRadius: '24px', padding: 32, boxShadow: 'var(--shadow-md)', maxWidth: 360, width: '100%', border: '1px solid var(--color-border)' }} onClick={e => e.stopPropagation()}>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--color-heading)', marginBottom: 8 }}>Nộp bài?</h2>
-            <p style={{ fontFamily: 'var(--font-body)', color: 'var(--color-body)', fontSize: 14, marginBottom: 8 }}>Bạn có chắc muốn nộp bài không?</p>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--color-heading)', marginBottom: 24 }}>
-              Đã làm: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-primary)' }}>{answered}/{allQ.length}</span> câu
+          <div style={{ background: 'var(--surface)', borderRadius: '16px', padding: 32, boxShadow: 'var(--shadow-md)', maxWidth: 360, width: '100%', border: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--ink-soft)', marginBottom: 8 }}>Nộp bài?</h2>
+            <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text)', fontSize: 14, marginBottom: 8 }}>Bạn có chắc muốn nộp bài không?</p>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--ink-soft)', marginBottom: 24 }}>
+              Đã làm: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--primary)' }}>{answered}/{allQ.length}</span> câu
             </p>
             <div style={{ display: 'flex', gap: 12 }}>
               <button

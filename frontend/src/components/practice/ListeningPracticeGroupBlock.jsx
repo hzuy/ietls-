@@ -1,6 +1,5 @@
 ﻿import { buildListeningTokenMap } from '../../utils/practiceUtils'
-
-const BACKEND_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3001'
+import { toImgSrc } from '../../utils/media'
 
 function ListeningTokenLine({ content, answers, onAnswer, group, tokenNumMap, isDragWordBank }) {
   const parts = (content || '').split(/(\[Q:\d+\])/)
@@ -185,7 +184,7 @@ export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }
       {group.type === 'map_diagram' && (
         <div>
           {group.imageUrl && (
-            <img src={group.imageUrl.startsWith('/') ? `${BACKEND_URL}${group.imageUrl}` : group.imageUrl}
+            <img src={toImgSrc(group.imageUrl)}
               alt="diagram" className="w-full max-w-sm rounded-xl border mb-4 object-contain bg-gray-50" />
           )}
           <div className="flex flex-wrap gap-1.5 mb-4">

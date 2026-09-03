@@ -23,7 +23,7 @@ export default function MatchingTickGrid({
   accentColor = 'purple',
   globalOffset,
 }) {
-  const numClass = 'text-[#1D4ED8]'
+  const numClass = 'text-[var(--primary-hover)]'
 
   return (
     <div className="overflow-x-auto rounded-xl border border-gray-200">
@@ -48,7 +48,7 @@ export default function MatchingTickGrid({
                 key={q.id}
                 id={rowId}
                 className={`border-b border-gray-100 last:border-b-0 transition-colors scroll-mt-4
-                  ${rowSelected ? 'bg-[#eff6ff]' : 'hover:bg-gray-50/60'}`}
+                  ${rowSelected ? 'bg-[var(--primary-light)]' : 'hover:bg-gray-50/60'}`}
               >
                 <td className="px-4 py-3 border-r border-gray-200 align-middle">
                   <span className={`font-bold mr-1.5 ${numClass}`}>{q.number}.</span>
@@ -65,7 +65,7 @@ export default function MatchingTickGrid({
                         className={`w-7 h-7 flex items-center justify-center mx-auto text-sm font-bold transition-all
                           rounded border
                           ${isSelected
-                            ? 'bg-[#eff6ff] border-[#1D4ED8] text-[#1D4ED8]'
+                            ? 'bg-[var(--primary-light)] border-[var(--primary-hover)] text-[var(--primary-hover)]'
                             : previewMode
                               ? 'bg-white border-gray-200 text-transparent cursor-default'
                               : 'bg-white border-gray-300 text-transparent hover:bg-gray-50 hover:border-gray-400 cursor-pointer'

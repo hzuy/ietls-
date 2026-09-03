@@ -34,7 +34,7 @@ export default function GroupBlock({ group, answers, onAnswer, globalOffset, pre
                 readOnly={previewMode}
                 onChange={previewMode ? undefined : e => q && onAnswer(q.id, e.target.value)}
                 placeholder={previewMode ? '' : '...'}
-                className={`border-b-2 ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'border-[#e2e8f0] focus:border-[#3B82F6]'} outline-none px-1 py-0.5 text-sm w-24 bg-white transition text-center`}
+                className={`border-b-2 ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'border-[var(--border)] focus:border-[var(--primary)]'} outline-none px-1 py-0.5 text-sm w-24 bg-white transition text-center`}
               />
             </span>
           )
@@ -49,14 +49,14 @@ export default function GroupBlock({ group, answers, onAnswer, globalOffset, pre
           <p className="font-bold text-gray-800 mb-1">Questions {from}–{to}</p>
           {group.instruction && <p className="text-gray-600 text-xs">{group.instruction}</p>}
         </div>
-        <div className="rounded-xl p-4 text-sm" style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+        <div className="rounded-xl p-4 text-sm" style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)' }}>
           {(group.noteSections || []).map((ns, nsi) => (
             <div key={nsi} className="mb-3 last:mb-0">
               {ns.title && <div className="font-bold text-gray-700 mb-1.5 border-b border-gray-200 pb-1">{ns.title}</div>}
               <ul className="space-y-2">
                 {(ns.lines || []).map((line, li) => (
                   line.lineType === 'heading'
-                    ? <li key={li} className="list-none font-bold text-[#1e293b] text-[0.95rem] pt-1 pb-0.5">{line.contentWithTokens || line.content || ''}</li>
+                    ? <li key={li} className="list-none font-bold text-slate-800 text-[0.95rem] pt-1 pb-0.5">{line.contentWithTokens || line.content || ''}</li>
                     : <li key={li} className="flex items-start gap-1.5 text-gray-700 leading-relaxed">
                         <span className="text-gray-400 mt-1 shrink-0">•</span>
                         <span>{parseContent(line.contentWithTokens || line.content || '')}</span>

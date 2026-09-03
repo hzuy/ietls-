@@ -20,9 +20,7 @@ import { useAuth } from '../context/AuthContext'
 import { normalizeGroup, fmt, buildListeningTokenMap } from '../utils/practiceUtils'
 import ReadingPracticeGroupBlock from '../components/practice/ReadingPracticeGroupBlock'
 import ListeningPracticeGroupBlock from '../components/practice/ListeningPracticeGroupBlock'
-
-const BACKEND_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3001'
-const resolveUrl = (url) => !url ? null : url.startsWith('http') ? url : BACKEND_URL + url
+import { resolveImg } from '../utils/media'
 
 const PRACTICE_TIME = 20 * 60
 const LISTENING_TIME = 10 * 60
@@ -243,15 +241,15 @@ function ReadingPracticeExam({ exam, onBack }) {
 
   // ── Start screen ────────────────────────────────────────────────────────────
   if (phase === 'start') return (
-    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-background)' }}>
-      <div className="bg-white rounded-2xl shadow-lg p-10 max-w-md w-full text-center flex flex-col items-center" style={{ background: 'var(--color-surface)', borderRadius: '24px', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-md)', padding: 40 }}>
+    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
+      <div className="bg-white rounded-2xl shadow-lg p-10 max-w-md w-full text-center flex flex-col items-center" style={{ background: 'var(--surface)', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-md)', padding: 40 }}>
         <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200/80 flex items-center justify-center mx-auto mb-5">
           <BookOpen className="w-8 h-8 text-slate-600 stroke-[1.75]" />
         </div>
-        <h1 className="text-xl font-bold mb-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--color-heading)' }}>{exam.title}</h1>
-        <p className="text-sm mb-1" style={{ color: 'var(--color-body)' }}>1 Passage · {totalSlots} câu hỏi</p>
-        <p className="text-sm mb-8" style={{ color: 'var(--color-body)' }}>Thời gian: <span className="font-semibold" style={{ color: 'var(--skill-r-color)' }}>20 phút</span></p>
-        <div className="rounded-xl p-4 text-left text-sm mb-8 space-y-1 w-full" style={{ background: 'var(--skill-r-bg)', border: '1px solid var(--skill-r-border)', color: 'var(--color-heading)' }}>
+        <h1 className="text-xl font-bold mb-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--ink-soft)' }}>{exam.title}</h1>
+        <p className="text-sm mb-1" style={{ color: 'var(--text)' }}>1 Passage · {totalSlots} câu hỏi</p>
+        <p className="text-sm mb-8" style={{ color: 'var(--text)' }}>Thời gian: <span className="font-semibold" style={{ color: 'var(--skill-r-color)' }}>20 phút</span></p>
+        <div className="rounded-xl p-4 text-left text-sm mb-8 space-y-1 w-full" style={{ background: 'var(--skill-r-bg)', border: '1px solid var(--skill-r-border)', color: 'var(--ink-soft)' }}>
           <p>• Đọc passage bên trái, trả lời câu hỏi bên phải</p>
           <p>• Bài sẽ tự nộp khi hết giờ</p>
         </div>
@@ -387,10 +385,10 @@ function ReadingPracticeExam({ exam, onBack }) {
       {/* Submit confirm */}
       {showConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowConfirm(false)}>
-          <div className="rounded-2xl p-8 shadow-2xl max-w-sm w-full mx-4" style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '24px' }} onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-bold mb-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--color-heading)' }}>Nộp bài?</h2>
-            <p className="text-sm mb-2" style={{ color: 'var(--color-body)' }}>Bạn có chắc muốn nộp bài không?</p>
-            <p className="text-sm font-semibold mb-6" style={{ color: 'var(--color-heading)' }}>Đã làm: <span style={{ color: 'var(--color-primary)' }}>{answered}/{totalSlots}</span> câu</p>
+          <div className="rounded-2xl p-8 shadow-2xl max-w-sm w-full mx-4" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px' }} onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-bold mb-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--ink-soft)' }}>Nộp bài?</h2>
+            <p className="text-sm mb-2" style={{ color: 'var(--text)' }}>Bạn có chắc muốn nộp bài không?</p>
+            <p className="text-sm font-semibold mb-6" style={{ color: 'var(--ink-soft)' }}>Đã làm: <span style={{ color: 'var(--primary)' }}>{answered}/{totalSlots}</span> câu</p>
             <div className="flex gap-3">
               <button onClick={() => setShowConfirm(false)} className="flex-1 py-2.5 rounded-xl btn-secondary text-sm font-semibold transition">Tiếp tục làm</button>
               <button onClick={() => { setShowConfirm(false); doSubmit() }} className="flex-1 py-2.5 rounded-xl btn-danger text-sm font-bold transition">Nộp bài</button>
@@ -585,15 +583,15 @@ function ListeningPracticeExam({ exam, onBack }) {
 
   // Start screen
   if (phase === 'start') return (
-    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-background)' }}>
-      <div className="rounded-2xl shadow-lg p-10 max-w-md w-full text-center flex flex-col items-center" style={{ background: 'var(--color-surface)', borderRadius: '24px', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-md)', padding: 40 }}>
+    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
+      <div className="rounded-2xl shadow-lg p-10 max-w-md w-full text-center flex flex-col items-center" style={{ background: 'var(--surface)', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-md)', padding: 40 }}>
         <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200/80 flex items-center justify-center mx-auto mb-5">
           <Headphones className="w-8 h-8 text-slate-600 stroke-[1.75]" />
         </div>
-        <h1 className="text-xl font-bold mb-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--color-heading)' }}>{exam.title}</h1>
-        <p className="text-sm mb-1" style={{ color: 'var(--color-body)' }}>{totalSlots} câu hỏi</p>
-        <p className="text-sm mb-8" style={{ color: 'var(--color-body)' }}>Thời gian: <span className="font-semibold" style={{ color: 'var(--skill-l-color)' }}>10 phút</span></p>
-        <div className="rounded-xl p-4 text-left text-sm mb-8 space-y-1 w-full" style={{ background: 'var(--skill-l-bg)', border: '1px solid var(--skill-l-border)', color: 'var(--color-heading)' }}>
+        <h1 className="text-xl font-bold mb-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--ink-soft)' }}>{exam.title}</h1>
+        <p className="text-sm mb-1" style={{ color: 'var(--text)' }}>{totalSlots} câu hỏi</p>
+        <p className="text-sm mb-8" style={{ color: 'var(--text)' }}>Thời gian: <span className="font-semibold" style={{ color: 'var(--skill-l-color)' }}>10 phút</span></p>
+        <div className="rounded-xl p-4 text-left text-sm mb-8 space-y-1 w-full" style={{ background: 'var(--skill-l-bg)', border: '1px solid var(--skill-l-border)', color: 'var(--ink-soft)' }}>
           <p>• Nghe audio và trả lời các câu hỏi</p>
           <p>• Bài sẽ tự nộp khi hết giờ</p>
         </div>
@@ -655,7 +653,7 @@ function ListeningPracticeExam({ exam, onBack }) {
       {/* Sticky audio player */}
       {exam.audioUrl && (
         <div className="bg-white border-b border-gray-200 px-6 py-4 shrink-0">
-          <audio controls src={resolveUrl(exam.audioUrl)} className="w-full h-10" />
+          <audio controls src={resolveImg(exam.audioUrl)} className="w-full h-10" />
         </div>
       )}
 
@@ -711,10 +709,10 @@ function ListeningPracticeExam({ exam, onBack }) {
       {/* Submit confirm */}
       {showConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowConfirm(false)}>
-          <div className="rounded-2xl p-8 shadow-2xl max-w-sm w-full mx-4" style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '24px' }} onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-bold mb-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--color-heading)' }}>Nộp bài?</h2>
-            <p className="text-sm mb-2" style={{ color: 'var(--color-body)' }}>Bạn có chắc muốn nộp bài không?</p>
-            <p className="text-sm font-semibold mb-6" style={{ color: 'var(--color-heading)' }}>Đã làm: <span style={{ color: 'var(--color-primary)' }}>{answered}/{totalSlots}</span> câu</p>
+          <div className="rounded-2xl p-8 shadow-2xl max-w-sm w-full mx-4" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px' }} onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-bold mb-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--ink-soft)' }}>Nộp bài?</h2>
+            <p className="text-sm mb-2" style={{ color: 'var(--text)' }}>Bạn có chắc muốn nộp bài không?</p>
+            <p className="text-sm font-semibold mb-6" style={{ color: 'var(--ink-soft)' }}>Đã làm: <span style={{ color: 'var(--primary)' }}>{answered}/{totalSlots}</span> câu</p>
             <div className="flex gap-3">
               <button onClick={() => setShowConfirm(false)} className="flex-1 py-2.5 rounded-xl btn-secondary text-sm font-semibold transition">Tiếp tục làm</button>
               <button onClick={() => { setShowConfirm(false); doSubmit() }} className="flex-1 py-2.5 rounded-xl btn-danger text-sm font-bold transition">Nộp bài</button>
@@ -741,12 +739,12 @@ export default function PracticeExamPage({ skill }) {
   }, [id, skill])
 
   if (loading) return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--color-background)' }}><Navbar />
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)' }}><Navbar />
       <div className="max-w-4xl mx-auto px-6 py-16 text-center text-gray-400">Đang tải...</div>
     </div>
   )
   if (!exam) return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--color-background)' }}><Navbar />
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)' }}><Navbar />
       <div className="max-w-4xl mx-auto px-6 py-16 text-center text-gray-400">Không tìm thấy bài luyện tập.</div>
     </div>
   )

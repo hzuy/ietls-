@@ -70,16 +70,16 @@ export default function DragWordBankGroup({ group, answers, onAnswer, previewMod
           onDrop={() => handleDrop(qNum)}
           onClick={() => handleBlankClick(qNum)}
           className={`inline-flex items-center gap-1 mx-1 min-w-[90px] px-2 py-0.5 border-2 rounded-lg text-sm align-middle transition
-            ${isHovered ? 'border-[#1D4ED8] bg-[#eff6ff]'
-            : answer ? 'border-[#3B82F6] bg-[#eff6ff]'
-            : isClickTarget ? 'border-[#1D4ED8] border-dashed bg-blue-50'
+            ${isHovered ? 'border-[var(--primary-hover)] bg-[var(--primary-light)]'
+            : answer ? 'border-[var(--primary)] bg-[var(--primary-light)]'
+            : isClickTarget ? 'border-[var(--primary-hover)] border-dashed bg-blue-50'
             : 'border-gray-300 border-dashed bg-white'}
             ${!previewMode ? 'cursor-pointer' : ''}`}
         >
           {answer ? (
             <>
-              <span className="font-bold text-[#1D4ED8] text-xs">{answer}</span>
-              <span className="text-[#1D4ED8] font-medium text-xs leading-tight">{answerWord}</span>
+              <span className="font-bold text-[var(--primary-hover)] text-xs">{answer}</span>
+              <span className="text-[var(--primary-hover)] font-medium text-xs leading-tight">{answerWord}</span>
               {!previewMode && (
                 <button
                   onMouseDown={e => e.preventDefault()}
@@ -105,7 +105,7 @@ export default function DragWordBankGroup({ group, answers, onAnswer, previewMod
       </div>
 
       {/* Summary text with inline drop targets */}
-      <div className="rounded-xl p-4 mb-4 text-sm leading-9" style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+      <div className="rounded-xl p-4 mb-4 text-sm leading-9" style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)' }}>
         {(group.noteSections || []).map((ns, nsi) => (
           <div key={nsi} className={nsi > 0 ? 'mt-3' : ''}>
             {ns.title && <div className="font-bold text-gray-700 mb-1.5 pb-1 border-b border-amber-200">{ns.title}</div>}
@@ -140,10 +140,10 @@ export default function DragWordBankGroup({ group, answers, onAnswer, previewMod
                     : isUsed
                     ? 'opacity-35 cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
                     : isSelectedItem
-                    ? 'border-[#1D4ED8] bg-[#eff6ff] cursor-pointer shadow-sm'
-                    : 'border-[#3B82F6] bg-white hover:bg-blue-50 cursor-grab active:cursor-grabbing'}`}
+                    ? 'border-[var(--primary-hover)] bg-[var(--primary-light)] cursor-pointer shadow-sm'
+                    : 'border-[var(--primary)] bg-white hover:bg-blue-50 cursor-grab active:cursor-grabbing'}`}
               >
-                <span className={`font-bold text-xs ${previewMode ? 'text-indigo-600' : 'text-[#1D4ED8]'}`}>{wb.optionLetter}</span>
+                <span className={`font-bold text-xs ${previewMode ? 'text-indigo-600' : 'text-[var(--primary-hover)]'}`}>{wb.optionLetter}</span>
                 <span>{wb.optionText}</span>
               </div>
             )

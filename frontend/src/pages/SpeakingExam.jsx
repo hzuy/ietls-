@@ -384,7 +384,7 @@ export default function SpeakingExam() {
   // ── Start ─────────────────────────────────────────────────────────────────
   if (phase === 'start') return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-      <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm p-10 max-w-md w-full text-center flex flex-col items-center transition-all duration-300">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-10 max-w-md w-full text-center flex flex-col items-center transition-all duration-300">
         <div className="w-16 h-16 bg-slate-100 border border-slate-200/80 rounded-2xl flex items-center justify-center mx-auto mb-6">
           <Mic className="w-8 h-8 text-slate-600 stroke-[1.75]" />
         </div>
@@ -426,7 +426,7 @@ export default function SpeakingExam() {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-600 font-sans">
         {/* Header */}
-        <div className="bg-[#0B2345] border-b border-slate-800 px-6 py-5">
+        <div className="bg-[var(--ink)] border-b border-slate-800 px-6 py-5">
           <div className="max-w-3xl mx-auto">
             <h1 className="text-white text-xl font-bold tracking-tight m-0">Kết quả Speaking — AI chấm bài</h1>
             <p className="text-slate-400 text-xs mt-1 m-0 font-medium">{exam.title}</p>
@@ -437,9 +437,9 @@ export default function SpeakingExam() {
         <div className="app-container section-py">
           <div className="max-w-3xl mx-auto flex flex-col gap-8">
             {/* Overall band score card */}
-            <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm p-8 text-center transition-all duration-300">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center transition-all duration-300">
               <p className="text-slate-400 text-xs font-bold tracking-wider uppercase mb-1">Overall Band Score</p>
-              <div className="text-7xl font-extrabold font-mono tracking-tight my-4" style={{ color: '#0B2345' }}>
+              <div className="text-7xl font-extrabold font-mono tracking-tight my-4" style={{ color: 'var(--ink)' }}>
                 {overallBand}
               </div>
               <p className="text-slate-500 text-sm font-medium">
@@ -459,7 +459,7 @@ export default function SpeakingExam() {
 
                   {/* Part score overview */}
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 text-center transition-all duration-300">
-                    <div className="text-5xl font-extrabold font-mono tracking-tight mb-1" style={{ color: '#0B2345' }}>
+                    <div className="text-5xl font-extrabold font-mono tracking-tight mb-1" style={{ color: 'var(--ink)' }}>
                       {r.overall}
                     </div>
                     <div className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Band Score</div>
@@ -469,7 +469,7 @@ export default function SpeakingExam() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {Object.entries(CRITERIA_LABELS).map(([key, label]) => (
                       <div key={key} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col transition-all duration-300">
-                        <div className="text-3xl font-extrabold font-mono mb-2" style={{ color: '#0B2345' }}>
+                        <div className="text-3xl font-extrabold font-mono mb-2" style={{ color: 'var(--ink)' }}>
                           {r.criteria[key]?.score}
                         </div>
                         <div className="text-slate-900 text-sm font-bold mb-2">{label}</div>
@@ -531,7 +531,7 @@ export default function SpeakingExam() {
   return (
     <div className="h-dvh flex flex-col overflow-hidden bg-slate-50">
       {/* Header */}
-      <header className="bg-[#0B2345] border-b border-slate-800 px-6 py-4 flex items-center justify-between flex-shrink-0">
+      <header className="bg-[var(--ink)] border-b border-slate-800 px-6 py-4 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <button
             aria-label="Đóng bài thi"
@@ -558,7 +558,7 @@ export default function SpeakingExam() {
       </header>
 
       {/* Part tabs */}
-      <div className="bg-[#1e293b] flex flex-shrink-0 border-b border-slate-800">
+      <div className="bg-slate-800 flex flex-shrink-0 border-b border-slate-800">
         {exam.speakingParts.map((p, i) => (
           <button
             key={p.id}
@@ -596,7 +596,7 @@ export default function SpeakingExam() {
         {/* Left: questions */}
         <div className={`overflow-y-auto bg-white border-r border-slate-200 flex flex-col ${isMobile ? (mobileView === 'questions' ? 'w-full' : 'hidden') : 'w-2/5'}`}>
           {/* Part banner */}
-          <div className="bg-[#0B2345] px-5 py-3 text-xs font-bold text-white uppercase tracking-wider">
+          <div className="bg-[var(--ink)] px-5 py-3 text-xs font-bold text-white uppercase tracking-wider">
             {part.number === 1 && 'Part 1 — Introduction & Interview'}
             {part.number === 2 && 'Part 2 — Individual Long Turn'}
             {part.number === 3 && 'Part 3 — Two-way Discussion'}
@@ -782,7 +782,7 @@ export default function SpeakingExam() {
                     <button
                       onClick={stopRecording}
                       className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-bold transition cursor-pointer shadow-xs"
-                      style={{ background: 'linear-gradient(135deg, #0B2345 0%, #1e4080 100%)' }}
+                      style={{ background: 'linear-gradient(135deg, var(--ink) 0%, #1e4080 100%)' }}
                     >
                       <Square className="w-3.5 h-3.5" fill="currentColor" />
                       Dừng và gửi
@@ -799,7 +799,7 @@ export default function SpeakingExam() {
                 /* ── 2b. Part 2 — card "Chuẩn bị" 60s (đếm ngược, có nút skip) ── */
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 flex flex-col items-center text-center gap-3">
                   <p className="text-sky-600 text-xs font-bold uppercase tracking-wider m-0">Thời gian chuẩn bị</p>
-                  <div className="text-5xl font-mono font-extrabold tracking-tight" style={{ color: '#0B2345' }}>
+                  <div className="text-5xl font-mono font-extrabold tracking-tight" style={{ color: 'var(--ink)' }}>
                     {formatTime(prepSecondsLeft)}
                   </div>
                   <p className="text-slate-500 text-sm leading-relaxed m-0 max-w-xs">

@@ -28,15 +28,6 @@
   --border:         #E2E8F0;   /* Slate 200 border */
   --border-soft:    #F1F5F9;   /* Slate 100 border */
 
-  /* Design System Colors requested by User */
-  --color-primary:        #2563EB;
-  --color-primary-hover:  #1D4ED8;
-  --color-background:     #F8FAFC;
-  --color-surface:        #FFFFFF;
-  --color-border:         #E2E8F0;
-  --color-heading:        #0F172A;
-  --color-body:           #475569;
-
   /* Skill palette — Reading (deep navy) */
   --skill-r-color:  #0B2345;
   --skill-r-bg:     #EBF2FF;

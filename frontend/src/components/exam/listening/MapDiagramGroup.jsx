@@ -1,7 +1,5 @@
 ﻿import MatchingTickGrid from '../../MatchingTickGrid'
-
-const SERVER_BASE = 'http://localhost:3001'
-const toImgSrc = (url) => (url || '').startsWith('/') ? `${SERVER_BASE}${url}` : (url || '')
+import { toImgSrc } from '../../../utils/media'
 
 function InstructionBanner({ group }) {
   return (

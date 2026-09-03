@@ -26,7 +26,7 @@ function MatchingGroup({ group, answers, onAnswer, previewMode, showAnswers }) {
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4">
           {(group.matchingOptions || []).map(mo => (
             <p key={mo.id} className="text-sm text-gray-700 py-0.5">
-              <span className="font-bold text-[#1D4ED8] mr-2">{mo.optionLetter}.</span>{mo.optionText}
+              <span className="font-bold text-[var(--primary-hover)] mr-2">{mo.optionLetter}.</span>{mo.optionText}
             </p>
           ))}
         </div>
