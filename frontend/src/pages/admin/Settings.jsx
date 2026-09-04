@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAdminSettings, updateAdminSettings } from '../../services/adminService'
-import AdminLayout from '../../components/AdminLayout'
 
 
 const DEFAULT_SETTINGS = {
@@ -47,16 +46,13 @@ export default function Settings() {
   const hintCls   = "text-xs text-gray-400 mt-1"
 
   if (loading) return (
-    <AdminLayout>
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-[#1D4ED8] border-t-transparent rounded-full animate-spin" />
-      </div>
-    </AdminLayout>
+    <div className="flex items-center justify-center h-64">
+      <div className="w-8 h-8 border-4 border-[#1D4ED8] border-t-transparent rounded-full animate-spin" />
+    </div>
   )
 
   return (
-    <AdminLayout>
-      <div className="p-6 max-w-2xl mx-auto">
+    <div className="p-6 max-w-2xl mx-auto">
 
         {/* Page header */}
         <div className="mb-8">
@@ -182,7 +178,6 @@ export default function Settings() {
           </button>
         </div>
 
-      </div>
-    </AdminLayout>
+    </div>
   )
 }

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getAdminUser, toggleUserLock, deleteAdminUser, resetUserPassword } from '../../services/adminService'
-import AdminLayout from '../../components/AdminLayout'
 import { KeyRound } from 'lucide-react'
 import { ADMIN_SKILL_COLORS, SKILL_LABEL, SKILL_ORDER } from '../../utils/adminSkillColors'
 import { formatBand } from '../../utils/ielts'
@@ -24,14 +23,12 @@ export default function UserDetail() {
   }, [id])
 
   if (loading) return (
-    <AdminLayout>
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-[#1D4ED8] border-t-transparent rounded-full animate-spin" />
-      </div>
-    </AdminLayout>
+    <div className="flex items-center justify-center h-64">
+      <div className="w-8 h-8 border-4 border-[#1D4ED8] border-t-transparent rounded-full animate-spin" />
+    </div>
   )
 
-  if (!data) return <AdminLayout><div className="p-8 text-slate-400">Không tìm thấy người dùng.</div></AdminLayout>
+  if (!data) return <div className="p-8 text-slate-400">Không tìm thấy người dùng.</div>
 
   const { user, attempts, skillStats, totalAttempts, shownAttempts } = data
   const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
@@ -62,7 +59,7 @@ export default function UserDetail() {
   }
 
   return (
-    <AdminLayout>
+    <>
       <div className="p-6 max-w-5xl mx-auto">
         <button onClick={() => navigate('/admin/users')} className="text-sm text-slate-400 hover:text-slate-600 mb-4 flex items-center gap-1">
           ← Quay lại
@@ -224,6 +221,6 @@ export default function UserDetail() {
           </div>
         </div>
       )}
-    </AdminLayout>
+    </>
   )
 }

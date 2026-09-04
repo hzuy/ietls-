@@ -5,6 +5,7 @@ import { AuthProvider } from './context/AuthContext'
 import { FormDirtyProvider } from './context/FormDirtyContext'
 import Footer from './components/Footer'
 import ErrorBoundary from './components/ErrorBoundary'
+import AdminLayout from './components/AdminLayout'
 import { getAdminSettings } from './services/adminService'
 import { purgeExpiredDrafts } from './services/draftService'
 
@@ -156,22 +157,27 @@ export default function App() {
               <Route path="/profile" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
               <Route path="/progress" element={<PrivateRoute><ProgressAnalysis /></PrivateRoute>} />
 
-              {/* Admin routes */}
-              <Route path="/admin"              element={<StaffRoute><Analytics /></StaffRoute>} />
-              <Route path="/admin/exams/*"      element={<StaffRoute><Admin /></StaffRoute>} />
-              <Route path="/admin/attempts"     element={<StaffRoute><Attempts /></StaffRoute>} />
-              <Route path="/admin/analytics"    element={<Navigate to="/admin" replace />} />
-              <Route path="/admin/accounts"     element={<AdminRoute><Accounts /></AdminRoute>} />
-              <Route path="/admin/users"        element={<AdminRoute><Users /></AdminRoute>} />
-              <Route path="/admin/users/:id"    element={<AdminRoute><UserDetail /></AdminRoute>} />
-              <Route path="/admin/staff"        element={<AdminRoute><Staff /></AdminRoute>} />
-              <Route path="/admin/settings"     element={<AdminRoute><Settings /></AdminRoute>} />
-              <Route path="/admin/profile"           element={<StaffRoute><Profile /></StaffRoute>} />
-              <Route path="/admin/reading-practice"   element={<StaffRoute><ReadingPractice /></StaffRoute>} />
-              <Route path="/admin/listening-practice" element={<StaffRoute><ListeningPractice /></StaffRoute>} />
-              <Route path="/admin/writing-samples"    element={<StaffRoute><SampleManager kind="writing" /></StaffRoute>} />
-              <Route path="/admin/speaking-samples"   element={<StaffRoute><SampleManager kind="speaking" /></StaffRoute>} />
-              <Route path="/admin/trash"             element={<StaffRoute><Trash /></StaffRoute>} />
+              {/* Admin routes — 1 route cha dùng <Outlet/> (AdminLayout không unmount/remount
+                  giữa các mục nữa). Quyền hạn (AdminRoute vs StaffRoute) KHÔNG đồng nhất giữa
+                  các trang con (vd /admin/users chỉ admin, /admin/attempts admin+teacher) nên
+                  guard vẫn đặt riêng ở từng route con như cũ — không gộp lên route cha. */}
+              <Route path="/admin" element={<AdminLayout />}>
+                <Route index                    element={<StaffRoute><Analytics /></StaffRoute>} />
+                <Route path="exams/*"           element={<StaffRoute><Admin /></StaffRoute>} />
+                <Route path="attempts"          element={<StaffRoute><Attempts /></StaffRoute>} />
+                <Route path="analytics"         element={<Navigate to="/admin" replace />} />
+                <Route path="accounts"          element={<AdminRoute><Accounts /></AdminRoute>} />
+                <Route path="users"             element={<AdminRoute><Users /></AdminRoute>} />
+                <Route path="users/:id"         element={<AdminRoute><UserDetail /></AdminRoute>} />
+                <Route path="staff"             element={<AdminRoute><Staff /></AdminRoute>} />
+                <Route path="settings"          element={<AdminRoute><Settings /></AdminRoute>} />
+                <Route path="profile"           element={<StaffRoute><Profile /></StaffRoute>} />
+                <Route path="reading-practice"   element={<StaffRoute><ReadingPractice /></StaffRoute>} />
+                <Route path="listening-practice" element={<StaffRoute><ListeningPractice /></StaffRoute>} />
+                <Route path="writing-samples"    element={<StaffRoute><SampleManager kind="writing" /></StaffRoute>} />
+                <Route path="speaking-samples"   element={<StaffRoute><SampleManager kind="speaking" /></StaffRoute>} />
+                <Route path="trash"              element={<StaffRoute><Trash /></StaffRoute>} />
+              </Route>
 
               {/* 404 Route */}
               <Route path="*" element={<NotFound />} />

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Routes, Route, Navigate, useLocation, NavLink } from 'react-router-dom'
-import AdminLayout from '../components/AdminLayout'
 import { getExams, getExamSeries, getExamCounts } from '../services/examService'
 import ReadingTab from '../components/admin/ReadingTab'
 import ListeningTab from '../components/admin/ListeningTab'
@@ -77,8 +76,7 @@ export default function Admin() {
   const currentTabExams = tabCache[activeTab]?.exams || []
 
   return (
-    <AdminLayout>
-      <div className="p-6">
+    <div className="p-6">
         {/* Tab Navigation */}
         <div className="flex gap-2 mb-8 bg-white p-1.5 rounded-2xl border border-gray-100 shadow-sm w-fit">
           {TABS.map(tab => {
@@ -122,6 +120,5 @@ export default function Admin() {
           <Route path="speaking"  element={<SpeakingTab exams={tabCache.speaking?.exams || []} paginationData={tabCache.speaking} fetchExams={(opts) => fetchSkillExams('speaking', { ...opts, force: true })} onRefresh={() => handleRefresh('speaking')} examSeries={examSeries} loading={loading} loadError={!!loadError.speaking} />} />
         </Routes>
       </div>
-    </AdminLayout>
   )
 }

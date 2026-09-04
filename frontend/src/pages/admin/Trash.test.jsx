@@ -3,10 +3,6 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import Trash from './Trash'
 import * as adminService from '../../services/adminService'
 
-vi.mock('../../components/AdminLayout', () => ({
-  default: ({ children }) => <div>{children}</div>,
-}))
-
 const SAMPLE = [
   { id: 1, type: 'exam_reading', title: 'Đề Reading A', thumbnailUrl: null, deletedAt: '2026-08-20T00:00:00.000Z' },
   { id: 2, type: 'exam_series', title: 'Bộ đề X', thumbnailUrl: null, deletedAt: '2026-08-25T00:00:00.000Z' },

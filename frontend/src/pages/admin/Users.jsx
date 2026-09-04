@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAdminUsers, toggleUserLock, deleteAdminUser } from '../../services/adminService'
-import AdminLayout from '../../components/AdminLayout'
 import { Pencil, Lock, Unlock, Trash2, SearchX } from 'lucide-react'
 
 import { roundIELTS } from '../../utils/ielts'
@@ -109,7 +108,7 @@ export default function Users() {
   const endIdx   = Math.min(page * 10, total)
 
   return (
-    <AdminLayout>
+    <>
       <div className="p-6 max-w-6xl mx-auto">
 
         {/* ── Topbar ─────────────────────────────────────── */}
@@ -401,6 +400,6 @@ export default function Users() {
           </div>
         </div>
       )}
-    </AdminLayout>
+    </>
   )
 }

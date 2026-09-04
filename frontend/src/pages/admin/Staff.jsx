@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAdminStaff, makeAdmin, makeTeacher, removeStaff } from '../../services/adminService'
-import AdminLayout from '../../components/AdminLayout'
 
 
 function fmtDate(iso) {
@@ -59,7 +58,7 @@ export default function Staff() {
   const teacherCount = staff.filter(s => s.role === 'teacher').length
 
   return (
-    <AdminLayout>
+    <>
       <div className="p-6 max-w-4xl mx-auto">
 
         {/* Header */}
@@ -184,6 +183,6 @@ export default function Staff() {
           </div>
         </div>
       )}
-    </AdminLayout>
+    </>
   )
 }

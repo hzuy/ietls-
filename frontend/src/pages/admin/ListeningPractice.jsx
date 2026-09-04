@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import AdminLayout from '../../components/AdminLayout'
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges'
 import { useDraftPersistence } from '../../hooks/useDraftPersistence'
 import { useCollapsibleGroups } from '../../hooks/useCollapsibleGroups'
@@ -231,7 +230,7 @@ export default function ListeningPractice() {
   // ── FORM VIEW ────────────────────────────────────────────────────────────────
   if (view === 'form') {
     return (
-      <AdminLayout>
+      <>
         <div className="p-6 max-w-5xl">
           <div className="flex items-center gap-3 mb-6">
             <button onClick={() => { setIsDirty(false); setView('list') }} aria-label="Quay lại danh sách" className="text-slate-500 hover:text-slate-700 text-xl font-bold transition">←</button>
@@ -367,13 +366,13 @@ export default function ListeningPractice() {
             onClose={() => { setShowPreview(false); setShowAnswers(false) }}
           />
         )}
-      </AdminLayout>
+      </>
     )
   }
 
   // ── LIST VIEW ────────────────────────────────────────────────────────────────
   return (
-    <AdminLayout>
+    <>
       <div className="p-6 max-w-5xl">
         <AdminListHeader
           title="Listening Practice"
@@ -441,6 +440,6 @@ export default function ListeningPractice() {
         onCancel={() => setDelConfirm(null)}
         onConfirm={() => handleDelete(delConfirm)}
       />
-    </AdminLayout>
+    </>
   )
 }

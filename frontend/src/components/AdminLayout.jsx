@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
-import { NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { Suspense, useState, useEffect, useCallback } from 'react'
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useFormDirty } from '../context/FormDirtyContext'
 import { NAV_LEAVE_MSG } from '../hooks/useUnsavedChanges'
@@ -51,7 +51,19 @@ const navIconCls = (isActive) =>
     isActive ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'
   }`
 
-export default function AdminLayout({ children }) {
+// Fallback riêng cho vùng nội dung — CHỈ thay phần trong <main>, không đụng
+// sidebar/header. Suspense đặt ở đây (thay vì 1 Suspense duy nhất bọc toàn bộ
+// <Routes> ở App.jsx) để lần đầu vào 1 mục admin chưa cache chunk, sidebar vẫn
+// đứng yên, chỉ vùng nội dung hiện spinner.
+function AdminContentLoader() {
+  return (
+    <div className="flex items-center justify-center h-64">
+      <div className="w-8 h-8 border-4 border-[#1D4ED8] border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+}
+
+export default function AdminLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const { role, handleLogout: authLogout } = useAuth()
@@ -149,9 +161,11 @@ export default function AdminLayout({ children }) {
         </nav>
       </aside>
 
-      {/* Main content */}
+      {/* Main content — route con render qua <Outlet/>, Suspense riêng chỉ bọc vùng này */}
       <main className="admin-main flex-1 min-w-0 overflow-y-auto" style={{ scrollbarGutter: 'stable' }}>
-        {children}
+        <Suspense fallback={<AdminContentLoader />}>
+          <Outlet />
+        </Suspense>
       </main>
 
       {/* Logout dialog */}

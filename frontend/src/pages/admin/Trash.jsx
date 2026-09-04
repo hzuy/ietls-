@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import AdminLayout from '../../components/AdminLayout'
 import Modal from '../../components/common/Modal'
 import { SkeletonTable } from '../../components/skeletons'
 
@@ -121,7 +120,7 @@ export default function Trash() {
   for (const item of items) countByType[item.type] = (countByType[item.type] || 0) + 1
 
   return (
-    <AdminLayout>
+    <>
       <div className="p-6 max-w-5xl">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -328,6 +327,6 @@ export default function Trash() {
           <span>{toast.msg}</span>
         </div>
       )}
-    </AdminLayout>
+    </>
   )
 }

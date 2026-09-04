@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAdminMe, changeAdminPassword } from '../../services/adminService'
-import AdminLayout from '../../components/AdminLayout'
 
 
 const ROLE_LABEL = { admin: 'Admin', teacher: 'Teacher' }
@@ -53,17 +52,13 @@ export default function Profile() {
   const labelCls = 'block text-sm font-semibold text-gray-700 mb-1.5'
 
   if (loading) return (
-    <AdminLayout>
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-[#1D4ED8] border-t-transparent rounded-full animate-spin" />
-      </div>
-    </AdminLayout>
+    <div className="flex items-center justify-center h-64">
+      <div className="w-8 h-8 border-4 border-[#1D4ED8] border-t-transparent rounded-full animate-spin" />
+    </div>
   )
 
   if (!profile) return (
-    <AdminLayout>
-      <div className="p-8 text-gray-400">Không thể tải thông tin tài khoản.</div>
-    </AdminLayout>
+    <div className="p-8 text-gray-400">Không thể tải thông tin tài khoản.</div>
   )
 
   const initials = profile.name
@@ -71,8 +66,7 @@ export default function Profile() {
     : '?'
 
   return (
-    <AdminLayout>
-      <div className="p-6 max-w-2xl mx-auto">
+    <div className="p-6 max-w-2xl mx-auto">
 
         {/* Page header */}
         <div className="mb-8">
@@ -176,6 +170,5 @@ export default function Profile() {
         </section>
 
       </div>
-    </AdminLayout>
   )
 }

@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAdminAnalytics } from '../../services/adminService'
-import AdminLayout from '../../components/AdminLayout'
 import { Users2, BarChart2, Trophy } from 'lucide-react'
 import {
   AreaChart, Area, BarChart, Bar,
@@ -144,25 +143,22 @@ export default function Analytics() {
 
   // ─── Initial skeleton (very first load) ─────────────────────────────────────
   if (initialLoading) return (
-    <AdminLayout>
-      <div style={{ padding: 24, maxWidth: 1152, margin: '0 auto' }}>
-        {[1, 2, 3].map(i => (
-          <div key={i} className="animate-pulse h-28 bg-gray-100 rounded-2xl mb-4" />
-        ))}
-      </div>
-    </AdminLayout>
+    <div style={{ padding: 24, maxWidth: 1152, margin: '0 auto' }}>
+      {[1, 2, 3].map(i => (
+        <div key={i} className="animate-pulse h-28 bg-gray-100 rounded-2xl mb-4" />
+      ))}
+    </div>
   )
 
   if (!data) return (
-    <AdminLayout><div className="p-8 text-gray-400">Không thể tải dữ liệu.</div></AdminLayout>
+    <div className="p-8 text-gray-400">Không thể tải dữ liệu.</div>
   )
 
   const { overview, topUsers } = data
   const maxSkillCount = Math.max(...skillBreakdown.map(s => s.count), 1)
 
   return (
-    <AdminLayout>
-      <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-6xl mx-auto">
 
         {/* ── Header + period toggle ── */}
         <div className="flex items-center justify-between mb-6">
@@ -450,6 +446,5 @@ export default function Analytics() {
         </div>
 
       </div>
-    </AdminLayout>
   )
 }

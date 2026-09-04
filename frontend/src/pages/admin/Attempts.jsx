@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAdminAttempts, getAdminAttemptsExport, getAdminExamSeriesForFilter } from '../../services/adminService'
-import AdminLayout from '../../components/AdminLayout'
 import { SkeletonTable } from '../../components/skeletons'
 import { ADMIN_SKILL_COLORS, SKILL_LABEL } from '../../utils/adminSkillColors'
 import Modal from '../../components/common/Modal'
@@ -273,7 +272,7 @@ export default function Attempts() {
   }
 
   return (
-    <AdminLayout>
+    <>
       <div className="p-6 w-full flex-1">
         {/* Top Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 w-full">
@@ -545,7 +544,7 @@ export default function Attempts() {
       {detailAttempt && (
         <AttemptDetailModal attempt={detailAttempt} onClose={() => setDetailAttempt(null)} />
       )}
-    </AdminLayout>
+    </>
   )
 }
 

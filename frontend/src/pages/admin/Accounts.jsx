@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Pencil, Lock, Unlock, Trash2 } from 'lucide-react'
 import { getAdminAccounts, createAdminAccount, updateAdminAccount, deleteAdminAccount, toggleUserLock } from '../../services/adminService'
-import AdminLayout from '../../components/AdminLayout'
 
 
 const AVATAR_COLORS = [
@@ -106,7 +105,7 @@ export default function Accounts() {
   const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString('vi-VN') : '—'
 
   return (
-    <AdminLayout>
+    <>
       <div className="p-6 max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-xl font-bold text-gray-800">Quản lý nhân sự</h1>
@@ -323,6 +322,6 @@ export default function Accounts() {
           </div>
         </div>
       )}
-    </AdminLayout>
+    </>
   )
 }

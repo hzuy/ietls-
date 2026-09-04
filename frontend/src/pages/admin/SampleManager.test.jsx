@@ -3,11 +3,6 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import SampleManager from './SampleManager'
 import * as sampleService from '../../services/sampleService'
 
-// AdminLayout kéo theo router/context nặng — passthrough như Trash.test.
-vi.mock('../../components/AdminLayout', () => ({
-  default: ({ children }) => <div>{children}</div>,
-}))
-
 // RichTextEditor dùng contentEditable + execCommand (không chạy được trong jsdom).
 // Thay bằng textarea đơn giản, giữ đúng hợp đồng value/onChange/placeholder.
 vi.mock('../../components/RichTextEditor', () => ({
