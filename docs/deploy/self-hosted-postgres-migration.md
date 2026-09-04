@@ -7,10 +7,11 @@
 ## 0. Vì sao
 
 Hiện tại backend production (lab46) và dev local dùng chung 1 Supabase Postgres
-(xem ghi chú trong `docs/deploy/db-connection-checklist.md`). Mục tiêu P9: chuyển
-sang Postgres tự host trên chính lab46 (container `postgres-prod` trong
-`docker-compose.yml`), giảm phụ thuộc dịch vụ ngoài + tránh giới hạn free-tier
-Supabase.
+(project ref `qtuzysaqftzmveyvrzxz`, region `ap-southeast-2` — `DATABASE_URL` qua
+pooler port 6543 `?pgbouncer=true`, `DIRECT_URL` port 5432 dùng cho migration).
+Mục tiêu P9: chuyển sang Postgres tự host trên chính lab46 (container
+`postgres-prod` trong `docker-compose.yml`), giảm phụ thuộc dịch vụ ngoài + tránh
+giới hạn free-tier Supabase.
 
 ## 1. Đã chuẩn bị ở Giai đoạn 1 (KHÔNG chạm Supabase thật, KHÔNG deploy)
 
@@ -49,7 +50,8 @@ mật khẩu rỗng/yếu).
 ### Bước 0 — Trước khi bắt đầu
 - [ ] Đọc kỹ toàn bộ tài liệu này, xác nhận với người thực hiện (không tự động chạy).
 - [ ] Chọn thời điểm ít người dùng nhất (đồ án cá nhân, traffic thấp — không bắt buộc phải là nửa đêm, nhưng nên tránh giờ đang có người làm bài thi).
-- [ ] Backup `.env` hiện tại (theo checklist đã có ở `db-connection-checklist.md` mục 2).
+- [ ] Backup `.env` hiện tại: `cp .env ~/ielts-env.bak.$(date +%F-%H%M)` — lưu ở
+      `~/`, ngoài repo (`.env.bak.*` không khớp rule `.env` trong `.gitignore`).
 
 ### Bước 1 — Đo dung lượng DB thật (LẦN ĐẦU CHẠM SUPABASE THẬT — cần xác nhận riêng)
 Đây là hành động **đọc, không ghi**, an toàn, nhưng vẫn là lần đầu thực sự kết nối
