@@ -1,14 +1,12 @@
-import { useState, useEffect, useCallback, forwardRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import DatePicker from 'react-datepicker'
-import 'react-datepicker/dist/react-datepicker.css'
 import { getAdminAttempts, getAdminAttemptsExport, getAdminExamSeriesForFilter } from '../../services/adminService'
 import AdminLayout from '../../components/AdminLayout'
 import { SkeletonTable } from '../../components/skeletons'
 import { ADMIN_SKILL_COLORS, SKILL_LABEL } from '../../utils/adminSkillColors'
 import Modal from '../../components/common/Modal'
 
-import { Download, RotateCcw, Eye, Search, Calendar, ChevronLeft, ChevronRight, ChevronDown, ArrowUpDown } from 'lucide-react'
+import { Download, RotateCcw, Eye, Search, ChevronLeft, ChevronRight, ChevronDown, ArrowUpDown } from 'lucide-react'
 import { useDebounce } from '../../hooks/useDebounce'
 
 const CRITERION_LABEL = {
@@ -106,25 +104,6 @@ function getBandPill(score) {
   return <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 border border-rose-200">BAND {score.toFixed(1)}</span>
 }
 
-// Custom input cho DatePicker — Enterprise Console UI (h-10 equal height).
-// `bare`: bỏ viền/nền riêng để 2 ô ngày nằm chung trong 1 cụm range-picker.
-const DatePickerInput = forwardRef(({ value, onClick, placeholder, bare = false }, ref) => (
-  <button
-    ref={ref}
-    type="button"
-    onClick={onClick}
-    className={bare
-      ? 'w-full h-full flex items-center justify-between gap-1.5 px-2.5 text-sm bg-transparent cursor-pointer'
-      : 'w-full h-10 flex items-center justify-between gap-2 px-3 text-sm border border-slate-200 rounded-lg hover:border-blue-500 bg-white transition cursor-pointer'}
-  >
-    <span className={`truncate ${value ? 'text-slate-700 font-medium' : 'text-slate-400'}`}>
-      {value || placeholder}
-    </span>
-    <Calendar className={`${bare ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-slate-400 shrink-0`} />
-  </button>
-))
-DatePickerInput.displayName = 'DatePickerInput'
-
 export default function Attempts() {
   const [attempts, setAttempts] = useState([])
   const [total, setTotal] = useState(0)
@@ -147,7 +126,7 @@ export default function Attempts() {
   const [detailAttempt, setDetailAttempt] = useState(null)
   const navigate = useNavigate()
 
-  const today = new Date()
+  const todayStr = new Date().toISOString().split('T')[0]
 
   useEffect(() => {
     getAdminExamSeriesForFilter().then(data => setExamSeries(data)).catch(() => {})
@@ -238,17 +217,15 @@ export default function Attempts() {
     )
   }
 
-  // Chuyển YYYY-MM-DD string ↔ Date object
-  const dateFromObj = dateFrom ? new Date(dateFrom) : null
-  const dateToObj   = dateTo   ? new Date(dateTo)   : null
-
-  const handleDateFrom = (date) => {
-    setDateFrom(date ? date.toISOString().split('T')[0] : '')
-    if (date && dateToObj && date > dateToObj) setDateTo('')
+  // dateFrom/dateTo đã ở dạng string 'YYYY-MM-DD' — khớp thẳng với value của <input type="date">
+  const handleDateFrom = (e) => {
+    const value = e.target.value
+    setDateFrom(value)
+    if (value && dateTo && value > dateTo) setDateTo('')
     setPage(1)
   }
-  const handleDateTo = (date) => {
-    setDateTo(date ? date.toISOString().split('T')[0] : '')
+  const handleDateTo = (e) => {
+    setDateTo(e.target.value)
     setPage(1)
   }
 
@@ -407,25 +384,23 @@ export default function Attempts() {
             <div className="md:col-span-2">
               <label className="text-xs font-medium text-slate-500 mb-1 block">Khoảng ngày</label>
               <div className="flex items-center border border-slate-200 rounded-lg h-10 bg-white w-full focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-600 transition">
-                <DatePicker
-                  selected={dateFromObj}
+                <input
+                  type="date"
+                  value={dateFrom}
                   onChange={handleDateFrom}
-                  dateFormat="dd/MM/yyyy"
-                  maxDate={today}
-                  placeholderText="Từ ngày"
-                  wrapperClassName="flex-1 min-w-0"
-                  customInput={<DatePickerInput placeholder="Từ ngày" bare />}
+                  max={todayStr}
+                  aria-label="Từ ngày"
+                  className="flex-1 min-w-0 h-full px-2.5 text-sm bg-transparent cursor-pointer text-slate-700 focus:outline-none [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                 />
                 <span className="text-xs text-slate-400 shrink-0">–</span>
-                <DatePicker
-                  selected={dateToObj}
+                <input
+                  type="date"
+                  value={dateTo}
                   onChange={handleDateTo}
-                  dateFormat="dd/MM/yyyy"
-                  maxDate={today}
-                  minDate={dateFromObj || undefined}
-                  placeholderText="Đến ngày"
-                  wrapperClassName="flex-1 min-w-0"
-                  customInput={<DatePickerInput placeholder="Đến ngày" bare />}
+                  min={dateFrom || undefined}
+                  max={todayStr}
+                  aria-label="Đến ngày"
+                  className="flex-1 min-w-0 h-full px-2.5 text-sm bg-transparent cursor-pointer text-slate-700 focus:outline-none [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                 />
               </div>
             </div>

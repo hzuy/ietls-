@@ -20,6 +20,7 @@ const statsRoutes = require('./routes/stats')
 const { router: chatbotRoutes } = require('./routes/chatbot')
 
 const app = express()
+app.disable('x-powered-by')
 
 // Build CORS allowlist:
 //   - Always include localhost (dev)
