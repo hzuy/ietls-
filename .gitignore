@@ -20,6 +20,10 @@ backend/uploads/*
 # Prisma generated client
 backend/node_modules/.prisma/
 
+# Postgres dump/backup files (P9 self-host prep) — chứa dữ liệu thật, không commit
+backend/scripts/pg-migrate/dumps/
+*.dump
+
 # OS
 .DS_Store
 Thumbs.db

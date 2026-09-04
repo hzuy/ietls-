@@ -17,3 +17,44 @@ services:
     volumes:
       # Persist uploads giữa các lần restart/redeploy
       - ./backend/uploads:/app/uploads
+    # KHÔNG có depends_on: postgres-prod ở đây (P9 giai đoạn 1) — backend vẫn
+    # đang chạy DATABASE_URL/DIRECT_URL trỏ Supabase, chưa cutover. Chỉ thêm
+    # depends_on + đổi 2 biến trên khi thực sự cutover ở Giai đoạn 2 (xem
+    # docs/deploy/self-hosted-postgres-migration.md).
+
+  # ── postgres-prod — CHƯA ACTIVE, chỉ chuẩn bị cho Giai đoạn 2 (P9) ──────────
+  # Service này chưa được backend sử dụng: chưa deploy lên lab46, chưa có
+  # dữ liệu, chưa đổi DATABASE_URL/DIRECT_URL. Push lên server và `docker
+  # compose up -d postgres-prod` thời điểm này chỉ tạo 1 Postgres rỗng chạy
+  # song song, không ảnh hưởng backend đang chạy (không depends_on, không
+  # network alias nào khác dùng tới).
+  postgres-prod:
+    image: postgres:16
+    container_name: ielts-app-postgres
+    restart: unless-stopped
+    # KHÔNG map port ra host — chỉ backend (cùng docker network mặc định của
+    # file compose này) truy cập qua tên service "postgres-prod:5432" khi
+    # cutover. Không có "ports:" ở đây là cố ý.
+    environment:
+      # CHỈ 3 biến này — cố ý KHÔNG dùng env_file: ./backend/.env ở service
+      # này (khác với backend/.env ở trên): backend/.env chứa DATABASE_URL/
+      # JWT_SECRET/GROQ_API_KEY thật, không liên quan và không nên lọt vào
+      # container Postgres. `docker compose config` từng in các secret đó ra
+      # màn hình khi service này còn khai env_file — xem cảnh báo trong
+      # docs/deploy/self-hosted-postgres-migration.md.
+      POSTGRES_USER: ${POSTGRES_PROD_USER:-ielts_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PROD_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_PROD_DB:-ielts_app}
+    volumes:
+      # Named volume (Docker tự quản lý dưới /var/lib/docker/volumes/...)
+      # — KHÔNG bind-mount vào /home/huuduy như frontend dist/, để tránh đúng
+      # vấn đề SELinux context (user_home_t) đã gặp hôm nay.
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_PROD_USER:-ielts_app} -d ${POSTGRES_PROD_DB:-ielts_app}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_prod_data:
