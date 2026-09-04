@@ -5,13 +5,9 @@ const fs = require('fs')
 const authMiddleware = require('../middleware/auth')
 const validate = require('../middleware/validate')
 const prisma = require('../lib/prisma')
-const { getOrRevalidate, invalidate } = require('../lib/swrCache')
+const { invalidate } = require('../lib/swrCache')
+const { getQuestionCount, getPracticeListCached } = require('../lib/publicContent')
 const { createPracticeSchema, updatePracticeSchema } = require('../validators/contentValidator')
-
-// TTL cho danh sách practice công khai (trang chủ + trang list). Nội dung chỉ
-// đổi khi admin sửa đề → chấp nhận stale tối đa 2 phút; ngoài ra mọi route
-// admin create/update/delete bên dưới đều gọi invalidate('practice:').
-const PRACTICE_LIST_TTL = 120 * 1000
 
 const router = express.Router()
 
@@ -60,46 +56,14 @@ const teacherOrAdmin = (req, res, next) => {
   next()
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function getQuestionCount(exam) {
-  if (exam.questions?.length > 0) {
-    return exam.questions.reduce((s, pq) => {
-      try {
-        const group = JSON.parse(pq.content)
-        return s + (group.qNumberEnd - group.qNumberStart + 1)
-      } catch { return s }
-    }, 0)
-  }
-  return 0
-}
-
 // ─── PUBLIC: list ─────────────────────────────────────────────────────────────
-// Query GIỮ NGUYÊN, chỉ bọc SWR cache (key theo skill + limit). Kết quả đã map
-// sẵn (questionCount, bỏ questions) để cache luôn payload cuối.
-async function listPracticeExams(skill, limit) {
-  const rows = await prisma.practiceExam.findMany({
-    where: { skill, deletedAt: null },
-    ...(limit > 0 ? { take: limit } : {}),
-    orderBy: { createdAt: 'desc' },
-    include: { questions: { select: { content: true } } }
-  })
-  return rows.map(r => ({
-    ...r,
-    questionCount: getQuestionCount(r),
-    questions: undefined
-  }))
-}
-
+// Fetcher + SWR cache nằm ở lib/publicContent.js (chia sẻ cache với /api/home).
+// getQuestionCount cũng import từ đó — còn dùng cho các route /admin bên dưới.
 function makePracticeListHandler(skill) {
   return async (req, res) => {
     const limit = req.query.limit !== undefined ? parseInt(req.query.limit) : 4
     try {
-      const data = await getOrRevalidate(
-        `practice:${skill}:${limit}`,
-        () => listPracticeExams(skill, limit),
-        PRACTICE_LIST_TTL
-      )
-      res.json(data)
+      res.json(await getPracticeListCached(skill, limit))
     } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
   }
 }

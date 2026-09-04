@@ -5,13 +5,10 @@ const fs = require('fs')
 const authMiddleware = require('../middleware/auth')
 const validate = require('../middleware/validate')
 const prisma = require('../lib/prisma')
-const { getOrRevalidate, invalidate } = require('../lib/swrCache')
+const { invalidate } = require('../lib/swrCache')
+const { getSampleListCached } = require('../lib/publicContent')
 const { createSampleSchema, updateSampleSchema } = require('../validators/contentValidator')
 const { sanitizeRichText } = require('../lib/sanitizeHtml')
-
-// TTL cho danh sách sample công khai (trang chủ + trang writing/speaking-samples).
-// Mọi route admin create/update/delete sample bên dưới gọi invalidate('samples:').
-const SAMPLE_LIST_TTL = 120 * 1000
 
 const router = express.Router()
 
@@ -42,28 +39,12 @@ const teacherOrAdmin = (req, res, next) => {
 }
 
 // ─── PUBLIC: list samples (home page) ────────────────────────────────────────
-// Query GIỮ NGUYÊN, chỉ bọc SWR cache (key theo skill + limit).
-async function listSamples(skill, limit) {
-  const model = skill === 'writing' ? prisma.writingSample : prisma.speakingSample
-  const rows = await model.findMany({
-    where: { deletedAt: null },
-    ...(limit > 0 ? { take: limit } : {}),
-    orderBy: { createdAt: 'desc' },
-    select: { id: true, title: true, level: true, examType: true, thumbnailUrl: true, tags: true, createdAt: true }
-  })
-  return rows.map(r => ({ ...r, tags: r.tags ? JSON.parse(r.tags) : [] }))
-}
-
+// Fetcher + SWR cache nằm ở lib/publicContent.js (chia sẻ cache với /api/home).
 function makeSampleListHandler(skill) {
   return async (req, res) => {
     const limit = req.query.limit !== undefined ? parseInt(req.query.limit) : 4
     try {
-      const data = await getOrRevalidate(
-        `samples:${skill}:${limit}`,
-        () => listSamples(skill, limit),
-        SAMPLE_LIST_TTL
-      )
-      res.json(data)
+      res.json(await getSampleListCached(skill, limit))
     } catch (err) {
       res.status(500).json({ message: 'Lỗi server', error: err.message })
     }

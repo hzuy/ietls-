@@ -6,7 +6,7 @@ import { useAuthGate } from '../hooks/useAuthGate'
 import ContentCard from '../components/common/ContentCard'
 import SectionHeader from '../components/home/SectionHeader'
 import SeriesCarousel from '../components/home/SeriesCarousel'
-import { API_BASE, BACKEND_URL, resolveImg } from '../utils/media'
+import { API_BASE, resolveImg } from '../utils/media'
 
 // Placeholder ảnh (khi item không có thumbnail) — riêng cho 2 loại card trang chủ:
 const BOOK_PLACEHOLDER = { bg: 'var(--primary-light)', icon: '📚' }                                   // V1 — Full Test book
@@ -52,22 +52,24 @@ export default function Home() {
 
   useEffect(() => {
     document.title = 'IELTS Pro — Hệ sinh thái luyện thi thông minh'
-    const get = (path) => fetch(API_BASE + path).then(r => {
-      if (!r.ok) throw new Error('API Error')
-      return r.json()
-    }).catch(() => 'error')
-
-    fetch(`${BACKEND_URL}/api/admin/full-tests`, {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    }).then(r => {
-      if (!r.ok) throw new Error('API Error')
-      return r.json()
-    }).then(setFullTestsData).catch(() => setFullTestsData('error'))
-
-    get('/practice/reading').then(setReading)
-    get('/practice/listening').then(setListening)
-    get('/samples/writing?limit=4').then(setWritingSamples)
-    get('/samples/speaking?limit=4').then(setSpeakingSamples)
+    // 1 request gộp thay cho 5 call riêng lẻ (backend: GET /api/home — Promise.all
+    // + SWR cache). Lỗi mạng → mọi section hiện trạng thái 'error' như trước.
+    fetch(API_BASE + '/home')
+      .then(r => { if (!r.ok) throw new Error('API Error'); return r.json() })
+      .then(d => {
+        setFullTestsData(d.fullTests ?? 'error')
+        setReading(d.reading ?? 'error')
+        setListening(d.listening ?? 'error')
+        setWritingSamples(d.writingSamples ?? 'error')
+        setSpeakingSamples(d.speakingSamples ?? 'error')
+      })
+      .catch(() => {
+        setFullTestsData('error')
+        setReading('error')
+        setListening('error')
+        setWritingSamples('error')
+        setSpeakingSamples('error')
+      })
   }, [])
 
   const groupedFullTests = useMemo(() => {

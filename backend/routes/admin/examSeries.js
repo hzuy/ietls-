@@ -6,57 +6,16 @@ const validate = require('../../middleware/validate')
 const { teacherOnly } = require('../../lib/roles')
 const { examSeriesSchema, updateBookNumberSchema } = require('../../validators/contentValidator')
 const { imageUpload } = require('../../lib/adminUploads')
-const { getOrRevalidate, invalidate } = require('../../lib/swrCache')
-
-// TTL cho /full-tests (trang chủ). Nội dung đổi khi admin thêm/sửa/xoá đề hoặc
-// series/book/cover — mọi route đó gọi invalidate('fulltests:').
-const FULL_TESTS_TTL = 120 * 1000
+const { invalidate } = require('../../lib/swrCache')
+const { getFullTestsCached } = require('../../lib/publicContent')
 
 // ─── GET FULL TESTS (grouped by bookNumber + testNumber) ─────────────────────
-// Query + logic group GIỮ NGUYÊN, chỉ bọc SWR cache (chỉ 1 biến thể, không param).
-async function buildFullTests() {
-  const [exams, covers, series] = await Promise.all([
-    prisma.exam.findMany({
-      where: { bookNumber: { not: null }, testNumber: { not: null }, deletedAt: null },
-      select: { id: true, title: true, skill: true, bookNumber: true, testNumber: true, seriesId: true },
-      orderBy: [{ seriesId: 'asc' }, { bookNumber: 'asc' }, { testNumber: 'asc' }, { skill: 'asc' }]
-    }),
-    prisma.bookCover.findMany({ where: { deletedAt: null } }),
-    prisma.examSeries.findMany({ where: { deletedAt: null } })
-  ])
-
-  const seriesMap = {}
-  for (const s of series) seriesMap[s.id] = s.name
-
-  const coverMap = {}
-  for (const c of covers) {
-    // Key cover by seriesId and bookNumber to avoid collisions
-    coverMap[`${c.seriesId}-${c.bookNumber}`] = c.coverImageUrl
-  }
-
-  const grouped = {}
-  for (const e of exams) {
-    // Key by seriesId, bookNumber, and testNumber for unique identification
-    const key = `${e.seriesId}-${e.bookNumber}-${e.testNumber}`
-    if (!grouped[key]) {
-      grouped[key] = {
-        seriesId: e.seriesId,
-        seriesName: seriesMap[e.seriesId] || 'IELTS',
-        bookNumber: e.bookNumber,
-        testNumber: e.testNumber,
-        exams: {},
-        coverImageUrl: coverMap[`${e.seriesId}-${e.bookNumber}`] || null
-      }
-    }
-    grouped[key].exams[e.skill] = { id: e.id, title: e.title }
-  }
-  return Object.values(grouped)
-}
-
+// Fetcher + SWR cache nằm ở lib/publicContent.js (chia sẻ cache với /api/home).
+// Nội dung đổi khi admin thêm/sửa/xoá đề hoặc series/book/cover — mọi route đó
+// gọi invalidate('fulltests:').
 router.get('/full-tests', async (req, res) => {
   try {
-    const data = await getOrRevalidate('fulltests:home', buildFullTests, FULL_TESTS_TTL)
-    res.json(data)
+    res.json(await getFullTestsCached())
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
   }
