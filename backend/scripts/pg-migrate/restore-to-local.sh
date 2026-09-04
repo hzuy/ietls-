@@ -74,8 +74,14 @@ log "Target: service=$SERVICE user=$PG_USER db=$PG_DB file=$DUMP_FILE clean=$CLE
 # ── Bước 2: build lệnh ────────────────────────────────────────────────────
 # --no-owner --no-privileges: khớp với cách dump-from-supabase.sh đã dump (owner
 #   Supabase không tồn tại ở đây); container postgres-prod tự set owner = PG_USER.
-# -j 4: parallel restore (an toàn với custom format), rút ngắn thời gian downtime.
-PG_RESTORE_ARGS=(--no-owner --no-privileges -U "$PG_USER" -d "$PG_DB" -j 4 -v)
+# KHÔNG dùng -j (parallel restore): pg_restore từ chối "-j" khi input là stdin
+#   ("parallel restore from standard input is not supported") — cách stream
+#   `docker compose exec -T ... < $DUMP_FILE` ở dưới đưa file vào qua stdin của
+#   container, không phải path file trực tiếp. Restore tuần tự (single job) đủ
+#   nhanh cho quy mô DB hiện tại (dump ~4MB, dưới 30 giây — xem báo cáo P9
+#   Giai đoạn 2). Nếu sau này DB lớn hơn nhiều, đổi sang `docker cp` file vào
+#   container rồi pg_restore trực tiếp theo path để dùng lại được -j.
+PG_RESTORE_ARGS=(--no-owner --no-privileges -U "$PG_USER" -d "$PG_DB" -v)
 [[ $CLEAN -eq 1 ]] && PG_RESTORE_ARGS+=(--clean --if-exists)
 
 if [[ $DRY_RUN -eq 1 ]]; then
