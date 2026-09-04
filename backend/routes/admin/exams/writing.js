@@ -5,6 +5,7 @@ const authMiddleware = require('../../../middleware/auth')
 const validate = require('../../../middleware/validate')
 const { teacherOnly } = require('../../../lib/roles')
 const { createWritingExamSchema } = require('../../../validators/adminExamValidator')
+const { invalidate } = require('../../../lib/swrCache')
 
 // ─── CREATE WRITING EXAM ─────────────────────────────────────────────────────
 router.post('/exams/writing', authMiddleware, teacherOnly, validate(createWritingExamSchema), async (req, res) => {
@@ -43,6 +44,7 @@ router.post('/exams/writing', authMiddleware, teacherOnly, validate(createWritin
       include: { writingTasks: true }
     })
 
+    invalidate('fulltests:')
     res.status(201).json(exam)
   } catch (error) {
     console.error(error)

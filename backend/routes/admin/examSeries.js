@@ -6,46 +6,57 @@ const validate = require('../../middleware/validate')
 const { teacherOnly } = require('../../lib/roles')
 const { examSeriesSchema, updateBookNumberSchema } = require('../../validators/contentValidator')
 const { imageUpload } = require('../../lib/adminUploads')
+const { getOrRevalidate, invalidate } = require('../../lib/swrCache')
+
+// TTL cho /full-tests (trang chủ). Nội dung đổi khi admin thêm/sửa/xoá đề hoặc
+// series/book/cover — mọi route đó gọi invalidate('fulltests:').
+const FULL_TESTS_TTL = 120 * 1000
 
 // ─── GET FULL TESTS (grouped by bookNumber + testNumber) ─────────────────────
+// Query + logic group GIỮ NGUYÊN, chỉ bọc SWR cache (chỉ 1 biến thể, không param).
+async function buildFullTests() {
+  const [exams, covers, series] = await Promise.all([
+    prisma.exam.findMany({
+      where: { bookNumber: { not: null }, testNumber: { not: null }, deletedAt: null },
+      select: { id: true, title: true, skill: true, bookNumber: true, testNumber: true, seriesId: true },
+      orderBy: [{ seriesId: 'asc' }, { bookNumber: 'asc' }, { testNumber: 'asc' }, { skill: 'asc' }]
+    }),
+    prisma.bookCover.findMany({ where: { deletedAt: null } }),
+    prisma.examSeries.findMany({ where: { deletedAt: null } })
+  ])
+
+  const seriesMap = {}
+  for (const s of series) seriesMap[s.id] = s.name
+
+  const coverMap = {}
+  for (const c of covers) {
+    // Key cover by seriesId and bookNumber to avoid collisions
+    coverMap[`${c.seriesId}-${c.bookNumber}`] = c.coverImageUrl
+  }
+
+  const grouped = {}
+  for (const e of exams) {
+    // Key by seriesId, bookNumber, and testNumber for unique identification
+    const key = `${e.seriesId}-${e.bookNumber}-${e.testNumber}`
+    if (!grouped[key]) {
+      grouped[key] = {
+        seriesId: e.seriesId,
+        seriesName: seriesMap[e.seriesId] || 'IELTS',
+        bookNumber: e.bookNumber,
+        testNumber: e.testNumber,
+        exams: {},
+        coverImageUrl: coverMap[`${e.seriesId}-${e.bookNumber}`] || null
+      }
+    }
+    grouped[key].exams[e.skill] = { id: e.id, title: e.title }
+  }
+  return Object.values(grouped)
+}
+
 router.get('/full-tests', async (req, res) => {
   try {
-    const [exams, covers, series] = await Promise.all([
-      prisma.exam.findMany({
-        where: { bookNumber: { not: null }, testNumber: { not: null }, deletedAt: null },
-        select: { id: true, title: true, skill: true, bookNumber: true, testNumber: true, seriesId: true },
-        orderBy: [{ seriesId: 'asc' }, { bookNumber: 'asc' }, { testNumber: 'asc' }, { skill: 'asc' }]
-      }),
-      prisma.bookCover.findMany({ where: { deletedAt: null } }),
-      prisma.examSeries.findMany({ where: { deletedAt: null } })
-    ])
-
-    const seriesMap = {}
-    for (const s of series) seriesMap[s.id] = s.name
-
-    const coverMap = {}
-    for (const c of covers) {
-      // Key cover by seriesId and bookNumber to avoid collisions
-      coverMap[`${c.seriesId}-${c.bookNumber}`] = c.coverImageUrl
-    }
-
-    const grouped = {}
-    for (const e of exams) {
-      // Key by seriesId, bookNumber, and testNumber for unique identification
-      const key = `${e.seriesId}-${e.bookNumber}-${e.testNumber}`
-      if (!grouped[key]) {
-        grouped[key] = {
-          seriesId: e.seriesId,
-          seriesName: seriesMap[e.seriesId] || 'IELTS',
-          bookNumber: e.bookNumber,
-          testNumber: e.testNumber,
-          exams: {},
-          coverImageUrl: coverMap[`${e.seriesId}-${e.bookNumber}`] || null
-        }
-      }
-      grouped[key].exams[e.skill] = { id: e.id, title: e.title }
-    }
-    res.json(Object.values(grouped))
+    const data = await getOrRevalidate('fulltests:home', buildFullTests, FULL_TESTS_TTL)
+    res.json(data)
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
   }
@@ -82,6 +93,7 @@ router.put('/exam-series/:id', authMiddleware, teacherOnly, validate(examSeriesS
       where: { id: parseInt(req.params.id) },
       data: { name: name.trim() }
     })
+    invalidate('fulltests:')
     res.json(s)
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
@@ -92,6 +104,7 @@ router.delete('/exam-series/:id', authMiddleware, teacherOnly, async (req, res) 
   try {
     const id = parseInt(req.params.id)
     await prisma.examSeries.update({ where: { id }, data: { deletedAt: new Date() } })
+    invalidate('fulltests:')
     res.json({ ok: true })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
@@ -119,6 +132,7 @@ router.post('/exam-series/:id/books', authMiddleware, teacherOnly, async (req, r
     })
     const nextNumber = (max?.bookNumber || 0) + 1
     const book = await prisma.bookCover.create({ data: { seriesId, bookNumber: nextNumber } })
+    invalidate('fulltests:')
     res.json(book)
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
@@ -135,6 +149,7 @@ router.put('/exam-series/:seriesId/books/:bookNumber', authMiddleware, teacherOn
     await prisma.bookCover.updateMany({ where: { seriesId, bookNumber: oldNumber }, data: { bookNumber: newNumber } })
     // Update associated Exams
     await prisma.exam.updateMany({ where: { seriesId, bookNumber: oldNumber }, data: { bookNumber: newNumber } })
+    invalidate('fulltests:')
     res.json({ ok: true, bookNumber: newNumber })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
@@ -150,6 +165,7 @@ router.delete('/exam-series/:seriesId/books/:bookNumber', authMiddleware, teache
     await prisma.exam.updateMany({ where: { seriesId, bookNumber, deletedAt: null }, data: { deletedAt: now } })
     // Soft-delete the book cover
     await prisma.bookCover.updateMany({ where: { seriesId, bookNumber }, data: { deletedAt: now } })
+    invalidate('fulltests:')
     res.json({ ok: true })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
@@ -167,6 +183,7 @@ router.post('/exam-series/:seriesId/covers/:bookNumber', authMiddleware, teacher
       create: { seriesId, bookNumber, coverImageUrl },
       update: { coverImageUrl }
     })
+    invalidate('fulltests:')
     res.json({ seriesId, bookNumber, coverImageUrl })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi lưu ảnh bìa', error: error.message })

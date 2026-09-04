@@ -9,6 +9,7 @@ const { teacherOnly } = require('../../lib/roles')
 const { transcribeUploadSchema, bookCoverSchema } = require('../../validators/contentValidator')
 const { uploadsDir, upload, imageUpload } = require('../../lib/adminUploads')
 const { getGroqClient } = require('../../lib/groqClient')
+const { invalidate } = require('../../lib/swrCache')
 
 // ─── UPLOAD AUDIO ────────────────────────────────────────────────────────────
 router.post('/upload-audio', authMiddleware, teacherOnly, upload.single('audio'), (req, res) => {
@@ -33,6 +34,7 @@ router.post('/exams/:id/cover', authMiddleware, teacherOnly, imageUpload.single(
       data: { coverImageUrl },
       select: { id: true, coverImageUrl: true }
     })
+    invalidate('fulltests:')
     res.json(exam)
   } catch (error) {
     res.status(500).json({ message: 'Lỗi lưu ảnh bìa', error: error.message })
@@ -92,6 +94,7 @@ router.post('/book-covers/:bookNumber', authMiddleware, teacherOnly, imageUpload
       create: { seriesId, bookNumber, coverImageUrl },
       update: { coverImageUrl }
     })
+    invalidate('fulltests:')
     res.json({ bookNumber, coverImageUrl })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi lưu ảnh bìa', error: error.message })

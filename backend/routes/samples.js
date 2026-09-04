@@ -5,8 +5,13 @@ const fs = require('fs')
 const authMiddleware = require('../middleware/auth')
 const validate = require('../middleware/validate')
 const prisma = require('../lib/prisma')
+const { getOrRevalidate, invalidate } = require('../lib/swrCache')
 const { createSampleSchema, updateSampleSchema } = require('../validators/contentValidator')
 const { sanitizeRichText } = require('../lib/sanitizeHtml')
+
+// TTL cho danh sách sample công khai (trang chủ + trang writing/speaking-samples).
+// Mọi route admin create/update/delete sample bên dưới gọi invalidate('samples:').
+const SAMPLE_LIST_TTL = 120 * 1000
 
 const router = express.Router()
 
@@ -37,35 +42,36 @@ const teacherOrAdmin = (req, res, next) => {
 }
 
 // ─── PUBLIC: list samples (home page) ────────────────────────────────────────
-router.get('/writing', async (req, res) => {
-  const limit = req.query.limit !== undefined ? parseInt(req.query.limit) : 4
-  try {
-    const rows = await prisma.writingSample.findMany({
-      where: { deletedAt: null },
-      ...(limit > 0 ? { take: limit } : {}),
-      orderBy: { createdAt: 'desc' },
-      select: { id: true, title: true, level: true, examType: true, thumbnailUrl: true, tags: true, createdAt: true }
-    })
-    res.json(rows.map(r => ({ ...r, tags: r.tags ? JSON.parse(r.tags) : [] })))
-  } catch (err) {
-    res.status(500).json({ message: 'Lỗi server', error: err.message })
-  }
-})
+// Query GIỮ NGUYÊN, chỉ bọc SWR cache (key theo skill + limit).
+async function listSamples(skill, limit) {
+  const model = skill === 'writing' ? prisma.writingSample : prisma.speakingSample
+  const rows = await model.findMany({
+    where: { deletedAt: null },
+    ...(limit > 0 ? { take: limit } : {}),
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, title: true, level: true, examType: true, thumbnailUrl: true, tags: true, createdAt: true }
+  })
+  return rows.map(r => ({ ...r, tags: r.tags ? JSON.parse(r.tags) : [] }))
+}
 
-router.get('/speaking', async (req, res) => {
-  const limit = req.query.limit !== undefined ? parseInt(req.query.limit) : 4
-  try {
-    const rows = await prisma.speakingSample.findMany({
-      where: { deletedAt: null },
-      ...(limit > 0 ? { take: limit } : {}),
-      orderBy: { createdAt: 'desc' },
-      select: { id: true, title: true, level: true, examType: true, thumbnailUrl: true, tags: true, createdAt: true }
-    })
-    res.json(rows.map(r => ({ ...r, tags: r.tags ? JSON.parse(r.tags) : [] })))
-  } catch (err) {
-    res.status(500).json({ message: 'Lỗi server', error: err.message })
+function makeSampleListHandler(skill) {
+  return async (req, res) => {
+    const limit = req.query.limit !== undefined ? parseInt(req.query.limit) : 4
+    try {
+      const data = await getOrRevalidate(
+        `samples:${skill}:${limit}`,
+        () => listSamples(skill, limit),
+        SAMPLE_LIST_TTL
+      )
+      res.json(data)
+    } catch (err) {
+      res.status(500).json({ message: 'Lỗi server', error: err.message })
+    }
   }
-})
+}
+
+router.get('/writing', makeSampleListHandler('writing'))
+router.get('/speaking', makeSampleListHandler('speaking'))
 
 // ─── PUBLIC: detail ───────────────────────────────────────────────────────────
 router.get('/writing/:id', async (req, res) => {
@@ -149,6 +155,7 @@ router.post('/admin/writing', authMiddleware, teacherOrAdmin, validate(createSam
     const s = await prisma.writingSample.create({
       data: { title: title.trim(), level: level || null, examType: examType || null, content: sanitizeRichText(content) || null, thumbnailUrl: thumbnailUrl || null, tags: tags ? JSON.stringify(tags) : null }
     })
+    invalidate('samples:')
     res.status(201).json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
   } catch (err) {
     res.status(500).json({ message: 'Lỗi tạo', error: err.message })
@@ -161,6 +168,7 @@ router.post('/admin/speaking', authMiddleware, teacherOrAdmin, validate(createSa
     const s = await prisma.speakingSample.create({
       data: { title: title.trim(), level: level || null, examType: examType || null, content: sanitizeRichText(content) || null, thumbnailUrl: thumbnailUrl || null, tags: tags ? JSON.stringify(tags) : null }
     })
+    invalidate('samples:')
     res.status(201).json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
   } catch (err) {
     res.status(500).json({ message: 'Lỗi tạo', error: err.message })
@@ -179,6 +187,7 @@ router.put('/admin/writing/:id', authMiddleware, teacherOrAdmin, validate(update
     if (thumbnailUrl !== undefined) data.thumbnailUrl = thumbnailUrl
     if (tags !== undefined) data.tags = JSON.stringify(tags)
     const s = await prisma.writingSample.update({ where: { id: parseInt(req.params.id) }, data })
+    invalidate('samples:')
     res.json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
   } catch (err) {
     res.status(500).json({ message: 'Lỗi cập nhật', error: err.message })
@@ -196,6 +205,7 @@ router.put('/admin/speaking/:id', authMiddleware, teacherOrAdmin, validate(updat
     if (thumbnailUrl !== undefined) data.thumbnailUrl = thumbnailUrl
     if (tags !== undefined) data.tags = JSON.stringify(tags)
     const s = await prisma.speakingSample.update({ where: { id: parseInt(req.params.id) }, data })
+    invalidate('samples:')
     res.json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
   } catch (err) {
     res.status(500).json({ message: 'Lỗi cập nhật', error: err.message })
@@ -222,6 +232,7 @@ router.post('/admin/writing/:id/thumbnail', authMiddleware, teacherOrAdmin,
       const s = await prisma.writingSample.update({
         where: { id: parseInt(req.params.id) }, data: { thumbnailUrl }, select: { id: true, thumbnailUrl: true }
       })
+      invalidate('samples:')
       res.json(s)
     } catch (err) { res.status(500).json({ message: 'Lỗi upload', error: err.message }) }
   }
@@ -235,6 +246,7 @@ router.post('/admin/speaking/:id/thumbnail', authMiddleware, teacherOrAdmin,
       const s = await prisma.speakingSample.update({
         where: { id: parseInt(req.params.id) }, data: { thumbnailUrl }, select: { id: true, thumbnailUrl: true }
       })
+      invalidate('samples:')
       res.json(s)
     } catch (err) { res.status(500).json({ message: 'Lỗi upload', error: err.message }) }
   }
@@ -244,6 +256,7 @@ router.post('/admin/speaking/:id/thumbnail', authMiddleware, teacherOrAdmin,
 router.delete('/admin/writing/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
   try {
     await prisma.writingSample.update({ where: { id: parseInt(req.params.id) }, data: { deletedAt: new Date() } })
+    invalidate('samples:')
     res.json({ message: 'Đã xóa' })
   } catch (err) { res.status(500).json({ message: 'Lỗi xóa', error: err.message }) }
 })
@@ -251,6 +264,7 @@ router.delete('/admin/writing/:id', authMiddleware, teacherOrAdmin, async (req, 
 router.delete('/admin/speaking/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
   try {
     await prisma.speakingSample.update({ where: { id: parseInt(req.params.id) }, data: { deletedAt: new Date() } })
+    invalidate('samples:')
     res.json({ message: 'Đã xóa' })
   } catch (err) { res.status(500).json({ message: 'Lỗi xóa', error: err.message }) }
 })

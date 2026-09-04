@@ -5,6 +5,7 @@ const authMiddleware = require('../../../middleware/auth')
 const validate = require('../../../middleware/validate')
 const { teacherOnly } = require('../../../lib/roles')
 const { updateExamSchema } = require('../../../validators/adminExamValidator')
+const { invalidate } = require('../../../lib/swrCache')
 
 // ─── GET EXAM COUNTS BY SKILL ───────────────────────────────────────────────
 router.get('/exams/counts', authMiddleware, teacherOnly, async (req, res) => {
@@ -228,6 +229,7 @@ router.put('/exams/:id/basic', authMiddleware, teacherOnly, async (req, res) => 
       data: { title: title.trim() },
       select: { id: true, title: true, skill: true, coverImageUrl: true, createdAt: true }
     })
+    invalidate('fulltests:')
     res.json(exam)
   } catch (error) {
     res.status(500).json({ message: 'Lỗi cập nhật', error: error.message })
@@ -371,6 +373,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
         },
         include: { passages: { include: { questions: true, questionGroups: true } } }
       })
+      invalidate('fulltests:')
       return res.json(updated)
     }
 
@@ -494,6 +497,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
           }
         }
       })
+      invalidate('fulltests:')
       return res.json(updated)
     }
 
@@ -513,6 +517,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
         },
         include: { writingTasks: true }
       })
+      invalidate('fulltests:')
       return res.json(updated)
     }
 
@@ -565,6 +570,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
           }
         }
       })
+      invalidate('fulltests:')
       return res.json(updated)
     }
 
@@ -580,6 +586,7 @@ router.delete('/exams/:id', authMiddleware, teacherOnly, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
     await prisma.exam.update({ where: { id }, data: { deletedAt: new Date() } })
+    invalidate('fulltests:')
     res.json({ message: 'Xóa đề thành công' })
   } catch (error) {
     console.error('[Delete exam]', error)

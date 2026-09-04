@@ -3,6 +3,15 @@ const router = express.Router()
 const prisma = require('../../lib/prisma')
 const authMiddleware = require('../../middleware/auth')
 const { teacherOrAdmin } = require('../../lib/roles')
+const { invalidate } = require('../../lib/swrCache')
+
+// Khôi phục / xoá vĩnh viễn có thể đụng tới practice, sample lẫn exam/series →
+// dọn hết cache list công khai cho chắc (thao tác này hiếm).
+function invalidatePublicLists() {
+  invalidate('practice:')
+  invalidate('samples:')
+  invalidate('fulltests:')
+}
 
 // The 4 real per-skill exam types. NOTE: 'exam_series' also begins with 'exam_',
 // so it must be matched by an explicit branch — never by a startsWith('exam_') test.
@@ -190,6 +199,7 @@ router.post('/trash/:type/:id/restore', authMiddleware, teacherOrAdmin, async (r
     } else {
       return res.status(400).json({ message: 'Loại không hợp lệ' })
     }
+    invalidatePublicLists()
     res.json({ message: 'Đã khôi phục' })
   } catch (err) {
     res.status(500).json({ message: 'Lỗi khôi phục', error: err.message })
@@ -208,6 +218,7 @@ router.delete('/trash/purge', authMiddleware, teacherOrAdmin, async (req, res) =
     ])
     const allExams = await prisma.exam.findMany({ where, select: { id: true } })
     await hardDeleteExams(allExams.map(e => e.id))
+    invalidatePublicLists()
     res.json({ message: 'Đã dọn sạch thùng rác' })
   } catch (err) {
     res.status(500).json({ message: 'Lỗi dọn rác', error: err.message })
@@ -252,6 +263,7 @@ router.delete('/trash/:type/:id/permanent', authMiddleware, teacherOrAdmin, asyn
     } else {
       return res.status(400).json({ message: 'Loại không hợp lệ' })
     }
+    invalidatePublicLists()
     res.json({ message: 'Đã xóa vĩnh viễn' })
   } catch (err) {
     res.status(500).json({ message: 'Lỗi xóa vĩnh viễn', error: err.message })

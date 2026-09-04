@@ -9,59 +9,9 @@ const { teacherOrAdmin, teacherOnly } = require('../../lib/roles')
 const { attemptsQuerySchema } = require('../../validators/submissionValidator')
 const { roundBand } = require('../../lib/scoreUtils')
 
-// ─── STALE-WHILE-REVALIDATE CACHE & STAMPEDE PROTECTION ───────────────────────
-const cache = new Map()
-const pendingRevalidations = new Map()
-const CACHE_TTL = 60 * 1000 // 60 seconds
-
-async function getOrRevalidate(cacheKey, fetcher) {
-  const cached = cache.get(cacheKey)
-  const now = Date.now()
-
-  // 1. Fresh cache exists -> return immediately
-  if (cached && (now - cached.ts < CACHE_TTL)) {
-    return cached.data
-  }
-
-  // 2. Stale cache exists -> return immediately, revalidate in background
-  if (cached) {
-    if (!pendingRevalidations.has(cacheKey)) {
-      const promise = fetcher()
-        .then(freshData => {
-          cache.set(cacheKey, { data: freshData, ts: Date.now() })
-        })
-        .catch(err => {
-          if (process.env.NODE_ENV !== 'production') console.error(`[SWR Background Revalidate Error - ${cacheKey}]`, err)
-        })
-        .finally(() => {
-          pendingRevalidations.delete(cacheKey)
-        })
-      pendingRevalidations.set(cacheKey, promise)
-    }
-    return cached.data
-  }
-
-  // 3. No cache exists (cold start) -> check if another request is already fetching cold data
-  if (pendingRevalidations.has(cacheKey)) {
-    await pendingRevalidations.get(cacheKey)
-    const newCached = cache.get(cacheKey)
-    if (newCached) return newCached.data
-  }
-
-  // Cold start calculation
-  const promise = (async () => {
-    const data = await fetcher()
-    cache.set(cacheKey, { data, ts: Date.now() })
-    return data
-  })()
-
-  pendingRevalidations.set(cacheKey, promise)
-  try {
-    return await promise
-  } finally {
-    pendingRevalidations.delete(cacheKey)
-  }
-}
+// SWR cache + stampede protection — nay dùng chung ở lib/swrCache.js
+// (dashboard overview giữ TTL mặc định 60s).
+const { getOrRevalidate } = require('../../lib/swrCache')
 
 // ─── OPTIMIZED DB AGGREGATIONS (Raw SQL for Performance) ─────────────────────
 

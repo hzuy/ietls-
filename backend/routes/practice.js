@@ -5,7 +5,13 @@ const fs = require('fs')
 const authMiddleware = require('../middleware/auth')
 const validate = require('../middleware/validate')
 const prisma = require('../lib/prisma')
+const { getOrRevalidate, invalidate } = require('../lib/swrCache')
 const { createPracticeSchema, updatePracticeSchema } = require('../validators/contentValidator')
+
+// TTL cho danh sách practice công khai (trang chủ + trang list). Nội dung chỉ
+// đổi khi admin sửa đề → chấp nhận stale tối đa 2 phút; ngoài ra mọi route
+// admin create/update/delete bên dưới đều gọi invalidate('practice:').
+const PRACTICE_LIST_TTL = 120 * 1000
 
 const router = express.Router()
 
@@ -68,39 +74,38 @@ function getQuestionCount(exam) {
 }
 
 // ─── PUBLIC: list ─────────────────────────────────────────────────────────────
-router.get('/reading', async (req, res) => {
-  const limit = req.query.limit !== undefined ? parseInt(req.query.limit) : 4
-  try {
-    const rows = await prisma.practiceExam.findMany({
-      where: { skill: 'reading', deletedAt: null },
-      ...(limit > 0 ? { take: limit } : {}),
-      orderBy: { createdAt: 'desc' },
-      include: { questions: { select: { content: true } } }
-    })
-    res.json(rows.map(r => ({
-      ...r,
-      questionCount: getQuestionCount(r),
-      questions: undefined
-    })))
-  } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
-})
+// Query GIỮ NGUYÊN, chỉ bọc SWR cache (key theo skill + limit). Kết quả đã map
+// sẵn (questionCount, bỏ questions) để cache luôn payload cuối.
+async function listPracticeExams(skill, limit) {
+  const rows = await prisma.practiceExam.findMany({
+    where: { skill, deletedAt: null },
+    ...(limit > 0 ? { take: limit } : {}),
+    orderBy: { createdAt: 'desc' },
+    include: { questions: { select: { content: true } } }
+  })
+  return rows.map(r => ({
+    ...r,
+    questionCount: getQuestionCount(r),
+    questions: undefined
+  }))
+}
 
-router.get('/listening', async (req, res) => {
-  const limit = req.query.limit !== undefined ? parseInt(req.query.limit) : 4
-  try {
-    const rows = await prisma.practiceExam.findMany({
-      where: { skill: 'listening', deletedAt: null },
-      ...(limit > 0 ? { take: limit } : {}),
-      orderBy: { createdAt: 'desc' },
-      include: { questions: { select: { content: true } } }
-    })
-    res.json(rows.map(r => ({
-      ...r,
-      questionCount: getQuestionCount(r),
-      questions: undefined
-    })))
-  } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
-})
+function makePracticeListHandler(skill) {
+  return async (req, res) => {
+    const limit = req.query.limit !== undefined ? parseInt(req.query.limit) : 4
+    try {
+      const data = await getOrRevalidate(
+        `practice:${skill}:${limit}`,
+        () => listPracticeExams(skill, limit),
+        PRACTICE_LIST_TTL
+      )
+      res.json(data)
+    } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
+  }
+}
+
+router.get('/reading', makePracticeListHandler('reading'))
+router.get('/listening', makePracticeListHandler('listening'))
 
 // ─── AUTH: detail ─────────────────────────────────────────────────────────────
 router.get('/reading/:id', authMiddleware, async (req, res) => {
@@ -206,6 +211,7 @@ router.post('/admin/:skill', authMiddleware, teacherOrAdmin, validate(createPrac
       }
     })
 
+    invalidate('practice:')
     res.status(201).json(exam)
   } catch (error) {
     console.error("CREATE PRACTICE ERROR:", error)
@@ -246,6 +252,7 @@ router.put('/admin/:skill/:id', authMiddleware, teacherOrAdmin, validate(updateP
       })
     })
 
+    invalidate('practice:')
     res.json({ ok: true })
   } catch (error) {
     console.error("UPDATE PRACTICE ERROR:", error)
@@ -277,6 +284,7 @@ router.post('/admin/:skill/:id/thumbnail', authMiddleware, teacherOrAdmin, thumb
       data: { thumbnailUrl },
       select: { id: true, thumbnailUrl: true }
     })
+    invalidate('practice:')
     res.json(exam)
   } catch (err) { res.status(500).json({ message: 'Lỗi upload', error: err.message }) }
 })
@@ -291,6 +299,7 @@ router.post('/admin/listening/:id/audio', authMiddleware, teacherOrAdmin, audioU
       data: { audioUrl },
       select: { id: true, audioUrl: true }
     })
+    invalidate('practice:')
     res.json(exam)
   } catch (err) { res.status(500).json({ message: 'Lỗi upload audio', error: err.message }) }
 })
@@ -302,6 +311,7 @@ router.delete('/admin/:skill/:id', authMiddleware, teacherOrAdmin, async (req, r
       where: { id: parseInt(req.params.id) },
       data: { deletedAt: new Date() }
     })
+    invalidate('practice:')
     res.json({ message: 'Đã xóa' })
   } catch (err) { res.status(500).json({ message: 'Lỗi xóa', error: err.message }) }
 })
