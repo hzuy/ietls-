@@ -29,7 +29,13 @@ services:
   # song song, không ảnh hưởng backend đang chạy (không depends_on, không
   # network alias nào khác dùng tới).
   postgres-prod:
-    image: postgres:16
+    # postgres:17 — KHỚP major version thật của Supabase (đo được: server
+    # version 17.6 khi chạy dump-from-supabase.sh lần đầu, P9 Giai đoạn 2 Bước
+    # 3). Ban đầu soạn postgres:16 ở Giai đoạn 1 mà không kiểm tra version thật
+    # — pg_dump 16 từ chối dump server 17.x ("aborting because of server
+    # version mismatch"). Đổi lên 17 để pg_dump/pg_restore cùng major version
+    # với nguồn, tránh rủi ro không tương thích khi restore.
+    image: postgres:17
     container_name: ielts-app-postgres
     restart: unless-stopped
     # KHÔNG map port ra host — chỉ backend (cùng docker network mặc định của
