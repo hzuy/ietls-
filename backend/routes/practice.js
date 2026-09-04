@@ -98,13 +98,20 @@ router.get('/listening/:id', authMiddleware, async (req, res) => {
 })
 
 // ─── ADMIN: list ──────────────────────────────────────────────────────────────
+// select tường minh — KHÔNG lấy `passage` (toàn văn bài đọc, vài KB/row): bảng
+// danh sách admin chỉ cần title + thumbnail + số câu; sửa đề fetch riêng qua
+// route detail /admin/:skill/:id (vẫn trả đủ `passage`, không đụng ở đây — P7).
 router.get('/admin/reading', authMiddleware, teacherOrAdmin, async (req, res) => {
   try {
     const rows = await prisma.practiceExam.findMany({
       where: { skill: 'reading', deletedAt: null },
       take: 100,
       orderBy: { createdAt: 'desc' },
-      include: { questions: { select: { content: true } } }
+      select: {
+        id: true, title: true, skill: true, level: true,
+        thumbnailUrl: true, audioUrl: true, createdAt: true,
+        questions: { select: { content: true } }
+      }
     })
     res.json(rows.map(r => ({
       ...r,
@@ -120,7 +127,11 @@ router.get('/admin/listening', authMiddleware, teacherOrAdmin, async (req, res) 
       where: { skill: 'listening', deletedAt: null },
       take: 100,
       orderBy: { createdAt: 'desc' },
-      include: { questions: { select: { content: true } } }
+      select: {
+        id: true, title: true, skill: true, level: true,
+        thumbnailUrl: true, audioUrl: true, createdAt: true,
+        questions: { select: { content: true } }
+      }
     })
     res.json(rows.map(r => ({
       ...r,

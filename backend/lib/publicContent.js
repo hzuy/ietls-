@@ -32,7 +32,19 @@ async function listPracticeExams(skill, limit) {
     where: { skill, deletedAt: null },
     ...(limit > 0 ? { take: limit } : {}),
     orderBy: { createdAt: 'desc' },
-    include: { questions: { select: { content: true } } }
+    // select tường minh — KHÔNG lấy `passage` (toàn văn bài đọc, vài KB/row): list
+    // trang chủ + danh sách chỉ cần thẻ tóm tắt. `passage` vẫn trả đủ ở route
+    // detail /practice/:skill/:id (P7).
+    select: {
+      id: true,
+      title: true,
+      skill: true,
+      level: true,
+      thumbnailUrl: true,
+      audioUrl: true,
+      createdAt: true,
+      questions: { select: { content: true } }
+    }
   })
   return rows.map(r => ({
     ...r,
