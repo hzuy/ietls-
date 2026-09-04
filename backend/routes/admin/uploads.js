@@ -10,6 +10,7 @@ const { transcribeUploadSchema, bookCoverSchema } = require('../../validators/co
 const { uploadsDir, upload, imageUpload } = require('../../lib/adminUploads')
 const { getGroqClient } = require('../../lib/groqClient')
 const { invalidate } = require('../../lib/swrCache')
+const { resizeUploadedCover } = require('../../lib/imageResize')
 
 // ─── UPLOAD AUDIO ────────────────────────────────────────────────────────────
 router.post('/upload-audio', authMiddleware, teacherOnly, upload.single('audio'), (req, res) => {
@@ -28,7 +29,7 @@ router.post('/upload-image', authMiddleware, teacherOnly, imageUpload.single('im
 router.post('/exams/:id/cover', authMiddleware, teacherOnly, imageUpload.single('cover'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'Không có file ảnh' })
-    const coverImageUrl = `/uploads/${req.file.filename}`
+    const { url: coverImageUrl } = await resizeUploadedCover(req.file, { dir: uploadsDir, urlPrefix: '/uploads' })
     const exam = await prisma.exam.update({
       where: { id: parseInt(req.params.id) },
       data: { coverImageUrl },
@@ -88,7 +89,7 @@ router.post('/book-covers/:bookNumber', authMiddleware, teacherOnly, imageUpload
     if (!req.file) return res.status(400).json({ message: 'Không có file ảnh' })
     const bookNumber = parseInt(req.params.bookNumber)
     const seriesId = parseInt(req.body.seriesId) || 1
-    const coverImageUrl = `/uploads/${req.file.filename}`
+    const { url: coverImageUrl } = await resizeUploadedCover(req.file, { dir: uploadsDir, urlPrefix: '/uploads' })
     await prisma.bookCover.upsert({
       where: { seriesId_bookNumber: { seriesId, bookNumber } },
       create: { seriesId, bookNumber, coverImageUrl },

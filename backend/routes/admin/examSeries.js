@@ -5,9 +5,10 @@ const authMiddleware = require('../../middleware/auth')
 const validate = require('../../middleware/validate')
 const { teacherOnly } = require('../../lib/roles')
 const { examSeriesSchema, updateBookNumberSchema } = require('../../validators/contentValidator')
-const { imageUpload } = require('../../lib/adminUploads')
+const { imageUpload, uploadsDir } = require('../../lib/adminUploads')
 const { invalidate } = require('../../lib/swrCache')
 const { getFullTestsCached } = require('../../lib/publicContent')
+const { resizeUploadedCover } = require('../../lib/imageResize')
 
 // ─── GET FULL TESTS (grouped by bookNumber + testNumber) ─────────────────────
 // Fetcher + SWR cache nằm ở lib/publicContent.js (chia sẻ cache với /api/home).
@@ -136,7 +137,7 @@ router.post('/exam-series/:seriesId/covers/:bookNumber', authMiddleware, teacher
     if (!req.file) return res.status(400).json({ message: 'Không có file ảnh' })
     const seriesId = parseInt(req.params.seriesId)
     const bookNumber = parseInt(req.params.bookNumber)
-    const coverImageUrl = `/uploads/${req.file.filename}`
+    const { url: coverImageUrl } = await resizeUploadedCover(req.file, { dir: uploadsDir, urlPrefix: '/uploads' })
     await prisma.bookCover.upsert({
       where: { seriesId_bookNumber: { seriesId, bookNumber } },
       create: { seriesId, bookNumber, coverImageUrl },

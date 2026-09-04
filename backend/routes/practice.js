@@ -7,6 +7,7 @@ const validate = require('../middleware/validate')
 const prisma = require('../lib/prisma')
 const { invalidate } = require('../lib/swrCache')
 const { getQuestionCount, getPracticeListCached } = require('../lib/publicContent')
+const { resizeUploadedCover } = require('../lib/imageResize')
 const { createPracticeSchema, updatePracticeSchema } = require('../validators/contentValidator')
 
 const router = express.Router()
@@ -228,9 +229,10 @@ router.put('/admin/:skill/:id', authMiddleware, teacherOrAdmin, validate(updateP
 // Dùng khi TẠO MỚI: upload file trước, lấy URL, rồi mới tạo record với URL trong
 // body → upload fail thì không có record mồ côi thiếu file. Tái dùng đúng
 // thumbUpload/audioUpload (5MB / 50MB, lọc type) như endpoint /:id/* bên dưới.
-router.post('/admin/:skill/upload-thumbnail', authMiddleware, teacherOrAdmin, thumbUpload.single('thumbnail'), (req, res) => {
+router.post('/admin/:skill/upload-thumbnail', authMiddleware, teacherOrAdmin, thumbUpload.single('thumbnail'), async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
-  res.json({ url: `/uploads/thumbnails/${req.file.filename}` })
+  const { url } = await resizeUploadedCover(req.file, { dir: thumbDir, urlPrefix: '/uploads/thumbnails' })
+  res.json({ url })
 })
 
 router.post('/admin/listening/upload-audio', authMiddleware, teacherOrAdmin, audioUpload.single('audio'), (req, res) => {
@@ -242,7 +244,7 @@ router.post('/admin/listening/upload-audio', authMiddleware, teacherOrAdmin, aud
 router.post('/admin/:skill/:id/thumbnail', authMiddleware, teacherOrAdmin, thumbUpload.single('thumbnail'), async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
   try {
-    const thumbnailUrl = `/uploads/thumbnails/${req.file.filename}`
+    const { url: thumbnailUrl } = await resizeUploadedCover(req.file, { dir: thumbDir, urlPrefix: '/uploads/thumbnails' })
     const exam = await prisma.practiceExam.update({
       where: { id: parseInt(req.params.id) },
       data: { thumbnailUrl },

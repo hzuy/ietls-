@@ -7,6 +7,7 @@ const validate = require('../middleware/validate')
 const prisma = require('../lib/prisma')
 const { invalidate } = require('../lib/swrCache')
 const { getSampleListCached } = require('../lib/publicContent')
+const { resizeUploadedCover } = require('../lib/imageResize')
 const { createSampleSchema, updateSampleSchema } = require('../validators/contentValidator')
 const { sanitizeRichText } = require('../lib/sanitizeHtml')
 
@@ -197,9 +198,10 @@ router.put('/admin/speaking/:id', authMiddleware, teacherOrAdmin, validate(updat
 // Dùng khi tạo mới: upload trước, lấy URL, rồi mới ghi record → upload fail thì
 // không có record mồ côi thiếu ảnh. Tái dùng thumbUpload (5MB, jpg/png/webp)
 // giống endpoint /:id/thumbnail bên dưới.
-const uploadThumbToUrl = (req, res) => {
+const uploadThumbToUrl = async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
-  res.json({ url: `/uploads/thumbnails/${req.file.filename}` })
+  const { url } = await resizeUploadedCover(req.file, { dir: thumbDir, urlPrefix: '/uploads/thumbnails' })
+  res.json({ url })
 }
 router.post('/admin/writing/upload-thumbnail', authMiddleware, teacherOrAdmin, thumbUpload.single('thumbnail'), uploadThumbToUrl)
 router.post('/admin/speaking/upload-thumbnail', authMiddleware, teacherOrAdmin, thumbUpload.single('thumbnail'), uploadThumbToUrl)
@@ -209,7 +211,7 @@ router.post('/admin/writing/:id/thumbnail', authMiddleware, teacherOrAdmin,
   thumbUpload.single('thumbnail'), async (req, res) => {
     if (!req.file) return res.status(400).json({ message: 'Không có file' })
     try {
-      const thumbnailUrl = `/uploads/thumbnails/${req.file.filename}`
+      const { url: thumbnailUrl } = await resizeUploadedCover(req.file, { dir: thumbDir, urlPrefix: '/uploads/thumbnails' })
       const s = await prisma.writingSample.update({
         where: { id: parseInt(req.params.id) }, data: { thumbnailUrl }, select: { id: true, thumbnailUrl: true }
       })
@@ -223,7 +225,7 @@ router.post('/admin/speaking/:id/thumbnail', authMiddleware, teacherOrAdmin,
   thumbUpload.single('thumbnail'), async (req, res) => {
     if (!req.file) return res.status(400).json({ message: 'Không có file' })
     try {
-      const thumbnailUrl = `/uploads/thumbnails/${req.file.filename}`
+      const { url: thumbnailUrl } = await resizeUploadedCover(req.file, { dir: thumbDir, urlPrefix: '/uploads/thumbnails' })
       const s = await prisma.speakingSample.update({
         where: { id: parseInt(req.params.id) }, data: { thumbnailUrl }, select: { id: true, thumbnailUrl: true }
       })
