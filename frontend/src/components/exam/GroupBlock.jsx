@@ -1,4 +1,13 @@
-﻿import MatchingTickGrid from '../MatchingTickGrid'
+﻿// ┌─────────────────────────────────────────────────────────────────────────────┐
+// │ QUY ƯỚC DOM ID — file này (Reading) dùng prefix `q-${n}`.                     │
+// │ Bản Listening tương ứng (components/exam/listening/OtherGroups.jsx +          │
+// │ MCQGroup.jsx / NoteCompletionGroup.jsx) dùng prefix `question-${n}`.          │
+// │ `ReadingExam.jumpToQuestion` tìm theo `q-...`; `ListeningExam.jumpToQuestion` │
+// │ tìm theo `question-...`. Mỗi shell chỉ render đúng family của nó nên hiện KHÔNG│
+// │ có bug — nhưng ĐỪNG gộp GroupBlock (Reading) với OtherGroups (Listening) nếu   │
+// │ chưa thống nhất prefix trước, nếu không scroll/jump-to-question sẽ hỏng.       │
+// └─────────────────────────────────────────────────────────────────────────────┘
+import MatchingTickGrid from '../MatchingTickGrid'
 import DragWordBankGroup from '../DragWordBankGroup'
 import MatchingDragGroup from '../MatchingDragGroup'
 import DiagramLabelGroup from '../DiagramLabelGroup'

@@ -1,4 +1,13 @@
-﻿import TableCompletionRender from '../../TableCompletionRender'
+﻿// ┌─────────────────────────────────────────────────────────────────────────────┐
+// │ QUY ƯỚC DOM ID — file này (Listening) dùng prefix `question-${n}`.            │
+// │ Bản Reading tương ứng (components/exam/GroupBlock.jsx + QuestionBlock.jsx)    │
+// │ dùng prefix `q-${n}`.                                                        │
+// │ `ListeningExam.jumpToQuestion` tìm theo `question-...`; `ReadingExam` tìm     │
+// │ theo `q-...`. Mỗi shell chỉ render đúng family của nó nên hiện KHÔNG có bug —  │
+// │ nhưng ĐỪNG gộp OtherGroups (Listening) với GroupBlock (Reading) nếu chưa       │
+// │ thống nhất prefix trước, nếu không scroll/jump-to-question sẽ hỏng.            │
+// └─────────────────────────────────────────────────────────────────────────────┘
+import TableCompletionRender from '../../TableCompletionRender'
 import DragWordBankGroup from '../../DragWordBankGroup'
 import MatchingDragGroup from '../../MatchingDragGroup'
 import DiagramLabelGroup from '../../DiagramLabelGroup'

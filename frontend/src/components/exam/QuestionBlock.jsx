@@ -1,5 +1,32 @@
 ﻿const MATCHING_TYPES = ['matching','matching_headings','matching_features','matching_paragraph','matching_endings','choose_title','map_diagram']
 
+// Danh sách radio 1-lựa-chọn dùng chung cho mcq / true_false_ng / yes_no_ng.
+// 3 loại này render y hệt nhau, chỉ khác tập đáp án → gom về đây, KHÔNG đổi
+// className/hành vi. Nội bộ file, không export.
+function SingleChoiceList({ options, q, answers, onAnswer, previewMode, showAnswers }) {
+  return (
+    <div className="space-y-1 pl-8">
+      {options.map(opt => {
+        const displayAns = previewMode && showAnswers ? q.correctAnswer : answers[q.id]
+        const isSelected = displayAns === opt
+        return (
+          <label key={opt} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition
+            ${isSelected && previewMode && showAnswers ? 'bg-green-50 border border-green-400 text-green-700 cursor-default'
+              : isSelected ? 'bg-blue-50 border border-blue-400 text-blue-700 cursor-pointer'
+              : previewMode ? 'border border-transparent text-gray-500 cursor-default'
+              : 'hover:bg-gray-50 border border-transparent cursor-pointer'}`}>
+            <input type="radio" name={`q${q.id}`} checked={isSelected}
+              disabled={previewMode}
+              onChange={previewMode ? undefined : () => onAnswer(q.id, opt)}
+              className="accent-blue-600" />
+            {opt}
+          </label>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function QuestionBlock({ q, globalIdx, answers, onAnswer, maxChoices = 2, previewMode, showAnswers }) {
   const opts = q.options ? (typeof q.options === 'string' ? JSON.parse(q.options) : q.options) : []
   const selected = (answers[q.id] || '').split(',').filter(Boolean)
@@ -13,25 +40,7 @@ export default function QuestionBlock({ q, globalIdx, answers, onAnswer, maxChoi
 
       {/* Single MCQ */}
       {q.type === 'mcq' && (
-        <div className="space-y-1 pl-8">
-          {opts.map(opt => {
-            const displayAns = previewMode && showAnswers ? q.correctAnswer : answers[q.id]
-            const isSelected = displayAns === opt
-            return (
-              <label key={opt} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition
-                ${isSelected && previewMode && showAnswers ? 'bg-green-50 border border-green-400 text-green-700 cursor-default'
-                  : isSelected ? 'bg-blue-50 border border-blue-400 text-blue-700 cursor-pointer'
-                  : previewMode ? 'border border-transparent text-gray-500 cursor-default'
-                  : 'hover:bg-gray-50 border border-transparent cursor-pointer'}`}>
-                <input type="radio" name={`q${q.id}`} checked={isSelected}
-                  disabled={previewMode}
-                  onChange={previewMode ? undefined : () => onAnswer(q.id, opt)}
-                  className="accent-blue-600" />
-                {opt}
-              </label>
-            )
-          })}
-        </div>
+        <SingleChoiceList options={opts} q={q} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
       )}
 
       {/* Multi MCQ (checkboxes) */}
@@ -61,48 +70,12 @@ export default function QuestionBlock({ q, globalIdx, answers, onAnswer, maxChoi
 
       {/* TRUE/FALSE/NOT GIVEN — radio-tick rows (khớp style MCQ single-choice) */}
       {q.type === 'true_false_ng' && (
-        <div className="space-y-1 pl-8">
-          {['TRUE', 'FALSE', 'NOT GIVEN'].map(opt => {
-            const displayAns = previewMode && showAnswers ? q.correctAnswer : answers[q.id]
-            const isSelected = displayAns === opt
-            return (
-              <label key={opt} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition
-                ${isSelected && previewMode && showAnswers ? 'bg-green-50 border border-green-400 text-green-700 cursor-default'
-                  : isSelected ? 'bg-blue-50 border border-blue-400 text-blue-700 cursor-pointer'
-                  : previewMode ? 'border border-transparent text-gray-500 cursor-default'
-                  : 'hover:bg-gray-50 border border-transparent cursor-pointer'}`}>
-                <input type="radio" name={`q${q.id}`} checked={isSelected}
-                  disabled={previewMode}
-                  onChange={previewMode ? undefined : () => onAnswer(q.id, opt)}
-                  className="accent-blue-600" />
-                {opt}
-              </label>
-            )
-          })}
-        </div>
+        <SingleChoiceList options={['TRUE', 'FALSE', 'NOT GIVEN']} q={q} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
       )}
 
       {/* YES/NO/NOT GIVEN — radio-tick rows (khớp style MCQ single-choice) */}
       {q.type === 'yes_no_ng' && (
-        <div className="space-y-1 pl-8">
-          {['YES', 'NO', 'NOT GIVEN'].map(opt => {
-            const displayAns = previewMode && showAnswers ? q.correctAnswer : answers[q.id]
-            const isSelected = displayAns === opt
-            return (
-              <label key={opt} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition
-                ${isSelected && previewMode && showAnswers ? 'bg-green-50 border border-green-400 text-green-700 cursor-default'
-                  : isSelected ? 'bg-blue-50 border border-blue-400 text-blue-700 cursor-pointer'
-                  : previewMode ? 'border border-transparent text-gray-500 cursor-default'
-                  : 'hover:bg-gray-50 border border-transparent cursor-pointer'}`}>
-                <input type="radio" name={`q${q.id}`} checked={isSelected}
-                  disabled={previewMode}
-                  onChange={previewMode ? undefined : () => onAnswer(q.id, opt)}
-                  className="accent-blue-600" />
-                {opt}
-              </label>
-            )
-          })}
-        </div>
+        <SingleChoiceList options={['YES', 'NO', 'NOT GIVEN']} q={q} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
       )}
 
       {/* Text input: fill_blank, diagram_completion */}
