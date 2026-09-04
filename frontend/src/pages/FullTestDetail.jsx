@@ -170,7 +170,7 @@ export default function FullTestDetail() {
               <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
                 <div style={{ width: 80, height: 110, borderRadius: 'var(--radius-sm)', overflow: 'hidden', flexShrink: 0, background: 'linear-gradient(135deg, var(--ink), var(--ink-soft))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {resolveImg(bookData.coverImageUrl)
-                    ? <img src={resolveImg(bookData.coverImageUrl)} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ? <img src={resolveImg(bookData.coverImageUrl)} alt={title} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     : <span style={{ fontSize: 32 }}>📚</span>
                   }
                 </div>
@@ -267,7 +267,7 @@ export default function FullTestDetail() {
                     style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
                   >
                     <div style={{ width: 36, height: 48, borderRadius: 'var(--radius-sm)', background: 'var(--surface-raised)', flexShrink: 0, overflow: 'hidden' }}>
-                      {book.coverImageUrl ? <img src={resolveImg(book.coverImageUrl)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '📚'}
+                      {book.coverImageUrl ? <img src={resolveImg(book.coverImageUrl)} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '📚'}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 700, color: 'var(--ink)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

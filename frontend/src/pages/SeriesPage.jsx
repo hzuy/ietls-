@@ -36,10 +36,12 @@ function BookCard({ book, onClick }) {
     >
       <div style={{ position: 'relative', width: '100%', aspectRatio: '4/5', overflow: 'hidden', background: '#f8fafc' }}>
         {book.coverImageUrl ? (
-          <img 
-            src={resolveImg(book.coverImageUrl)} 
-            alt={book.title} 
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: hasTests ? 'none' : 'grayscale(0.4) opacity(0.7)' }} 
+          <img
+            src={resolveImg(book.coverImageUrl)}
+            alt={book.title}
+            loading="lazy"
+            decoding="async"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: hasTests ? 'none' : 'grayscale(0.4) opacity(0.7)' }}
           />
         ) : (
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

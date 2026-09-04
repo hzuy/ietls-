@@ -191,6 +191,8 @@ export default function ContentCard({
             src={image}
             alt={imageAlt}
             draggable={false}
+            loading="lazy"
+            decoding="async"
             style={{
               width: '100%', height: '100%', objectFit: 'cover', display: 'block',
               transition: isShowcase ? 'transform 0.45s cubic-bezier(0.16, 1, 0.3, 1)' : undefined,
