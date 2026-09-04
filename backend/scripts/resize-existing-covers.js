@@ -91,7 +91,7 @@ async function run() {
     }
   }
 
-  let processed = 0, skipped = 0, missing = 0, bytesBefore = 0, bytesAfter = 0
+  let processed = 0, skipped = 0, missing = 0, renamedCount = 0, bytesBefore = 0, bytesAfter = 0
   const errors = []
 
   for (const [url, refs] of byUrl) {
@@ -161,6 +161,7 @@ async function run() {
 
     // 3. cập nhật DB + xoá file cũ nếu đổi tên
     if (renamed) {
+      renamedCount++
       for (const r of refs) {
         await r.delegate.update({ where: { id: r.id }, data: { [r.field]: newUrl } })
       }
@@ -179,6 +180,12 @@ async function run() {
   if (!APPLY && processed) {
     console.log(`\n  Chạy lại với --apply để thực thi:`)
     console.log(`    node scripts/resize-existing-covers.js --apply`)
+  }
+  if (APPLY && renamedCount > 0) {
+    console.log(`\n  ⚠️  ${renamedCount} URL đã đổi (.jpg/.png -> .webp). Server đang chạy có`)
+    console.log(`     SWR cache in-memory (routes practice/samples/full-tests, TTL 120s) giữ URL`)
+    console.log(`     CŨ → ảnh 404 tới khi cache hết hạn. RESTART backend để xoá cache ngay:`)
+    console.log(`         docker compose restart backend      # hoặc: docker restart ielts-app-backend`)
   }
   if (APPLY) {
     console.log(`\n  Ảnh gốc đã backup ở ${BACKUP_ROOT} (xoá thủ công sau khi xác nhận OK).`)

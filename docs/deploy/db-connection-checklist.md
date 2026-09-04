@@ -1,7 +1,15 @@
 # P5 — Checklist xác nhận `DATABASE_URL` / `DIRECT_URL` prod
 
-> Chuẩn bị để bạn **tự chạy khi SSH vào `lab46`**. CLI không làm hộ bước SSH nào.
-> `.env` thật trên server không có trong repo ⇒ mọi giá trị dưới đây là placeholder.
+> ✅ **ĐÃ XÁC NHẬN OK ngày 2026-09-04** (SSH đọc `/home/huuduy/ielts-app/backend/.env`):
+> ```
+> DATABASE_URL = ...pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=5   ✓ pooler, 6543, pgbouncer=true
+> DIRECT_URL   = ...pooler.supabase.com:5432/postgres                                      ✓ tồn tại, port 5432
+> ```
+> `connection_limit=5` (thay vì `1` như doc) — hợp lệ, không cần sửa. **Không có
+> hành động nào cần làm.** Checklist bên dưới giữ lại để audit lại khi đổi máy / đổi DB.
+>
+> Tiểu tiết không gấp: dòng `FRONTEND_URL=https://hzuy.net` xuất hiện 2 lần trong
+> `.env` (vô hại — giá trị giống nhau, dòng sau thắng).
 
 ---
 
