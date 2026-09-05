@@ -236,6 +236,174 @@ router.put('/exams/:id/basic', authMiddleware, teacherOnly, async (req, res) => 
   }
 })
 
+// ─── DIFF-BASED UPSERT HELPERS (Reading + Listening PUT) ────────────────────
+// PUT used to delete-and-recreate the whole Passage/ListeningSection → Question
+// tree on every save, which regenerates Question IDs and orphans QuestionAnswer/
+// AnswerLog rows from attempts already taken. These helpers instead match
+// existing rows by number/sortOrder, update in place (preserving id), and only
+// ever delete a Question after confirming no QuestionAnswer/AnswerLog points to
+// it — otherwise the whole request is rejected (see BlockedDeletionError).
+class BlockedDeletionError extends Error {
+  constructor(blockedQuestions) {
+    super('blocked-deletion')
+    this.blockedQuestions = blockedQuestions
+  }
+}
+
+const NOTE_GROUP_TYPES = ['note_completion', 'table_completion', 'drag_word_bank']
+const READING_MATCHING_GROUP_TYPES = ['matching_information', 'drag_word_bank', 'matching_drag']
+const LISTENING_MATCHING_GROUP_TYPES = ['matching', 'map_diagram', 'drag_word_bank', 'matching_drag']
+
+function mapReadingQuestionFields(groupType, q) {
+  if (['true_false_ng', 'yes_no_ng'].includes(groupType)) {
+    return { type: groupType, questionText: q.questionText || '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
+  }
+  if (NOTE_GROUP_TYPES.includes(groupType)) {
+    return { type: 'fill_blank', questionText: '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
+  }
+  if (groupType === 'matching_information') {
+    return { type: 'matching_paragraph', questionText: q.questionText || '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
+  }
+  if (groupType === 'matching_drag') {
+    return { type: 'matching', questionText: q.questionText || '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
+  }
+  return {
+    type: groupType, questionText: q.questionText || '',
+    options: q.options ? JSON.stringify(q.options.filter(o => o.trim())) : null,
+    correctAnswer: q.correctAnswer || '', imageUrl: null
+  }
+}
+
+function mapListeningQuestionFields(groupType, q) {
+  if (NOTE_GROUP_TYPES.includes(groupType)) {
+    return { type: 'fill_blank', questionText: '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
+  }
+  if (['matching', 'map_diagram'].includes(groupType)) {
+    return { type: groupType, questionText: q.questionText || '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
+  }
+  if (groupType === 'matching_drag') {
+    return { type: 'matching', questionText: q.questionText || '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
+  }
+  return {
+    type: groupType, questionText: q.questionText || '',
+    options: q.options ? JSON.stringify(q.options.filter(o => o.trim())) : null,
+    correctAnswer: q.correctAnswer || '', imageUrl: null
+  }
+}
+
+function mapStandaloneQuestionFields(q) {
+  return {
+    type: q.type, questionText: q.questionText,
+    options: q.options ? JSON.stringify(q.options) : null,
+    correctAnswer: q.correctAnswer, imageUrl: q.imageUrl || null
+  }
+}
+
+function buildNoteSectionsRaw(g) {
+  return (g.noteSections || []).map((ns, nsi) => ({
+    title: ns.title || '', sortOrder: nsi,
+    lines: (ns.lines || []).map((l, li) => ({ contentWithTokens: l.content || '', lineType: l.lineType || 'content', sortOrder: li }))
+  }))
+}
+
+function buildMatchingOptionsRaw(g) {
+  return (g.matchingOptions || []).map((mo, moi) => ({ optionLetter: mo.letter, optionText: mo.text || '', sortOrder: moi }))
+}
+
+// Diff an existing Question[] (id + number only) against submitted question
+// payloads, matched by `number`. Never touches the DB — callers decide what to
+// do with each bucket.
+function planQuestionDiff(existingQuestions, submittedQuestions, fieldMapper) {
+  const existingByNumber = new Map(existingQuestions.map(q => [q.number, q]))
+  const submittedNumbers = new Set(submittedQuestions.map(q => q.number))
+  const toUpdate = []
+  const toCreate = []
+  const toPrune = []
+  for (const q of submittedQuestions) {
+    const ex = existingByNumber.get(q.number)
+    const fields = fieldMapper(q)
+    if (ex) toUpdate.push({ id: ex.id, data: { number: q.number, ...fields } })
+    else toCreate.push({ number: q.number, ...fields })
+  }
+  for (const ex of existingQuestions) {
+    if (!submittedNumbers.has(ex.number)) toPrune.push(ex)
+  }
+  return { toUpdate, toCreate, toPrune }
+}
+
+// Plan the update of an existing QuestionGroup in place: scalar fields +
+// note/matching children (always refreshed — safe, nothing points a FK at
+// NoteSection/MatchingOption) + its own questions diffed by number. Pushes
+// deferred write thunks onto `operations` (executed only after the whole
+// request has been confirmed answer-safe — see the blocked-deletion check in
+// the route handler) instead of writing immediately, and returns the question
+// rows that are candidates for pruning (not yet deleted).
+function planGroupUpdate(tx, oldGroup, g, gi, skill, operations) {
+  const isReading = skill === 'reading'
+  const matchingTypes = isReading ? READING_MATCHING_GROUP_TYPES : LISTENING_MATCHING_GROUP_TYPES
+  const mapFn = isReading ? mapReadingQuestionFields : mapListeningQuestionFields
+
+  operations.push(() => tx.questionGroup.update({
+    where: { id: oldGroup.id },
+    data: {
+      qNumberStart: g.qNumberStart, qNumberEnd: g.qNumberEnd,
+      instruction: g.instruction || '', type: g.type, imageUrl: g.imageUrl || null,
+      sortOrder: gi, maxChoices: g.maxChoices || 2,
+      ...(isReading ? { canReuse: g.canReuse || false } : {})
+    }
+  }))
+
+  operations.push(() => tx.noteSection.deleteMany({ where: { groupId: oldGroup.id } }))
+  operations.push(() => tx.matchingOption.deleteMany({ where: { groupId: oldGroup.id } }))
+
+  if (NOTE_GROUP_TYPES.includes(g.type)) {
+    for (const ns of buildNoteSectionsRaw(g)) {
+      operations.push(() => tx.noteSection.create({ data: { groupId: oldGroup.id, title: ns.title, sortOrder: ns.sortOrder, lines: { create: ns.lines } } }))
+    }
+  }
+  if (matchingTypes.includes(g.type)) {
+    const opts = buildMatchingOptionsRaw(g)
+    if (opts.length) operations.push(() => tx.matchingOption.createMany({ data: opts.map(o => ({ ...o, groupId: oldGroup.id })) }))
+  }
+
+  const plan = planQuestionDiff(oldGroup.questions, g.questions || [], q => mapFn(g.type, q))
+  for (const u of plan.toUpdate) operations.push(() => tx.question.update({ where: { id: u.id }, data: u.data }))
+  if (plan.toCreate.length) operations.push(() => tx.question.createMany({ data: plan.toCreate.map(q => ({ ...q, groupId: oldGroup.id })) }))
+  return plan.toPrune
+}
+
+// Nested-create payload for a brand new QuestionGroup (no positional match in
+// the existing group list).
+function groupCreateData(g, gi, skill) {
+  const isReading = skill === 'reading'
+  const matchingTypes = isReading ? READING_MATCHING_GROUP_TYPES : LISTENING_MATCHING_GROUP_TYPES
+  const mapFn = isReading ? mapReadingQuestionFields : mapListeningQuestionFields
+  const data = {
+    qNumberStart: g.qNumberStart, qNumberEnd: g.qNumberEnd, instruction: g.instruction || '',
+    type: g.type, imageUrl: g.imageUrl || null, sortOrder: gi, maxChoices: g.maxChoices || 2,
+    ...(isReading ? { canReuse: g.canReuse || false } : {})
+  }
+  if (NOTE_GROUP_TYPES.includes(g.type)) {
+    data.noteSections = { create: buildNoteSectionsRaw(g).map(ns => ({ title: ns.title, sortOrder: ns.sortOrder, lines: { create: ns.lines } })) }
+  }
+  if (matchingTypes.includes(g.type)) {
+    data.matchingOptions = { create: buildMatchingOptionsRaw(g) }
+  }
+  data.questions = { create: (g.questions || []).map(q => ({ number: q.number, ...mapFn(g.type, q) })) }
+  return data
+}
+
+// Batch-check which of the given question ids already have a QuestionAnswer or
+// AnswerLog referencing them (i.e. cannot be safely deleted).
+async function findAnsweredQuestionIds(tx, questionIds) {
+  if (!questionIds.length) return new Set()
+  const [qas, logs] = await Promise.all([
+    tx.questionAnswer.findMany({ where: { questionId: { in: questionIds } }, select: { questionId: true }, distinct: ['questionId'] }),
+    tx.answerLog.findMany({ where: { questionId: { in: questionIds } }, select: { questionId: true }, distinct: ['questionId'] })
+  ])
+  return new Set([...qas.map(x => x.questionId), ...logs.map(x => x.questionId)])
+}
+
 // ─── UPDATE EXAM ──────────────────────────────────────────────────────────────
 router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema), async (req, res) => {
   try {
@@ -248,133 +416,122 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
     const tn = testNumber ? parseInt(testNumber) : null
 
     if (existing.skill === 'reading') {
-      const { passages } = req.body
+      const submittedPassages = req.body.passages || []
 
-      const buildReadingGroupData = (g, gi) => {
-        const base = {
-          qNumberStart: g.qNumberStart,
-          qNumberEnd: g.qNumberEnd,
-          instruction: g.instruction || '',
-          type: g.type,
-          imageUrl: g.imageUrl || null,
-          sortOrder: gi,
-          canReuse: g.canReuse || false,
-          maxChoices: g.maxChoices || 2,
-        }
-        if (['true_false_ng', 'yes_no_ng'].includes(g.type)) {
-          return {
-            ...base,
-            questions: { create: (g.questions || []).map(q => ({
-              number: q.number, type: g.type, questionText: q.questionText || '',
-              correctAnswer: q.correctAnswer || '', options: null, imageUrl: null
-            })) }
+      try {
+        const updated = await prisma.$transaction(async (tx) => {
+          // Everything below is planned first with zero DB writes; writes are
+          // deferred into `operations` and only executed once we've confirmed
+          // (further down) that nothing answer-blocked needs deleting — so a
+          // blocked request leaves the DB completely untouched.
+          const operations = [() => tx.exam.update({ where: { id }, data: { title, bookNumber: bn, testNumber: tn } })]
+
+          const oldPassages = await tx.passage.findMany({
+            where: { examId: id },
+            orderBy: { number: 'asc' },
+            include: {
+              questions: { where: { groupId: null }, select: { id: true, number: true } },
+              questionGroups: { orderBy: { sortOrder: 'asc' }, include: { questions: { select: { id: true, number: true } } } }
+            }
+          })
+          const oldByNumber = new Map(oldPassages.map(p => [p.number, p]))
+          const submittedNumbers = new Set(submittedPassages.map(p => p.number))
+
+          const pruneQuestionIds = []
+          const pruneLabels = new Map()
+          const deleteGroupCandidates = []
+          const deletePassageCandidates = []
+
+          for (const p of submittedPassages) {
+            const oldP = oldByNumber.get(p.number)
+            if (oldP) {
+              operations.push(() => tx.passage.update({ where: { id: oldP.id }, data: {
+                title: p.title, subtitle: p.subtitle || null,
+                letteredParagraphs: p.letteredParagraphs || false, body: p.body
+              }}))
+
+              const directPlan = planQuestionDiff(oldP.questions, p.questions || [], mapStandaloneQuestionFields)
+              for (const u of directPlan.toUpdate) operations.push(() => tx.question.update({ where: { id: u.id }, data: u.data }))
+              if (directPlan.toCreate.length) operations.push(() => tx.question.createMany({ data: directPlan.toCreate.map(q => ({ ...q, passageId: oldP.id })) }))
+              directPlan.toPrune.forEach(q => {
+                pruneQuestionIds.push(q.id)
+                pruneLabels.set(q.id, { passageNumber: p.number, groupSortOrder: null, questionNumber: q.number })
+              })
+
+              const submittedGroups = p.questionGroups || []
+              const oldGroups = oldP.questionGroups
+              for (let gi = 0; gi < submittedGroups.length; gi++) {
+                const g = submittedGroups[gi]
+                const oldG = oldGroups[gi]
+                if (oldG) {
+                  const toPrune = planGroupUpdate(tx, oldG, g, gi, 'reading', operations)
+                  toPrune.forEach(q => {
+                    pruneQuestionIds.push(q.id)
+                    pruneLabels.set(q.id, { passageNumber: p.number, groupSortOrder: oldG.sortOrder, questionNumber: q.number })
+                  })
+                } else {
+                  operations.push(() => tx.questionGroup.create({ data: { passageId: oldP.id, ...groupCreateData(g, gi, 'reading') } }))
+                }
+              }
+              for (let gi = submittedGroups.length; gi < oldGroups.length; gi++) {
+                const oldG = oldGroups[gi]
+                const qIds = oldG.questions.map(q => q.id)
+                const labelsByQId = new Map(oldG.questions.map(q => [q.id, { passageNumber: p.number, groupSortOrder: oldG.sortOrder, questionNumber: q.number }]))
+                deleteGroupCandidates.push({ groupId: oldG.id, questionIds: qIds, labelsByQId })
+              }
+            } else {
+              operations.push(() => tx.passage.create({ data: {
+                examId: id, number: p.number, title: p.title, subtitle: p.subtitle || null,
+                letteredParagraphs: p.letteredParagraphs || false, body: p.body,
+                questionGroups: (p.questionGroups && p.questionGroups.length)
+                  ? { create: p.questionGroups.map((g, gi) => groupCreateData(g, gi, 'reading')) } : undefined,
+                questions: (p.questions && p.questions.length)
+                  ? { create: p.questions.map(q => ({ number: q.number, ...mapStandaloneQuestionFields(q) })) } : undefined
+              }}))
+            }
           }
-        }
-        if (g.type === 'note_completion' || g.type === 'table_completion') {
-          return {
-            ...base,
-            noteSections: { create: (g.noteSections || []).map((ns, nsi) => ({
-              title: ns.title || '', sortOrder: nsi,
-              lines: { create: (ns.lines || []).map((l, li) => ({ contentWithTokens: l.content || '', lineType: l.lineType || 'content', sortOrder: li })) }
-            })) },
-            questions: { create: (g.questions || []).map(q => ({
-              number: q.number, type: 'fill_blank', questionText: '',
-              correctAnswer: q.correctAnswer || '', options: null, imageUrl: null
-            })) }
+
+          for (const oldP of oldPassages) {
+            if (submittedNumbers.has(oldP.number)) continue
+            const qIds = []
+            const labelsByQId = new Map()
+            oldP.questions.forEach(q => { qIds.push(q.id); labelsByQId.set(q.id, { passageNumber: oldP.number, groupSortOrder: null, questionNumber: q.number }) })
+            oldP.questionGroups.forEach(g => g.questions.forEach(q => { qIds.push(q.id); labelsByQId.set(q.id, { passageNumber: oldP.number, groupSortOrder: g.sortOrder, questionNumber: q.number }) }))
+            deletePassageCandidates.push({ passageId: oldP.id, questionIds: qIds, labelsByQId })
           }
+
+          const allCandidateIds = [
+            ...pruneQuestionIds,
+            ...deleteGroupCandidates.flatMap(c => c.questionIds),
+            ...deletePassageCandidates.flatMap(c => c.questionIds)
+          ]
+          const answeredIds = await findAnsweredQuestionIds(tx, allCandidateIds)
+
+          const blockedQuestions = []
+          pruneQuestionIds.forEach(qId => { if (answeredIds.has(qId)) blockedQuestions.push(pruneLabels.get(qId)) })
+          deleteGroupCandidates.forEach(c => c.questionIds.forEach(qId => { if (answeredIds.has(qId)) blockedQuestions.push(c.labelsByQId.get(qId)) }))
+          deletePassageCandidates.forEach(c => c.questionIds.forEach(qId => { if (answeredIds.has(qId)) blockedQuestions.push(c.labelsByQId.get(qId)) }))
+
+          if (blockedQuestions.length) throw new BlockedDeletionError(blockedQuestions)
+
+          for (const op of operations) await op()
+          for (const qId of pruneQuestionIds) await tx.question.delete({ where: { id: qId } })
+          for (const c of deleteGroupCandidates) await tx.questionGroup.delete({ where: { id: c.groupId } })
+          for (const c of deletePassageCandidates) await tx.passage.delete({ where: { id: c.passageId } })
+
+          return tx.exam.findUnique({ where: { id }, include: { passages: { include: { questions: true, questionGroups: true } } } })
+        })
+        invalidate('fulltests:')
+        return res.json(updated)
+      } catch (err) {
+        if (err instanceof BlockedDeletionError) {
+          return res.status(409).json({
+            message: 'Không thể lưu: một số câu hỏi đã có học viên làm bài nên không thể xoá. Vui lòng khôi phục lại (các) câu hỏi này trước khi lưu.',
+            blockedQuestions: err.blockedQuestions
+          })
         }
-        if (g.type === 'matching_information') {
-          return {
-            ...base,
-            matchingOptions: { create: (g.matchingOptions || []).map((mo, moi) => ({
-              optionLetter: mo.letter, optionText: mo.text || '', sortOrder: moi
-            })) },
-            questions: { create: (g.questions || []).map(q => ({
-              number: q.number, type: 'matching_paragraph', questionText: q.questionText || '',
-              correctAnswer: q.correctAnswer || '', options: null, imageUrl: null
-            })) }
-          }
-        }
-        if (g.type === 'drag_word_bank') {
-          return {
-            ...base,
-            noteSections: { create: (g.noteSections || []).map((ns, nsi) => ({
-              title: ns.title || '', sortOrder: nsi,
-              lines: { create: (ns.lines || []).map((l, li) => ({ contentWithTokens: l.content || '', lineType: l.lineType || 'content', sortOrder: li })) }
-            })) },
-            matchingOptions: { create: (g.matchingOptions || []).map((mo, moi) => ({
-              optionLetter: mo.letter, optionText: mo.text || '', sortOrder: moi
-            })) },
-            questions: { create: (g.questions || []).map(q => ({
-              number: q.number, type: 'fill_blank', questionText: '',
-              correctAnswer: q.correctAnswer || '', options: null, imageUrl: null
-            })) }
-          }
-        }
-        if (g.type === 'matching_drag') {
-          return {
-            ...base,
-            matchingOptions: { create: (g.matchingOptions || []).map((mo, moi) => ({
-              optionLetter: mo.letter, optionText: mo.text || '', sortOrder: moi
-            })) },
-            questions: { create: (g.questions || []).map(q => ({
-              number: q.number, type: 'matching', questionText: q.questionText || '',
-              correctAnswer: q.correctAnswer || '', options: null, imageUrl: null
-            })) }
-          }
-        }
-        return {
-          ...base,
-          questions: { create: (g.questions || []).map(q => ({
-            number: q.number, type: g.type, questionText: q.questionText || '',
-            options: q.options ? JSON.stringify(q.options.filter(o => o.trim())) : null,
-            correctAnswer: q.correctAnswer || '', imageUrl: null
-          })) }
-        }
+        throw err
       }
-
-      // Delete QuestionAnswers first to avoid FK constraint
-      const oldPassages = await prisma.passage.findMany({
-        where: { examId: id },
-        include: {
-          questions: { select: { id: true } },
-          questionGroups: { include: { questions: { select: { id: true } } } }
-        }
-      })
-      const oldDirectQIds = oldPassages.flatMap(p => p.questions.map(q => q.id))
-      const oldGroupQIds = oldPassages.flatMap(p => p.questionGroups.flatMap(g => g.questions.map(q => q.id)))
-      const allOldQIds = [...oldDirectQIds, ...oldGroupQIds]
-      if (allOldQIds.length) await prisma.questionAnswer.deleteMany({ where: { questionId: { in: allOldQIds } } })
-      await prisma.passage.deleteMany({ where: { examId: id } })
-
-      const updated = await prisma.exam.update({
-        where: { id },
-        data: {
-          title, bookNumber: bn, testNumber: tn,
-          passages: {
-            create: passages.map(p => ({
-              number: p.number,
-              title: p.title,
-              subtitle: p.subtitle || null,
-              letteredParagraphs: p.letteredParagraphs || false,
-              body: p.body,
-              questionGroups: p.questionGroups
-                ? { create: p.questionGroups.map((g, gi) => buildReadingGroupData(g, gi)) }
-                : undefined,
-              questions: p.questions
-                ? { create: (p.questions || []).map(q => ({
-                    number: q.number, type: q.type, questionText: q.questionText,
-                    options: q.options ? JSON.stringify(q.options) : null,
-                    correctAnswer: q.correctAnswer, imageUrl: q.imageUrl || null
-                  })) }
-                : undefined
-            }))
-          }
-        },
-        include: { passages: { include: { questions: true, questionGroups: true } } }
-      })
-      invalidate('fulltests:')
-      return res.json(updated)
     }
 
     if (existing.skill === 'listening') {
