@@ -8,6 +8,7 @@ const prisma = require('../lib/prisma')
 const { invalidate } = require('../lib/swrCache')
 const { getQuestionCount, getPracticeListCached } = require('../lib/publicContent')
 const { resizeUploadedCover } = require('../lib/imageResize')
+const { moveToSubdir } = require('../lib/adminUploads')
 const { createPracticeSchema, updatePracticeSchema } = require('../validators/contentValidator')
 
 const router = express.Router()
@@ -248,7 +249,7 @@ router.post('/admin/:skill/upload-thumbnail', authMiddleware, teacherOrAdmin, th
 
 router.post('/admin/listening/upload-audio', authMiddleware, teacherOrAdmin, audioUpload.single('audio'), (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
-  res.json({ url: `/uploads/${req.file.filename}` })
+  res.json({ url: moveToSubdir(req.file, 'audio') })
 })
 
 // ─── ADMIN: upload thumbnail (gắn thẳng vào record :id — giữ cho tương thích) ──
@@ -270,7 +271,7 @@ router.post('/admin/:skill/:id/thumbnail', authMiddleware, teacherOrAdmin, thumb
 router.post('/admin/listening/:id/audio', authMiddleware, teacherOrAdmin, audioUpload.single('audio'), async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
   try {
-    const audioUrl = `/uploads/${req.file.filename}`
+    const audioUrl = moveToSubdir(req.file, 'audio')
     const exam = await prisma.practiceExam.update({
       where: { id: parseInt(req.params.id) },
       data: { audioUrl },

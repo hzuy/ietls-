@@ -1,4 +1,5 @@
 const express = require('express')
+const path = require('path')
 const router = express.Router()
 const prisma = require('../../lib/prisma')
 const authMiddleware = require('../../middleware/auth')
@@ -137,7 +138,7 @@ router.post('/exam-series/:seriesId/covers/:bookNumber', authMiddleware, teacher
     if (!req.file) return res.status(400).json({ message: 'Không có file ảnh' })
     const seriesId = parseInt(req.params.seriesId)
     const bookNumber = parseInt(req.params.bookNumber)
-    const { url: coverImageUrl } = await resizeUploadedCover(req.file, { dir: uploadsDir, urlPrefix: '/uploads' })
+    const { url: coverImageUrl } = await resizeUploadedCover(req.file, { dir: path.join(uploadsDir, 'covers'), urlPrefix: '/uploads/covers' })
     await prisma.bookCover.upsert({
       where: { seriesId_bookNumber: { seriesId, bookNumber } },
       create: { seriesId, bookNumber, coverImageUrl },

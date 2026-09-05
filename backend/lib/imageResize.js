@@ -33,9 +33,20 @@ async function resizeUploadedCover(file, { dir, urlPrefix }) {
   const ext = path.extname(originalName).toLowerCase()
   const passthrough = { filename: originalName, url: `${urlPrefix}/${originalName}` }
 
-  if (!RESIZABLE_EXT.has(ext)) return passthrough
-
+  fs.mkdirSync(dir, { recursive: true })
   const srcPath = file.path || path.join(dir, originalName)
+
+  if (!RESIZABLE_EXT.has(ext)) {
+    // .gif/.svg giữ nguyên (không resize) nhưng vẫn phải nằm ở `dir` khớp với
+    // `urlPrefix` trả về — multer có thể đã lưu ở thư mục khác (route dùng
+    // chung 1 multer instance cho nhiều đích khác nhau).
+    const destPath = path.join(dir, originalName)
+    if (path.resolve(destPath) !== path.resolve(srcPath) && fs.existsSync(srcPath)) {
+      fs.renameSync(srcPath, destPath)
+    }
+    return passthrough
+  }
+
   const outName = `${path.basename(originalName, ext)}.webp`
   const outPath = path.join(dir, outName)
 

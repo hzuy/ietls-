@@ -35,4 +35,16 @@ const imageUpload = multer({
   limits: { fileSize: 20 * 1024 * 1024 } // 20MB
 })
 
-module.exports = { uploadsDir, storage, upload, imageUpload }
+// Multer luôn lưu file vào uploadsDir (top-level) trước, vì các route dùng
+// chung 1 multer instance (`upload`/`imageUpload`) nhưng muốn thư mục con đích
+// khác nhau (audio/, questions/...). Hàm này move file đã lưu sang thư mục con
+// đúng chỗ + trả về URL tương ứng.
+function moveToSubdir(file, subdir) {
+  const destDir = path.join(uploadsDir, subdir)
+  fs.mkdirSync(destDir, { recursive: true })
+  const destPath = path.join(destDir, file.filename)
+  fs.renameSync(file.path, destPath)
+  return `/uploads/${subdir}/${file.filename}`
+}
+
+module.exports = { uploadsDir, storage, upload, imageUpload, moveToSubdir }

@@ -7,7 +7,7 @@ const authMiddleware = require('../../middleware/auth')
 const validate = require('../../middleware/validate')
 const { teacherOnly } = require('../../lib/roles')
 const { transcribeUploadSchema, bookCoverSchema } = require('../../validators/contentValidator')
-const { uploadsDir, upload, imageUpload } = require('../../lib/adminUploads')
+const { uploadsDir, upload, imageUpload, moveToSubdir } = require('../../lib/adminUploads')
 const { getGroqClient } = require('../../lib/groqClient')
 const { invalidate } = require('../../lib/swrCache')
 const { resizeUploadedCover } = require('../../lib/imageResize')
@@ -15,21 +15,21 @@ const { resizeUploadedCover } = require('../../lib/imageResize')
 // ─── UPLOAD AUDIO ────────────────────────────────────────────────────────────
 router.post('/upload-audio', authMiddleware, teacherOnly, upload.single('audio'), (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
-  const audioUrl = `/uploads/${req.file.filename}`
+  const audioUrl = moveToSubdir(req.file, 'audio')
   res.json({ audioUrl, filename: req.file.filename })
 })
 
 // ─── UPLOAD IMAGE ────────────────────────────────────────────────────────────
 router.post('/upload-image', authMiddleware, teacherOnly, imageUpload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
-  const imageUrl = `/uploads/${req.file.filename}`
+  const imageUrl = moveToSubdir(req.file, 'questions')
   res.json({ imageUrl, filename: req.file.filename })
 })
 
 router.post('/exams/:id/cover', authMiddleware, teacherOnly, imageUpload.single('cover'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'Không có file ảnh' })
-    const { url: coverImageUrl } = await resizeUploadedCover(req.file, { dir: uploadsDir, urlPrefix: '/uploads' })
+    const { url: coverImageUrl } = await resizeUploadedCover(req.file, { dir: path.join(uploadsDir, 'covers'), urlPrefix: '/uploads/covers' })
     const exam = await prisma.exam.update({
       where: { id: parseInt(req.params.id) },
       data: { coverImageUrl },
@@ -89,7 +89,7 @@ router.post('/book-covers/:bookNumber', authMiddleware, teacherOnly, imageUpload
     if (!req.file) return res.status(400).json({ message: 'Không có file ảnh' })
     const bookNumber = parseInt(req.params.bookNumber)
     const seriesId = parseInt(req.body.seriesId) || 1
-    const { url: coverImageUrl } = await resizeUploadedCover(req.file, { dir: uploadsDir, urlPrefix: '/uploads' })
+    const { url: coverImageUrl } = await resizeUploadedCover(req.file, { dir: path.join(uploadsDir, 'covers'), urlPrefix: '/uploads/covers' })
     await prisma.bookCover.upsert({
       where: { seriesId_bookNumber: { seriesId, bookNumber } },
       create: { seriesId, bookNumber, coverImageUrl },
