@@ -247,6 +247,88 @@ describe('Admin Exams Router — PUT (diff-based upsert)', () => {
     expect(prismaMock.exam.update).not.toHaveBeenCalled()
   })
 
+  it('PUT reading exam creates a brand-new passage without touching existing ids', async () => {
+    prismaMock.exam.findUnique.mockResolvedValueOnce({ skill: 'reading' }).mockResolvedValueOnce({ id: 10, passages: [] })
+    prismaMock.passage.findMany.mockResolvedValueOnce([oldReadingPassage()])
+
+    const body = readingBody([
+      { number: 1, questionText: 'Q1', options: ['A', 'B'], correctAnswer: 'A' },
+      { number: 2, questionText: 'Q2', options: ['A', 'B'], correctAnswer: 'B' }
+    ])
+    body.passages.push({
+      number: 2, title: 'Passage 2', subtitle: null, letteredParagraphs: false, body: 'New passage body',
+      questionGroups: [readingGroup([{ number: 3, questionText: 'Q3', options: ['A', 'B'], correctAnswer: 'A' }])],
+      questions: []
+    })
+
+    await request(app)
+      .put('/api/admin/exams/10')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send(body)
+      .expect(200)
+
+    expect(prismaMock.passage.create).toHaveBeenCalledTimes(1)
+    const createArg = prismaMock.passage.create.mock.calls[0][0].data
+    expect(createArg.number).toBe(2)
+    expect(createArg.questionGroups.create[0].questions.create[0].number).toBe(3)
+
+    const updatedIds = prismaMock.question.update.mock.calls.map(c => c[0].where.id).sort()
+    expect(updatedIds).toEqual([701, 702])
+    expect(prismaMock.question.delete).not.toHaveBeenCalled()
+    expect(prismaMock.questionAnswer.findMany).not.toHaveBeenCalled()
+  })
+
+  it('PUT reading exam creates a brand-new group in an existing passage without touching existing ids', async () => {
+    prismaMock.exam.findUnique.mockResolvedValueOnce({ skill: 'reading' }).mockResolvedValueOnce({ id: 10, passages: [] })
+    prismaMock.passage.findMany.mockResolvedValueOnce([oldReadingPassage()])
+
+    const body = readingBody([
+      { number: 1, questionText: 'Q1', options: ['A', 'B'], correctAnswer: 'A' },
+      { number: 2, questionText: 'Q2', options: ['A', 'B'], correctAnswer: 'B' }
+    ])
+    body.passages[0].questionGroups.push(readingGroup([{ number: 3, questionText: 'Q3', options: ['A', 'B'], correctAnswer: 'A' }]))
+
+    await request(app)
+      .put('/api/admin/exams/10')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send(body)
+      .expect(200)
+
+    expect(prismaMock.questionGroup.create).toHaveBeenCalledTimes(1)
+    const groupArg = prismaMock.questionGroup.create.mock.calls[0][0].data
+    expect(groupArg.passageId).toBe(501)
+    expect(groupArg.questions.create[0].number).toBe(3)
+
+    const updatedIds = prismaMock.question.update.mock.calls.map(c => c[0].where.id).sort()
+    expect(updatedIds).toEqual([701, 702])
+    expect(prismaMock.question.delete).not.toHaveBeenCalled()
+  })
+
+  it('PUT reading exam creates a brand-new question in an existing group without touching existing ids', async () => {
+    prismaMock.exam.findUnique.mockResolvedValueOnce({ skill: 'reading' }).mockResolvedValueOnce({ id: 10, passages: [] })
+    prismaMock.passage.findMany.mockResolvedValueOnce([oldReadingPassage()])
+
+    const body = readingBody([
+      { number: 1, questionText: 'Q1', options: ['A', 'B'], correctAnswer: 'A' },
+      { number: 2, questionText: 'Q2', options: ['A', 'B'], correctAnswer: 'B' },
+      { number: 3, questionText: 'Q3', options: ['A', 'B'], correctAnswer: 'A' }
+    ])
+
+    await request(app)
+      .put('/api/admin/exams/10')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send(body)
+      .expect(200)
+
+    expect(prismaMock.question.createMany).toHaveBeenCalledTimes(1)
+    const createManyArg = prismaMock.question.createMany.mock.calls[0][0].data
+    expect(createManyArg).toEqual([expect.objectContaining({ number: 3, groupId: 601 })])
+
+    const updatedIds = prismaMock.question.update.mock.calls.map(c => c[0].where.id).sort()
+    expect(updatedIds).toEqual([701, 702])
+    expect(prismaMock.question.delete).not.toHaveBeenCalled()
+  })
+
   // ─── Listening ─────────────────────────────────────────────────────────────
   const oldListeningSection = () => ({
     id: 511, number: 1,
@@ -321,6 +403,87 @@ describe('Admin Exams Router — PUT (diff-based upsert)', () => {
     expect(prismaMock.question.delete).not.toHaveBeenCalled()
     expect(prismaMock.listeningSection.update).not.toHaveBeenCalled()
     expect(prismaMock.exam.update).not.toHaveBeenCalled()
+  })
+
+  it('PUT listening exam creates a brand-new section without touching existing ids', async () => {
+    prismaMock.exam.findUnique.mockResolvedValueOnce({ skill: 'listening' }).mockResolvedValueOnce({ id: 20, listeningSections: [] })
+    prismaMock.listeningSection.findMany.mockResolvedValueOnce([oldListeningSection()])
+
+    const body = listeningBody([
+      { number: 1, questionText: 'Q1', correctAnswer: 'A' },
+      { number: 2, questionText: 'Q2', correctAnswer: 'A' }
+    ])
+    body.sections.push({
+      number: 2, context: 'New section', audioUrl: null, transcript: null,
+      questionGroups: [listeningGroup([{ number: 3, questionText: 'Q3', correctAnswer: 'A' }])],
+      questions: []
+    })
+
+    await request(app)
+      .put('/api/admin/exams/20')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send(body)
+      .expect(200)
+
+    expect(prismaMock.listeningSection.create).toHaveBeenCalledTimes(1)
+    const createArg = prismaMock.listeningSection.create.mock.calls[0][0].data
+    expect(createArg.number).toBe(2)
+    expect(createArg.questionGroups.create[0].questions.create[0].number).toBe(3)
+
+    const updatedIds = prismaMock.question.update.mock.calls.map(c => c[0].where.id).sort()
+    expect(updatedIds).toEqual([711, 712])
+    expect(prismaMock.question.delete).not.toHaveBeenCalled()
+  })
+
+  it('PUT listening exam creates a brand-new group in an existing section without touching existing ids', async () => {
+    prismaMock.exam.findUnique.mockResolvedValueOnce({ skill: 'listening' }).mockResolvedValueOnce({ id: 20, listeningSections: [] })
+    prismaMock.listeningSection.findMany.mockResolvedValueOnce([oldListeningSection()])
+
+    const body = listeningBody([
+      { number: 1, questionText: 'Q1', correctAnswer: 'A' },
+      { number: 2, questionText: 'Q2', correctAnswer: 'A' }
+    ])
+    body.sections[0].questionGroups.push(listeningGroup([{ number: 3, questionText: 'Q3', correctAnswer: 'A' }]))
+
+    await request(app)
+      .put('/api/admin/exams/20')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send(body)
+      .expect(200)
+
+    expect(prismaMock.questionGroup.create).toHaveBeenCalledTimes(1)
+    const groupArg = prismaMock.questionGroup.create.mock.calls[0][0].data
+    expect(groupArg.sectionId).toBe(511)
+    expect(groupArg.questions.create[0].number).toBe(3)
+
+    const updatedIds = prismaMock.question.update.mock.calls.map(c => c[0].where.id).sort()
+    expect(updatedIds).toEqual([711, 712])
+    expect(prismaMock.question.delete).not.toHaveBeenCalled()
+  })
+
+  it('PUT listening exam creates a brand-new question in an existing group without touching existing ids', async () => {
+    prismaMock.exam.findUnique.mockResolvedValueOnce({ skill: 'listening' }).mockResolvedValueOnce({ id: 20, listeningSections: [] })
+    prismaMock.listeningSection.findMany.mockResolvedValueOnce([oldListeningSection()])
+
+    const body = listeningBody([
+      { number: 1, questionText: 'Q1', correctAnswer: 'A' },
+      { number: 2, questionText: 'Q2', correctAnswer: 'A' },
+      { number: 3, questionText: 'Q3', correctAnswer: 'A' }
+    ])
+
+    await request(app)
+      .put('/api/admin/exams/20')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send(body)
+      .expect(200)
+
+    expect(prismaMock.question.createMany).toHaveBeenCalledTimes(1)
+    const createManyArg = prismaMock.question.createMany.mock.calls[0][0].data
+    expect(createManyArg).toEqual([expect.objectContaining({ number: 3, groupId: 611 })])
+
+    const updatedIds = prismaMock.question.update.mock.calls.map(c => c[0].where.id).sort()
+    expect(updatedIds).toEqual([711, 712])
+    expect(prismaMock.question.delete).not.toHaveBeenCalled()
   })
 
   // ─── Writing ───────────────────────────────────────────────────────────────
