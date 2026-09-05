@@ -535,127 +535,117 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
     }
 
     if (existing.skill === 'listening') {
-      const { sections } = req.body
-      // Delete all nested data for old sections
-      const oldSections = await prisma.listeningSection.findMany({
-        where: { examId: id },
-        include: {
-          questions: { select: { id: true } },
-          questionGroups: {
+      const submittedSections = req.body.sections || []
+
+      try {
+        const updated = await prisma.$transaction(async (tx) => {
+          // Same defer-then-check-then-apply pattern as Reading above.
+          const operations = [() => tx.exam.update({ where: { id }, data: { title, bookNumber: bn, testNumber: tn } })]
+
+          const oldSections = await tx.listeningSection.findMany({
+            where: { examId: id },
+            orderBy: { number: 'asc' },
             include: {
-              questions: { select: { id: true } },
-              noteSections: { include: { lines: { select: { id: true } } } },
-              matchingOptions: { select: { id: true } }
+              questions: { where: { groupId: null }, select: { id: true, number: true } },
+              questionGroups: { orderBy: { sortOrder: 'asc' }, include: { questions: { select: { id: true, number: true } } } }
+            }
+          })
+          const oldByNumber = new Map(oldSections.map(s => [s.number, s]))
+          const submittedNumbers = new Set(submittedSections.map(s => s.number))
+
+          const pruneQuestionIds = []
+          const pruneLabels = new Map()
+          const deleteGroupCandidates = []
+          const deleteSectionCandidates = []
+
+          for (const s of submittedSections) {
+            const oldS = oldByNumber.get(s.number)
+            if (oldS) {
+              operations.push(() => tx.listeningSection.update({ where: { id: oldS.id }, data: {
+                context: s.context || '', audioUrl: s.audioUrl || null, transcript: s.transcript || null
+              }}))
+
+              const directPlan = planQuestionDiff(oldS.questions, s.questions || [], mapStandaloneQuestionFields)
+              for (const u of directPlan.toUpdate) operations.push(() => tx.question.update({ where: { id: u.id }, data: u.data }))
+              if (directPlan.toCreate.length) operations.push(() => tx.question.createMany({ data: directPlan.toCreate.map(q => ({ ...q, listeningSectionId: oldS.id })) }))
+              directPlan.toPrune.forEach(q => {
+                pruneQuestionIds.push(q.id)
+                pruneLabels.set(q.id, { sectionNumber: s.number, groupSortOrder: null, questionNumber: q.number })
+              })
+
+              const submittedGroups = s.questionGroups || []
+              const oldGroups = oldS.questionGroups
+              for (let gi = 0; gi < submittedGroups.length; gi++) {
+                const g = submittedGroups[gi]
+                const oldG = oldGroups[gi]
+                if (oldG) {
+                  const toPrune = planGroupUpdate(tx, oldG, g, gi, 'listening', operations)
+                  toPrune.forEach(q => {
+                    pruneQuestionIds.push(q.id)
+                    pruneLabels.set(q.id, { sectionNumber: s.number, groupSortOrder: oldG.sortOrder, questionNumber: q.number })
+                  })
+                } else {
+                  operations.push(() => tx.questionGroup.create({ data: { sectionId: oldS.id, ...groupCreateData(g, gi, 'listening') } }))
+                }
+              }
+              for (let gi = submittedGroups.length; gi < oldGroups.length; gi++) {
+                const oldG = oldGroups[gi]
+                const qIds = oldG.questions.map(q => q.id)
+                const labelsByQId = new Map(oldG.questions.map(q => [q.id, { sectionNumber: s.number, groupSortOrder: oldG.sortOrder, questionNumber: q.number }]))
+                deleteGroupCandidates.push({ groupId: oldG.id, questionIds: qIds, labelsByQId })
+              }
+            } else {
+              operations.push(() => tx.listeningSection.create({ data: {
+                examId: id, number: s.number, context: s.context || '', audioUrl: s.audioUrl || null, transcript: s.transcript || null,
+                questionGroups: (s.questionGroups && s.questionGroups.length)
+                  ? { create: s.questionGroups.map((g, gi) => groupCreateData(g, gi, 'listening')) } : undefined,
+                questions: (s.questions && s.questions.length)
+                  ? { create: s.questions.map(q => ({ number: q.number, ...mapStandaloneQuestionFields(q) })) } : undefined
+              }}))
             }
           }
-        }
-      })
-      // Collect all question IDs (both old direct and group-based)
-      const oldDirectQIds = oldSections.flatMap(s => s.questions.map(q => q.id))
-      const oldGroupQIds = oldSections.flatMap(s => s.questionGroups.flatMap(g => g.questions.map(q => q.id)))
-      const allQIds = [...oldDirectQIds, ...oldGroupQIds]
-      if (allQIds.length) await prisma.questionAnswer.deleteMany({ where: { questionId: { in: allQIds } } })
-      // Delete sections (cascade deletes groups, noteSections, lines, matchingOptions, questions)
-      await prisma.listeningSection.deleteMany({ where: { examId: id } })
 
-      const buildGroupData = (g, gi) => {
-        const base = {
-          qNumberStart: g.qNumberStart,
-          qNumberEnd: g.qNumberEnd,
-          instruction: g.instruction || '',
-          type: g.type,
-          imageUrl: g.imageUrl || null,
-          sortOrder: gi,
-          maxChoices: g.maxChoices || 2,
-        }
-        if (g.type === 'note_completion' || g.type === 'table_completion') {
-          return {
-            ...base,
-            noteSections: { create: (g.noteSections || []).map((ns, nsi) => ({
-              title: ns.title || '', sortOrder: nsi,
-              lines: { create: (ns.lines || []).map((l, li) => ({ contentWithTokens: l.content || '', lineType: l.lineType || 'content', sortOrder: li })) }
-            })) },
-            questions: { create: (g.questions || []).map(q => ({
-              number: q.number, type: 'fill_blank', questionText: '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null
-            })) }
+          for (const oldS of oldSections) {
+            if (submittedNumbers.has(oldS.number)) continue
+            const qIds = []
+            const labelsByQId = new Map()
+            oldS.questions.forEach(q => { qIds.push(q.id); labelsByQId.set(q.id, { sectionNumber: oldS.number, groupSortOrder: null, questionNumber: q.number }) })
+            oldS.questionGroups.forEach(g => g.questions.forEach(q => { qIds.push(q.id); labelsByQId.set(q.id, { sectionNumber: oldS.number, groupSortOrder: g.sortOrder, questionNumber: q.number }) }))
+            deleteSectionCandidates.push({ sectionId: oldS.id, questionIds: qIds, labelsByQId })
           }
+
+          const allCandidateIds = [
+            ...pruneQuestionIds,
+            ...deleteGroupCandidates.flatMap(c => c.questionIds),
+            ...deleteSectionCandidates.flatMap(c => c.questionIds)
+          ]
+          const answeredIds = await findAnsweredQuestionIds(tx, allCandidateIds)
+
+          const blockedQuestions = []
+          pruneQuestionIds.forEach(qId => { if (answeredIds.has(qId)) blockedQuestions.push(pruneLabels.get(qId)) })
+          deleteGroupCandidates.forEach(c => c.questionIds.forEach(qId => { if (answeredIds.has(qId)) blockedQuestions.push(c.labelsByQId.get(qId)) }))
+          deleteSectionCandidates.forEach(c => c.questionIds.forEach(qId => { if (answeredIds.has(qId)) blockedQuestions.push(c.labelsByQId.get(qId)) }))
+
+          if (blockedQuestions.length) throw new BlockedDeletionError(blockedQuestions)
+
+          for (const op of operations) await op()
+          for (const qId of pruneQuestionIds) await tx.question.delete({ where: { id: qId } })
+          for (const c of deleteGroupCandidates) await tx.questionGroup.delete({ where: { id: c.groupId } })
+          for (const c of deleteSectionCandidates) await tx.listeningSection.delete({ where: { id: c.sectionId } })
+
+          return tx.exam.findUnique({ where: { id }, include: { listeningSections: { include: { questions: true, questionGroups: true } } } })
+        })
+        invalidate('fulltests:')
+        return res.json(updated)
+      } catch (err) {
+        if (err instanceof BlockedDeletionError) {
+          return res.status(409).json({
+            message: 'Không thể lưu: một số câu hỏi đã có học viên làm bài nên không thể xoá. Vui lòng khôi phục lại (các) câu hỏi này trước khi lưu.',
+            blockedQuestions: err.blockedQuestions
+          })
         }
-        if (['matching', 'map_diagram'].includes(g.type)) {
-          return {
-            ...base,
-            matchingOptions: { create: (g.matchingOptions || []).map((mo, moi) => ({
-              optionLetter: mo.letter, optionText: mo.text || '', sortOrder: moi
-            })) },
-            questions: { create: (g.questions || []).map(q => ({
-              number: q.number, type: g.type, questionText: q.questionText || '',
-              correctAnswer: q.correctAnswer || '', options: null, imageUrl: null
-            })) }
-          }
-        }
-        if (g.type === 'drag_word_bank') {
-          return {
-            ...base,
-            noteSections: { create: (g.noteSections || []).map((ns, nsi) => ({
-              title: ns.title || '', sortOrder: nsi,
-              lines: { create: (ns.lines || []).map((l, li) => ({ contentWithTokens: l.content || '', lineType: l.lineType || 'content', sortOrder: li })) }
-            })) },
-            matchingOptions: { create: (g.matchingOptions || []).map((mo, moi) => ({
-              optionLetter: mo.letter, optionText: mo.text || '', sortOrder: moi
-            })) },
-            questions: { create: (g.questions || []).map(q => ({
-              number: q.number, type: 'fill_blank', questionText: '',
-              correctAnswer: q.correctAnswer || '', options: null, imageUrl: null
-            })) }
-          }
-        }
-        if (g.type === 'matching_drag') {
-          return {
-            ...base,
-            matchingOptions: { create: (g.matchingOptions || []).map((mo, moi) => ({
-              optionLetter: mo.letter, optionText: mo.text || '', sortOrder: moi
-            })) },
-            questions: { create: (g.questions || []).map(q => ({
-              number: q.number, type: 'matching', questionText: q.questionText || '',
-              correctAnswer: q.correctAnswer || '', options: null, imageUrl: null
-            })) }
-          }
-        }
-        return {
-          ...base,
-          questions: { create: (g.questions || []).map(q => ({
-            number: q.number, type: g.type, questionText: q.questionText || '',
-            options: q.options ? JSON.stringify(q.options.filter(o => o.trim())) : null,
-            correctAnswer: q.correctAnswer || '', imageUrl: null
-          })) }
-        }
+        throw err
       }
-
-      const updated = await prisma.exam.update({
-        where: { id },
-        data: {
-          title, bookNumber: bn, testNumber: tn,
-          listeningSections: {
-            create: sections.map(s => ({
-              number: s.number,
-              context: s.context || '',
-              audioUrl: s.audioUrl || null,
-              transcript: s.transcript || null,
-              questions: s.questionGroups
-                ? undefined
-                : { create: (s.questions || []).map(q => ({
-                    number: q.number, type: q.type, questionText: q.questionText,
-                    options: q.options ? JSON.stringify(q.options) : null,
-                    correctAnswer: q.correctAnswer, imageUrl: q.imageUrl || null
-                  })) },
-              questionGroups: s.questionGroups
-                ? { create: s.questionGroups.map((g, gi) => buildGroupData(g, gi)) }
-                : undefined
-            }))
-          }
-        }
-      })
-      invalidate('fulltests:')
-      return res.json(updated)
     }
 
     if (existing.skill === 'writing') {
