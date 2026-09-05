@@ -115,14 +115,14 @@ export default function Users() {
 
         {/* ── Topbar ─────────────────────────────────────── */}
         <div className="mb-6">
-          <h1 className="text-xl font-bold text-gray-800">
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900">
             Người dùng{' '}
-            <span className="text-base font-normal text-gray-400">({total} người)</span>
+            <span className="text-base font-normal text-slate-400">({total} người)</span>
           </h1>
         </div>
 
         {/* ── Stats row ──────────────────────────────────── */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100">
             <div className="text-2xl font-bold text-[#1D4ED8]">{total}</div>
             <div className="text-xs text-gray-500 mt-1 font-medium">Tổng người dùng</div>

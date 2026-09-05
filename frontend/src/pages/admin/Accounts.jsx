@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Pencil, Lock, Unlock, Trash2 } from 'lucide-react'
 import { getAdminAccounts, createAdminAccount, updateAdminAccount, deleteAdminAccount, toggleUserLock } from '../../services/adminService'
 import { useToast } from '../../context/ToastContext'
+import { AdminListHeader } from '../../components/admin/contentPageUI'
 
 
 const AVATAR_COLORS = [
@@ -108,14 +109,13 @@ export default function Accounts() {
 
   return (
     <>
-      <div className="p-6 max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-xl font-bold text-gray-800">Quản lý nhân sự</h1>
-          <button onClick={openCreate}
-            className="px-4 py-2 rounded-xl bg-[#1D4ED8] text-white text-sm font-medium hover:bg-blue-700 transition">
-            + Tạo tài khoản
-          </button>
-        </div>
+      <div className="p-6 max-w-6xl mx-auto">
+        <AdminListHeader
+          title="Quản lý nhân sự"
+          subtitle="Danh sách tài khoản giáo viên và quản trị viên"
+          onAdd={openCreate}
+          addLabel="+ Tạo tài khoản"
+        />
 
         {/* Form */}
         {showForm && (

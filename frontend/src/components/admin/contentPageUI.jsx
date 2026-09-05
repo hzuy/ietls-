@@ -64,17 +64,24 @@ export function DraftSavedHint({ at }) {
 }
 
 // ─── Header danh sách (h1 + mô tả + nút "+ Thêm mới") ────────────────────────
-export function AdminListHeader({ title, subtitle, onAdd, addLabel = '+ Thêm mới' }) {
+export function AdminListHeader({ title, subtitle, onAdd, addLabel = '+ Thêm mới', children }) {
   return (
-    <div className="flex items-center justify-between mb-6">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
       <div>
-        <h1 className="text-xl font-bold text-slate-800">{title}</h1>
-        <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>
+        <h1 className="text-xl md:text-2xl font-bold text-slate-900">{title}</h1>
+        {subtitle && <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>}
       </div>
-      <button onClick={onAdd}
-        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1D4ED8] text-white text-sm font-semibold hover:bg-[#1e40af] transition">
-        {addLabel}
-      </button>
+      {(onAdd || children) && (
+        <div className="flex items-center gap-3 flex-wrap">
+          {children}
+          {onAdd && (
+            <button onClick={onAdd}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1D4ED8] text-white text-sm font-semibold hover:bg-[#1e40af] transition">
+              {addLabel}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }

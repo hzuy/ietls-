@@ -62,7 +62,7 @@ export default function UserDetail() {
 
   return (
     <>
-      <div className="p-6 max-w-5xl mx-auto">
+      <div className="p-6 max-w-6xl mx-auto">
         <button onClick={() => navigate('/admin/users')} className="text-sm text-slate-400 hover:text-slate-600 mb-4 flex items-center gap-1">
           ← Quay lại
         </button>

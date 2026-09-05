@@ -70,8 +70,8 @@ export default function Profile() {
 
         {/* Page header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-800">Cài đặt tài khoản</h1>
-          <p className="text-sm text-gray-400 mt-1">Thông tin tài khoản đang đăng nhập</p>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900">Cài đặt tài khoản</h1>
+          <p className="text-sm text-slate-500 mt-1">Thông tin tài khoản đang đăng nhập</p>
         </div>
 
         {/* ── Profile card ─────────────────────────────── */}

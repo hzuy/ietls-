@@ -161,9 +161,9 @@ export default function Analytics() {
     <div className="p-6 max-w-6xl mx-auto">
 
         {/* ── Header + period toggle ── */}
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-xl font-bold text-gray-800">Thống kê & Phân tích</h1>
-          <div className="flex gap-1">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900">Thống kê & Phân tích</h1>
+          <div className="flex gap-1 flex-wrap">
             {[['week', '7 ngày'], ['month', '30 ngày'], ['all', 'Tất cả']].map(([v, l]) => (
               <button key={v} onClick={() => handlePeriodChange(v)}
                 disabled={chartLoading}
@@ -177,7 +177,7 @@ export default function Analytics() {
         </div>
 
         {/* ── KPI cards ── */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           {/* Card 1 — tổng user toàn hệ thống, KHÔNG phụ thuộc period */}
           <div className="rounded-2xl p-5 flex items-center gap-4" style={{ background: '#EFF6FF' }}>
             <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"

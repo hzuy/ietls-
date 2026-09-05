@@ -76,8 +76,14 @@ export default function Admin() {
   const currentTabExams = tabCache[activeTab]?.exams || []
 
   return (
-    <div className="p-6">
-        {/* Tab Navigation */}
+    <div className="p-6 max-w-6xl mx-auto">
+      {/* Page Header */}
+      <div className="mb-6">
+        <h1 className="text-xl md:text-2xl font-bold text-slate-900">Quản lý đề thi</h1>
+        <p className="text-sm text-slate-500 mt-0.5">Quản lý các bộ đề Cambridge và bài thi theo từng kỹ năng</p>
+      </div>
+
+      {/* Tab Navigation */}
         <div className="flex gap-2 mb-8 bg-white p-1.5 rounded-2xl border border-gray-100 shadow-sm w-fit">
           {TABS.map(tab => {
             const isTabActive = activeTab === tab.key

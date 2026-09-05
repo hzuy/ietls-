@@ -233,7 +233,7 @@ export default function ListeningPractice() {
   if (view === 'form') {
     return (
       <>
-        <div className="p-6 max-w-5xl">
+        <div className="p-6 max-w-6xl mx-auto">
           <div className="flex items-center gap-3 mb-6">
             <button onClick={() => { setIsDirty(false); setView('list') }} aria-label="Quay lại danh sách" className="text-slate-500 hover:text-slate-700 text-xl font-bold transition">←</button>
             <h1 className="text-xl font-bold text-slate-800">
@@ -375,7 +375,7 @@ export default function ListeningPractice() {
   // ── LIST VIEW ────────────────────────────────────────────────────────────────
   return (
     <>
-      <div className="p-6 max-w-5xl">
+      <div className="p-6 max-w-6xl mx-auto">
         <AdminListHeader
           title="Listening Practice"
           subtitle="Bài luyện nghe riêng lẻ — hiển thị trên trang chủ"

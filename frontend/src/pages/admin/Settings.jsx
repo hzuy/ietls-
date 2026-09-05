@@ -58,8 +58,8 @@ export default function Settings() {
 
         {/* Page header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-800">Cài đặt hệ thống</h1>
-          <p className="text-sm text-gray-400 mt-1">Cấu hình vận hành nền tảng IELTS</p>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900">Cài đặt hệ thống</h1>
+          <p className="text-sm text-slate-500 mt-1">Cấu hình vận hành nền tảng IELTS</p>
         </div>
 
         {/* ── SECTION 1: Thông tin chung ─────────────────── */}

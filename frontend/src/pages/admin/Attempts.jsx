@@ -275,7 +275,7 @@ export default function Attempts() {
 
   return (
     <>
-      <div className="p-6 w-full flex-1">
+      <div className="p-6 max-w-6xl mx-auto w-full flex-1">
         {/* Top Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 w-full">
           <div>

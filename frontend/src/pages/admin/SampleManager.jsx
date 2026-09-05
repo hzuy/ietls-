@@ -203,7 +203,7 @@ export default function SampleManager({ kind }) {
 
   if (view === 'form') {
     return (
-        <div className="p-6 max-w-5xl">
+        <div className="p-6 max-w-6xl mx-auto">
           <div className="flex items-center gap-3 mb-6">
             <button onClick={() => setView('list')} aria-label="Quay lại danh sách" className="text-slate-500 hover:text-slate-700 text-xl font-bold transition">←</button>
             <h1 className="text-xl font-bold text-slate-800">{editing ? cfg.formTitleEdit : cfg.formTitleNew}</h1>
@@ -290,7 +290,7 @@ export default function SampleManager({ kind }) {
 
   return (
     <>
-      <div className="p-6 max-w-5xl">
+      <div className="p-6 max-w-6xl mx-auto">
         <AdminListHeader title={cfg.listTitle} subtitle={cfg.listSubtitle} onAdd={openAdd} addLabel={cfg.addLabel} />
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
           {loading ? <div className="p-10 text-center text-sm text-gray-400">Đang tải...</div>
@@ -328,7 +328,7 @@ export default function SampleManager({ kind }) {
                       <td className="px-4 py-3 text-sm text-gray-500 hidden sm:table-cell">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</td>
                       <td className="px-4 py-3"><div className="flex items-center justify-end gap-2">
                         <button onClick={() => openEdit(item)} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium transition">Sửa</button>
-                        <button onClick={() => setDelConfirm(item.id)} className="text-xs px-3 py-1.5 rounded-lg border border-blue-200 text-red-500 hover:bg-blue-50 font-medium transition">Xóa</button>
+                        <button onClick={() => setDelConfirm(item.id)} className="text-xs px-3 py-1.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 font-medium transition">Xóa</button>
                       </div></td>
                     </tr>
                   ))}

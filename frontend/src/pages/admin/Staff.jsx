@@ -61,13 +61,13 @@ export default function Staff() {
 
   return (
     <>
-      <div className="p-6 max-w-4xl mx-auto">
+      <div className="p-6 max-w-6xl mx-auto">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-xl font-bold text-gray-800">Quản lý nhân sự</h1>
-            <p className="text-sm text-gray-400 mt-0.5">Danh sách admin và giảng viên trong hệ thống</p>
+            <h1 className="text-xl md:text-2xl font-bold text-slate-900">Quản lý nhân sự</h1>
+            <p className="text-sm text-slate-500 mt-0.5">Danh sách admin và giảng viên trong hệ thống</p>
           </div>
         </div>
 
