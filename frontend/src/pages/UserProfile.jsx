@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
 import { getMe, updateProfile, changePassword, getUserStats } from '../services/userService'
-import { User, BarChart2, Lock } from 'lucide-react'
+import { User, BarChart2, Lock, CheckCircle2, AlertCircle } from 'lucide-react'
 import { formatBand } from '../utils/ielts'
 
 const TABS = [
@@ -21,9 +21,21 @@ const SKILLS = [
 
 function Alert({ msg }) {
   if (!msg) return null
+  const isSuccess = msg.type === 'success'
+  const Icon = isSuccess ? CheckCircle2 : AlertCircle
+
   return (
-    <div role="alert" className="mt-4 px-4 py-3 rounded-xl font-medium bg-slate-50 text-slate-700 border border-slate-200" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}>
-      {msg.text}
+    <div
+      role="alert"
+      className={`mt-4 px-4 py-3 rounded-xl font-medium border flex items-center gap-2.5 ${
+        isSuccess
+          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+          : 'bg-rose-50 text-rose-800 border-rose-200'
+      }`}
+      style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}
+    >
+      <Icon className={`w-4 h-4 shrink-0 stroke-[2] ${isSuccess ? 'text-emerald-600' : 'text-rose-600'}`} />
+      <span>{msg.text}</span>
     </div>
   )
 }
