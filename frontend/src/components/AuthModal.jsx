@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { login, register } from '../services/userService'
+import { GoogleLogin } from '@react-oauth/google'
+import { login, register, googleAuth } from '../services/userService'
 
 export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
   const navigate = useNavigate()
@@ -14,6 +15,29 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
   const [regForm, setRegForm]       = useState({ name: '', email: '', password: '' })
   const [regError, setRegError]     = useState('')
   const [regLoading, setRegLoading] = useState(false)
+
+  // Google Sign-In state (dùng chung cho cả 2 tab)
+  const [googleError, setGoogleError] = useState('')
+
+  // Xử lý y hệt handleLogin/handleRegister: lưu token/user, theo dõi requirePasswordChange, gọi onSuccess
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setGoogleError('')
+    try {
+      const data = await googleAuth(credentialResponse.credential)
+      localStorage.setItem('token', data.token)
+      localStorage.setItem('user', JSON.stringify(data.user))
+      if (data.requirePasswordChange) {
+        localStorage.setItem('requirePasswordChange', 'true')
+        onClose()
+        navigate('/change-password')
+      } else {
+        localStorage.removeItem('requirePasswordChange')
+        onSuccess(data.user)
+      }
+    } catch (err) {
+      setGoogleError(err.response?.data?.message || 'Đăng nhập Google thất bại')
+    }
+  }
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -71,6 +95,30 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
 
   const inputStyle = { border: '1px solid var(--border)', color: 'var(--text)' }
   const inputCls   = 'w-full rounded-xl px-4 py-3 text-sm outline-none transition-all duration-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'
+
+  // Khối "hoặc" + nút Google — dùng chung cho cả 2 tab, chỉ đổi text nút theo ngữ cảnh
+  const googleSection = (
+    <>
+      {googleError && (
+        <div role="alert" className="p-3 rounded-xl mb-4 mt-4 text-sm font-medium bg-red-50 border border-red-200 text-red-600" style={{ fontFamily: 'var(--font-body)' }}>
+          ⚠️ {googleError}
+        </div>
+      )}
+      <div className="flex items-center gap-3 my-5">
+        <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
+        <span className="text-xs font-medium" style={{ color: 'var(--subtle)', fontFamily: 'var(--font-body)' }}>hoặc</span>
+        <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
+      </div>
+      <div className="flex justify-center">
+        <GoogleLogin
+          onSuccess={handleGoogleSuccess}
+          onError={() => setGoogleError('Đăng nhập Google thất bại')}
+          text={tab === 'register' ? 'signup_with' : 'signin_with'}
+          width="320"
+        />
+      </div>
+    </>
+  )
 
   return (
     <div
@@ -178,6 +226,8 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
               </button>
             </form>
 
+            {googleSection}
+
             <p className="text-center text-sm mt-5" style={{ fontFamily: 'var(--font-body)', color: 'var(--muted)' }}>
               Chưa có tài khoản?{' '}
               <button onClick={() => onTabChange('register')} className="font-bold" style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}>
@@ -249,6 +299,8 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
                 {regLoading ? 'Đang tạo tài khoản...' : 'Đăng ký miễn phí'}
               </button>
             </form>
+
+            {googleSection}
 
             <p className="text-center text-sm mt-5" style={{ fontFamily: 'var(--font-body)', color: 'var(--muted)' }}>
               Đã có tài khoản?{' '}

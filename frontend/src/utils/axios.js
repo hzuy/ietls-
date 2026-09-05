@@ -21,7 +21,7 @@ api.interceptors.response.use(
     const url = error.config?.url || ''
 
     // KHÔNG redirect khi lỗi xảy ra ở endpoint đăng nhập/đăng ký hoặc settings background
-    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register')
+    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/google')
     const isSettingsEndpoint = url.includes('/admin/settings')
 
     if (status === 401 && !isAuthEndpoint && !isSettingsEndpoint) {
