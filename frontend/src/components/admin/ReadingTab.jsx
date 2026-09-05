@@ -377,7 +377,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       setEditHighlight(true)
       setTimeout(() => setEditHighlight(false), 2000)
       window.scrollTo({ top: 0, behavior: 'smooth' })
-    } catch { alert('Lỗi tải đề để sửa') }
+    } catch { showToast('Lỗi tải đề để sửa') }
     finally { setLoadingEdit(false) }
   }
 
@@ -489,7 +489,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     try {
       await api.delete(`/admin/exams/${id}`)
       onRefresh()
-    } catch { alert('Lỗi xóa đề') }
+    } catch { showToast('Lỗi xóa đề') }
   }
 
   return (
