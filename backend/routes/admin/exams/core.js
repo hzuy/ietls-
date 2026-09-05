@@ -250,6 +250,23 @@ class BlockedDeletionError extends Error {
   }
 }
 
+// PUT /admin/exams/:id runs many sequential awaited queries inside one
+// interactive transaction (one update/create/deleteMany per passage/section,
+// per group, and per question — never batched). Measured on the largest real
+// Reading exam (Cambridge 19 Test 3, 3 passages / 8 groups / 40 questions,
+// the practical ceiling for a standard IELTS-format exam): a no-op-content
+// edit-only save took ~43.5s end to end against this project's Supabase
+// pooler. Prisma's default interactive-transaction timeout is 5000ms, so
+// every save that actually executes its operations (i.e. isn't rejected
+// early by BlockedDeletionError) reliably exceeded it and failed with
+// "Transaction API error: Transaction not found". 120s keeps ~2.75x margin
+// over that measurement; 15s maxWait accounts for this DB's per-query latency
+// (~1.2s+ warm) versus Prisma's 2s default when acquiring a connection slot
+// (connection_limit=5) under concurrent admin use. This is a stopgap for the
+// timeout, not a fix for the underlying per-row round-trip count — batching
+// these into fewer queries remains the real follow-up.
+const EXAM_UPDATE_TX_OPTIONS = { timeout: 120000, maxWait: 15000 }
+
 const NOTE_GROUP_TYPES = ['note_completion', 'table_completion', 'drag_word_bank']
 const READING_MATCHING_GROUP_TYPES = ['matching_information', 'drag_word_bank', 'matching_drag']
 const LISTENING_MATCHING_GROUP_TYPES = ['matching', 'map_diagram', 'drag_word_bank', 'matching_drag']
@@ -520,7 +537,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
           for (const c of deletePassageCandidates) await tx.passage.delete({ where: { id: c.passageId } })
 
           return tx.exam.findUnique({ where: { id }, include: { passages: { include: { questions: true, questionGroups: true } } } })
-        })
+        }, EXAM_UPDATE_TX_OPTIONS)
         invalidate('fulltests:')
         return res.json(updated)
       } catch (err) {
@@ -634,7 +651,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
           for (const c of deleteSectionCandidates) await tx.listeningSection.delete({ where: { id: c.sectionId } })
 
           return tx.exam.findUnique({ where: { id }, include: { listeningSections: { include: { questions: true, questionGroups: true } } } })
-        })
+        }, EXAM_UPDATE_TX_OPTIONS)
         invalidate('fulltests:')
         return res.json(updated)
       } catch (err) {
@@ -674,7 +691,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
           }
         }
         return tx.exam.findUnique({ where: { id }, include: { writingTasks: true } })
-      })
+      }, EXAM_UPDATE_TX_OPTIONS)
       invalidate('fulltests:')
       return res.json(updated)
     }
@@ -717,7 +734,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
             })
           }
         }
-      })
+      }, EXAM_UPDATE_TX_OPTIONS)
 
       const updated = await prisma.exam.findUnique({
         where: { id },
