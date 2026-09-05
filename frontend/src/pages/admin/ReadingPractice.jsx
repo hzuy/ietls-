@@ -16,6 +16,7 @@ import {
   inputCls, labelCls, btnPrimary, btnSecondary,
 } from '../../utils/practiceConfig'
 import AdminGroupPreview from '../../components/practice/AdminGroupPreview'
+import ImageWithFallback from '../../components/common/ImageWithFallback'
 
 // ─── PREVIEW MODAL ────────────────────────────────────────────────────────────
 function ReadingPracticePreviewModal({ form, showAnswers, setShowAnswers, onClose }) {
@@ -372,9 +373,10 @@ export default function ReadingPractice() {
                   <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50 transition">
                     <td className="px-4 py-3">
                       <div style={{ width: 60, height: 40, borderRadius: 6, overflow: 'hidden', background: '#f1f5f9', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {resolveImg(item.thumbnailUrl)
-                          ? <img src={resolveImg(item.thumbnailUrl)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          : <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" stroke="#cbd5e1" strokeWidth="1.5"/><path d="M21 15l-5-5L5 21" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round"/></svg>}
+                        <ImageWithFallback
+                          src={resolveImg(item.thumbnailUrl)}
+                          alt={item.title || 'Thumbnail'}
+                        />
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm font-medium text-slate-800">{item.title}</td>
