@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
-import { getSpeakingExam, submitSpeakingExam, getSpeakingStatus, getFullTestStatus, getSpeakingMyResults } from '../services/examService'
+import { getSpeakingExam, submitSpeakingExam, getSpeakingStatus, getFullTestStatus, getSpeakingMyResults, retrySpeakingGrading } from '../services/examService'
 import { saveDraft, loadDraft, clearDraft, isDataEmpty, formatSavedAt } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -43,7 +43,10 @@ export default function SpeakingExam() {
   const [submittedPartIds, setSubmittedPartIds] = useState([]) // part đã nộp (kể cả phiên trước)
   const [submitting, setSubmitting] = useState(false)
   const [gradingPart, setGradingPart] = useState(null)
-  const [gradingError, setGradingError] = useState(null)
+  // Map theo partId — { [partId]: { error, answerId } }. Khác biệt object đơn cũ:
+  // hỗ trợ NHIỀU part lỗi cùng lúc (vd. cả 3 part cùng lỗi model Groq).
+  const [gradingErrors, setGradingErrors] = useState({})
+  const [retryingPart, setRetryingPart] = useState(null)
   const [showExitConfirm, setShowExitConfirm] = useState(false)
   const [fullTestStatus, setFullTestStatus] = useState(null)
   const pollTimerRef = useRef(null)
@@ -176,14 +179,22 @@ export default function SpeakingExam() {
         // ── Khôi phục kết quả đã chấm (status 'graded') ─────────────────────
         // Set `results` + `submittedPartIds` cho part có trong response, và
         // `transcripts` (để ô "Bài nói của bạn" hiển thị lại đúng).
+        // Part với bản ghi mới nhất 'failed' (vd. lỗi model Groq) KHÔNG được coi
+        // là "đã nộp" — nạp vào `gradingErrors` để hiện banner lỗi + nút thử lại,
+        // thay vì im lặng treo ở "Đang tổng hợp kết quả" như trước.
         const restoredResults = {}
         const restoredTranscripts = {}
         const restoredIds = []
+        const restoredErrors = {}
         if (Array.isArray(myResults)) {
           for (const entry of myResults) {
-            if (entry && entry.partId != null && entry.status === 'graded') {
+            if (!entry || entry.partId == null) continue
+            if (entry.status === 'graded') {
               restoredResults[entry.partId] = entry
               restoredIds.push(entry.partId)
+              if (entry.transcript) restoredTranscripts[entry.partId] = entry.transcript
+            } else if (entry.status === 'failed') {
+              restoredErrors[entry.partId] = { error: entry.error, answerId: entry.answerId }
               if (entry.transcript) restoredTranscripts[entry.partId] = entry.transcript
             }
           }
@@ -192,7 +203,12 @@ export default function SpeakingExam() {
           // `...prev` sau cùng: nếu polling phiên này vừa set kết quả mới hơn thì giữ nguyên
           setResults(prev => ({ ...restoredResults, ...prev }))
           setSubmittedPartIds(prev => Array.from(new Set([...prev, ...restoredIds])))
+        }
+        if (Object.keys(restoredTranscripts).length > 0) {
           setTranscripts(prev => ({ ...restoredTranscripts, ...prev }))
+        }
+        if (Object.keys(restoredErrors).length > 0) {
+          setGradingErrors(prev => ({ ...restoredErrors, ...prev }))
         }
 
         // ── Resume draft cục bộ (logic cũ, dùng functional update để không
@@ -316,11 +332,19 @@ export default function SpeakingExam() {
     }
   }, [exam, navigate])
 
+  const clearPartError = useCallback((partId) => setGradingErrors(prev => {
+    if (!(partId in prev)) return prev
+    const next = { ...prev }
+    delete next[partId]
+    return next
+  }), [])
+
   const pollStatus = useCallback(async (answerId, part, pollCount = 0) => {
     if (pollCount >= 30) {
-      setGradingError({ partId: part.id, error: 'Hết thời gian chờ nhận xét (90 giây). Vui lòng thử lại.' })
+      setGradingErrors(prev => ({ ...prev, [part.id]: { error: 'Hết thời gian chờ nhận xét (90 giây). Vui lòng thử lại.', answerId } }))
       setSubmitting(false)
       setGradingPart(null)
+      setRetryingPart(null)
       return
     }
 
@@ -329,7 +353,8 @@ export default function SpeakingExam() {
       if (res.status === 'graded') {
         setResults(prev => ({ ...prev, [part.id]: res }))
         setGradingPart(null)
-        setGradingError(null)
+        setRetryingPart(null)
+        clearPartError(part.id)
         setSubmitting(false)
 
         // Auto-advance to next part
@@ -338,19 +363,42 @@ export default function SpeakingExam() {
           setActivePart(currentIndex + 1)
         }
       } else if (res.status === 'failed') {
-        setGradingError({ partId: part.id, error: res.error || 'Lỗi nhận xét AI' })
+        setGradingErrors(prev => ({ ...prev, [part.id]: { error: res.error || 'Lỗi nhận xét AI', answerId: res.answerId ?? answerId } }))
         setSubmitting(false)
         setGradingPart(null)
+        setRetryingPart(null)
       } else {
         // Pending or grading
         pollTimerRef.current = setTimeout(() => pollStatus(answerId, part, pollCount + 1), 3000)
       }
     } catch (err) {
-      setGradingError({ partId: part.id, error: err.response?.data?.message || 'Lỗi kiểm tra kết quả nhận xét' })
+      setGradingErrors(prev => ({ ...prev, [part.id]: { error: err.response?.data?.message || 'Lỗi kiểm tra kết quả nhận xét', answerId } }))
       setSubmitting(false)
       setGradingPart(null)
+      setRetryingPart(null)
     }
-  }, [exam])
+  }, [exam, clearPartError])
+
+  // Chấm lại bài ĐÃ nộp (status='failed') từ transcript đã lưu — không cần ghi âm
+  // lại. Khác handleResubmit (Task 3): dùng khi lỗi hạ tầng AI, không phải muốn
+  // nói lại nội dung.
+  const retryPart = useCallback(async (part) => {
+    const entry = gradingErrors[part.id]
+    if (!entry?.answerId || retryingPart) return
+    setRetryingPart(part.id)
+    setSubmitting(true)
+    clearPartError(part.id)
+    setGradingPart(part.id)
+    try {
+      const r = await retrySpeakingGrading(entry.answerId)
+      pollStatus(r.answerId, part)
+    } catch (e) {
+      setGradingErrors(prev => ({ ...prev, [part.id]: { error: e.response?.data?.message || 'Lỗi chấm lại, thử lại nhé!', answerId: entry.answerId } }))
+      setSubmitting(false)
+      setGradingPart(null)
+      setRetryingPart(null)
+    }
+  }, [gradingErrors, retryingPart, clearPartError, pollStatus])
 
   const submitPart = useCallback(async (part) => {
     const transcript = transcripts[part.id] || ''
@@ -361,7 +409,7 @@ export default function SpeakingExam() {
     if (isRecording) stopRecording()
     if (isTranscribing) return // Don't submit while Whisper is processing
     setSubmitting(true)
-    setGradingError(null)
+    clearPartError(part.id)
     setGradingPart(part.id)
     try {
       const r = await submitSpeakingExam(id, part.id, transcript)
@@ -378,11 +426,11 @@ export default function SpeakingExam() {
         }
       }
     } catch (e) {
-      setGradingError({ partId: part.id, error: e.response?.data?.message || 'Lỗi nộp bài, thử lại nhé!' })
+      setGradingErrors(prev => ({ ...prev, [part.id]: { error: e.response?.data?.message || 'Lỗi nộp bài, thử lại nhé!' } }))
       setSubmitting(false)
       setGradingPart(null)
     }
-  }, [transcripts, isRecording, isTranscribing, id, exam, stopRecording, pollStatus])
+  }, [transcripts, isRecording, isTranscribing, id, exam, stopRecording, pollStatus, clearPartError])
 
   if (loading) return <SkeletonExamPage variant="speaking" />
   if (error || !exam) {
@@ -545,6 +593,7 @@ export default function SpeakingExam() {
   const partTranscript = transcripts[part.id] || ''
   const wordCount = partTranscript.trim().split(/\s+/).filter(Boolean).length
   const partDone = isPartDone(part.id)
+  const partGradingError = gradingErrors[part.id] || null
 
   return (
     <div className="h-dvh flex flex-col overflow-hidden bg-slate-50">
@@ -721,6 +770,21 @@ export default function SpeakingExam() {
               <p className="text-slate-800 text-base font-bold mb-2">Chế độ Preview</p>
               <p className="text-slate-500 text-sm leading-relaxed m-0">Phần ghi âm và chấm điểm không hiển thị trong preview.<br />Nội dung đề thi hiển thị bên trái.</p>
             </div>
+          ) : partGradingError?.answerId && !results[part.id] ? (
+            // Đã nộp NHƯNG bản chấm mới nhất bị lỗi (vd. model AI đổi/timeout) — vẫn còn
+            // transcript đã lưu, cho chấm lại tại chỗ thay vì treo mãi ở "Đang tổng hợp".
+            <div className="flex-1 bg-white rounded-2xl border border-red-200 p-8 flex flex-col items-center justify-center text-center max-w-xl mx-auto w-full self-center shadow-sm">
+              <div className="text-4xl mb-4">⚠️</div>
+              <p className="font-bold text-slate-800 text-lg mb-1">Nhận xét Part {part.number} không thành công</p>
+              <p className="text-slate-500 text-sm mb-6 leading-relaxed">{partGradingError.error}</p>
+              <button
+                onClick={() => retryPart(part)}
+                disabled={retryingPart === part.id}
+                className="btn-primary px-6 py-2.5 rounded-xl font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {retryingPart === part.id ? 'Đang chấm lại...' : '🔄 Thử chấm điểm lại'}
+              </button>
+            </div>
           ) : partDone ? (
             <div className="flex-1 bg-white rounded-2xl border border-slate-200 p-8 flex flex-col items-center justify-center text-center max-w-xl mx-auto w-full self-center shadow-sm">
               <div className="text-4xl mb-4">✅</div>
@@ -745,14 +809,14 @@ export default function SpeakingExam() {
             </div>
           ) : (
             <div className="flex-1 flex flex-col gap-3.5 min-h-0">
-              {gradingError && gradingError.partId === part.id && (
+              {partGradingError && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center justify-between text-sm">
-                  <span>❌ Nhận xét không thành công: {gradingError.error}</span>
+                  <span>❌ Nộp bài không thành công: {partGradingError.error}</span>
                   <button
                     onClick={() => submitPart(part)}
                     className="ml-3 px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition cursor-pointer"
                   >
-                    🔄 Thử chấm điểm lại
+                    🔄 Thử nộp lại
                   </button>
                 </div>
               )}

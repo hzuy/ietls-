@@ -92,10 +92,12 @@ router.get('/exams/:id', authMiddleware, async (req, res) => {
 })
 
 // Khôi phục kết quả đã chấm của CHÍNH user cho 1 đề Speaking (Tầng 4).
-// "Latest wins" theo partId (pattern giống fulltest.js) — chỉ trả part đã có
-// answer với status 'graded' + aiFeedback parse được. Kèm transcript để ô
-// "Bài nói của bạn" hiển thị đúng sau khi khôi phục. Client merge vào state
-// `results` (key theo partId) mà không phải sửa UI render.
+// "Latest wins" theo partId (pattern giống fulltest.js) — trả part đã có answer
+// 'graded' (+ aiFeedback parse được, kèm transcript để ô "Bài nói của bạn" hiển
+// thị đúng) HOẶC 'failed' (kèm answerId + error để client hiện banner lỗi +
+// nút "Thử chấm điểm lại" thay vì im lặng treo ở "Đang tổng hợp kết quả").
+// Part đang 'pending'/'grading' bị bỏ qua — không có cách tiếp tục polling sau
+// khi reload trang, giữ hành vi cũ.
 router.get('/exams/:id/my-results', authMiddleware, async (req, res) => {
   try {
     const examId = parseInt(req.params.id)
@@ -112,7 +114,7 @@ router.get('/exams/:id/my-results', authMiddleware, async (req, res) => {
     const answers = await prisma.speakingAnswer.findMany({
       where: { userId, partId: { in: partIds } },
       orderBy: { createdAt: 'desc' },
-      select: { id: true, partId: true, status: true, aiFeedback: true, transcript: true }
+      select: { id: true, partId: true, status: true, aiFeedback: true, transcript: true, error: true }
     })
 
     // list đã desc theo createdAt → bản đầu tiên gặp cho mỗi part = mới nhất
@@ -123,19 +125,28 @@ router.get('/exams/:id/my-results', authMiddleware, async (req, res) => {
 
     const results = []
     for (const a of Object.values(latestByPart)) {
-      if (a.status !== 'graded' || !a.aiFeedback) continue
-      let feedback
-      try { feedback = JSON.parse(a.aiFeedback) } catch { continue }
-      results.push({
-        partId: a.partId,
-        answerId: a.id,
-        status: 'graded',
-        overall: feedback.overall,
-        criteria: feedback.criteria,
-        strengths: feedback.strengths,
-        improvements: feedback.improvements,
-        transcript: a.transcript
-      })
+      if (a.status === 'graded' && a.aiFeedback) {
+        let feedback
+        try { feedback = JSON.parse(a.aiFeedback) } catch { continue }
+        results.push({
+          partId: a.partId,
+          answerId: a.id,
+          status: 'graded',
+          overall: feedback.overall,
+          criteria: feedback.criteria,
+          strengths: feedback.strengths,
+          improvements: feedback.improvements,
+          transcript: a.transcript
+        })
+      } else if (a.status === 'failed') {
+        results.push({
+          partId: a.partId,
+          answerId: a.id,
+          status: 'failed',
+          error: a.error || 'Lỗi nhận xét AI',
+          transcript: a.transcript
+        })
+      }
     }
 
     res.json(results)

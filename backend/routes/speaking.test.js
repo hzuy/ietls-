@@ -211,12 +211,12 @@ describe('Speaking Routes & AI Criterion Logging', () => {
       )
     })
 
-    it('skips pending / failed answers — only graded entries appear', async () => {
+    it('skips pending/grading answers, but surfaces failed ones with error + answerId for retry', async () => {
       prismaMock.speakingPart.findMany.mockResolvedValue([{ id: 20 }, { id: 21 }, { id: 22 }])
       prismaMock.speakingAnswer.findMany.mockResolvedValue([
-        { id: 1001, partId: 20, status: 'graded', transcript: 't', aiFeedback: fb(6) },
-        { id: 1002, partId: 21, status: 'grading', transcript: 't', aiFeedback: null },
-        { id: 1003, partId: 22, status: 'failed', transcript: 't', aiFeedback: null },
+        { id: 1001, partId: 20, status: 'graded', transcript: 't', aiFeedback: fb(6), error: null },
+        { id: 1002, partId: 21, status: 'grading', transcript: 't', aiFeedback: null, error: null },
+        { id: 1003, partId: 22, status: 'failed', transcript: 't', aiFeedback: null, error: 'model_not_found' },
       ])
 
       const res = await request(app)
@@ -224,8 +224,11 @@ describe('Speaking Routes & AI Criterion Logging', () => {
         .set('Authorization', `Bearer ${getTestToken()}`)
 
       expect(res.status).toBe(200)
-      expect(res.body).toHaveLength(1)
-      expect(res.body[0].partId).toBe(20)
+      expect(res.body).toHaveLength(2)
+      const byPartId = Object.fromEntries(res.body.map(r => [r.partId, r]))
+      expect(byPartId[20]).toMatchObject({ status: 'graded' })
+      expect(byPartId[21]).toBeUndefined()
+      expect(byPartId[22]).toMatchObject({ status: 'failed', answerId: 1003, error: 'model_not_found' })
     })
 
     it('omits parts that were never submitted', async () => {

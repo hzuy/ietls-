@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
-import { getWritingExam, submitWritingExam, getWritingStatus, getFullTestStatus, getWritingMyResults } from '../services/examService'
+import { getWritingExam, submitWritingExam, getWritingStatus, getFullTestStatus, getWritingMyResults, retryWritingGrading } from '../services/examService'
 import { getAdminSettings } from '../services/adminService'
 import { saveDraft, loadDraft, clearDraft, isDataEmpty, formatSavedAt } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
@@ -77,7 +77,10 @@ export default function WritingExam() {
   const [submittedTaskIds, setSubmittedTaskIds] = useState([]) // task đã nộp (kể cả phiên trước)
   const [submitting, setSubmitting] = useState(false)
   const [gradingTask, setGradingTask] = useState(null)
-  const [gradingError, setGradingError] = useState(null)
+  // Map theo taskId — { [taskId]: { error, answerId } }. Khác biệt object đơn cũ:
+  // hỗ trợ NHIỀU task lỗi cùng lúc (vd. cả 2 task cùng lỗi model Groq).
+  const [gradingErrors, setGradingErrors] = useState({})
+  const [retryingTask, setRetryingTask] = useState(null)
   const [timeLeft, setTimeLeft] = useState(DEFAULT_WRITING_TIME)
   const [totalMinutes, setTotalMinutes] = useState(DEFAULT_WRITING_TIME / 60) // hiển thị ở start-screen
   const [lightbox, setLightbox] = useState(null)
@@ -184,13 +187,20 @@ export default function WritingExam() {
         // ── Khôi phục kết quả đã chấm (status 'graded') ─────────────────────
         // Chỉ set `results` + `submittedTaskIds` cho task có trong response;
         // KHÔNG đụng `essays` → task chưa nộp vẫn gõ tiếp bình thường.
+        // Task với bản ghi mới nhất 'failed' (vd. lỗi model Groq) KHÔNG được coi
+        // là "đã nộp" — nạp vào `gradingErrors` để hiện banner lỗi + nút thử lại,
+        // thay vì im lặng biến mất như trước.
         const restoredResults = {}
         const restoredIds = []
+        const restoredErrors = {}
         if (Array.isArray(myResults)) {
           for (const entry of myResults) {
-            if (entry && entry.taskId != null && entry.status === 'graded') {
+            if (!entry || entry.taskId == null) continue
+            if (entry.status === 'graded') {
               restoredResults[entry.taskId] = entry
               restoredIds.push(entry.taskId)
+            } else if (entry.status === 'failed') {
+              restoredErrors[entry.taskId] = { error: entry.error, answerId: entry.answerId }
             }
           }
         }
@@ -198,6 +208,9 @@ export default function WritingExam() {
           // `...prev` sau cùng: nếu polling phiên này vừa set kết quả mới hơn thì giữ nguyên
           setResults(prev => ({ ...restoredResults, ...prev }))
           setSubmittedTaskIds(prev => Array.from(new Set([...prev, ...restoredIds])))
+        }
+        if (Object.keys(restoredErrors).length > 0) {
+          setGradingErrors(prev => ({ ...restoredErrors, ...prev }))
         }
 
         // ── Resume draft cục bộ (logic cũ, dùng functional update để không
@@ -293,11 +306,19 @@ export default function WritingExam() {
 
   const setEssay = (taskId, text) => setEssays(e => ({ ...e, [taskId]: text }))
 
+  const clearTaskError = (taskId) => setGradingErrors(prev => {
+    if (!(taskId in prev)) return prev
+    const next = { ...prev }
+    delete next[taskId]
+    return next
+  })
+
   const pollStatus = async (answerId, task, pollCount = 0) => {
     if (pollCount >= 30) {
-      setGradingError({ taskId: task.id, error: 'Hết thời gian chờ chấm bài (90 giây). Vui lòng thử lại.' })
+      setGradingErrors(prev => ({ ...prev, [task.id]: { error: 'Hết thời gian chờ chấm bài (90 giây). Vui lòng thử lại.', answerId } }))
       setSubmitting(false)
       setGradingTask(null)
+      setRetryingTask(null)
       return
     }
 
@@ -306,20 +327,23 @@ export default function WritingExam() {
       if (res.status === 'graded') {
         setResults(prev => ({ ...prev, [task.id]: res }))
         setGradingTask(null)
-        setGradingError(null)
+        setRetryingTask(null)
+        clearTaskError(task.id)
         setSubmitting(false)
       } else if (res.status === 'failed') {
-        setGradingError({ taskId: task.id, error: res.error || 'Lỗi chấm bài AI' })
+        setGradingErrors(prev => ({ ...prev, [task.id]: { error: res.error || 'Lỗi chấm bài AI', answerId: res.answerId ?? answerId } }))
         setSubmitting(false)
         setGradingTask(null)
+        setRetryingTask(null)
       } else {
         // Still pending or grading
         pollTimerRef.current = setTimeout(() => pollStatus(answerId, task, pollCount + 1), 3000)
       }
     } catch (err) {
-      setGradingError({ taskId: task.id, error: err.response?.data?.message || 'Lỗi kiểm tra kết quả chấm' })
+      setGradingErrors(prev => ({ ...prev, [task.id]: { error: err.response?.data?.message || 'Lỗi kiểm tra kết quả chấm', answerId } }))
       setSubmitting(false)
       setGradingTask(null)
+      setRetryingTask(null)
     }
   }
 
@@ -327,7 +351,7 @@ export default function WritingExam() {
     const essay = essays[task.id] || ''
     if (wc(essay) < 50) { showToast('Bài viết cần ít nhất 50 từ!', 'error'); return }
     setSubmitting(true)
-    setGradingError(null)
+    clearTaskError(task.id)
     setGradingTask(task.id)
     try {
       const r = await submitWritingExam(id, task.id, essay)
@@ -340,9 +364,29 @@ export default function WritingExam() {
         setGradingTask(null)
       }
     } catch (e) {
-      setGradingError({ taskId: task.id, error: e.response?.data?.message || 'Lỗi nộp bài, thử lại nhé!' })
+      setGradingErrors(prev => ({ ...prev, [task.id]: { error: e.response?.data?.message || 'Lỗi nộp bài, thử lại nhé!' } }))
       setSubmitting(false)
       setGradingTask(null)
+    }
+  }
+
+  // Chấm lại bài ĐÃ nộp (status='failed') từ essayText đã lưu — không cần viết lại.
+  // Khác handleResubmit (Task 3): dùng khi lỗi hạ tầng AI, không phải muốn đổi nội dung.
+  const retryTask = async (task) => {
+    const entry = gradingErrors[task.id]
+    if (!entry?.answerId || retryingTask) return
+    setRetryingTask(task.id)
+    setSubmitting(true)
+    clearTaskError(task.id)
+    setGradingTask(task.id)
+    try {
+      const r = await retryWritingGrading(entry.answerId)
+      pollStatus(r.answerId, task)
+    } catch (e) {
+      setGradingErrors(prev => ({ ...prev, [task.id]: { error: e.response?.data?.message || 'Lỗi chấm lại, thử lại nhé!', answerId: entry.answerId } }))
+      setSubmitting(false)
+      setGradingTask(null)
+      setRetryingTask(null)
     }
   }
 
@@ -544,6 +588,7 @@ export default function WritingExam() {
   const words = wc(taskEssay)
   const minWords = task.minWords || (task.number === 1 ? 150 : 250)
   const taskDone = isTaskDone(task.id)
+  const taskGradingError = gradingErrors[task.id] || null
 
   return (
     <div className="h-dvh flex flex-col overflow-hidden bg-slate-50">
@@ -624,7 +669,22 @@ export default function WritingExam() {
 
         {/* Right: Essay area */}
         <div className={`flex-1 flex flex-col overflow-hidden bg-slate-50 p-8 ${isMobile && mobileView !== 'writing' ? 'hidden' : ''}`}>
-          {taskDone ? (
+          {taskGradingError?.answerId && !results[task.id] ? (
+            // Đã nộp NHƯNG bản chấm mới nhất bị lỗi (vd. model AI đổi/timeout) — vẫn còn
+            // essayText đã lưu, cho chấm lại tại chỗ thay vì hiện "đã nộp" giả hoặc treo mãi.
+            <div className="flex-1 bg-white rounded-2xl border border-red-200 p-8 flex flex-col items-center justify-center text-center max-w-xl mx-auto w-full self-center shadow-sm">
+              <div className="text-4xl mb-4">⚠️</div>
+              <p className="font-bold text-slate-800 text-lg mb-1">Chấm bài Task {task.number} không thành công</p>
+              <p className="text-slate-500 text-sm mb-6 leading-relaxed">{taskGradingError.error}</p>
+              <button
+                onClick={() => retryTask(task)}
+                disabled={retryingTask === task.id}
+                className="btn-primary px-6 py-2.5 rounded-xl font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {retryingTask === task.id ? '🤖 Đang chấm lại...' : '🔄 Thử chấm điểm lại'}
+              </button>
+            </div>
+          ) : taskDone ? (
             <div className="flex-1 bg-white rounded-2xl border border-slate-200 p-8 flex flex-col items-center justify-center text-center max-w-xl mx-auto w-full self-center shadow-sm">
               <div className="text-4xl mb-4">✅</div>
               <p className="font-bold text-slate-800 text-lg mb-1">Task {task.number} đã được nộp!</p>
@@ -643,14 +703,14 @@ export default function WritingExam() {
             </div>
           ) : (
             <>
-              {gradingError && gradingError.taskId === task.id && (
+              {taskGradingError && (
                 <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center justify-between text-sm">
-                  <span>❌ Chấm bài không thành công: {gradingError.error}</span>
+                  <span>❌ Nộp bài không thành công: {taskGradingError.error}</span>
                   <button
                     onClick={() => submitTask(task)}
                     className="ml-3 px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition cursor-pointer"
                   >
-                    🔄 Thử chấm điểm lại
+                    🔄 Thử nộp lại
                   </button>
                 </div>
               )}

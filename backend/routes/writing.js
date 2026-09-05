@@ -62,9 +62,11 @@ router.get('/exams/:id', authMiddleware, async (req, res) => {
 })
 
 // Khôi phục kết quả đã chấm của CHÍNH user cho 1 đề Writing (Tầng 4).
-// "Latest wins" theo taskId (pattern giống fulltest.js) — chỉ trả task đã có
-// answer với status 'graded' + aiFeedback parse được. Client merge thẳng vào
-// state `results` (key theo taskId) mà không phải sửa UI render.
+// "Latest wins" theo taskId (pattern giống fulltest.js) — trả task đã có answer
+// 'graded' (+ aiFeedback parse được) HOẶC 'failed' (kèm answerId + error để
+// client hiện banner lỗi + nút "Thử chấm điểm lại" thay vì im lặng coi như
+// task chưa từng nộp). Task đang 'pending'/'grading' bị bỏ qua — không có cách
+// tiếp tục polling sau khi reload trang, giữ hành vi cũ.
 router.get('/exams/:id/my-results', authMiddleware, async (req, res) => {
   try {
     const examId = parseInt(req.params.id)
@@ -81,7 +83,7 @@ router.get('/exams/:id/my-results', authMiddleware, async (req, res) => {
     const answers = await prisma.writingAnswer.findMany({
       where: { userId, taskId: { in: taskIds } },
       orderBy: { createdAt: 'desc' },
-      select: { id: true, taskId: true, status: true, aiFeedback: true, wordCount: true }
+      select: { id: true, taskId: true, status: true, aiFeedback: true, wordCount: true, error: true }
     })
 
     // list đã desc theo createdAt → bản đầu tiên gặp cho mỗi task = mới nhất
@@ -92,19 +94,27 @@ router.get('/exams/:id/my-results', authMiddleware, async (req, res) => {
 
     const results = []
     for (const a of Object.values(latestByTask)) {
-      if (a.status !== 'graded' || !a.aiFeedback) continue
-      let feedback
-      try { feedback = JSON.parse(a.aiFeedback) } catch { continue }
-      results.push({
-        taskId: a.taskId,
-        answerId: a.id,
-        status: 'graded',
-        overall: feedback.overall,
-        criteria: feedback.criteria,
-        strengths: feedback.strengths,
-        improvements: feedback.improvements,
-        wordCount: a.wordCount
-      })
+      if (a.status === 'graded' && a.aiFeedback) {
+        let feedback
+        try { feedback = JSON.parse(a.aiFeedback) } catch { continue }
+        results.push({
+          taskId: a.taskId,
+          answerId: a.id,
+          status: 'graded',
+          overall: feedback.overall,
+          criteria: feedback.criteria,
+          strengths: feedback.strengths,
+          improvements: feedback.improvements,
+          wordCount: a.wordCount
+        })
+      } else if (a.status === 'failed') {
+        results.push({
+          taskId: a.taskId,
+          answerId: a.id,
+          status: 'failed',
+          error: a.error || 'Lỗi chấm bài AI'
+        })
+      }
     }
 
     res.json(results)

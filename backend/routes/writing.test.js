@@ -236,12 +236,12 @@ describe('Writing Submission Routes', () => {
       )
     })
 
-    it('skips pending / failed answers — only graded entries appear', async () => {
+    it('skips pending answers, but surfaces failed ones with error + answerId for retry', async () => {
       prismaMock.writingTask.findMany.mockResolvedValue([{ id: 10 }, { id: 11 }, { id: 12 }])
       prismaMock.writingAnswer.findMany.mockResolvedValue([
-        { id: 601, taskId: 10, status: 'graded', wordCount: 250, aiFeedback: fb(6) },
-        { id: 602, taskId: 11, status: 'pending', wordCount: 10, aiFeedback: null },
-        { id: 603, taskId: 12, status: 'failed', wordCount: 250, aiFeedback: null },
+        { id: 601, taskId: 10, status: 'graded', wordCount: 250, aiFeedback: fb(6), error: null },
+        { id: 602, taskId: 11, status: 'pending', wordCount: 10, aiFeedback: null, error: null },
+        { id: 603, taskId: 12, status: 'failed', wordCount: 250, aiFeedback: null, error: 'model_not_found' },
       ])
 
       const res = await request(app)
@@ -249,8 +249,11 @@ describe('Writing Submission Routes', () => {
         .set('Authorization', `Bearer ${getTestToken()}`)
 
       expect(res.status).toBe(200)
-      expect(res.body).toHaveLength(1)
-      expect(res.body[0].taskId).toBe(10)
+      expect(res.body).toHaveLength(2)
+      const byTaskId = Object.fromEntries(res.body.map(r => [r.taskId, r]))
+      expect(byTaskId[10]).toMatchObject({ status: 'graded' })
+      expect(byTaskId[11]).toBeUndefined()
+      expect(byTaskId[12]).toMatchObject({ status: 'failed', answerId: 603, error: 'model_not_found' })
     })
 
     it('omits tasks that were never submitted', async () => {
