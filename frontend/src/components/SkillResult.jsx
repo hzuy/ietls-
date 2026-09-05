@@ -5,6 +5,7 @@
  */
 import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { RotateCcw, BookOpen, Home } from 'lucide-react'
 import api from '../utils/axios'
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
@@ -432,6 +433,18 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
     navigate(-1)
   }
 
+  const handleRetry = () => {
+    if (isPractice) {
+      navigate(`/practice/${skillType}/${examId}`)
+    } else {
+      navigate(`/${skillType}/${examId}`)
+    }
+  }
+
+  const handleNextPractice = () => {
+    navigate(`/practice/${skillType}`)
+  }
+
   const skillLabel = skillType === 'reading' ? 'Reading' : 'Listening'
 
   if (loading) return (
@@ -509,11 +522,13 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
       <div style={{ maxWidth: 780, margin: '0 auto', padding: '24px 24px 60px' }}>
 
         {/* ── Score Card ── */}
-        <div style={{
-          background: '#fff', borderRadius: 16, padding: '28px 32px',
-          marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
-          display: 'flex', alignItems: 'center', gap: 32,
-        }}>
+        <div
+          className="flex flex-col sm:flex-row items-center sm:items-start gap-6 sm:gap-8"
+          style={{
+            background: '#fff', borderRadius: 16, padding: '28px 32px',
+            marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
+          }}
+        >
           <div style={{ flex: 1, minWidth: 0 }}>
             <h2 style={{
               fontSize: 17, fontWeight: 700, color: '#111827', margin: '0 0 20px',
@@ -576,6 +591,34 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
                 onMouseLeave={e => e.currentTarget.style.background = '#1D4ED8'}
               >
                 <span>📊 Xem Phân tích Lỗi sai & Lộ trình AI</span>
+              </button>
+            </div>
+
+            {/* ── Navigation CTA Cluster ── */}
+            <div className="mt-5 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleRetry}
+                className="btn-secondary px-4 py-2 rounded-xl text-sm font-semibold border border-slate-200 hover:border-slate-300 flex items-center gap-2 cursor-pointer"
+              >
+                <RotateCcw className="w-4 h-4 text-slate-500" />
+                Làm lại đề này
+              </button>
+              <button
+                type="button"
+                onClick={handleNextPractice}
+                className="btn-secondary px-4 py-2 rounded-xl text-sm font-semibold bg-slate-100 hover:bg-slate-200 border-none text-slate-700 flex items-center gap-2 cursor-pointer"
+              >
+                <BookOpen className="w-4 h-4 text-slate-500" />
+                Luyện bài khác
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="text-slate-500 hover:text-slate-800 text-sm font-medium hover:underline flex items-center gap-1.5 px-2 py-2 cursor-pointer bg-transparent border-none"
+              >
+                <Home className="w-4 h-4 text-slate-400" />
+                Về trang chủ
               </button>
             </div>
           </div>

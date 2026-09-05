@@ -68,4 +68,16 @@ describe('SkillResult Component', () => {
     expect(screen.getByText(/Answer key — Reading/i)).toBeInTheDocument()
     expect(screen.getByText('Không có dữ liệu chi tiết cho bài thi này.')).toBeInTheDocument()
   })
+
+  it('renders navigation CTAs (Làm lại đề này, Luyện bài khác, Về trang chủ)', () => {
+    render(
+      <MemoryRouter>
+        <SkillResult skillType="reading" examId={1} dataProp={mockValidData} />
+      </MemoryRouter>
+    )
+
+    expect(screen.getByRole('button', { name: /Làm lại đề này/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Luyện bài khác/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Về trang chủ/i })).toBeInTheDocument()
+  })
 })
