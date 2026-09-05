@@ -442,7 +442,13 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         onRefresh()
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Lỗi lưu đề Listening')
+      const data = err.response?.data
+      if (data?.blockedQuestions?.length) {
+        const lines = data.blockedQuestions.map(b => `Section ${b.sectionNumber} - Câu ${b.questionNumber}`)
+        setError(`${data.message}\n${lines.join('\n')}`)
+      } else {
+        setError(data?.message || 'Lỗi lưu đề Listening')
+      }
     } finally {
       setSubmitting(false)
     }

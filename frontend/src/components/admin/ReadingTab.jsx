@@ -472,7 +472,13 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         onRefresh()
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Lỗi lưu đề Reading')
+      const data = err.response?.data
+      if (data?.blockedQuestions?.length) {
+        const lines = data.blockedQuestions.map(b => `Passage ${b.passageNumber} - Câu ${b.questionNumber}`)
+        setError(`${data.message}\n${lines.join('\n')}`)
+      } else {
+        setError(data?.message || 'Lỗi lưu đề Reading')
+      }
     } finally {
       setSubmitting(false)
     }
@@ -505,7 +511,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
           {editingId ? `Sửa đề Reading #${editingId}` : 'Tạo đề Reading mới'}
         </h3>
 
-        {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-lg mb-4 text-sm">{error}</div>}
+        {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-lg mb-4 text-sm whitespace-pre-line">{error}</div>}
 
         {draftBanner && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 flex items-center justify-between">
