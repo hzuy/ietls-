@@ -30,7 +30,9 @@ const createNoteCompletionSchema = (typeLiteral) => z.object({
     sortOrder: z.coerce.number().optional(),
     lines: z.array(z.object({
       content: z.string().optional().default(''),
-      lineType: z.enum(['header', 'bullet', 'content']).optional().default('content'),
+      // 'heading' is a legacy value already stored in production NoteLine rows
+      // (predates this enum) — kept accepted so those exams remain saveable.
+      lineType: z.enum(['header', 'heading', 'bullet', 'content']).optional().default('content'),
       sortOrder: z.coerce.number().optional(),
     })).optional().default([]),
   })).optional().default([]),
