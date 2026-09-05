@@ -4,6 +4,7 @@ import { BookOpen } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import { useAuthGate } from '../hooks/useAuthGate'
 import ContentCard from '../components/common/ContentCard'
+import { SkeletonCard } from '../components/skeletons'
 import SectionHeader from '../components/home/SectionHeader'
 import SeriesCarousel from '../components/home/SeriesCarousel'
 import { API_BASE, resolveImg } from '../utils/media'
@@ -11,19 +12,6 @@ import { API_BASE, resolveImg } from '../utils/media'
 // Placeholder ảnh (khi item không có thumbnail) — riêng cho 2 loại card trang chủ:
 const BOOK_PLACEHOLDER = { bg: 'var(--primary-light)', icon: '📚' }                                   // V1 — Full Test book
 const PRACTICE_PLACEHOLDER = { bg: 'var(--border-soft)', icon: <BookOpen className="w-8 h-8 text-slate-400 stroke-[1.75]" /> } // V2 — Reading/Listening/Writing/Speaking
-
-function SkeletonCard() {
-  return (
-    <div className="card-flat overflow-hidden flex flex-col h-full">
-      <div className="w-full h-40 shrink-0 skeleton" />
-      <div className="p-4 flex flex-col flex-1 gap-3">
-        <div className="h-4 skeleton rounded mb-1 w-full" />
-        <div className="h-3 skeleton rounded w-[65%] mt-auto" />
-        <div className="h-9 skeleton rounded-lg mt-2" />
-      </div>
-    </div>
-  )
-}
 
 function HomeSectionError() {
   return (

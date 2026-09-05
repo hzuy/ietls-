@@ -131,6 +131,7 @@ export default function ContentCard({
   imageAlt = '',
   placeholder,
   thumbAspect = '16/9',
+  thumbOverlay,
   title,
   titleClamp,
   meta,
@@ -213,6 +214,8 @@ export default function ContentCard({
         ) : (
           <div style={{ width: '100%', height: '100%', background: 'var(--surface-raised)' }} />
         )}
+
+        {thumbOverlay}
 
         {accentBar && isShowcase && (
           <div className="cc-accent-bar" style={{

@@ -46,6 +46,11 @@ describe('ContentCard — thumb / title / placeholder', () => {
     const { container } = render(<ContentCard {...base} className="anim-fade-up delay-2" />)
     expect(container.firstChild).toHaveClass('anim-fade-up', 'delay-2', 'card-base', 'flex', 'flex-col')
   })
+
+  it('thumbOverlay renders inside cc-thumb', () => {
+    render(<ContentCard {...base} thumbOverlay={<span data-testid="test-overlay">Badge</span>} />)
+    expect(screen.getByTestId('test-overlay')).toBeInTheDocument()
+  })
 })
 
 describe('ContentCard — meta (3 dạng)', () => {

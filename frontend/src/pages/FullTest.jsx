@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import Breadcrumb from '../components/common/Breadcrumb'
 import ContentCard from '../components/common/ContentCard'
+import { SkeletonCard } from '../components/skeletons'
 import { CONTENT_CARD_CONFIG } from '../components/common/contentCardConfig'
 import { BACKEND_URL, resolveImg } from '../utils/media'
 
@@ -52,18 +53,7 @@ function SeriesCard({ item, onClick }) {
   )
 }
 
-function SkeletonCard() {
-  return (
-    <div className="card-base overflow-hidden w-[200px] flex flex-col shrink-0">
-      <div className="w-full aspect-[4/5] bg-slate-200 animate-pulse shrink-0" />
-      <div className="px-[14px] py-[12px] flex flex-col flex-1 gap-[6px]">
-        <div className="h-[18px] bg-slate-200 animate-pulse rounded w-full" />
-        <div className="h-[18px] bg-slate-200 animate-pulse rounded w-2/3" />
-        <div className="h-[26px] bg-slate-200 animate-pulse rounded mt-1" />
-      </div>
-    </div>
-  )
-}
+
 
 function SeriesRow({ title, count, children }) {
   const scrollRef = useRef(null)
@@ -278,7 +268,7 @@ export default function FullTest() {
                 <div className="h-7 w-48 bg-slate-200 animate-pulse rounded-md mb-6" />
                 <div className="flex gap-6 overflow-hidden">
                   {[1, 2, 3, 4, 5, 6].map(j => (
-                    <SkeletonCard key={j} />
+                    <SkeletonCard key={j} className="w-[180px] sm:w-[200px] shrink-0" aspect="4/5" />
                   ))}
                 </div>
               </div>

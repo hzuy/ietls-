@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import Breadcrumb from '../components/common/Breadcrumb'
 import ContentCard from '../components/common/ContentCard'
+import { SkeletonCard } from '../components/skeletons'
 import { CONTENT_CARD_CONFIG } from '../components/common/contentCardConfig'
 import { getTypesBySkill } from '../utils/questionTypes'
 import { API_BASE, resolveImg } from '../utils/media'
@@ -26,19 +27,6 @@ const SKILL_META = {
     borderVar: '--skill-l-border',
     path: '/practice/listening',
   },
-}
-
-function SkeletonCard() {
-  return (
-    <div className="card-base flex flex-col h-full overflow-hidden">
-      <div className="w-full h-40 shrink-0 bg-slate-200 animate-pulse" />
-      <div className="p-4 flex flex-col flex-1 gap-3">
-        <div className="h-[44px] bg-slate-200 animate-pulse rounded w-full" />
-        <div className="h-5 bg-slate-200 animate-pulse rounded w-[55%] mt-auto" />
-        <div className="h-9 bg-slate-200 animate-pulse rounded-xl mt-2" />
-      </div>
-    </div>
-  )
 }
 
 export default function PracticeList({ skill: skillKey }) {
