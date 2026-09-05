@@ -1,7 +1,7 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
-import { Headphones, BookOpen, PenTool, Mic } from 'lucide-react'
+import { Headphones, BookOpen, PenTool, Mic, AlertCircle, RefreshCw } from 'lucide-react'
 import { BACKEND_URL, resolveImg, handleImgError } from '../utils/media'
 
 const SKILL_ICONS = {
@@ -101,17 +101,23 @@ function BookCard({ book, onClick }) {
 export default function SeriesPage({ filterPattern, title, description }) {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [books, setBooks] = useState([])
   const [search, setSearch] = useState('')
 
-  useEffect(() => {
+  const fetchBooks = useCallback(() => {
+    setLoading(true)
+    setError(null)
     fetch(`${BACKEND_URL}/api/admin/full-tests`, {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
     })
-      .then(r => r.ok ? r.json() : [])
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
       .then(data => {
         // Normalize
-        const booksMap = data.reduce((acc, item) => {
+        const booksMap = (data || []).reduce((acc, item) => {
           const bKey = `${item.seriesId}-${item.bookNumber}`
           if (!acc[bKey]) {
             acc[bKey] = {
@@ -144,8 +150,15 @@ export default function SeriesPage({ filterPattern, title, description }) {
         setBooks(filtered)
         setLoading(false)
       })
-      .catch(() => setLoading(false))
+      .catch(err => {
+        setError(err.message || 'Không thể tải danh sách bộ đề.')
+        setLoading(false)
+      })
   }, [filterPattern])
+
+  useEffect(() => {
+    fetchBooks()
+  }, [fetchBooks])
 
   const filteredBooks = useMemo(() => {
     if (!search.trim()) return books
@@ -188,7 +201,7 @@ export default function SeriesPage({ filterPattern, title, description }) {
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {[1,2,3,4].map(i => (
-              <div key={i} style={{ height: 350, background: 'white', borderRadius: 16, border: '1px solid #e2e8f0', overflow: 'hidden', animate: 'pulse' }}>
+              <div key={i} className="animate-pulse" style={{ height: 350, background: 'white', borderRadius: 16, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                 <div style={{ height: '70%', background: '#f1f5f9' }} />
                 <div style={{ padding: 16 }}>
                   <div style={{ height: 15, background: '#f1f5f9', borderRadius: 4, width: '80%', marginBottom: 10 }} />
@@ -196,6 +209,23 @@ export default function SeriesPage({ filterPattern, title, description }) {
                 </div>
               </div>
             ))}
+          </div>
+        ) : error ? (
+          <div className="text-center py-16 px-6 bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col items-center">
+            <div className="w-14 h-14 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center mb-4 text-rose-500 shadow-sm">
+              <AlertCircle className="w-7 h-7 stroke-[2]" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 mb-2">Không thể tải danh sách bộ đề</h3>
+            <p className="text-slate-500 text-sm mb-6 max-w-md leading-relaxed">
+              Đã xảy ra lỗi khi kết nối tới máy chủ. Vui lòng kiểm tra lại mạng hoặc thử lại.
+            </p>
+            <button
+              onClick={fetchBooks}
+              className="btn-primary flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm cursor-pointer"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Thử lại
+            </button>
           </div>
         ) : filteredBooks.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-3xl border border-gray-100">
