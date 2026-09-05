@@ -25,6 +25,8 @@ import { fmt } from '../utils/practiceUtils'
 import { toImgSrc } from '../utils/practiceConfig'
 import ConfirmExitModal from '../components/ConfirmExitModal'
 import { useExitGuard } from '../hooks/useExitGuard'
+import { SkeletonExamPage } from '../components/skeletons'
+import ExamErrorState from '../components/exam/ExamErrorState'
 
 
 const DEFAULT_LISTENING_TIME = 40 * 60
@@ -44,6 +46,7 @@ export default function ListeningExam() {
   const [answers, setAnswers] = useState({})
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [activeSection, setActiveSection] = useState(0)
   const [timeLeft, setTimeLeft] = useState(DEFAULT_LISTENING_TIME)
@@ -95,9 +98,9 @@ export default function ListeningExam() {
   const hasUnsavedAnswers = JSON.stringify(answers) !== savedDraftRef.current
   const exitGuard = useExitGuard(phase === 'exam' && !previewMode && hasUnsavedAnswers, persistDraftNow)
 
-  useEffect(() => {
-    document.title = 'Bài thi Listening | IELTS Pro'
-    // Fetch listening_time setting from admin settings, fallback to 40 min
+  const loadExam = useCallback(() => {
+    setLoading(true)
+    setError(null)
     getAdminSettings()
       .then(settings => {
         const mins = parseInt(settings.listening_time)
@@ -121,9 +124,16 @@ export default function ListeningExam() {
         }
         if (viewResultMode) setPhase('viewResult')
       })
-      .catch(() => navigate('/full-test', { replace: true }))
+      .catch((err) => {
+        setError(err?.response?.data?.message || err?.message || 'Không tìm thấy đề thi hoặc kết nối bị gián đoạn.')
+      })
       .finally(() => setLoading(false))
-  }, [id])
+  }, [id, previewMode, resumeMode, user, viewResultMode])
+
+  useEffect(() => {
+    document.title = 'Bài thi Listening | IELTS Pro'
+    loadExam()
+  }, [loadExam])
 
   // Skip start screen in preview mode
   useEffect(() => {
@@ -236,8 +246,18 @@ export default function ListeningExam() {
     }
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-400 text-sm">Đang tải đề...</div>
-  if (!exam) return <div className="min-h-screen flex items-center justify-center text-gray-400 text-sm">Không tìm thấy đề thi.</div>
+  if (loading) return <SkeletonExamPage />
+  if (error || !exam) {
+    return (
+      <ExamErrorState
+        title="Không thể tải đề thi Listening"
+        message={error || 'Không tìm thấy đề thi hoặc đề thi đã bị gỡ bỏ.'}
+        onRetry={loadExam}
+        onBack={handleBack}
+        backLabel="Quay lại danh sách"
+      />
+    )
+  }
 
   const allQ = exam.listeningSections.flatMap(s => getSectionSlots(s))
   const answered = allQ.filter(s => s.qId && answers[s.qId]).length

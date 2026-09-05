@@ -9,6 +9,8 @@ import { useToast } from '../context/ToastContext'
 import { PenTool, ArrowLeft } from 'lucide-react'
 import ConfirmExitModal from '../components/ConfirmExitModal'
 import { useExitGuard } from '../hooks/useExitGuard'
+import { SkeletonExamPage } from '../components/skeletons'
+import ExamErrorState from '../components/exam/ExamErrorState'
 import { renderFeedbackList } from '../utils/feedbackList'
 import { isTaskComplete, countUnsubmitted } from '../utils/writingTasks'
 import { toImgSrc } from '../utils/media'
@@ -67,6 +69,7 @@ export default function WritingExam() {
   const { showToast } = useToast()
   const [exam, setExam] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [phase, setPhase] = useState('start')
   const [activeTask, setActiveTask] = useState(0)
   const [essays, setEssays] = useState({}) // { taskId: text }
@@ -160,9 +163,9 @@ export default function WritingExam() {
     if (user && id) clearDraft(user.id || user._id, id, 'writing')
   }, [allSubmitted, exitGuard.disarm, user, id])
 
-  useEffect(() => {
-    document.title = 'Bài thi Writing | IELTS Pro'
-    // Fetch writing_time setting from admin settings, fallback to 60 min
+  const loadExam = useCallback(() => {
+    setLoading(true)
+    setError(null)
     getAdminSettings()
       .then(settings => {
         const mins = parseInt(settings.writing_time)
@@ -224,9 +227,16 @@ export default function WritingExam() {
           submittedTaskIds: Array.from(new Set([...restoredIds, ...draftIds])),
         }))
       })
-      .catch(() => navigate('/full-test', { replace: true }))
+      .catch((err) => {
+        setError(err?.response?.data?.message || err?.message || 'Không tìm thấy đề thi hoặc kết nối bị gián đoạn.')
+      })
       .finally(() => setLoading(false))
-  }, [id])
+  }, [id, resumeMode, user])
+
+  useEffect(() => {
+    document.title = 'Bài thi Writing | IELTS Pro'
+    loadExam()
+  }, [loadExam])
 
   useEffect(() => {
     if (!exam) return
@@ -378,8 +388,18 @@ export default function WritingExam() {
     return () => clearInterval(iv)
   }, [timeUp, runAutoSubmit])
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-400 text-sm">Đang tải đề...</div>
-  if (!exam) return <div className="min-h-screen flex items-center justify-center text-gray-400 text-sm">Không tìm thấy đề thi.</div>
+  if (loading) return <SkeletonExamPage />
+  if (error || !exam) {
+    return (
+      <ExamErrorState
+        title="Không thể tải đề thi Writing"
+        message={error || 'Không tìm thấy đề thi hoặc đề thi đã bị gỡ bỏ.'}
+        onRetry={loadExam}
+        onBack={handleBack}
+        backLabel="Quay lại danh sách"
+      />
+    )
+  }
 
   const allDone = exam.writingTasks.every(t => results[t.id])
 

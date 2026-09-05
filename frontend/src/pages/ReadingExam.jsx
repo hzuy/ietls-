@@ -23,6 +23,8 @@ import { groupByType } from '../components/exam/listening/OtherGroups'
 import { fmt } from '../utils/practiceUtils'
 import ConfirmExitModal from '../components/ConfirmExitModal'
 import { useExitGuard } from '../hooks/useExitGuard'
+import { SkeletonExamPage } from '../components/skeletons'
+import ExamErrorState from '../components/exam/ExamErrorState'
 
 
 const DEFAULT_READING_TIME = 60 * 60
@@ -42,6 +44,7 @@ export default function ReadingExam() {
   const [answers, setAnswers] = useState({})
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [activePassage, setActivePassage] = useState(0)
   const [timeLeft, setTimeLeft] = useState(DEFAULT_READING_TIME)
@@ -102,9 +105,9 @@ export default function ReadingExam() {
   const hasUnsavedAnswers = JSON.stringify(answers) !== savedDraftRef.current
   const exitGuard = useExitGuard(phase === 'exam' && !previewMode && hasUnsavedAnswers, persistDraftNow)
 
-  useEffect(() => {
-    document.title = 'Bài thi Reading | IELTS Pro'
-    // Fetch reading_time setting from admin settings, fallback to 60 min
+  const loadExam = useCallback(() => {
+    setLoading(true)
+    setError(null)
     getAdminSettings()
       .then(settings => {
         const mins = parseInt(settings.reading_time)
@@ -132,9 +135,16 @@ export default function ReadingExam() {
           setPhase('viewResult')
         }
       })
-      .catch(() => navigate('/full-test', { replace: true }))
+      .catch((err) => {
+        setError(err?.response?.data?.message || err?.message || 'Không tìm thấy đề thi hoặc kết nối bị gián đoạn.')
+      })
       .finally(() => setLoading(false))
-  }, [id])
+  }, [id, previewMode, resumeMode, user, viewResultMode])
+
+  useEffect(() => {
+    document.title = 'Bài thi Reading | IELTS Pro'
+    loadExam()
+  }, [loadExam])
 
   useEffect(() => {
     if (phase === 'result' && result) {
@@ -315,8 +325,18 @@ export default function ReadingExam() {
     }
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-400 text-sm">Đang tải đề...</div>
-  if (!exam) return <div className="min-h-screen flex items-center justify-center text-gray-400 text-sm">Không tìm thấy đề thi.</div>
+  if (loading) return <SkeletonExamPage />
+  if (error || !exam) {
+    return (
+      <ExamErrorState
+        title="Không thể tải đề thi Reading"
+        message={error || 'Không tìm thấy đề thi hoặc đề thi đã bị gỡ bỏ.'}
+        onRetry={loadExam}
+        onBack={handleBack}
+        backLabel="Quay lại danh sách"
+      />
+    )
+  }
 
   // ── View Result mode: redirect to dedicated result route ──────
   // (handled by navigate in doSubmit; ?viewResult=true redirects here too)

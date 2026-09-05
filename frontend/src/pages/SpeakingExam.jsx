@@ -9,6 +9,8 @@ import { useSpeechRecording } from '../hooks/useSpeechRecording'
 import { Mic, ArrowLeft, X, Square, Play, Pause } from 'lucide-react'
 import ConfirmExitModal from '../components/ConfirmExitModal'
 import { useExitGuard } from '../hooks/useExitGuard'
+import { SkeletonExamPage } from '../components/skeletons'
+import ExamErrorState from '../components/exam/ExamErrorState'
 import { renderFeedbackList } from '../utils/feedbackList'
 
 const CRITERIA_LABELS = {
@@ -33,6 +35,7 @@ export default function SpeakingExam() {
 
   const [exam, setExam] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [phase, setPhase] = useState('start')
   const [activePart, setActivePart] = useState(0)
   const [transcripts, setTranscripts] = useState({}) // { partId: text }
@@ -158,9 +161,9 @@ export default function SpeakingExam() {
     }
   }, [isPlayingAudio])
 
-  // ── Load exam ────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    document.title = 'Bài thi Speaking | IELTS Pro'
+  const loadExam = useCallback(() => {
+    setLoading(true)
+    setError(null)
     Promise.all([
       getSpeakingExam(id),
       // Tầng 4: khôi phục kết quả đã chấm từ server — độc lập với resume draft,
@@ -219,9 +222,16 @@ export default function SpeakingExam() {
           submittedPartIds: Array.from(new Set([...restoredIds, ...draftIds])),
         }))
       })
-      .catch(() => navigate('/full-test', { replace: true }))
+      .catch((err) => {
+        setError(err?.response?.data?.message || err?.message || 'Không tìm thấy đề thi hoặc kết nối bị gián đoạn.')
+      })
       .finally(() => setLoading(false))
-  }, [id, navigate])
+  }, [id, resumeMode, user])
+
+  useEffect(() => {
+    document.title = 'Bài thi Speaking | IELTS Pro'
+    loadExam()
+  }, [loadExam])
 
   // Skip start screen in preview mode
   useEffect(() => {
@@ -374,12 +384,18 @@ export default function SpeakingExam() {
     }
   }, [transcripts, isRecording, isTranscribing, id, exam, stopRecording, pollStatus])
 
-  if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg)', color: 'var(--muted)', fontFamily: 'var(--font-body)', fontSize: 14 }}>
-      Đang tải đề...
-    </div>
-  )
-  if (!exam) return <div className="min-h-screen flex items-center justify-center text-gray-400 text-sm">Không tìm thấy đề thi.</div>
+  if (loading) return <SkeletonExamPage variant="speaking" />
+  if (error || !exam) {
+    return (
+      <ExamErrorState
+        title="Không thể tải đề thi Speaking"
+        message={error || 'Không tìm thấy đề thi hoặc đề thi đã bị gỡ bỏ.'}
+        onRetry={loadExam}
+        onBack={handleBack}
+        backLabel="Quay lại danh sách"
+      />
+    )
+  }
 
   const allDone = exam.speakingParts.every(p => results[p.id])
 
