@@ -14,60 +14,6 @@ import ReadingGroupEditor from './editors/ReadingGroupEditor'
 
 // ─── TAB: READING ─────────────────────────────────────────────────────────────
 
-
-function ListeningFormPreview({ form, showAnswers }) {
-  const [activeSection, setActiveSection] = useState(0)
-  const section = form.sections[activeSection]
-
-  return (
-    <div>
-      {/* Section tabs */}
-      <div className="flex gap-1.5 mb-4 flex-wrap">
-        {form.sections.map((s, si) => {
-          const total = s.questionGroups.reduce((acc, g) => acc + (g.qNumberEnd - g.qNumberStart + 1), 0)
-          const isActive = activeSection === si
-          return (
-            <button
-              key={si}
-              type="button"
-              onClick={() => setActiveSection(si)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition"
-              style={{
-                background: isActive ? '#1D4ED8' : '#fff',
-                color: isActive ? '#fff' : '#1e293b',
-                borderColor: isActive ? '#1D4ED8' : '#e2e8f0',
-              }}
-            >
-              Section {s.number}
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                {total}
-              </span>
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Active section content */}
-      {section && (
-        <div>
-          {section.context && (
-            <p className="text-xs text-slate-500 italic mb-3 border-l-2 border-[#bfdbfe] pl-2">{section.context}</p>
-          )}
-          {section.questionGroups.length > 0 ? (
-            <div className="space-y-3">
-              {section.questionGroups.map((group, gi) => (
-                <AdminGroupPreview key={gi} group={group} showAnswers={showAnswers} />
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-slate-400 italic">Chưa có câu hỏi</p>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
 function ReadingFormPreview({ form, showAnswers }) {
   const [activePassage, setActivePassage] = useState(0)
   const [leftPct, setLeftPct] = useState(40)
@@ -757,5 +703,5 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   )
 }
 
-export { useExamSeriesList, useSeriesBooks, InlinePreviewPanel, ListeningFormPreview, SpeakingFormPreview }
+export { useExamSeriesList, useSeriesBooks, InlinePreviewPanel, SpeakingFormPreview }
 export default ReadingTab
