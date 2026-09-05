@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAdminUsers, toggleUserLock, deleteAdminUser } from '../../services/adminService'
+import { useToast } from '../../context/ToastContext'
 import { Pencil, Lock, Unlock, Trash2, SearchX } from 'lucide-react'
 
 import { roundIELTS } from '../../utils/ielts'
@@ -31,6 +32,7 @@ function avatarColorIdx(id) {
 }
 
 export default function Users() {
+  const { showToast } = useToast()
   const [users, setUsers]           = useState([])
   const [total, setTotal]           = useState(0)
   const [totalActive, setTotalActive] = useState(0)
@@ -83,7 +85,7 @@ export default function Users() {
         setTotalActive(a => a - 1)
         setTotalLocked(l => l + 1)
       }
-    } catch { alert('Lỗi thao tác') }
+    } catch { showToast('Lỗi thao tác', 'error') }
     finally { setTogglingId(null) }
   }
 
@@ -97,7 +99,7 @@ export default function Users() {
       if (isLocked) setTotalLocked(l => l - 1)
       else setTotalActive(a => a - 1)
       setConfirmDelete(null)
-    } catch (err) { alert(err.response?.data?.message || 'Lỗi xóa') }
+    } catch (err) { showToast(err.response?.data?.message || 'Lỗi xóa', 'error') }
   }
 
   // Stats từ DB (toàn hệ thống, không phụ thuộc trang hiện tại)

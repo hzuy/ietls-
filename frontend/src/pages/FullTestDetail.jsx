@@ -31,6 +31,15 @@ export default function FullTestDetail() {
   const [draftInfo, setDraftInfo] = useState({}) // { [testNumber-skill]: checkDraft result }
 
   useEffect(() => {
+    if (!modal) return
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setModal(null)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [modal])
+
+  useEffect(() => {
     if (!bookNumber) return
 
     fetch(`${BACKEND_URL}/api/admin/full-tests`, {
@@ -163,7 +172,7 @@ export default function FullTestDetail() {
           <span style={{ color: 'var(--ink)', fontWeight: 600 }}>{title}</span>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 260px', gap: 24, alignItems: 'start' }}>
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-6 items-start">
           <div>
             {/* Hero */}
             <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', padding: 24, border: '1px solid var(--border)', boxShadow: 'var(--shadow-xs)', marginBottom: 20 }}>
@@ -193,7 +202,7 @@ export default function FullTestDetail() {
 
             {/* Test list */}
             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: '0 0 14px' }}>Chọn bài test</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               {bookData.tests.map(test => {
                 // TODO: hiển thị tiến độ hoàn thành từng kỹ năng — chờ redesign API progress sau khi bỏ model Series
                 const availCount = SKILL_ORDER.filter(s => test.exams[s]).length
@@ -287,7 +296,17 @@ export default function FullTestDetail() {
       {modal && (
         <div onClick={() => setModal(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: 'var(--radius-xl)', padding: 28, width: '100%', maxWidth: 480, boxShadow: 'var(--shadow-lg)', border: '1px solid var(--border)' }}>
-            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: 'var(--ink)', marginBottom: 20 }}>{`Test ${modal.testNumber}`} — Chọn kỹ năng</h3>
+            <div className="flex items-center justify-between mb-5">
+              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>{`Test ${modal.testNumber}`} — Chọn kỹ năng</h3>
+              <button
+                type="button"
+                onClick={() => setModal(null)}
+                aria-label="Đóng"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors font-bold cursor-pointer border-none bg-transparent"
+              >
+                ✕
+              </button>
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {SKILL_ORDER.map(skill => {
                 const m = SKILL_META[skill]
@@ -295,7 +314,9 @@ export default function FullTestDetail() {
                 const hasDraft = draftInfo[`${modal.testNumber}-${skill}`]?.hasDraft
                 return (
                   <div key={skill} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 14px', borderRadius: 'var(--radius-md)', border: `1px solid ${exam ? `var(${m.borderVar})` : 'var(--border)'}`, background: exam ? `var(${m.bgVar})` : 'var(--surface-raised)', opacity: exam ? 1 : 0.6 }}>
-                    <span style={{ fontSize: 22 }}>{m.icon}</span>
+                    <span className="shrink-0 flex items-center justify-center" style={{ color: exam ? `var(${m.colorVar})` : 'var(--subtle)' }}>
+                      <m.Icon className="w-5 h-5" />
+                    </span>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 700, color: exam ? `var(${m.colorVar})` : 'var(--subtle)' }}>{m.label}</span>

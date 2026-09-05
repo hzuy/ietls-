@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAdminStaff, makeAdmin, makeTeacher, removeStaff } from '../../services/adminService'
+import { useToast } from '../../context/ToastContext'
 
 
 function fmtDate(iso) {
@@ -9,6 +10,7 @@ function fmtDate(iso) {
 }
 
 export default function Staff() {
+  const { showToast } = useToast()
   const [staff, setStaff] = useState([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(null)
@@ -32,7 +34,7 @@ export default function Staff() {
     try {
       await makeAdmin(userId)
       fetchStaff()
-    } catch (err) { alert(err.response?.data?.message || 'Lỗi') }
+    } catch (err) { showToast(err.response?.data?.message || 'Lỗi', 'error') }
     finally { setActionLoading(null) }
   }
 
@@ -41,7 +43,7 @@ export default function Staff() {
     try {
       await makeTeacher(userId)
       fetchStaff()
-    } catch (err) { alert(err.response?.data?.message || 'Lỗi') }
+    } catch (err) { showToast(err.response?.data?.message || 'Lỗi', 'error') }
     finally { setActionLoading(null) }
   }
 
@@ -51,7 +53,7 @@ export default function Staff() {
       await removeStaff(confirmRemove.id)
       setConfirmRemove(null)
       fetchStaff()
-    } catch (err) { alert(err.response?.data?.message || 'Lỗi') }
+    } catch (err) { showToast(err.response?.data?.message || 'Lỗi', 'error') }
   }
 
   const adminCount = staff.filter(s => s.role === 'admin').length

@@ -3,6 +3,7 @@ import { useUnsavedChanges } from '../../hooks/useUnsavedChanges'
 import { useDraftPersistence } from '../../hooks/useDraftPersistence'
 import { useCollapsibleGroups } from '../../hooks/useCollapsibleGroups'
 import { ConfirmDeleteModal, DraftBanner, DraftSavedHint, AdminListHeader, ThumbnailPicker } from '../../components/admin/contentPageUI'
+import { useToast } from '../../context/ToastContext'
 import PracticeGroupCard from '../../components/admin/PracticeGroupCard'
 import {
   getReadingPracticeList, getReadingPractice,
@@ -96,6 +97,7 @@ const EMPTY_FORM = {
 const formSig = (f) => JSON.stringify([f.title, f.passage, f.questionGroups, f.thumbnailUrl, !!f.thumbFile])
 
 export default function ReadingPractice() {
+  const { showToast } = useToast()
   const [list, setList]               = useState([])
   const [loading, setLoading]         = useState(true)
   const [view, setView]               = useState('list')
@@ -158,13 +160,13 @@ export default function ReadingPractice() {
       groupCollapse.setAll([])
       setForm(next)
       setEditing(data); setShowPreview(false); setIsDirty(false); setView('form')
-    } catch { alert('Lỗi tải bài') }
+    } catch { showToast('Lỗi tải bài', 'error') }
   }
 
   const handleSave = async () => {
-    if (!form.title.trim()) { alert('Vui lòng nhập tên bài'); return }
+    if (!form.title.trim()) { showToast('Vui lòng nhập tên bài', 'error'); return }
     if (form.questionGroups.length === 0) {
-      alert('Bài thi phải có ít nhất một nhóm câu hỏi')
+      showToast('Bài thi phải có ít nhất một nhóm câu hỏi', 'error')
       return
     }
 
@@ -177,7 +179,7 @@ export default function ReadingPractice() {
         try {
           thumbnailUrl = (await uploadReadingThumbnailFile(fd)).url
         } catch (e) {
-          alert(e.response?.data?.message || 'Tải ảnh bìa lên thất bại. Bài chưa được lưu, vui lòng thử lại.')
+          showToast(e.response?.data?.message || 'Tải ảnh bìa lên thất bại. Bài chưa được lưu, vui lòng thử lại.', 'error')
           return
         }
       }
@@ -194,7 +196,7 @@ export default function ReadingPractice() {
 
       clearDraft(); setIsDirty(false); setView('list'); load()
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi lưu bài thi')
+      showToast(err.response?.data?.message || 'Lỗi lưu bài thi', 'error')
     } finally {
       setSaving(false)
     }
@@ -202,7 +204,7 @@ export default function ReadingPractice() {
 
   const handleDelete = async (id) => {
     try { await deleteReadingPractice(id); setDelConfirm(null); load() }
-    catch (err) { alert(err.response?.data?.message || 'Lỗi xóa') }
+    catch (err) { showToast(err.response?.data?.message || 'Lỗi xóa', 'error') }
   }
 
   const handleGroupChange = (i, updated) => {

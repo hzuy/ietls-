@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import api from '../utils/axios';
+import { useToast } from '../context/ToastContext';
 
 /**
  * useSpeechRecording — Whisper-only speech recording hook.
@@ -10,6 +11,7 @@ import api from '../utils/axios';
  * cho nút Play, và không nối chồng transcript khi ghi âm lại.
  */
 export function useSpeechRecording(transcripts, setTranscripts) {
+  const { showToast } = useToast();
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [interimText, setInterimText] = useState(''); // kept for API compat, always ''
@@ -270,12 +272,12 @@ export function useSpeechRecording(transcripts, setTranscripts) {
       isRecordingRef.current = false;
       setIsRecording(false);
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        alert('Vui lòng cấp quyền truy cập microphone trong trình duyệt.');
+        showToast('Vui lòng cấp quyền truy cập microphone trong trình duyệt.', 'error');
       } else {
-        alert('Không thể bắt đầu ghi âm. Vui lòng kiểm tra microphone.');
+        showToast('Không thể bắt đầu ghi âm. Vui lòng kiểm tra microphone.', 'error');
       }
     }
-  }, [forceCleanupAll, revokeAudioUrl, startWaveformAnalysis, stopWaveformAnalysis, setTranscripts]);
+  }, [forceCleanupAll, revokeAudioUrl, startWaveformAnalysis, stopWaveformAnalysis, setTranscripts, showToast]);
 
   return {
     isRecording,

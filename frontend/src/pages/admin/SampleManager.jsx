@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges'
 import { useDraftPersistence } from '../../hooks/useDraftPersistence'
 import { ConfirmDeleteModal, DraftBanner, DraftSavedHint, AdminListHeader, ThumbnailPicker } from '../../components/admin/contentPageUI'
+import { useToast } from '../../context/ToastContext'
 
 import RichTextEditor from '../../components/RichTextEditor'
 import {
@@ -99,6 +100,7 @@ const EMPTY_FORM = { title: '', level: '', examType: '', content: '', tagInput: 
 const formSig = (f) => JSON.stringify([f.title, f.level, f.examType, f.content, f.tags, f.thumbnailUrl, !!f.thumbFile])
 
 export default function SampleManager({ kind }) {
+  const { showToast } = useToast()
   const cfg = CONFIG[kind]
   const svc = cfg.services
   const formatTask = (level) => cfg.taskLabels[level] || level || ''
@@ -147,7 +149,7 @@ export default function SampleManager({ kind }) {
       pristineRef.current = formSig(next)
       setForm(next)
       setEditing(data); setIsDirty(false); setView('form')
-    } catch { alert('Lỗi tải') }
+    } catch { showToast('Lỗi tải', 'error') }
   }
 
   const addTag = () => {
@@ -159,10 +161,10 @@ export default function SampleManager({ kind }) {
   const removeTag = (tag) => setForm(f => ({ ...f, tags: f.tags.filter(t => t !== tag) }))
 
   const handleSave = async () => {
-    if (!form.title.trim()) { alert('Vui lòng nhập tên bài'); return }
+    if (!form.title.trim()) { showToast('Vui lòng nhập tên bài', 'error'); return }
     // BUG-15: Validate content not empty
     const plainContent = form.content.replace(/<[^>]*>/g, '').trim()
-    if (!plainContent) { alert('Vui lòng nhập nội dung bài mẫu'); return }
+    if (!plainContent) { showToast('Vui lòng nhập nội dung bài mẫu', 'error'); return }
     setSaving(true)
     try {
       // ── Bước 1: upload ảnh mới (nếu có) TRƯỚC — record chỉ ghi khi file đã lên xong ──
@@ -172,7 +174,7 @@ export default function SampleManager({ kind }) {
         try {
           thumbnailUrl = (await svc.uploadThumb(fd)).url
         } catch (e) {
-          alert(e.response?.data?.message || 'Tải ảnh bìa lên thất bại. Bài chưa được lưu, vui lòng thử lại.')
+          showToast(e.response?.data?.message || 'Tải ảnh bìa lên thất bại. Bài chưa được lưu, vui lòng thử lại.', 'error')
           return
         }
       }
@@ -188,7 +190,7 @@ export default function SampleManager({ kind }) {
 
       setIsDirty(false); clearDraft(); setView('list'); load()
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi lưu')
+      showToast(err.response?.data?.message || 'Lỗi lưu', 'error')
     } finally {
       setSaving(false)
     }
@@ -196,7 +198,7 @@ export default function SampleManager({ kind }) {
 
   const handleDelete = async (id) => {
     try { await svc.remove(id); setDelConfirm(null); load() }
-    catch (err) { alert(err.response?.data?.message || 'Lỗi xóa') }
+    catch (err) { showToast(err.response?.data?.message || 'Lỗi xóa', 'error') }
   }
 
   if (view === 'form') {

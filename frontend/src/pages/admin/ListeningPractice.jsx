@@ -4,6 +4,7 @@ import { useDraftPersistence } from '../../hooks/useDraftPersistence'
 import { useCollapsibleGroups } from '../../hooks/useCollapsibleGroups'
 import { validateAudioFile } from '../../utils/fileValidation'
 import { ConfirmDeleteModal, DraftBanner, DraftSavedHint, AdminListHeader, ThumbnailPicker } from '../../components/admin/contentPageUI'
+import { useToast } from '../../context/ToastContext'
 import PracticeGroupCard from '../../components/admin/PracticeGroupCard'
 import {
   getListeningPracticeList, getListeningPractice,
@@ -68,6 +69,7 @@ const EMPTY_FORM = {
 const formSig = (f) => JSON.stringify([f.title, f.context, f.questionGroups, f.thumbnailUrl, !!f.thumbFile, f.audioUrl, !!f.audioFile])
 
 export default function ListeningPractice() {
+  const { showToast } = useToast()
   const [list, setList]               = useState([])
   const [loading, setLoading]         = useState(true)
   const [view, setView]               = useState('list')
@@ -135,7 +137,7 @@ export default function ListeningPractice() {
       groupCollapse.setAll([])
       setForm(next)
       setEditing(data); setIsDirty(false); setView('form')
-    } catch { alert('Lỗi tải bài') }
+    } catch { showToast('Lỗi tải bài', 'error') }
   }
 
   const handleGroupChange = (i, updated) => {
@@ -163,14 +165,14 @@ export default function ListeningPractice() {
     const file = e.target.files[0]
     if (!file) return
     const v = validateAudioFile(file)
-    if (!v.ok) { alert(v.error); e.target.value = ''; return }
+    if (!v.ok) { showToast(v.error, 'error'); e.target.value = ''; return }
     setForm(prev => ({ ...prev, audioFile: file, audioName: file.name }))
   }
 
   const handleSave = async () => {
-    if (!form.title.trim()) { alert('Vui lòng nhập tên bài'); return }
+    if (!form.title.trim()) { showToast('Vui lòng nhập tên bài', 'error'); return }
     if (form.questionGroups.length === 0) {
-      alert('Bài thi phải có ít nhất một nhóm câu hỏi')
+      showToast('Bài thi phải có ít nhất một nhóm câu hỏi', 'error')
       return
     }
     // Audio "bắt buộc" mềm — cho lưu nháp ý tưởng, nhưng cảnh báo rõ hậu quả.
@@ -187,7 +189,7 @@ export default function ListeningPractice() {
         try {
           thumbnailUrl = (await uploadListeningThumbnailFile(fd)).url
         } catch (e) {
-          alert(e.response?.data?.message || 'Tải ảnh bìa lên thất bại. Bài chưa được lưu, vui lòng thử lại.')
+          showToast(e.response?.data?.message || 'Tải ảnh bìa lên thất bại. Bài chưa được lưu, vui lòng thử lại.', 'error')
           return
         }
       }
@@ -198,7 +200,7 @@ export default function ListeningPractice() {
         try {
           audioUrl = (await uploadListeningAudioFile(fd)).url
         } catch (e) {
-          alert(e.response?.data?.message || 'Tải file audio lên thất bại. Bài chưa được lưu, vui lòng thử lại.')
+          showToast(e.response?.data?.message || 'Tải file audio lên thất bại. Bài chưa được lưu, vui lòng thử lại.', 'error')
           return
         }
       }
@@ -216,7 +218,7 @@ export default function ListeningPractice() {
 
       clearDraft(); setIsDirty(false); setView('list'); load()
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi lưu bài thi')
+      showToast(err.response?.data?.message || 'Lỗi lưu bài thi', 'error')
     } finally {
       setSaving(false)
     }
@@ -224,7 +226,7 @@ export default function ListeningPractice() {
 
   const handleDelete = async (id) => {
     try { await deleteListeningPractice(id); setDelConfirm(null); load() }
-    catch (err) { alert(err.response?.data?.message || 'Lỗi xóa') }
+    catch (err) { showToast(err.response?.data?.message || 'Lỗi xóa', 'error') }
   }
 
   // ── FORM VIEW ────────────────────────────────────────────────────────────────

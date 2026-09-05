@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAdminAttempts, getAdminAttemptsExport, getAdminExamSeriesForFilter } from '../../services/adminService'
+import { useToast } from '../../context/ToastContext'
 import { SkeletonTable } from '../../components/skeletons'
 import { ADMIN_SKILL_COLORS, SKILL_LABEL } from '../../utils/adminSkillColors'
 import Modal from '../../components/common/Modal'
@@ -104,6 +105,7 @@ function getBandPill(score) {
 }
 
 export default function Attempts() {
+  const { showToast } = useToast()
   const [attempts, setAttempts] = useState([])
   const [total, setTotal] = useState(0)
   const [pages, setPages] = useState(1)
@@ -265,7 +267,7 @@ export default function Attempts() {
           errMsg = err.response.data.message
         }
       }
-      alert(errMsg)
+      showToast(errMsg, 'error')
     } finally {
       setExporting(false)
     }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAdminSettings, updateAdminSettings } from '../../services/adminService'
+import { useToast } from '../../context/ToastContext'
 
 
 const DEFAULT_SETTINGS = {
@@ -16,6 +17,7 @@ const DEFAULT_SETTINGS = {
 }
 
 export default function Settings() {
+  const { showToast } = useToast()
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
   const [loading, setLoading]   = useState(true)
   const [saving, setSaving]     = useState(false)
@@ -35,7 +37,7 @@ export default function Settings() {
       await updateAdminSettings(settings)
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
-    } catch { alert('Lỗi lưu cài đặt') }
+    } catch { showToast('Lỗi lưu cài đặt', 'error') }
     finally { setSaving(false) }
   }
 

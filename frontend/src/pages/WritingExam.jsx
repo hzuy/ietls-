@@ -5,6 +5,7 @@ import { getWritingExam, submitWritingExam, getWritingStatus, getFullTestStatus,
 import { getAdminSettings } from '../services/adminService'
 import { saveDraft, loadDraft, clearDraft, isDataEmpty, formatSavedAt } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 import { PenTool, ArrowLeft } from 'lucide-react'
 import ConfirmExitModal from '../components/ConfirmExitModal'
 import { useExitGuard } from '../hooks/useExitGuard'
@@ -63,6 +64,7 @@ export default function WritingExam() {
   const [searchParams] = useSearchParams()
   const resumeMode = searchParams.get('resume') === 'true'
   const { user } = useAuth()
+  const { showToast } = useToast()
   const [exam, setExam] = useState(null)
   const [loading, setLoading] = useState(true)
   const [phase, setPhase] = useState('start')
@@ -313,7 +315,7 @@ export default function WritingExam() {
 
   const submitTask = async (task) => {
     const essay = essays[task.id] || ''
-    if (wc(essay) < 50) { alert('Bài viết cần ít nhất 50 từ!'); return }
+    if (wc(essay) < 50) { showToast('Bài viết cần ít nhất 50 từ!', 'error'); return }
     setSubmitting(true)
     setGradingError(null)
     setGradingTask(task.id)
