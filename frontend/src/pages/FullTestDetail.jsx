@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { checkDraft } from '../services/draftService'
 import { Headphones, BookOpen, PenTool, Mic } from 'lucide-react'
 import { BACKEND_URL, resolveImg, handleImgError } from '../utils/media'
+import Modal from '../components/common/Modal'
 
 const SKILL_META = {
   reading:   { label: 'Reading',   Icon: BookOpen,   colorVar: '--skill-r-color', bgVar: '--skill-r-bg', borderVar: '--skill-r-border', path: '/reading',   desc: '3 passages · 40 câu · 60 phút' },
@@ -29,15 +30,6 @@ export default function FullTestDetail() {
   const [fetchError, setFetchError] = useState(false)
   const [modal, setModal] = useState(null)
   const [draftInfo, setDraftInfo] = useState({}) // { [testNumber-skill]: checkDraft result }
-
-  useEffect(() => {
-    if (!modal) return
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') setModal(null)
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [modal])
 
   useEffect(() => {
     if (!bookNumber) return
@@ -294,8 +286,12 @@ export default function FullTestDetail() {
 
       {/* Modal Skill Selection */}
       {modal && (
-        <div onClick={() => setModal(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: 'var(--radius-xl)', padding: 28, width: '100%', maxWidth: 480, boxShadow: 'var(--shadow-lg)', border: '1px solid var(--border)' }}>
+        <Modal
+          onClose={() => setModal(null)}
+          title={`Test ${modal.testNumber} — Chọn kỹ năng`}
+          size="md"
+        >
+          <div className="p-6">
             <div className="flex items-center justify-between mb-5">
               <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>{`Test ${modal.testNumber}`} — Chọn kỹ năng</h3>
               <button
@@ -347,7 +343,7 @@ export default function FullTestDetail() {
               })}
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

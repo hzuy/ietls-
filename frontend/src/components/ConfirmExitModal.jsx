@@ -1,4 +1,5 @@
 import React from 'react';
+import Modal from './common/Modal';
 
 /**
  * ConfirmExitModal — Shared exit confirmation modal for all skills
@@ -22,15 +23,8 @@ export default function ConfirmExitModal({
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-[9999] p-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white border border-slate-200 p-8 shadow-xl max-w-sm w-full mx-auto"
-        style={{ borderRadius: 'var(--radius-lg)' }}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal onClose={onClose} title={title} size="sm">
+      <div className="p-8">
         <h2 className="text-slate-900 text-lg font-bold mb-2 tracking-tight">
           {title}
         </h2>
@@ -52,6 +46,6 @@ export default function ConfirmExitModal({
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

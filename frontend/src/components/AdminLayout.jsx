@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useFormDirty } from '../context/FormDirtyContext'
 import { NAV_LEAVE_MSG } from '../hooks/useUnsavedChanges'
 import { getTrashCount, onTrashChanged } from '../services/adminService'
+import Modal from './common/Modal'
 import {
   LayoutDashboard,
   Users,
@@ -313,14 +314,8 @@ export default function AdminLayout() {
 
       {/* Logout dialog */}
       {showLogout && (
-        <div
-          onClick={() => setShowLogout(false)}
-          style={{ position: 'fixed', inset: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.45)', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 24 }}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm"
-          >
+        <Modal onClose={() => setShowLogout(false)} title="Đăng xuất" size="sm">
+          <div className="p-6">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
                 <LogOut className="w-5 h-5 text-slate-600" strokeWidth={2} />
@@ -345,7 +340,7 @@ export default function AdminLayout() {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

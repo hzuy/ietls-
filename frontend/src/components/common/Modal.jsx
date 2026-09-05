@@ -9,7 +9,7 @@ const FOCUSABLE =
  * Tab/Shift+Tab focus trap, and focus restored to the trigger on unmount.
  * Parent controls visibility by mounting/unmounting this component.
  */
-export default function Modal({ onClose, title, size = 'md', children }) {
+export default function Modal({ onClose, title, size = 'md', zIndex = 'z-[9999]', children }) {
   const dialogRef = useRef(null)
   const closeRef = useRef(onClose)
   useEffect(() => { closeRef.current = onClose }, [onClose])
@@ -48,8 +48,9 @@ export default function Modal({ onClose, title, size = 'md', children }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+      className={`fixed inset-0 ${zIndex} flex items-center justify-center p-4 bg-black/50`}
       onMouseDown={e => { if (e.target === e.currentTarget) closeRef.current?.() }}
+      onClick={e => { if (e.target === e.currentTarget) closeRef.current?.() }}
     >
       <div
         ref={dialogRef}

@@ -106,7 +106,7 @@ export function ThumbnailPicker({ preview, onSelect, onClear, hint }) {
       <label className="block text-xs font-semibold text-slate-600 mb-1">Ảnh bìa</label>
       {preview ? (
         <div className="relative mb-2">
-          <img src={preview} alt="" className="w-full rounded-lg object-cover" style={{ aspectRatio: '16/9' }} />
+          <img src={preview} alt="Xem trước ảnh bìa" className="w-full rounded-lg object-cover" style={{ aspectRatio: '16/9' }} />
           <button onClick={onClear} aria-label="Xóa ảnh bìa"
             className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-blue-500 text-white text-sm font-bold flex items-center justify-center border-2 border-white">×</button>
         </div>
