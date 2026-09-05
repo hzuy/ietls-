@@ -9,8 +9,10 @@
 import { useState, useRef } from 'react'
 import api from '../../../utils/axios'
 import { inputCls, labelCls, btnSecondary, toImgSrc, getQuestionGroupTheme } from '../adminConstants'
+import { useToast } from '../../../context/ToastContext'
 
 export default function MatchingEditor({ group = {}, onChange }) {
+  const { showToast } = useToast()
   const groupType = group?.type || 'matching'
   const isMap = groupType === 'map_diagram'
   const theme = getQuestionGroupTheme(groupType)
@@ -54,7 +56,7 @@ export default function MatchingEditor({ group = {}, onChange }) {
       formData.append('image', file)
       const res = await api.post('/admin/upload-image', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
       onChange({ ...group, imageUrl: res.data.imageUrl })
-    } catch { alert('Lỗi upload ảnh') }
+    } catch { showToast('Lỗi upload ảnh', 'error') }
     finally { setImgUploading(false) }
   }
 

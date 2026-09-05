@@ -5,6 +5,7 @@ import { getReadingExam, getReadingExamWithAnswers, submitReadingExam, getFullTe
 import { getAdminSettings } from '../services/adminService'
 import { saveDraft, loadDraft, clearDraft, formatSavedAt } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 import { BookOpen, ArrowLeft } from 'lucide-react'
 import MatchingTickGrid from '../components/MatchingTickGrid'
 import DragWordBankGroup from '../components/DragWordBankGroup'
@@ -35,6 +36,7 @@ export default function ReadingExam() {
   const resumeMode = searchParams.get('resume') === 'true'
   const viewResultMode = searchParams.get('viewResult') === 'true'
   const { user } = useAuth()
+  const { showToast } = useToast()
 
   const [exam, setExam] = useState(null)
   const [answers, setAnswers] = useState({})
@@ -240,7 +242,7 @@ export default function ReadingExam() {
       if (user) clearDraft(user.id || user._id, id, 'reading')
       navigate(`/reading/${id}/result`, { replace: true })
     } catch (e) {
-      alert(e?.response?.data?.message || e?.message || 'Lỗi nộp bài thi. Vui lòng thử lại.')
+      showToast(e?.response?.data?.message || e?.message || 'Lỗi nộp bài thi. Vui lòng thử lại.', 'error')
     } finally { setSubmitting(false) }
   }
 

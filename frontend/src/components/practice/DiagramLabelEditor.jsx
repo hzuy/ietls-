@@ -1,21 +1,23 @@
 import { useState, useRef } from 'react'
 import { uploadImage as uploadImageService } from '../../services/examService'
 import { inputCls, labelCls, btnSecondary, toImgSrc, getQuestionGroupTheme } from '../../utils/practiceConfig'
+import { useToast } from '../../context/ToastContext'
 
 export default function DiagramLabelEditor({ group, onChange }) {
+  const { showToast } = useToast()
   const [imgUploading, setImgUploading] = useState(false)
   const imgRef = useRef(null)
   const theme = getQuestionGroupTheme(group.type)
 
   const uploadImage = async (file) => {
-    if (file.size > 5 * 1024 * 1024) { alert('Ảnh tối đa 5MB'); return }
+    if (file.size > 5 * 1024 * 1024) { showToast('Ảnh tối đa 5MB', 'error'); return }
     setImgUploading(true)
     try {
       const formData = new FormData()
       formData.append('image', file)
       const res = await uploadImageService(formData)
       onChange({ ...group, imageUrl: res.imageUrl })
-    } catch { alert('Lỗi upload ảnh') }
+    } catch { showToast('Lỗi upload ảnh', 'error') }
     finally { setImgUploading(false) }
   }
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Pencil, Lock, Unlock, Trash2 } from 'lucide-react'
 import { getAdminAccounts, createAdminAccount, updateAdminAccount, deleteAdminAccount, toggleUserLock } from '../../services/adminService'
+import { useToast } from '../../context/ToastContext'
 
 
 const AVATAR_COLORS = [
@@ -21,6 +22,7 @@ function avatarColorIdx(id) {
 const emptyForm = { name: '', email: '', password: '', role: 'teacher' }
 
 export default function Accounts() {
+  const { showToast } = useToast()
   const [accounts, setAccounts] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -88,7 +90,7 @@ export default function Accounts() {
     try {
       await deleteAdminAccount(confirmDelete.id)
       setConfirmDelete(null); fetchAccounts()
-    } catch (err) { alert(err.response?.data?.message || 'Lỗi xóa') }
+    } catch (err) { showToast(err.response?.data?.message || 'Lỗi xóa', 'error') }
   }
 
   const executeLock = async (accId, wasLocked) => {
@@ -98,7 +100,7 @@ export default function Accounts() {
     try {
       const result = await toggleUserLock(accId)
       setAccounts(prev => prev.map(a => a.id === accId ? { ...a, isLocked: result.isLocked } : a))
-    } catch { alert('Lỗi thao tác') }
+    } catch { showToast('Lỗi thao tác', 'error') }
     finally { setTogglingId(null) }
   }
 

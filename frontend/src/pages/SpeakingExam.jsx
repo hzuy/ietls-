@@ -4,6 +4,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { getSpeakingExam, submitSpeakingExam, getSpeakingStatus, getFullTestStatus, getSpeakingMyResults } from '../services/examService'
 import { saveDraft, loadDraft, clearDraft, isDataEmpty, formatSavedAt } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 import { useSpeechRecording } from '../hooks/useSpeechRecording'
 import { Mic, ArrowLeft, X, Square, Play, Pause } from 'lucide-react'
 import ConfirmExitModal from '../components/ConfirmExitModal'
@@ -28,6 +29,7 @@ export default function SpeakingExam() {
   const previewMode = searchParams.get('preview') === 'true'
   const resumeMode = searchParams.get('resume') === 'true'
   const { user } = useAuth()
+  const { showToast } = useToast()
 
   const [exam, setExam] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -343,7 +345,7 @@ export default function SpeakingExam() {
   const submitPart = useCallback(async (part) => {
     const transcript = transcripts[part.id] || ''
     if (transcript.trim().split(/\s+/).filter(Boolean).length < 10) {
-      alert('Câu trả lời quá ngắn, hãy nói thêm!')
+      showToast('Câu trả lời quá ngắn, hãy nói thêm!', 'error')
       return
     }
     if (isRecording) stopRecording()

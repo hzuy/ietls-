@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getAdminUser, toggleUserLock, deleteAdminUser, resetUserPassword } from '../../services/adminService'
+import { useToast } from '../../context/ToastContext'
 import { KeyRound } from 'lucide-react'
 import { ADMIN_SKILL_COLORS, SKILL_LABEL, SKILL_ORDER } from '../../utils/adminSkillColors'
 import { formatBand } from '../../utils/ielts'
 
 export default function UserDetail() {
+  const { showToast } = useToast()
   const { id } = useParams()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -39,7 +41,7 @@ export default function UserDetail() {
     try {
       const result = await toggleUserLock(user.id)
       setData(d => ({ ...d, user: { ...d.user, isLocked: result.isLocked } }))
-    } catch { alert('Lỗi thao tác') }
+    } catch { showToast('Lỗi thao tác', 'error') }
     setTogglingLock(false)
   }
 
@@ -47,7 +49,7 @@ export default function UserDetail() {
     try {
       await deleteAdminUser(user.id)
       navigate('/admin/users')
-    } catch (err) { alert(err.response?.data?.message || 'Lỗi xóa') }
+    } catch (err) { showToast(err.response?.data?.message || 'Lỗi xóa', 'error') }
   }
 
   const handleResetPassword = async () => {
@@ -55,7 +57,7 @@ export default function UserDetail() {
     try {
       const result = await resetUserPassword(user.id)
       setNewPassword(result.newPassword)
-    } catch { alert('Lỗi reset mật khẩu') }
+    } catch { showToast('Lỗi reset mật khẩu', 'error') }
   }
 
   return (

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { validateImageFile } from '../../utils/fileValidation'
+import { useToast } from '../../context/ToastContext'
 
 /**
  * UI page-level dùng chung cho các trang admin content-creation:
@@ -82,13 +83,14 @@ export function AdminListHeader({ title, subtitle, onAdd, addLabel = '+ Thêm m�
 // Component sở hữu file input + validateImageFile + alert lỗi; trang quyết định
 // làm gì với file hợp lệ (onSelect) và cách xoá (onClear).
 export function ThumbnailPicker({ preview, onSelect, onClear, hint }) {
+  const { showToast } = useToast()
   const inputRef = useRef()
 
   const handleChange = (e) => {
     const file = e.target.files[0]
     if (!file) return
     const v = validateImageFile(file)
-    if (!v.ok) { alert(v.error); e.target.value = ''; return }
+    if (!v.ok) { showToast(v.error, 'error'); e.target.value = ''; return }
     onSelect(file)
   }
 

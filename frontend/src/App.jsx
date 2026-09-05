@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import { AuthProvider } from './context/AuthContext'
+import { ToastProvider } from './context/ToastContext'
 import { FormDirtyProvider } from './context/FormDirtyContext'
 import Footer from './components/Footer'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -123,68 +124,70 @@ export default function App() {
     <ErrorBoundary>
       <BrowserRouter>
         <AuthProvider>
-          <AppEffects />
-          <FormDirtyProvider>
-          <Suspense fallback={<PageLoader />}>
-            <Routes>
-              <Route path="/login" element={<Navigate to="/" replace state={{ authModal: 'login' }} />} />
-              <Route path="/register" element={<Navigate to="/" replace state={{ authModal: 'register' }} />} />
-              <Route path="/change-password" element={<ChangePassword />} />
-              <Route path="/" element={<Home />} />
-              <Route path="/reading" element={<Navigate to="/practice/reading" replace />} />
-              <Route path="/reading/:id/result" element={<PrivateRoute><SkillResultPage skillType="reading" /></PrivateRoute>} />
-              <Route path="/reading/:id" element={<PrivateRoute><ReadingExam /></PrivateRoute>} />
-              <Route path="/listening" element={<Navigate to="/practice/listening" replace />} />
-              <Route path="/listening/:id/result" element={<PrivateRoute><SkillResultPage skillType="listening" /></PrivateRoute>} />
-              <Route path="/listening/:id" element={<PrivateRoute><ListeningExam /></PrivateRoute>} />
-              <Route path="/writing" element={<Navigate to="/writing-samples" replace />} />
-              <Route path="/writing/:id" element={<PrivateRoute><WritingExam /></PrivateRoute>} />
-              <Route path="/speaking" element={<Navigate to="/speaking-samples" replace />} />
-              <Route path="/speaking/:id" element={<PrivateRoute><SpeakingExam /></PrivateRoute>} />
-              <Route path="/full-test" element={<PrivateRoute><FullTest /></PrivateRoute>} />
-              <Route path="/full-test/:id" element={<FullTestDetail />} />
-              <Route path="/cambridge" element={<PrivateRoute><SeriesPage filterPattern="Cambridge" title="IELTS Cambridge Academic" description="Trọn bộ đề thi IELTS từ NXB Cambridge (cuốn 10 - 20)" /></PrivateRoute>} />
-              <Route path="/practice-plus" element={<PrivateRoute><SeriesPage filterPattern="Practice" title="IELTS Practice Test Plus" description="Dòng sách luyện đề chuyên sâu với độ khó cao" /></PrivateRoute>} />
-              <Route path="/practice/reading" element={<PrivateRoute><PracticeList skill="reading" /></PrivateRoute>} />
-              <Route path="/practice/reading/:id" element={<PrivateRoute><PracticeExamPage skill="reading" /></PrivateRoute>} />
-              <Route path="/practice/listening" element={<PrivateRoute><PracticeList skill="listening" /></PrivateRoute>} />
-              <Route path="/practice/listening/:id" element={<PrivateRoute><PracticeExamPage skill="listening" /></PrivateRoute>} />
-              <Route path="/writing-samples" element={<WritingSamplesPage />} />
-              <Route path="/speaking-samples" element={<SpeakingSamplesPage />} />
-              <Route path="/samples/writing/:id" element={<SampleDetailPage skill="writing" />} />
-              <Route path="/samples/speaking/:id" element={<SampleDetailPage skill="speaking" />} />
-              <Route path="/full-test/result" element={<PrivateRoute><FullTestResult /></PrivateRoute>} />
-              <Route path="/profile" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
-              <Route path="/progress" element={<PrivateRoute><ProgressAnalysis /></PrivateRoute>} />
+          <ToastProvider>
+            <AppEffects />
+            <FormDirtyProvider>
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
+                <Route path="/login" element={<Navigate to="/" replace state={{ authModal: 'login' }} />} />
+                <Route path="/register" element={<Navigate to="/" replace state={{ authModal: 'register' }} />} />
+                <Route path="/change-password" element={<ChangePassword />} />
+                <Route path="/" element={<Home />} />
+                <Route path="/reading" element={<Navigate to="/practice/reading" replace />} />
+                <Route path="/reading/:id/result" element={<PrivateRoute><SkillResultPage skillType="reading" /></PrivateRoute>} />
+                <Route path="/reading/:id" element={<PrivateRoute><ReadingExam /></PrivateRoute>} />
+                <Route path="/listening" element={<Navigate to="/practice/listening" replace />} />
+                <Route path="/listening/:id/result" element={<PrivateRoute><SkillResultPage skillType="listening" /></PrivateRoute>} />
+                <Route path="/listening/:id" element={<PrivateRoute><ListeningExam /></PrivateRoute>} />
+                <Route path="/writing" element={<Navigate to="/writing-samples" replace />} />
+                <Route path="/writing/:id" element={<PrivateRoute><WritingExam /></PrivateRoute>} />
+                <Route path="/speaking" element={<Navigate to="/speaking-samples" replace />} />
+                <Route path="/speaking/:id" element={<PrivateRoute><SpeakingExam /></PrivateRoute>} />
+                <Route path="/full-test" element={<PrivateRoute><FullTest /></PrivateRoute>} />
+                <Route path="/full-test/:id" element={<FullTestDetail />} />
+                <Route path="/cambridge" element={<PrivateRoute><SeriesPage filterPattern="Cambridge" title="IELTS Cambridge Academic" description="Trọn bộ đề thi IELTS từ NXB Cambridge (cuốn 10 - 20)" /></PrivateRoute>} />
+                <Route path="/practice-plus" element={<PrivateRoute><SeriesPage filterPattern="Practice" title="IELTS Practice Test Plus" description="Dòng sách luyện đề chuyên sâu với độ khó cao" /></PrivateRoute>} />
+                <Route path="/practice/reading" element={<PrivateRoute><PracticeList skill="reading" /></PrivateRoute>} />
+                <Route path="/practice/reading/:id" element={<PrivateRoute><PracticeExamPage skill="reading" /></PrivateRoute>} />
+                <Route path="/practice/listening" element={<PrivateRoute><PracticeList skill="listening" /></PrivateRoute>} />
+                <Route path="/practice/listening/:id" element={<PrivateRoute><PracticeExamPage skill="listening" /></PrivateRoute>} />
+                <Route path="/writing-samples" element={<WritingSamplesPage />} />
+                <Route path="/speaking-samples" element={<SpeakingSamplesPage />} />
+                <Route path="/samples/writing/:id" element={<SampleDetailPage skill="writing" />} />
+                <Route path="/samples/speaking/:id" element={<SampleDetailPage skill="speaking" />} />
+                <Route path="/full-test/result" element={<PrivateRoute><FullTestResult /></PrivateRoute>} />
+                <Route path="/profile" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
+                <Route path="/progress" element={<PrivateRoute><ProgressAnalysis /></PrivateRoute>} />
 
-              {/* Admin routes — 1 route cha dùng <Outlet/> (AdminLayout không unmount/remount
-                  giữa các mục nữa). Quyền hạn (AdminRoute vs StaffRoute) KHÔNG đồng nhất giữa
-                  các trang con (vd /admin/users chỉ admin, /admin/attempts admin+teacher) nên
-                  guard vẫn đặt riêng ở từng route con như cũ — không gộp lên route cha. */}
-              <Route path="/admin" element={<AdminLayout />}>
-                <Route index                    element={<StaffRoute><Analytics /></StaffRoute>} />
-                <Route path="exams/*"           element={<StaffRoute><Admin /></StaffRoute>} />
-                <Route path="attempts"          element={<StaffRoute><Attempts /></StaffRoute>} />
-                <Route path="analytics"         element={<Navigate to="/admin" replace />} />
-                <Route path="accounts"          element={<AdminRoute><Accounts /></AdminRoute>} />
-                <Route path="users"             element={<AdminRoute><Users /></AdminRoute>} />
-                <Route path="users/:id"         element={<AdminRoute><UserDetail /></AdminRoute>} />
-                <Route path="staff"             element={<AdminRoute><Staff /></AdminRoute>} />
-                <Route path="settings"          element={<AdminRoute><Settings /></AdminRoute>} />
-                <Route path="profile"           element={<StaffRoute><Profile /></StaffRoute>} />
-                <Route path="reading-practice"   element={<StaffRoute><ReadingPractice /></StaffRoute>} />
-                <Route path="listening-practice" element={<StaffRoute><ListeningPractice /></StaffRoute>} />
-                <Route path="writing-samples"    element={<StaffRoute><SampleManager kind="writing" /></StaffRoute>} />
-                <Route path="speaking-samples"   element={<StaffRoute><SampleManager kind="speaking" /></StaffRoute>} />
-                <Route path="trash"              element={<StaffRoute><Trash /></StaffRoute>} />
-              </Route>
+                {/* Admin routes — 1 route cha dùng <Outlet/> (AdminLayout không unmount/remount
+                    giữa các mục nữa). Quyền hạn (AdminRoute vs StaffRoute) KHÔNG đồng nhất giữa
+                    các trang con (vd /admin/users chỉ admin, /admin/attempts admin+teacher) nên
+                    guard vẫn đặt riêng ở từng route con như cũ — không gộp lên route cha. */}
+                <Route path="/admin" element={<AdminLayout />}>
+                  <Route index                    element={<StaffRoute><Analytics /></StaffRoute>} />
+                  <Route path="exams/*"           element={<StaffRoute><Admin /></StaffRoute>} />
+                  <Route path="attempts"          element={<StaffRoute><Attempts /></StaffRoute>} />
+                  <Route path="analytics"         element={<Navigate to="/admin" replace />} />
+                  <Route path="accounts"          element={<AdminRoute><Accounts /></AdminRoute>} />
+                  <Route path="users"             element={<AdminRoute><Users /></AdminRoute>} />
+                  <Route path="users/:id"         element={<AdminRoute><UserDetail /></AdminRoute>} />
+                  <Route path="staff"             element={<AdminRoute><Staff /></AdminRoute>} />
+                  <Route path="settings"          element={<AdminRoute><Settings /></AdminRoute>} />
+                  <Route path="profile"           element={<StaffRoute><Profile /></StaffRoute>} />
+                  <Route path="reading-practice"   element={<StaffRoute><ReadingPractice /></StaffRoute>} />
+                  <Route path="listening-practice" element={<StaffRoute><ListeningPractice /></StaffRoute>} />
+                  <Route path="writing-samples"    element={<StaffRoute><SampleManager kind="writing" /></StaffRoute>} />
+                  <Route path="speaking-samples"   element={<StaffRoute><SampleManager kind="speaking" /></StaffRoute>} />
+                  <Route path="trash"              element={<StaffRoute><Trash /></StaffRoute>} />
+                </Route>
 
-              {/* 404 Route */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
-          <FooterWrapper />
-          </FormDirtyProvider>
+                {/* 404 Route */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
+            <FooterWrapper />
+            </FormDirtyProvider>
+          </ToastProvider>
         </AuthProvider>
       </BrowserRouter>
     </ErrorBoundary>

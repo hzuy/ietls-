@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import SampleManager from './SampleManager'
+import { ToastProvider } from '../../context/ToastContext'
 import * as sampleService from '../../services/sampleService'
 
 // RichTextEditor dùng contentEditable + execCommand (không chạy được trong jsdom).
@@ -110,8 +111,11 @@ describe('SampleManager — smoke (Giai đoạn 0)', () => {
   )
 
   it('chặn Lưu khi thiếu nội dung (BUG-15) — không gọi create', async () => {
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
-    render(<SampleManager kind="writing" />)
+    render(
+      <ToastProvider>
+        <SampleManager kind="writing" />
+      </ToastProvider>
+    )
 
     fireEvent.click(await screen.findByRole('button', { name: '+ Thêm mới' }))
     fireEvent.change(screen.getByPlaceholderText(KINDS.writing.titlePlaceholder), {
@@ -119,7 +123,7 @@ describe('SampleManager — smoke (Giai đoạn 0)', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Lưu' }))
 
-    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('Vui lòng nhập nội dung bài mẫu'))
+    await waitFor(() => expect(screen.getByText('Vui lòng nhập nội dung bài mẫu')).toBeInTheDocument())
     expect(sampleService.createWritingSample).not.toHaveBeenCalled()
   })
 

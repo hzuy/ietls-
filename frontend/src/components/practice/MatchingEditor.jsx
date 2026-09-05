@@ -9,8 +9,10 @@
 import { useState, useRef } from 'react'
 import { uploadImage as uploadImageService } from '../../services/examService'
 import { inputCls, labelCls, btnSecondary, toImgSrc, getQuestionGroupTheme } from '../../utils/practiceConfig'
+import { useToast } from '../../context/ToastContext'
 
 export default function MatchingEditor({ group, onChange }) {
+  const { showToast } = useToast()
   const isMap = group.type === 'map_diagram'
   const [imgUploading, setImgUploading] = useState(false)
   const imgRef = useRef(null)
@@ -23,7 +25,7 @@ export default function MatchingEditor({ group, onChange }) {
       formData.append('image', file)
       const res = await uploadImageService(formData)
       onChange({ ...group, imageUrl: res.imageUrl })
-    } catch { alert('Lỗi upload ảnh') }
+    } catch { showToast('Lỗi upload ảnh', 'error') }
     finally { setImgUploading(false) }
   }
 

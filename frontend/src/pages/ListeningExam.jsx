@@ -5,6 +5,7 @@ import { getListeningExam, getListeningExamWithAnswers, submitListeningExam, get
 import { getAdminSettings } from '../services/adminService'
 import { saveDraft, loadDraft, clearDraft, formatSavedAt } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 import { Headphones, ArrowLeft } from 'lucide-react'
 import { getSectionSlots } from '../utils/questionCount'
 import MatchingTickGrid from '../components/MatchingTickGrid'
@@ -37,6 +38,7 @@ export default function ListeningExam() {
   const resumeMode = searchParams.get('resume') === 'true'
   const viewResultMode = searchParams.get('viewResult') === 'true'
   const { user } = useAuth()
+  const { showToast } = useToast()
 
   const [exam, setExam] = useState(null)
   const [answers, setAnswers] = useState({})
@@ -201,7 +203,7 @@ export default function ListeningExam() {
       if (user) clearDraft(user.id || user._id, id, 'listening')
       navigate(`/listening/${id}/result`, { replace: true })
     } catch (e) {
-      alert(e?.response?.data?.message || e?.message || 'Lỗi nộp bài thi. Vui lòng thử lại.')
+      showToast(e?.response?.data?.message || e?.message || 'Lỗi nộp bài thi. Vui lòng thử lại.', 'error')
     } finally { setSubmitting(false) }
   }
 
