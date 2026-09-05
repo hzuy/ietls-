@@ -81,6 +81,7 @@ export default function WritingExam() {
   // hỗ trợ NHIỀU task lỗi cùng lúc (vd. cả 2 task cùng lỗi model Groq).
   const [gradingErrors, setGradingErrors] = useState({})
   const [retryingTask, setRetryingTask] = useState(null)
+  const [confirmResubmitId, setConfirmResubmitId] = useState(null) // taskId đang chờ xác nhận "Nộp lại"
   const [timeLeft, setTimeLeft] = useState(DEFAULT_WRITING_TIME)
   const [totalMinutes, setTotalMinutes] = useState(DEFAULT_WRITING_TIME / 60) // hiển thị ở start-screen
   const [lightbox, setLightbox] = useState(null)
@@ -390,6 +391,21 @@ export default function WritingExam() {
     }
   }
 
+  // "Nộp lại" (Task 3) — cho task ĐÃ chấm xong viết lại từ đầu. Chỉ xoá state cục
+  // bộ (results/submittedTaskIds/gradingErrors); bản ghi WritingAnswer cũ trong DB
+  // giữ nguyên — /submit luôn tạo bản ghi MỚI, my-results tự ưu tiên bản mới nhất.
+  const handleResubmit = (task) => {
+    setResults(prev => {
+      if (!(task.id in prev)) return prev
+      const next = { ...prev }
+      delete next[task.id]
+      return next
+    })
+    setSubmittedTaskIds(ids => ids.filter(tid => tid !== task.id))
+    clearTaskError(task.id)
+    setConfirmResubmitId(null)
+  }
+
   // ── Auto-submit khi hết giờ ────────────────────────────────────────────────
   // Nộp mọi task chưa hoàn thành với cờ autoSubmit (backend bỏ qua gate 50 từ;
   // bài rỗng/quá ngắn → band 0 trả về ngay, không qua Groq). Tái dùng pollStatus
@@ -694,6 +710,29 @@ export default function WritingExam() {
                   Làm Task {task.number + 1} →
                 </button>
               )}
+              {/* Task 3: "Nộp lại" — hành động phụ, xác nhận 2 bước, không xoá bản ghi cũ */}
+              <div className="mt-5 pt-5 border-t border-slate-100 w-full">
+                {confirmResubmitId === task.id ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <p className="text-slate-500 text-xs leading-relaxed m-0">Nộp lại sẽ ghi đè kết quả hiển thị bằng bài viết mới — bài cũ vẫn được lưu lại.</p>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => handleResubmit(task)} className="px-4 py-1.5 rounded-lg text-xs font-bold bg-red-600 hover:bg-red-700 text-white transition cursor-pointer">
+                        Xác nhận nộp lại
+                      </button>
+                      <button onClick={() => setConfirmResubmitId(null)} className="px-4 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 transition cursor-pointer">
+                        Huỷ
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setConfirmResubmitId(task.id)}
+                    className="text-xs font-semibold text-slate-400 hover:text-red-600 underline decoration-dotted transition-colors cursor-pointer bg-transparent border-none"
+                  >
+                    Nộp lại Task {task.number}
+                  </button>
+                )}
+              </div>
             </div>
           ) : gradingTask === task.id ? (
             <div className="flex-1 bg-white rounded-2xl border border-slate-200 p-8 flex flex-col items-center justify-center text-center max-w-xl mx-auto w-full self-center shadow-sm">

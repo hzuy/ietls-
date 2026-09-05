@@ -47,6 +47,7 @@ export default function SpeakingExam() {
   // hỗ trợ NHIỀU part lỗi cùng lúc (vd. cả 3 part cùng lỗi model Groq).
   const [gradingErrors, setGradingErrors] = useState({})
   const [retryingPart, setRetryingPart] = useState(null)
+  const [confirmResubmitId, setConfirmResubmitId] = useState(null) // partId đang chờ xác nhận "Nộp lại"
   const [showExitConfirm, setShowExitConfirm] = useState(false)
   const [fullTestStatus, setFullTestStatus] = useState(null)
   const pollTimerRef = useRef(null)
@@ -399,6 +400,21 @@ export default function SpeakingExam() {
       setRetryingPart(null)
     }
   }, [gradingErrors, retryingPart, clearPartError, pollStatus])
+
+  // "Nộp lại" (Task 3) — cho part ĐÃ chấm xong nói lại từ đầu. Chỉ xoá state cục
+  // bộ (results/submittedPartIds/gradingErrors); bản ghi SpeakingAnswer cũ trong
+  // DB giữ nguyên — /submit luôn tạo bản ghi MỚI, my-results tự ưu tiên bản mới nhất.
+  const handleResubmit = useCallback((part) => {
+    setResults(prev => {
+      if (!(part.id in prev)) return prev
+      const next = { ...prev }
+      delete next[part.id]
+      return next
+    })
+    setSubmittedPartIds(ids => ids.filter(pid => pid !== part.id))
+    clearPartError(part.id)
+    setConfirmResubmitId(null)
+  }, [clearPartError])
 
   const submitPart = useCallback(async (part) => {
     const transcript = transcripts[part.id] || ''
@@ -800,6 +816,29 @@ export default function SpeakingExam() {
               ) : (
                 <p className="text-sky-600 font-semibold text-sm m-0">Đang tổng hợp kết quả...</p>
               )}
+              {/* Task 3: "Nộp lại" — hành động phụ, xác nhận 2 bước, không xoá bản ghi cũ */}
+              <div className="mt-5 pt-5 border-t border-slate-100 w-full">
+                {confirmResubmitId === part.id ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <p className="text-slate-500 text-xs leading-relaxed m-0">Nộp lại sẽ ghi đè kết quả hiển thị bằng bài nói mới — bài cũ vẫn được lưu lại.</p>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => handleResubmit(part)} className="px-4 py-1.5 rounded-lg text-xs font-bold bg-red-600 hover:bg-red-700 text-white transition cursor-pointer">
+                        Xác nhận nộp lại
+                      </button>
+                      <button onClick={() => setConfirmResubmitId(null)} className="px-4 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 transition cursor-pointer">
+                        Huỷ
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setConfirmResubmitId(part.id)}
+                    className="text-xs font-semibold text-slate-400 hover:text-red-600 underline decoration-dotted transition-colors cursor-pointer bg-transparent border-none"
+                  >
+                    Nộp lại Part {part.number}
+                  </button>
+                )}
+              </div>
             </div>
           ) : gradingPart === part.id ? (
             <div className="flex-1 bg-white rounded-2xl border border-slate-200 p-8 flex flex-col items-center justify-center text-center max-w-xl mx-auto w-full self-center shadow-sm">
