@@ -1,4 +1,5 @@
 import { useState, isValidElement } from 'react'
+import { handleImgError } from '../../utils/media'
 
 /**
  * <ContentCard> — thẻ nội dung dùng chung cho trang chủ + các trang danh sách
@@ -193,6 +194,7 @@ export default function ContentCard({
             draggable={false}
             loading="lazy"
             decoding="async"
+            onError={handleImgError}
             style={{
               width: '100%', height: '100%', objectFit: 'cover', display: 'block',
               transition: isShowcase ? 'transform 0.45s cubic-bezier(0.16, 1, 0.3, 1)' : undefined,

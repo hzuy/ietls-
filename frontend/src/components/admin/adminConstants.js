@@ -469,4 +469,4 @@ export const btnDanger = 'text-rose-600 hover:text-rose-700 text-xs px-2 py-1 ro
 
 // URL ảnh/asset: nguồn chân lý ở src/utils/media.js. Re-export giữ tên cũ để
 // mọi editor/tab admin đang import { SERVER_BASE, toImgSrc } từ đây không phải sửa.
-export { BACKEND_URL as SERVER_BASE, toImgSrc } from '../../utils/media'
+export { BACKEND_URL as SERVER_BASE, toImgSrc, handleImgError } from '../../utils/media'

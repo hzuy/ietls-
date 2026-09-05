@@ -3,6 +3,7 @@ import { useUnsavedChanges } from '../../hooks/useUnsavedChanges'
 import { useDraftPersistence } from '../../hooks/useDraftPersistence'
 import { ConfirmDeleteModal, DraftBanner, DraftSavedHint, AdminListHeader, ThumbnailPicker } from '../../components/admin/contentPageUI'
 import { useToast } from '../../context/ToastContext'
+import { handleImgError } from '../../utils/media'
 
 import RichTextEditor from '../../components/RichTextEditor'
 import {
@@ -308,7 +309,7 @@ export default function SampleManager({ kind }) {
                 <tbody>
                   {list.map(item => (
                     <tr key={item.id} className="border-b border-gray-50 hover:bg-gray-50 transition">
-                      <td className="px-4 py-3"><div style={{ width: 60, height: 40, borderRadius: 6, overflow: 'hidden', background: '#f1f5f9', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{resolveImg(item.thumbnailUrl) ? <img src={resolveImg(item.thumbnailUrl)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" stroke="#cbd5e1" strokeWidth="1.5"/><path d="M21 15l-5-5L5 21" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round"/></svg>}</div></td>
+                      <td className="px-4 py-3"><div style={{ width: 60, height: 40, borderRadius: 6, overflow: 'hidden', background: '#f1f5f9', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{resolveImg(item.thumbnailUrl) ? <img src={resolveImg(item.thumbnailUrl)} alt="" onError={handleImgError} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" stroke="#cbd5e1" strokeWidth="1.5"/><path d="M21 15l-5-5L5 21" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round"/></svg>}</div></td>
                       <td className="px-4 py-3 text-sm font-medium text-gray-800">{item.title}</td>
                       <td className="px-4 py-3 hidden sm:table-cell">
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>

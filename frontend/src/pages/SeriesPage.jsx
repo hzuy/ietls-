@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import { Headphones, BookOpen, PenTool, Mic } from 'lucide-react'
-import { BACKEND_URL, resolveImg } from '../utils/media'
+import { BACKEND_URL, resolveImg, handleImgError } from '../utils/media'
 
 const SKILL_ICONS = {
   listening: Headphones,
@@ -41,6 +41,7 @@ function BookCard({ book, onClick }) {
             alt={book.title}
             loading="lazy"
             decoding="async"
+            onError={handleImgError}
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: hasTests ? 'none' : 'grayscale(0.4) opacity(0.7)' }}
           />
         ) : (

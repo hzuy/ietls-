@@ -1,7 +1,7 @@
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 // URL ảnh/asset: nguồn chân lý ở ./media. Re-export giữ tên cũ để các editor +
 // trang admin đang import { BACKEND_URL, resolveImg, toImgSrc } từ đây không phải sửa.
-export { BACKEND_URL, resolveImg, toImgSrc } from './media'
+export { BACKEND_URL, resolveImg, toImgSrc, handleImgError } from './media'
 
 // ─── LEVELS ──────────────────────────────────────────────────────────────────
 export const LEVELS = ['beginner', 'intermediate', 'advanced']

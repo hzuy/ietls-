@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import api from '../../utils/axios'
-import { SERVER_BASE } from './adminConstants'
+import { SERVER_BASE, handleImgError } from './adminConstants'
 import Modal from '../common/Modal'
 
 // ─── CAMBRIDGE BOOK MODAL — Cover upload ──────────────────────────────────────
@@ -34,7 +34,7 @@ function CoverTab({ bookNumber, seriesId, coverUrl, onCoverUploaded, showToast }
         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick() } }}
       >
         {coverUrl
-          ? <img src={`${SERVER_BASE}${coverUrl}`} alt="" className="h-36 mx-auto object-contain rounded-lg mb-3 shadow" />
+          ? <img src={`${SERVER_BASE}${coverUrl}`} alt="" onError={handleImgError} className="h-36 mx-auto object-contain rounded-lg mb-3 shadow" />
           : <div className="text-5xl mb-3">📚</div>}
         <p className="text-sm font-semibold text-slate-600">{coverUrl ? 'Click để đổi ảnh bìa' : 'Click để chọn ảnh bìa'}</p>
         <p className="text-xs text-slate-400 mt-1">JPG, PNG, WebP — tối đa 20MB</p>
@@ -51,7 +51,7 @@ function BookModal({ bookNumber, seriesId, seriesName, coverUrl, onClose, onCove
     <Modal onClose={onClose} title={`${seriesName} ${bookNumber} — Ảnh bìa`} size="lg">
       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
         <div className="flex items-center gap-3">
-          {coverUrl && <img src={`${SERVER_BASE}${coverUrl}`} alt="" className="w-8 h-10 rounded object-cover shadow" />}
+          {coverUrl && <img src={`${SERVER_BASE}${coverUrl}`} alt="" onError={handleImgError} className="w-8 h-10 rounded object-cover shadow" />}
           <h2 className="font-extrabold text-slate-800">{seriesName} {bookNumber} — Ảnh bìa</h2>
         </div>
         <button onClick={onClose} aria-label="Đóng"
@@ -205,7 +205,7 @@ function SeriesDetailView({ series, books, booksError, onBack, onBooksChanged, s
                 className="w-12 h-16 rounded-lg overflow-hidden border-2 border-dashed border-slate-200 hover:border-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 transition block"
               >
                 {coverMap[b.bookNumber]
-                  ? <img src={`${SERVER_BASE}${coverMap[b.bookNumber]}`} alt="" className="w-full h-full object-cover" />
+                  ? <img src={`${SERVER_BASE}${coverMap[b.bookNumber]}`} alt="" onError={handleImgError} className="w-full h-full object-cover" />
                   : <div className="w-full h-full bg-slate-50 flex items-center justify-center text-slate-300 text-lg">📚</div>}
               </button>
               {editingBook === b.bookNumber ? (

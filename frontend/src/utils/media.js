@@ -20,3 +20,18 @@ export const resolveImg = (url) =>
 // Biến thể "an toàn cho <img src>": '' thay vì null, chỉ prefix khi path bắt đầu '/'.
 export const toImgSrc = (url) =>
   (url || '').startsWith('/') ? `${BACKEND_URL}${url}` : (url || '')
+
+// Ảnh thay thế khi cover/thumbnail lỗi (404, network...) — tránh icon "ảnh vỡ"
+// mặc định của trình duyệt. Dùng qua onError={handleImgError} trên <img>.
+export const IMG_FALLBACK = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
+  '<rect width="100" height="100" fill="#f1f5f9"/>' +
+  '<circle cx="37" cy="37" r="8" fill="#cbd5e1"/>' +
+  '<path d="M20 72l18-20 13 13 15-18 18 25H20z" fill="#cbd5e1"/>' +
+  '</svg>'
+)
+
+export const handleImgError = (e) => {
+  e.currentTarget.onerror = null
+  e.currentTarget.src = IMG_FALLBACK
+}
