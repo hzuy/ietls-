@@ -650,19 +650,30 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
 
     if (existing.skill === 'writing') {
       const { task1, task2 } = req.body
-      await prisma.writingTask.deleteMany({ where: { examId: id } })
-      const updated = await prisma.exam.update({
-        where: { id },
-        data: {
-          title, bookNumber: bn, testNumber: tn,
-          writingTasks: {
-            create: [
-              { number: 1, prompt: task1.prompt, imageUrl: task1.imageUrl || null, minWords: 150 },
-              { number: 2, prompt: task2.prompt, imageUrl: null, minWords: 250 }
-            ]
+
+      // WritingTask numbers are always exactly 1 and 2 — task1/task2 are fixed
+      // slots in the form (never a deletable array), so unlike Reading/Listening
+      // there is no delete scenario here at all. Reuse the existing rows (same
+      // pattern as SpeakingPart) instead of delete-and-recreate, so WritingAnswer
+      // rows (which point at taskId) keep a valid reference.
+      const existingTasks = await prisma.writingTask.findMany({ where: { examId: id }, select: { id: true, number: true } })
+      const taskIdByNumber = new Map(existingTasks.map(t => [t.number, t.id]))
+      const specs = [
+        { number: 1, prompt: task1.prompt, imageUrl: task1.imageUrl || null, minWords: 150 },
+        { number: 2, prompt: task2.prompt, imageUrl: null, minWords: 250 }
+      ]
+
+      const updated = await prisma.$transaction(async (tx) => {
+        await tx.exam.update({ where: { id }, data: { title, bookNumber: bn, testNumber: tn } })
+        for (const spec of specs) {
+          const existingId = taskIdByNumber.get(spec.number)
+          if (existingId) {
+            await tx.writingTask.update({ where: { id: existingId }, data: { prompt: spec.prompt, imageUrl: spec.imageUrl, minWords: spec.minWords } })
+          } else {
+            await tx.writingTask.create({ data: { examId: id, ...spec } })
           }
-        },
-        include: { writingTasks: true }
+        }
+        return tx.exam.findUnique({ where: { id }, include: { writingTasks: true } })
       })
       invalidate('fulltests:')
       return res.json(updated)
