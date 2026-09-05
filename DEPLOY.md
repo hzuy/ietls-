@@ -26,14 +26,14 @@
 | **Server** | `lab46` — self-hosted, IP `10.100.200.126`, user `huuduy`. |
 | **Domain** | `https://hzuy.net`, đứng sau **Cloudflare proxy**. Cloudflare che IP origin → **KHÔNG SSH được qua `hzuy.net`**, phải SSH thẳng vào `lab46` / `10.100.200.126`. |
 | **Backend** | Docker container `ielts-app-backend` (`docker-compose.yml` ở root repo). Bind `127.0.0.1:5001` (không mở ra Internet). Nginx trên cùng máy reverse-proxy `/api` và `/uploads` vào container. `PORT=5001`, `NODE_ENV=production`, biến môi trường nạp từ `./backend/.env` trên server. |
-| **Frontend** | Static build. Nginx serve trực tiếp từ `/home/huuduy/ielts-app/frontend/dist`. Không chạy qua Node. |
+| **Frontend** | Static build. Nginx serve trực tiếp từ `/var/www/hzuy`. Không chạy qua Node. |
 | **Database** | Supabase PostgreSQL managed, project ref `qtuzysaqftzmveyvrzxz`. **Local dev VÀ prod trỏ CHUNG một database này** — không có DB riêng cho local. Migration chạy từ máy local lúc dev thường đã áp lên đúng cái DB mà prod dùng. Xem [bước 9](#bước-9--migration-kiểm-tra-trước-đừng-tự-động-chạy). |
 | **CI/CD** | Không có. GitHub Actions chỉ chạy test trên push/PR to `main`, **không tự deploy**. Mọi bước dưới đây là thủ công. |
 
 ### Đường đi request
 
 ```
-Browser ──HTTPS──> Cloudflare ──> Nginx (lab46) ──┬── /            -> /home/huuduy/ielts-app/frontend/dist (static)
+Browser ──HTTPS──> Cloudflare ──> Nginx (lab46) ──┬── /            -> /var/www/hzuy (static)
                                                   ├── /api/...     -> 127.0.0.1:5001 (container, giữ nguyên prefix /api)
                                                   └── /uploads/...  -> 127.0.0.1:5001
 ```
@@ -59,6 +59,26 @@ Browser ──HTTPS──> Cloudflare ──> Nginx (lab46) ──┬── /   
 - User `huuduy` đã ở trong group `docker` trên server → chạy `docker` / `docker compose` không cần `sudo`.
 - Trên server, file `backend/.env` đã có `FRONTEND_URL=https://hzuy.net` — bắt buộc, nếu không domain thật sẽ bị CORS chặn (`server.js` chỉ thêm origin này vào allowlist khi biến tồn tại).
 - Node.js **chỉ có ở máy local** — server không cài Node → **frontend luôn build ở local** ([bước 3](#bước-3--build-frontend-tại-local)).
+
+**Checklist biến môi trường** (thiếu cái nào thì tính năng liên quan âm thầm hỏng, không lỗi rõ ràng):
+
+`backend/.env` (trên server):
+
+| Biến | Bắt buộc? | Ghi chú |
+|---|---|---|
+| `DATABASE_URL` | ✅ | Supabase, dùng chung local/prod — xem [mục 1](#1-kiến-trúc-tổng-quan). |
+| `JWT_SECRET` | ✅ | Random 32+ ký tự. |
+| `GROQ_API_KEY` | ✅ | Chấm Writing/Speaking + chatbot + transcription. |
+| `FRONTEND_URL` | ✅ | `https://hzuy.net` — thiếu → CORS chặn hết request từ domain thật. |
+| `GOOGLE_CLIENT_ID` | ✅ | Google OAuth login (`routes/auth.js`) — verify `audience` khi decode token Google. Thiếu → endpoint Google login lỗi runtime (lazy init, không throw lúc khởi động nên dễ bỏ sót). |
+| `PORT` | tùy chọn | `docker-compose.yml` set `PORT=5001` sẵn. |
+
+`frontend/.env.production` (đã commit trong repo, dùng lúc build ở local — [bước 3](#bước-3--build-frontend-tại-local)):
+
+| Biến | Bắt buộc? | Ghi chú |
+|---|---|---|
+| `VITE_API_URL` | ✅ | `https://hzuy.net/api` — xem [mục 6.1](#61-đã-làm--frontendenvproduction-đã-commit-bỏ-hẳn-trò-env-override). |
+| `VITE_GOOGLE_CLIENT_ID` | ✅ | Google OAuth login (`src/main.jsx`) — **build-time**, nhúng thẳng vào bundle JS. Thiếu lúc build → phải build lại từ đầu, không sửa được sau khi đã build như biến backend. |
 
 ---
 
@@ -141,57 +161,48 @@ grep -rl "https://hzuy.net/api" frontend/dist/assets/*.js
   **Sự hiện diện của `localhost:3001` KHÔNG phải lỗi.**
   **Dấu hiệu lỗi thật là `https://hzuy.net/api` VẮNG MẶT.**
 
-### Bước 5 — Backup `dist` cũ trên server
+### Bước 5 — Backup web root cũ trên server
 
 Trên shell SSH của server:
 
 ```bash
-cd /home/huuduy/ielts-app/frontend
-cp -a dist "dist.backup-$(date +%Y%m%d-%H%M%S)"
+cd /var/www
+cp -a hzuy "hzuy.backup-$(date +%Y%m%d-%H%M%S)"
 ```
 
-### Bước 6 — Đẩy `dist` mới lên server
+### Bước 6 — Đẩy build mới lên server
 
 Từ **máy local** (git-bash / WSL / macOS terminal — cần `tar` + `ssh`):
 
 ```bash
-ssh lab46 'rm -rf /home/huuduy/ielts-app/frontend/dist && mkdir -p /home/huuduy/ielts-app/frontend/dist'
+ssh lab46 'rm -rf /var/www/hzuy && mkdir -p /var/www/hzuy'
 ```
 
 ```bash
-tar -C frontend/dist -czf - . | ssh lab46 'tar -C /home/huuduy/ielts-app/frontend/dist -xzf -'
+tar -C frontend/dist -czf - . | ssh lab46 'tar -C /var/www/hzuy -xzf -'
 ```
 
 > Xóa sạch rồi giải nén để không tích lũy file asset hash cũ. An toàn vì đã có backup ở bước 5.
-> Trên PowerShell thuần không có `tar` pipe tiện — dùng git-bash, hoặc `scp -r frontend/dist/* lab46:/home/huuduy/ielts-app/frontend/dist/` (nhớ xóa dist cũ trước).
+> Trên PowerShell thuần không có `tar` pipe tiện — dùng git-bash, hoặc `scp -r frontend/dist/* lab46:/var/www/hzuy/` (nhớ xóa nội dung cũ trước).
+>
+> ⚠️ **Thứ tự thao tác:** LUÔN copy nội dung mới vào `/var/www/hzuy` xong xuôi rồi mới reload Nginx
+> (không áp dụng ở đây vì `root` đã trỏ sẵn vào `/var/www/hzuy` từ [mục 6.2](#62-đã-làm--dời-web-root-sang-varwwwhzuy),
+> không cần đổi Nginx mỗi lần deploy nữa) — chỉ nhắc lại vì lần dời web root ban đầu **đã bị ngược
+> thứ tự** (đổi `root` trỏ vào thư mục rỗng trước, copy nội dung sau), gây 403/404 tạm thời. Xem
+> ghi chú sự cố ở [mục 6.2](#62-đã-làm--dời-web-root-sang-varwwwhzuy).
 
-### Bước 7 — 🔴 BẮT BUỘC: fix SELinux context cho `dist` mới
+### Bước 7 — Verify quyền sở hữu (không còn cần restorecon mỗi lần)
 
-Bỏ bước này → **403 Forbidden toàn bộ file tĩnh**. API vẫn chạy (đi qua proxy), nên rất dễ
-tưởng nhầm "chỉ frontend lỗi lung tung".
-
-**Tại sao:** web root nằm trong `/home` (nhãn SELinux mặc định `user_home_t`). Nginx chạy dưới
-domain `httpd_t`, bị SELinux enforcing chặn đọc file có nhãn đó. Mỗi lần copy file mới vào,
-file mang nhãn mới **không tự kế thừa** nhãn `httpd_sys_content_t` — phải gán lại thủ công.
-
-**Cách chính** (cần mật khẩu sudo, cần **TTY tương tác thật** — chạy trong shell SSH đang mở,
-KHÔNG chạy được qua `ssh lab46 'sudo ...'` non-interactive):
-
-```bash
-sudo restorecon -RvF /home/huuduy/ielts-app/frontend/dist
-```
-
-**Cách dự phòng** nếu sudo không có TTY (dùng quyền owner file, không cần sudo):
+`/var/www` có nhãn SELinux mặc định `httpd_sys_content_t` sẵn cho mọi thư mục con, và file mới
+copy vào thường **tự kế thừa** nhãn đúng — khác với `/home` trước đây. Chỉ cần đảm bảo owner
+đúng (không cần sudo):
 
 ```bash
-chcon -R -u system_u -t httpd_sys_content_t /home/huuduy/ielts-app/frontend/dist
+ls -la /var/www/hzuy/index.html
 ```
 
-Verify nhanh (nhãn phải là `httpd_sys_content_t`):
-
-```bash
-ls -Z /home/huuduy/ielts-app/frontend/dist/index.html
-```
+Owner phải là `huuduy:huuduy`. Nếu nhãn SELinux lại sai (hiếm, xem [mục 5](#5-lỗi-thường-gặp--triage-nhanh)
+để chẩn đoán), mới cần chạy lại `restorecon` — không phải bước thường quy nữa.
 
 ### Bước 8 — Backend: rebuild container (chỉ khi có đổi `backend/`)
 
@@ -313,14 +324,21 @@ docker compose up -d backend
 Trên shell SSH của server:
 
 ```bash
-cd /home/huuduy/ielts-app/frontend
-rm -rf dist && mv dist.backup-<TIMESTAMP> dist
+cd /var/www
+rm -rf hzuy && mv hzuy.backup-<TIMESTAMP> hzuy
 ```
 
-🔴 **NHỚ chạy lại SELinux fix** — backup cũng không giữ được context đúng sau khi `mv`:
+Kiểm tra lại nhãn SELinux sau khi `mv` (thường vẫn đúng vì cùng nằm trong `/var/www`, nhưng verify
+cho chắc — xem [mục 5](#5-lỗi-thường-gặp--triage-nhanh)):
 
 ```bash
-sudo restorecon -RvF /home/huuduy/ielts-app/frontend/dist
+ls -Z /var/www/hzuy/index.html
+```
+
+Nếu nhãn sai (hiếm) → chạy lại (cần TTY tương tác thật, không qua `ssh lab46 'sudo ...'`):
+
+```bash
+sudo restorecon -RvF /var/www/hzuy
 ```
 
 ---
@@ -329,8 +347,9 @@ sudo restorecon -RvF /home/huuduy/ielts-app/frontend/dist
 
 | Triệu chứng | Nguyên nhân | Cách sửa |
 |---|---|---|
-| Trang trắng / **403 Forbidden** ở mọi file tĩnh, nhưng `curl https://hzuy.net/api/...` vẫn **200** | SELinux context của `dist` sai (nhãn `user_home_t` thay vì `httpd_sys_content_t`) | [Bước 7](#bước-7--bắt-buộc-fix-selinux-context-cho-dist-mới) |
+| Trang trắng / **403 Forbidden** hoặc **404** ở mọi file tĩnh, nhưng `curl https://hzuy.net/api/...` vẫn **200** | (a) SELinux context của web root sai (nhãn khác `httpd_sys_content_t` — hiếm từ khi dùng `/var/www/hzuy`, xem [mục 6.2](#62-đã-làm--dời-web-root-sang-varwwwhzuy)); hoặc (b) `root` Nginx trỏ vào thư mục rỗng/chưa copy nội dung xong (xem sự cố ở mục 6.2) | (a) `sudo restorecon -RvF /var/www/hzuy`, verify bằng `ls -Z /var/www/hzuy/index.html` phải ra `httpd_sys_content_t`. (b) Đảm bảo đã copy xong nội dung vào `/var/www/hzuy` **trước khi** reload Nginx hoặc đổi `root` |
 | Trang **load được** nhưng mọi section gọi API báo *"Lỗi tải dữ liệu / Không thể kết nối máy chủ"*; `curl` API trực tiếp lại OK | `VITE_API_URL` bị build sai — bundle nhúng `http://localhost:3001/api` làm baseURL thật. **Hiếm** từ khi có `frontend/.env.production` (xem mục 6.1); chỉ xảy ra nếu ai đó tự set `$env:VITE_API_URL` sai trong shell (process env đè file), hoặc `.env.production` bị xóa/sửa | Kiểm tra `frontend/.env.production` còn đúng `VITE_API_URL=https://hzuy.net/api` và không có biến `VITE_API_URL` nào set trong shell → build lại [bước 3](#bước-3--build-frontend-tại-local) + verify [bước 4](#bước-4--verify-ngay-trong-bundle-local-trước-khi-đẩy-lên), đẩy lại |
+| Google login lỗi (backend 500 hoặc frontend không hiện nút/redirect sai) | Thiếu `GOOGLE_CLIENT_ID` (`backend/.env` trên server) hoặc `VITE_GOOGLE_CLIENT_ID` (`frontend/.env.production` lúc build) — xem checklist ở [mục 2](#2-điều-kiện-tiên-quyết-làm-1-lần) | Backend: thêm biến + `docker compose up -d backend`. Frontend: biến là build-time → phải sửa `.env.production` rồi build lại từ [bước 3](#bước-3--build-frontend-tại-local), không sửa được sau khi đã build |
 | API báo lỗi **CORS** trên console trình duyệt (`No 'Access-Control-Allow-Origin'`) | `backend/.env` trên server thiếu `FRONTEND_URL=https://hzuy.net` | Thêm biến vào `backend/.env` trên server, `docker compose up -d backend` |
 | `prisma migrate status` báo pending bất ngờ | Có migration mới chưa áp lên DB chung | Audit [bước 9](#bước-9--migration-kiểm-tra-trước-đừng-tự-động-chạy) trước khi `migrate deploy` |
 
@@ -338,7 +357,7 @@ sudo restorecon -RvF /home/huuduy/ielts-app/frontend/dist
 
 Triệu chứng bên ngoài giống nhau ("trang không hoạt động"), nhưng:
 
-- **403 SELinux** xảy ra ngay ở **tầng Nginx** → `curl -I https://hzuy.net/` (hoặc một file asset) trả **status 403**. Frontend còn không load nổi.
+- **403/404 web root** (SELinux hoặc thiếu nội dung) xảy ra ngay ở **tầng Nginx** → `curl -I https://hzuy.net/` (hoặc một file asset) trả **status 403/404**. Frontend còn không load nổi.
 - **VITE_API_URL sai** → Nginx trả **200 bình thường**, frontend **load được**, chỉ có JS bên trong gọi sai địa chỉ. Phải xem **Network tab** của DevTools hoặc `grep` bundle mới thấy.
 
 ---
@@ -360,24 +379,42 @@ Nguồn gốc lỗi #2 ở mục 5 (VITE_API_URL build sai) về cơ bản khôn
 chuẩn. Dòng đó vẫn **giữ lại trong bảng triage** như thông tin phòng hờ — phòng trường hợp ai đó
 lỡ tự set biến môi trường `VITE_API_URL` đè lên `.env.production`, hoặc file bị xóa/sửa.
 
-### 6.2. Chuyển web root sang `/var/www/hzuy` (khỏi restorecon mỗi lần)
+### 6.2. ĐÃ LÀM — Dời web root sang `/var/www/hzuy`
 
-`/var/www` có nhãn SELinux mặc định `httpd_sys_content_t` sẵn. Các bước nếu làm:
+Thực hiện 2026-09-05. Web root chuyển từ `/home/huuduy/ielts-app/frontend/dist` sang
+`/var/www/hzuy` (nhãn SELinux mặc định `httpd_sys_content_t` sẵn, file copy vào tự kế thừa
+đúng nhãn — không còn phải `restorecon` mỗi lần deploy như [bước 7](#bước-7--verify-quyền-sở-hữu-không-còn-cần-restorecon-mỗi-lần) cũ).
 
-```bash
-sudo mkdir -p /var/www/hzuy
-sudo chown huuduy:huuduy /var/www/hzuy
+Các việc đã làm:
+- `sudo mkdir -p /var/www/hzuy && sudo chown huuduy:huuduy /var/www/hzuy`.
+- Copy toàn bộ nội dung `dist` cũ sang `/var/www/hzuy` (`cp -a`).
+- Sửa directive `root` trong `/etc/nginx/conf.d/huuduy.conf` từ `/home/huuduy/ielts-app/frontend/dist` → `/var/www/hzuy`; `sudo nginx -t && sudo systemctl reload nginx`.
+- Chạy `sudo restorecon -RvF /var/www/hzuy` một lần.
+- Verify qua domain thật: `index.html` 200, asset JS 200 đúng `Content-Type`, bundle chứa đúng
+  `https://hzuy.net/api`, API public trả JSON hợp lệ, `diff -rq` giữa `dist` cũ và `/var/www/hzuy`
+  khớp 100%.
+- Đích deploy ở [bước 5–7](#bước-5--backup-web-root-cũ-trên-server) đã đổi sang `/var/www/hzuy`.
+
+⚠️ **Sự cố phát sinh lúc làm (đã khắc phục ngay):** đổi directive `root` trỏ sang `/var/www/hzuy`
+và reload Nginx **trước khi** copy nội dung `dist` sang thư mục đó → site trả 403/404 tạm thời
+(web root trỏ đúng chỗ nhưng thư mục rỗng). Khắc phục bằng cách copy bổ sung ngay lập tức, xong
+verify lại đầy đủ. **Bài học cho lần dời web root sau này (nếu có):** luôn copy nội dung vào
+thư mục đích mới **xong xuôi và verify tại chỗ** (`ls` thấy đủ file) rồi mới đổi `root` Nginx +
+reload — không làm ngược thứ tự. Không phải rủi ro thường trực (việc dời web root này coi như
+đã xong, không lặp lại ở quy trình deploy thường quy), chỉ ghi chú phòng khi cần dời lần nữa.
+
+`/home/huuduy/ielts-app/frontend/dist` (bản cũ) **chưa xóa** — giữ lại vài ngày để rollback nếu
+cần, không còn dùng trong quy trình deploy chính. Có thể xóa sau khi ổn định.
+
+### 6.3. ĐÃ LÀM — Dọn Docker image dangling định kỳ
+
+Thực hiện 2026-09-05. Cron job trên `lab46` (user `huuduy`, `crontab -l` để xem):
+
+```cron
+0 3 * * 0 /usr/bin/docker image prune -f >> /home/huuduy/docker-prune.log 2>&1 && tail -n 500 /home/huuduy/docker-prune.log > /home/huuduy/docker-prune.log.tmp && mv /home/huuduy/docker-prune.log.tmp /home/huuduy/docker-prune.log
 ```
 
-- Sửa directive `root` trong Nginx config (`huuduy.conf`) từ `/home/huuduy/ielts-app/frontend/dist` → `/var/www/hzuy`.
-- `sudo nginx -t && sudo systemctl reload nginx`.
-- Đổi đích deploy ở [bước 5–7](#bước-5--backup-dist-cũ-trên-server) sang `/var/www/hzuy`.
-- Chạy `sudo restorecon -RvF /var/www/hzuy` **một lần** — sau đó file copy vào thường kế thừa đúng nhãn.
-
-### 6.3. Dọn Docker image dangling định kỳ
-
-Không gấp, nhưng sau vài lần `docker compose build` sẽ tích image `<none>`:
-
-```bash
-docker image prune -f
-```
+Chạy Chủ nhật 3h sáng hàng tuần (giờ ít traffic). Dùng full path `/usr/bin/docker` vì `PATH` của
+cron tối giản hơn shell tương tác. Log ghi ra `~/docker-prune.log`, tự rotate giữ 500 dòng cuối
+sau mỗi lần chạy để không phình vô hạn qua nhiều năm. Không cần sudo — user `huuduy` đã ở group
+`docker`.
