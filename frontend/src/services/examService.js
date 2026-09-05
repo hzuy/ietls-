@@ -58,6 +58,11 @@ export const submitSpeakingExam = (id, partId, transcript) => api.post(`/speakin
 export const getWritingStatus = (answerId) => api.get(`/writing/answers/${answerId}/status`).then(r => r.data)
 export const getSpeakingStatus = (answerId) => api.get(`/speaking/answers/${answerId}/status`).then(r => r.data)
 
+// Chấm lại 1 answer đang status='failed', dùng lại essayText/transcript đã lưu —
+// không cần người dùng viết/ghi âm lại.
+export const retryWritingGrading = (answerId) => api.post(`/writing/answers/${answerId}/retry`).then(r => r.data)
+export const retrySpeakingGrading = (answerId) => api.post(`/speaking/answers/${answerId}/retry`).then(r => r.data)
+
 // Tầng 4: khôi phục kết quả đã chấm (status 'graded') của chính user cho 1 đề.
 // Trả mảng entry — Writing key theo taskId, Speaking key theo partId.
 export const getWritingMyResults = (id) => api.get(`/writing/exams/${id}/my-results`).then(r => r.data)

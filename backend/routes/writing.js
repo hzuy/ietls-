@@ -329,4 +329,38 @@ router.get('/answers/:id/status', authMiddleware, async (req, res) => {
   }
 })
 
+// Chấm lại 1 answer đang status='failed' bằng chính essayText đã lưu — không
+// yêu cầu người dùng viết lại. Khác với /submit (luôn tạo answer MỚI): retry
+// chấm lại NGAY trên bản ghi cũ, dùng cho lỗi hạ tầng AI (model đổi, timeout...)
+// chứ không phải muốn viết lại nội dung (dùng nút "Nộp lại" ở FE cho trường hợp đó).
+router.post('/answers/:id/retry', authMiddleware, async (req, res) => {
+  try {
+    const answerId = parseInt(req.params.id)
+    const answer = await prisma.writingAnswer.findUnique({
+      where: { id: answerId },
+      include: { task: true }
+    })
+    if (!answer) return res.status(404).json({ message: 'Không tìm thấy bài làm' })
+    if (answer.userId !== req.user.userId) {
+      return res.status(403).json({ message: 'Không có quyền với bài làm này' })
+    }
+    if (answer.status !== 'failed') {
+      return res.status(400).json({ message: 'Chỉ có thể chấm lại bài đang ở trạng thái lỗi' })
+    }
+
+    await prisma.writingAnswer.update({
+      where: { id: answerId },
+      data: { status: 'pending', error: null }
+    })
+
+    processWritingAI(answerId, answer.task.prompt, answer.task.number, answer.essayText).catch(err => {
+      if (process.env.NODE_ENV !== 'production') console.error('[processWritingAI Retry Unhandled]', err)
+    })
+
+    res.json({ answerId, status: 'pending' })
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
 module.exports = router
