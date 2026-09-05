@@ -148,4 +148,63 @@ describe('SampleManager — smoke (Giai đoạn 0)', () => {
     expect(screen.queryByText('Band 8.0')).not.toBeInTheDocument()
     expect(screen.getByText(badge)).toBeInTheDocument()
   })
+
+  it('khi đổi prop kind trên cùng một instance: refetch dữ liệu mới và reset view/form/editing', async () => {
+    sampleService.getWritingSamples.mockResolvedValue([
+      { id: 1, title: 'Writing Item 1', level: 'task1', examType: '', thumbnailUrl: null, createdAt: '2026-01-01' },
+    ])
+    sampleService.getSpeakingSamples.mockResolvedValue([
+      { id: 2, title: 'Speaking Item 1', level: 'task2', examType: '', thumbnailUrl: null, createdAt: '2026-01-02' },
+    ])
+
+    const { rerender } = render(<SampleManager kind="writing" />)
+
+    expect(await screen.findByText('Writing Item 1')).toBeInTheDocument()
+    expect(sampleService.getWritingSamples).toHaveBeenCalledTimes(1)
+    expect(sampleService.getSpeakingSamples).not.toHaveBeenCalled()
+
+    // Chuyển sang form trên writing
+    fireEvent.click(screen.getByRole('button', { name: '+ Thêm mới' }))
+    expect(screen.getByRole('heading', { name: 'Thêm Writing Sample mới' })).toBeInTheDocument()
+
+    // Đổi prop kind sang 'speaking' trên cùng instance
+    rerender(<SampleManager kind="speaking" />)
+
+    // Xác nhận gọi đúng API speaking
+    await waitFor(() => expect(sampleService.getSpeakingSamples).toHaveBeenCalledTimes(1))
+    // Xác nhận view được reset về 'list' và hiển thị dữ liệu của speaking
+    expect(await screen.findByText('Speaking Item 1')).toBeInTheDocument()
+    expect(screen.queryByText('Writing Item 1')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Thêm Writing Sample mới' })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Speaking Samples' })).toBeInTheDocument()
+  })
+
+  it('chống race condition khi đổi kind nhanh: response của kind cũ đến muộn không ghi đè kind mới', async () => {
+    let resolveWriting
+    const writingPromise = new Promise(resolve => { resolveWriting = resolve })
+    sampleService.getWritingSamples.mockImplementation(() => writingPromise)
+    sampleService.getSpeakingSamples.mockResolvedValue([
+      { id: 20, title: 'Speaking Fast Result', level: 'task1', examType: '', thumbnailUrl: null, createdAt: '2026-01-01' },
+    ])
+
+    const { rerender } = render(<SampleManager kind="writing" />)
+
+    // Đổi ngay sang speaking khi writing request chưa xong
+    rerender(<SampleManager kind="speaking" />)
+
+    // Speaking trả về trước
+    expect(await screen.findByText('Speaking Fast Result')).toBeInTheDocument()
+
+    // Bây giờ writing request cũ mới xong
+    resolveWriting([
+      { id: 10, title: 'Writing Stale Result', level: 'task1', examType: '', thumbnailUrl: null, createdAt: '2026-01-01' },
+    ])
+
+    // Chờ 1 chút để xem writing stale result có bị ghi đè không
+    await new Promise(r => setTimeout(r, 50))
+
+    // Vẫn hiển thị Speaking, KHÔNG bị Writing đè lên
+    expect(screen.getByText('Speaking Fast Result')).toBeInTheDocument()
+    expect(screen.queryByText('Writing Stale Result')).not.toBeInTheDocument()
+  })
 })

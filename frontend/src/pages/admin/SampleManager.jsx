@@ -137,7 +137,34 @@ export default function SampleManager({ kind }) {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    let cancelled = false
+    setList([])
+    setView('list')
+    setEditing(null)
+    setForm(EMPTY_FORM)
+    setDelConfirm(null)
+    setIsDirty(false)
+    pristineRef.current = ''
+    setLoading(true)
+
+    svc.list()
+      .then(data => {
+        if (!cancelled) {
+          setList(data || [])
+          setLoading(false)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [kind])
 
   const openAdd = () => {
     pristineRef.current = formSig(EMPTY_FORM)
