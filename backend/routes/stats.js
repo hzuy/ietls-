@@ -4,6 +4,7 @@ const Groq = groqSdk.Groq || groqSdk.default || groqSdk
 const authMiddleware = require('../middleware/auth')
 const prisma = require('../lib/prisma')
 const { cleanJsonRaw, repairTruncatedJson } = require('../services/json/jsonSanitizer')
+const { getGroqModel } = require('../lib/groqClient')
 
 const router = express.Router()
 
@@ -517,7 +518,7 @@ YÊU CẦU BẮT BUỘC KHI TẠO CÂU TRẢ LỜI:
     if (groq) {
       const completion = await groq.chat.completions.create({
         messages: [{ role: 'user', content: prompt }],
-        model: 'llama-3.3-70b-versatile',
+        model: getGroqModel(),
         temperature: 0.2,
       })
       responseText = completion.choices[0]?.message?.content || ''

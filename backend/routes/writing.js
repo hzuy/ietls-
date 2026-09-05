@@ -7,6 +7,7 @@ const { cleanJsonRaw, repairTruncatedJson } = require('../services/json/jsonSani
 
 const router = express.Router()
 const prisma = require('../lib/prisma')
+const { getGroqModel } = require('../lib/groqClient')
 const getGroqClient = () => new Groq({ apiKey: process.env.GROQ_API_KEY })
 
 // Public: 4 Writing samples mới nhất cho trang chủ
@@ -140,7 +141,7 @@ Trả về JSON (không có gì khác):
     const groq = getGroqClient()
     const completion = await groq.chat.completions.create({
       messages: [{ role: 'user', content: prompt }],
-      model: 'llama-3.3-70b-versatile',
+      model: getGroqModel(),
       temperature: 0.3
     })
 

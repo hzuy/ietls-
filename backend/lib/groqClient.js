@@ -12,4 +12,11 @@ function getGroqClient() {
   return new Groq({ apiKey: process.env.GROQ_API_KEY })
 }
 
-module.exports = { getGroqClient }
+// Groq gỡ model cũ khá thường xuyên (vd. llama-3.3-70b-versatile bị gỡ 08/2026).
+// Tập trung tên model text ở 1 chỗ — đổi qua GROQ_MODEL trong .env khi Groq gỡ model
+// tiếp, không cần sửa lại từng route (writing/speaking/stats/chatbot).
+function getGroqModel() {
+  return process.env.GROQ_MODEL || 'openai/gpt-oss-120b'
+}
+
+module.exports = { getGroqClient, getGroqModel }

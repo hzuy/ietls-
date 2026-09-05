@@ -4,6 +4,7 @@ const prisma = require('../lib/prisma')
 const authMiddleware = require('../middleware/auth')
 const groqSdk = require('groq-sdk')
 const Groq = groqSdk.Groq || groqSdk.default || groqSdk
+const { getGroqModel } = require('../lib/groqClient')
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Rate Limiter: chatbotRateLimiter (Max 20 requests per user per hour)
@@ -210,7 +211,7 @@ RÀO CHẮN BẢO MẬT & QUY TẮC BẮT BUỘC KHÔNG THỂ VI PHẠM:
     if (groq) {
       const completion = await groq.chat.completions.create({
         messages: messagesPayload,
-        model: 'llama-3.3-70b-versatile',
+        model: getGroqModel(),
         temperature: 0.3,
         max_tokens: 500,
       })
