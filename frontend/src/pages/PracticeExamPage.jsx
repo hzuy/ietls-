@@ -364,7 +364,7 @@ function ReadingPracticeExam({ exam, onBack }) {
             ))}
           </div>
           <button onClick={() => setShowConfirm(true)}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl font-bold text-sm transition-colors shrink-0">
+            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md font-bold text-sm transition-colors shrink-0">
             Nộp bài
           </button>
         </div>
@@ -389,8 +389,8 @@ function ReadingPracticeExam({ exam, onBack }) {
             <p className="text-sm mb-2" style={{ color: 'var(--text)' }}>Bạn có chắc muốn nộp bài không?</p>
             <p className="text-sm font-semibold mb-6" style={{ color: 'var(--ink-soft)' }}>Đã làm: <span style={{ color: 'var(--primary)' }}>{answered}/{totalSlots}</span> câu</p>
             <div className="flex gap-3">
-              <button onClick={() => setShowConfirm(false)} className="flex-1 py-2.5 rounded-xl btn-secondary text-sm font-semibold transition">Tiếp tục làm</button>
-              <button onClick={() => { setShowConfirm(false); doSubmit() }} className="flex-1 py-2.5 rounded-xl btn-danger text-sm font-bold transition">Nộp bài</button>
+              <button onClick={() => setShowConfirm(false)} className="flex-1 py-2.5 btn-secondary text-sm font-semibold transition">Tiếp tục làm</button>
+              <button onClick={() => { setShowConfirm(false); doSubmit() }} className="flex-1 py-2.5 btn-danger text-sm font-bold transition">Nộp bài</button>
             </div>
           </div>
         </div>
@@ -686,7 +686,7 @@ function ListeningPracticeExam({ exam, onBack }) {
             ))}
           </div>
           <button onClick={() => setShowConfirm(true)}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl font-bold text-sm transition-colors shrink-0">
+            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md font-bold text-sm transition-colors shrink-0">
             Nộp bài
           </button>
         </div>
@@ -711,8 +711,8 @@ function ListeningPracticeExam({ exam, onBack }) {
             <p className="text-sm mb-2" style={{ color: 'var(--text)' }}>Bạn có chắc muốn nộp bài không?</p>
             <p className="text-sm font-semibold mb-6" style={{ color: 'var(--ink-soft)' }}>Đã làm: <span style={{ color: 'var(--primary)' }}>{answered}/{totalSlots}</span> câu</p>
             <div className="flex gap-3">
-              <button onClick={() => setShowConfirm(false)} className="flex-1 py-2.5 rounded-xl btn-secondary text-sm font-semibold transition">Tiếp tục làm</button>
-              <button onClick={() => { setShowConfirm(false); doSubmit() }} className="flex-1 py-2.5 rounded-xl btn-danger text-sm font-bold transition">Nộp bài</button>
+              <button onClick={() => setShowConfirm(false)} className="flex-1 py-2.5 btn-secondary text-sm font-semibold transition">Tiếp tục làm</button>
+              <button onClick={() => { setShowConfirm(false); doSubmit() }} className="flex-1 py-2.5 btn-danger text-sm font-bold transition">Nộp bài</button>
             </div>
           </div>
         </div>

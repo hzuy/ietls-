@@ -597,7 +597,7 @@ export default function ReadingExam() {
             <div className="flex items-center shrink-0">
               <button
                 onClick={() => setShowConfirm(true)}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl font-bold text-sm transition-colors"
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md font-bold text-sm transition-colors"
               >
                 Nộp bài
               </button>
