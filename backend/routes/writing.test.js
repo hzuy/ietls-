@@ -302,4 +302,68 @@ describe('Writing Submission Routes', () => {
       expect(res.status).toBe(401)
     })
   })
+
+  describe('POST /api/writing/answers/:id/retry', () => {
+    it('rejects retry when the answer belongs to a different user (403)', async () => {
+      prismaMock.writingAnswer.findUnique.mockResolvedValue({
+        id: 59, userId: 999, taskId: 3, status: 'failed', essayText: 'x'.repeat(60),
+        task: { prompt: 'prompt', number: 1 },
+      })
+
+      const res = await request(app)
+        .post('/api/writing/answers/59/retry')
+        .set('Authorization', `Bearer ${getTestToken()}`) // token is userId 1
+
+      expect(res.status).toBe(403)
+      expect(prismaMock.writingAnswer.update).not.toHaveBeenCalled()
+    })
+
+    it('rejects retry when the answer is not status=failed (400)', async () => {
+      prismaMock.writingAnswer.findUnique.mockResolvedValue({
+        id: 59, userId: 1, taskId: 3, status: 'graded', essayText: 'x'.repeat(60),
+        task: { prompt: 'prompt', number: 1 },
+      })
+
+      const res = await request(app)
+        .post('/api/writing/answers/59/retry')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+
+      expect(res.status).toBe(400)
+      expect(prismaMock.writingAnswer.update).not.toHaveBeenCalled()
+    })
+
+    it('returns 404 when the answer does not exist', async () => {
+      prismaMock.writingAnswer.findUnique.mockResolvedValue(null)
+
+      const res = await request(app)
+        .post('/api/writing/answers/999999/retry')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+
+      expect(res.status).toBe(404)
+    })
+
+    it('regrades in place (status failed -> pending) for the owning user', async () => {
+      prismaMock.writingAnswer.findUnique.mockResolvedValue({
+        id: 59, userId: 1, taskId: 3, status: 'failed', essayText: 'x'.repeat(60),
+        task: { prompt: 'prompt', number: 1 },
+      })
+      prismaMock.writingAnswer.update.mockResolvedValue({})
+
+      const res = await request(app)
+        .post('/api/writing/answers/59/retry')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+
+      expect(res.status).toBe(200)
+      expect(res.body).toEqual({ answerId: 59, status: 'pending' })
+      expect(prismaMock.writingAnswer.update).toHaveBeenCalledWith({
+        where: { id: 59 },
+        data: { status: 'pending', error: null },
+      })
+    })
+
+    it('returns 401 without a token', async () => {
+      const res = await request(app).post('/api/writing/answers/59/retry')
+      expect(res.status).toBe(401)
+    })
+  })
 })

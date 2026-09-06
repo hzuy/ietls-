@@ -277,4 +277,64 @@ describe('Speaking Routes & AI Criterion Logging', () => {
       expect(res.status).toBe(401)
     })
   })
+
+  describe('POST /api/speaking/answers/:id/retry', () => {
+    const failedAnswer = {
+      id: 33, userId: 1, partId: 31, status: 'failed', transcript: sampleTranscript,
+      part: { number: 1, questions: [{ questionText: 'Where do you live?', orderNum: 1 }] },
+    }
+
+    it('rejects retry when the answer belongs to a different user (403)', async () => {
+      prismaMock.speakingAnswer.findUnique.mockResolvedValue({ ...failedAnswer, userId: 999 })
+
+      const res = await request(app)
+        .post('/api/speaking/answers/33/retry')
+        .set('Authorization', `Bearer ${getTestToken()}`) // token is userId 1
+
+      expect(res.status).toBe(403)
+      expect(prismaMock.speakingAnswer.update).not.toHaveBeenCalled()
+    })
+
+    it('rejects retry when the answer is not status=failed (400)', async () => {
+      prismaMock.speakingAnswer.findUnique.mockResolvedValue({ ...failedAnswer, status: 'graded' })
+
+      const res = await request(app)
+        .post('/api/speaking/answers/33/retry')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+
+      expect(res.status).toBe(400)
+      expect(prismaMock.speakingAnswer.update).not.toHaveBeenCalled()
+    })
+
+    it('returns 404 when the answer does not exist', async () => {
+      prismaMock.speakingAnswer.findUnique.mockResolvedValue(null)
+
+      const res = await request(app)
+        .post('/api/speaking/answers/999999/retry')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+
+      expect(res.status).toBe(404)
+    })
+
+    it('regrades in place (status failed -> pending) for the owning user', async () => {
+      prismaMock.speakingAnswer.findUnique.mockResolvedValue(failedAnswer)
+      prismaMock.speakingAnswer.update.mockResolvedValue({})
+
+      const res = await request(app)
+        .post('/api/speaking/answers/33/retry')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+
+      expect(res.status).toBe(200)
+      expect(res.body).toEqual({ answerId: 33, status: 'pending' })
+      expect(prismaMock.speakingAnswer.update).toHaveBeenCalledWith({
+        where: { id: 33 },
+        data: { status: 'pending', error: null },
+      })
+    })
+
+    it('returns 401 without a token', async () => {
+      const res = await request(app).post('/api/speaking/answers/33/retry')
+      expect(res.status).toBe(401)
+    })
+  })
 })
