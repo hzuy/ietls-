@@ -6,15 +6,15 @@ import { getAdminSettings } from '../services/adminService'
 import { saveDraft, loadDraft, clearDraft, isDataEmpty, formatSavedAt } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import { PenTool, ArrowLeft, Clock, AlertCircle, CheckCircle2, RotateCcw, Sparkles, X, BarChart2 } from 'lucide-react'
-import ConfirmExitModal from '../components/ConfirmExitModal'
-import { useExitGuard } from '../hooks/useExitGuard'
+import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
+import { PenTool, ArrowLeft, Clock, Sparkles, CheckCircle2, RotateCcw, AlertCircle, ChevronRight, X, BarChart2 } from 'lucide-react'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
 import { renderFeedbackList } from '../utils/feedbackList'
 import { isTaskComplete, countUnsubmitted } from '../utils/writingTasks'
 import { toImgSrc } from '../utils/media'
 import { askAITutor } from '../components/common/AIChatbotDrawer'
+import ExitConfirmModal from '../components/common/ExitConfirmModal'
 
 const DEFAULT_WRITING_TIME = 60 * 60
 
@@ -78,22 +78,16 @@ export default function WritingExam() {
   const [submittedTaskIds, setSubmittedTaskIds] = useState([]) // task đã nộp (kể cả phiên trước)
   const [submitting, setSubmitting] = useState(false)
   const [gradingTask, setGradingTask] = useState(null)
-  // Map theo taskId — { [taskId]: { error, answerId } }. Khác biệt object đơn cũ:
-  // hỗ trợ NHIỀU task lỗi cùng lúc (vd. cả 2 task cùng lỗi model Groq).
   const [gradingErrors, setGradingErrors] = useState({})
   const [retryingTask, setRetryingTask] = useState(null)
   const [confirmResubmitId, setConfirmResubmitId] = useState(null) // taskId đang chờ xác nhận "Nộp lại"
   const [timeLeft, setTimeLeft] = useState(DEFAULT_WRITING_TIME)
   const [totalMinutes, setTotalMinutes] = useState(DEFAULT_WRITING_TIME / 60) // hiển thị ở start-screen
   const [lightbox, setLightbox] = useState(null)
-  const [showExitConfirm, setShowExitConfirm] = useState(false)
   const [fullTestStatus, setFullTestStatus] = useState(null)
   const pollTimerRef = useRef(null)
 
   // ── Hết giờ → tự động nộp ──────────────────────────────────────────────────
-  // timeUp: modal chặn (không đóng được) đang hiện. autoSubmitCountdown: 5→0 giây
-  // trước khi tự kích hoạt. autoSubmitting: overlay "đang nộp & chấm" đè lên nhánh
-  // exam cho tới khi allDone. autoSubmitDoneRef: chốt để runAutoSubmit chỉ chạy 1 lần.
   const [timeUp, setTimeUp] = useState(false)
   const [autoSubmitCountdown, setAutoSubmitCountdown] = useState(5)
   const [autoSubmitting, setAutoSubmitting] = useState(false)
@@ -101,9 +95,6 @@ export default function WritingExam() {
   const autoSubmitDoneRef = useRef(false)
 
   // ── Layout mobile ──────────────────────────────────────────────────────────
-  // isMobile: cùng pattern resize listener + breakpoint 768 với ReadingExam.
-  // mobileView: CHỈ dùng cho toggle 2 panel trên mobile. Tách biệt HOÀN TOÀN khỏi
-  // activeTask và mọi effect/state khác — chuyển view không đụng gì tới bài làm.
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
   const [mobileView, setMobileView] = useState('prompt') // 'prompt' | 'writing'
   useEffect(() => {
@@ -116,8 +107,6 @@ export default function WritingExam() {
   const allSubmitted = writingTasks.length > 0 && writingTasks.every(t => results[t.id])
   const isTaskDone = (tid) => isTaskComplete(tid, results, submittedTaskIds)
 
-  // Snapshot của draft đã lưu gần nhất — để so cho điều kiện enabled của useExitGuard.
-  const [savedDraftJSON, setSavedDraftJSON] = useState('{"essays":{},"submittedTaskIds":[]}')
   const [lastSavedAt, setLastSavedAt] = useState(null) // mốc lưu nháp gần nhất — cho indicator header
 
   useEffect(() => {
@@ -126,11 +115,28 @@ export default function WritingExam() {
     }
   }, [])
 
+  // Cảnh báo trình duyệt (beforeunload) khi thí sinh đóng tab/F5 trong lúc làm bài
+  useEffect(() => {
+    if (phase !== 'exam' || allSubmitted) return
+    const handleBeforeUnload = (e) => {
+      persistDraftNow()
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [phase, allSubmitted, persistDraftNow])
+
+  // Chặn nút Back (<) của trình duyệt khi đang làm bài
+  const { showModal: showExitModal, stay: stayInExam, leave: leaveExam } = useBrowserHistoryGuard(phase === 'exam' && !allSubmitted, persistDraftNow)
+
+  // Khi đã nộp hết cả 2 task (hoặc bài chỉ có 1 task và đã nộp) → clear draft
+  useEffect(() => {
+    if (!allSubmitted) return
+    if (user) clearDraft(user.id || user._id, id, 'writing')
+  }, [allSubmitted, user, id])
+
   // ── Autosave draft ─────────────────────────────────────────────────────────
-  // MỘT interval sống suốt phiên (deps [phase, id]). KHÔNG đưa essays/submittedTaskIds/
-  // timeLeft/user vào deps — đổi liên tục → interval bị reset, không bao giờ fire.
-  // Đọc state mới nhất qua ref. persistDraftNow() còn được useExitGuard gọi ngay
-  // tại mọi điểm thoát bài (onBeforeExit).
   const autosaveRef = useRef(null)
   useEffect(() => {
     autosaveRef.current = {
@@ -148,7 +154,6 @@ export default function WritingExam() {
       if (existing && !isDataEmpty(existing.data)) return
     }
     saveDraft({ userId, examId: id, skillType: 'writing', data, timeRemaining: timeLeft })
-    setSavedDraftJSON(JSON.stringify(data))
     setLastSavedAt(new Date())
   }, [id])
   useEffect(() => {
@@ -156,17 +161,6 @@ export default function WritingExam() {
     const interval = setInterval(persistDraftNow, 30000)
     return () => clearInterval(interval)
   }, [phase, id, persistDraftNow])
-
-  // Guard thoát: bật khi data hiện tại lệch với draft đã lưu.
-  const hasUnsavedWork = JSON.stringify({ essays, submittedTaskIds }) !== savedDraftJSON
-  const exitGuard = useExitGuard(phase === 'exam' && hasUnsavedWork, persistDraftNow)
-
-  // Nộp + chấm xong hết → gỡ sentinel + xoá draft
-  useEffect(() => {
-    if (!allSubmitted) return
-    exitGuard.disarm()
-    if (user && id) clearDraft(user.id || user._id, id, 'writing')
-  }, [allSubmitted, exitGuard.disarm, user, id])
 
   const loadExam = useCallback(() => {
     setLoading(true)
@@ -179,19 +173,11 @@ export default function WritingExam() {
       .catch(() => {})
     Promise.all([
       getWritingExam(id),
-      // Tầng 4: khôi phục kết quả đã chấm từ server — độc lập với resume draft,
-      // gọi vô điều kiện. Lỗi ở đây KHÔNG được làm hỏng việc load đề.
       getWritingMyResults(id).catch(() => []),
     ])
       .then(([data, myResults]) => {
         setExam(data)
 
-        // ── Khôi phục kết quả đã chấm (status 'graded') ─────────────────────
-        // Chỉ set `results` + `submittedTaskIds` cho task có trong response;
-        // KHÔNG đụng `essays` → task chưa nộp vẫn gõ tiếp bình thường.
-        // Task với bản ghi mới nhất 'failed' (vd. lỗi model Groq) KHÔNG được coi
-        // là "đã nộp" — nạp vào `gradingErrors` để hiện banner lỗi + nút thử lại,
-        // thay vì im lặng biến mất như trước.
         const restoredResults = {}
         const restoredIds = []
         const restoredErrors = {}
@@ -207,7 +193,6 @@ export default function WritingExam() {
           }
         }
         if (restoredIds.length > 0) {
-          // `...prev` sau cùng: nếu polling phiên này vừa set kết quả mới hơn thì giữ nguyên
           setResults(prev => ({ ...restoredResults, ...prev }))
           setSubmittedTaskIds(prev => Array.from(new Set([...prev, ...restoredIds])))
         }
@@ -215,8 +200,6 @@ export default function WritingExam() {
           setGradingErrors(prev => ({ ...restoredErrors, ...prev }))
         }
 
-        // ── Resume draft cục bộ (logic cũ, dùng functional update để không
-        //    clobber phần submittedTaskIds mà nhánh khôi phục vừa set) ───────
         let draftEssays = null
         let draftIds = []
         if (resumeMode && user) {
@@ -232,15 +215,6 @@ export default function WritingExam() {
           }
           setPhase('exam')
         }
-
-        // Đồng bộ snapshot "đã lưu": khôi phục từ server KHÔNG được tự kích hoạt
-        // exit-guard (kết quả graded đã nằm trên server, không có gì để mất).
-        // Thứ tự [restoredIds, draftIds] khớp đúng thứ tự 2 functional update ở
-        // trên (nhánh khôi phục chạy trước) để JSON.stringify so bằng hasUnsavedWork.
-        setSavedDraftJSON(JSON.stringify({
-          essays: draftEssays || {},
-          submittedTaskIds: Array.from(new Set([...restoredIds, ...draftIds])),
-        }))
       })
       .catch((err) => {
         setError(err?.response?.data?.message || err?.message || 'Không tìm thấy đề thi hoặc kết nối bị gián đoạn.')
@@ -286,14 +260,6 @@ export default function WritingExam() {
     setTimeUp(true)
   }, [phase, timeLeft, timeUp, autoSubmitting, allSubmitted, persistDraftNow])
 
-  useEffect(() => {
-    if (!showExitConfirm && !exitGuard.prompt) return
-    const handler = (e) => {
-      if (e.key === 'Escape') { setShowExitConfirm(false); exitGuard.stay() }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [showExitConfirm, exitGuard.prompt, exitGuard.stay])
 
   // Đồng bộ mobileView theo task đang xem: đổi task → về 'prompt' (đọc đề trước);
   // task đã nộp / đang chấm → ép 'writing' để thấy card trạng thái thay vì bị che.
@@ -575,7 +541,7 @@ export default function WritingExam() {
                 <button
                   type="button"
                   onClick={() => askAITutor(`Tôi vừa hoàn thành bài thi Writing "${exam.title}" với điểm Overall Band ${overallBand} (${exam.writingTasks.map(t => `Task ${t.number}: Band ${results[t.id]?.overall}`).join(', ')}). Nhờ AI phân tích các tiêu chí cần ưu tiên nâng điểm và gợi ý bài tập luyện tập cụ thể giúp tôi.`)}
-                  className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold bg-zinc-900 hover:bg-black text-white transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                  className="w-full h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium bg-zinc-900 hover:bg-zinc-800 text-white transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-amber-300" />
                   Hỏi AI Tutor phân tích
@@ -583,7 +549,7 @@ export default function WritingExam() {
                 <button
                   type="button"
                   onClick={() => navigate('/progress')}
-                  className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold border border-zinc-200 hover:bg-zinc-100 text-zinc-900 transition flex items-center justify-center gap-2 cursor-pointer bg-white"
+                  className="w-full h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium border border-zinc-200 hover:bg-zinc-100 text-zinc-900 transition-colors flex items-center justify-center gap-2 cursor-pointer bg-white shadow-xs"
                 >
                   <BarChart2 className="w-3.5 h-3.5 text-zinc-500" />
                   Xem bảng phân tích
@@ -591,7 +557,7 @@ export default function WritingExam() {
                 <button
                   type="button"
                   onClick={() => navigate('/writing')}
-                  className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-colors flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <RotateCcw className="w-3.5 h-3.5 text-zinc-500" />
                   Về danh sách đề
@@ -647,7 +613,7 @@ export default function WritingExam() {
                           <button
                             type="button"
                             onClick={() => askAITutor(`Tôi đang cần nâng band tiêu chí "${label}" trong IELTS Writing Task ${task.number} (hiện tại: Band ${score ?? '–'}). Nhận xét của giám khảo: "${comment}". Bạn hãy phân tích chi tiết điểm yếu, gợi ý cấu trúc câu và từ vựng band 7.5+ để cải thiện tiêu chí này giúp tôi.`)}
-                            className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-zinc-700 hover:text-zinc-900 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 transition flex items-center justify-center gap-1.5 cursor-pointer mt-auto"
+                            className="w-full h-9 px-3 py-2 rounded-md text-xs font-medium text-zinc-700 hover:text-zinc-900 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer mt-auto"
                           >
                             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                             Hỏi AI cách nâng band tiêu chí này
@@ -677,7 +643,7 @@ export default function WritingExam() {
               {fullTestStatus?.isComplete && (
                 <button
                   onClick={() => navigate(`/full-test/result?seriesId=${fullTestStatus.seriesId}&bookNumber=${fullTestStatus.bookNumber}&testNumber=${fullTestStatus.testNumber}`)}
-                  className="btn-primary w-full py-3.5 text-sm font-bold rounded-xl transition-all duration-300"
+                  className="btn-primary w-full h-9 px-4 py-2 text-xs sm:text-sm font-medium rounded-md shadow-xs transition-colors cursor-pointer flex items-center justify-center"
                 >
                   Xem kết quả Full Test →
                 </button>
@@ -685,7 +651,7 @@ export default function WritingExam() {
               <button 
                 type="button"
                 onClick={() => navigate('/writing')} 
-                className="w-full py-3.5 border border-zinc-200 hover:border-zinc-300 bg-white hover:bg-zinc-50 text-zinc-700 rounded-xl font-bold text-sm transition-all duration-300 cursor-pointer text-center"
+                className="w-full h-9 px-4 py-2 border border-zinc-200 hover:bg-zinc-100 text-zinc-900 bg-white rounded-md text-xs sm:text-sm font-medium shadow-xs transition-colors cursor-pointer flex items-center justify-center"
               >
                 Làm đề khác
               </button>
@@ -709,16 +675,6 @@ export default function WritingExam() {
       {/* Header */}
       <header className="h-14 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 px-6 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-3 min-w-0">
-          <button
-            type="button"
-            aria-label="Đóng bài thi"
-            onClick={() => setShowExitConfirm(true)}
-            className="h-8 px-2.5 flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-xs font-medium transition cursor-pointer shrink-0"
-            title="Thoát bài thi"
-          >
-            <X className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Thoát</span>
-          </button>
           <span className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
             {exam.title}
           </span>
@@ -804,7 +760,7 @@ export default function WritingExam() {
               <button
                 onClick={() => retryTask(task)}
                 disabled={retryingTask === task.id}
-                className="btn-primary px-6 py-2.5 rounded-xl font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+                className="btn-primary h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium shadow-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
               >
                 {retryingTask === task.id ? (
                   <>
@@ -827,7 +783,7 @@ export default function WritingExam() {
               <p className="font-bold text-zinc-900 text-lg mb-1">Task {task.number} đã được nộp!</p>
               <p className="text-zinc-500 text-sm mb-6 leading-relaxed">Kết quả chi tiết từ AI sẽ hiển thị sau khi hoàn thành tất cả các tasks của bài thi viết.</p>
               {exam.writingTasks.length > 1 && activeTask < exam.writingTasks.length - 1 && !isTaskDone(exam.writingTasks[activeTask + 1]?.id) && (
-                <button onClick={() => setActiveTask(activeTask + 1)} className="btn-primary px-6 py-2.5 rounded-xl font-bold transition text-sm">
+                <button onClick={() => setActiveTask(activeTask + 1)} className="btn-primary h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium shadow-xs transition-colors cursor-pointer flex items-center justify-center">
                   Làm Task {task.number + 1} →
                 </button>
               )}
@@ -837,10 +793,10 @@ export default function WritingExam() {
                   <div className="flex flex-col items-center gap-2">
                     <p className="text-zinc-500 text-xs leading-relaxed m-0">Nộp lại sẽ ghi đè kết quả hiển thị bằng bài viết mới — bài cũ vẫn được lưu lại.</p>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => handleResubmit(task)} className="px-4 py-1.5 rounded-lg text-xs font-bold bg-zinc-900 hover:bg-black text-white transition cursor-pointer">
+                      <button onClick={() => handleResubmit(task)} className="h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium bg-zinc-900 hover:bg-zinc-800 text-white shadow-xs transition-colors cursor-pointer flex items-center justify-center">
                         Xác nhận nộp lại
                       </button>
-                      <button onClick={() => setConfirmResubmitId(null)} className="px-4 py-1.5 rounded-lg text-xs font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition cursor-pointer">
+                      <button onClick={() => setConfirmResubmitId(null)} className="h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium bg-white hover:bg-zinc-100 text-zinc-900 border border-zinc-200 shadow-xs transition-colors cursor-pointer flex items-center justify-center">
                         Huỷ
                       </button>
                     </div>
@@ -874,7 +830,7 @@ export default function WritingExam() {
                   </span>
                   <button
                     onClick={() => submitTask(task)}
-                    className="ml-3 px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1"
+                    className="ml-3 h-8 px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-md text-xs font-medium shadow-xs transition-colors cursor-pointer flex items-center gap-1"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     Thử nộp lại
@@ -898,7 +854,7 @@ export default function WritingExam() {
               <button
                 onClick={() => submitTask(task)}
                 disabled={submitting || words < 50}
-                className="mt-4 btn-primary py-3 rounded-xl font-medium text-sm w-full transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                className="mt-4 btn-primary h-9 px-4 rounded-md font-medium text-xs sm:text-sm w-full transition-colors shadow-xs disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 cursor-pointer leading-none">
                 {submitting ? (
                   <>
                     <Sparkles className="w-4 h-4 animate-spin" />
@@ -925,11 +881,11 @@ export default function WritingExam() {
                 key={t.id}
                 type="button"
                 onClick={() => setActiveTask(i)}
-                className={`h-9 px-4 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-2 ${
+                className={`h-9 px-3.5 sm:px-4 rounded-md text-xs sm:text-sm font-medium inline-flex items-center justify-center gap-2 leading-none transition-all cursor-pointer ${
                   done
                     ? 'bg-zinc-900 text-white border border-zinc-900 dark:bg-zinc-100 dark:text-zinc-900'
                     : 'border border-zinc-300 text-zinc-700 dark:border-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 hover:border-zinc-400'
-                } ${active ? 'ring-2 ring-zinc-900/20 dark:ring-zinc-100/30 font-bold' : ''}`}
+                } ${active ? 'ring-2 ring-zinc-900/20 dark:ring-zinc-100/30 font-semibold' : ''}`}
               >
                 <span>Task {t.number}</span>
                 {done && <CheckCircle2 className="w-3.5 h-3.5" />}
@@ -944,7 +900,7 @@ export default function WritingExam() {
             type="button"
             onClick={() => submitTask(task)}
             disabled={submitting || words < 50 || taskDone}
-            className="bg-red-600 hover:bg-red-700 text-white text-xs font-medium py-2 px-4 rounded-xl shadow-xs transition-colors cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+            className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-4 rounded-md shadow-xs transition-colors cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5 leading-none"
           >
             {submitting ? (
               <>
@@ -963,16 +919,6 @@ export default function WritingExam() {
         </div>
       </div>
 
-      {/* Exit confirm modal — dùng chung cho nút ✕ và guard Back/Forward */}
-      <ConfirmExitModal
-        isOpen={showExitConfirm || exitGuard.prompt}
-        onClose={() => { setShowExitConfirm(false); exitGuard.stay() }}
-        onConfirm={async () => {
-          setShowExitConfirm(false)
-          if (exitGuard.prompt) { exitGuard.leave() }
-          else { await exitGuard.disarm(); handleBack() }
-        }}
-      />
 
       {/* Modal hết giờ — CHẶN, không đóng được bằng ESC / click nền */}
       {timeUp && (
@@ -987,7 +933,7 @@ export default function WritingExam() {
             </p>
             <button
               onClick={() => runAutoSubmit()}
-              className="btn-primary w-full py-3 rounded-xl font-bold text-sm"
+              className="btn-primary w-full h-9 px-4 rounded-md font-medium text-sm inline-flex items-center justify-center leading-none"
             >
               Nộp bài ngay
             </button>
@@ -1009,7 +955,7 @@ export default function WritingExam() {
                 <p className="text-zinc-600 text-sm leading-relaxed mb-6">Một số task chưa nộp được. Vui lòng thử lại.</p>
                 <button
                   onClick={() => runAutoSubmit()}
-                  className="btn-primary w-full py-3 rounded-xl font-bold text-sm"
+                  className="btn-primary w-full h-9 px-4 rounded-md font-medium text-sm inline-flex items-center justify-center leading-none"
                 >
                   Thử lại
                 </button>
@@ -1024,6 +970,9 @@ export default function WritingExam() {
           </div>
         </div>
       )}
+
+      {/* Exit confirmation modal — Back nút trình duyệt */}
+      <ExitConfirmModal open={showExitModal} onStay={stayInExam} onLeave={leaveExam} />
     </div>
   )
 }

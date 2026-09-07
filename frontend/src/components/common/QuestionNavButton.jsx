@@ -51,7 +51,6 @@ export default function QuestionNavButton({ number, status, onClick, size = 32 }
         border: `1px solid ${borderColor}`,
         backgroundColor,
         color,
-        fontFamily: 'var(--font-body)',
         fontSize: 'var(--fs-xs)',
         fontWeight: 700,
         lineHeight: 1,

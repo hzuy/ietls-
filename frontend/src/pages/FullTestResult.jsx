@@ -89,7 +89,7 @@ export default function FullTestResult() {
           </div>
           <h2 className="text-xl font-bold text-zinc-900 mb-2">Không tìm thấy kết quả bài thi</h2>
           <p className="text-sm text-zinc-600 mb-6 max-w-sm">Kết quả có thể đã bị xóa hoặc chưa được tạo.</p>
-          <button className="btn-primary w-full py-2.5 text-sm font-medium" onClick={() => navigate('/full-test')}>Quay lại Full Test</button>
+          <button className="btn-primary w-full h-9 py-2 rounded-md text-sm font-medium" onClick={() => navigate('/full-test')}>Quay lại Full Test</button>
         </div>
       </div>
     </div>
@@ -215,7 +215,7 @@ export default function FullTestResult() {
             <button
               type="button"
               onClick={handleAskAITutor}
-              className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold bg-zinc-900 hover:bg-black text-white transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+              className="w-full h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium bg-zinc-900 hover:bg-zinc-800 text-white transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-300" />
               Hỏi AI Tutor lộ trình
@@ -223,7 +223,7 @@ export default function FullTestResult() {
             <button
               type="button"
               onClick={() => navigate('/progress')}
-              className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold border border-zinc-200 hover:bg-zinc-100 text-zinc-900 transition flex items-center justify-center gap-2 cursor-pointer bg-white"
+              className="w-full h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium border border-zinc-200 hover:bg-zinc-100 text-zinc-900 transition-colors flex items-center justify-center gap-2 cursor-pointer bg-white shadow-xs"
             >
               <BarChart2 className="w-3.5 h-3.5 text-zinc-500" />
               Xem bảng phân tích
@@ -231,7 +231,7 @@ export default function FullTestResult() {
             <button
               type="button"
               onClick={() => navigate('/full-test')}
-              className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5 text-zinc-500" />
               Về trang Full Test

@@ -1,12 +1,14 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
+import { queryClient } from '../lib/queryClient'
 import { getReadingExam, getReadingExamWithAnswers, submitReadingExam, getFullTestStatus } from '../services/examService'
 import { getAdminSettings } from '../services/adminService'
 import { saveDraft, loadDraft, clearDraft, formatSavedAt } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import { BookOpen, ArrowLeft, Type, X, Clock, LayoutGrid, ChevronUp, ChevronDown } from 'lucide-react'
+import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
+import { BookOpen, ArrowLeft, Type, Clock, LayoutGrid, ChevronUp, ChevronDown } from 'lucide-react'
 import MatchingTickGrid from '../components/MatchingTickGrid'
 import DragWordBankGroup from '../components/DragWordBankGroup'
 import MatchingDragGroup from '../components/MatchingDragGroup'
@@ -21,10 +23,9 @@ import TypeHeader from '../components/exam/TypeHeaders'
 import QuestionBlock from '../components/exam/QuestionBlock'
 import { groupByType } from '../components/exam/listening/OtherGroups'
 import { fmt } from '../utils/practiceUtils'
-import ConfirmExitModal from '../components/ConfirmExitModal'
-import { useExitGuard } from '../hooks/useExitGuard'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
+import ExitConfirmModal from '../components/common/ExitConfirmModal'
 
 
 const DEFAULT_READING_TIME = 60 * 60
@@ -51,7 +52,6 @@ export default function ReadingExam() {
   const [phase, setPhase] = useState('start')
   const [showAnswers, setShowAnswers] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
-  const [showExitConfirm, setShowExitConfirm] = useState(false)
   const [fullTestStatus, setFullTestStatus] = useState(null)
   const [showNavNumbers, setShowNavNumbers] = useState(true)
   const [showQuestionPanel, setShowQuestionPanel] = useState(false)
@@ -102,9 +102,20 @@ export default function ReadingExam() {
     return () => clearInterval(interval)
   }, [phase, previewMode, id, persistDraftNow])
 
-  // Cảnh báo khi thoát bằng Back/Forward/refresh nếu có đáp án chưa ghi vào draft
-  const hasUnsavedAnswers = JSON.stringify(answers) !== savedDraftRef.current
-  const exitGuard = useExitGuard(phase === 'exam' && !previewMode && hasUnsavedAnswers, persistDraftNow)
+  // Cảnh báo trình duyệt (beforeunload) khi thí sinh đóng tab/F5 trong lúc làm bài
+  useEffect(() => {
+    if (phase !== 'exam' || previewMode) return
+    const handleBeforeUnload = (e) => {
+      persistDraftNow()
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [phase, previewMode, persistDraftNow])
+
+  // Chặn nút Back (<) của trình duyệt khi đang làm bài
+  const { showModal: showExitModal, stay: stayInExam, leave: leaveExam } = useBrowserHistoryGuard(phase === 'exam' && !previewMode, persistDraftNow)
 
   const loadExam = useCallback(() => {
     setLoading(true)
@@ -116,7 +127,11 @@ export default function ReadingExam() {
       })
       .catch(() => {})
     const fetchExam = previewMode ? getReadingExamWithAnswers : getReadingExam
-    fetchExam(id)
+    queryClient.fetchQuery({
+      queryKey: ['exam', 'reading', id, { previewMode }],
+      queryFn: () => fetchExam(id),
+      staleTime: 1000 * 60 * 5,
+    })
       .then(data => {
         setExam(data)
         // Resume draft if ?resume=true
@@ -220,15 +235,6 @@ export default function ReadingExam() {
   }, [showConfirm])
 
   useEffect(() => {
-    if (!showExitConfirm && !exitGuard.prompt) return
-    const handler = (e) => {
-      if (e.key === 'Escape') { setShowExitConfirm(false); exitGuard.stay() }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [showExitConfirm, exitGuard.prompt, exitGuard.stay])
-
-  useEffect(() => {
     if (!showQuestionPanel) return
     const handler = (e) => { if (e.key === 'Escape') setShowQuestionPanel(false) }
     window.addEventListener('keydown', handler)
@@ -242,14 +248,12 @@ export default function ReadingExam() {
     return () => obs.disconnect()
   }, [])
 
-  const onAnswer = (qId, val) => setAnswers(a => ({ ...a, [qId]: val }))
+  const onAnswer = useCallback((qId, val) => setAnswers(a => ({ ...a, [qId]: val })), [])
 
   const doSubmit = async () => {
     setSubmitting(true)
     try {
       await submitReadingExam(id, answers)
-      // disarm() gọi persistDraftNow (onBeforeExit) → clearDraft PHẢI chạy SAU nó
-      await exitGuard.disarm()
       if (user) clearDraft(user.id || user._id, id, 'reading')
       navigate(`/reading/${id}/result`, { replace: true })
     } catch (e) {
@@ -295,7 +299,8 @@ export default function ReadingExam() {
     })
   }
 
-  const jumpToQuestion = (qNumber) => {
+  const jumpToQuestion = useCallback((qNumber) => {
+    if (!exam?.passages) return
     // Find which passage contains this question number
     let passageIdx = -1
     for (let i = 0; i < exam.passages.length; i++) {
@@ -324,7 +329,42 @@ export default function ReadingExam() {
     } else {
       doScroll()
     }
-  }
+  }, [activePassage, exam])
+
+  const totalSlots = useMemo(() => exam?.passages ? exam.passages.reduce((sum, p) => sum + getPassageTotalSlots(p), 0) : 0, [exam])
+  const allNavItems = useMemo(() => exam?.passages ? exam.passages.flatMap(p => getPassageNavItems(p)) : [], [exam])
+  const answered = useMemo(() => allNavItems.filter(item => item.qId && answers[item.qId]).length, [allNavItems, answers])
+
+  const passage = exam?.passages?.[activePassage] || null
+  const useGroups = Boolean(passage?.questionGroups && passage.questionGroups.length > 0)
+
+  // Compute global question offset for this passage
+  const passageOffsets = useMemo(() => {
+    if (!exam?.passages) return []
+    return exam.passages.reduce((acc, p, i) => {
+      acc.push(i === 0 ? 0 : acc[i - 1] + getPassageQuestions(exam.passages[i - 1]).length)
+      return acc
+    }, [])
+  }, [exam?.passages])
+
+  const passageStartIdx = passageOffsets[activePassage] || 0
+  const passageQuestions = useMemo(() => passage ? getPassageQuestions(passage) : [], [passage])
+  const currentPassageNavItems = useMemo(() => passage ? getPassageNavItems(passage) : [], [passage])
+  const sortedQuestionGroups = useMemo(() => {
+    if (!passage?.questionGroups) return []
+    return [...passage.questionGroups].sort((a, b) => a.qNumberStart - b.qNumberStart)
+  }, [passage?.questionGroups])
+  const passagePillsItems = useMemo(() => {
+    if (!exam?.passages) return []
+    return exam.passages.map(p => {
+      const navItems = getPassageNavItems(p)
+      return {
+        label: `Passage ${p.number}`,
+        answered: navItems.filter(s => s.qId && answers[s.qId]).length,
+        total: navItems.length,
+      }
+    })
+  }, [exam?.passages, answers])
 
   if (loading) return <SkeletonExamPage />
   if (error || !exam) {
@@ -346,10 +386,7 @@ export default function ReadingExam() {
     return null
   }
 
-  const allQ = exam.passages.flatMap(p => getPassageQuestions(p))
-  const totalSlots = exam.passages.reduce((sum, p) => sum + getPassageTotalSlots(p), 0)
-  const allNavItems = exam.passages.flatMap(p => getPassageNavItems(p))
-  const answered = allNavItems.filter(item => item.qId && answers[item.qId]).length
+  // ── Start ─────────────────────────────────────────────────────
   if (phase === 'start') return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div className="flex flex-col items-center" style={{ background: 'var(--surface)', borderRadius: '16px', boxShadow: 'var(--shadow-md)', padding: 40, maxWidth: 448, width: '100%', textAlign: 'center', border: '1px solid var(--border)' }}>
@@ -357,14 +394,14 @@ export default function ReadingExam() {
           <BookOpen className="w-8 h-8 text-zinc-600 stroke-[1.75]" />
         </div>
         <h1 className="text-2xl font-bold text-zinc-900 tracking-tight mb-2">{exam.title}</h1>
-        <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text)', fontSize: 'var(--fs-sm)', marginBottom: 4 }}>{exam.passages.length} Passages · <span style={{ fontFamily: 'var(--font-mono)' }}>{totalSlots}</span> câu hỏi</p>
-        <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text)', fontSize: 'var(--fs-sm)', marginBottom: 32 }}>Thời gian: <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--skill-r-color)' }}>60 phút</span></p>
+        <p style={{ color: 'var(--text)', fontSize: 'var(--fs-sm)', marginBottom: 4 }}>{exam.passages.length} Passages · <span className="font-mono">{totalSlots}</span> câu hỏi</p>
+        <p style={{ color: 'var(--text)', fontSize: 'var(--fs-sm)', marginBottom: 32 }}>Thời gian: <span className="font-mono font-bold" style={{ color: 'var(--skill-r-color)' }}>60 phút</span></p>
         <div style={{ background: 'var(--skill-r-bg)', borderRadius: 'var(--radius-md)', padding: 16, textAlign: 'left', fontSize: 'var(--fs-sm)', color: 'var(--ink-soft)', marginBottom: 32, display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
-          <p style={{ fontFamily: 'var(--font-body)', margin: 0 }}>• Đọc passage bên trái, trả lời câu hỏi bên phải</p>
-          <p style={{ fontFamily: 'var(--font-body)', margin: 0 }}>• Có thể chuyển qua lại giữa các passage</p>
-          <p style={{ fontFamily: 'var(--font-body)', margin: 0 }}>• Bài sẽ tự nộp khi hết giờ</p>
+          <p style={{ margin: 0 }}>• Đọc passage bên trái, trả lời câu hỏi bên phải</p>
+          <p style={{ margin: 0 }}>• Có thể chuyển qua lại giữa các passage</p>
+          <p style={{ margin: 0 }}>• Bài sẽ tự nộp khi hết giờ</p>
         </div>
-        <button onClick={() => setPhase('exam')} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 'var(--fs-base)', marginBottom: 8 }}>
+        <button onClick={() => setPhase('exam')} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 'var(--fs-base)', marginBottom: 8, textAlign: 'center' }}>
           Bắt đầu làm bài
         </button>
         <button
@@ -379,33 +416,12 @@ export default function ReadingExam() {
   )
 
   // ── Exam ──────────────────────────────────────────────────────
-  const passage = exam.passages[activePassage]
-  const useGroups = passage.questionGroups && passage.questionGroups.length > 0
-
-  // Compute global question offset for this passage
-  const passageOffsets = exam.passages.reduce((acc, p, i) => {
-    acc.push(i === 0 ? 0 : acc[i - 1] + getPassageQuestions(exam.passages[i - 1]).length)
-    return acc
-  }, [])
-
-  const passageStartIdx = passageOffsets[activePassage]
-  const passageQuestions = getPassageQuestions(passage)
 
   return (
     <div className="h-dvh flex flex-col overflow-hidden" style={{ backgroundColor: 'var(--surface-raised)' }}>
       {/* Header */}
       <header className="h-14 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 px-6 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-3 min-w-0">
-          <button
-            type="button"
-            aria-label="Đóng bài thi"
-            onClick={() => previewMode ? navigate('/admin') : setShowExitConfirm(true)}
-            className="h-8 px-2.5 flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-xs font-medium transition cursor-pointer shrink-0"
-            title="Thoát bài thi"
-          >
-            <X className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Thoát</span>
-          </button>
           <span className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
             {exam.title}
           </span>
@@ -494,7 +510,7 @@ export default function ReadingExam() {
           <h2 className="text-lg font-semibold text-zinc-900 text-center mb-1 leading-snug">{passage.title}</h2>
           {passage.subtitle && <p className="text-sm text-zinc-500 text-center mb-2 italic">{passage.subtitle}</p>}
           <div className="w-16 h-0.5 bg-zinc-900 mx-auto mb-6" />
-          <div className={`text-zinc-800 font-normal ${fontSize === 'sm' ? 'text-sm leading-relaxed' : fontSize === 'lg' ? 'text-lg leading-loose' : 'text-base leading-relaxed'}`} style={{ fontFamily: 'var(--font-reading)' }}>
+          <div className={`text-zinc-800 font-normal ${fontSize === 'sm' ? 'text-sm leading-relaxed' : fontSize === 'lg' ? 'text-lg leading-loose' : 'text-base leading-relaxed'}`}>
             {passage.body
               ? passage.body
                   .split(/\n\s*\n|\n/)
@@ -551,7 +567,7 @@ export default function ReadingExam() {
             // New group-based rendering
             (() => {
               let groupOffset = passageStartIdx
-              return [...passage.questionGroups].sort((a, b) => a.qNumberStart - b.qNumberStart).map((group, gi) => {
+              return sortedQuestionGroups.map((group, gi) => {
                 const el = (
                   <GroupBlock
                     key={group.id || gi}
@@ -598,7 +614,7 @@ export default function ReadingExam() {
           {showNavNumbers && (
             <div className="px-6 py-4 border-b border-gray-100 flex justify-center bg-white">
               <div className="flex flex-wrap gap-3 justify-center max-w-5xl">
-                {getPassageNavItems(passage).map(({ number, qId }) => (
+                {currentPassageNavItems.map(({ number, qId }) => (
                   <QuestionNavButton
                     key={number}
                     number={number}
@@ -619,7 +635,7 @@ export default function ReadingExam() {
                 title="Bảng câu hỏi"
                 aria-label="Bảng câu hỏi"
                 onClick={() => setShowQuestionPanel(v => !v)}
-                className={`w-9 h-9 flex items-center justify-center rounded-xl border transition-all cursor-pointer ${
+                className={`w-9 h-9 flex items-center justify-center rounded-md border transition-all cursor-pointer ${
                   showQuestionPanel
                     ? 'bg-zinc-900 border-zinc-900 text-white shadow-xs'
                     : 'bg-white border-zinc-200 text-zinc-500 hover:border-zinc-400 hover:text-zinc-900'
@@ -632,7 +648,7 @@ export default function ReadingExam() {
                 title={showNavNumbers ? 'Thu gọn' : 'Mở rộng'}
                 aria-label={showNavNumbers ? 'Thu gọn' : 'Mở rộng'}
                 onClick={() => setShowNavNumbers(v => !v)}
-                className="w-9 h-9 flex items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 hover:border-zinc-400 hover:text-zinc-900 transition-all cursor-pointer"
+                className="w-9 h-9 flex items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-500 hover:border-zinc-400 hover:text-zinc-900 transition-all cursor-pointer"
               >
                 {showNavNumbers ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
               </button>
@@ -640,14 +656,7 @@ export default function ReadingExam() {
 
             {/* Middle: Passage Pills */}
             <PassagePills
-              items={exam.passages.map(p => {
-                const navItems = getPassageNavItems(p)
-                return {
-                  label: `Passage ${p.number}`,
-                  answered: navItems.filter(s => s.qId && answers[s.qId]).length,
-                  total: navItems.length,
-                }
-              })}
+              items={passagePillsItems}
               activeIndex={activePassage}
               onChange={setActivePassage}
             />
@@ -657,7 +666,7 @@ export default function ReadingExam() {
               <button
                 type="button"
                 onClick={() => setShowConfirm(true)}
-                className="bg-red-600 hover:bg-red-700 text-white text-xs font-medium py-2 px-4 rounded-xl shadow-xs transition-colors cursor-pointer shrink-0"
+                className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-4 rounded-md shadow-xs transition-colors cursor-pointer shrink-0 inline-flex items-center justify-center leading-none"
               >
                 Nộp bài
               </button>
@@ -682,17 +691,6 @@ export default function ReadingExam() {
         />
       )}
 
-      {/* Exit confirm modal — dùng chung cho nút ✕ và guard Back/Forward */}
-      <ConfirmExitModal
-        isOpen={showExitConfirm || exitGuard.prompt}
-        onClose={() => { setShowExitConfirm(false); exitGuard.stay() }}
-        onConfirm={async () => {
-          setShowExitConfirm(false)
-          if (exitGuard.prompt) { exitGuard.leave() }
-          else { await exitGuard.disarm(); handleBack() }
-        }}
-      />
-
       {/* Confirm submit modal */}
       {showConfirm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4" onClick={() => setShowConfirm(false)}>
@@ -706,7 +704,7 @@ export default function ReadingExam() {
               <button
                 type="button"
                 onClick={() => setShowConfirm(false)}
-                className="flex-1 py-2 px-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-xl font-medium text-xs transition cursor-pointer"
+                className="flex-1 h-9 px-4 bg-white hover:bg-zinc-100 text-zinc-900 border border-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-100 dark:border-zinc-800 text-xs sm:text-sm font-medium rounded-md shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
               >
                 Tiếp tục làm
               </button>
@@ -714,7 +712,7 @@ export default function ReadingExam() {
                 type="button"
                 onClick={() => { setShowConfirm(false); doSubmit() }}
                 disabled={submitting}
-                className="flex-1 py-2 px-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium text-xs transition shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 h-9 px-4 bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium rounded-md shadow-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center leading-none"
               >
                 {submitting ? 'Đang chấm...' : 'Nộp bài'}
               </button>
@@ -722,6 +720,8 @@ export default function ReadingExam() {
           </div>
         </div>
       )}
+      {/* Exit confirmation modal — Back nút trình duyệt */}
+      <ExitConfirmModal open={showExitModal} onStay={stayInExam} onLeave={leaveExam} />
     </div>
   )
 }

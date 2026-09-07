@@ -8,7 +8,6 @@ export default function SectionHeader({ title, to, count }) {
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <h2 style={{
-          fontFamily: 'var(--font-display)',
           fontSize: 'var(--fs-2xl)', fontWeight: 700,
           color: 'var(--ink-soft)', margin: 0, letterSpacing: '-0.01em',
         }}>{title}</h2>
@@ -27,7 +26,6 @@ export default function SectionHeader({ title, to, count }) {
         to={to}
         className="hover:opacity-70 transition-opacity duration-300"
         style={{
-          fontFamily: 'var(--font-body)',
           fontSize: 'var(--fs-sm)', fontWeight: 600,
           color: 'var(--primary)', textDecoration: 'none',
           display: 'flex', alignItems: 'center', gap: 4,

@@ -21,7 +21,9 @@ export default function MapDiagramGroup({ group, answers, onAnswer, previewMode,
       {group.imageUrl && (
         <div className="flex justify-center mb-5">
           <img src={toImgSrc(group.imageUrl)} alt="Map/Diagram"
-            className="max-w-full rounded-xl border border-zinc-200 shadow-xs"
+            className="img-crisp max-w-full rounded-xl border border-zinc-200 shadow-xs"
+            style={{ imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)' }}
+            loading="lazy" decoding="async"
             onError={e => { e.target.style.display = 'none' }} />
         </div>
       )}

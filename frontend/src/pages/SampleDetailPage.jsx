@@ -24,7 +24,7 @@ export default function SampleDetailPage({ skill }) {
   if (loading) return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
       <Navbar />
-      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '64px 24px', textAlign: 'center', color: 'var(--muted)', fontFamily: 'var(--font-body)' }}>Đang tải...</div>
+      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '64px 24px', textAlign: 'center', color: 'var(--muted)' }}>Đang tải...</div>
     </div>
   )
   if (!sample) return null
@@ -41,7 +41,6 @@ export default function SampleDetailPage({ skill }) {
         <button
           onClick={() => navigate(-1)}
           style={{
-            fontFamily: 'var(--font-body)',
             fontSize: 14,
             fontWeight: 600,
             color: 'var(--muted)',
@@ -79,24 +78,24 @@ export default function SampleDetailPage({ skill }) {
               <div
                 className="rich-content"
                 dangerouslySetInnerHTML={{ __html: sanitizeRichText(sample.content) }}
-                style={{ fontFamily: 'var(--font-body)', fontSize: 17, lineHeight: 1.8, color: 'var(--text)' }}
+                style={{ fontSize: 17, lineHeight: 1.8, color: 'var(--text)' }}
               />
             ) : skill === 'speaking' && sample.parts?.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                 {sample.parts.map(part => (
                   <div key={part.id} style={{ background: 'var(--surface-raised)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-soft)', padding: '20px 24px' }}>
                     <div style={{ marginBottom: 14 }}>
-                      <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>
+                      <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>
                         {part.title || `Part ${part.partNumber}`}
                       </span>
                       {part.description && (
-                        <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--muted)', margin: '4px 0 0' }}>{part.description}</p>
+                        <p style={{ fontSize: 14, color: 'var(--muted)', margin: '4px 0 0' }}>{part.description}</p>
                       )}
                     </div>
                     {part.questions?.length > 0 && (
                       <ol style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
                         {part.questions.map((q, qi) => (
-                          <li key={q.id} style={{ fontFamily: 'var(--font-body)', fontSize: 15, color: 'var(--text)', lineHeight: 1.6 }}>
+                          <li key={q.id} style={{ fontSize: 15, color: 'var(--text)', lineHeight: 1.6 }}>
                             {q.questionText}
                           </li>
                         ))}
@@ -107,7 +106,7 @@ export default function SampleDetailPage({ skill }) {
               </div>
             ) : (
               <div style={{ padding: '40px 0', textAlign: 'center' }}>
-                <p style={{ fontFamily: 'var(--font-body)', color: 'var(--subtle)', fontSize: 16, fontStyle: 'italic' }}>Nội dung bài mẫu đang được cập nhật...</p>
+                <p style={{ color: 'var(--subtle)', fontSize: 16, fontStyle: 'italic' }}>Nội dung bài mẫu đang được cập nhật...</p>
               </div>
             )}
           </div>
@@ -115,9 +114,9 @@ export default function SampleDetailPage({ skill }) {
       </div>
 
       <style>{`
-        .rich-content h1 { font-family: var(--font-display); font-size: 1.75rem; font-weight: 900; color: var(--ink); margin: 1.5em 0 0.6em; line-height: 1.3; }
-        .rich-content h2 { font-family: var(--font-display); font-size: 1.5rem; font-weight: 800; color: var(--ink); margin: 1.4em 0 0.5em; line-height: 1.3; }
-        .rich-content h3 { font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; color: var(--ink); margin: 1.3em 0 0.5em; line-height: 1.3; }
+        .rich-content h1 { font-size: 1.75rem; font-weight: 900; color: var(--ink); margin: 1.5em 0 0.6em; line-height: 1.3; }
+        .rich-content h2 { font-size: 1.5rem; font-weight: 800; color: var(--ink); margin: 1.4em 0 0.5em; line-height: 1.3; }
+        .rich-content h3 { font-size: 1.25rem; font-weight: 700; color: var(--ink); margin: 1.3em 0 0.5em; line-height: 1.3; }
         .rich-content p  { margin: 0 0 1.2em; }
         .rich-content ul { list-style: disc; padding-left: 1.8rem; margin: 0.8em 0 1.2em; }
         .rich-content ol { list-style: decimal; padding-left: 1.8rem; margin: 0.8em 0 1.2em; }

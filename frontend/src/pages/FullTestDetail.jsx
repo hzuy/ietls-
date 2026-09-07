@@ -7,6 +7,7 @@ import { checkDraft } from '../services/draftService'
 import { Headphones, BookOpen, PenTool, Mic, AlertCircle } from 'lucide-react'
 import { BACKEND_URL, resolveImg, handleImgError } from '../utils/media'
 import Modal from '../components/common/Modal'
+import AcademicCover from '../components/common/AcademicCover'
 
 const SKILL_META = {
   reading:   { label: 'Reading',   Icon: BookOpen,   colorVar: '--skill-r-color', bgVar: '--skill-r-bg', borderVar: '--skill-r-border', path: '/reading',   desc: '3 passages · 40 câu · 60 phút' },
@@ -122,19 +123,19 @@ export default function FullTestDetail() {
 
   if (!bookNumber) return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}><Navbar />
-      <div className="max-w-6xl mx-auto px-6 py-16 text-center" style={{ color: 'var(--muted)', fontFamily: 'var(--font-body)' }}>Vui lòng chọn một cuốn sách cụ thể.</div>
+      <div className="max-w-6xl mx-auto px-6 py-16 text-center" style={{ color: 'var(--muted)' }}>Vui lòng chọn một cuốn sách cụ thể.</div>
     </div>
   )
 
   if (loading) return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}><Navbar />
-      <div className="max-w-6xl mx-auto px-6 py-16 text-center" style={{ color: 'var(--muted)', fontFamily: 'var(--font-body)' }}>Đang tải...</div>
+      <div className="max-w-6xl mx-auto px-6 py-16 text-center" style={{ color: 'var(--muted)' }}>Đang tải...</div>
     </div>
   )
 
   if (fetchError) return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}><Navbar />
-      <div className="max-w-6xl mx-auto px-6 py-16 text-center" style={{ fontFamily: 'var(--font-body)' }}>
+      <div className="max-w-6xl mx-auto px-6 py-16 text-center">
         <AlertCircle className="w-10 h-10 text-zinc-400 mx-auto mb-3 stroke-[1.75]" />
         <p style={{ color: 'var(--ink)', fontWeight: 700, fontSize: 16 }}>Không thể tải dữ liệu</p>
         <p style={{ color: 'var(--muted)', fontSize: 14 }}>Vui lòng kiểm tra kết nối và thử lại.</p>
@@ -144,7 +145,7 @@ export default function FullTestDetail() {
 
   if (!bookData || bookData.empty) return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}><Navbar />
-      <div className="max-w-6xl mx-auto px-6 py-16 text-center" style={{ color: 'var(--muted)', fontFamily: 'var(--font-body)' }}>Chưa có bài test nào trong cuốn sách này.</div>
+      <div className="max-w-6xl mx-auto px-6 py-16 text-center" style={{ color: 'var(--muted)' }}>Chưa có bài test nào trong cuốn sách này.</div>
     </div>
   )
 
@@ -156,7 +157,7 @@ export default function FullTestDetail() {
       <div className="max-w-6xl mx-auto px-4 py-6">
 
         {/* Breadcrumb */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--muted)', marginBottom: 20, fontFamily: 'var(--font-body)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>
           <Link to="/" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Trang chủ</Link>
           <span>/</span>
           <Link to="/full-test" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Full Test</Link>
@@ -171,21 +172,21 @@ export default function FullTestDetail() {
               <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
                 <div style={{ width: 80, height: 110, borderRadius: 'var(--radius-sm)', overflow: 'hidden', flexShrink: 0, background: 'linear-gradient(135deg, var(--ink), var(--ink-soft))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {resolveImg(bookData.coverImageUrl)
-                    ? <img src={resolveImg(bookData.coverImageUrl)} alt={title} loading="lazy" decoding="async" onError={handleImgError} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <BookOpen className="w-8 h-8 text-zinc-400 stroke-[1.75]" />
+                    ? <img src={resolveImg(bookData.coverImageUrl)} alt={title} loading="lazy" decoding="async" onError={handleImgError} className="img-crisp" style={{ width: '100%', height: '100%', objectFit: 'cover', imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)', backfaceVisibility: 'hidden' }} />
+                    : <AcademicCover title={title} compact={true} />
                   }
                 </div>
                 <div style={{ flex: 1 }}>
                   <h1 className="text-2xl font-bold text-zinc-900 tracking-tight mb-1.5">{title}</h1>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--muted)', margin: '0 0 14px', lineHeight: 1.6 }}>Luyện tập trọn bộ 4 kỹ năng trong cuốn sách {title}.</p>
+                  <p style={{ fontSize: 14, color: 'var(--muted)', margin: '0 0 14px', lineHeight: 1.6 }}>Luyện tập trọn bộ 4 kỹ năng trong cuốn sách {title}.</p>
                   <div style={{ display: 'flex', gap: 16 }}>
                     <div style={{ textAlign: 'center' }}>
                       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 800, color: 'var(--primary)' }}>{bookData.tests.length}</div>
-                      <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>Bài test</div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>Bài test</div>
                     </div>
                     <div style={{ textAlign: 'center' }}>
                       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 800, color: 'var(--primary)' }}>4</div>
-                      <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>Kỹ năng</div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>Kỹ năng</div>
                     </div>
                   </div>
                 </div>
@@ -196,15 +197,14 @@ export default function FullTestDetail() {
             <h2 className="text-lg font-semibold text-zinc-900 mb-3.5">Chọn bài test</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               {bookData.tests.map(test => {
-                // TODO: hiển thị tiến độ hoàn thành từng kỹ năng — chờ redesign API progress sau khi bỏ model Series
                 const availCount = SKILL_ORDER.filter(s => test.exams[s]).length
                 const hasDraft = SKILL_ORDER.some(s => draftInfo[`${test.testNumber}-${s}`]?.hasDraft)
 
                 return (
                   <div key={test.testNumber} style={{ background: 'var(--surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', padding: 18, boxShadow: 'var(--shadow-xs)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                      <span style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{`Test ${test.testNumber}`}</span>
-                      <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 700, borderRadius: 'var(--radius-sm)', padding: '2px 8px', background: 'var(--skill-r-bg)', color: 'var(--skill-r-color)' }}>
+                      <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{`Test ${test.testNumber}`}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 'var(--radius-sm)', padding: '2px 8px', background: 'var(--skill-r-bg)', color: 'var(--skill-r-color)' }}>
                         {`${availCount} kỹ năng`}
                       </span>
                     </div>
@@ -215,7 +215,7 @@ export default function FullTestDetail() {
                         const SkillIcon = m.Icon
                         return (
                           <span key={skill} style={{
-                            fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 700, borderRadius: 'var(--radius-sm)', padding: '3px 8px',
+                            fontSize: 11, fontWeight: 700, borderRadius: 'var(--radius-sm)', padding: '3px 8px',
                             background: exam ? `var(${m.bgVar})` : 'var(--surface-raised)',
                             color: exam ? `var(${m.colorVar})` : 'var(--subtle)',
                             border: `1px solid ${exam ? `var(${m.borderVar})` : 'var(--border-soft)'}`,
@@ -241,7 +241,7 @@ export default function FullTestDetail() {
                         })}
                       </div>
                     )}
-                    <button onClick={() => handleStart(test)} className="btn-hover-default" style={{ width: '100%', marginTop: 8, padding: '8px 0', borderRadius: 'var(--radius-md)', border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background var(--transition), transform .2s, box-shadow .2s' }}
+                    <button onClick={() => handleStart(test)} className="btn-hover-default" style={{ width: '100%', marginTop: 8, padding: '8px 0', borderRadius: 'var(--radius-md)', border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background var(--transition), transform .2s, box-shadow .2s' }}
                       onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
                       onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
                     >
@@ -259,7 +259,7 @@ export default function FullTestDetail() {
 
             {/* Suggestions */}
             <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', padding: 18, boxShadow: 'var(--shadow-xs)' }}>
-              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, color: 'var(--ink)', margin: '0 0 14px' }}>Gợi ý cho bạn</h3>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', margin: '0 0 14px' }}>Gợi ý cho bạn</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {suggestions.map(book => (
                   <div
@@ -268,13 +268,17 @@ export default function FullTestDetail() {
                     style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
                   >
                     <div style={{ width: 36, height: 48, borderRadius: 'var(--radius-sm)', background: 'var(--surface-raised)', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {book.coverImageUrl ? <img src={resolveImg(book.coverImageUrl)} alt="" loading="lazy" decoding="async" onError={handleImgError} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <BookOpen className="w-4 h-4 text-zinc-400 stroke-[1.75]" />}
+                      {book.coverImageUrl ? (
+                        <img src={resolveImg(book.coverImageUrl)} alt="" loading="lazy" decoding="async" onError={handleImgError} className="img-crisp" style={{ width: '100%', height: '100%', objectFit: 'cover', imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)', backfaceVisibility: 'hidden' }} />
+                      ) : (
+                        <AcademicCover title={`${book.seriesName} ${book.bookNumber}`} compact={true} />
+                      )}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 700, color: 'var(--ink)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {book.seriesName} {book.bookNumber}
                       </p>
-                      <p style={{ fontFamily: 'var(--font-body)', fontSize: 10, color: 'var(--muted)', margin: 0 }}>Chi tiết bộ đề</p>
+                      <p style={{ fontSize: 10, color: 'var(--muted)', margin: 0 }}>Chi tiết bộ đề</p>
                     </div>
                   </div>
                 ))}
@@ -293,7 +297,7 @@ export default function FullTestDetail() {
         >
           <div className="p-6">
             <div className="flex items-center justify-between mb-5">
-              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>{`Test ${modal.testNumber}`} — Chọn kỹ năng</h3>
+              <h3 style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>{`Test ${modal.testNumber}`} — Chọn kỹ năng</h3>
               <button
                 type="button"
                 onClick={() => setModal(null)}
@@ -315,24 +319,24 @@ export default function FullTestDetail() {
                     </span>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 700, color: exam ? `var(${m.colorVar})` : 'var(--subtle)' }}>{m.label}</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: exam ? `var(${m.colorVar})` : 'var(--subtle)' }}>{m.label}</span>
                         {hasDraft && (
-                          <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, color: '#f59e0b' }}>● Đang làm dở</span>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: '#f59e0b' }}>● Đang làm dở</span>
                         )}
                       </div>
-                      <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--muted)', margin: 0 }}>{m.desc}</p>
+                      <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>{m.desc}</p>
                     </div>
                     {exam && (
                       hasDraft ? (
                         <button
                           onClick={() => navigate(`${m.path}/${exam.id}?resume=true`)}
                           className="btn-hover-default"
-                          style={{ padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: 'none', background: '#f59e0b', color: '#fff', fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'transform .2s, box-shadow .2s' }}
+                          style={{ padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: 'none', background: '#f59e0b', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'transform .2s, box-shadow .2s' }}
                         >Tiếp tục →</button>
                       ) : (
                         <button
                           onClick={() => navigate(`${m.path}/${exam.id}`)}
-                          style={{ padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'background var(--transition)' }}
+                          style={{ padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'background var(--transition)' }}
                           onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
                           onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
                         >Làm bài</button>

@@ -32,7 +32,7 @@ function Alert({ msg }) {
           ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
           : 'bg-rose-50 text-rose-800 border-rose-200'
       }`}
-      style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}
+      style={{ fontSize: 'var(--fs-sm)' }}
     >
       <Icon className={`w-4 h-4 shrink-0 stroke-[2] ${isSuccess ? 'text-emerald-600' : 'text-rose-600'}`} />
       <span>{msg.text}</span>
@@ -130,13 +130,13 @@ export default function UserProfile() {
 
           {/* User card */}
           <div className="card-base p-6 text-center">
-            <div className="w-16 h-16 rounded-full bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 flex items-center justify-center text-[26px] font-bold mx-auto mb-4" style={{ fontFamily: 'var(--font-display)' }}>
+            <div className="w-16 h-16 rounded-full bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 flex items-center justify-center text-[26px] font-bold mx-auto mb-4">
               {avatarLetter}
             </div>
-            <div className="font-bold text-zinc-900 dark:text-zinc-100 mb-1" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-base)' }}>
+            <div className="font-bold text-zinc-900 dark:text-zinc-100 mb-1" style={{ fontSize: 'var(--fs-base)' }}>
               {user?.name}
             </div>
-            <div className="text-zinc-500 dark:text-zinc-400 mb-3 break-all" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}>
+            <div className="text-zinc-500 dark:text-zinc-400 mb-3 break-all" style={{ fontSize: 'var(--fs-sm)' }}>
               {user?.email}
             </div>
             <span className="inline-block px-2.5 py-0.5 rounded-full bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 text-xs font-semibold tracking-wide uppercase">
@@ -156,7 +156,7 @@ export default function UserProfile() {
                   className={`w-full text-left px-5 py-3.5 flex items-center gap-3 font-medium transition-colors border-none cursor-pointer ${
                     isActive ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-semibold' : 'bg-transparent text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-100'
                   } ${idx > 0 ? 'border-t border-zinc-100 dark:border-zinc-800' : ''}`}
-                  style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}
+                  style={{ fontSize: 'var(--fs-sm)' }}
                 >
                   <TabIcon className="w-4 h-4 text-zinc-500 dark:text-zinc-400 stroke-[1.75]" />
                   {tab.label}
@@ -172,13 +172,13 @@ export default function UserProfile() {
           {/* Tab: Thông tin cá nhân */}
           {activeTab === 'info' && (
             <div className="card-base p-8">
-              <h2 className="text-[20px] font-bold text-zinc-900 dark:text-zinc-100 m-0 mb-6" style={{ fontFamily: 'var(--font-display)' }}>
+              <h2 className="text-[20px] font-bold text-zinc-900 dark:text-zinc-100 m-0 mb-6">
                 Thông tin cơ bản
               </h2>
               <form onSubmit={handleSaveInfo}>
                 <div className="flex flex-col gap-5">
                   <div>
-                    <label htmlFor="up-name" className="block font-bold text-zinc-700 dark:text-zinc-300 mb-2" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}>
+                    <label htmlFor="up-name" className="block font-bold text-zinc-700 dark:text-zinc-300 mb-2" style={{ fontSize: 'var(--fs-sm)' }}>
                       Họ và tên
                     </label>
                     <input
@@ -190,7 +190,7 @@ export default function UserProfile() {
                     />
                   </div>
                   <div>
-                    <label htmlFor="up-email" className="block font-bold text-zinc-700 dark:text-zinc-300 mb-2" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}>
+                    <label htmlFor="up-email" className="block font-bold text-zinc-700 dark:text-zinc-300 mb-2" style={{ fontSize: 'var(--fs-sm)' }}>
                       Email
                     </label>
                     <input
@@ -198,11 +198,10 @@ export default function UserProfile() {
                       value={user?.email || ''}
                       disabled
                       className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-900/50 cursor-not-allowed text-sm"
-                      style={{ fontFamily: 'var(--font-body)' }}
                     />
                   </div>
                   <div>
-                    <label htmlFor="up-join" className="block font-bold text-zinc-700 dark:text-zinc-300 mb-2" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}>
+                    <label htmlFor="up-join" className="block font-bold text-zinc-700 dark:text-zinc-300 mb-2" style={{ fontSize: 'var(--fs-sm)' }}>
                       Ngày tham gia
                     </label>
                     <input
@@ -210,7 +209,6 @@ export default function UserProfile() {
                       value={joinDate}
                       disabled
                       className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-900/50 cursor-not-allowed text-sm"
-                      style={{ fontFamily: 'var(--font-body)' }}
                     />
                   </div>
                 </div>
@@ -243,8 +241,8 @@ export default function UserProfile() {
                   <div className="w-16 h-16 rounded-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center mb-6 text-zinc-400">
                     <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                   </div>
-                  <h2 className="text-[18px] font-bold text-zinc-900 dark:text-zinc-100 mb-2" style={{ fontFamily: 'var(--font-display)' }}>Không thể tải dữ liệu</h2>
-                  <p className="text-zinc-600 dark:text-zinc-400 mb-6 max-w-sm" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}>Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
+                  <h2 className="text-[18px] font-bold text-zinc-900 dark:text-zinc-100 mb-2">Không thể tải dữ liệu</h2>
+                  <p className="text-zinc-600 dark:text-zinc-400 mb-6 max-w-sm" style={{ fontSize: 'var(--fs-sm)' }}>Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
                   <button className="btn-primary px-8 py-3 font-bold" style={{ fontSize: 'var(--fs-sm)' }} onClick={() => window.location.reload()}>Thử lại</button>
                 </div>
               ) : stats?.totalAttempts === 0 ? (
@@ -252,8 +250,8 @@ export default function UserProfile() {
                   <div className="w-16 h-16 rounded-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center mb-6 text-zinc-400">
                     <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                   </div>
-                  <h2 className="text-[18px] font-bold text-zinc-900 dark:text-zinc-100 mb-2" style={{ fontFamily: 'var(--font-display)' }}>Bạn chưa có dữ liệu học tập</h2>
-                  <p className="text-zinc-600 dark:text-zinc-400 mb-6 max-w-sm" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}>Hãy bắt đầu luyện tập để xây dựng hồ sơ tiến bộ của mình.</p>
+                  <h2 className="text-[18px] font-bold text-zinc-900 dark:text-zinc-100 mb-2">Bạn chưa có dữ liệu học tập</h2>
+                  <p className="text-zinc-600 dark:text-zinc-400 mb-6 max-w-sm" style={{ fontSize: 'var(--fs-sm)' }}>Hãy bắt đầu luyện tập để xây dựng hồ sơ tiến bộ của mình.</p>
                   <button className="btn-primary px-8 py-3 font-bold" style={{ fontSize: 'var(--fs-sm)' }} onClick={() => navigate('/full-test')}>Bắt đầu luyện tập</button>
                 </div>
               ) : (
@@ -269,14 +267,14 @@ export default function UserProfile() {
                         <div className="text-[32px] font-bold text-zinc-900 dark:text-zinc-100 leading-tight" style={{ fontFamily: 'var(--font-mono)' }}>
                           {value}{suffix}
                         </div>
-                        <div className="font-medium text-zinc-500 dark:text-zinc-400 mt-1" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}>{label}</div>
+                        <div className="font-medium text-zinc-500 dark:text-zinc-400 mt-1" style={{ fontSize: 'var(--fs-sm)' }}>{label}</div>
                       </div>
                     ))}
                   </div>
 
                   {/* Band by skill */}
                   <div className="card-base p-8">
-                    <h3 className="text-[20px] font-bold text-zinc-900 dark:text-zinc-100 m-0 mb-6" style={{ fontFamily: 'var(--font-display)' }}>
+                    <h3 className="text-[20px] font-bold text-zinc-900 dark:text-zinc-100 m-0 mb-6">
                       Band trung bình theo kỹ năng
                     </h3>
                     {SKILLS.map(({ key, label }) => {
@@ -286,7 +284,7 @@ export default function UserProfile() {
                       return (
                         <div key={key} className="mb-6 last:mb-0">
                           <div className="flex justify-between items-end mb-2">
-                            <span className="font-bold text-zinc-700 dark:text-zinc-300" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}>{label}</span>
+                            <span className="font-bold text-zinc-700 dark:text-zinc-300" style={{ fontSize: 'var(--fs-sm)' }}>{label}</span>
                             <span className="font-bold text-zinc-900 dark:text-zinc-100 font-mono text-base">
                               {roundedBand}
                             </span>
@@ -301,7 +299,7 @@ export default function UserProfile() {
                       )
                     })}
                     {stats && Object.values(stats.bandBySkill ?? {}).every(v => v == null) && (
-                      <p className="text-zinc-500 dark:text-zinc-400 mt-4 m-0" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}>
+                      <p className="text-zinc-500 dark:text-zinc-400 mt-4 m-0" style={{ fontSize: 'var(--fs-sm)' }}>
                         Chưa có dữ liệu luyện thi. Hãy hoàn thành bài thi đầu tiên!
                       </p>
                     )}
@@ -314,7 +312,7 @@ export default function UserProfile() {
           {/* Tab: Đổi mật khẩu */}
           {activeTab === 'password' && (
             <div className="card-base p-8">
-              <h2 className="text-[20px] font-bold text-zinc-900 dark:text-zinc-100 m-0 mb-6" style={{ fontFamily: 'var(--font-display)' }}>
+              <h2 className="text-[20px] font-bold text-zinc-900 dark:text-zinc-100 m-0 mb-6">
                 Đổi mật khẩu
               </h2>
               <form onSubmit={handleChangePassword}>
@@ -325,7 +323,7 @@ export default function UserProfile() {
                     { id: 'up-confirm', label: 'Xác nhận mật khẩu mới',  value: confirmPwd, set: setConfirmPwd },
                   ].map(({ id, label, value, set }) => (
                     <div key={id}>
-                      <label htmlFor={id} className="block font-bold text-zinc-700 dark:text-zinc-300 mb-2" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}>
+                      <label htmlFor={id} className="block font-bold text-zinc-700 dark:text-zinc-300 mb-2" style={{ fontSize: 'var(--fs-sm)' }}>
                         {label}
                       </label>
                       <input

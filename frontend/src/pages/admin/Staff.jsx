@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getAdminStaff, makeAdmin, makeTeacher, removeStaff } from '../../services/adminService'
 import { useToast } from '../../context/ToastContext'
+import { SkeletonTable } from '../../components/skeletons'
 
 
 function fmtDate(iso) {
@@ -11,49 +13,80 @@ function fmtDate(iso) {
 
 export default function Staff() {
   const { showToast } = useToast()
-  const [staff, setStaff] = useState([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [actionLoading, setActionLoading] = useState(null)
   const [confirmRemove, setConfirmRemove] = useState(null)
   const navigate = useNavigate()
 
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
 
-  const fetchStaff = () => {
-    setLoading(true)
-    getAdminStaff()
-      .then(data => setStaff(data))
-      .catch(err => { if (err.response?.status === 403) navigate('/admin') })
-      .finally(() => setLoading(false))
-  }
+  const {
+    data: staff = [],
+    isPending,
+  } = useQuery({
+    queryKey: ['admin', 'staff'],
+    queryFn: async () => {
+      try {
+        return await getAdminStaff()
+      } catch (err) {
+        if (err.response?.status === 403) navigate('/admin')
+        throw err
+      }
+    },
+    staleTime: 1000 * 60 * 5, // Fresh 5 phút
+    gcTime: 1000 * 60 * 30,    // Cache trong RAM 30 phút
+    placeholderData: (prev) => prev,
+  })
 
-  useEffect(() => { fetchStaff() }, [])
+  const makeAdminMutation = useMutation({
+    mutationFn: (userId) => makeAdmin(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'staff'] })
+      showToast('Đã nâng quyền Admin', 'success')
+    },
+    onError: (err) => {
+      showToast(err.response?.data?.message || 'Lỗi', 'error')
+    },
+    onSettled: () => setActionLoading(null),
+  })
 
-  const handleMakeAdmin = async (userId) => {
-    setActionLoading(userId + '_admin')
-    try {
-      await makeAdmin(userId)
-      fetchStaff()
-    } catch (err) { showToast(err.response?.data?.message || 'Lỗi', 'error') }
-    finally { setActionLoading(null) }
-  }
+  const makeTeacherMutation = useMutation({
+    mutationFn: (userId) => makeTeacher(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'staff'] })
+      showToast('Đã chuyển thành Teacher', 'success')
+    },
+    onError: (err) => {
+      showToast(err.response?.data?.message || 'Lỗi', 'error')
+    },
+    onSettled: () => setActionLoading(null),
+  })
 
-  const handleMakeTeacher = async (userId) => {
-    setActionLoading(userId + '_teacher')
-    try {
-      await makeTeacher(userId)
-      fetchStaff()
-    } catch (err) { showToast(err.response?.data?.message || 'Lỗi', 'error') }
-    finally { setActionLoading(null) }
-  }
-
-  const handleRemoveStaff = async () => {
-    if (!confirmRemove) return
-    try {
-      await removeStaff(confirmRemove.id)
+  const removeStaffMutation = useMutation({
+    mutationFn: (userId) => removeStaff(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'staff'] })
       setConfirmRemove(null)
-      fetchStaff()
-    } catch (err) { showToast(err.response?.data?.message || 'Lỗi', 'error') }
+      showToast('Đã thu hồi quyền nhân sự', 'success')
+    },
+    onError: (err) => {
+      showToast(err.response?.data?.message || 'Lỗi', 'error')
+    },
+  })
+
+  const handleMakeAdmin = (userId) => {
+    setActionLoading(userId + '_admin')
+    makeAdminMutation.mutate(userId)
+  }
+
+  const handleMakeTeacher = (userId) => {
+    setActionLoading(userId + '_teacher')
+    makeTeacherMutation.mutate(userId)
+  }
+
+  const handleRemoveStaff = () => {
+    if (!confirmRemove) return
+    removeStaffMutation.mutate(confirmRemove.id)
   }
 
   const adminCount = staff.filter(s => s.role === 'admin').length
@@ -85,10 +118,8 @@ export default function Staff() {
 
         {/* Table */}
         <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
-          {loading ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="w-7 h-7 border-4 border-zinc-900 border-t-transparent rounded-full animate-spin" />
-            </div>
+          {isPending && staff.length === 0 ? (
+            <SkeletonTable rows={4} cols={4} />
           ) : staff.length === 0 ? (
             <p className="text-center text-zinc-400 py-12 text-xs">Chưa có nhân sự nào</p>
           ) : (

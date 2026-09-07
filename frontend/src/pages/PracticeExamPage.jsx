@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 
 import Navbar from '../components/Navbar'
 import { getPractice } from '../services/practiceService'
-import { BookOpen, Headphones, ArrowLeft, X, Clock } from 'lucide-react'
+import { BookOpen, Headphones, ArrowLeft, Clock } from 'lucide-react'
 import MatchingTickGrid from '../components/MatchingTickGrid'
 import DragWordBankGroup from '../components/DragWordBankGroup'
 import MatchingDragGroup from '../components/MatchingDragGroup'
@@ -12,9 +12,9 @@ import MatchingHeadingsGroup from '../components/MatchingHeadingsGroup'
 import TableCompletionRender from '../components/TableCompletionRender'
 import SkillResult from '../components/SkillResult'
 import QuestionNavButton from '../components/common/QuestionNavButton'
-import ConfirmExitModal from '../components/ConfirmExitModal'
-import { useExitGuard } from '../hooks/useExitGuard'
 import { usePracticeDraft } from '../hooks/usePracticeDraft'
+import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
+import ExitConfirmModal from '../components/common/ExitConfirmModal'
 import { formatSavedAt } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
 
@@ -35,7 +35,6 @@ function ReadingPracticeExam({ exam, onBack }) {
   const [phase, setPhase] = useState('start')
   const [timeLeft, setTimeLeft] = useState(PRACTICE_TIME)
   const [showConfirm, setShowConfirm] = useState(false)
-  const [showExitConfirm, setShowExitConfirm] = useState(false)
   const [result, setResult] = useState(null)
   const [draftMeta, setDraftMeta] = useState(null) // { hasDraft, savedAt, timeRemaining, data } — nạp 1 lần lúc mount
   const bodyRef = useRef(null)
@@ -52,7 +51,7 @@ function ReadingPracticeExam({ exam, onBack }) {
   // thi Reading chính có cùng examId (PracticeExam.id trùng dải số với Exam.id).
   const {
     checkDraftOnMount, persistDraftNow, clearDraft, markSaved,
-    lastSavedAt, hasUnsavedChanges,
+    lastSavedAt,
   } = usePracticeDraft({
     examId: exam.id,
     skillType: 'practice-reading',
@@ -70,9 +69,20 @@ function ReadingPracticeExam({ exam, onBack }) {
     if (d.hasDraft) setDraftMeta(d)
   }, [userId, checkDraftOnMount])
 
-  // Guard thoát: chỉ cảnh báo khi có thay đổi CHƯA ghi vào draft (persistDraftNow
-  // được gọi ngay tại mọi điểm thoát qua onBeforeExit → flush trước khi rời).
-  const exitGuard = useExitGuard(phase === 'exam' && hasUnsavedChanges, persistDraftNow)
+  // Cảnh báo trình duyệt (beforeunload) khi thí sinh đóng tab/F5 trong lúc làm bài
+  useEffect(() => {
+    if (phase !== 'exam') return
+    const handleBeforeUnload = (e) => {
+      persistDraftNow()
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [phase, persistDraftNow])
+
+  // Chặn nút Back (<) của trình duyệt khi đang làm bài
+  const { showModal: showExitModal, stay: stayInExam, leave: leaveExam } = useBrowserHistoryGuard(phase === 'exam', persistDraftNow)
 
   const resumeDraft = () => {
     if (!draftMeta?.hasDraft) return
@@ -113,14 +123,6 @@ function ReadingPracticeExam({ exam, onBack }) {
     const h = (e) => { if (e.key === 'Escape') setShowConfirm(false) }
     window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h)
   }, [showConfirm])
-
-  useEffect(() => {
-    if (!showExitConfirm && !exitGuard.prompt) return
-    const h = (e) => {
-      if (e.key === 'Escape') { setShowExitConfirm(false); exitGuard.stay() }
-    }
-    window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h)
-  }, [showExitConfirm, exitGuard.prompt, exitGuard.stay])
 
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768)
@@ -219,9 +221,6 @@ function ReadingPracticeExam({ exam, onBack }) {
         }
       ]
     }
-    // Thứ tự BẮT BUỘC: disarm() (chạy persistDraftNow qua onBeforeExit) TRƯỚC,
-    // clearDraft() SAU — nếu ngược lại, persist sẽ ghi draft sống lại cho bài đã nộp.
-    await exitGuard.disarm()
     clearDraft()
     setResult(formattedData)
     setPhase('result')
@@ -256,21 +255,21 @@ function ReadingPracticeExam({ exam, onBack }) {
         </div>
         {draftMeta?.hasDraft ? (
           <>
-            <button onClick={resumeDraft} className="w-full py-3 rounded-xl font-medium text-sm bg-zinc-900 hover:bg-black text-white transition shadow-xs cursor-pointer mb-2">
+            <button onClick={resumeDraft} className="w-full h-9 px-4 py-2 rounded-md font-medium text-xs sm:text-sm bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 transition-colors shadow-xs cursor-pointer mb-2 flex items-center justify-center">
               Tiếp tục{draftMeta.savedAt ? ` (đã lưu ${formatSavedAt(draftMeta.savedAt)})` : ''} →
             </button>
-            <button onClick={startFresh} className="w-full text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 transition font-medium text-xs py-2 rounded-xl mb-1 cursor-pointer">
+            <button onClick={startFresh} className="w-full text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors font-medium text-xs h-9 py-2 rounded-md mb-1 cursor-pointer flex items-center justify-center">
               Làm lại từ đầu
             </button>
           </>
         ) : (
-          <button onClick={() => setPhase('exam')} className="w-full py-3 rounded-xl font-medium text-sm bg-zinc-900 hover:bg-black text-white transition shadow-xs cursor-pointer mb-2">
+          <button onClick={() => setPhase('exam')} className="w-full h-9 px-4 py-2 rounded-md font-medium text-xs sm:text-sm bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 transition-colors shadow-xs cursor-pointer mb-2 flex items-center justify-center">
             Bắt đầu làm bài
           </button>
         )}
         <button
           onClick={onBack}
-          className="w-full text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition font-medium text-sm py-2.5 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
+          className="w-full text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-800 transition-colors font-medium text-xs sm:text-sm h-9 px-4 py-2 rounded-md flex items-center justify-center gap-1.5 cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4 text-zinc-500" /> Quay lại
         </button>
@@ -294,16 +293,6 @@ function ReadingPracticeExam({ exam, onBack }) {
       {/* Header */}
       <header className="h-14 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 px-6 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-3 min-w-0">
-          <button
-            type="button"
-            aria-label="Đóng bài thi"
-            onClick={() => setShowExitConfirm(true)}
-            className="h-8 px-2.5 flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-xs font-medium transition cursor-pointer shrink-0"
-            title="Thoát bài thi"
-          >
-            <X className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Thoát</span>
-          </button>
           <span className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">{exam.title}</span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
@@ -333,7 +322,7 @@ function ReadingPracticeExam({ exam, onBack }) {
           style={{ width: isMobile ? '100%' : `${splitRatio}%` }}>
           <h2 className="text-lg font-semibold text-zinc-900 text-center mb-1 leading-snug">{exam.title}</h2>
           <div className="w-16 h-0.5 bg-zinc-900 mx-auto mb-6" />
-          <div className="text-zinc-800 text-sm leading-relaxed font-normal" style={{ fontFamily: 'var(--font-reading)' }}>
+          <div className="text-zinc-800 text-sm leading-relaxed font-normal">
             {(exam.passage || '').split(/\n\s*\n|\n/).map(s => s.trim()).filter(Boolean).map((para, i) => (
               <p key={i} className="mb-5 indent-6">{para.charAt(0).toUpperCase() + para.slice(1)}</p>
             ))}
@@ -382,22 +371,11 @@ function ReadingPracticeExam({ exam, onBack }) {
         <button
           type="button"
           onClick={() => setShowConfirm(true)}
-          className="bg-red-600 hover:bg-red-700 text-white text-xs font-medium py-2 px-4 rounded-xl shadow-xs transition-colors shrink-0 cursor-pointer"
+          className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-4 rounded-md shadow-xs transition-colors shrink-0 cursor-pointer inline-flex items-center justify-center leading-none"
         >
           Nộp bài
         </button>
       </div>
-
-      {/* Exit confirm */}
-      <ConfirmExitModal
-        isOpen={showExitConfirm || exitGuard.prompt}
-        onClose={() => { setShowExitConfirm(false); exitGuard.stay() }}
-        onConfirm={async () => {
-          setShowExitConfirm(false)
-          if (exitGuard.prompt) { exitGuard.leave() }
-          else { await exitGuard.disarm(); onBack() }
-        }}
-      />
 
       {/* Submit confirm */}
       {showConfirm && (
@@ -407,12 +385,26 @@ function ReadingPracticeExam({ exam, onBack }) {
             <p className="text-sm text-zinc-600 mb-2">Bạn có chắc muốn nộp bài không?</p>
             <p className="text-sm font-medium text-zinc-900 mb-6">Đã làm: <span className="font-semibold text-zinc-900">{answered}/{totalSlots}</span> câu</p>
             <div className="flex gap-3">
-              <button onClick={() => setShowConfirm(false)} className="flex-1 py-2.5 bg-white border border-zinc-200 text-zinc-900 hover:bg-zinc-100 rounded-lg font-medium text-sm transition cursor-pointer">Tiếp tục làm</button>
-              <button onClick={() => { setShowConfirm(false); doSubmit() }} className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm transition shadow-xs cursor-pointer">Nộp bài</button>
+              <button
+                type="button"
+                onClick={() => setShowConfirm(false)}
+                className="flex-1 h-9 px-4 bg-white hover:bg-zinc-100 text-zinc-900 border border-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-100 dark:border-zinc-800 text-xs sm:text-sm font-medium rounded-md shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
+              >
+                Tiếp tục làm
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowConfirm(false); doSubmit() }}
+                className="flex-1 h-9 px-4 bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium rounded-md shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
+              >
+                Nộp bài
+              </button>
             </div>
           </div>
         </div>
       )}
+      {/* Exit confirmation modal — Back nút trình duyệt */}
+      <ExitConfirmModal open={showExitModal} onStay={stayInExam} onLeave={leaveExam} />
     </div>
   )
 }
@@ -424,7 +416,6 @@ function ListeningPracticeExam({ exam, onBack }) {
   const [phase, setPhase] = useState('start')
   const [timeLeft, setTimeLeft] = useState(LISTENING_TIME)
   const [showConfirm, setShowConfirm] = useState(false)
-  const [showExitConfirm, setShowExitConfirm] = useState(false)
   const [result, setResult] = useState(null)
   const [draftMeta, setDraftMeta] = useState(null) // { hasDraft, savedAt, timeRemaining, data } — nạp 1 lần lúc mount
 
@@ -433,7 +424,7 @@ function ListeningPracticeExam({ exam, onBack }) {
   // đã xác nhận id=19 tồn tại ở cả hai bảng, cùng skill listening).
   const {
     checkDraftOnMount, persistDraftNow, clearDraft, markSaved,
-    lastSavedAt, hasUnsavedChanges,
+    lastSavedAt,
   } = usePracticeDraft({
     examId: exam.id,
     skillType: 'practice-listening',
@@ -451,9 +442,20 @@ function ListeningPracticeExam({ exam, onBack }) {
     if (d.hasDraft) setDraftMeta(d)
   }, [userId, checkDraftOnMount])
 
-  // Guard thoát: chỉ cảnh báo khi có thay đổi CHƯA ghi vào draft (persistDraftNow
-  // được gọi ngay tại mọi điểm thoát qua onBeforeExit → flush trước khi rời).
-  const exitGuard = useExitGuard(phase === 'exam' && hasUnsavedChanges, persistDraftNow)
+  // Cảnh báo trình duyệt (beforeunload) khi thí sinh đóng tab/F5 trong lúc làm bài
+  useEffect(() => {
+    if (phase !== 'exam') return
+    const handleBeforeUnload = (e) => {
+      persistDraftNow()
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [phase, persistDraftNow])
+
+  // Chặn nút Back (<) của trình duyệt khi đang làm bài
+  const { showModal: showExitModal, stay: stayInExam, leave: leaveExam } = useBrowserHistoryGuard(phase === 'exam', persistDraftNow)
 
   const resumeDraft = () => {
     if (!draftMeta?.hasDraft) return
@@ -492,14 +494,6 @@ function ListeningPracticeExam({ exam, onBack }) {
     const h = (e) => { if (e.key === 'Escape') setShowConfirm(false) }
     window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h)
   }, [showConfirm])
-
-  useEffect(() => {
-    if (!showExitConfirm && !exitGuard.prompt) return
-    const h = (e) => {
-      if (e.key === 'Escape') { setShowExitConfirm(false); exitGuard.stay() }
-    }
-    window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h)
-  }, [showExitConfirm, exitGuard.prompt, exitGuard.stay])
 
   const onAnswer = (qNum, val) => setAnswers(a => ({ ...a, [qNum]: val }))
 
@@ -590,9 +584,6 @@ function ListeningPracticeExam({ exam, onBack }) {
         }
       ]
     }
-    // Thứ tự BẮT BUỘC: disarm() (chạy persistDraftNow qua onBeforeExit) TRƯỚC,
-    // clearDraft() SAU — nếu ngược lại, persist sẽ ghi draft sống lại cho bài đã nộp.
-    await exitGuard.disarm()
     clearDraft()
     setResult(formattedData)
     setPhase('result')
@@ -614,21 +605,21 @@ function ListeningPracticeExam({ exam, onBack }) {
         </div>
         {draftMeta?.hasDraft ? (
           <>
-            <button onClick={resumeDraft} className="w-full py-3 rounded-xl font-medium text-sm bg-zinc-900 hover:bg-black text-white transition shadow-xs cursor-pointer mb-2">
+            <button onClick={resumeDraft} className="w-full h-9 px-4 py-2 rounded-md font-medium text-xs sm:text-sm bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 transition-colors shadow-xs cursor-pointer mb-2 flex items-center justify-center">
               Tiếp tục{draftMeta.savedAt ? ` (đã lưu ${formatSavedAt(draftMeta.savedAt)})` : ''} →
             </button>
-            <button onClick={startFresh} className="w-full text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 transition font-medium text-xs py-2 rounded-xl mb-1 cursor-pointer">
+            <button onClick={startFresh} className="w-full text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors font-medium text-xs h-9 py-2 rounded-md mb-1 cursor-pointer flex items-center justify-center">
               Làm lại từ đầu
             </button>
           </>
         ) : (
-          <button onClick={() => setPhase('exam')} className="w-full py-3 rounded-xl font-medium text-sm bg-zinc-900 hover:bg-black text-white transition shadow-xs cursor-pointer mb-2">
+          <button onClick={() => setPhase('exam')} className="w-full h-9 px-4 py-2 rounded-md font-medium text-xs sm:text-sm bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 transition-colors shadow-xs cursor-pointer mb-2 flex items-center justify-center">
             Bắt đầu làm bài
           </button>
         )}
         <button
           onClick={onBack}
-          className="w-full text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition font-medium text-sm py-2.5 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
+          className="w-full text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-800 transition-colors font-medium text-xs sm:text-sm h-9 px-4 py-2 rounded-md flex items-center justify-center gap-1.5 cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4 text-zinc-500" /> Quay lại
         </button>
@@ -652,16 +643,6 @@ function ListeningPracticeExam({ exam, onBack }) {
       {/* Header */}
       <header className="h-14 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 px-6 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-3 min-w-0">
-          <button
-            type="button"
-            aria-label="Đóng bài thi"
-            onClick={() => setShowExitConfirm(true)}
-            className="h-8 px-2.5 flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-xs font-medium transition cursor-pointer shrink-0"
-            title="Thoát bài thi"
-          >
-            <X className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Thoát</span>
-          </button>
           <span className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">{exam.title}</span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
@@ -722,22 +703,11 @@ function ListeningPracticeExam({ exam, onBack }) {
         <button
           type="button"
           onClick={() => setShowConfirm(true)}
-          className="bg-red-600 hover:bg-red-700 text-white text-xs font-medium py-2 px-4 rounded-xl shadow-xs transition-colors shrink-0 cursor-pointer"
+          className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-4 rounded-md shadow-xs transition-colors shrink-0 cursor-pointer inline-flex items-center justify-center leading-none"
         >
           Nộp bài
         </button>
       </div>
-
-      {/* Exit confirm */}
-      <ConfirmExitModal
-        isOpen={showExitConfirm || exitGuard.prompt}
-        onClose={() => { setShowExitConfirm(false); exitGuard.stay() }}
-        onConfirm={async () => {
-          setShowExitConfirm(false)
-          if (exitGuard.prompt) { exitGuard.leave() }
-          else { await exitGuard.disarm(); onBack() }
-        }}
-      />
 
       {/* Submit confirm */}
       {showConfirm && (
@@ -747,17 +717,31 @@ function ListeningPracticeExam({ exam, onBack }) {
             <p className="text-sm text-zinc-600 mb-2">Bạn có chắc muốn nộp bài không?</p>
             <p className="text-sm font-medium text-zinc-900 mb-6">Đã làm: <span className="font-semibold text-zinc-900">{answered}/{totalSlots}</span> câu</p>
             <div className="flex gap-3">
-              <button onClick={() => setShowConfirm(false)} className="flex-1 py-2.5 bg-white border border-zinc-200 text-zinc-900 hover:bg-zinc-100 rounded-lg font-medium text-sm transition cursor-pointer">Tiếp tục làm</button>
-              <button onClick={() => { setShowConfirm(false); doSubmit() }} className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm transition shadow-xs cursor-pointer">Nộp bài</button>
+              <button
+                type="button"
+                onClick={() => setShowConfirm(false)}
+                className="flex-1 h-9 px-4 bg-white hover:bg-zinc-100 text-zinc-900 border border-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-100 dark:border-zinc-800 text-xs sm:text-sm font-medium rounded-md shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
+              >
+                Tiếp tục làm
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowConfirm(false); doSubmit() }}
+                className="flex-1 h-9 px-4 bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium rounded-md shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
+              >
+                Nộp bài
+              </button>
             </div>
           </div>
         </div>
       )}
+      {/* Exit confirmation modal — Back nút trình duyệt */}
+      <ExitConfirmModal open={showExitModal} onStay={stayInExam} onLeave={leaveExam} />
     </div>
   )
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── Main component ────────────────────────────────────────────────────────────────────────────────
 export default function PracticeExamPage({ skill }) {
   const { id } = useParams()
   const navigate = useNavigate()

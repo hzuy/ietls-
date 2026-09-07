@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Modal from '../../components/common/Modal'
 import { SkeletonTable } from '../../components/skeletons'
 
@@ -44,8 +45,20 @@ const daysUntilPurge = (deletedAt) =>
   Math.ceil((new Date(deletedAt).getTime() + PURGE_DAYS * 86_400_000 - Date.now()) / 86_400_000)
 
 export default function Trash() {
-  const [items, setItems] = useState([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
+  const { data: items = [], isPending } = useQuery({
+    queryKey: ['admin', 'trash'],
+    queryFn: async () => {
+      try {
+        const data = await getAdminTrash()
+        return data || []
+      } catch (err) {
+        showAlert('Lỗi', 'Không thể tải danh sách thùng rác', 'error')
+        throw err
+      }
+    },
+    placeholderData: (prev) => prev,
+  })
   const [tab, setTab] = useState('all')
   const [confirming, setConfirming] = useState(null)
   const [purgeConfirm, setPurgeConfirm] = useState(false)
@@ -58,21 +71,6 @@ export default function Trash() {
     setTimeout(() => setToast(null), 5000)
   }
 
-  const loadTrash = async () => {
-    try {
-      setLoading(true)
-      const data = await getAdminTrash()
-      setItems(data || [])
-      setRowErrors({})
-    } catch {
-      showAlert('Lỗi', 'Không thể tải danh sách thùng rác', 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => { loadTrash() }, [])
-
   const rowKey = item => `${item.type}:${item.id}`
 
   const handleRestore = async (item) => {
@@ -80,7 +78,12 @@ export default function Trash() {
       setBusy(true)
       await restoreTrashItem(item.type, item.id)
       notifyTrashChanged({ type: item.type, id: item.id, action: 'restored' })
-      setItems(prev => prev.filter(x => !(x.type === item.type && x.id === item.id)))
+      queryClient.setQueryData(['admin', 'trash'], prev => prev ? prev.filter(x => !(x.type === item.type && x.id === item.id)) : [])
+      queryClient.invalidateQueries({ queryKey: ['admin', 'trash'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'practice'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'samples'] })
       setConfirming(null)
       showToast(`Đã khôi phục: ${item.title}`)
     } catch (err) {
@@ -98,7 +101,10 @@ export default function Trash() {
       setBusy(true)
       await permanentDeleteTrashItem(item.type, item.id)
       notifyTrashChanged({ type: item.type, id: item.id, action: 'deleted' })
-      setItems(prev => prev.filter(x => !(x.type === item.type && x.id === item.id)))
+      queryClient.setQueryData(['admin', 'trash'], prev => prev ? prev.filter(x => !(x.type === item.type && x.id === item.id)) : [])
+      queryClient.invalidateQueries({ queryKey: ['admin', 'trash'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
       setConfirming(null)
       showToast(`Đã xóa vĩnh viễn: ${item.title}`)
     } catch (err) {
@@ -116,7 +122,10 @@ export default function Trash() {
       setBusy(true)
       await purgeTrash()
       notifyTrashChanged({ action: 'purged' })
-      setItems([])
+      queryClient.setQueryData(['admin', 'trash'], [])
+      queryClient.invalidateQueries({ queryKey: ['admin', 'trash'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
       setPurgeConfirm(false)
       showToast('Đã dọn sạch thùng rác')
     } catch (err) {
@@ -187,7 +196,7 @@ export default function Trash() {
         </div>
 
         <div id="trash-panel" role="tabpanel">
-        {loading ? (
+        {isPending && items.length === 0 ? (
           <SkeletonTable rows={6} cols={4} />
         ) : filtered.length === 0 ? (
           <div className="text-center py-20">

@@ -1,7 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { render as rtlRender, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Trash from './Trash'
 import * as adminService from '../../services/adminService'
+
+const createTestQueryClient = () => new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+    },
+  },
+})
+
+function render(ui) {
+  const queryClient = createTestQueryClient()
+  return rtlRender(
+    <QueryClientProvider client={queryClient}>
+      {ui}
+    </QueryClientProvider>
+  )
+}
 
 const SAMPLE = [
   { id: 1, type: 'exam_reading', title: 'Đề Reading A', thumbnailUrl: null, deletedAt: '2026-08-20T00:00:00.000Z' },

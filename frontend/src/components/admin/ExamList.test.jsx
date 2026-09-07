@@ -1,6 +1,24 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render as rtlRender, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import ExamList from './ExamList'
+
+const createTestQueryClient = () => new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+    },
+  },
+})
+
+function render(ui) {
+  const queryClient = createTestQueryClient()
+  return rtlRender(
+    <QueryClientProvider client={queryClient}>
+      {ui}
+    </QueryClientProvider>
+  )
+}
 
 describe('ExamList — Speaking Part Badge & Validation Count', () => {
   it('hiển thị badge 3/3 màu xanh khi Part 1 có câu hỏi, Part 2 chỉ có Cue Card (0 câu hỏi con), và Part 3 có câu hỏi thảo luận', () => {
@@ -142,5 +160,19 @@ describe('ExamList — Speaking Part Badge & Validation Count', () => {
 
     const badge = screen.getByText('3/3')
     expect(badge).toBeInTheDocument()
+  })
+
+  it('hiển thị thông tin số lượng bài ở chân danh sách / thanh phân trang', () => {
+    const exams = [
+      { id: 10, title: 'Exam 1', skill: 'reading' },
+      { id: 11, title: 'Exam 2', skill: 'reading' },
+    ]
+
+    render(<ExamList exams={exams} skill="reading" paginationData={{ total: 20, page: 1, pages: 10 }} />)
+
+    expect(screen.getByText(/Hiển thị/)).toBeInTheDocument()
+    expect(screen.getByText('2')).toBeInTheDocument()
+    expect(screen.getByText('20')).toBeInTheDocument()
+    expect(screen.getByText(/trên tổng số/)).toBeInTheDocument()
   })
 })

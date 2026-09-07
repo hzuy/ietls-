@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Routes, Route, Navigate, useLocation, NavLink } from 'react-router-dom'
-import { getExams, getExamSeries, getExamCounts } from '../services/examService'
+import { queryClient } from '../lib/queryClient'
+import { getExamSeries, getExamCounts } from '../services/examService'
 import { onTrashChanged } from '../services/adminService'
 import ReadingTab from '../components/admin/ReadingTab'
 import ListeningTab from '../components/admin/ListeningTab'
@@ -19,10 +20,7 @@ const TABS = [
 ]
 
 export default function Admin() {
-  const [tabCounts, setTabCounts] = useState({ reading: 0, listening: 0, writing: 0, speaking: 0 })
-  const [tabCache, setTabCache] = useState({ reading: null, listening: null, writing: null, speaking: null })
-  const [loading, setLoading] = useState(false)
-  const [loadError, setLoadError] = useState({}) // { [skill]: true } khi fetch danh sách lỗi
+  const [, setTabCounts] = useState({ reading: 0, listening: 0, writing: 0, speaking: 0 })
   const [examSeries, setExamSeries] = useState([])
   const navigate = useNavigate()
   const location = useLocation()
@@ -34,42 +32,20 @@ export default function Admin() {
     getExamCounts().then(data => setTabCounts(data)).catch(() => {})
   }
 
-  const fetchSkillExams = (skill, {
-    page = 1, search = '', seriesId = '', status = 'all',
-    sortBy = 'createdAt', sortOrder = 'desc', force = false,
-  } = {}) => {
-    if (!skill || skill === 'cambridge') return
-    const isPristine = page === 1 && !search && !seriesId && status === 'all' && sortBy === 'createdAt' && sortOrder === 'desc'
-    if (!force && tabCache[skill] && isPristine) {
-      return
-    }
-    setLoadError(prev => (prev[skill] ? { ...prev, [skill]: false } : prev)) // xóa lỗi cũ khi thử lại
-    setLoading(true)
-    getExams({ skill, page, limit: 20, search, seriesId, status, sortBy, sortOrder })
-      .then(res => {
-        const payload = Array.isArray(res) ? { exams: res, total: res.length, page: 1, pages: 1, stats: null } : res
-        setTabCache(prev => ({ ...prev, [skill]: payload }))
-      })
-      .catch(err => {
-        if (err.response?.status === 403) navigate('/')
-        else setLoadError(prev => ({ ...prev, [skill]: true }))
-      })
-      .finally(() => setLoading(false))
-  }
-
   const handleRefresh = (skill = activeTab) => {
     fetchCounts()
-    setTabCache(prev => ({ ...prev, [skill]: null }))
-    fetchSkillExams(skill, { force: true })
+    if (skill && skill !== 'cambridge') {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'exams', skill] })
+    } else {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
+    }
   }
 
   const handleExamsChanged = () => {
     fetchCounts()
     getExamSeries().then(data => setExamSeries(data)).catch(() => {})
-    setTabCache({ reading: null, listening: null, writing: null, speaking: null })
-    if (activeTab && activeTab !== 'cambridge') {
-      fetchSkillExams(activeTab, { force: true })
-    }
+    queryClient.invalidateQueries({ queryKey: ['admin'] })
+    queryClient.invalidateQueries({ queryKey: ['exam'] })
   }
 
   useEffect(() => {
@@ -78,19 +54,11 @@ export default function Admin() {
     const unsub = onTrashChanged(() => {
       fetchCounts()
       getExamSeries().then(data => setExamSeries(data)).catch(() => {})
-      setTabCache({ reading: null, listening: null, writing: null, speaking: null })
-      if (activeTab && activeTab !== 'cambridge') {
-        fetchSkillExams(activeTab, { force: true })
-      }
+      queryClient.invalidateQueries({ queryKey: ['admin'] })
+      queryClient.invalidateQueries({ queryKey: ['exam'] })
     })
     return unsub
-  }, [activeTab])
-
-  useEffect(() => {
-    if (activeTab && activeTab !== 'cambridge') {
-      fetchSkillExams(activeTab)
-    }
-  }, [activeTab])
+  }, [])
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -120,17 +88,6 @@ export default function Admin() {
                 }`}
               >
                 <span>{tab.label}</span>
-                {tabCounts[tab.key] !== undefined && (
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors ${
-                      isTabActive
-                        ? 'bg-zinc-800 text-zinc-200'
-                        : 'bg-zinc-100 text-zinc-600 group-hover:bg-zinc-200'
-                    }`}
-                  >
-                    {tabCounts[tab.key]}
-                  </span>
-                )}
               </NavLink>
             )
           })}
@@ -141,10 +98,10 @@ export default function Admin() {
         <Routes>
           <Route index element={<Navigate to="cambridge" replace />} />
           <Route path="cambridge" element={<CambridgeTab initialSeriesList={examSeries} onExamsChanged={handleExamsChanged} />} />
-          <Route path="reading"   element={<ReadingTab exams={tabCache.reading?.exams || []} paginationData={tabCache.reading} fetchExams={(opts) => fetchSkillExams('reading', { ...opts, force: true })} onRefresh={() => handleRefresh('reading')} examSeries={examSeries} loading={loading} loadError={!!loadError.reading} />} />
-          <Route path="listening" element={<ListeningTab exams={tabCache.listening?.exams || []} paginationData={tabCache.listening} fetchExams={(opts) => fetchSkillExams('listening', { ...opts, force: true })} onRefresh={() => handleRefresh('listening')} examSeries={examSeries} loading={loading} loadError={!!loadError.listening} />} />
-          <Route path="writing"   element={<WritingTab exams={tabCache.writing?.exams || []} paginationData={tabCache.writing} fetchExams={(opts) => fetchSkillExams('writing', { ...opts, force: true })} onRefresh={() => handleRefresh('writing')} examSeries={examSeries} loading={loading} loadError={!!loadError.writing} />} />
-          <Route path="speaking"  element={<SpeakingTab exams={tabCache.speaking?.exams || []} paginationData={tabCache.speaking} fetchExams={(opts) => fetchSkillExams('speaking', { ...opts, force: true })} onRefresh={() => handleRefresh('speaking')} examSeries={examSeries} loading={loading} loadError={!!loadError.speaking} />} />
+          <Route path="reading"   element={<ReadingTab onRefresh={() => handleRefresh('reading')} examSeries={examSeries} />} />
+          <Route path="listening" element={<ListeningTab onRefresh={() => handleRefresh('listening')} examSeries={examSeries} />} />
+          <Route path="writing"   element={<WritingTab onRefresh={() => handleRefresh('writing')} examSeries={examSeries} />} />
+          <Route path="speaking"  element={<SpeakingTab onRefresh={() => handleRefresh('speaking')} examSeries={examSeries} />} />
         </Routes>
       </div>
   )

@@ -1,12 +1,14 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
+import { queryClient } from '../lib/queryClient'
 import { getListeningExam, getListeningExamWithAnswers, submitListeningExam, getFullTestStatus } from '../services/examService'
 import { getAdminSettings } from '../services/adminService'
 import { saveDraft, loadDraft, clearDraft, formatSavedAt } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import { Headphones, ArrowLeft, X, Clock, LayoutGrid, ChevronUp, ChevronDown } from 'lucide-react'
+import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
+import { Headphones, ArrowLeft, Clock, LayoutGrid, ChevronUp, ChevronDown } from 'lucide-react'
 import { getSectionSlots } from '../utils/questionCount'
 import MatchingTickGrid from '../components/MatchingTickGrid'
 import DragWordBankGroup from '../components/DragWordBankGroup'
@@ -23,10 +25,9 @@ import MapDiagramGroup from '../components/exam/listening/MapDiagramGroup'
 import { GroupBlock, QuestionBlock, groupByType } from '../components/exam/listening/OtherGroups'
 import { fmt } from '../utils/practiceUtils'
 import { toImgSrc } from '../utils/practiceConfig'
-import ConfirmExitModal from '../components/ConfirmExitModal'
-import { useExitGuard } from '../hooks/useExitGuard'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
+import ExitConfirmModal from '../components/common/ExitConfirmModal'
 
 
 const DEFAULT_LISTENING_TIME = 40 * 60
@@ -53,7 +54,6 @@ export default function ListeningExam() {
   const [phase, setPhase] = useState('start')
   const [showAnswers, setShowAnswers] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
-  const [showExitConfirm, setShowExitConfirm] = useState(false)
   const [fullTestStatus, setFullTestStatus] = useState(null)
   const [showNavNumbers, setShowNavNumbers] = useState(true)
   const [showQuestionPanel, setShowQuestionPanel] = useState(false)
@@ -94,9 +94,20 @@ export default function ListeningExam() {
     return () => clearInterval(interval)
   }, [phase, previewMode, id, persistDraftNow])
 
-  // Cảnh báo khi thoát bằng Back/Forward/refresh nếu có đáp án chưa ghi vào draft
-  const hasUnsavedAnswers = JSON.stringify(answers) !== savedDraftRef.current
-  const exitGuard = useExitGuard(phase === 'exam' && !previewMode && hasUnsavedAnswers, persistDraftNow)
+  // Cảnh báo trình duyệt (beforeunload) khi thí sinh đóng tab/F5 trong lúc làm bài
+  useEffect(() => {
+    if (phase !== 'exam' || previewMode) return
+    const handleBeforeUnload = (e) => {
+      persistDraftNow()
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [phase, previewMode, persistDraftNow])
+
+  // Chặn nút Back (<) của trình duyệt khi đang làm bài
+  const { showModal: showExitModal, stay: stayInExam, leave: leaveExam } = useBrowserHistoryGuard(phase === 'exam' && !previewMode, persistDraftNow)
 
   const loadExam = useCallback(() => {
     setLoading(true)
@@ -108,7 +119,11 @@ export default function ListeningExam() {
       })
       .catch(() => {})
     const fetchExam = previewMode ? getListeningExamWithAnswers : getListeningExam
-    fetchExam(id)
+    queryClient.fetchQuery({
+      queryKey: ['exam', 'listening', id, { previewMode }],
+      queryFn: () => fetchExam(id),
+      staleTime: 1000 * 60 * 5,
+    })
       .then(data => {
         setExam(data)
         if (resumeMode && user) {
@@ -162,15 +177,6 @@ export default function ListeningExam() {
   }, [showConfirm])
 
   useEffect(() => {
-    if (!showExitConfirm && !exitGuard.prompt) return
-    const handler = (e) => {
-      if (e.key === 'Escape') { setShowExitConfirm(false); exitGuard.stay() }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [showExitConfirm, exitGuard.prompt, exitGuard.stay])
-
-  useEffect(() => {
     if (!showQuestionPanel) return
     const handler = (e) => { if (e.key === 'Escape') setShowQuestionPanel(false) }
     window.addEventListener('keydown', handler)
@@ -202,14 +208,12 @@ export default function ListeningExam() {
     return () => ro.disconnect()
   }, [])
 
-  const onAnswer = (qId, val) => setAnswers(a => ({ ...a, [qId]: val }))
+  const onAnswer = useCallback((qId, val) => setAnswers(a => ({ ...a, [qId]: val })), [])
 
   const doSubmit = async () => {
     setSubmitting(true)
     try {
       await submitListeningExam(id, answers)
-      // disarm() gọi persistDraftNow (onBeforeExit) → clearDraft PHẢI chạy SAU nó
-      await exitGuard.disarm()
       if (user) clearDraft(user.id || user._id, id, 'listening')
       navigate(`/listening/${id}/result`, { replace: true })
     } catch (e) {
@@ -217,7 +221,8 @@ export default function ListeningExam() {
     } finally { setSubmitting(false) }
   }
 
-  const jumpToQuestion = (slot) => {
+  const jumpToQuestion = useCallback((slot) => {
+    if (!exam?.listeningSections) return
     let sectionIdx = activeSection
     for (let i = 0; i < exam.listeningSections.length; i++) {
       const s = exam.listeningSections[i]
@@ -244,7 +249,21 @@ export default function ListeningExam() {
     } else {
       doScroll()
     }
-  }
+  }, [activeSection, exam])
+
+  const allQ = useMemo(() => exam?.listeningSections?.flatMap(s => getSectionSlots(s)) || [], [exam])
+  const answered = useMemo(() => allQ.filter(s => s.qId && answers[s.qId]).length, [allQ, answers])
+
+  const section = exam?.listeningSections?.[activeSection] || null
+  const startIdx = useMemo(() => {
+    if (!exam?.listeningSections) return 0
+    let count = 0
+    for (let i = 0; i < activeSection; i++) count += getSectionSlots(exam.listeningSections[i]).length
+    return count
+  }, [activeSection, exam])
+
+  const sectionSlots = useMemo(() => section ? getSectionSlots(section) : [], [section])
+  const legacyGroups = useMemo(() => (section?.questions?.length > 0 ? groupByType(section.questions) : []), [section])
 
   if (loading) return <SkeletonExamPage />
   if (error || !exam) {
@@ -259,9 +278,6 @@ export default function ListeningExam() {
     )
   }
 
-  const allQ = exam.listeningSections.flatMap(s => getSectionSlots(s))
-  const answered = allQ.filter(s => s.qId && answers[s.qId]).length
-
   // ── Start ─────────────────────────────────────────────────────
   if (phase === 'start') return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -270,12 +286,12 @@ export default function ListeningExam() {
           <Headphones className="w-8 h-8 text-zinc-600 stroke-[1.75]" />
         </div>
         <h1 className="text-2xl font-bold text-zinc-900 tracking-tight mb-2">{exam.title}</h1>
-        <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text)', fontSize: 'var(--fs-sm)', marginBottom: 4 }}>{exam.listeningSections.length} Sections · <span style={{ fontFamily: 'var(--font-mono)' }}>{allQ.length}</span> câu hỏi</p>
-        <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text)', fontSize: 'var(--fs-sm)', marginBottom: 32 }}>Thời gian: <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--skill-l-color)' }}>40 phút</span></p>
+        <p style={{ color: 'var(--text)', fontSize: 'var(--fs-sm)', marginBottom: 4 }}>{exam.listeningSections.length} Sections · <span style={{ fontFamily: 'var(--font-mono)' }}>{allQ.length}</span> câu hỏi</p>
+        <p style={{ color: 'var(--text)', fontSize: 'var(--fs-sm)', marginBottom: 32 }}>Thời gian: <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--skill-l-color)' }}>40 phút</span></p>
         <div style={{ background: 'var(--skill-l-bg)', borderRadius: 'var(--radius-md)', padding: 16, textAlign: 'left', fontSize: 'var(--fs-sm)', color: 'var(--ink-soft)', marginBottom: 32, display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
-          <p style={{ fontFamily: 'var(--font-body)', margin: 0 }}>• Nghe audio rồi trả lời câu hỏi bên dưới</p>
-          <p style={{ fontFamily: 'var(--font-body)', margin: 0 }}>• Có thể tua lại audio trong phần làm bài</p>
-          <p style={{ fontFamily: 'var(--font-body)', margin: 0 }}>• Bài sẽ tự nộp khi hết giờ</p>
+          <p style={{ margin: 0 }}>• Nghe audio rồi trả lời câu hỏi bên dưới</p>
+          <p style={{ margin: 0 }}>• Có thể tua lại audio trong phần làm bài</p>
+          <p style={{ margin: 0 }}>• Bài sẽ tự nộp khi hết giờ</p>
         </div>
         <button onClick={() => setPhase('exam')} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 'var(--fs-base)', marginBottom: 8 }}>
           Bắt đầu làm bài
@@ -293,25 +309,11 @@ export default function ListeningExam() {
 
   // ── Exam ──────────────────────────────────────────────────────
 
-  const section = exam.listeningSections[activeSection]
-  let startIdx = 0
-  for (let i = 0; i < activeSection; i++) startIdx += getSectionSlots(exam.listeningSections[i]).length
-
   return (
     <div className="h-dvh flex flex-col overflow-hidden" style={{ backgroundColor: 'var(--surface-raised)' }}>
       {/* Header */}
       <header className="h-14 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 px-6 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-3 min-w-0">
-          <button
-            type="button"
-            aria-label="Đóng bài thi"
-            onClick={() => previewMode ? navigate('/admin') : setShowExitConfirm(true)}
-            className="h-8 px-2.5 flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-xs font-medium transition cursor-pointer shrink-0"
-            title="Thoát bài thi"
-          >
-            <X className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Thoát</span>
-          </button>
           <span className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
             {exam.title}
           </span>
@@ -393,7 +395,7 @@ export default function ListeningExam() {
             </p>
 
             {/* Legacy: direct questions (groupId = null) */}
-            {(section.questions || []).length > 0 && groupByType(section.questions).map((group, gi) => (
+            {legacyGroups.map((group, gi) => (
               <div key={gi} className="mb-6">
                 <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4 mb-4 text-sm">
                   <p className="font-semibold text-zinc-900 text-sm">Questions {startIdx + group.startOffset + 1}–{startIdx + group.startOffset + group.qs.length}</p>
@@ -411,7 +413,7 @@ export default function ListeningExam() {
                 previewMode={previewMode} showAnswers={showAnswers} />
             ))}
 
-            {getSectionSlots(section).length === 0 && (
+            {sectionSlots.length === 0 && (
               <p className="text-sm text-gray-400 text-center py-8 italic">Section này chưa có câu hỏi.</p>
             )}
           </div>
@@ -425,7 +427,7 @@ export default function ListeningExam() {
           {showNavNumbers && (
             <div className="px-6 py-4 border-b border-gray-100 flex justify-center bg-white">
               <div className="flex flex-wrap gap-3 justify-center max-w-5xl">
-                {getSectionSlots(section).map(slot => (
+                {sectionSlots.map(slot => (
                   <QuestionNavButton
                     key={slot.number}
                     number={slot.number}
@@ -446,7 +448,7 @@ export default function ListeningExam() {
                 title="Bảng câu hỏi"
                 aria-label="Bảng câu hỏi"
                 onClick={() => setShowQuestionPanel(v => !v)}
-                className={`w-9 h-9 flex items-center justify-center rounded-xl border transition-all cursor-pointer ${
+                className={`w-9 h-9 flex items-center justify-center rounded-md border transition-all cursor-pointer ${
                   showQuestionPanel
                     ? 'bg-zinc-900 border-zinc-900 text-white shadow-xs'
                     : 'bg-white border-zinc-200 text-zinc-500 hover:border-zinc-400 hover:text-zinc-900'
@@ -459,7 +461,7 @@ export default function ListeningExam() {
                 title={showNavNumbers ? 'Thu gọn' : 'Mở rộng'}
                 aria-label={showNavNumbers ? 'Thu gọn' : 'Mở rộng'}
                 onClick={() => setShowNavNumbers(v => !v)}
-                className="w-9 h-9 flex items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 hover:border-zinc-400 hover:text-zinc-900 transition-all cursor-pointer"
+                className="w-9 h-9 flex items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-500 hover:border-zinc-400 hover:text-zinc-900 transition-all cursor-pointer"
               >
                 {showNavNumbers ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
               </button>
@@ -484,7 +486,7 @@ export default function ListeningExam() {
               <button
                 type="button"
                 onClick={() => setShowConfirm(true)}
-                className="bg-red-600 hover:bg-red-700 text-white text-xs font-medium py-2 px-4 rounded-xl shadow-xs transition-colors cursor-pointer shrink-0"
+                className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-4 rounded-md shadow-xs transition-colors cursor-pointer shrink-0 inline-flex items-center justify-center leading-none"
               >
                 Nộp bài
               </button>
@@ -509,17 +511,6 @@ export default function ListeningExam() {
         />
       )}
 
-      {/* Exit confirm modal — dùng chung cho nút ✕ và guard Back/Forward */}
-      <ConfirmExitModal
-        isOpen={showExitConfirm || exitGuard.prompt}
-        onClose={() => { setShowExitConfirm(false); exitGuard.stay() }}
-        onConfirm={async () => {
-          setShowExitConfirm(false)
-          if (exitGuard.prompt) { exitGuard.leave() }
-          else { await exitGuard.disarm(); handleBack() }
-        }}
-      />
-
       {/* Confirm submit modal */}
       {showConfirm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4" onClick={() => setShowConfirm(false)}>
@@ -533,7 +524,7 @@ export default function ListeningExam() {
               <button
                 type="button"
                 onClick={() => setShowConfirm(false)}
-                className="flex-1 py-2 px-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-xl font-medium text-xs transition cursor-pointer"
+                className="flex-1 h-9 px-4 bg-white hover:bg-zinc-100 text-zinc-900 border border-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-100 dark:border-zinc-800 text-xs sm:text-sm font-medium rounded-md shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
               >
                 Tiếp tục làm
               </button>
@@ -541,7 +532,7 @@ export default function ListeningExam() {
                 type="button"
                 onClick={() => { setShowConfirm(false); doSubmit() }}
                 disabled={submitting}
-                className="flex-1 py-2 px-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium text-xs transition shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 h-9 px-4 bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium rounded-md shadow-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center leading-none"
               >
                 {submitting ? 'Đang chấm...' : 'Nộp bài'}
               </button>
@@ -549,6 +540,8 @@ export default function ListeningExam() {
           </div>
         </div>
       )}
+      {/* Exit confirmation modal — Back nút trình duyệt */}
+      <ExitConfirmModal open={showExitModal} onStay={stayInExam} onLeave={leaveExam} />
     </div>
   )
 }

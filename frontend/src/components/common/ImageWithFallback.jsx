@@ -27,8 +27,17 @@ export default function ImageWithFallback({
     <img
       src={imgSrc}
       alt={alt}
-      className={className}
-      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', ...style }}
+      className={`img-crisp ${className}`.trim()}
+      style={{
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover',
+        display: 'block',
+        imageRendering: '-webkit-optimize-contrast',
+        transform: 'translateZ(0)',
+        backfaceVisibility: 'hidden',
+        ...style,
+      }}
       onError={(e) => {
         setHasError(true)
         handleImgError(e)

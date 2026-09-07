@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import Breadcrumb from '../components/common/Breadcrumb'
 import ContentCard from '../components/common/ContentCard'
+import AcademicCover from '../components/common/AcademicCover'
 import { CONTENT_CARD_CONFIG, buildSampleChips } from '../components/common/contentCardConfig'
 import { API_BASE, resolveImg } from '../utils/media'
 
@@ -22,7 +23,6 @@ function FilterBtn({ active, onClick, children }) {
           ? 'bg-zinc-100 text-zinc-900 font-semibold' 
           : 'bg-transparent text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
       }`}
-      style={{ fontFamily: 'var(--font-body)' }}
     >
       {children}
     </button>
@@ -84,7 +84,7 @@ export default function WritingSamplesPage() {
         <aside className="w-56 shrink-0 bg-white rounded-2xl border border-zinc-200 p-5 sticky top-24 shadow-xs">
           {/* Task filter */}
           <div className="mb-6">
-            <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider ml-1 mb-3" style={{ fontFamily: 'var(--font-body)' }}>Task</p>
+            <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider ml-1 mb-3">Task</p>
             <div className="flex flex-col gap-1">
               <FilterBtn active={!selectedTask} onClick={() => setFilter('task', '')}>Tất cả</FilterBtn>
               {TASK_OPTIONS.map(opt => (
@@ -98,7 +98,7 @@ export default function WritingSamplesPage() {
           {/* Dạng bài filter */}
           {examTypes.length > 0 && (
             <div>
-              <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider ml-1 mb-3" style={{ fontFamily: 'var(--font-body)' }}>Dạng bài</p>
+              <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider ml-1 mb-3">Dạng bài</p>
               <div className="flex flex-col gap-1">
                 <FilterBtn active={!selectedType} onClick={() => setFilter('type', '')}>Tất cả</FilterBtn>
                 {examTypes.map(t => (
@@ -114,20 +114,18 @@ export default function WritingSamplesPage() {
         {/* Grid */}
         <main className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-6 flex-wrap">
-            <span className="text-[14px] text-zinc-600 mr-2 flex items-center" style={{ fontFamily: 'var(--font-body)' }}>
+            <span className="text-[14px] text-zinc-600 mr-2 flex items-center">
               {loading ? <div className="h-4 w-20 bg-zinc-200 animate-pulse rounded" /> : `${filtered.length} bài mẫu`}
             </span>
             {selectedTask && (
               <span
                 className="text-[12px] font-semibold px-3 py-1 rounded-full bg-zinc-100 text-zinc-900 border border-zinc-200 cursor-pointer hover:bg-zinc-200 transition-colors"
-                style={{ fontFamily: 'var(--font-body)' }}
                 onClick={() => setFilter('task', '')}
               >{TASK_LABELS[selectedTask]} ×</span>
             )}
             {selectedType && (
               <span
                 className="text-[12px] font-semibold px-3 py-1 rounded-full bg-zinc-100 text-zinc-700 border border-zinc-200 cursor-pointer hover:bg-zinc-200 transition-colors"
-                style={{ fontFamily: 'var(--font-body)' }}
                 onClick={() => setFilter('type', '')}
               >{selectedType} ×</span>
             )}
@@ -154,8 +152,8 @@ export default function WritingSamplesPage() {
               <div className="w-16 h-16 rounded-full bg-zinc-50 border border-zinc-200 flex items-center justify-center mb-6 text-zinc-400">
                 <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
               </div>
-              <p className="text-lg font-bold text-zinc-900 mb-2" style={{ fontFamily: 'var(--font-display)' }}>Không thể tải dữ liệu</p>
-              <p className="text-sm text-zinc-500 mb-6 max-w-sm" style={{ fontFamily: 'var(--font-body)' }}>Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
+              <p className="text-lg font-bold text-zinc-900 mb-2">Không thể tải dữ liệu</p>
+              <p className="text-sm text-zinc-500 mb-6 max-w-sm">Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
               <button className="btn-primary px-8 py-3 text-sm font-bold" onClick={() => window.location.reload()}>Thử lại</button>
             </div>
           ) : filtered.length === 0 ? (
@@ -163,8 +161,8 @@ export default function WritingSamplesPage() {
               <div className="w-16 h-16 rounded-full bg-zinc-50 border border-zinc-200 flex items-center justify-center mb-6 text-zinc-400">
                 <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
               </div>
-              <p className="text-lg font-bold text-zinc-900 mb-2" style={{ fontFamily: 'var(--font-display)' }}>Không tìm thấy bài mẫu phù hợp</p>
-              <p className="text-sm text-zinc-500 mb-6 max-w-sm" style={{ fontFamily: 'var(--font-body)' }}>Hãy thử thay đổi từ khóa hoặc lựa chọn dạng bài khác.</p>
+              <p className="text-lg font-bold text-zinc-900 mb-2">Không tìm thấy bài mẫu phù hợp</p>
+              <p className="text-sm text-zinc-500 mb-6 max-w-sm">Hãy thử thay đổi từ khóa hoặc lựa chọn dạng bài khác.</p>
               <button className="btn-secondary px-6 py-2.5 text-sm font-bold" onClick={() => setSearchParams(new URLSearchParams())}>Xóa bộ lọc</button>
             </div>
           ) : (
@@ -175,7 +173,13 @@ export default function WritingSamplesPage() {
                     className="h-full"
                     image={resolveImg(item.thumbnailUrl)}
                     imageAlt={item.title}
-                    placeholder={CONTENT_CARD_CONFIG.writing.placeholder}
+                    academicCover={
+                      <AcademicCover
+                        title={item.title}
+                        subtitle={item.level === 'task1' ? 'Task 1' : 'Task 2'}
+                        skill="writing"
+                      />
+                    }
                     thumbAspect="16/9"
                     title={item.title}
                     meta={{ type: 'chips', chips: buildSampleChips('writing', item) }}

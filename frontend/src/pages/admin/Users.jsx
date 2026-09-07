@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getAdminUsers, toggleUserLock, deleteAdminUser } from '../../services/adminService'
 import { useToast } from '../../context/ToastContext'
+import { SkeletonTable } from '../../components/skeletons'
 import { Pencil, Lock, Unlock, Trash2, SearchX } from 'lucide-react'
 
 import { roundIELTS } from '../../utils/ielts'
@@ -25,15 +27,10 @@ function avatarInitials(name) {
 
 export default function Users() {
   const { showToast } = useToast()
-  const [users, setUsers]           = useState([])
-  const [total, setTotal]           = useState(0)
-  const [totalActive, setTotalActive] = useState(0)
-  const [totalLocked, setTotalLocked] = useState(0)
-  const [pages, setPages]           = useState(1)
+  const queryClient = useQueryClient()
   const [page, setPage]             = useState(1)
   const [search, setSearch]         = useState('')
   const debouncedSearch             = useDebounce(search, 400)
-  const [loading, setLoading]       = useState(true)
   const [togglingId, setTogglingId] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null) // { id, name, isLocked }
   const [confirmLock, setConfirmLock]     = useState(null) // { id, name }
@@ -45,53 +42,68 @@ export default function Users() {
 
   const navigate = useNavigate()
 
-  const fetchUsers = useCallback(() => {
-    setLoading(true)
-    getAdminUsers({ search: debouncedSearch, page, limit: 10, status: statusFilter, sort: sortBy })
-      .then(data => {
-        setUsers(data.users)
-        setTotal(data.total)
-        setPages(data.pages)
-        if (data.totalActive != null) setTotalActive(data.totalActive)
-        if (data.totalLocked != null) setTotalLocked(data.totalLocked)
-      })
-      .catch(err => { if (err.response?.status === 403) navigate('/') })
-      .finally(() => setLoading(false))
-  }, [debouncedSearch, page, statusFilter, sortBy])
+  const {
+    data,
+    isPending,
+  } = useQuery({
+    queryKey: ['admin', 'users', { search: debouncedSearch, page, limit: 10, status: statusFilter, sort: sortBy }],
+    queryFn: async () => {
+      try {
+        return await getAdminUsers({ search: debouncedSearch, page, limit: 10, status: statusFilter, sort: sortBy })
+      } catch (err) {
+        if (err.response?.status === 403) navigate('/')
+        throw err
+      }
+    },
+    staleTime: 1000 * 60 * 5, // Fresh 5 phút
+    gcTime: 1000 * 60 * 30,    // Cache trong RAM 30 phút
+    placeholderData: (prev) => prev, // Giữ nguyên danh sách cũ khi đổi trang/filter, không chớp trắng
+  })
 
-  useEffect(() => { fetchUsers() }, [fetchUsers])
+  const users = data?.users || []
+  const total = data?.total || 0
+  const pages = data?.pages || 1
+  const totalActive = data?.totalActive || 0
+  const totalLocked = data?.totalLocked || 0
+
+  const lockMutation = useMutation({
+    mutationFn: (userId) => toggleUserLock(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'analytics'] })
+    },
+    onError: () => {
+      showToast('Lỗi thao tác', 'error')
+    },
+    onSettled: () => {
+      setTogglingId(null)
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => deleteAdminUser(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'analytics'] })
+      setConfirmDelete(null)
+      showToast('Đã xoá người dùng', 'success')
+    },
+    onError: (err) => {
+      showToast(err.response?.data?.message || 'Lỗi xóa', 'error')
+    },
+  })
 
   // wasLocked: true = user was locked before toggle (→ unlocking), false = was active (→ locking)
-  const executeLock = async (userId, wasLocked) => {
+  const executeLock = (userId) => {
     setConfirmLock(null)
     setConfirmUnlock(null)
     setTogglingId(userId)
-    try {
-      const data = await toggleUserLock(userId)
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, isLocked: data.isLocked } : u))
-      // Optimistic stats update — no API refetch
-      if (wasLocked) {
-        setTotalActive(a => a + 1)
-        setTotalLocked(l => l - 1)
-      } else {
-        setTotalActive(a => a - 1)
-        setTotalLocked(l => l + 1)
-      }
-    } catch { showToast('Lỗi thao tác', 'error') }
-    finally { setTogglingId(null) }
+    lockMutation.mutate(userId)
   }
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!confirmDelete) return
-    const { id, isLocked } = confirmDelete
-    try {
-      await deleteAdminUser(id)
-      setUsers(prev => prev.filter(u => u.id !== id))
-      setTotal(t => t - 1)
-      if (isLocked) setTotalLocked(l => l - 1)
-      else setTotalActive(a => a - 1)
-      setConfirmDelete(null)
-    } catch (err) { showToast(err.response?.data?.message || 'Lỗi xóa', 'error') }
+    deleteMutation.mutate(confirmDelete.id)
   }
 
   // Stats từ DB (toàn hệ thống, không phụ thuộc trang hiện tại)
@@ -109,22 +121,30 @@ export default function Users() {
         <div className="mb-6">
           <h1 className="text-xl font-semibold text-zinc-900 tracking-tight flex items-baseline gap-2">
             Người dùng
-            <span className="text-xs font-normal text-zinc-500">({total} người)</span>
+            <span className="text-xs font-normal text-zinc-500">
+              {isPending && !data ? '' : `(${total} người)`}
+            </span>
           </h1>
         </div>
 
         {/* ── Stats row ──────────────────────────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-2xl p-4 border border-zinc-200 shadow-xs">
-            <div className="text-2xl font-bold tabular-nums text-zinc-900">{total}</div>
+            <div className="text-2xl font-bold tabular-nums text-zinc-900">
+              {isPending && !data ? <span className="inline-block w-12 h-7 bg-zinc-100 rounded animate-pulse" /> : total}
+            </div>
             <div className="text-xs text-zinc-500 mt-1 font-medium">Tổng người dùng</div>
           </div>
           <div className="bg-white rounded-2xl p-4 border border-zinc-200 shadow-xs">
-            <div className="text-2xl font-bold tabular-nums text-zinc-900">{activeCount}</div>
+            <div className="text-2xl font-bold tabular-nums text-zinc-900">
+              {isPending && !data ? <span className="inline-block w-12 h-7 bg-zinc-100 rounded animate-pulse" /> : activeCount}
+            </div>
             <div className="text-xs text-zinc-500 mt-1 font-medium">Đang hoạt động</div>
           </div>
           <div className="bg-white rounded-2xl p-4 border border-zinc-200 shadow-xs">
-            <div className="text-2xl font-bold tabular-nums text-zinc-900">{lockedCount}</div>
+            <div className="text-2xl font-bold tabular-nums text-zinc-900">
+              {isPending && !data ? <span className="inline-block w-12 h-7 bg-zinc-100 rounded animate-pulse" /> : lockedCount}
+            </div>
             <div className="text-xs text-zinc-500 mt-1 font-medium">Bị khóa</div>
           </div>
         </div>
@@ -161,10 +181,8 @@ export default function Users() {
 
         {/* ── Table ──────────────────────────────────────── */}
         <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-xs">
-          {loading ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="w-7 h-7 border-4 border-zinc-900 border-t-transparent rounded-full animate-spin" />
-            </div>
+          {isPending && !data ? (
+            <SkeletonTable rows={8} cols={7} />
           ) : users.length === 0 ? (
             search || statusFilter ? (
               <div className="flex flex-col items-center justify-center py-16 text-center gap-3">

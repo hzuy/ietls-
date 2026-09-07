@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useUnsavedChanges, NAV_LEAVE_MSG } from '../../hooks/useUnsavedChanges'
 import { useDraftPersistence } from '../../hooks/useDraftPersistence'
 import { useCollapsibleGroups } from '../../hooks/useCollapsibleGroups'
@@ -99,8 +100,12 @@ const formSig = (f) => JSON.stringify([f.title, f.passage, f.questionGroups, f.t
 
 export default function ReadingPractice() {
   const { showToast } = useToast()
-  const [list, setList]               = useState([])
-  const [loading, setLoading]         = useState(true)
+  const queryClient = useQueryClient()
+  const { data: list = [], isPending } = useQuery({
+    queryKey: ['admin', 'practice', 'reading'],
+    queryFn: getReadingPracticeList,
+    placeholderData: (prev) => prev,
+  })
   const [view, setView]               = useState('list')
   const [editing, setEditing]         = useState(null)
   const [form, setForm]               = useState(EMPTY_FORM)
@@ -130,19 +135,11 @@ export default function ReadingPractice() {
   // Thu gọn/bung từng nhóm câu hỏi (mặc định thu gọn khi mở đề).
   const groupCollapse = useCollapsibleGroups()
 
-  const load = async () => {
-    setLoading(true)
-    try { setList(await getReadingPracticeList()) } catch (err) { console.error(err) }
-    setLoading(false)
-  }
-
   const handleCancelOrBack = () => {
     if (isDirty && !window.confirm(NAV_LEAVE_MSG)) return
     setIsDirty(false)
     setView('list')
   }
-
-  useEffect(() => { load() }, [])
 
   const openAdd = () => {
     pristineRef.current = formSig(EMPTY_FORM)
@@ -201,7 +198,8 @@ export default function ReadingPractice() {
       if (!editing) await createReadingPractice(body)
       else await updateReadingPractice(editing.id, body)
 
-      clearDraft(); setIsDirty(false); setView('list'); load()
+      clearDraft(); setIsDirty(false); setView('list')
+      queryClient.invalidateQueries({ queryKey: ['admin', 'practice'] })
     } catch (err) {
       showToast(err.response?.data?.message || 'Lỗi lưu bài thi', 'error')
     } finally {
@@ -210,7 +208,11 @@ export default function ReadingPractice() {
   }
 
   const handleDelete = async (id) => {
-    try { await deleteReadingPractice(id); setDelConfirm(null); load() }
+    try {
+      await deleteReadingPractice(id)
+      setDelConfirm(null)
+      queryClient.invalidateQueries({ queryKey: ['admin', 'practice'] })
+    }
     catch (err) { showToast(err.response?.data?.message || 'Lỗi xóa', 'error') }
   }
 
@@ -359,7 +361,7 @@ export default function ReadingPractice() {
         />
 
         <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-xs">
-          {loading ? (
+          {isPending && list.length === 0 ? (
             <div className="p-10 text-center text-sm text-zinc-400">Đang tải...</div>
           ) : list.length === 0 ? (
             <div className="p-10 text-center text-sm text-zinc-400">Chưa có bài nào. Bấm "+ Thêm mới" để bắt đầu.</div>

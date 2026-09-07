@@ -14,7 +14,7 @@ function NavBtn({ children, active, onClick, hasDropdown }) {
       className={`nav-item flex items-center gap-1 border-none tracking-[0.01em] whitespace-nowrap shrink-0 px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
         active ? 'bg-zinc-100 text-zinc-900 font-semibold' : 'bg-transparent text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100/70'
       }`}
-      style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}
+      style={{ fontSize: 'var(--fs-sm)' }}
     >
       <span className="whitespace-nowrap">{children}</span>
       {hasDropdown && (
@@ -31,7 +31,7 @@ function CustomDropItem({ to, icon, label, bold, active }) {
     <GatedLink to={to} className="block no-underline">
       <div
         className={`flex items-center gap-2.5 px-4 py-2 transition-colors duration-200 whitespace-nowrap rounded-md mx-1 cursor-pointer ${active ? 'bg-zinc-100 text-zinc-900 font-semibold' : 'bg-transparent text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900'} ${bold ? 'font-semibold' : ''}`}
-        style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}
+        style={{ fontSize: 'var(--fs-sm)' }}
       >
         {icon && <span>{icon}</span>}
         <span>{label}</span>
@@ -51,7 +51,7 @@ function MobileNavLink({ to, children, active, onClick }) {
       to={to}
       onClick={onClick}
       className={`flex items-center px-4 py-3 rounded-xl no-underline transition-colors ${active ? 'bg-zinc-100 text-zinc-900 font-semibold' : 'text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900'}`}
-      style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-base)', minHeight: 44 }}
+      style={{ fontSize: 'var(--fs-base)', minHeight: 44 }}
     >
       {children}
     </GatedLink>
@@ -127,7 +127,7 @@ export default function Navbar() {
       {/* Announcement banner */}
       {announcement && !announcementDismissed && (
         <div style={{ background: 'var(--warning-bg)', borderBottom: '1px solid #fde68a', padding: '8px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-          <span style={{ fontSize: 'var(--fs-sm)', color: '#92400e', fontFamily: 'var(--font-body)', lineHeight: 1.5, textAlign: 'center' }}>{announcement}</span>
+          <span style={{ fontSize: 'var(--fs-sm)', color: '#92400e', lineHeight: 1.5, textAlign: 'center' }}>{announcement}</span>
           <button onClick={() => setAnnouncementDismissed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#92400e', fontSize: 16, padding: '0 4px', lineHeight: 1, opacity: 0.7, minHeight: 44, minWidth: 44 }} aria-label="Đóng thông báo">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
           </button>
@@ -142,7 +142,7 @@ export default function Navbar() {
             <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(24,24,27,0.2)', flexShrink: 0 }}>
               <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#fff' }} />
             </div>
-            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20, letterSpacing: '-0.02em', color: 'var(--ink)' }} className="whitespace-nowrap">
+            <span style={{ fontWeight: 800, fontSize: 20, letterSpacing: '-0.02em', color: 'var(--ink)' }} className="whitespace-nowrap">
               IELTS<span style={{ color: 'var(--primary)', fontWeight: 500 }}>Pro</span>
             </span>
           </Link>
@@ -189,11 +189,11 @@ export default function Navbar() {
               <div style={{ display: 'flex', padding: '6px 0' }}>
                 <div style={{ flex: 1 }}>
                   <Link to="/writing-samples" style={{ textDecoration: 'none' }}>
-                    <div style={{ padding: '8px 16px', fontSize: 'var(--fs-sm)', fontWeight: 700, color: 'var(--skill-w-color)', fontFamily: 'var(--font-body)' }}>Writing</div>
+                    <div style={{ padding: '8px 16px', fontSize: 'var(--fs-sm)', fontWeight: 700, color: 'var(--skill-w-color)' }}>Writing</div>
                   </Link>
                   {[['task1', 'Task 1'], ['task2', 'Task 2']].map(([v, l]) => (
                     <Link key={v} to={`/writing-samples?task=${v}`} style={{ textDecoration: 'none' }}>
-                      <div style={{ padding: '7px 16px 7px 24px', fontSize: 'var(--fs-sm)', color: 'var(--muted)', fontFamily: 'var(--font-body)', transition: 'background var(--transition)' }}
+                      <div style={{ padding: '7px 16px 7px 24px', fontSize: 'var(--fs-sm)', color: 'var(--muted)', transition: 'background var(--transition)' }}
                         onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-raised)'}
                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                       >{l}</div>
@@ -203,11 +203,11 @@ export default function Navbar() {
                 <div style={{ width: 1, background: 'var(--border-soft)', margin: '6px 0' }} />
                 <div style={{ flex: 1 }}>
                   <Link to="/speaking-samples" style={{ textDecoration: 'none' }}>
-                    <div style={{ padding: '8px 16px', fontSize: 'var(--fs-sm)', fontWeight: 700, color: 'var(--skill-s-color)', fontFamily: 'var(--font-body)' }}>Speaking</div>
+                    <div style={{ padding: '8px 16px', fontSize: 'var(--fs-sm)', fontWeight: 700, color: 'var(--skill-s-color)' }}>Speaking</div>
                   </Link>
                   {[['task1', 'Part 1'], ['task2', 'Part 2'], ['task3', 'Part 3']].map(([v, l]) => (
                     <Link key={v} to={`/speaking-samples?part=${v}`} style={{ textDecoration: 'none' }}>
-                      <div style={{ padding: '7px 16px 7px 24px', fontSize: 'var(--fs-sm)', color: 'var(--muted)', fontFamily: 'var(--font-body)', transition: 'background var(--transition)' }}
+                      <div style={{ padding: '7px 16px 7px 24px', fontSize: 'var(--fs-sm)', color: 'var(--muted)', transition: 'background var(--transition)' }}
                         onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-raised)'}
                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                       >{l}</div>
@@ -276,7 +276,7 @@ export default function Navbar() {
                           role="menuitem"
                           onClick={() => setUserMenuOpen(false)}
                           className="no-underline"
-                          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', fontWeight: 500, transition: 'background 0.15s ease', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 'var(--fs-sm)', fontWeight: 500, transition: 'background 0.15s ease', textDecoration: 'none', whiteSpace: 'nowrap' }}
                           onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-raised)'}
                           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                         >
@@ -291,7 +291,7 @@ export default function Navbar() {
                             display: 'flex', alignItems: 'center', gap: 10, width: '100%',
                             padding: '8px 12px', borderRadius: 'var(--radius-sm)',
                             background: 'transparent', border: 'none', cursor: 'pointer',
-                            color: 'var(--error)', fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', fontWeight: 500,
+                            color: 'var(--error)', fontSize: 'var(--fs-sm)', fontWeight: 500,
                             transition: 'background 0.15s ease', textAlign: 'left', whiteSpace: 'nowrap',
                           }}
                           onMouseEnter={e => e.currentTarget.style.background = '#FEF2F2'}
@@ -360,7 +360,7 @@ export default function Navbar() {
             <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#fff' }} />
             </div>
-            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 18, letterSpacing: '-0.02em', color: 'var(--ink)' }}>
+            <span style={{ fontWeight: 800, fontSize: 18, letterSpacing: '-0.02em', color: 'var(--ink)' }}>
               IELTS<span style={{ color: 'var(--primary)', fontWeight: 500 }}>Pro</span>
             </span>
           </Link>
@@ -421,14 +421,14 @@ export default function Navbar() {
                 <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 15, flexShrink: 0 }}>
                   {user.name?.charAt(0)?.toUpperCase() || 'U'}
                 </div>
-                <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--ink)' }} className="truncate">{user.name}</span>
+                <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--ink)' }} className="truncate">{user.name}</span>
               </div>
               <MobileNavLink to="/profile" active={location.pathname === '/profile'} onClick={closeMobile}>Tài khoản</MobileNavLink>
               <MobileNavLink to="/progress" active={location.pathname === '/progress'} onClick={closeMobile}>Phân tích lỗi sai</MobileNavLink>
               <button
                 onClick={() => { closeMobile(); setShowLogoutConfirm(true) }}
                 className="flex items-center w-full px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 transition-colors"
-                style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-base)', minHeight: 44, border: 'none', background: 'transparent', cursor: 'pointer' }}
+                style={{ fontSize: 'var(--fs-base)', minHeight: 44, border: 'none', background: 'transparent', cursor: 'pointer' }}
               >
                 Đăng xuất
               </button>

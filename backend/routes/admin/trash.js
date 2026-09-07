@@ -4,6 +4,7 @@ const prisma = require('../../lib/prisma')
 const authMiddleware = require('../../middleware/auth')
 const { teacherOrAdmin } = require('../../lib/roles')
 const { invalidate } = require('../../lib/swrCache')
+const { invalidateExamCaches } = require('../../utils/cache')
 
 // Khôi phục / xoá vĩnh viễn có thể đụng tới practice, sample lẫn exam/series →
 // dọn hết cache list công khai cho chắc (thao tác này hiếm).
@@ -11,6 +12,7 @@ function invalidatePublicLists() {
   invalidate('practice:')
   invalidate('samples:')
   invalidate('fulltests:')
+  invalidateExamCaches()
 }
 
 // The 4 real per-skill exam types. NOTE: 'exam_series' also begins with 'exam_',

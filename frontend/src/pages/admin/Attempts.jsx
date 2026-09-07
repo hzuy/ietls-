@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { getAdminAttempts, getAdminAttemptsExport, getAdminExamSeriesForFilter } from '../../services/adminService'
 import { useToast } from '../../context/ToastContext'
 import { SkeletonTable } from '../../components/skeletons'
@@ -68,20 +69,20 @@ function AttemptDetailModal({ attempt: a, onClose }) {
           {showFinished && (
             <>
               <DetailRow label="Hoàn thành lúc">{fmtDateTime(a.finishedAt)}</DetailRow>
-              <DetailRow label="Thời gian làm">{Math.round(durationMs / 60_000)} phút</DetailRow>
+              <DetailRow label="Thời gian làm bài">{Math.round(durationMs / 60_000)} phút</DetailRow>
             </>
           )}
         </dl>
 
         {criteria && (
-          <div className="pt-3 border-t border-zinc-100">
-            <p className="text-xs font-medium text-zinc-500 mb-2">Band theo tiêu chí</p>
-            <div className="space-y-1.5">
-              {Object.entries(criteria).map(([key, v]) => (
-                <div key={key} className="flex items-center justify-between">
-                  <span className="text-zinc-600">{CRITERION_LABEL[key] || key.replace(/_/g, ' ')}</span>
-                  <span className="font-semibold text-zinc-900">
-                    {v && v.score != null ? Number(v.score).toFixed(1) : '—'}
+          <div className="pt-3 border-t border-zinc-100 space-y-2">
+            <p className="font-semibold text-zinc-700 text-xs">Điểm từng tiêu chí AI</p>
+            <div className="grid grid-cols-2 gap-2">
+              {Object.entries(criteria).map(([k, v]) => (
+                <div key={k} className="p-2 rounded-lg bg-zinc-50 border border-zinc-100 flex items-center justify-between">
+                  <span className="text-zinc-500 text-[11px]">{CRITERION_LABEL[k] || k}</span>
+                  <span className="font-semibold text-zinc-900 font-mono text-[11px]">
+                    {typeof v === 'number' ? v.toFixed(1) : v}
                   </span>
                 </div>
               ))}
@@ -106,9 +107,6 @@ function getBandPill(score) {
 
 export default function Attempts() {
   const { showToast } = useToast()
-  const [attempts, setAttempts] = useState([])
-  const [total, setTotal] = useState(0)
-  const [pages, setPages] = useState(1)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 400)
@@ -120,18 +118,18 @@ export default function Attempts() {
   const [selectedAttemptIds, setSelectedAttemptIds] = useState([])
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [examSeries, setExamSeries] = useState([])
   const [seriesId, setSeriesId] = useState('')
-  const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
   const [detailAttempt, setDetailAttempt] = useState(null)
   const navigate = useNavigate()
 
   const todayStr = new Date().toISOString().split('T')[0]
 
-  useEffect(() => {
-    getAdminExamSeriesForFilter().then(data => setExamSeries(data)).catch(() => {})
-  }, [])
+  const { data: examSeries = [] } = useQuery({
+    queryKey: ['admin', 'examSeriesFilter'],
+    queryFn: getAdminExamSeriesForFilter,
+    staleTime: 1000 * 60 * 10,
+  })
 
   const sanitizeBandValue = (val) => {
     if (val === '' || val === null || val === undefined) return ''
@@ -165,28 +163,41 @@ export default function Attempts() {
     setScoreMax(prev => sanitizeBandValue(prev))
   }
 
-  const fetchAttempts = useCallback(() => {
-    setLoading(true)
-    const params = { page, limit: 20, search: debouncedSearch, skill, seriesId }
+  const {
+    data = {},
+    isLoading: loading,
+  } = useQuery({
+    queryKey: ['admin', 'attempts', {
+      page, limit: 20, search: debouncedSearch, skill, seriesId,
+      sortMode, scoreMin, scoreMax, dateFrom, dateTo,
+    }],
+    queryFn: async () => {
+      const params = { page, limit: 20, search: debouncedSearch, skill, seriesId }
+      if (sortMode === 'band_desc') { params.sortBy = 'score'; params.sortOrder = 'desc' }
+      else if (sortMode === 'band_asc') { params.sortBy = 'score'; params.sortOrder = 'asc' }
 
-    if (sortMode === 'band_desc') { params.sortBy = 'score'; params.sortOrder = 'desc' }
-    else if (sortMode === 'band_asc') { params.sortBy = 'score'; params.sortOrder = 'asc' }
+      const validMin = scoreMin !== '' && !isNaN(parseFloat(scoreMin)) && parseFloat(scoreMin) >= 0 && parseFloat(scoreMin) <= 9 ? (Math.round(parseFloat(scoreMin) * 2) / 2) : undefined
+      const validMax = scoreMax !== '' && !isNaN(parseFloat(scoreMax)) && parseFloat(scoreMax) >= 0 && parseFloat(scoreMax) <= 9 ? (Math.round(parseFloat(scoreMax) * 2) / 2) : undefined
 
-    // Chỉ gửi minBand/maxBand lên API khi giá trị hợp lệ theo thang 0.0 - 9.0 (bội số 0.5)
-    const validMin = scoreMin !== '' && !isNaN(parseFloat(scoreMin)) && parseFloat(scoreMin) >= 0 && parseFloat(scoreMin) <= 9 ? (Math.round(parseFloat(scoreMin) * 2) / 2) : undefined
-    const validMax = scoreMax !== '' && !isNaN(parseFloat(scoreMax)) && parseFloat(scoreMax) >= 0 && parseFloat(scoreMax) <= 9 ? (Math.round(parseFloat(scoreMax) * 2) / 2) : undefined
+      if (validMin !== undefined) params.scoreMin = validMin
+      if (validMax !== undefined) params.scoreMax = validMax
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo)   params.dateTo = dateTo
 
-    if (validMin !== undefined) params.scoreMin = validMin
-    if (validMax !== undefined) params.scoreMax = validMax
-    if (dateFrom) params.dateFrom = dateFrom
-    if (dateTo)   params.dateTo = dateTo
-    getAdminAttempts(params)
-      .then(data => { setAttempts(data.attempts); setTotal(data.total); setPages(data.pages) })
-      .catch(err => { if (err.response?.status === 403) navigate('/') })
-      .finally(() => setLoading(false))
-  }, [debouncedSearch, skill, scoreMin, scoreMax, dateFrom, dateTo, seriesId, sortMode, page])
+      try {
+        return await getAdminAttempts(params)
+      } catch (err) {
+        if (err.response?.status === 403) navigate('/')
+        throw err
+      }
+    },
+    placeholderData: (prev) => prev,
+    staleTime: 1000 * 60 * 5,
+  })
 
-  useEffect(() => { fetchAttempts() }, [fetchAttempts])
+  const attempts = data.attempts || []
+  const total = data.total || 0
+  const pages = data.pages || 1
 
   const reset = () => { setSearch(''); setSkill(''); setScoreMin(''); setScoreMax(''); setSortMode('recent'); setStatusFilter(''); setDateFrom(''); setDateTo(''); setSeriesId(''); setSelectedAttemptIds([]); setPage(1) }
 

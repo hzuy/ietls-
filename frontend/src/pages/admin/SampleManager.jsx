@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useUnsavedChanges, NAV_LEAVE_MSG } from '../../hooks/useUnsavedChanges'
 import { useDraftPersistence } from '../../hooks/useDraftPersistence'
 import { ConfirmDeleteModal, DraftBanner, DraftSavedHint, AdminListHeader, ThumbnailPicker } from '../../components/admin/contentPageUI'
@@ -102,12 +103,16 @@ const formSig = (f) => JSON.stringify([f.title, f.level, f.examType, f.content, 
 
 export default function SampleManager({ kind }) {
   const { showToast } = useToast()
+  const queryClient = useQueryClient()
   const cfg = CONFIG[kind]
   const svc = cfg.services
   const formatTask = (level) => cfg.taskLabels[level] || level || ''
 
-  const [list, setList] = useState([])
-  const [loading, setLoading] = useState(true)
+  const { data: list = [], isPending } = useQuery({
+    queryKey: ['admin', 'samples', kind],
+    queryFn: () => svc.list(),
+    placeholderData: (prev) => prev,
+  })
   const [view, setView] = useState('list')
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -130,12 +135,6 @@ export default function SampleManager({ kind }) {
   const { draftBanner, setDraftBanner, draftSavedAt, clearDraft } =
     useDraftPersistence(draftKey, form, { enabled: view === 'form', dirty: isDirty })
 
-  const load = async () => {
-    setLoading(true)
-    try { setList(await svc.list()) } catch (err) { console.error(err) }
-    setLoading(false)
-  }
-
   const handleCancelOrBack = () => {
     if (isDirty && !window.confirm(NAV_LEAVE_MSG)) return
     setIsDirty(false)
@@ -143,32 +142,12 @@ export default function SampleManager({ kind }) {
   }
 
   useEffect(() => {
-    let cancelled = false
-    setList([])
     setView('list')
     setEditing(null)
     setForm(EMPTY_FORM)
     setDelConfirm(null)
     setIsDirty(false)
     pristineRef.current = ''
-    setLoading(true)
-
-    svc.list()
-      .then(data => {
-        if (!cancelled) {
-          setList(data || [])
-          setLoading(false)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setLoading(false)
-        }
-      })
-
-    return () => {
-      cancelled = true
-    }
   }, [kind])
 
   const openAdd = () => {
@@ -222,7 +201,8 @@ export default function SampleManager({ kind }) {
       if (!editing) await svc.create(body)
       else await svc.update(editing.id, body)
 
-      setIsDirty(false); clearDraft(); setView('list'); load()
+      setIsDirty(false); clearDraft(); setView('list')
+      queryClient.invalidateQueries({ queryKey: ['admin', 'samples'] })
     } catch (err) {
       showToast(err.response?.data?.message || 'Lỗi lưu', 'error')
     } finally {
@@ -231,7 +211,11 @@ export default function SampleManager({ kind }) {
   }
 
   const handleDelete = async (id) => {
-    try { await svc.remove(id); setDelConfirm(null); load() }
+    try {
+      await svc.remove(id)
+      setDelConfirm(null)
+      queryClient.invalidateQueries({ queryKey: ['admin', 'samples'] })
+    }
     catch (err) { showToast(err.response?.data?.message || 'Lỗi xóa', 'error') }
   }
 
@@ -327,7 +311,7 @@ export default function SampleManager({ kind }) {
       <div className="p-6 max-w-6xl mx-auto">
         <AdminListHeader title={cfg.listTitle} subtitle={cfg.listSubtitle} onAdd={openAdd} addLabel={cfg.addLabel} />
         <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-xs">
-          {loading ? <div className="p-10 text-center text-xs text-zinc-400">Đang tải...</div>
+          {isPending && list.length === 0 ? <div className="p-10 text-center text-xs text-zinc-400">Đang tải...</div>
             : list.length === 0 ? <div className="p-10 text-center text-xs text-zinc-400">Chưa có bài mẫu nào.</div>
             : (
               <table className="w-full">

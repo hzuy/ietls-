@@ -4,6 +4,7 @@ const validate = require('../middleware/validate')
 const { objectiveSubmitLimiter } = require('../middleware/rateLimiter')
 const { listeningSubmitSchema } = require('../validators/submissionValidator')
 const { getListeningBand } = require('../lib/scoreUtils')
+const { getOrSet, TTL_EXAM_DETAIL } = require('../utils/cache')
 
 const router = express.Router()
 const prisma = require('../lib/prisma')
@@ -100,32 +101,36 @@ router.get('/exams/:id', authMiddleware, async (req, res) => {
           // correctAnswer intentionally excluded
         }
 
-    const exam = await prisma.exam.findUnique({
-      where: { id: parseInt(req.params.id) },
-      include: {
-        listeningSections: {
-          orderBy: { number: 'asc' },
-          include: {
-            questions: {
-              where: { groupId: null },
-              orderBy: { number: 'asc' },
-              ...(questionSelect ? { select: questionSelect } : {})
-            },
-            questionGroups: {
-              orderBy: { sortOrder: 'asc' },
-              include: {
-                questions: {
-                  orderBy: { number: 'asc' },
-                  ...(questionSelect ? { select: questionSelect } : {})
-                },
-                noteSections: { orderBy: { sortOrder: 'asc' }, include: { lines: { orderBy: { sortOrder: 'asc' } } } },
-                matchingOptions: { orderBy: { sortOrder: 'asc' } }
+    const cacheKey = `exam:listening:${req.params.id}${withAnswers ? ':preview' : ''}`
+    const exam = await getOrSet(cacheKey, async () => {
+      return prisma.exam.findUnique({
+        where: { id: parseInt(req.params.id) },
+        include: {
+          listeningSections: {
+            orderBy: { number: 'asc' },
+            include: {
+              questions: {
+                where: { groupId: null },
+                orderBy: { number: 'asc' },
+                ...(questionSelect ? { select: questionSelect } : {})
+              },
+              questionGroups: {
+                orderBy: { sortOrder: 'asc' },
+                include: {
+                  questions: {
+                    orderBy: { number: 'asc' },
+                    ...(questionSelect ? { select: questionSelect } : {})
+                  },
+                  noteSections: { orderBy: { sortOrder: 'asc' }, include: { lines: { orderBy: { sortOrder: 'asc' } } } },
+                  matchingOptions: { orderBy: { sortOrder: 'asc' } }
+                }
               }
             }
           }
         }
-      }
-    })
+      })
+    }, TTL_EXAM_DETAIL)
+
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy đề' })
     res.json(exam)
   } catch (error) {

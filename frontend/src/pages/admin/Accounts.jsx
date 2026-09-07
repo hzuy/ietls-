@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Eye, EyeOff, Pencil, Lock, Unlock, Trash2 } from 'lucide-react'
 import { getAdminAccounts, createAdminAccount, updateAdminAccount, deleteAdminAccount, toggleUserLock } from '../../services/adminService'
 import { useToast } from '../../context/ToastContext'
 import { showAlert } from '../../utils/alertUtils'
+import { SkeletonTable } from '../../components/skeletons'
 import { AdminListHeader } from '../../components/admin/contentPageUI'
 
 
@@ -18,8 +20,7 @@ const emptyForm = { name: '', email: '', password: '', role: 'teacher' }
 
 export default function Accounts() {
   const { showToast } = useToast()
-  const [accounts, setAccounts] = useState([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [editingId, setEditingId] = useState(null)
@@ -33,15 +34,68 @@ export default function Accounts() {
   const navigate = useNavigate()
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
 
-  const fetchAccounts = () => {
-    setLoading(true)
-    getAdminAccounts()
-      .then(data => setAccounts(data))
-      .catch(err => { if (err.response?.status === 403) navigate('/admin') })
-      .finally(() => setLoading(false))
-  }
+  const {
+    data: accounts = [],
+    isPending,
+  } = useQuery({
+    queryKey: ['admin', 'accounts'],
+    queryFn: async () => {
+      try {
+        return await getAdminAccounts()
+      } catch (err) {
+        if (err.response?.status === 403) navigate('/admin')
+        throw err
+      }
+    },
+    staleTime: 1000 * 60 * 5, // Fresh 5 phút
+    gcTime: 1000 * 60 * 30,    // Cache trong RAM 30 phút
+    placeholderData: (prev) => prev,
+  })
 
-  useEffect(() => { fetchAccounts() }, [])
+  const saveAccountMutation = useMutation({
+    mutationFn: ({ id, payload }) => {
+      if (id) return updateAdminAccount(id, payload)
+      return createAdminAccount(payload)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'accounts'] })
+      setShowForm(false)
+      showToast(editingId ? 'Đã cập nhật tài khoản' : 'Đã tạo tài khoản', 'success')
+    },
+    onError: (err) => {
+      const msg = err.response?.data?.errors?.[0]?.message || err.response?.data?.message || 'Lỗi thao tác'
+      setError(msg)
+      showAlert(msg, 'error')
+    },
+    onSettled: () => {
+      setSubmitting(false)
+    },
+  })
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: (id) => deleteAdminAccount(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'accounts'] })
+      setConfirmDelete(null)
+      showToast('Đã xóa tài khoản', 'success')
+    },
+    onError: (err) => {
+      showToast(err.response?.data?.message || 'Lỗi xóa', 'error')
+    },
+  })
+
+  const lockMutation = useMutation({
+    mutationFn: (accId) => toggleUserLock(accId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'accounts'] })
+    },
+    onError: () => {
+      showToast('Lỗi thao tác', 'error')
+    },
+    onSettled: () => {
+      setTogglingId(null)
+    },
+  })
 
   const openCreate = () => {
     setForm(emptyForm)
@@ -62,48 +116,34 @@ export default function Accounts() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSubmitting(true); setError('')
-    try {
-      if (editingId) {
-        const payload = { name: form.name, role: form.role }
-        if (form.password && form.password.trim()) {
-          payload.password = form.password.trim()
-        }
-        await updateAdminAccount(editingId, payload)
-      } else {
-        if (!form.password) {
-          const msg = 'Vui lòng nhập mật khẩu'
-          setError(msg)
-          showAlert(msg, 'error')
-          setSubmitting(false)
-          return
-        }
-        await createAdminAccount(form)
+    if (editingId) {
+      const payload = { name: form.name, role: form.role }
+      if (form.password && form.password.trim()) {
+        payload.password = form.password.trim()
       }
-      setShowForm(false); fetchAccounts()
-    } catch (err) {
-      const msg = err.response?.data?.errors?.[0]?.message || err.response?.data?.message || 'Lỗi thao tác'
-      setError(msg)
-      showAlert(msg, 'error')
-    } finally { setSubmitting(false) }
+      saveAccountMutation.mutate({ id: editingId, payload })
+    } else {
+      if (!form.password) {
+        const msg = 'Vui lòng nhập mật khẩu'
+        setError(msg)
+        showAlert(msg, 'error')
+        setSubmitting(false)
+        return
+      }
+      saveAccountMutation.mutate({ id: null, payload: form })
+    }
   }
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!confirmDelete) return
-    try {
-      await deleteAdminAccount(confirmDelete.id)
-      setConfirmDelete(null); fetchAccounts()
-    } catch (err) { showToast(err.response?.data?.message || 'Lỗi xóa', 'error') }
+    deleteAccountMutation.mutate(confirmDelete.id)
   }
 
-  const executeLock = async (accId) => {
+  const executeLock = (accId) => {
     setConfirmLock(null)
     setConfirmUnlock(null)
     setTogglingId(accId)
-    try {
-      const result = await toggleUserLock(accId)
-      setAccounts(prev => prev.map(a => a.id === accId ? { ...a, isLocked: result.isLocked } : a))
-    } catch { showToast('Lỗi thao tác', 'error') }
-    finally { setTogglingId(null) }
+    lockMutation.mutate(accId)
   }
 
   const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString('vi-VN') : '—'
@@ -186,10 +226,8 @@ export default function Accounts() {
 
         {/* List */}
         <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-xs">
-          {loading ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="w-7 h-7 border-4 border-zinc-900 border-t-transparent rounded-full animate-spin" />
-            </div>
+          {isPending && accounts.length === 0 ? (
+            <SkeletonTable rows={6} cols={5} />
           ) : accounts.length === 0 ? (
             <p className="text-center text-zinc-400 py-12 text-xs">Chưa có tài khoản nội bộ nào</p>
           ) : (

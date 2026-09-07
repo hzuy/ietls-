@@ -47,12 +47,12 @@ export default function ChangePassword() {
       >
         <div className="flex items-center gap-2 mb-8">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm" style={{ backgroundColor: 'var(--primary)' }}>I</div>
-          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18, color: 'var(--ink)' }}>IELTS<span style={{ color: 'var(--primary)' }}>Pro</span></span>
+          <span style={{ fontWeight: 700, fontSize: 18, color: 'var(--ink)' }}>IELTS<span style={{ color: 'var(--primary)' }}>Pro</span></span>
         </div>
 
         <div className="mb-6">
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, color: 'var(--ink)', marginBottom: 4 }}>Đổi mật khẩu</h1>
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--muted)' }}>
+          <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--ink)', marginBottom: 4 }}>Đổi mật khẩu</h1>
+          <p style={{ fontSize: 14, color: 'var(--muted)' }}>
             Tài khoản của bạn cần đặt lại mật khẩu mới để tiếp tục.
           </p>
         </div>
@@ -61,7 +61,6 @@ export default function ChangePassword() {
           <div
             role="alert"
             className="p-3 rounded-xl mb-4 text-sm font-medium bg-slate-50 border border-slate-200 text-slate-700"
-            style={{ fontFamily: 'var(--font-body)' }}
           >
             {error}
           </div>
@@ -69,12 +68,12 @@ export default function ChangePassword() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="cp-old" className="block text-sm font-bold mb-1.5" style={{ fontFamily: 'var(--font-body)', color: 'var(--text)' }}>Mật khẩu hiện tại</label>
+            <label htmlFor="cp-old" className="block text-sm font-bold mb-1.5" style={{ color: 'var(--text)' }}>Mật khẩu hiện tại</label>
             <input
               id="cp-old"
               type="password"
               className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900"
-              style={{ border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'var(--font-body)' }}
+              style={{ border: '1px solid var(--border)', color: 'var(--text)' }}
               placeholder="••••••••"
               value={form.oldPassword}
               onChange={e => setForm({ ...form, oldPassword: e.target.value })}
@@ -83,12 +82,12 @@ export default function ChangePassword() {
             />
           </div>
           <div>
-            <label htmlFor="cp-new" className="block text-sm font-bold mb-1.5" style={{ fontFamily: 'var(--font-body)', color: 'var(--text)' }}>Mật khẩu mới</label>
+            <label htmlFor="cp-new" className="block text-sm font-bold mb-1.5" style={{ color: 'var(--text)' }}>Mật khẩu mới</label>
             <input
               id="cp-new"
               type="password"
               className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900"
-              style={{ border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'var(--font-body)' }}
+              style={{ border: '1px solid var(--border)', color: 'var(--text)' }}
               placeholder="Tối thiểu 8 ký tự"
               value={form.newPassword}
               onChange={e => setForm({ ...form, newPassword: e.target.value })}
@@ -97,12 +96,12 @@ export default function ChangePassword() {
             />
           </div>
           <div>
-            <label htmlFor="cp-confirm" className="block text-sm font-bold mb-1.5" style={{ fontFamily: 'var(--font-body)', color: 'var(--text)' }}>Xác nhận mật khẩu mới</label>
+            <label htmlFor="cp-confirm" className="block text-sm font-bold mb-1.5" style={{ color: 'var(--text)' }}>Xác nhận mật khẩu mới</label>
             <input
               id="cp-confirm"
               type="password"
               className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900"
-              style={{ border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'var(--font-body)' }}
+              style={{ border: '1px solid var(--border)', color: 'var(--text)' }}
               placeholder="Nhập lại mật khẩu mới"
               value={form.confirm}
               onChange={e => setForm({ ...form, confirm: e.target.value })}
@@ -114,7 +113,6 @@ export default function ChangePassword() {
             type="submit"
             disabled={loading}
             className="w-full py-3 rounded-xl text-sm font-bold btn-primary mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
-            style={{ fontFamily: 'var(--font-body)' }}
           >
             {loading ? 'Đang lưu...' : 'Xác nhận đổi mật khẩu'}
           </button>

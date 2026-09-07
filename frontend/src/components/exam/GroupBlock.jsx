@@ -7,6 +7,7 @@
 // │ có bug — nhưng ĐỪNG gộp GroupBlock (Reading) với OtherGroups (Listening) nếu   │
 // │ chưa thống nhất prefix trước, nếu không scroll/jump-to-question sẽ hỏng.       │
 // └─────────────────────────────────────────────────────────────────────────────┘
+import React from 'react'
 import MatchingTickGrid from '../MatchingTickGrid'
 import DragWordBankGroup from '../DragWordBankGroup'
 import MatchingDragGroup from '../MatchingDragGroup'
@@ -17,7 +18,7 @@ import TypeHeader from './TypeHeaders'
 import QuestionBlock from './QuestionBlock'
 
 // Render a group of questions (from questionGroups) with the appropriate header/UI
-export default function GroupBlock({ group, answers, onAnswer, globalOffset, previewMode, showAnswers }) {
+function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, showAnswers }) {
   const from = group.qNumberStart
   const to = group.qNumberEnd
 
@@ -220,3 +221,29 @@ export default function GroupBlock({ group, answers, onAnswer, globalOffset, pre
     </div>
   )
 }
+
+function areGroupPropsEqual(prev, next) {
+  if (
+    prev.group !== next.group ||
+    prev.previewMode !== next.previewMode ||
+    prev.showAnswers !== next.showAnswers ||
+    prev.globalOffset !== next.globalOffset ||
+    prev.onAnswer !== next.onAnswer
+  ) {
+    return false
+  }
+
+  // Kiểm tra xem có câu hỏi nào trong nhóm này bị thay đổi đáp án không
+  const qs = prev.group?.questions || []
+  for (let i = 0; i < qs.length; i++) {
+    const qId = qs[i].id
+    if (prev.answers[qId] !== next.answers[qId]) {
+      return false
+    }
+  }
+
+  return true
+}
+
+const GroupBlock = React.memo(GroupBlockInner, areGroupPropsEqual)
+export default GroupBlock

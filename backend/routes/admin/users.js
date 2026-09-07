@@ -108,7 +108,7 @@ router.get('/users', authMiddleware, adminOnly, async (req, res) => {
   }
 })
 
-router.get('/users/:id', authMiddleware, adminOnly, async (req, res) => {
+router.get('/users/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
     const user = await prisma.user.findUnique({
@@ -283,9 +283,20 @@ router.delete('/accounts/:id', authMiddleware, adminOnly, async (req, res) => {
 })
 
 // ─── SETTINGS ────────────────────────────────────────────────────────────────
+const DISALLOWED_SETTINGS_KEYS = new Set([
+  'writing_prompt_template',
+  'speaking_prompt_template',
+  'ai_prompt',
+  'prompt_template',
+])
+
 router.get('/settings', authMiddleware, adminOnly, async (req, res) => {
   try {
-    const settings = await prisma.setting.findMany()
+    const settings = await prisma.setting.findMany({
+      where: {
+        key: { notIn: Array.from(DISALLOWED_SETTINGS_KEYS) },
+      },
+    })
     const obj = Object.fromEntries(settings.map(s => [s.key, s.value]))
     res.json(obj)
   } catch (error) {
@@ -295,7 +306,7 @@ router.get('/settings', authMiddleware, adminOnly, async (req, res) => {
 
 router.put('/settings', authMiddleware, adminOnly, validate(updateSettingsSchema), async (req, res) => {
   try {
-    const entries = Object.entries(req.body)
+    const entries = Object.entries(req.body).filter(([key]) => !DISALLOWED_SETTINGS_KEYS.has(key))
     await Promise.all(entries.map(([key, value]) =>
       prisma.setting.upsert({
         where: { key },

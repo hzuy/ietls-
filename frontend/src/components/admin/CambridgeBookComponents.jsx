@@ -3,6 +3,7 @@ import api from '../../utils/axios'
 import { notifyTrashChanged } from '../../services/adminService'
 import { SERVER_BASE, handleImgError } from './adminConstants'
 import Modal from '../common/Modal'
+import AcademicCover from '../common/AcademicCover'
 import { BookOpen, Pencil } from 'lucide-react'
 
 // ─── CAMBRIDGE BOOK MODAL — Cover upload ──────────────────────────────────────
@@ -18,9 +19,12 @@ function CoverTab({ bookNumber, seriesId, coverUrl, onCoverUploaded, showToast }
       fd.append('cover', file)
       const res = await api.post(`/admin/exam-series/${seriesId}/covers/${bookNumber}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
       onCoverUploaded(res.data.coverImageUrl)
-      showToast('✅ Đã cập nhật ảnh bìa')
-    } catch { showToast('Lỗi upload ảnh bìa — kiểm tra định dạng (JPG/PNG/WebP) và dung lượng (≤ 20MB)') }
-    finally { setUploading(false) }
+      showToast?.('Upload ảnh bìa thành công', 'success')
+    } catch {
+      showToast?.('Upload thất bại', 'error')
+    } finally {
+      setUploading(false)
+    }
   }
 
   const pick = () => inputRef.current?.click()
@@ -30,13 +34,13 @@ function CoverTab({ bookNumber, seriesId, coverUrl, onCoverUploaded, showToast }
       <div
         role="button"
         tabIndex={0}
-        aria-label={coverUrl ? 'Đổi ảnh bìa' : 'Chọn ảnh bìa'}
-        className="border-2 border-dashed border-zinc-200 rounded-lg p-8 text-center cursor-pointer hover:border-zinc-400 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 transition"
+        aria-label={coverUrl ? 'Click để đổi ảnh bìa' : 'Click để chọn ảnh bìa'}
+        className="border-2 border-dashed border-zinc-200 rounded-xl p-6 text-center cursor-pointer hover:border-zinc-400 hover:bg-zinc-50/50 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
         onClick={pick}
         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick() } }}
       >
         {coverUrl
-          ? <img src={`${SERVER_BASE}${coverUrl}`} alt="" onError={handleImgError} className="h-36 mx-auto object-contain rounded-lg mb-3 shadow" />
+          ? <img src={`${SERVER_BASE}${coverUrl}`} alt="" onError={handleImgError} className="img-crisp h-36 mx-auto object-contain rounded-lg mb-3 shadow" style={{ imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)' }} loading="lazy" decoding="async" />
           : <BookOpen className="w-12 h-12 mx-auto mb-3 text-zinc-300 stroke-[1.5]" />}
         <p className="text-sm font-semibold text-zinc-700">{coverUrl ? 'Click để đổi ảnh bìa' : 'Click để chọn ảnh bìa'}</p>
         <p className="text-xs text-zinc-400 mt-1">JPG, PNG, WebP — tối đa 20MB</p>
@@ -53,7 +57,7 @@ function BookModal({ bookNumber, seriesId, seriesName, coverUrl, onClose, onCove
     <Modal onClose={onClose} title={`${seriesName} ${bookNumber} — Ảnh bìa`} size="lg">
       <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200 shrink-0">
         <div className="flex items-center gap-3">
-          {coverUrl && <img src={`${SERVER_BASE}${coverUrl}`} alt="" onError={handleImgError} className="w-8 h-10 rounded object-cover shadow" />}
+          {coverUrl && <img src={`${SERVER_BASE}${coverUrl}`} alt="" onError={handleImgError} className="img-crisp w-8 h-10 rounded object-cover shadow" style={{ imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)' }} loading="lazy" decoding="async" />}
           <h2 className="text-sm font-semibold text-zinc-900">{seriesName} {bookNumber} — Ảnh bìa</h2>
         </div>
         <button onClick={onClose} aria-label="Đóng"
@@ -208,8 +212,8 @@ function SeriesDetailView({ series, books, booksError, onBack, onBooksChanged, s
                 className="w-12 h-16 rounded-lg overflow-hidden border-2 border-dashed border-zinc-200 hover:border-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 transition block"
               >
                 {coverMap[b.bookNumber]
-                  ? <img src={`${SERVER_BASE}${coverMap[b.bookNumber]}`} alt="" onError={handleImgError} className="w-full h-full object-cover" />
-                  : <div className="w-full h-full bg-zinc-50 flex items-center justify-center text-zinc-300"><BookOpen className="w-5 h-5 stroke-[1.5]" /></div>}
+                  ? <img src={`${SERVER_BASE}${coverMap[b.bookNumber]}`} alt="" onError={handleImgError} className="img-crisp w-full h-full object-cover" style={{ imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)' }} loading="lazy" decoding="async" />
+                  : <AcademicCover volume={b.bookNumber} seriesName="CAMBRIDGE" compact={true} />}
               </button>
               {editingBook === b.bookNumber ? (
                 <input

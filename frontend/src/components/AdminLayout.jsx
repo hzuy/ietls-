@@ -16,7 +16,6 @@ import {
   Mic,
   History,
   Trash2,
-  Sliders,
   Settings,
   LogOut,
   Menu,
@@ -37,7 +36,6 @@ const NAV_ALL = [
   { to: '/admin/attempts',           label: 'Lịch sử thi',       icon: History,    roles: ['admin', 'teacher'] },
   { to: '/admin/trash',              label: 'Đã xóa',             icon: Trash2,     roles: ['admin', 'teacher'], trash: true },
   // Both
-  { to: '/admin/settings',  label: 'Hệ thống',          icon: Sliders,     roles: ['admin'] },
   { to: '/admin/profile',   label: 'Cài đặt',           icon: Settings,    roles: ['admin', 'teacher'] },
 ]
 

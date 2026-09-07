@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { getExams } from '../../services/examService'
 import { formatBand } from '../../utils/ielts'
 import useDebounce from '../../hooks/useDebounce'
 import { btnSecondary, btnDanger } from './adminConstants'
@@ -18,48 +19,66 @@ const SORT_MAP = {
 function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries = [], paginationData, fetchExams, loading, error }) {
   const [loadingId, setLoadingId] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
+  const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [filterSeries, setFilterSeries] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [sortBy, setSortBy] = useState('newest')
 
   const debouncedSearch = useDebounce(search, 400)
-  const isInitialMount = useRef(true)
+  const sort = SORT_MAP[sortBy] || SORT_MAP.newest
+  const queryClient = useQueryClient()
 
-  const totalPages = paginationData?.pages || 1
-  const currentPage = paginationData?.page || 1
-  const totalCount = paginationData?.total || exams.length
-  // Số liệu tổng quan toàn DB (theo skill + bộ đề + tìm kiếm) — do backend tính,
-  // không phải cộng dồn trên mảng exams (chỉ chứa dữ liệu trang hiện tại).
-  const stats = paginationData?.stats || null
+  // Khi người dùng đổi skill hoặc filters (search, series, status, sort) -> tự động reset về trang 1
+  useEffect(() => {
+    setPage(1)
+  }, [debouncedSearch, filterSeries, filterStatus, sortBy, skill])
 
-  // Gọi API với bộ lọc hiện tại; `overrides` cho phép truyền giá trị state mới
-  // ngay khi vừa setState (React setState là bất đồng bộ).
-  const runFetch = (overrides = {}) => {
-    if (!fetchExams) return
-    const sort = SORT_MAP[sortBy] || SORT_MAP.newest
-    fetchExams({
-      page: 1,
+  // TanStack Query: Quản lý cache và nạp đề thi theo kỹ năng
+  const { data: examsData, isPending: queryLoading, isError: queryError, refetch } = useQuery({
+    queryKey: ['admin', 'exams', skill, { page, search: debouncedSearch, status: filterStatus, seriesId: filterSeries, sortBy: sort.sortBy, sortOrder: sort.sortOrder }],
+    queryFn: () => getExams({
+      skill,
+      page,
+      limit: 20,
       search: debouncedSearch,
       seriesId: filterSeries,
       status: filterStatus,
       sortBy: sort.sortBy,
       sortOrder: sort.sortOrder,
+    }),
+    staleTime: 1000 * 60 * 10, // Giữ fresh 10 phút
+    gcTime: 1000 * 60 * 30,    // Giữ cache 30 phút
+    placeholderData: (previousData) => previousData, // Giữ nguyên dữ liệu cũ khi đổi filter, không giật màn hình
+    enabled: !!skill && (!exams || exams.length === 0),
+  })
+
+  const activeData = examsData || paginationData || (exams?.length ? { exams, total: exams.length, page: 1, pages: 1, stats: null } : null)
+  const listExams = activeData?.exams || (Array.isArray(activeData) ? activeData : null) || exams || []
+  const totalPages = activeData?.pages || paginationData?.pages || 1
+  const currentPage = activeData?.page || paginationData?.page || page || 1
+  const totalCount = activeData?.total ?? paginationData?.total ?? listExams.length
+  // Số liệu tổng quan toàn DB (theo skill + bộ đề + tìm kiếm) — do backend tính,
+  // không phải cộng dồn trên mảng exams (chỉ chứa dữ liệu trang hiện tại).
+  const stats = activeData?.stats || paginationData?.stats || null
+
+  const isCurrentLoading = (queryLoading && !activeData) || (loading && !exams?.length)
+  const isCurrentError = queryError || error
+
+  // Gọi API với bộ lọc hiện tại (hỗ trợ component cha truyền fetchExams)
+  const runFetch = (overrides = {}) => {
+    if (!fetchExams) return
+    const s = SORT_MAP[sortBy] || SORT_MAP.newest
+    fetchExams({
+      page: 1,
+      search: debouncedSearch,
+      seriesId: filterSeries,
+      status: filterStatus,
+      sortBy: s.sortBy,
+      sortOrder: s.sortOrder,
       ...overrides,
     })
   }
-
-  // Chỉ theo dõi debouncedSearch. Các bộ lọc khác (bộ đề / trạng thái / sắp xếp)
-  // đã tự gọi API trong handler của chúng — không đưa vào deps để tránh fetch kép.
-  // runFetch() đọc state hiện tại tại thời điểm effect chạy (sau commit) nên không bị stale.
-  useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false
-      return
-    }
-    runFetch()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearch])
 
   const getQuestionBadge = (exam) => {
     let count, total
@@ -106,41 +125,46 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
   }
 
   // Backend đã lọc theo skill; giữ guard nhẹ phòng dữ liệu bất thường.
-  const skillExams = (Array.isArray(exams) ? exams : []).filter(e => e.skill === skill)
+  const skillExams = (Array.isArray(listExams) ? listExams : []).filter(e => !skill || e.skill === skill)
 
   const resetFilters = () => {
     setSearch('')
     setFilterSeries('')
     setFilterStatus('all')
     setSortBy('newest')
+    setPage(1)
     if (fetchExams) fetchExams({ page: 1, search: '', seriesId: '', status: 'all', sortBy: 'createdAt', sortOrder: 'desc' })
   }
 
   const handleSeriesChange = (val) => {
     setFilterSeries(val)
+    setPage(1)
     runFetch({ seriesId: val })
   }
 
   const handleStatusChange = (val) => {
     setFilterStatus(val)
+    setPage(1)
     runFetch({ status: val })
   }
 
   const handleSortChange = (val) => {
     setSortBy(val)
-    const sort = SORT_MAP[val] || SORT_MAP.newest
-    runFetch({ sortBy: sort.sortBy, sortOrder: sort.sortOrder })
+    setPage(1)
+    const s = SORT_MAP[val] || SORT_MAP.newest
+    runFetch({ sortBy: s.sortBy, sortOrder: s.sortOrder })
   }
 
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPages) {
+      setPage(newPage)
       runFetch({ page: newPage })
     }
   }
 
   const hasActiveFilter = search || filterSeries || filterStatus !== 'all' || sortBy !== 'newest'
 
-  // Lọc + sắp xếp do backend đảm nhiệm — `exams` đã là đúng trang, đúng thứ tự.
+  // Lọc + sắp xếp do backend đảm nhiệm — `listExams` đã là đúng trang, đúng thứ tự.
   const filtered = skillExams
 
   useEffect(() => {
@@ -164,6 +188,8 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
     const { id } = confirmDelete
     setConfirmDelete(null)
     await onDelete(id)
+    queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
+    queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
   }
 
   const anyLoading = loadingId !== null
@@ -250,23 +276,26 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
       )}
 
       {/* Exam list */}
-      {error ? (
+      {isCurrentError ? (
         <div className="text-center py-10 text-xs">
           <p className="text-rose-600 font-medium">Không tải được danh sách.</p>
           <button
             type="button"
-            onClick={() => runFetch()}
+            onClick={() => {
+              if (fetchExams) runFetch()
+              else refetch?.()
+            }}
             className="mt-3 px-3.5 py-2 rounded-lg border border-zinc-200 text-zinc-600 font-medium hover:bg-zinc-50 transition text-xs"
           >Thử lại</button>
         </div>
-      ) : loading && filtered.length === 0 ? (
+      ) : isCurrentLoading && filtered.length === 0 ? (
         <SkeletonTable rows={6} cols={3} />
       ) : filtered.length === 0 ? (
         <div className="text-center text-zinc-400 py-8 text-xs">
           {hasActiveFilter ? 'Không tìm thấy đề nào khớp với bộ lọc.' : 'Chưa có đề nào. Tạo đề đầu tiên!'}
         </div>
       ) : (
-        <div className={`space-y-2 transition-opacity ${loading ? 'opacity-60 pointer-events-none' : ''}`}>
+        <div className={`space-y-2 transition-opacity ${isCurrentLoading && filtered.length === 0 ? 'opacity-60 pointer-events-none' : ''}`}>
           {filtered.map(exam => {
             const isEditing = exam.id === editingId
             const isLoading = exam.id === loadingId
@@ -344,30 +373,35 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
         </div>
       )}
 
-      {/* Pagination Controls */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-6 pt-4 border-t border-zinc-200">
+      {/* Footer / Pagination Controls */}
+      {filtered.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-6 pt-4 border-t border-zinc-200">
           <span className="text-xs text-zinc-500">
-            Hiển thị trang <span className="font-semibold text-zinc-800">{currentPage}</span> / <span className="font-semibold text-zinc-800">{totalPages}</span> ({totalCount} đề)
+            Hiển thị <span className="font-semibold text-zinc-800">{filtered.length}</span> trên tổng số <span className="font-semibold text-zinc-800">{totalCount}</span> đề thi
           </span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage <= 1 || loading}
-              className="px-3.5 py-2 rounded-lg border border-zinc-200 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs"
-            >
-              ← Trang trước
-            </button>
-            <button
-              type="button"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage >= totalPages || loading}
-              className="px-3.5 py-2 rounded-lg border border-zinc-200 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs"
-            >
-              Trang sau →
-            </button>
-          </div>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage <= 1 || isCurrentLoading}
+                className="px-3.5 py-2 rounded-lg border border-zinc-200 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs"
+              >
+                ← Trang trước
+              </button>
+              <span className="text-xs text-zinc-500 px-1 font-medium">
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage >= totalPages || isCurrentLoading}
+                className="px-3.5 py-2 rounded-lg border border-zinc-200 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs"
+              >
+                Trang sau →
+              </button>
+            </div>
+          )}
         </div>
       )}
 

@@ -1,5 +1,6 @@
 import { useState, isValidElement } from 'react'
 import { handleImgError } from '../../utils/media'
+import AcademicCover from './AcademicCover'
 
 /**
  * <ContentCard> — thẻ nội dung dùng chung cho trang chủ + các trang danh sách
@@ -14,6 +15,7 @@ import { handleImgError } from '../../utils/media'
  *  - imageAlt     : alt cho ảnh.
  *  - placeholder  : { bg, icon } — hiển thị khi không có ảnh. `icon` là string
  *                   emoji (auto fontSize 32) hoặc ReactNode.
+ *  - academicCover: ReactNode hoặc true → render <AcademicCover> cực nét thay vì placeholder rỗng.
  *  - thumbAspect  : tỉ lệ khung ảnh. '16/9' | '4/5' | … (aspect-ratio) HOẶC
  *                   chuỗi px cố định như '160px' (dùng height). Mặc định '16/9'.
  *  - title        : tiêu đề (string). Style/size/màu đã chuẩn hoá, KHÔNG param.
@@ -56,7 +58,7 @@ function Chip({ label, tone }) {
   const t = CHIP_TONES[tone] || CHIP_TONES.neutral
   return (
     <span style={{
-      fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
+      fontSize: 11, fontWeight: 600,
       padding: '2px 8px', borderRadius: 20,
       background: t.bg, color: t.color, border: `1px solid ${t.border}`,
     }}>{label}</span>
@@ -115,7 +117,7 @@ function ActionButton({ action, showcase, hovered, topGap }) {
       style={{
         width: '100%', padding: '8px 0', marginTop: topGap,
         borderRadius: 'var(--radius-md)', border: 'none',
-        fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', fontWeight: 700,
+        fontSize: 'var(--fs-sm)', fontWeight: 700,
         transition: 'all var(--transition)',
         ...tone,
         ...(decorative ? { pointerEvents: 'none' } : null),
@@ -130,6 +132,7 @@ export default function ContentCard({
   image,
   imageAlt = '',
   placeholder,
+  academicCover,
   thumbAspect = '16/9',
   thumbOverlay,
   title,
@@ -166,7 +169,7 @@ export default function ContentCard({
     : { cursor: onClick ? 'pointer' : 'default' }
 
   const titleStyle = {
-    fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 'var(--fs-sm)',
+    fontWeight: 700, fontSize: 'var(--fs-sm)',
     lineHeight: 1.4, margin: '0 0 8px',
     color: inkShift ? SHOWCASE.hoverInk : 'var(--ink-soft)',
     transition: 'color 0.3s ease',
@@ -196,10 +199,13 @@ export default function ContentCard({
             loading="lazy"
             decoding="async"
             onError={handleImgError}
+            className="img-crisp w-full h-full object-cover block"
             style={{
               width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+              imageRendering: '-webkit-optimize-contrast',
+              backfaceVisibility: 'hidden',
               transition: isShowcase ? 'transform 0.45s cubic-bezier(0.16, 1, 0.3, 1)' : undefined,
-              transform: isShowcase && hovered ? 'scale(1.06)' : 'scale(1)',
+              transform: isShowcase && hovered ? 'scale(1.06) translateZ(0)' : 'scale(1) translateZ(0)',
             }}
           />
         ) : placeholder ? (
@@ -211,6 +217,8 @@ export default function ContentCard({
               ? <span style={{ fontSize: 32 }}>{placeholder.icon}</span>
               : placeholder.icon}
           </div>
+        ) : academicCover ? (
+          isValidElement(academicCover) ? academicCover : <AcademicCover title={title} />
         ) : (
           <div style={{ width: '100%', height: '100%', background: 'var(--surface-raised)' }} />
         )}

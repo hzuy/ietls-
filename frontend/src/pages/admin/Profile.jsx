@@ -1,28 +1,88 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getAdminMe, changeAdminPassword } from '../../services/adminService'
 
 
 const ROLE_LABEL = { admin: 'Admin', teacher: 'Teacher' }
 const ROLE_COLOR = { admin: 'bg-zinc-900 text-white', teacher: 'bg-zinc-100 text-zinc-800 border border-zinc-200' }
 
+function ProfileSkeleton() {
+  return (
+    <div className="p-6 max-w-2xl mx-auto animate-pulse">
+      <div className="mb-8 space-y-2">
+        <div className="h-6 w-48 bg-zinc-200 rounded" />
+        <div className="h-3.5 w-64 bg-zinc-100 rounded" />
+      </div>
+      {/* Profile card skeleton */}
+      <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-6 mb-5">
+        <div className="flex items-center gap-5">
+          <div className="w-14 h-14 rounded-2xl bg-zinc-100 shrink-0" />
+          <div className="flex-1 space-y-2">
+            <div className="h-5 w-40 bg-zinc-200 rounded" />
+            <div className="h-3.5 w-56 bg-zinc-100 rounded" />
+            <div className="h-3 w-32 bg-zinc-100 rounded" />
+          </div>
+        </div>
+        <div className="mt-5 pt-5 border-t border-zinc-100 grid grid-cols-2 gap-4">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="space-y-1.5">
+              <div className="h-3 w-16 bg-zinc-100 rounded" />
+              <div className="h-4 w-32 bg-zinc-200 rounded" />
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Password section skeleton */}
+      <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-6 space-y-4">
+        <div className="h-4 w-28 bg-zinc-200 rounded" />
+        <div className="h-3.5 w-48 bg-zinc-100 rounded" />
+        <div className="h-9 w-full bg-zinc-100 rounded-lg" />
+        <div className="h-9 w-full bg-zinc-100 rounded-lg" />
+      </div>
+    </div>
+  )
+}
+
 export default function Profile() {
-  const [profile, setProfile] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirm: '' })
-  const [pwError, setPwError] = useState('')
-  const [pwSaving, setPwSaving] = useState(false)
-  const [pwSaved, setPwSaved] = useState(false)
+  const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const [pwForm, setPwForm]     = useState({ currentPassword: '', newPassword: '', confirm: '' })
+  const [pwError, setPwError]   = useState('')
+  const [pwSaved, setPwSaved]   = useState(false)
 
-  useEffect(() => {
-    getAdminMe()
-      .then(data => setProfile(data))
-      .catch(err => { if (err.response?.status === 403) navigate('/') })
-      .finally(() => setLoading(false))
-  }, [])
+  const { data: profile, isPending } = useQuery({
+    queryKey: ['admin', 'profile'],
+    queryFn: async () => {
+      try {
+        return await getAdminMe()
+      } catch (err) {
+        if (err.response?.status === 403) navigate('/')
+        throw err
+      }
+    },
+    staleTime: 1000 * 60 * 30, // Thông tin profile admin rất ít thay đổi, giữ fresh 30 phút
+    gcTime: 1000 * 60 * 60,    // Giữ trong RAM 60 phút
+    placeholderData: (prev) => prev,
+  })
 
-  const handlePasswordChange = async (e) => {
+  const changePasswordMutation = useMutation({
+    mutationFn: ({ currentPassword, newPassword }) =>
+      changeAdminPassword(currentPassword, newPassword),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'profile'] })
+      setPwSaved(true)
+      setPwForm({ currentPassword: '', newPassword: '', confirm: '' })
+      setTimeout(() => setPwSaved(false), 3000)
+    },
+    onError: (err) => {
+      setPwError(err.response?.data?.message || 'Lỗi đổi mật khẩu')
+    },
+  })
+
+  const pwSaving = changePasswordMutation.isPending
+
+  const handlePasswordChange = (e) => {
     e.preventDefault()
     setPwError('')
     if (pwForm.newPassword !== pwForm.confirm) {
@@ -33,17 +93,10 @@ export default function Profile() {
       setPwError('Mật khẩu mới phải ít nhất 6 ký tự')
       return
     }
-    setPwSaving(true)
-    try {
-      await changeAdminPassword(pwForm.currentPassword, pwForm.newPassword)
-      setPwSaved(true)
-      setPwForm({ currentPassword: '', newPassword: '', confirm: '' })
-      setTimeout(() => setPwSaved(false), 3000)
-    } catch (err) {
-      setPwError(err.response?.data?.message || 'Lỗi đổi mật khẩu')
-    } finally {
-      setPwSaving(false)
-    }
+    changePasswordMutation.mutate({
+      currentPassword: pwForm.currentPassword,
+      newPassword: pwForm.newPassword,
+    })
   }
 
   const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
@@ -51,11 +104,7 @@ export default function Profile() {
   const inputCls = 'w-full px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 bg-white text-zinc-900 placeholder:text-zinc-400 transition shadow-2xs'
   const labelCls = 'block text-xs font-medium text-zinc-700 mb-1.5'
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <div className="w-8 h-8 border-4 border-zinc-900 border-t-transparent rounded-full animate-spin" />
-    </div>
-  )
+  if (isPending && !profile) return <ProfileSkeleton />
 
   if (!profile) return (
     <div className="p-8 text-zinc-400">Không thể tải thông tin tài khoản.</div>

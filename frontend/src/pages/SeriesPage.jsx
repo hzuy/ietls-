@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import ContentCard from '../components/common/ContentCard'
+import AcademicCover from '../components/common/AcademicCover'
 import { SkeletonCard } from '../components/skeletons'
 import { Headphones, BookOpen, PenTool, Mic, AlertCircle, RefreshCw, FolderArchive } from 'lucide-react'
 import { BACKEND_URL, resolveImg } from '../utils/media'
@@ -146,10 +147,15 @@ export default function SeriesPage({ filterPattern, title, description }) {
                   key={`${book.seriesId}-${book.bookNumber}`}
                   image={book.coverImageUrl ? resolveImg(book.coverImageUrl) : null}
                   imageAlt={book.title}
-                  placeholder={{
-                    bg: 'var(--surface-raised)',
-                    icon: <BookOpen className="w-10 h-10 text-zinc-400 stroke-[1.75]" />
-                  }}
+                  academicCover={
+                    <AcademicCover
+                      title={book.title}
+                      seriesName={book.seriesName}
+                      volume={book.bookNumber}
+                      subtitle={`${book.testCount} Full Tests`}
+                      skill="fullTest"
+                    />
+                  }
                   thumbAspect="4/5"
                   thumbOverlay={
                     <>

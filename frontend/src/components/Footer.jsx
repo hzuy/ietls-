@@ -24,7 +24,7 @@ function FooterLink({ to, children }) {
     <GatedLink
       to={to}
       className="block mb-3 text-zinc-400 hover:text-zinc-100 transition-colors duration-300 text-[14px]"
-      style={{ fontFamily: 'var(--font-body)', textDecoration: 'none' }}
+      style={{ textDecoration: 'none' }}
     >
       {children}
     </GatedLink>
@@ -47,12 +47,12 @@ export default function Footer() {
               <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center shrink-0">
                 <div className="w-3 h-3 rounded-full bg-zinc-950" />
               </div>
-              <span className="font-bold text-[18px] text-white tracking-[-0.01em]" style={{ fontFamily: 'var(--font-display)' }}>
+              <span className="font-bold text-[18px] text-white tracking-[-0.01em]">
                 IELTS<span className="text-zinc-400 font-medium">Pro</span>
               </span>
             </div>
 
-            <p className="text-zinc-400 text-[14px] leading-relaxed max-w-[280px]" style={{ fontFamily: 'var(--font-body)' }}>
+            <p className="text-zinc-400 text-[14px] leading-relaxed max-w-[280px]">
               Nền tảng luyện thi IELTS chuyên nghiệp với AI phản hồi tức thì, giúp bạn đạt band score mục tiêu nhanh hơn.
             </p>
           </div>
@@ -60,7 +60,7 @@ export default function Footer() {
           {/* Cols 3-4 — Nav groups */}
           {NAV_COLUMNS.map(col => (
             <div key={col.heading}>
-              <p className="text-zinc-100 text-[13px] font-bold uppercase tracking-wider mb-5" style={{ fontFamily: 'var(--font-body)' }}>
+              <p className="text-zinc-100 text-[13px] font-bold uppercase tracking-wider mb-5">
                 {col.heading}
               </p>
               {col.links.map(l => (
@@ -74,7 +74,7 @@ export default function Footer() {
       {/* Bottom bar */}
       <div className="border-t border-zinc-800/80">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-center">
-          <span className="text-zinc-500 text-[13px]" style={{ fontFamily: 'var(--font-body)' }}>
+          <span className="text-zinc-500 text-[13px]">
             © 2026 IELTSPro. All rights reserved.
           </span>
         </div>

@@ -117,7 +117,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
       )}
       <div className="flex items-center gap-3 my-5">
         <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
-        <span className="text-xs font-medium" style={{ color: 'var(--subtle)', fontFamily: 'var(--font-body)' }}>hoặc</span>
+        <span className="text-xs font-medium" style={{ color: 'var(--subtle)' }}>hoặc</span>
         <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
       </div>
       <div className="flex justify-center">
@@ -161,7 +161,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
           }}>
             <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#fff' }} />
           </div>
-          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, letterSpacing: '-0.02em', color: 'var(--ink)' }} className="whitespace-nowrap">
+          <span style={{ fontWeight: 800, fontSize: 22, letterSpacing: '-0.02em', color: 'var(--ink)' }} className="whitespace-nowrap">
             IELTS<span style={{ color: 'var(--primary)', fontWeight: 500 }}>Pro</span>
           </span>
         </div>
@@ -174,7 +174,6 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
               onClick={() => onTabChange(t)}
               className="pb-3 px-1 mr-6 text-sm font-bold transition-colors"
               style={{
-                fontFamily: 'var(--font-body)',
                 color: tab === t ? 'var(--primary)' : 'var(--subtle)',
                 background: 'none', border: 'none',
                 borderBottom: tab === t ? '2px solid var(--primary)' : '2px solid transparent',
@@ -189,8 +188,8 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
         {/* LOGIN */}
         {tab === 'login' && (
           <>
-            <h2 className="text-xl font-extrabold mb-1" style={{ fontFamily: 'var(--font-display)', color: 'var(--ink)' }}>Đăng nhập</h2>
-            <p className="text-sm mb-5" style={{ fontFamily: 'var(--font-body)', color: 'var(--muted)' }}>Chào mừng bạn quay lại!</p>
+            <h2 className="text-xl font-extrabold mb-1" style={{ color: 'var(--ink)' }}>Đăng nhập</h2>
+            <p className="text-sm mb-5" style={{ color: 'var(--muted)' }}>Chào mừng bạn quay lại!</p>
 
             {loginError && (
               <div role="alert" className="p-3 rounded-xl mb-4 text-xs font-medium bg-red-50 border border-red-200 text-red-700 flex items-center gap-2">
@@ -201,7 +200,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
 
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label htmlFor="login-email" className="block text-sm font-bold mb-1.5" style={{ fontFamily: 'var(--font-body)', color: 'var(--text)' }}>Email</label>
+                <label htmlFor="login-email" className="block text-sm font-bold mb-1.5" style={{ color: 'var(--text)' }}>Email</label>
                 <input
                   id="login-email"
                   type="email"
@@ -215,7 +214,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
                 />
               </div>
               <div>
-                <label htmlFor="login-password" className="block text-sm font-bold mb-1.5" style={{ fontFamily: 'var(--font-body)', color: 'var(--text)' }}>Mật khẩu</label>
+                <label htmlFor="login-password" className="block text-sm font-bold mb-1.5" style={{ color: 'var(--text)' }}>Mật khẩu</label>
                 <input
                   id="login-password"
                   type="password"
@@ -231,7 +230,6 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
                 type="submit"
                 disabled={loginLoading}
                 className="w-full py-3 rounded-xl text-sm font-bold btn-primary mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{ fontFamily: 'var(--font-body)' }}
               >
                 {loginLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
               </button>
@@ -239,7 +237,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
 
             {googleSection}
 
-            <p className="text-center text-sm mt-5" style={{ fontFamily: 'var(--font-body)', color: 'var(--muted)' }}>
+            <p className="text-center text-sm mt-5" style={{ color: 'var(--muted)' }}>
               Chưa có tài khoản?{' '}
               <button onClick={() => onTabChange('register')} className="font-bold" style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}>
                 Đăng ký ngay
@@ -251,7 +249,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
         {/* REGISTER */}
         {tab === 'register' && (
           <>
-            <h2 className="text-xl font-extrabold mb-1" style={{ fontFamily: 'var(--font-display)', color: 'var(--ink)' }}>Tạo tài khoản học viên</h2>
+            <h2 className="text-xl font-extrabold mb-1" style={{ color: 'var(--ink)' }}>Tạo tài khoản học viên</h2>
             <p className="text-xs mb-5 text-zinc-500">Lưu trữ kết quả thi và theo dõi lộ trình nâng band điểm</p>
 
             {regError && (
@@ -263,7 +261,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
 
             <form onSubmit={handleRegister} className="space-y-4">
               <div>
-                <label htmlFor="reg-name" className="block text-sm font-bold mb-1.5" style={{ fontFamily: 'var(--font-body)', color: 'var(--text)' }}>Họ và tên</label>
+                <label htmlFor="reg-name" className="block text-sm font-bold mb-1.5" style={{ color: 'var(--text)' }}>Họ và tên</label>
                 <input
                   id="reg-name"
                   type="text"
@@ -277,7 +275,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
                 />
               </div>
               <div>
-                <label htmlFor="reg-email" className="block text-sm font-bold mb-1.5" style={{ fontFamily: 'var(--font-body)', color: 'var(--text)' }}>Email</label>
+                <label htmlFor="reg-email" className="block text-sm font-bold mb-1.5" style={{ color: 'var(--text)' }}>Email</label>
                 <input
                   id="reg-email"
                   type="email"
@@ -290,7 +288,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
                 />
               </div>
               <div>
-                <label htmlFor="reg-password" className="block text-sm font-bold mb-1.5" style={{ fontFamily: 'var(--font-body)', color: 'var(--text)' }}>Mật khẩu</label>
+                <label htmlFor="reg-password" className="block text-sm font-bold mb-1.5" style={{ color: 'var(--text)' }}>Mật khẩu</label>
                 <input
                   id="reg-password"
                   type="password"
@@ -306,7 +304,6 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
                 type="submit"
                 disabled={regLoading}
                 className="w-full py-3 rounded-xl text-sm font-bold btn-primary mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{ fontFamily: 'var(--font-body)' }}
               >
                 {regLoading ? 'Đang tạo tài khoản...' : 'Đăng ký miễn phí'}
               </button>
@@ -314,7 +311,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
 
             {googleSection}
 
-            <p className="text-center text-sm mt-5" style={{ fontFamily: 'var(--font-body)', color: 'var(--muted)' }}>
+            <p className="text-center text-sm mt-5" style={{ color: 'var(--muted)' }}>
               Đã có tài khoản?{' '}
               <button onClick={() => onTabChange('login')} className="font-bold" style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}>
                 Đăng nhập

@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useRef, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getAdminAnalytics } from '../../services/adminService'
-import { Users2, BarChart2, Trophy } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { getAdminAnalytics, getAdminUser } from '../../services/adminService'
+import { Users2, BarChart2, Trophy, Award, ChevronRight } from 'lucide-react'
+import StudentDetailModal from '../../components/admin/StudentDetailModal'
 import {
   AreaChart, Area, BarChart, Bar,
   PieChart, Pie,
@@ -9,11 +11,39 @@ import {
   ResponsiveContainer, Cell, LabelList,
 } from 'recharts'
 
-import { roundIELTS, formatBand } from '../../utils/ielts'
+import { formatBand } from '../../utils/ielts'
 import { ADMIN_SKILL_COLORS, SKILL_LABEL, SKILL_ORDER } from '../../utils/adminSkillColors'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
-const BAND_COLORS = ['#a1a1aa', '#71717a', '#52525b', '#3f3f46', '#27272a', '#18181b']
+// Dải màu phân cấp hiệu suất học thuật (Performance Palette) cho 6 mốc Band Score
+const BAND_COLORS = [
+  '#f43f5e', // <4.0: Rose / Đỏ dịu (Yếu)
+  '#f97316', // 4.0–4.9: Orange / Cam (Trung bình yếu)
+  '#eab308', // 5.0–5.9: Yellow / Amber (Trung bình)
+  '#3b82f6', // 6.0–6.9: Blue / Xanh dương (Khá)
+  '#10b981', // 7.0–7.9: Emerald / Xanh lá (Tốt)
+  '#8b5cf6', // 8.0–9.0: Purple/Violet / Tím cao cấp (Xuất sắc)
+]
+
+// Theme màu đồng bộ 4 kỹ năng giữa Doughnut Chart và Bảng phân tích chi tiết
+const SKILL_THEMES = {
+  reading: {
+    badge: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800',
+    bar: 'bg-blue-500',
+  },
+  listening: {
+    badge: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800',
+    bar: 'bg-emerald-500',
+  },
+  writing: {
+    badge: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800',
+    bar: 'bg-purple-500',
+  },
+  speaking: {
+    badge: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800',
+    bar: 'bg-amber-500',
+  },
+}
 
 const tooltipStyle = {
   backgroundColor: '#fff',
@@ -57,9 +87,13 @@ function BandTooltip({ active, payload, label, total }) {
   if (!active || !payload?.length) return null
   const count = payload[0].value
   const pct = total > 0 ? Math.round((count / total) * 100) : 0
+  const color = payload[0].payload?.fill || payload[0].color || '#3b82f6'
   return (
     <div style={tooltipStyle}>
-      <p className="font-semibold text-zinc-900 mb-0.5">Band {label}</p>
+      <p className="font-semibold text-zinc-900 mb-0.5 flex items-center gap-1.5">
+        <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ backgroundColor: color }} />
+        Band {label}
+      </p>
       <p className="text-zinc-600">{count} lượt · {pct}% tổng</p>
     </div>
   )
@@ -74,44 +108,64 @@ function ChartSkeleton({ height = 180 }) {
 
 // ─── Analytics page ───────────────────────────────────────────────────────────
 export default function Analytics() {
-  const [data, setData]               = useState(null)
-  // initialLoading: only true on first mount before any data arrives
-  const [initialLoading, setInitialLoading] = useState(true)
-  // chartLoading: true while fetching a new period (data already shown for prev period)
-  const [chartLoading, setChartLoading]     = useState(false)
   const [period, setPeriod]           = useState('month')
   const navigate  = useNavigate()
 
-  // Per-period cache: avoids re-fetching when user toggles back and forth
-  const cache = useRef({})
+  const {
+    data = null,
+    isLoading: initialLoading,
+    isFetching: chartLoading,
+  } = useQuery({
+    queryKey: ['admin', 'analytics', period],
+    queryFn: async () => {
+      try {
+        return await getAdminAnalytics(period)
+      } catch (err) {
+        if (err.response?.status === 403) navigate('/')
+        throw err
+      }
+    },
+    staleTime: 1000 * 60 * 5,
+  })
 
-  const loadPeriod = useCallback((p) => {
-    if (cache.current[p]) {
-      setData(cache.current[p])
-      setChartLoading(false)
-      setInitialLoading(false)
-      return
+  // Student Detail Modal state
+  const [selectedStudent, setSelectedStudent] = useState(null)
+  const [studentDetail, setStudentDetail] = useState(null)
+  const [loadingStudentDetail, setLoadingStudentDetail] = useState(false)
+  const [selectedRank, setSelectedRank] = useState(null)
+
+  const handleOpenStudentDetail = useCallback(async (student, rank) => {
+    setSelectedStudent(student)
+    setSelectedRank(rank)
+    setStudentDetail(null)
+    setLoadingStudentDetail(true)
+
+    try {
+      const detail = await getAdminUser(student.id)
+      setStudentDetail(detail)
+    } catch (err) {
+      console.error('Không thể tải chi tiết học viên:', err)
+      // Fallback: sử dụng dữ liệu đã có sẵn từ card topUsers
+      setStudentDetail({
+        user: student,
+        attempts: [],
+        skillStats: {},
+        totalAttempts: student.attemptCount,
+      })
+    } finally {
+      setLoadingStudentDetail(false)
     }
-    setChartLoading(true)
-    getAdminAnalytics(p)
-      .then(analytics => {
-        cache.current[p] = analytics
-        setData(analytics)
-      })
-      .catch(err => { if (err.response?.status === 403) navigate('/') })
-      .finally(() => {
-        setChartLoading(false)
-        setInitialLoading(false)
-      })
-  }, [navigate])
+  }, [])
 
-  // Initial fetch
-  useEffect(() => { loadPeriod('month') }, [loadPeriod])
+  const handleCloseStudentDetail = useCallback(() => {
+    setSelectedStudent(null)
+    setStudentDetail(null)
+    setSelectedRank(null)
+  }, [])
 
   const handlePeriodChange = useCallback((p) => {
     setPeriod(p)
-    loadPeriod(p)
-  }, [loadPeriod])
+  }, [])
 
   // ─── Derived data ───────────────────────────────────────────────────────────
   // period is the single source of truth — show all data returned for current period
@@ -336,9 +390,9 @@ export default function Analytics() {
                   allowDecimals={false}
                 />
                 <Tooltip content={<BandTooltip total={bandTotal} />} />
-                <Bar dataKey="count" radius={[5, 5, 0, 0]}>
+                <Bar dataKey="count" radius={[6, 6, 0, 0]}>
                   {(data.bandDistribution || []).map((_, i) => (
-                    <Cell key={i} fill={BAND_COLORS[i] ?? '#18181b'} />
+                    <Cell key={i} fill={BAND_COLORS[i] ?? '#8b5cf6'} />
                   ))}
                   <LabelList dataKey="count" position="top"
                     style={{ fontSize: 10, fill: '#71717a', fontWeight: 600 }} />
@@ -370,11 +424,15 @@ export default function Analytics() {
                 </thead>
                 <tbody>
                   {skillBreakdown.map((s, idx) => {
+                    const theme = SKILL_THEMES[s.skill] || {
+                      badge: 'bg-zinc-100 text-zinc-800 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:border-zinc-700',
+                      bar: 'bg-zinc-900',
+                    }
                     return (
                       <tr key={s.skill}
                         className={`border-b border-zinc-100 ${idx % 2 === 1 ? 'bg-zinc-50/40' : ''}`}>
                         <td className="py-3">
-                          <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-100 text-zinc-800 border border-zinc-200">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${theme.badge}`}>
                             {SKILL_LABEL[s.skill]}
                           </span>
                         </td>
@@ -388,8 +446,8 @@ export default function Analytics() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <div className="flex-1 h-2 bg-zinc-100 rounded-full overflow-hidden max-w-[100px]">
-                              <div className="h-full rounded-full transition-all duration-500 bg-zinc-900"
+                            <div className="flex-1 h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden max-w-[100px]">
+                              <div className={`h-full rounded-full transition-all duration-500 ${theme.bar}`}
                                 style={{
                                   width: `${maxSkillCount > 0 ? (s.count / maxSkillCount * 100) : 0}%`,
                                 }} />
@@ -410,33 +468,148 @@ export default function Analytics() {
 
         {/* Top 10 users — period-sensitive */}
         <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-5">
-          <h2 className="font-semibold text-zinc-900 text-sm mb-4">Top 10 Band Score cao nhất</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-4">
+            <h2 className="font-semibold text-zinc-900 text-sm flex items-center gap-2">
+              <Trophy size={16} className="text-amber-500" />
+              <span>Top 10 Band Score cao nhất</span>
+            </h2>
+            <span className="text-[11px] text-zinc-400 font-medium">Bấm vào thí sinh để xem chi tiết bài thi</span>
+          </div>
+
           {chartLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Array.from({ length: 6 }).map((_, i) => <ChartSkeleton key={i} height={52} />)}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2.5">
+                {Array.from({ length: 5 }).map((_, i) => <ChartSkeleton key={i} height={52} />)}
+              </div>
+              <div className="space-y-2.5">
+                {Array.from({ length: 5 }).map((_, i) => <ChartSkeleton key={i} height={52} />)}
+              </div>
             </div>
           ) : topUsers.length === 0 ? (
             <p className="text-xs text-zinc-400 text-center py-6">Chưa có dữ liệu</p>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {topUsers.map((u, i) => (
-                <div key={u.id} className="flex items-center gap-3 bg-zinc-50/70 p-3 rounded-xl border border-zinc-200/80">
-                  <span className={`w-6 h-6 rounded-full text-[11px] flex items-center justify-center shrink-0
-                    ${i < 3 ? 'bg-zinc-900 text-white font-bold' : 'bg-white border border-zinc-200 text-zinc-600 font-medium'}`}>
-                    {i + 1}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Cột trái: Hạng 1 -> Hạng 5 (Top Tier) */}
+              <div className="space-y-2.5">
+                <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider px-1 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Trophy size={13} className="text-amber-500" />
+                    <span>Top Tier (Hạng 1 – 5)</span>
                   </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-zinc-900 truncate">{u.name}</p>
-                    <p className="text-[11px] text-zinc-500">{u.attemptCount} lượt thi</p>
-                  </div>
-                  <span className="font-semibold text-xs tabular-nums text-zinc-900">
-                    {formatBand(u.avgScore)}
-                  </span>
+                  <span>Điểm TB</span>
                 </div>
-              ))}
+                <div className="space-y-2">
+                  {topUsers.slice(0, 5).map((u, i) => {
+                    const rank = i + 1
+                    let rankBadgeStyle = 'bg-zinc-100 text-zinc-600'
+                    if (rank === 1) rankBadgeStyle = 'bg-amber-100 text-amber-800 border-amber-300 font-bold'
+                    else if (rank === 2) rankBadgeStyle = 'bg-zinc-200 text-zinc-800 border-zinc-300 font-bold'
+                    else if (rank === 3) rankBadgeStyle = 'bg-amber-50 text-amber-900 border-amber-200 font-bold'
+
+                    return (
+                      <div
+                        key={u.id || rank}
+                        onClick={() => handleOpenStudentDetail(u, rank)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleOpenStudentDetail(u, rank) }}
+                        className="group hover:bg-zinc-50 dark:hover:bg-zinc-800/60 cursor-pointer transition-all border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 rounded-xl p-3 flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span
+                            className={`w-7 h-7 rounded-lg text-xs flex items-center justify-center shrink-0 border ${rankBadgeStyle}`}
+                          >
+                            {rank}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-black dark:group-hover:text-white transition-colors">
+                              {u.name}
+                            </p>
+                            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+                              {u.attemptCount} lượt thi
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="font-bold text-zinc-900 dark:text-zinc-100 text-xs tabular-nums bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-2 py-0.5 rounded-lg shadow-2xs">
+                            Band {formatBand(u.avgScore)}
+                          </span>
+                          <ChevronRight size={14} className="text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200 transition-transform group-hover:translate-x-0.5" />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Cột phải: Hạng 6 -> Hạng 10 */}
+              <div className="space-y-2.5">
+                <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider px-1 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Award size={13} className="text-zinc-400" />
+                    <span>Hạng 6 – 10</span>
+                  </span>
+                  <span>Điểm TB</span>
+                </div>
+                {topUsers.length > 5 ? (
+                  <div className="space-y-2">
+                    {topUsers.slice(5, 10).map((u, i) => {
+                      const rank = i + 6
+                      const rankBadgeStyle = 'bg-zinc-100 text-zinc-600'
+
+                      return (
+                        <div
+                          key={u.id || rank}
+                          onClick={() => handleOpenStudentDetail(u, rank)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleOpenStudentDetail(u, rank) }}
+                          className="group hover:bg-zinc-50 dark:hover:bg-zinc-800/60 cursor-pointer transition-all border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 rounded-xl p-3 flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span
+                              className={`w-7 h-7 rounded-lg text-xs flex items-center justify-center shrink-0 border ${rankBadgeStyle}`}
+                            >
+                              {rank}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-black dark:group-hover:text-white transition-colors">
+                                {u.name}
+                              </p>
+                              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+                                {u.attemptCount} lượt thi
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="font-bold text-zinc-900 dark:text-zinc-100 text-xs tabular-nums bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-2 py-0.5 rounded-lg shadow-2xs">
+                              Band {formatBand(u.avgScore)}
+                            </span>
+                            <ChevronRight size={14} className="text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200 transition-transform group-hover:translate-x-0.5" />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div className="h-32 flex items-center justify-center text-xs text-zinc-400 italic border border-dashed border-zinc-200 rounded-xl">
+                    Chưa có thêm học viên trong nhóm này
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
+
+        {/* Student Detail Modal */}
+        <StudentDetailModal
+          isOpen={Boolean(selectedStudent)}
+          onClose={handleCloseStudentDetail}
+          student={selectedStudent}
+          rank={selectedRank}
+          detailData={studentDetail}
+          loading={loadingStudentDetail}
+        />
 
       </div>
   )

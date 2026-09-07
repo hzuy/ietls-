@@ -6,6 +6,7 @@ const validate = require('../../../middleware/validate')
 const { teacherOnly } = require('../../../lib/roles')
 const { updateExamSchema } = require('../../../validators/adminExamValidator')
 const { invalidate } = require('../../../lib/swrCache')
+const { invalidateExamCaches } = require('../../../utils/cache')
 
 // ─── GET EXAM COUNTS BY SKILL ───────────────────────────────────────────────
 router.get('/exams/counts', authMiddleware, teacherOnly, async (req, res) => {
@@ -239,6 +240,7 @@ router.put('/exams/:id/basic', authMiddleware, teacherOnly, async (req, res) => 
       select: { id: true, title: true, skill: true, coverImageUrl: true, createdAt: true }
     })
     invalidate('fulltests:')
+    invalidateExamCaches(id)
     res.json(exam)
   } catch (error) {
     res.status(500).json({ message: 'Lỗi cập nhật', error: error.message })
@@ -622,6 +624,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
           return tx.exam.findUnique({ where: { id }, include: { passages: { include: { questions: true, questionGroups: true } } } })
         }, EXAM_UPDATE_TX_OPTIONS)
         invalidate('fulltests:')
+        invalidateExamCaches(id)
         return res.json(updated)
       } catch (err) {
         if (err instanceof BlockedDeletionError) {
@@ -744,6 +747,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
           return tx.exam.findUnique({ where: { id }, include: { listeningSections: { include: { questions: true, questionGroups: true } } } })
         }, EXAM_UPDATE_TX_OPTIONS)
         invalidate('fulltests:')
+        invalidateExamCaches(id)
         return res.json(updated)
       } catch (err) {
         if (err instanceof BlockedDeletionError) {
@@ -784,6 +788,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
         return tx.exam.findUnique({ where: { id }, include: { writingTasks: true } })
       }, EXAM_UPDATE_TX_OPTIONS)
       invalidate('fulltests:')
+      invalidateExamCaches(id)
       return res.json(updated)
     }
 
@@ -837,6 +842,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
         }
       })
       invalidate('fulltests:')
+      invalidateExamCaches(id)
       return res.json(updated)
     }
 
@@ -853,6 +859,7 @@ router.delete('/exams/:id', authMiddleware, teacherOnly, async (req, res) => {
     const id = parseInt(req.params.id)
     await prisma.exam.update({ where: { id }, data: { deletedAt: new Date() } })
     invalidate('fulltests:')
+    invalidateExamCaches(id)
     res.json({ message: 'Xóa đề thành công' })
   } catch (error) {
     console.error('[Delete exam]', error)

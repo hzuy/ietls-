@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { queryClient } from '../../lib/queryClient'
 import api from '../../utils/axios'
 import { showAlert } from '../../utils/alertUtils'
 import { notifyTrashChanged } from '../../services/adminService'
@@ -245,12 +246,16 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
         await api.put(`/admin/exams/${editingId}`, speakingPayload)
         localStorage.removeItem(`draft_speaking_${editingId}`)
         showToast('✅ Cập nhật đề thành công!')
+        queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
+        queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
         onRefresh()
       } else {
         await api.post('/admin/exams/speaking', speakingPayload)
         localStorage.removeItem('draft_speaking_new')
         showToast('✅ Tạo đề thành công!')
         setForm(emptySpeakingForm())
+        queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
+        queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
         onRefresh()
       }
     } catch (err) {
@@ -267,6 +272,8 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
     try {
       await api.delete(`/admin/exams/${id}`)
       notifyTrashChanged()
+      queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
       onRefresh()
     } catch { showToast('Lỗi xóa đề') }
   }
@@ -514,7 +521,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
       )}
 
       <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-xs">
-        <h3 className="text-base font-semibold text-zinc-900 mb-4">Danh sách đề Speaking ({paginationData?.total ?? exams.length})</h3>
+        <h3 className="text-base font-semibold text-zinc-900 mb-4">Danh sách đề Speaking</h3>
         <ExamList exams={exams} skill="speaking" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} error={loadError} />
       </div>
     </div>

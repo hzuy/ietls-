@@ -4,6 +4,7 @@ import Navbar from '../components/Navbar'
 import Breadcrumb from '../components/common/Breadcrumb'
 import { FolderArchive } from 'lucide-react'
 import ContentCard from '../components/common/ContentCard'
+import AcademicCover from '../components/common/AcademicCover'
 import { SkeletonCard } from '../components/skeletons'
 import { CONTENT_CARD_CONFIG } from '../components/common/contentCardConfig'
 import { BACKEND_URL, resolveImg } from '../utils/media'
@@ -23,7 +24,15 @@ function SeriesCard({ item, onClick }) {
         hoverStyle="subtle"
         image={resolveImg(item.coverImageUrl)}
         imageAlt={item.title}
-        placeholder={CONTENT_CARD_CONFIG.fullTest.placeholder}
+        academicCover={
+          <AcademicCover
+            title={item.title}
+            seriesName={item.seriesName}
+            volume={item.bookNumber}
+            subtitle={hasTests ? `${item.testCount} bài test` : 'Sắp có bài'}
+            skill="fullTest"
+          />
+        }
         thumbAspect="4/5"
         title={item.title}
         titleClamp={2}
@@ -46,7 +55,7 @@ function SeriesCard({ item, onClick }) {
           <span style={{
             background: 'rgba(255,255,255,0.92)', color: 'var(--ink-soft)',
             fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 4,
-            textTransform: 'uppercase', fontFamily: 'var(--font-body)',
+            textTransform: 'uppercase',
           }}>Sắp có bài</span>
         </div>
       )}
@@ -140,7 +149,7 @@ function SeriesRow({ title, count, children }) {
   return (
     <section className="mb-12">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: 'var(--ink-soft)', margin: 0 }}>{title}</h2>
+        <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-soft)', margin: 0 }}>{title}</h2>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, background: 'var(--primary-light)', color: 'var(--primary)', padding: '3px 10px', borderRadius: 20, border: '1px solid var(--border)' }}>{count}</span>
       </div>
 
@@ -258,8 +267,8 @@ export default function FullTest() {
             <div className="w-16 h-16 rounded-full bg-zinc-50 border border-zinc-200 flex items-center justify-center mb-6 text-zinc-400">
               <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
             </div>
-            <p className="text-lg font-bold text-zinc-900 mb-2" style={{ fontFamily: 'var(--font-display)' }}>Không thể tải dữ liệu</p>
-            <p className="text-zinc-500 mb-6 max-w-sm text-sm" style={{ fontFamily: 'var(--font-body)' }}>Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
+            <p className="text-lg font-bold text-zinc-900 mb-2">Không thể tải dữ liệu</p>
+            <p className="text-zinc-500 mb-6 max-w-sm text-sm">Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
             <button className="btn-primary px-8 py-3 font-bold text-sm" onClick={() => window.location.reload()}>Thử lại</button>
           </div>
         ) : loading ? (
@@ -278,8 +287,8 @@ export default function FullTest() {
         ) : Object.keys(groupedData).length === 0 ? (
           <div style={{ textAlign: 'center', padding: '80px 0', background: 'var(--surface)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-xs)' }}>
             <FolderArchive className="w-12 h-12 text-zinc-400 mx-auto mb-3 stroke-[1.5]" />
-            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: 'var(--ink-soft)', margin: '0 0 8px' }}>Chưa có bộ đề nào</h3>
-            <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text)', fontSize: 14 }}>Dữ liệu đang được cập nhật, vui lòng quay lại sau.</p>
+            <h3 style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink-soft)', margin: '0 0 8px' }}>Chưa có bộ đề nào</h3>
+            <p style={{ color: 'var(--text)', fontSize: 14 }}>Dữ liệu đang được cập nhật, vui lòng quay lại sau.</p>
           </div>
         ) : (
           Object.values(groupedData).map((series) => (

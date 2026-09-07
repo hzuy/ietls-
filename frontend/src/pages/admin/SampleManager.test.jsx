@@ -1,8 +1,34 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render as rtlRender, screen, fireEvent, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import SampleManager from './SampleManager'
 import { ToastProvider } from '../../context/ToastContext'
 import * as sampleService from '../../services/sampleService'
+
+const createTestQueryClient = () => new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+    },
+  },
+})
+
+function render(ui) {
+  const queryClient = createTestQueryClient()
+  const result = rtlRender(
+    <QueryClientProvider client={queryClient}>
+      {ui}
+    </QueryClientProvider>
+  )
+  return {
+    ...result,
+    rerender: (newUi) => result.rerender(
+      <QueryClientProvider client={queryClient}>
+        {newUi}
+      </QueryClientProvider>
+    ),
+  }
+}
 
 // RichTextEditor dùng contentEditable + execCommand (không chạy được trong jsdom).
 // Thay bằng textarea đơn giản, giữ đúng hợp đồng value/onChange/placeholder.

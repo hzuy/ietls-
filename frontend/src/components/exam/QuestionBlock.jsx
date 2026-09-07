@@ -1,3 +1,6 @@
+import React from 'react'
+import { toImgSrc } from '../../utils/media'
+
 const MATCHING_TYPES = ['matching','matching_headings','matching_features','matching_paragraph','matching_endings','choose_title','map_diagram']
 
 // Danh sách radio 1-lựa-chọn dùng chung cho mcq / true_false_ng / yes_no_ng.
@@ -27,7 +30,7 @@ function SingleChoiceList({ options, q, answers, onAnswer, previewMode, showAnsw
   )
 }
 
-export default function QuestionBlock({ q, globalIdx, answers, onAnswer, maxChoices = 2, previewMode, showAnswers }) {
+function QuestionBlockInner({ q, globalIdx, answers, onAnswer, maxChoices = 2, previewMode, showAnswers }) {
   const opts = q.options ? (typeof q.options === 'string' ? JSON.parse(q.options) : q.options) : []
   const selected = (answers[q.id] || '').split(',').filter(Boolean)
 
@@ -81,7 +84,7 @@ export default function QuestionBlock({ q, globalIdx, answers, onAnswer, maxChoi
       {/* Text input: fill_blank, diagram_completion */}
       {['fill_blank', 'diagram_completion'].includes(q.type) && (
         <div className="pl-8">
-          {q.imageUrl && <img src={q.imageUrl} alt="diagram" className="w-full max-w-sm rounded-lg mb-2 border border-zinc-200" />}
+          {q.imageUrl && <img src={toImgSrc(q.imageUrl)} alt="diagram" className="img-crisp w-full max-w-sm rounded-lg mb-2 border border-zinc-200" style={{ imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)' }} loading="lazy" decoding="async" />}
           <input type="text"
             value={previewMode && showAnswers ? (q.correctAnswer || '') : (answers[q.id] || '')}
             readOnly={previewMode}
@@ -94,7 +97,7 @@ export default function QuestionBlock({ q, globalIdx, answers, onAnswer, maxChoi
       {/* Matching types — select dropdown */}
       {MATCHING_TYPES.includes(q.type) && (
         <div className="pl-8">
-          {q.imageUrl && <img src={q.imageUrl} alt="map/diagram" className="w-full max-w-sm rounded-lg mb-2 border border-zinc-200" />}
+          {q.imageUrl && <img src={toImgSrc(q.imageUrl)} alt="map/diagram" className="img-crisp w-full max-w-sm rounded-lg mb-2 border border-zinc-200" style={{ imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)' }} loading="lazy" decoding="async" />}
           {opts.length > 0 ? (
             <select
               value={previewMode && showAnswers ? (q.correctAnswer || '') : (answers[q.id] || '')}
@@ -117,3 +120,19 @@ export default function QuestionBlock({ q, globalIdx, answers, onAnswer, maxChoi
     </div>
   )
 }
+
+const QuestionBlock = React.memo(QuestionBlockInner, (prev, next) => {
+  return (
+    prev.q?.id === next.q?.id &&
+    prev.q?.questionText === next.q?.questionText &&
+    prev.q?.options === next.q?.options &&
+    prev.q?.correctAnswer === next.q?.correctAnswer &&
+    prev.answers[prev.q?.id] === next.answers[next.q?.id] &&
+    prev.onAnswer === next.onAnswer &&
+    prev.previewMode === next.previewMode &&
+    prev.showAnswers === next.showAnswers &&
+    prev.maxChoices === next.maxChoices
+  )
+})
+
+export default QuestionBlock

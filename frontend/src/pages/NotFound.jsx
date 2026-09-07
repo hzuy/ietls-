@@ -11,10 +11,10 @@ export default function NotFound() {
         <h1 className="text-[120px] font-extrabold text-slate-900 leading-none mb-4 tracking-tighter" style={{ fontFamily: 'var(--font-mono)' }}>
           404
         </h1>
-        <h2 className="text-[24px] font-bold text-slate-900 mb-3" style={{ fontFamily: 'var(--font-display)' }}>
+        <h2 className="text-[24px] font-bold text-slate-900 mb-3">
           Trang không tồn tại
         </h2>
-        <p className="text-[15px] text-slate-600 mb-8 max-w-sm mx-auto" style={{ fontFamily: 'var(--font-body)' }}>
+        <p className="text-[15px] text-slate-600 mb-8 max-w-sm mx-auto">
           Trang bạn đang tìm kiếm có thể đã bị xóa, đổi tên hoặc tạm thời không truy cập được.
         </p>
         <button

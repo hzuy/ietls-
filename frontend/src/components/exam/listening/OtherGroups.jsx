@@ -7,6 +7,7 @@
 // │ nhưng ĐỪNG gộp OtherGroups (Listening) với GroupBlock (Reading) nếu chưa       │
 // │ thống nhất prefix trước, nếu không scroll/jump-to-question sẽ hỏng.            │
 // └─────────────────────────────────────────────────────────────────────────────┘
+import React from 'react'
 import TableCompletionRender from '../../TableCompletionRender'
 import DragWordBankGroup from '../../DragWordBankGroup'
 import MatchingDragGroup from '../../MatchingDragGroup'
@@ -15,6 +16,7 @@ import MatchingHeadingsGroup from '../../MatchingHeadingsGroup'
 import NoteCompletionGroup from './NoteCompletionGroup'
 import MCQGroup from './MCQGroup'
 import MapDiagramGroup from './MapDiagramGroup'
+import { toImgSrc } from '../../../utils/media'
 
 function InstructionBanner({ group }) {
   return (
@@ -26,7 +28,7 @@ function InstructionBanner({ group }) {
 }
 
 // ── Matching Group (dropdown list, non-map) ───────────────────────────────────
-function MatchingGroup({ group, answers, onAnswer, previewMode, showAnswers }) {
+function MatchingGroupInner({ group, answers, onAnswer, previewMode, showAnswers }) {
   const opts = (group.matchingOptions || []).map(mo => mo.optionLetter)
   return (
     <div id={`question-${group.qNumberStart}`} className="mb-6 scroll-mt-4">
@@ -62,8 +64,24 @@ function MatchingGroup({ group, answers, onAnswer, previewMode, showAnswers }) {
   )
 }
 
+function areMatchingPropsEqual(prev, next) {
+  if (
+    prev.group !== next.group ||
+    prev.previewMode !== next.previewMode ||
+    prev.showAnswers !== next.showAnswers ||
+    prev.onAnswer !== next.onAnswer
+  ) return false
+  const qs = prev.group?.questions || []
+  for (let i = 0; i < qs.length; i++) {
+    const qId = qs[i].id
+    if (prev.answers?.[qId] !== next.answers?.[qId]) return false
+  }
+  return true
+}
+const MatchingGroup = React.memo(MatchingGroupInner, areMatchingPropsEqual)
+
 // ── Dispatcher ────────────────────────────────────────────────────────────────
-export function GroupBlock({ group, answers, onAnswer, previewMode, showAnswers }) {
+function GroupBlockInner({ group, answers, onAnswer, previewMode, showAnswers }) {
   if (group.type === 'note_completion') return <NoteCompletionGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
   if (group.type === 'table_completion') return <TableCompletionRender group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
   if (group.type === 'mcq')             return <MCQGroup group={group} answers={answers} onAnswer={onAnswer} isMulti={false} previewMode={previewMode} showAnswers={showAnswers} />
@@ -77,8 +95,25 @@ export function GroupBlock({ group, answers, onAnswer, previewMode, showAnswers 
   return null
 }
 
+function areListeningGroupPropsEqual(prev, next) {
+  if (
+    prev.group !== next.group ||
+    prev.previewMode !== next.previewMode ||
+    prev.showAnswers !== next.showAnswers ||
+    prev.onAnswer !== next.onAnswer
+  ) return false
+  const qs = prev.group?.questions || []
+  for (let i = 0; i < qs.length; i++) {
+    const qId = qs[i].id
+    if (prev.answers?.[qId] !== next.answers?.[qId]) return false
+  }
+  return true
+}
+
+export const GroupBlock = React.memo(GroupBlockInner, areListeningGroupPropsEqual)
+
 // ── Legacy direct-question support ───────────────────────────────────────────
-export function QuestionBlock({ q, globalIdx, answers, onAnswer, previewMode, showAnswers }) {
+function QuestionBlockInner({ q, globalIdx, answers, onAnswer, previewMode, showAnswers }) {
   const opts = q.options ? JSON.parse(q.options) : []
   const selected = (answers[q.id] || '').split(',').filter(Boolean)
   return (
@@ -141,7 +176,7 @@ export function QuestionBlock({ q, globalIdx, answers, onAnswer, previewMode, sh
       )}
       {['matching', 'map_diagram'].includes(q.type) && (
         <div className="pl-8">
-          {q.imageUrl && <img src={q.imageUrl} alt="map/diagram" className="w-full max-w-sm rounded-lg mb-2 border border-zinc-200" />}
+          {q.imageUrl && <img src={toImgSrc(q.imageUrl)} alt="map/diagram" className="img-crisp w-full max-w-sm rounded-lg mb-2 border border-zinc-200" style={{ imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)' }} loading="lazy" decoding="async" />}
           {opts.length > 0 ? (
             <select
               value={previewMode && showAnswers ? (q.correctAnswer || '') : (answers[q.id] || '')}
@@ -165,6 +200,20 @@ export function QuestionBlock({ q, globalIdx, answers, onAnswer, previewMode, sh
   )
 }
 
+function areListeningQuestionPropsEqual(prev, next) {
+  if (
+    prev.q !== next.q ||
+    prev.globalIdx !== next.globalIdx ||
+    prev.previewMode !== next.previewMode ||
+    prev.showAnswers !== next.showAnswers ||
+    prev.onAnswer !== next.onAnswer
+  ) return false
+  const qId = prev.q?.id
+  return prev.answers?.[qId] === next.answers?.[qId]
+}
+
+export const QuestionBlock = React.memo(QuestionBlockInner, areListeningQuestionPropsEqual)
+
 export function groupByType(questions) {
   const groups = []
   let i = 0
@@ -176,3 +225,4 @@ export function groupByType(questions) {
   }
   return groups
 }
+

@@ -34,13 +34,13 @@ export default function ConfirmExitModal({
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="btn-primary flex-1 py-2.5 rounded-lg text-sm font-medium transition cursor-pointer shadow-xs"
+            className="btn-primary flex-1 h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium shadow-xs transition-colors cursor-pointer flex items-center justify-center"
           >
             {cancelText}
           </button>
           <button
             onClick={onConfirm}
-            className="btn-danger flex-1 py-2.5 rounded-lg text-sm font-medium transition cursor-pointer"
+            className="btn-danger flex-1 h-9 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-xs sm:text-sm font-medium shadow-xs transition-colors cursor-pointer flex items-center justify-center"
           >
             {confirmText}
           </button>

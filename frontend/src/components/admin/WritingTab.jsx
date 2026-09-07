@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { queryClient } from '../../lib/queryClient'
 import api from '../../utils/axios'
 import { showAlert } from '../../utils/alertUtils'
 import { notifyTrashChanged } from '../../services/adminService'
@@ -256,12 +257,16 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         await api.put(`/admin/exams/${editingId}`, payload)
         localStorage.removeItem(`draft_writing_${editingId}`)
         showToast('✅ Cập nhật đề thành công!')
+        queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
+        queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
         onRefresh()
       } else {
         await api.post('/admin/exams/writing', payload)
         localStorage.removeItem('draft_writing_new')
         showToast('✅ Tạo đề thành công!')
         setForm(emptyWritingForm())
+        queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
+        queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
         onRefresh()
       }
     } catch (err) {
@@ -278,6 +283,8 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     try {
       await api.delete(`/admin/exams/${id}`)
       notifyTrashChanged()
+      queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
       onRefresh()
     } catch { showToast('Lỗi xóa đề') }
   }
@@ -450,7 +457,7 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       )}
 
       <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-xs">
-        <h3 className="text-base font-semibold text-zinc-900 mb-4">Danh sách đề Writing ({paginationData?.total ?? exams.length})</h3>
+        <h3 className="text-base font-semibold text-zinc-900 mb-4">Danh sách đề Writing</h3>
         <ExamList exams={exams} skill="writing" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} error={loadError} />
       </div>
     </div>

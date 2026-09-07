@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import Breadcrumb from '../components/common/Breadcrumb'
 import ContentCard from '../components/common/ContentCard'
+import AcademicCover from '../components/common/AcademicCover'
 import { SkeletonCard } from '../components/skeletons'
 import { CONTENT_CARD_CONFIG } from '../components/common/contentCardConfig'
 import { getTypesBySkill } from '../utils/questionTypes'
@@ -64,7 +65,13 @@ export default function PracticeList({ skill: skillKey }) {
         className="h-full"
         image={resolveImg(item.thumbnailUrl)}
         imageAlt={item.title}
-        placeholder={CONTENT_CARD_CONFIG[skill].placeholder}
+        academicCover={
+          <AcademicCover
+            title={item.title}
+            subtitle={`${item.questionCount || 0} câu hỏi`}
+            skill={skill}
+          />
+        }
         thumbAspect="160px"
         title={item.title}
         titleClamp={2}
@@ -96,8 +103,8 @@ export default function PracticeList({ skill: skillKey }) {
             <div className="w-16 h-16 rounded-full bg-zinc-50 border border-zinc-200 flex items-center justify-center mb-6 text-zinc-400">
               <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
             </div>
-            <p className="text-lg font-bold text-zinc-900 mb-2" style={{ fontFamily: 'var(--font-display)' }}>Không thể tải dữ liệu</p>
-            <p className="text-zinc-500 mb-6 max-w-sm text-sm" style={{ fontFamily: 'var(--font-body)' }}>Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
+            <p className="text-lg font-bold text-zinc-900 mb-2">Không thể tải dữ liệu</p>
+            <p className="text-zinc-500 mb-6 max-w-sm text-sm">Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
             <button className="btn-primary px-8 py-3 font-bold text-sm" onClick={() => window.location.reload()}>Thử lại</button>
           </div>
         ) : exams.length === 0 ? (
@@ -105,8 +112,8 @@ export default function PracticeList({ skill: skillKey }) {
             <div className="w-16 h-16 rounded-full bg-zinc-50 border border-zinc-200 flex items-center justify-center mb-6 text-zinc-400">
               <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
             </div>
-            <p className="text-lg font-bold text-zinc-900 mb-2" style={{ fontFamily: 'var(--font-display)' }}>Không tìm thấy bài luyện tập</p>
-            <p className="text-zinc-500 mb-6 max-w-sm text-sm" style={{ fontFamily: 'var(--font-body)' }}>Hãy thử lựa chọn cấp độ hoặc kỹ năng khác.</p>
+            <p className="text-lg font-bold text-zinc-900 mb-2">Không tìm thấy bài luyện tập</p>
+            <p className="text-zinc-500 mb-6 max-w-sm text-sm">Hãy thử lựa chọn cấp độ hoặc kỹ năng khác.</p>
             <button className="btn-primary px-6 py-2.5 font-bold text-sm" onClick={() => navigate('/')}>Về trang chủ</button>
           </div>
         ) : (

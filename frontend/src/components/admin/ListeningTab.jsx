@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { queryClient } from '../../lib/queryClient'
 import api from '../../utils/axios'
 import { showAlert } from '../../utils/alertUtils'
 import { notifyTrashChanged } from '../../services/adminService'
@@ -450,6 +451,8 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         await api.put(`/admin/exams/${editingId}`, payload)
         localStorage.removeItem(`draft_listening_${editingId}`)
         showToast('✅ Cập nhật đề thành công!')
+        queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
+        queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
         onRefresh()
       } else {
         await api.post('/admin/exams/listening', payload)
@@ -457,6 +460,8 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         showToast('✅ Tạo đề thành công!')
         setForm(emptyListeningForm())
         setOpenSection(0)
+        queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
+        queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
         onRefresh()
       }
     } catch (err) {
@@ -476,6 +481,8 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     try {
       await api.delete(`/admin/exams/${id}`)
       notifyTrashChanged()
+      queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
       onRefresh()
     } catch { showToast('Lỗi xóa đề') }
   }
@@ -751,7 +758,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       )}
 
       <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-xs">
-        <h3 className="text-base font-semibold text-zinc-900 mb-4">Danh sách đề Listening ({paginationData?.total ?? exams.length})</h3>
+        <h3 className="text-base font-semibold text-zinc-900 mb-4">Danh sách đề Listening</h3>
         <ExamList exams={exams} skill="listening" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} error={loadError} />
       </div>
     </div>

@@ -12,6 +12,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import Navbar from '../components/Navbar'
+import AcademicCover from '../components/common/AcademicCover'
 import { useAuth } from '../context/AuthContext'
 import { useAuthGate } from '../hooks/useAuthGate'
 import { getUserStats } from '../services/userService'
@@ -52,28 +53,24 @@ function CompactBookCard({ book, onClick }) {
             src={resolveImg(book.coverImageUrl)}
             alt={book.title}
             onError={() => setImgError(true)}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="img-crisp w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            style={{
+              imageRendering: '-webkit-optimize-contrast',
+              transform: 'translateZ(0)',
+              backfaceVisibility: 'hidden',
+            }}
             loading="lazy"
+            decoding="async"
           />
         ) : (
-          /* Elegant Minimalist Typography Cover */
-          <div className="w-full h-full flex flex-col justify-between p-3.5 bg-gradient-to-b from-zinc-100 to-zinc-200/80 dark:from-zinc-800 dark:to-zinc-900 text-center select-none">
-            <div className="flex items-center justify-between text-[9px] font-bold font-mono uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
-              <span>IELTS</span>
-              <span>ACAD</span>
-            </div>
-            <div className="my-auto py-1">
-              <span className="block text-[10px] font-bold text-zinc-500 dark:text-zinc-400 tracking-wider uppercase font-mono">
-                {book.seriesName || 'CAMBRIDGE'}
-              </span>
-              <span className="block text-3xl font-black text-zinc-900 dark:text-zinc-50 font-mono tracking-tight my-0.5">
-                {book.bookNumber}
-              </span>
-            </div>
-            <div className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400 border-t border-zinc-300/60 dark:border-zinc-700/60 pt-1.5">
-              4 Full Tests
-            </div>
-          </div>
+          /* Elegant Minimalist Vector Typography Cover */
+          <AcademicCover
+            title={book.title}
+            seriesName={book.seriesName || 'CAMBRIDGE'}
+            volume={book.bookNumber}
+            subtitle={`${book.testCount || 4} Full Tests`}
+            skill="fullTest"
+          />
         )}
       </div>
 
@@ -266,17 +263,11 @@ export default function Home() {
         <div className="bg-dots" aria-hidden="true" />
         <div className="app-container py-8 md:py-10 relative">
           <div className="max-w-2xl anim-fade-up">
-            <h1
-              className="text-2xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight"
-              style={{ fontFamily: 'var(--font-display)' }}
-            >
+            <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">
               Không gian Luyện thi & Khảo thí IELTS
             </h1>
 
-            <p
-              className="text-sm text-zinc-500 dark:text-zinc-400 max-w-xl leading-relaxed mt-2"
-              style={{ fontFamily: 'var(--font-body)' }}
-            >
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-xl leading-relaxed mt-2">
               Nền tảng kiểm tra trực tuyến mô phỏng kỳ thi trên máy tính, tích hợp AI phân tích 4 kỹ năng.
             </p>
 

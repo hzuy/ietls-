@@ -7,7 +7,6 @@ export default function SampleHeader({ type, taskLabel, title, examType }) {
         <span style={{
           fontSize: 13,
           fontWeight: 800,
-          fontFamily: 'var(--font-body)',
           letterSpacing: '0.05em',
           color: 'var(--primary)',
           textTransform: 'uppercase'
@@ -19,7 +18,6 @@ export default function SampleHeader({ type, taskLabel, title, examType }) {
           <span style={{
             fontSize: 12,
             fontWeight: 700,
-            fontFamily: 'var(--font-body)',
             borderRadius: 'var(--radius-sm)',
             padding: '4px 12px',
             background: 'var(--primary-light)',
@@ -34,7 +32,6 @@ export default function SampleHeader({ type, taskLabel, title, examType }) {
           <span style={{
             fontSize: 12,
             fontWeight: 600,
-            fontFamily: 'var(--font-body)',
             borderRadius: 'var(--radius-sm)',
             padding: '4px 12px',
             background: 'var(--surface-raised)',

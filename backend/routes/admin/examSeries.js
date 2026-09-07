@@ -10,6 +10,7 @@ const { imageUpload, uploadsDir } = require('../../lib/adminUploads')
 const { invalidate } = require('../../lib/swrCache')
 const { getFullTestsCached } = require('../../lib/publicContent')
 const { resizeUploadedCover } = require('../../lib/imageResize')
+const { getOrSet, invalidateExamCaches, TTL_CAMBRIDGE } = require('../../utils/cache')
 
 // ─── GET FULL TESTS (grouped by bookNumber + testNumber) ─────────────────────
 // Fetcher + SWR cache nằm ở lib/publicContent.js (chia sẻ cache với /api/home).
@@ -26,11 +27,13 @@ router.get('/full-tests', async (req, res) => {
 // ─── EXAM SERIES CRUD ─────────────────────────────────────────────────────────
 router.get('/exam-series', authMiddleware, async (req, res) => {
   try {
-    const series = await prisma.examSeries.findMany({
-      where: { deletedAt: null },
-      orderBy: { createdAt: 'asc' },
-      include: { _count: { select: { bookCovers: { where: { deletedAt: null } } } } }
-    })
+    const series = await getOrSet('cambridge:series', () => {
+      return prisma.examSeries.findMany({
+        where: { deletedAt: null },
+        orderBy: { createdAt: 'asc' },
+        include: { _count: { select: { bookCovers: { where: { deletedAt: null } } } } }
+      })
+    }, TTL_CAMBRIDGE)
     res.json(series)
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
@@ -41,6 +44,7 @@ router.post('/exam-series', authMiddleware, teacherOnly, validate(examSeriesSche
   try {
     const { name } = req.body
     const s = await prisma.examSeries.create({ data: { name: name.trim() } })
+    invalidateExamCaches()
     res.json(s)
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
@@ -55,6 +59,7 @@ router.put('/exam-series/:id', authMiddleware, teacherOnly, validate(examSeriesS
       data: { name: name.trim() }
     })
     invalidate('fulltests:')
+    invalidateExamCaches()
     res.json(s)
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
@@ -66,6 +71,7 @@ router.delete('/exam-series/:id', authMiddleware, teacherOnly, async (req, res) 
     const id = parseInt(req.params.id)
     await prisma.examSeries.update({ where: { id }, data: { deletedAt: new Date() } })
     invalidate('fulltests:')
+    invalidateExamCaches()
     res.json({ ok: true })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
@@ -74,10 +80,13 @@ router.delete('/exam-series/:id', authMiddleware, teacherOnly, async (req, res) 
 
 router.get('/exam-series/:id/books', authMiddleware, async (req, res) => {
   try {
-    const books = await prisma.bookCover.findMany({
-      where: { seriesId: parseInt(req.params.id), deletedAt: null },
-      orderBy: { bookNumber: 'asc' }
-    })
+    const seriesId = parseInt(req.params.id)
+    const books = await getOrSet(`cambridge:books:${seriesId}`, () => {
+      return prisma.bookCover.findMany({
+        where: { seriesId, deletedAt: null },
+        orderBy: { bookNumber: 'asc' }
+      })
+    }, TTL_CAMBRIDGE)
     res.json(books)
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
@@ -94,6 +103,7 @@ router.post('/exam-series/:id/books', authMiddleware, teacherOnly, async (req, r
     const nextNumber = (max?.bookNumber || 0) + 1
     const book = await prisma.bookCover.create({ data: { seriesId, bookNumber: nextNumber } })
     invalidate('fulltests:')
+    invalidateExamCaches()
     res.json(book)
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })

@@ -490,7 +490,7 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
         </h2>
         <p className="text-sm text-zinc-500 mb-6">{error}</p>
         <button onClick={handleClose}
-          className="btn-primary px-5 py-2.5 rounded-lg text-sm font-medium">
+          className="btn-primary px-4 py-2 rounded-md text-xs sm:text-sm font-medium h-9">
           ← Quay lại
         </button>
       </div>
@@ -630,7 +630,7 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
             <button
               type="button"
               onClick={handleRetry}
-              className="w-full py-2 px-3.5 rounded-lg text-xs font-semibold bg-zinc-900 hover:bg-black text-white transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+              className="w-full h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium bg-zinc-900 hover:bg-zinc-800 text-white transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
             >
               <RotateCcw className="w-3.5 h-3.5 text-zinc-300" />
               Làm lại đề này
@@ -638,7 +638,7 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
             <button
               type="button"
               onClick={() => navigate('/progress')}
-              className="w-full py-2 px-3.5 rounded-lg text-xs font-semibold border border-zinc-200 hover:bg-zinc-100 text-zinc-900 transition flex items-center justify-center gap-2 cursor-pointer bg-white"
+              className="w-full h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium border border-zinc-200 hover:bg-zinc-100 text-zinc-900 transition-colors flex items-center justify-center gap-2 cursor-pointer bg-white shadow-xs"
             >
               <BarChart2 className="w-3.5 h-3.5 text-zinc-500" />
               Xem bảng phân tích
@@ -646,7 +646,7 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
             <button
               type="button"
               onClick={() => askAITutor(`Tôi vừa hoàn thành bài thi ${bookName || ''} Test ${testNumber || ''} (${skillLabel}) với kết quả ${correct}/${totalQuestions} câu đúng (${typeof bandScore === 'number' ? `Band ${bandScore}` : ''}). Hãy phân tích lỗi sai phổ biến và hướng dẫn cải thiện giúp tôi.`)}
-              className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 text-zinc-900 transition flex items-center justify-center gap-2 cursor-pointer border border-zinc-200/80"
+              className="w-full h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium bg-zinc-100 hover:bg-zinc-200 text-zinc-900 transition-colors flex items-center justify-center gap-2 cursor-pointer border border-zinc-200/80"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-500" />
               Hỏi AI Tutor câu sai
