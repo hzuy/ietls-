@@ -4,7 +4,7 @@ import Navbar from '../components/Navbar'
 
 import { useAuth } from '../context/AuthContext'
 import { checkDraft } from '../services/draftService'
-import { Headphones, BookOpen, PenTool, Mic } from 'lucide-react'
+import { Headphones, BookOpen, PenTool, Mic, AlertCircle } from 'lucide-react'
 import { BACKEND_URL, resolveImg, handleImgError } from '../utils/media'
 import Modal from '../components/common/Modal'
 
@@ -135,7 +135,7 @@ export default function FullTestDetail() {
   if (fetchError) return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}><Navbar />
       <div className="max-w-6xl mx-auto px-6 py-16 text-center" style={{ fontFamily: 'var(--font-body)' }}>
-        <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
+        <AlertCircle className="w-10 h-10 text-zinc-400 mx-auto mb-3 stroke-[1.75]" />
         <p style={{ color: 'var(--ink)', fontWeight: 700, fontSize: 16 }}>Không thể tải dữ liệu</p>
         <p style={{ color: 'var(--muted)', fontSize: 14 }}>Vui lòng kiểm tra kết nối và thử lại.</p>
       </div>
@@ -151,7 +151,7 @@ export default function FullTestDetail() {
   const title = `${bookData.seriesName} ${bookData.bookNumber}`
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
+    <div className="min-h-screen bg-zinc-50/50">
       <Navbar />
       <div className="max-w-6xl mx-auto px-4 py-6">
 
@@ -172,11 +172,11 @@ export default function FullTestDetail() {
                 <div style={{ width: 80, height: 110, borderRadius: 'var(--radius-sm)', overflow: 'hidden', flexShrink: 0, background: 'linear-gradient(135deg, var(--ink), var(--ink-soft))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {resolveImg(bookData.coverImageUrl)
                     ? <img src={resolveImg(bookData.coverImageUrl)} alt={title} loading="lazy" decoding="async" onError={handleImgError} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <span style={{ fontSize: 32 }}>📚</span>
+                    : <BookOpen className="w-8 h-8 text-zinc-400 stroke-[1.75]" />
                   }
                 </div>
                 <div style={{ flex: 1 }}>
-                  <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: 'var(--ink)', margin: '0 0 6px' }}>{title}</h1>
+                  <h1 className="text-2xl font-bold text-zinc-900 tracking-tight mb-1.5">{title}</h1>
                   <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--muted)', margin: '0 0 14px', lineHeight: 1.6 }}>Luyện tập trọn bộ 4 kỹ năng trong cuốn sách {title}.</p>
                   <div style={{ display: 'flex', gap: 16 }}>
                     <div style={{ textAlign: 'center' }}>
@@ -193,7 +193,7 @@ export default function FullTestDetail() {
             </div>
 
             {/* Test list */}
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: '0 0 14px' }}>Chọn bài test</h2>
+            <h2 className="text-lg font-semibold text-zinc-900 mb-3.5">Chọn bài test</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               {bookData.tests.map(test => {
                 // TODO: hiển thị tiến độ hoàn thành từng kỹ năng — chờ redesign API progress sau khi bỏ model Series
@@ -267,14 +267,14 @@ export default function FullTestDetail() {
                     onClick={() => navigate(`/full-test/${book.seriesId}?book=${book.bookNumber}`)}
                     style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
                   >
-                    <div style={{ width: 36, height: 48, borderRadius: 'var(--radius-sm)', background: 'var(--surface-raised)', flexShrink: 0, overflow: 'hidden' }}>
-                      {book.coverImageUrl ? <img src={resolveImg(book.coverImageUrl)} alt="" loading="lazy" decoding="async" onError={handleImgError} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '📚'}
+                    <div style={{ width: 36, height: 48, borderRadius: 'var(--radius-sm)', background: 'var(--surface-raised)', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {book.coverImageUrl ? <img src={resolveImg(book.coverImageUrl)} alt="" loading="lazy" decoding="async" onError={handleImgError} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <BookOpen className="w-4 h-4 text-zinc-400 stroke-[1.75]" />}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 700, color: 'var(--ink)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {book.seriesName} {book.bookNumber}
                       </p>
-                      <p style={{ fontFamily: 'var(--font-body)', fontSize: 10, color: 'var(--muted)', margin: 0 }}>Luyện tập ngay</p>
+                      <p style={{ fontFamily: 'var(--font-body)', fontSize: 10, color: 'var(--muted)', margin: 0 }}>Chi tiết bộ đề</p>
                     </div>
                   </div>
                 ))}
@@ -298,7 +298,7 @@ export default function FullTestDetail() {
                 type="button"
                 onClick={() => setModal(null)}
                 aria-label="Đóng"
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors font-bold cursor-pointer border-none bg-transparent"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-colors font-bold cursor-pointer border-none bg-transparent"
               >
                 ✕
               </button>

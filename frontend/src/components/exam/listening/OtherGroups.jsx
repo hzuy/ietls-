@@ -1,4 +1,4 @@
-﻿// ┌─────────────────────────────────────────────────────────────────────────────┐
+// ┌─────────────────────────────────────────────────────────────────────────────┐
 // │ QUY ƯỚC DOM ID — file này (Listening) dùng prefix `question-${n}`.            │
 // │ Bản Reading tương ứng (components/exam/GroupBlock.jsx + QuestionBlock.jsx)    │
 // │ dùng prefix `q-${n}`.                                                        │
@@ -18,9 +18,9 @@ import MapDiagramGroup from './MapDiagramGroup'
 
 function InstructionBanner({ group }) {
   return (
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 text-sm">
-      <p className="font-bold text-gray-800 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
-      {group.instruction && <p className="text-gray-700">{group.instruction}</p>}
+    <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 mb-4 text-sm">
+      <p className="font-semibold text-zinc-900 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
+      {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
     </div>
   )
 }
@@ -32,18 +32,18 @@ function MatchingGroup({ group, answers, onAnswer, previewMode, showAnswers }) {
     <div id={`question-${group.qNumberStart}`} className="mb-6 scroll-mt-4">
       <InstructionBanner group={group} />
       {(group.matchingOptions || []).length > 0 && (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4">
+        <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3 mb-4">
           {(group.matchingOptions || []).map(mo => (
-            <p key={mo.id} className="text-sm text-gray-700 py-0.5">
-              <span className="font-bold text-[var(--primary-hover)] mr-2">{mo.optionLetter}.</span>{mo.optionText}
+            <p key={mo.id} className="text-sm text-zinc-700 py-0.5">
+              <span className="font-bold text-zinc-900 mr-2">{mo.optionLetter}.</span>{mo.optionText}
             </p>
           ))}
         </div>
       )}
       {(group.questions || []).map(q => (
         <div key={q.id} id={`question-${q.number}`} className="mb-4 scroll-mt-4">
-          <p className="text-sm text-gray-800 mb-2 leading-relaxed flex gap-2">
-            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold text-xs shrink-0 mt-0.5">{q.number}</span>
+          <p className="text-sm text-zinc-900 mb-2 leading-relaxed flex gap-2">
+            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-xs shrink-0 mt-0.5">{q.number}</span>
             <span>{q.questionText}</span>
           </p>
           <div className="pl-8">
@@ -51,7 +51,7 @@ function MatchingGroup({ group, answers, onAnswer, previewMode, showAnswers }) {
               value={previewMode && showAnswers ? (q.correctAnswer || '') : (answers[q.id] || '')}
               disabled={previewMode}
               onChange={previewMode ? undefined : e => onAnswer(q.id, e.target.value)}
-              className={`border ${previewMode && showAnswers ? 'border-green-400 text-green-700 font-semibold' : 'border-gray-300'} rounded-lg px-3 py-1.5 text-sm focus:border-blue-500 outline-none bg-white min-w-32`}>
+              className={`border ${previewMode && showAnswers ? 'border-green-400 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} rounded-lg px-3 py-1.5 text-sm outline-none bg-white min-w-32`}>
               <option value="">— Chọn —</option>
               {opts.map(opt => <option key={opt} value={opt}>{opt}</option>)}
             </select>
@@ -83,8 +83,8 @@ export function QuestionBlock({ q, globalIdx, answers, onAnswer, previewMode, sh
   const selected = (answers[q.id] || '').split(',').filter(Boolean)
   return (
     <div id={`question-${q.number}`} className="mb-5 scroll-mt-4">
-      <p className="text-sm text-gray-800 mb-2 leading-relaxed flex gap-2">
-        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold text-xs shrink-0 mt-0.5">{globalIdx + 1}</span>
+      <p className="text-sm text-zinc-900 mb-2 leading-relaxed flex gap-2">
+        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-xs shrink-0 mt-0.5">{globalIdx + 1}</span>
         <span>{q.questionText}</span>
       </p>
       {q.type === 'mcq' && (
@@ -94,13 +94,13 @@ export function QuestionBlock({ q, globalIdx, answers, onAnswer, previewMode, sh
             return (
               <label key={opt} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition
                 ${isSelected && previewMode && showAnswers ? 'bg-green-50 border border-green-400 text-green-700 cursor-default'
-                  : isSelected ? 'bg-blue-50 border border-blue-400 text-blue-700 cursor-pointer'
-                  : previewMode ? 'border border-transparent text-gray-500 cursor-default'
-                  : 'hover:bg-gray-50 border border-transparent cursor-pointer'}`}>
+                  : isSelected ? 'bg-zinc-100 border border-zinc-900 text-zinc-900 font-medium cursor-pointer'
+                  : previewMode ? 'border border-transparent text-zinc-400 cursor-default'
+                  : 'hover:bg-zinc-50 border border-transparent text-zinc-700 cursor-pointer'}`}>
                 <input type="radio" name={`q${q.id}`} checked={isSelected}
                   disabled={previewMode}
                   onChange={previewMode ? undefined : () => onAnswer(q.id, opt)}
-                  className="accent-blue-600" />
+                  className="accent-zinc-900" />
                 {opt}
               </label>
             )
@@ -115,10 +115,10 @@ export function QuestionBlock({ q, globalIdx, answers, onAnswer, previewMode, sh
             return (
               <label key={opt} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition
                 ${checked && previewMode && showAnswers ? 'bg-green-50 border border-green-400 text-green-700 cursor-default'
-                  : checked ? 'bg-blue-50 border border-blue-400 text-blue-700 cursor-pointer'
-                  : previewMode ? 'border border-transparent text-gray-500 cursor-default'
-                  : 'hover:bg-gray-50 border border-transparent cursor-pointer'}`}>
-                <input type="checkbox" checked={checked} disabled={previewMode} className="accent-blue-600"
+                  : checked ? 'bg-zinc-100 border border-zinc-900 text-zinc-900 font-medium cursor-pointer'
+                  : previewMode ? 'border border-transparent text-zinc-400 cursor-default'
+                  : 'hover:bg-zinc-50 border border-transparent text-zinc-700 cursor-pointer'}`}>
+                <input type="checkbox" checked={checked} disabled={previewMode} className="accent-zinc-900"
                   onChange={previewMode ? undefined : () => {
                     const next = checked ? selected.filter(s => s !== opt) : [...selected, opt].sort()
                     onAnswer(q.id, next.join(','))
@@ -136,18 +136,18 @@ export function QuestionBlock({ q, globalIdx, answers, onAnswer, previewMode, sh
             readOnly={previewMode}
             onChange={previewMode ? undefined : e => onAnswer(q.id, e.target.value)}
             placeholder={previewMode ? '' : 'Nhập đáp án...'}
-            className={`border-b-2 ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'border-gray-300 focus:border-blue-500'} outline-none px-2 py-1 text-sm w-56 bg-transparent transition`} />
+            className={`border-b-2 ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} outline-none px-2 py-1 text-sm w-56 bg-transparent transition`} />
         </div>
       )}
       {['matching', 'map_diagram'].includes(q.type) && (
         <div className="pl-8">
-          {q.imageUrl && <img src={q.imageUrl} alt="map/diagram" className="w-full max-w-sm rounded-lg mb-2 border" />}
+          {q.imageUrl && <img src={q.imageUrl} alt="map/diagram" className="w-full max-w-sm rounded-lg mb-2 border border-zinc-200" />}
           {opts.length > 0 ? (
             <select
               value={previewMode && showAnswers ? (q.correctAnswer || '') : (answers[q.id] || '')}
               disabled={previewMode}
               onChange={previewMode ? undefined : e => onAnswer(q.id, e.target.value)}
-              className={`border ${previewMode && showAnswers ? 'border-green-400 text-green-700 font-semibold' : 'border-gray-300'} rounded-lg px-3 py-1.5 text-sm focus:border-blue-500 outline-none bg-white min-w-48`}>
+              className={`border ${previewMode && showAnswers ? 'border-green-400 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} rounded-lg px-3 py-1.5 text-sm outline-none bg-white min-w-48`}>
               <option value="">— Chọn đáp án —</option>
               {opts.map(opt => <option key={opt} value={opt}>{opt}</option>)}
             </select>
@@ -157,7 +157,7 @@ export function QuestionBlock({ q, globalIdx, answers, onAnswer, previewMode, sh
               readOnly={previewMode}
               onChange={previewMode ? undefined : e => onAnswer(q.id, e.target.value)}
               placeholder={previewMode ? '' : 'Nhập đáp án...'}
-              className={`border-b-2 ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'border-gray-300 focus:border-blue-500'} outline-none px-2 py-1 text-sm w-56 bg-transparent transition`} />
+              className={`border-b-2 ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} outline-none px-2 py-1 text-sm w-56 bg-transparent transition`} />
           )}
         </div>
       )}

@@ -124,5 +124,45 @@ describe('Listening Submission Routes', () => {
       expect(res.status).toBe(400)
       expect(res.body.errors[0].field).toBe('answers')
     })
+
+    // ─── BUG-26: max_attempts_per_exam tests ──────────────────────────────
+    it('allows submission when attempts count is below max_attempts_per_exam', async () => {
+      prismaMock.setting.findUnique.mockResolvedValue({ key: 'max_attempts_per_exam', value: '2' })
+      prismaMock.attempt.count.mockResolvedValue(1)
+      prismaMock.listeningSection.findMany.mockResolvedValue([
+        {
+          id: 1,
+          questions: [
+            { id: 201, number: 1, type: 'fill_blank', questionText: 'L1', correctAnswer: 'london', groupId: null },
+          ],
+          questionGroups: [],
+        },
+      ])
+      prismaMock.attempt.create.mockResolvedValue({ id: 95 })
+      prismaMock.questionAnswer.createMany.mockResolvedValue({ count: 1 })
+      prismaMock.answerLog.createMany.mockResolvedValue({ count: 1 })
+
+      const res = await request(app)
+        .post('/api/listening/exams/1/submit')
+        .set('Authorization', `Bearer ${getTestToken(10)}`)
+        .send({ answers: { '201': 'london' } })
+
+      expect(res.status).toBe(200)
+      expect(res.body.attemptId).toBe(95)
+    })
+
+    it('blocks submission with 429 when user reaches max_attempts_per_exam', async () => {
+      prismaMock.setting.findUnique.mockResolvedValue({ key: 'max_attempts_per_exam', value: '2' })
+      prismaMock.attempt.count.mockResolvedValue(2)
+
+      const res = await request(app)
+        .post('/api/listening/exams/1/submit')
+        .set('Authorization', `Bearer ${getTestToken(10)}`)
+        .send({ answers: { '201': 'london' } })
+
+      expect(res.status).toBe(429)
+      expect(res.body.message).toBe('Bạn đã đạt giới hạn 2 lượt thi cho đề này.')
+      expect(prismaMock.attempt.create).not.toHaveBeenCalled()
+    })
   })
 })

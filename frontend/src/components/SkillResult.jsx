@@ -5,8 +5,9 @@
  */
 import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { RotateCcw, BookOpen, Home } from 'lucide-react'
+import { RotateCcw, BookOpen, Home, Trophy, Target, Award, AlertCircle, BarChart2, Check, Sparkles, X } from 'lucide-react'
 import api from '../utils/axios'
+import { askAITutor } from './common/AIChatbotDrawer'
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 
@@ -34,12 +35,34 @@ function getScoreMessage(correct, total) {
   return 'Xuất sắc! Bạn đã làm rất tốt bài thi này!'
 }
 
-function getIllustration(correct, total) {
-  if (!total) return '📖'
+function ResultHeroIcon({ correct, total }) {
+  if (!total) {
+    return (
+      <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-500">
+        <BookOpen className="w-8 h-8 stroke-[1.75]" />
+      </div>
+    )
+  }
   const r = correct / total
-  if (r >= 0.85) return '🏆'
-  if (r >= 0.5)  return '📖'
-  return '🧑‍💻'
+  if (r >= 0.85) {
+    return (
+      <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+        <Trophy className="w-8 h-8 stroke-[1.75]" />
+      </div>
+    )
+  }
+  if (r >= 0.5) {
+    return (
+      <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-900 dark:text-zinc-100">
+        <Target className="w-8 h-8 stroke-[1.75]" />
+      </div>
+    )
+  }
+  return (
+    <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-500">
+      <BookOpen className="w-8 h-8 stroke-[1.75]" />
+    </div>
+  )
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -170,7 +193,7 @@ const MissedLabel = () => (
   </span>
 )
 
-function AnswerRow({ q }) {
+function AnswerRow({ q, onAskAI }) {
   // ── Grouped "In either order" (mcq_multi) ──────────────────────
   if (q.grouped) {
     return (
@@ -179,60 +202,37 @@ function AnswerRow({ q }) {
           const rowStatus = q.statuses?.[i] ?? 'missed'
           const rowUserAns = q.userAnswers?.[i]
           const skipped = isMissed(rowUserAns)
-          
-          if (skipped) {
-            return (
-              <div key={num} className="answer-row" style={{
-                display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px', padding: '4px 0',
-                overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch'
-              }}>
-                <QNum num={num} status="missed" />
-                <MissedLabel />
-                <span style={{ color: '#d1d5db', flexShrink: 0, marginLeft: '8px', marginRight: '8px' }}>|</span>
-                <span style={{
-                  color: '#16a34a', fontWeight: 500, fontSize: '14px',
-                  flexShrink: 0, whiteSpace: 'nowrap'
-                }}>
-                  {q.answers[i]}
-                </span>
-              </div>
-            )
-          }
+          const isWrongOrSkipped = rowStatus === 'wrong' || skipped
 
           return (
-            <div key={num} className="answer-row" style={{
-              display: 'flex',
-              flexDirection: 'row',
-              alignItems: 'flex-start',
-              gap: '10px',
-              padding: '6px 0',
-            }}>
-              <QNum num={num} status={rowStatus} />
-
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                flex: 1,
-              }}>
-                {rowStatus === 'wrong' && (
-                  <span style={{
-                    color: '#dc2626', textDecoration: 'line-through',
-                    fontSize: '13px', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word',
-                    lineHeight: 1.4
-                  }}>
+            <div key={num} className="answer-row group flex items-center justify-between gap-2 py-2 border-b border-zinc-100 last:border-0">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <QNum num={num} status={rowStatus} />
+                {skipped ? (
+                  <MissedLabel />
+                ) : rowStatus === 'wrong' ? (
+                  <span className="text-red-600 line-through text-xs font-medium truncate max-w-[130px]">
                     {rowUserAns}
                   </span>
+                ) : (
+                  <span className="text-zinc-400 text-xs font-medium">Đúng</span>
                 )}
-
-                <span style={{
-                  color: '#16a34a', fontWeight: 500, fontSize: '14px',
-                  whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word',
-                  lineHeight: 1.4
-                }}>
+                <span className="text-zinc-300">|</span>
+                <span className="text-emerald-600 font-semibold text-xs truncate">
                   {q.answers[i]}
                 </span>
               </div>
+              {isWrongOrSkipped && onAskAI && (
+                <button
+                  type="button"
+                  onClick={() => onAskAI(num, rowUserAns, q.answers[i])}
+                  title="Hỏi AI Tutor giải thích câu này"
+                  className="shrink-0 text-[11px] font-medium text-zinc-600 hover:text-zinc-900 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-50 hover:bg-zinc-100 transition cursor-pointer border border-zinc-200 shadow-2xs"
+                >
+                  <Sparkles className="w-3 h-3 text-amber-500" />
+                  <span>Hỏi AI Tutor</span>
+                </button>
+              )}
             </div>
           )
         })}
@@ -243,55 +243,79 @@ function AnswerRow({ q }) {
   // ── Single flat question ─────────────────────────────────────
   const skipped = isMissed(q.userAnswer)
   const effectiveStatus = skipped ? 'missed' : q.status
+  const isWrongOrSkipped = effectiveStatus === 'wrong' || skipped
 
   return (
-    <div className="answer-row" style={{
-      display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px', padding: '4px 0',
-      overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch'
-    }}>
-      <QNum num={q.number} status={effectiveStatus} />
-
-      {!skipped && effectiveStatus === 'wrong' && (
-        <span style={{
-          color: '#dc2626', textDecoration: 'line-through', fontSize: '13px',
-          flexShrink: 0, whiteSpace: 'nowrap'
-        }}>
-          {q.userAnswer}
+    <div className="answer-row group flex items-center justify-between gap-2 py-2 border-b border-zinc-100 last:border-0">
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <QNum num={q.number} status={effectiveStatus} />
+        {skipped ? (
+          <MissedLabel />
+        ) : effectiveStatus === 'wrong' ? (
+          <span className="text-red-600 line-through text-xs font-medium truncate max-w-[130px]">
+            {q.userAnswer}
+          </span>
+        ) : (
+          <span className="text-zinc-400 text-xs font-medium">Đúng</span>
+        )}
+        <span className="text-zinc-300">|</span>
+        <span className="text-emerald-600 font-semibold text-xs truncate">
+          {q.correctAnswer}
         </span>
+      </div>
+      {isWrongOrSkipped && onAskAI && (
+        <button
+          type="button"
+          onClick={() => onAskAI(q.number, q.userAnswer, q.correctAnswer)}
+          title="Hỏi AI Tutor giải thích câu này"
+          className="shrink-0 text-[11px] font-medium text-zinc-600 hover:text-zinc-900 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-50 hover:bg-zinc-100 transition cursor-pointer border border-zinc-200 shadow-2xs"
+        >
+          <Sparkles className="w-3 h-3 text-amber-500" />
+          <span>Hỏi AI Tutor</span>
+        </button>
       )}
-      {skipped && <MissedLabel />}
-
-      <span style={{ color: '#d1d5db', flexShrink: 0, marginLeft: skipped ? '8px' : 0, marginRight: skipped ? '8px' : 0 }}>|</span>
-      <span style={{
-        color: '#16a34a', fontWeight: 500, fontSize: '14px',
-        flexShrink: 0, whiteSpace: 'nowrap'
-      }}>
-        {q.correctAnswer}
-      </span>
     </div>
   )
 }
 
-function SectionBlock({ section, skillType }) {
+function SectionBlock({ section, skillType, filterStatus = 'all', onAskAI }) {
   const label = skillType === 'reading'
     ? `PASSAGE ${section.number} (QUESTION ${section.from} – ${section.to})`
     : `SECTION ${section.number} (QUESTION ${section.from} – ${section.to})`
+
+  const filteredQuestions = (section.questions || []).filter(q => {
+    if (filterStatus === 'all') return true
+    if (q.grouped) {
+      return (q.statuses || []).some((st, i) => {
+        const skipped = isMissed(q.userAnswers?.[i])
+        const eff = skipped ? 'missed' : st
+        return eff === filterStatus
+      })
+    }
+    const skipped = isMissed(q.userAnswer)
+    const eff = skipped ? 'missed' : q.status
+    return eff === filterStatus
+  })
+
+  if (filterStatus !== 'all' && filteredQuestions.length === 0) {
+    return null
+  }
 
   return (
     <div>
       <p style={{
         fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
         textTransform: 'uppercase', color: '#9ca3af',
-        margin: '20px 0 10px',
+        margin: '16px 0 8px',
       }}>
         {label}
       </p>
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-        gap: '12px 64px'
+        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+        gap: '6px 36px'
       }}>
-        {section.questions.map((q, i) => <AnswerRow key={i} q={q} />)}
+        {filteredQuestions.map((q, i) => <AnswerRow key={i} q={q} onAskAI={onAskAI} />)}
       </div>
     </div>
   )
@@ -324,7 +348,7 @@ function ScoreRing({ score, maxScore, isPractice, correct, totalQuestions, bandS
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke="#FDE7C3"
+          stroke="#e4e4e7"
           strokeWidth={strokeWidth}
           fill="none"
         />
@@ -332,7 +356,7 @@ function ScoreRing({ score, maxScore, isPractice, correct, totalQuestions, bandS
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke="#f59e0b"
+          stroke="#18181b"
           strokeWidth={strokeWidth}
           fill="none"
           strokeLinecap="round"
@@ -347,17 +371,11 @@ function ScoreRing({ score, maxScore, isPractice, correct, totalQuestions, bandS
         alignItems: 'center', justifyContent: 'center'
       }}>
         {isPractice ? (
-          <span style={{
-            fontSize: 26, fontWeight: 800, color: '#f59e0b',
-            fontFamily: 'var(--font-mono)',
-          }}>
+          <span className="text-3xl font-bold tabular-nums font-mono text-zinc-900 dark:text-zinc-100">
             {correct}/{totalQuestions}
           </span>
         ) : (
-          <span style={{
-            fontSize: 26, fontWeight: 800, color: '#f59e0b',
-            fontFamily: 'var(--font-mono)',
-          }}>
+          <span className="text-3xl font-bold tabular-nums font-mono text-zinc-900 dark:text-zinc-100">
             {typeof bandScore === 'number' ? bandScore.toFixed(1) : bandScore}
           </span>
         )}
@@ -365,11 +383,12 @@ function ScoreRing({ score, maxScore, isPractice, correct, totalQuestions, bandS
       <div style={{
         position: 'absolute', top: -4, right: -4,
         width: 22, height: 22, borderRadius: '50%',
-        background: '#f59e0b', color: '#fff',
+        background: '#18181b', color: '#fff',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 11, fontWeight: 700,
         zIndex: 10,
-      }}>✓</div>
+      }}>
+        <Check className="w-3 h-3 text-white stroke-[2.5]" />
+      </div>
     </div>
   );
 }
@@ -384,6 +403,7 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
+  const [filterStatus, setFilterStatus] = useState('all')
 
   useEffect(() => {
     if (dataProp) {
@@ -448,31 +468,29 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
   const skillLabel = skillType === 'reading' ? 'Reading' : 'Listening'
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', background: '#f3f4f6' }}>
+    <div className="min-h-screen bg-zinc-50/50">
       <div style={{ maxWidth: 780, margin: '0 auto', padding: '80px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
         {[1, 2, 3].map(i => (
-          <div key={i} style={{
-            background: '#fff', borderRadius: 16,
+          <div key={i} className="bg-white border border-zinc-200 rounded-xl animate-pulse" style={{
             height: i === 1 ? 180 : i === 2 ? 220 : 400,
-            animation: 'pulse 1.5s ease-in-out infinite',
           }} />
         ))}
       </div>
-      <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}`}</style>
     </div>
   )
 
   if (error) return (
-    <div style={{ minHeight: '100vh', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: '#fff', borderRadius: 16, padding: 40, textAlign: 'center', maxWidth: 400 }}>
-        <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: '#111827', marginBottom: 8 }}>
+    <div className="min-h-screen bg-zinc-50/50 flex items-center justify-center p-4">
+      <div className="bg-white border border-zinc-200 rounded-xl p-8 text-center max-w-sm w-full shadow-xs">
+        <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto mb-3 text-amber-600">
+          <AlertCircle className="w-6 h-6 stroke-[2]" />
+        </div>
+        <h2 className="text-lg font-bold text-zinc-900 mb-2">
           Không thể tải kết quả
         </h2>
-        <p style={{ color: '#6b7280', marginBottom: 24, fontSize: 14 }}>{error}</p>
-        <button onClick={handleClose} className="btn-hover-default"
-          style={{ background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 10,
-            padding: '10px 24px', fontWeight: 600, cursor: 'pointer', fontSize: 14 }}>
+        <p className="text-sm text-zinc-500 mb-6">{error}</p>
+        <button onClick={handleClose}
+          className="btn-primary px-5 py-2.5 rounded-lg text-sm font-medium">
           ← Quay lại
         </button>
       </div>
@@ -481,164 +499,183 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
 
   const { bookName, testNumber, bandScore, correct, wrong, missed, totalQuestions, questionTypes, sections } = data
 
+  const handleAskAI = (questionNum, userAns, correctAns) => {
+    const prompt = `Trong bài thi ${bookName || ''} Test ${testNumber || ''} (${skillLabel}), câu hỏi số ${questionNum}: đáp án của tôi là "${userAns || 'bỏ qua'}", nhưng đáp án đúng là "${correctAns}". Giải thích giúp tôi tại sao đáp án đúng lại là "${correctAns}" và phân tích lỗi sai trong câu trả lời của tôi.`
+    askAITutor(prompt)
+  }
+
   return (
-    <div style={{ minHeight: '100vh', background: '#f3f4f6', fontFamily: 'var(--font-body)' }}>
+    <div className="min-h-screen bg-zinc-50/50 font-sans text-zinc-900">
 
       {/* ── Sticky Header ── */}
-      <div style={{
-        position: 'sticky', top: 0, zIndex: 200,
-        background: '#fff', borderBottom: '1px solid #e5e7eb',
-        padding: '12px 24px',
-        display: 'flex', alignItems: 'center',
-      }}>
+      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 py-3 flex items-center">
         <div style={{ flex: 1 }} />
         <div style={{ textAlign: 'center' }}>
-          <p style={{ fontWeight: 700, fontSize: 15, color: '#111827', margin: 0 }}>
+          <p className="font-bold text-sm text-zinc-900 m-0">
             Answer key — {skillLabel}
           </p>
-          <p style={{ fontSize: 12, color: '#9ca3af', margin: 0 }}>
+          <p className="text-xs text-zinc-500 m-0">
             {bookName} · Test {testNumber}
           </p>
         </div>
         <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
           <button
+            type="button"
             onClick={handleClose}
             aria-label="Đóng"
-            style={{
-              width: 34, height: 34, borderRadius: '50%',
-              border: '1px solid #e5e7eb', background: '#f9fafb',
-              color: '#374151', fontSize: 15, fontWeight: 700,
-              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'background 0.15s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'}
-            onMouseLeave={e => e.currentTarget.style.background = '#f9fafb'}
+            className="w-8 h-8 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-bold cursor-pointer flex items-center justify-center transition"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      <div style={{ maxWidth: 780, margin: '0 auto', padding: '24px 24px 60px' }}>
+      <div style={{ maxWidth: 860, margin: '0 auto', padding: '24px 20px 60px' }}>
 
-        {/* ── Score Card ── */}
-        <div
-          className="flex flex-col sm:flex-row items-center sm:items-start gap-6 sm:gap-8"
-          style={{
-            background: '#fff', borderRadius: 16, padding: '28px 32px',
-            marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
-          }}
-        >
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <h2 style={{
-              fontSize: 17, fontWeight: 700, color: '#111827', margin: '0 0 20px',
-              lineHeight: 1.4, fontFamily: 'var(--font-display)',
-            }}>
-              {getScoreMessage(correct, totalQuestions)}
-            </h2>
+        {/* ── Bento Score Hero Card ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6">
+          {/* Bento Col 1: Overall Band & Score (lg:col-span-4) */}
+          <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs flex flex-col items-center justify-center text-center">
+            <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-3">
+              {isPractice ? 'Practice Score' : 'Band Score'}
+            </span>
+            <ScoreRing 
+              score={isPractice ? correct : (typeof bandScore === 'number' ? bandScore : 0)} 
+              maxScore={isPractice ? totalQuestions : 9} 
+              isPractice={isPractice} 
+              correct={correct} 
+              totalQuestions={totalQuestions} 
+              bandScore={bandScore} 
+            />
+            <div className="mt-4 flex items-center gap-2">
+              <ResultHeroIcon correct={correct} total={totalQuestions} />
+              <div className="text-left">
+                <p className="text-xs font-bold text-zinc-900 m-0">
+                  {correct}/{totalQuestions} câu đúng
+                </p>
+                <p className="text-[11px] text-zinc-500 m-0">
+                  Độ chính xác {totalQuestions ? Math.round((correct / totalQuestions) * 100) : 0}%
+                </p>
+              </div>
+            </div>
+          </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 24, marginBottom: 20 }}>
-              {/* Band circle */}
-              <ScoreRing 
-                score={isPractice ? correct : (typeof bandScore === 'number' ? bandScore : 0)} 
-                maxScore={isPractice ? totalQuestions : 9} 
-                isPractice={isPractice} 
-                correct={correct} 
-                totalQuestions={totalQuestions} 
-                bandScore={bandScore} 
-              />
-
-              {/* Stats */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                {[
-                  { label: 'Đúng:',    value: correct, color: 'green' },
-                  { label: 'Sai:',     value: wrong,   color: 'red'   },
-                  { label: 'Bỏ qua:', value: missed,  color: 'gray'  },
-                ].map(({ label, value, color }) => (
-                  <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 14, color: '#374151', minWidth: 60 }}>{label}</span>
-                    <StatBadge value={value} color={color} />
-                  </div>
-                ))}
+          {/* Bento Col 2: Breakdown per Section/Part (lg:col-span-5) */}
+          <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">
+                  Chi tiết từng phần
+                </span>
+                <span className="text-xs font-semibold text-zinc-600 truncate max-w-[160px]">
+                  {getScoreMessage(correct, totalQuestions)}
+                </span>
+              </div>
+              <div className="space-y-2.5">
+                {(sections || []).map(sec => {
+                  let secCorrect = 0
+                  let secTotal = 0
+                  ;(sec.questions || []).forEach(q => {
+                    if (q.grouped) {
+                      ;(q.statuses || []).forEach(st => {
+                        secTotal++
+                        if (st === 'correct') secCorrect++
+                      })
+                    } else {
+                      secTotal++
+                      if (q.status === 'correct') secCorrect++
+                    }
+                  })
+                  const pct = secTotal ? Math.round((secCorrect / secTotal) * 100) : 0
+                  return (
+                    <div key={sec.number} className="flex items-center justify-between text-xs">
+                      <span className="text-zinc-600 font-medium w-24 truncate">
+                        {skillType === 'reading' ? `Passage ${sec.number}` : `Section ${sec.number}`}
+                      </span>
+                      <div className="flex items-center gap-2 flex-1 max-w-[180px] mx-2">
+                        <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-zinc-900 rounded-full transition-all duration-500"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                      <span className="font-mono font-semibold text-zinc-800 text-right w-12 shrink-0">
+                        {secCorrect}/{secTotal}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-              <button
-                onClick={() => answerKeyRef.current?.scrollIntoView({ behavior: 'smooth' })}
-                className="btn-hover-default"
-                style={{
-                  background: '#f59e0b', color: '#fff', border: 'none',
-                  borderRadius: 10, padding: '10px 20px',
-                  fontSize: 14, fontWeight: 600, cursor: 'pointer',
-                  transition: 'background 0.15s, transform 0.2s, box-shadow 0.2s',
-                }}
-                onMouseEnter={e => e.currentTarget.style.background = '#d97706'}
-                onMouseLeave={e => e.currentTarget.style.background = '#f59e0b'}
-              >
-                Xem giải thích ↓
-              </button>
-              <button
-                onClick={() => navigate('/progress')}
-                className="btn-hover-default"
-                style={{
-                  background: '#1D4ED8', color: '#fff', border: 'none',
-                  borderRadius: 10, padding: '10px 20px',
-                  fontSize: 14, fontWeight: 600, cursor: 'pointer',
-                  transition: 'background 0.15s, transform 0.2s, box-shadow 0.2s', display: 'flex', alignItems: 'center', gap: 6
-                }}
-                onMouseEnter={e => e.currentTarget.style.background = '#1e40af'}
-                onMouseLeave={e => e.currentTarget.style.background = '#1D4ED8'}
-              >
-                <span>📊 Xem Phân tích Lỗi sai & Lộ trình AI</span>
-              </button>
+            <div className="pt-3 mt-4 border-t border-zinc-100 flex items-center justify-between text-xs text-zinc-600">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                Đúng: <strong className="text-zinc-900">{correct}</strong>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-red-500" />
+                Sai: <strong className="text-zinc-900">{wrong}</strong>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-zinc-400" />
+                Bỏ qua: <strong className="text-zinc-900">{missed}</strong>
+              </span>
             </div>
+          </div>
 
-            {/* ── Navigation CTA Cluster ── */}
-            <div className="mt-5 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={handleRetry}
-                className="btn-secondary px-4 py-2 rounded-xl text-sm font-semibold border border-slate-200 hover:border-slate-300 flex items-center gap-2 cursor-pointer"
-              >
-                <RotateCcw className="w-4 h-4 text-slate-500" />
-                Làm lại đề này
-              </button>
+          {/* Bento Col 3: Quick Action Cluster (lg:col-span-3) */}
+          <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs flex flex-col justify-center gap-2.5">
+            <button
+              type="button"
+              onClick={handleRetry}
+              className="w-full py-2 px-3.5 rounded-lg text-xs font-semibold bg-zinc-900 hover:bg-black text-white transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-zinc-300" />
+              Làm lại đề này
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/progress')}
+              className="w-full py-2 px-3.5 rounded-lg text-xs font-semibold border border-zinc-200 hover:bg-zinc-100 text-zinc-900 transition flex items-center justify-center gap-2 cursor-pointer bg-white"
+            >
+              <BarChart2 className="w-3.5 h-3.5 text-zinc-500" />
+              Xem bảng phân tích
+            </button>
+            <button
+              type="button"
+              onClick={() => askAITutor(`Tôi vừa hoàn thành bài thi ${bookName || ''} Test ${testNumber || ''} (${skillLabel}) với kết quả ${correct}/${totalQuestions} câu đúng (${typeof bandScore === 'number' ? `Band ${bandScore}` : ''}). Hãy phân tích lỗi sai phổ biến và hướng dẫn cải thiện giúp tôi.`)}
+              className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 text-zinc-900 transition flex items-center justify-center gap-2 cursor-pointer border border-zinc-200/80"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              Hỏi AI Tutor câu sai
+            </button>
+            <div className="pt-2 border-t border-zinc-100 flex items-center justify-between text-xs">
               <button
                 type="button"
                 onClick={handleNextPractice}
-                className="btn-secondary px-4 py-2 rounded-xl text-sm font-semibold bg-slate-100 hover:bg-slate-200 border-none text-slate-700 flex items-center gap-2 cursor-pointer"
+                className="text-zinc-600 hover:text-zinc-900 font-medium transition cursor-pointer bg-transparent border-none p-0 flex items-center gap-1"
               >
-                <BookOpen className="w-4 h-4 text-slate-500" />
+                <BookOpen className="w-3.5 h-3.5" />
                 Luyện bài khác
               </button>
               <button
                 type="button"
                 onClick={() => navigate('/')}
-                className="text-slate-500 hover:text-slate-800 text-sm font-medium hover:underline flex items-center gap-1.5 px-2 py-2 cursor-pointer bg-transparent border-none"
+                className="text-zinc-400 hover:text-zinc-700 font-medium transition cursor-pointer bg-transparent border-none p-0 flex items-center gap-1"
               >
-                <Home className="w-4 h-4 text-slate-400" />
-                Về trang chủ
+                <Home className="w-3.5 h-3.5" />
+                Trang chủ
               </button>
             </div>
-          </div>
-
-          {/* Illustration */}
-          <div style={{ flexShrink: 0, fontSize: 68, userSelect: 'none', lineHeight: 1 }}>
-            {getIllustration(correct, totalQuestions)}
           </div>
         </div>
 
         {/* ── Stats Table ── */}
         {questionTypes && questionTypes.length > 0 && (
-          <div style={{
-            background: '#fff', borderRadius: 16, padding: '22px 28px',
-            marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
-          }}>
-            <h3 style={{
-              fontSize: 15, fontWeight: 700, color: '#111827',
-              margin: '0 0 18px', fontFamily: 'var(--font-display)',
-            }}>
+          <div className="bg-white border border-zinc-200 rounded-xl p-6 mb-5 shadow-xs">
+            <h3 className="text-sm font-bold text-zinc-900 m-0 mb-4">
               Bảng thống kê theo loại câu hỏi
             </h3>
           <div style={{ overflowX: 'auto' }}>
@@ -646,24 +683,20 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
               <thead>
                 <tr>
                   {['LOẠI', 'SỐ CÂU', 'ĐÚNG', 'SAI', 'BỎ QUA'].map((h, i) => (
-                    <th key={h} style={{
-                      fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
-                      textTransform: 'uppercase', color: '#9ca3af',
-                      padding: '10px 14px',
-                      textAlign: i === 0 ? 'left' : 'center',
-                      borderBottom: '1px solid #e5e7eb',
-                    }}>{h}</th>
+                    <th key={h} className="text-xs font-semibold uppercase tracking-wider text-zinc-500 border-b border-zinc-200 px-3 py-2.5" style={{ textAlign: i === 0 ? 'left' : 'center' }}>
+                      {h}
+                    </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {(questionTypes || []).map(t => (
                   <tr key={t.name}>
-                    <td style={{ padding: '14px', textAlign: 'left', fontWeight: 500, color: '#111827', fontSize: 14, borderBottom: '1px solid #f3f4f6' }}>{t.name}</td>
-                    <td style={{ padding: '14px', textAlign: 'center', fontSize: 14, borderBottom: '1px solid #f3f4f6', color: '#374151' }}>{t.total}</td>
-                    <td style={{ padding: '14px', textAlign: 'center', borderBottom: '1px solid #f3f4f6' }}><StatBadge value={t.correct} color="green" /></td>
-                    <td style={{ padding: '14px', textAlign: 'center', borderBottom: '1px solid #f3f4f6' }}><StatBadge value={t.wrong}   color="red"   /></td>
-                    <td style={{ padding: '14px', textAlign: 'center', borderBottom: '1px solid #f3f4f6' }}><StatBadge value={t.missed}  color="gray"  /></td>
+                    <td className="px-3 py-3 text-left font-medium text-zinc-900 text-sm border-b border-zinc-100">{t.name}</td>
+                    <td className="px-3 py-3 text-center text-sm border-b border-zinc-100 text-zinc-700">{t.total}</td>
+                    <td className="px-3 py-3 text-center border-b border-zinc-100"><StatBadge value={t.correct} color="green" /></td>
+                    <td className="px-3 py-3 text-center border-b border-zinc-100"><StatBadge value={t.wrong}   color="red"   /></td>
+                    <td className="px-3 py-3 text-center border-b border-zinc-100"><StatBadge value={t.missed}  color="gray"  /></td>
                   </tr>
                 ))}
               </tbody>
@@ -675,22 +708,46 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
         {/* ── Answer Key ── */}
         <div
           ref={answerKeyRef}
-          style={{
-            background: '#fff', borderRadius: 16, padding: '22px 28px',
-            boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
-          }}
+          className="bg-white border border-zinc-200 rounded-xl p-6 shadow-xs"
         >
-          <h3 style={{
-            fontSize: 15, fontWeight: 700, color: '#111827',
-            margin: '0 0 20px', fontFamily: 'var(--font-display)',
-          }}>
-            Answer key
-          </h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-zinc-100">
+            <div>
+              <h3 className="text-sm font-bold text-zinc-900 m-0">
+                Answer key
+              </h3>
+              <p className="text-xs text-zinc-500 mt-0.5">
+                Bấm "Hỏi AI" ở từng câu sai để nhận giải thích chi tiết
+              </p>
+            </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+            {/* Smart Filter Tabs */}
+            <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-xl border border-zinc-200/60 shrink-0">
+              {[
+                { id: 'all', label: `Tất cả (${totalQuestions})` },
+                { id: 'wrong', label: `Câu sai cần sửa (${wrong})` },
+                { id: 'correct', label: `Câu đúng (${correct})` },
+                { id: 'missed', label: `Chưa làm (${missed})` },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setFilterStatus(tab.id)}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer border-none ${
+                    filterStatus === tab.id
+                      ? 'bg-white text-zinc-900 shadow-xs'
+                      : 'bg-transparent text-zinc-500 hover:text-zinc-900'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             {sections && sections.length > 0 ? (
               sections.map(s => (
-                <SectionBlock key={s.number} section={s} skillType={skillType} />
+                <SectionBlock key={s.number} section={s} skillType={skillType} filterStatus={filterStatus} onAskAI={handleAskAI} />
               ))
             ) : (
               <p style={{ color: '#6b7280', fontSize: 14, margin: 0 }}>Không có dữ liệu chi tiết cho bài thi này.</p>

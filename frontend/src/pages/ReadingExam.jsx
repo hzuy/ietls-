@@ -6,7 +6,7 @@ import { getAdminSettings } from '../services/adminService'
 import { saveDraft, loadDraft, clearDraft, formatSavedAt } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import { BookOpen, ArrowLeft } from 'lucide-react'
+import { BookOpen, ArrowLeft, Type, X, Clock, LayoutGrid, ChevronUp, ChevronDown } from 'lucide-react'
 import MatchingTickGrid from '../components/MatchingTickGrid'
 import DragWordBankGroup from '../components/DragWordBankGroup'
 import MatchingDragGroup from '../components/MatchingDragGroup'
@@ -69,6 +69,7 @@ export default function ReadingExam() {
     return (!isNaN(n) && n >= 25 && n <= 75) ? n : 50
   })
   const [isDragging, setIsDragging] = useState(false)
+  const [fontSize, setFontSize] = useState('base')
 
   // ── Autosave draft ─────────────────────────────────────────────────────────
   // MỘT interval sống suốt phiên (deps [phase, previewMode, id]). KHÔNG đưa
@@ -352,10 +353,10 @@ export default function ReadingExam() {
   if (phase === 'start') return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div className="flex flex-col items-center" style={{ background: 'var(--surface)', borderRadius: '16px', boxShadow: 'var(--shadow-md)', padding: 40, maxWidth: 448, width: '100%', textAlign: 'center', border: '1px solid var(--border)' }}>
-        <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200/80 flex items-center justify-center mx-auto mb-5">
-          <BookOpen className="w-8 h-8 text-slate-600 stroke-[1.75]" />
+        <div className="w-16 h-16 rounded-2xl bg-zinc-100 border border-zinc-200 flex items-center justify-center mx-auto mb-5">
+          <BookOpen className="w-8 h-8 text-zinc-600 stroke-[1.75]" />
         </div>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-xl)', fontWeight: 700, color: 'var(--ink-soft)', marginBottom: 8 }}>{exam.title}</h1>
+        <h1 className="text-2xl font-bold text-zinc-900 tracking-tight mb-2">{exam.title}</h1>
         <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text)', fontSize: 'var(--fs-sm)', marginBottom: 4 }}>{exam.passages.length} Passages · <span style={{ fontFamily: 'var(--font-mono)' }}>{totalSlots}</span> câu hỏi</p>
         <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text)', fontSize: 'var(--fs-sm)', marginBottom: 32 }}>Thời gian: <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--skill-r-color)' }}>60 phút</span></p>
         <div style={{ background: 'var(--skill-r-bg)', borderRadius: 'var(--radius-md)', padding: 16, textAlign: 'left', fontSize: 'var(--fs-sm)', color: 'var(--ink-soft)', marginBottom: 32, display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
@@ -368,10 +369,10 @@ export default function ReadingExam() {
         </button>
         <button
           onClick={handleBack}
-          className="w-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all duration-200 ease-in-out font-medium text-sm flex items-center justify-center gap-1.5 cursor-pointer"
+          className="w-full text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-all duration-200 ease-in-out font-medium text-sm flex items-center justify-center gap-1.5 cursor-pointer"
           style={{ width: '100%', padding: '12px 0', borderRadius: '12px' }}
         >
-          <ArrowLeft className="w-4 h-4 text-slate-500" /> Quay lại
+          <ArrowLeft className="w-4 h-4 text-zinc-500" /> Quay lại
         </button>
       </div>
     </div>
@@ -393,30 +394,60 @@ export default function ReadingExam() {
   return (
     <div className="h-dvh flex flex-col overflow-hidden" style={{ backgroundColor: 'var(--surface-raised)' }}>
       {/* Header */}
-      <header style={{ background: 'var(--ink)', borderBottom: '1px solid rgba(201,168,76,0.15)', padding: '8px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-          <button aria-label="Đóng bài thi" onClick={() => previewMode ? navigate('/admin') : setShowExitConfirm(true)} className="bg-white/10 hover:bg-white/20 transition-colors" style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', border: 'none', color: 'white', fontWeight: 700, fontSize: 'var(--fs-sm)', cursor: 'pointer', flexShrink: 0 }}>✕</button>
-          <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{exam.title}</span>
-          {previewMode && <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-xs)', background: 'var(--primary)', color: 'var(--ink)', padding: '2px 8px', borderRadius: 99, fontWeight: 700, flexShrink: 0 }}>Chế độ Preview</span>}
+      <header className="h-14 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 px-6 flex items-center justify-between shrink-0 z-30">
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            type="button"
+            aria-label="Đóng bài thi"
+            onClick={() => previewMode ? navigate('/admin') : setShowExitConfirm(true)}
+            className="h-8 px-2.5 flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-xs font-medium transition cursor-pointer shrink-0"
+            title="Thoát bài thi"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Thoát</span>
+          </button>
+          <span className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+            {exam.title}
+          </span>
+          {previewMode && (
+            <span className="text-[11px] bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 px-2 py-0.5 rounded-md font-medium shrink-0">
+              Chế độ Preview
+            </span>
+          )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+        <div className="flex items-center gap-3 shrink-0">
           {previewMode ? (
             <button
+              type="button"
               onClick={() => setShowAnswers(v => !v)}
-              className={showAnswers ? 'bg-[var(--skill-r-color)] text-white hover:opacity-90 transition' : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition'}
-              style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-xs)', padding: '4px 12px', borderRadius: 99, fontWeight: 600, border: 'none', cursor: 'pointer' }}
+              className={`text-xs px-3 py-1.5 rounded-lg font-medium transition cursor-pointer ${
+                showAnswers
+                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
+                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+              }`}
             >
               {showAnswers ? 'Ẩn đáp án' : 'Hiện đáp án'}
             </button>
           ) : (
             <>
               {lastSavedAt && (
-                <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-xs)', color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>
+                <span className="text-[11px] text-zinc-400 dark:text-zinc-500 whitespace-nowrap">
                   ✓ Đã lưu {formatSavedAt(lastSavedAt)}
                 </span>
               )}
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-xs)', color: 'rgba(255,255,255,0.6)' }}>{answered}/{totalSlots} câu</span>
-              <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 14, padding: '4px 12px', borderRadius: 'var(--radius-sm)', background: timeLeft < 300 ? '#dc2626' : timeLeft < 600 ? '#d97706' : 'rgba(255,255,255,0.15)', color: timeLeft < 600 && timeLeft >= 300 ? '#fff' : 'white' }}>
+              <span className="text-xs text-zinc-500 dark:text-zinc-400 font-mono tabular-nums">
+                {answered}/{totalSlots} câu
+              </span>
+              <div
+                className={`tabular-nums text-xs font-semibold px-2.5 py-1 rounded-lg border flex items-center gap-1.5 ${
+                  timeLeft < 300
+                    ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900/60'
+                    : timeLeft < 600
+                    ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/60'
+                    : 'text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
                 {fmt(timeLeft)}
               </div>
             </>
@@ -428,13 +459,42 @@ export default function ReadingExam() {
       <div ref={bodyRef} className={`flex-1 flex flex-col md:flex-row overflow-hidden${isDragging ? ' select-none' : ''}`}>
         {/* Left: Passage text */}
         <div
-          className="overflow-y-auto bg-white px-8 py-6 border-b md:border-b-0 md:border-r border-gray-200"
+          className="overflow-y-auto bg-white px-8 py-6 border-b md:border-b-0 md:border-r border-zinc-200"
           style={{ width: isMobile ? '100%' : `${splitRatio}%` }}
         >
-          <h2 className="text-xl font-bold text-gray-900 text-center mb-1 leading-snug" style={{ fontFamily: 'var(--font-reading)' }}>{passage.title}</h2>
-          {passage.subtitle && <p className="text-sm text-gray-500 text-center mb-2 italic">{passage.subtitle}</p>}
-          <div className="w-16 h-0.5 bg-blue-500 mx-auto mb-6" />
-          <div className="text-gray-800 text-[0.92rem] leading-8" style={{ fontFamily: 'var(--font-reading)' }}>
+          {/* Passage Toolbar */}
+          <div className="sticky -top-6 -mx-8 px-8 py-2.5 mb-5 bg-white/95 backdrop-blur-xs border-b border-zinc-100 flex items-center justify-between z-10">
+            <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Passage {activePassage + 1}</span>
+            <div className="flex items-center gap-1 bg-zinc-100 p-0.5 rounded-lg border border-zinc-200/80">
+              <span className="text-[11px] font-medium text-zinc-400 px-1.5 flex items-center gap-1">
+                <Type className="w-3.5 h-3.5" />
+              </span>
+              {[
+                { label: 'A-', size: 'sm', desc: '14px' },
+                { label: 'A',  size: 'base', desc: '16px' },
+                { label: 'A+', size: 'lg', desc: '18px' },
+              ].map(({ label, size, desc }) => (
+                <button
+                  key={size}
+                  type="button"
+                  onClick={() => setFontSize(size)}
+                  title={`Cỡ chữ ${desc}`}
+                  className={`px-2 py-0.5 text-xs font-medium rounded-md transition-colors cursor-pointer border-none ${
+                    fontSize === size
+                      ? 'bg-white text-zinc-900 shadow-xs font-semibold'
+                      : 'bg-transparent text-zinc-500 hover:text-zinc-900'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <h2 className="text-lg font-semibold text-zinc-900 text-center mb-1 leading-snug">{passage.title}</h2>
+          {passage.subtitle && <p className="text-sm text-zinc-500 text-center mb-2 italic">{passage.subtitle}</p>}
+          <div className="w-16 h-0.5 bg-zinc-900 mx-auto mb-6" />
+          <div className={`text-zinc-800 font-normal ${fontSize === 'sm' ? 'text-sm leading-relaxed' : fontSize === 'lg' ? 'text-lg leading-loose' : 'text-base leading-relaxed'}`} style={{ fontFamily: 'var(--font-reading)' }}>
             {passage.body
               ? passage.body
                   .split(/\n\s*\n|\n/)
@@ -445,7 +505,7 @@ export default function ReadingExam() {
                       const letter = String.fromCharCode(65 + i)
                       return (
                          <p key={i} className="mb-5">
-                          <span className="font-bold text-blue-700 mr-2">{letter}</span>
+                          <span className="font-bold text-zinc-900 mr-2">{letter}</span>
                           {para.charAt(0).toUpperCase() + para.slice(1)}
                         </p>
                       )
@@ -461,21 +521,21 @@ export default function ReadingExam() {
         {/* Drag divider */}
         <div
           className="group relative flex-shrink-0 hidden md:flex flex-col items-center justify-center w-2 hover:w-3 transition-all duration-100 cursor-col-resize select-none"
-          style={{ backgroundColor: isDragging ? '#93c5fd' : undefined }}
+          style={{ backgroundColor: isDragging ? '#d4d4d8' : undefined }}
           onMouseDown={handleDividerMouseDown}
         >
-          <div className={`w-full h-full absolute inset-0 transition-colors ${isDragging ? 'bg-blue-300' : 'bg-gray-200 group-hover:bg-blue-200'}`} />
+          <div className={`w-full h-full absolute inset-0 transition-colors ${isDragging ? 'bg-zinc-400' : 'bg-zinc-200 group-hover:bg-zinc-300'}`} />
           {/* Handle dots */}
           <div className="relative z-10 flex flex-col gap-1 pointer-events-none">
-            <div className={`w-0.5 h-4 rounded-full transition-colors ${isDragging ? 'bg-blue-600' : 'bg-gray-400 group-hover:bg-blue-500'}`} />
-            <div className={`w-0.5 h-4 rounded-full transition-colors ${isDragging ? 'bg-blue-600' : 'bg-gray-400 group-hover:bg-blue-500'}`} />
+            <div className={`w-0.5 h-4 rounded-full transition-colors ${isDragging ? 'bg-zinc-900' : 'bg-zinc-400 group-hover:bg-zinc-600'}`} />
+            <div className={`w-0.5 h-4 rounded-full transition-colors ${isDragging ? 'bg-zinc-900' : 'bg-zinc-400 group-hover:bg-zinc-600'}`} />
           </div>
           {/* Reset button — appears on hover */}
           <button
             onMouseDown={e => e.stopPropagation()}
             onClick={resetSplit}
             title="Reset 50/50"
-            className="absolute top-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white border border-gray-300 rounded text-gray-500 hover:text-blue-600 hover:border-blue-400 text-[10px] px-1 py-0.5 shadow-sm leading-none"
+            className="absolute top-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white border border-zinc-300 rounded text-zinc-500 hover:text-zinc-900 hover:border-zinc-400 text-[10px] px-1 py-0.5 shadow-xs leading-none"
           >
             ⇔
           </button>
@@ -551,31 +611,30 @@ export default function ReadingExam() {
           )}
 
           {/* Row 2: controls & Passage Pills */}
-          <div className="px-6 h-[52px] flex items-center justify-between gap-6">
+          <div className="px-6 h-14 flex items-center justify-between gap-6">
             {/* Left: icons + Grid toggle */}
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
               <button
+                type="button"
                 title="Bảng câu hỏi"
                 aria-label="Bảng câu hỏi"
                 onClick={() => setShowQuestionPanel(v => !v)}
-                className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all ${showQuestionPanel ? 'bg-[var(--primary)] border-[var(--primary)] text-white shadow-md' : 'bg-white border-gray-200 text-gray-400 hover:border-[var(--primary)] hover:text-[var(--primary)]'}`}
+                className={`w-9 h-9 flex items-center justify-center rounded-xl border transition-all cursor-pointer ${
+                  showQuestionPanel
+                    ? 'bg-zinc-900 border-zinc-900 text-white shadow-xs'
+                    : 'bg-white border-zinc-200 text-zinc-500 hover:border-zinc-400 hover:text-zinc-900'
+                }`}
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="7" height="7"></rect>
-                  <rect x="14" y="3" width="7" height="7"></rect>
-                  <rect x="14" y="14" width="7" height="7"></rect>
-                  <rect x="3" y="14" width="7" height="7"></rect>
-                </svg>
+                <LayoutGrid className="w-4 h-4" />
               </button>
               <button
+                type="button"
                 title={showNavNumbers ? 'Thu gọn' : 'Mở rộng'}
                 aria-label={showNavNumbers ? 'Thu gọn' : 'Mở rộng'}
                 onClick={() => setShowNavNumbers(v => !v)}
-                className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-400 hover:border-[var(--ink)] hover:text-[var(--ink)] transition-all"
+                className="w-9 h-9 flex items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 hover:border-zinc-400 hover:text-zinc-900 transition-all cursor-pointer"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  {showNavNumbers ? <polyline points="18 15 12 9 6 15"></polyline> : <polyline points="6 9 12 15 18 9"></polyline>}
-                </svg>
+                {showNavNumbers ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
               </button>
             </div>
 
@@ -596,8 +655,9 @@ export default function ReadingExam() {
             {/* Right: Submit Button */}
             <div className="flex items-center shrink-0">
               <button
+                type="button"
                 onClick={() => setShowConfirm(true)}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md font-bold text-sm transition-colors"
+                className="bg-red-600 hover:bg-red-700 text-white text-xs font-medium py-2 px-4 rounded-xl shadow-xs transition-colors cursor-pointer shrink-0"
               >
                 Nộp bài
               </button>
@@ -635,26 +695,26 @@ export default function ReadingExam() {
 
       {/* Confirm submit modal */}
       {showConfirm && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }} onClick={() => setShowConfirm(false)}>
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', padding: 32, boxShadow: 'var(--shadow-md)', maxWidth: 360, width: '100%', border: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-lg)', fontWeight: 700, color: 'var(--ink-soft)', marginBottom: 8 }}>Nộp bài?</h2>
-            <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text)', fontSize: 'var(--fs-sm)', marginBottom: 8 }}>Bạn có chắc muốn nộp bài không?</p>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--ink-soft)', marginBottom: 24 }}>
-              Đã làm: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--primary)' }}>{answered}/{totalSlots}</span> câu
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4" onClick={() => setShowConfirm(false)}>
+          <div className="p-6 shadow-xl max-w-sm w-full bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-1">Nộp bài?</h2>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-2">Bạn có chắc muốn nộp bài không?</p>
+            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-6">
+              Đã làm: <span className="font-mono text-zinc-900 dark:text-zinc-100">{answered}/{totalSlots}</span> câu
             </p>
-            <div style={{ display: 'flex', gap: 12 }}>
+            <div className="flex gap-3">
               <button
+                type="button"
                 onClick={() => setShowConfirm(false)}
-                className="btn-secondary"
-                style={{ flex: 1, padding: '10px 0', borderRadius: '12px', fontSize: 'var(--fs-sm)' }}
+                className="flex-1 py-2 px-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-xl font-medium text-xs transition cursor-pointer"
               >
                 Tiếp tục làm
               </button>
               <button
+                type="button"
                 onClick={() => { setShowConfirm(false); doSubmit() }}
                 disabled={submitting}
-                className="btn-danger"
-                style={{ flex: 1, padding: '10px 0', borderRadius: '12px', fontSize: 'var(--fs-sm)', opacity: submitting ? 0.5 : 1 }}
+                className="flex-1 py-2 px-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium text-xs transition shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? 'Đang chấm...' : 'Nộp bài'}
               </button>

@@ -1,13 +1,14 @@
 import { createContext, useContext, useState, useCallback, useMemo } from 'react'
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react'
+import { showAlert } from '../utils/alertUtils'
 
-const noop = () => {}
-noop.success = () => {}
-noop.error = () => {}
-noop.info = () => {}
+const defaultShowToast = (msg, type = 'info') => showAlert(msg, type)
+defaultShowToast.success = (msg) => showAlert(msg, 'success')
+defaultShowToast.error = (msg) => showAlert(msg, 'error')
+defaultShowToast.info = (msg) => showAlert(msg, 'info')
 
 const defaultToastContext = {
-  showToast: noop,
+  showToast: defaultShowToast,
   removeToast: () => {},
 }
 
@@ -21,6 +22,8 @@ export function ToastProvider({ children }) {
   }, [])
 
   const showToast = useCallback((message, type = 'info', duration = 4000) => {
+    showAlert(message, type)
+
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
     const toastItem = { id, message: String(message || ''), type }
 
@@ -51,9 +54,9 @@ export function ToastProvider({ children }) {
         className="fixed top-16 sm:top-5 right-3 sm:right-5 left-3 sm:left-auto z-[9999] pointer-events-none flex flex-col gap-2.5 max-w-[calc(100vw-24px)] sm:max-w-sm sm:w-full items-end"
       >
         {toasts.map(t => {
-          let bgStyle = 'bg-blue-50 border-blue-200 text-blue-900 shadow-blue-100/50'
+          let bgStyle = 'bg-white border-zinc-200 text-zinc-900 shadow-lg'
           let IconComp = Info
-          let iconColor = 'text-blue-600'
+          let iconColor = 'text-zinc-700'
 
           if (t.type === 'success') {
             bgStyle = 'bg-emerald-50 border-emerald-200 text-emerald-900 shadow-emerald-100/50'

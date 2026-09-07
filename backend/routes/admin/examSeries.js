@@ -106,6 +106,25 @@ router.put('/exam-series/:seriesId/books/:bookNumber', authMiddleware, teacherOn
     const oldNumber = parseInt(req.params.bookNumber)
     const newNumber = parseInt(req.body.bookNumber)
     if (newNumber === oldNumber) return res.json({ ok: true })
+
+    const existingCover = await prisma.bookCover.findFirst({
+      where: { seriesId, bookNumber: newNumber }
+    })
+    if (existingCover) {
+      if (existingCover.deletedAt === null) {
+        return res.status(409).json({ message: `Quyển số ${newNumber} đã tồn tại trong bộ đề này` })
+      }
+      // If it was soft-deleted, remove it so unique constraint doesn't fail on update
+      await prisma.bookCover.delete({ where: { id: existingCover.id } })
+    }
+
+    const existingExam = await prisma.exam.findFirst({
+      where: { seriesId, bookNumber: newNumber, deletedAt: null }
+    })
+    if (existingExam) {
+      return res.status(409).json({ message: `Quyển số ${newNumber} đã tồn tại trong bộ đề này` })
+    }
+
     // Update BookCover
     await prisma.bookCover.updateMany({ where: { seriesId, bookNumber: oldNumber }, data: { bookNumber: newNumber } })
     // Update associated Exams

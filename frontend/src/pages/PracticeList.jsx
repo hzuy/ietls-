@@ -77,7 +77,7 @@ export default function PracticeList({ skill: skillKey }) {
   )
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-zinc-50/50">
       <Navbar />
 
       {/* Breadcrumb */}
@@ -92,30 +92,30 @@ export default function PracticeList({ skill: skillKey }) {
             {[0,1,2,3,4,5,6,7].map(i => <SkeletonCard key={i} />)}
           </div>
         ) : error ? (
-          <div className="text-center py-20 px-6 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center">
-            <div className="w-16 h-16 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center mb-6 text-slate-400">
+          <div className="text-center py-20 px-6 bg-white rounded-2xl border border-zinc-200 shadow-xs flex flex-col items-center">
+            <div className="w-16 h-16 rounded-full bg-zinc-50 border border-zinc-200 flex items-center justify-center mb-6 text-zinc-400">
               <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
             </div>
-            <p className="text-[18px] font-bold text-slate-900 mb-2" style={{ fontFamily: 'var(--font-display)' }}>Không thể tải dữ liệu</p>
-            <p className="text-slate-600 mb-6 max-w-sm" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}>Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
-            <button className="btn-primary px-8 py-3 font-bold" style={{ fontSize: 'var(--fs-sm)' }} onClick={() => window.location.reload()}>Thử lại</button>
+            <p className="text-lg font-bold text-zinc-900 mb-2" style={{ fontFamily: 'var(--font-display)' }}>Không thể tải dữ liệu</p>
+            <p className="text-zinc-500 mb-6 max-w-sm text-sm" style={{ fontFamily: 'var(--font-body)' }}>Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
+            <button className="btn-primary px-8 py-3 font-bold text-sm" onClick={() => window.location.reload()}>Thử lại</button>
           </div>
         ) : exams.length === 0 ? (
-          <div className="text-center py-20 px-6 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center">
-            <div className="w-16 h-16 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center mb-6 text-slate-400">
+          <div className="text-center py-20 px-6 bg-white rounded-2xl border border-zinc-200 shadow-xs flex flex-col items-center">
+            <div className="w-16 h-16 rounded-full bg-zinc-50 border border-zinc-200 flex items-center justify-center mb-6 text-zinc-400">
               <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
             </div>
-            <p className="text-[18px] font-bold text-slate-900 mb-2" style={{ fontFamily: 'var(--font-display)' }}>Không tìm thấy bài luyện tập</p>
-            <p className="text-slate-600 mb-6 max-w-sm" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}>Hãy thử lựa chọn cấp độ hoặc kỹ năng khác.</p>
-            <button className="btn-primary px-6 py-2.5 font-bold" style={{ fontSize: 'var(--fs-sm)' }} onClick={() => navigate('/')}>Về trang chủ</button>
+            <p className="text-lg font-bold text-zinc-900 mb-2" style={{ fontFamily: 'var(--font-display)' }}>Không tìm thấy bài luyện tập</p>
+            <p className="text-zinc-500 mb-6 max-w-sm text-sm" style={{ fontFamily: 'var(--font-body)' }}>Hãy thử lựa chọn cấp độ hoặc kỹ năng khác.</p>
+            <button className="btn-primary px-6 py-2.5 font-bold text-sm" onClick={() => navigate('/')}>Về trang chủ</button>
           </div>
         ) : (
           <>
             {groupedExams.map((group) => (
               <section key={group.key}>
                 <div className="flex items-center gap-3 mb-6">
-                  <h2 className="text-[20px] font-bold text-slate-900 m-0" style={{ fontFamily: 'var(--font-display)' }}>{group.label}</h2>
-                  <span className="font-mono font-bold bg-white text-slate-600 border border-slate-200 px-2.5 py-0.5 rounded-full shadow-sm" style={{ fontSize: 'var(--fs-xs)' }}>
+                  <h2 className="text-lg font-semibold text-zinc-900 m-0">{group.label}</h2>
+                  <span className="font-mono font-semibold bg-white text-zinc-600 border border-zinc-200 px-2.5 py-0.5 rounded-full shadow-xs text-xs">
                     {group.items.length} bài
                   </span>
                 </div>
@@ -128,8 +128,8 @@ export default function PracticeList({ skill: skillKey }) {
             {otherExams.length > 0 && (
               <section>
                 <div className="flex items-center gap-3 mb-6">
-                  <h2 className="text-[20px] font-bold text-slate-900 m-0" style={{ fontFamily: 'var(--font-display)' }}>Dạng bài khác</h2>
-                  <span className="font-mono font-bold bg-white text-slate-600 border border-slate-200 px-2.5 py-0.5 rounded-full shadow-sm" style={{ fontSize: 'var(--fs-xs)' }}>
+                  <h2 className="text-lg font-semibold text-zinc-900 m-0">Dạng bài khác</h2>
+                  <span className="font-mono font-semibold bg-white text-zinc-600 border border-zinc-200 px-2.5 py-0.5 rounded-full shadow-xs text-xs">
                     {otherExams.length} bài
                   </span>
                 </div>

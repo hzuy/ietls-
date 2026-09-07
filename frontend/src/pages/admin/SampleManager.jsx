@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { useUnsavedChanges } from '../../hooks/useUnsavedChanges'
+import { useUnsavedChanges, NAV_LEAVE_MSG } from '../../hooks/useUnsavedChanges'
 import { useDraftPersistence } from '../../hooks/useDraftPersistence'
 import { ConfirmDeleteModal, DraftBanner, DraftSavedHint, AdminListHeader, ThumbnailPicker } from '../../components/admin/contentPageUI'
 import { useToast } from '../../context/ToastContext'
-import { handleImgError } from '../../utils/media'
 import ImageWithFallback from '../../components/common/ImageWithFallback'
 
 import RichTextEditor from '../../components/RichTextEditor'
@@ -51,10 +50,10 @@ const CONFIG = {
     showTags: false,
     tagPlaceholder: 'VD: Task 1, Band 8.0... (Enter để thêm)',
     contentPlaceholder: 'Nhập nội dung bài mẫu Writing...',
-    tagChipClass: 'bg-blue-50 text-[#1D4ED8]',
-    tagChipCloseClass: 'text-[#1D4ED8]',
-    tagAddBtnClass: 'bg-blue-50 text-blue-600 hover:bg-blue-100',
-    listChipStyle: { background: '#eff6ff', color: '#1D4ED8' },
+    tagChipClass: 'bg-zinc-100 text-zinc-800 border border-zinc-200',
+    tagChipCloseClass: 'text-zinc-500 hover:text-zinc-800',
+    tagAddBtnClass: 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200',
+    listChipStyle: { background: '#f4f4f5', color: '#18181b', border: '1px solid #e4e4e7' },
   },
   speaking: {
     services: {
@@ -89,10 +88,10 @@ const CONFIG = {
     showTags: false,
     tagPlaceholder: 'VD: Part 2, Band 7.5... (Enter để thêm)',
     contentPlaceholder: 'Nhập nội dung bài mẫu Speaking (cue card, sample answer, tips...)',
-    tagChipClass: 'bg-purple-50 text-purple-700',
-    tagChipCloseClass: 'text-purple-700',
-    tagAddBtnClass: 'bg-purple-50 text-purple-600 hover:bg-purple-100',
-    listChipStyle: { background: '#f5f3ff', color: '#7c3aed' },
+    tagChipClass: 'bg-zinc-100 text-zinc-800 border border-zinc-200',
+    tagChipCloseClass: 'text-zinc-500 hover:text-zinc-800',
+    tagAddBtnClass: 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200',
+    listChipStyle: { background: '#f4f4f5', color: '#18181b', border: '1px solid #e4e4e7' },
   },
 }
 
@@ -133,8 +132,14 @@ export default function SampleManager({ kind }) {
 
   const load = async () => {
     setLoading(true)
-    try { setList(await svc.list()) } catch {}
+    try { setList(await svc.list()) } catch (err) { console.error(err) }
     setLoading(false)
+  }
+
+  const handleCancelOrBack = () => {
+    if (isDirty && !window.confirm(NAV_LEAVE_MSG)) return
+    setIsDirty(false)
+    setView('list')
   }
 
   useEffect(() => {
@@ -234,8 +239,8 @@ export default function SampleManager({ kind }) {
     return (
         <div className="p-6 max-w-6xl mx-auto">
           <div className="flex items-center gap-3 mb-6">
-            <button onClick={() => setView('list')} aria-label="Quay lại danh sách" className="text-slate-500 hover:text-slate-700 text-xl font-bold transition">←</button>
-            <h1 className="text-xl font-bold text-slate-800">{editing ? cfg.formTitleEdit : cfg.formTitleNew}</h1>
+            <button onClick={handleCancelOrBack} aria-label="Quay lại danh sách" className="text-zinc-500 hover:text-zinc-800 text-sm font-semibold transition">←</button>
+            <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">{editing ? cfg.formTitleEdit : cfg.formTitleNew}</h1>
           </div>
 
           {/* BUG-14: Draft banner */}
@@ -247,35 +252,35 @@ export default function SampleManager({ kind }) {
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
             <div className="flex flex-col gap-4">
               {/* Basic info */}
-              <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+              <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs">
                 <div className="mb-3.5">
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">{cfg.nameLabel} <span className="text-red-500 font-normal">*</span></label>
+                  <label className="block text-xs font-medium text-zinc-700 mb-1.5">{cfg.nameLabel} <span className="text-red-500 font-normal">*</span></label>
                   <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                     placeholder={cfg.namePlaceholder}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" />
+                    className="w-full px-3 py-2 border border-zinc-200 rounded-xl text-xs focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 transition bg-white text-zinc-900 placeholder:text-zinc-400 shadow-2xs" />
                 </div>
                 <div className="mb-3.5">
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">{cfg.taskFieldLabel}</label>
+                  <label className="block text-xs font-medium text-zinc-700 mb-1.5">{cfg.taskFieldLabel}</label>
                   <select value={form.level} onChange={e => setForm(f => ({ ...f, level: e.target.value, examType: '' }))}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-400">
+                    className="w-full px-3 py-2 border border-zinc-200 rounded-xl text-xs focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 transition bg-white text-zinc-900 shadow-2xs">
                     {cfg.tasks.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                 </div>
                 <div className="mb-3.5">
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Dạng đề</label>
+                  <label className="block text-xs font-medium text-zinc-700 mb-1.5">Dạng đề</label>
                   <input value={form.examType} onChange={e => setForm(f => ({ ...f, examType: e.target.value }))}
                     placeholder={cfg.examTypePlaceholder[form.level] || cfg.examTypePlaceholder['']}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" />
+                    className="w-full px-3 py-2 border border-zinc-200 rounded-xl text-xs focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 transition bg-white text-zinc-900 placeholder:text-zinc-400 shadow-2xs" />
                 </div>
                 {/* Tags */}
                 {cfg.showTags && (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Tags</label>
+                    <label className="block text-xs font-medium text-zinc-700 mb-1.5">Tags</label>
                     <div className="flex flex-wrap gap-1.5 mb-2">
                       {form.tags.map(t => (
-                        <span key={t} className={`inline-flex items-center gap-1 ${cfg.tagChipClass} rounded-full px-2.5 py-0.5 text-xs font-medium`}>
+                        <span key={t} className={`inline-flex items-center gap-1 ${cfg.tagChipClass} rounded-full px-2 py-0.5 text-[11px] font-medium`}>
                           {t}
-                          <button onClick={() => removeTag(t)} aria-label={`Xóa tag ${t}`} className={`bg-transparent border-0 cursor-pointer ${cfg.tagChipCloseClass} text-sm leading-none`}>×</button>
+                          <button onClick={() => removeTag(t)} aria-label={`Xóa tag ${t}`} className={`bg-transparent border-0 cursor-pointer ${cfg.tagChipCloseClass} text-xs leading-none`}>×</button>
                         </span>
                       ))}
                     </div>
@@ -283,16 +288,16 @@ export default function SampleManager({ kind }) {
                       <input value={form.tagInput} onChange={e => setForm(f => ({ ...f, tagInput: e.target.value }))}
                         onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag() } }}
                         placeholder={cfg.tagPlaceholder}
-                        className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-400" />
-                      <button onClick={addTag} className={`px-3 py-2 rounded-lg ${cfg.tagAddBtnClass} text-sm font-semibold`}>+ Thêm</button>
+                        className="flex-1 px-3 py-1.5 border border-zinc-200 rounded-lg text-xs focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 transition bg-white text-zinc-900 placeholder:text-zinc-400 shadow-2xs" />
+                      <button onClick={addTag} className={`px-3 py-1.5 rounded-lg ${cfg.tagAddBtnClass} text-xs font-medium`}>+ Thêm</button>
                     </div>
                   </div>
                 )}
               </div>
 
               {/* Rich text content */}
-              <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
-                <label className="block text-xs font-semibold text-slate-600 mb-2">Nội dung bài mẫu</label>
+              <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs">
+                <label className="block text-xs font-medium text-zinc-700 mb-2">Nội dung bài mẫu</label>
                 <RichTextEditor value={form.content} onChange={html => setForm(f => ({ ...f, content: html }))}
                   maxHeight={520}
                   placeholder={cfg.contentPlaceholder} />
@@ -300,7 +305,7 @@ export default function SampleManager({ kind }) {
             </div>
 
             <div className="flex flex-col gap-3 lg:sticky lg:top-6 lg:self-start">
-              <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+              <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs">
                 <ThumbnailPicker
                   preview={form.thumbPreview}
                   onSelect={file => setForm(prev => ({ ...prev, thumbFile: file, thumbPreview: URL.createObjectURL(file) }))}
@@ -308,8 +313,8 @@ export default function SampleManager({ kind }) {
                 />
               </div>
               <div className="flex gap-2">
-                <button onClick={() => setView('list')} className="flex-1 px-4 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 font-medium">Hủy</button>
-                <button onClick={handleSave} disabled={saving} className="flex-1 px-4 py-2.5 rounded-lg bg-[#1D4ED8] text-white text-sm font-bold hover:bg-[#1e40af] transition disabled:opacity-50">{saving ? 'Đang lưu...' : 'Lưu'}</button>
+                <button type="button" onClick={handleCancelOrBack} className="flex-1 px-3.5 py-2 rounded-lg border border-zinc-200 text-xs text-zinc-700 hover:bg-zinc-50 font-medium transition">Hủy</button>
+                <button onClick={handleSave} disabled={saving} className="flex-1 px-3.5 py-2 rounded-lg bg-zinc-900 text-white text-xs font-medium hover:bg-zinc-800 transition disabled:opacity-50 shadow-xs">{saving ? 'Đang lưu...' : 'Lưu'}</button>
               </div>
             </div>
           </div>
@@ -321,50 +326,50 @@ export default function SampleManager({ kind }) {
     <>
       <div className="p-6 max-w-6xl mx-auto">
         <AdminListHeader title={cfg.listTitle} subtitle={cfg.listSubtitle} onAdd={openAdd} addLabel={cfg.addLabel} />
-        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-          {loading ? <div className="p-10 text-center text-sm text-gray-400">Đang tải...</div>
-            : list.length === 0 ? <div className="p-10 text-center text-sm text-gray-400">Chưa có bài mẫu nào.</div>
+        <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-xs">
+          {loading ? <div className="p-10 text-center text-xs text-zinc-400">Đang tải...</div>
+            : list.length === 0 ? <div className="p-10 text-center text-xs text-zinc-400">Chưa có bài mẫu nào.</div>
             : (
               <table className="w-full">
-                <thead><tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 w-16">Ảnh</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Tên bài</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 hidden sm:table-cell">{cfg.taskColHeader}</th>
-                  {cfg.showTags && <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 hidden sm:table-cell">Tags</th>}
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 hidden sm:table-cell">Ngày tạo</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500">Hành động</th>
+                <thead><tr className="border-b border-zinc-200 bg-zinc-50">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 w-16">Ảnh</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500">Tên bài</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 hidden sm:table-cell">{cfg.taskColHeader}</th>
+                  {cfg.showTags && <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 hidden sm:table-cell">Tags</th>}
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 hidden sm:table-cell">Ngày tạo</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-zinc-500">Hành động</th>
                 </tr></thead>
                 <tbody>
                   {list.map(item => (
-                    <tr key={item.id} className="border-b border-gray-50 hover:bg-gray-50 transition">
+                    <tr key={item.id} className="border-b border-zinc-100 hover:bg-zinc-50 transition">
                       <td className="px-4 py-3">
-                        <div style={{ width: 60, height: 40, borderRadius: 6, overflow: 'hidden', background: '#f1f5f9', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ width: 60, height: 40, borderRadius: 8, overflow: 'hidden', background: '#f4f4f5', border: '1px solid #e4e4e7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <ImageWithFallback
                             src={resolveImg(item.thumbnailUrl)}
                             alt={item.title || 'Thumbnail'}
                           />
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-800">{item.title}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-zinc-900">{item.title}</td>
                       <td className="px-4 py-3 hidden sm:table-cell">
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
                           {item.level && (
-                            <span style={{ fontSize: 11, background: cfg.listChipStyle.background, color: cfg.listChipStyle.color, borderRadius: 4, padding: '1px 7px', fontWeight: 600 }}>
+                            <span style={{ fontSize: 11, background: cfg.listChipStyle.background, color: cfg.listChipStyle.color, borderRadius: 6, padding: '2px 8px', fontWeight: 600, border: '1px solid #e4e4e7' }}>
                               {formatTask(item.level)}
                             </span>
                           )}
                           {item.examType && (
-                            <span style={{ fontSize: 11, background: '#f8fafc', color: '#475569', borderRadius: 4, padding: '1px 7px', border: '1px solid #e2e8f0' }}>
+                            <span style={{ fontSize: 11, background: '#ffffff', color: '#52525b', borderRadius: 6, padding: '2px 8px', border: '1px solid #e4e4e7' }}>
                               {item.examType}
                             </span>
                           )}
                         </div>
                       </td>
-                      {cfg.showTags && <td className="px-4 py-3 hidden sm:table-cell"><div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{(item.tags || []).map(t => <span key={t} style={{ fontSize: 11, background: cfg.listChipStyle.background, color: cfg.listChipStyle.color, borderRadius: 4, padding: '1px 6px' }}>{t}</span>)}</div></td>}
-                      <td className="px-4 py-3 text-sm text-gray-500 hidden sm:table-cell">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</td>
+                      {cfg.showTags && <td className="px-4 py-3 hidden sm:table-cell"><div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{(item.tags || []).map(t => <span key={t} style={{ fontSize: 11, background: cfg.listChipStyle.background, color: cfg.listChipStyle.color, borderRadius: 6, padding: '2px 8px', border: '1px solid #e4e4e7' }}>{t}</span>)}</div></td>}
+                      <td className="px-4 py-3 text-sm text-zinc-500 hidden sm:table-cell">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</td>
                       <td className="px-4 py-3"><div className="flex items-center justify-end gap-2">
-                        <button onClick={() => openEdit(item)} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium transition">Sửa</button>
-                        <button onClick={() => setDelConfirm(item.id)} className="text-xs px-3 py-1.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 font-medium transition">Xóa</button>
+                        <button onClick={() => openEdit(item)} className="text-xs px-3 py-1.5 rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-100 font-medium transition shadow-2xs">Sửa</button>
+                        <button onClick={() => setDelConfirm(item.id)} className="text-xs px-3 py-1.5 rounded-lg border border-zinc-200 text-red-500 hover:bg-red-50 hover:border-red-200 font-medium transition shadow-2xs">Xóa</button>
                       </div></td>
                     </tr>
                   ))}

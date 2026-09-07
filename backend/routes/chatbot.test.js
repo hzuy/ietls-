@@ -194,4 +194,29 @@ describe('Chatbot API Routes (/api/chatbot/message)', () => {
     expect(res.body).toHaveProperty('reply')
     expect(typeof res.body.reply).toBe('string')
   })
+
+  it('includes strict academic IELTS guardrail in the system prompt sent to Groq', async () => {
+    process.env.GROQ_API_KEY = 'test_groq_key'
+    const token = makeToken(300)
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 300,
+      name: 'User 300',
+      email: 'u300@example.com',
+      role: 'user',
+      createdAt: new Date(),
+    })
+    prismaMock.attempt.findMany.mockResolvedValue([])
+
+    await request(app)
+      .post('/api/chatbot/message')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ message: 'Giải thích giúp mình tiêu chí Task Achievement' })
+
+    expect(mockCreate).toHaveBeenCalled()
+    const callArgs = mockCreate.mock.calls[0][0]
+    const systemMessage = callArgs.messages.find(m => m.role === 'system')
+    expect(systemMessage.content).toContain('GIỚI HẠN PHẠM VI HỌC THUẬT IELTS')
+    expect(systemMessage.content).toContain('TUYỆT ĐỐI TỪ CHỐI các chủ đề ngoài lề cuộc thi')
+    expect(systemMessage.content).toContain('Trợ lý Học thuật AI IELTS')
+  })
 })

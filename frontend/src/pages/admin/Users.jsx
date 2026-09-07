@@ -21,15 +21,7 @@ function avatarInitials(name) {
   return name.slice(0, 2).toUpperCase()
 }
 
-const AVATAR_COLORS = [
-  'bg-[#1D4ED8]', 'bg-green-500', 'bg-purple-500', 'bg-orange-500',
-  'bg-pink-500', 'bg-indigo-500', 'bg-teal-500', 'bg-cyan-600',
-]
 
-// Hash user id to a fixed colour index — same user always gets same colour
-function avatarColorIdx(id) {
-  return Math.abs(typeof id === 'number' ? id : String(id).split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)) % AVATAR_COLORS.length
-}
 
 export default function Users() {
   const { showToast } = useToast()
@@ -115,42 +107,42 @@ export default function Users() {
 
         {/* ── Topbar ─────────────────────────────────────── */}
         <div className="mb-6">
-          <h1 className="text-xl md:text-2xl font-bold text-slate-900">
-            Người dùng{' '}
-            <span className="text-base font-normal text-slate-400">({total} người)</span>
+          <h1 className="text-xl font-semibold text-zinc-900 tracking-tight flex items-baseline gap-2">
+            Người dùng
+            <span className="text-xs font-normal text-zinc-500">({total} người)</span>
           </h1>
         </div>
 
         {/* ── Stats row ──────────────────────────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100">
-            <div className="text-2xl font-bold text-[#1D4ED8]">{total}</div>
-            <div className="text-xs text-gray-500 mt-1 font-medium">Tổng người dùng</div>
+          <div className="bg-white rounded-2xl p-4 border border-zinc-200 shadow-xs">
+            <div className="text-2xl font-bold tabular-nums text-zinc-900">{total}</div>
+            <div className="text-xs text-zinc-500 mt-1 font-medium">Tổng người dùng</div>
           </div>
-          <div className="bg-green-50 rounded-2xl p-4 border border-green-100">
-            <div className="text-2xl font-bold text-green-600">{activeCount}</div>
-            <div className="text-xs text-gray-500 mt-1 font-medium">Đang hoạt động</div>
+          <div className="bg-white rounded-2xl p-4 border border-zinc-200 shadow-xs">
+            <div className="text-2xl font-bold tabular-nums text-zinc-900">{activeCount}</div>
+            <div className="text-xs text-zinc-500 mt-1 font-medium">Đang hoạt động</div>
           </div>
-          <div className="bg-blue-50 rounded-2xl p-4 border border-red-100">
-            <div className="text-2xl font-bold text-red-500">{lockedCount}</div>
-            <div className="text-xs text-gray-500 mt-1 font-medium">Bị khóa</div>
+          <div className="bg-white rounded-2xl p-4 border border-zinc-200 shadow-xs">
+            <div className="text-2xl font-bold tabular-nums text-zinc-900">{lockedCount}</div>
+            <div className="text-xs text-zinc-500 mt-1 font-medium">Bị khóa</div>
           </div>
         </div>
 
         {/* ── Filter bar ─────────────────────────────────── */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
+        <div className="bg-white rounded-2xl border border-zinc-200 p-4 mb-4 shadow-xs">
           <div className="flex flex-wrap gap-2">
             <input
               type="text"
               placeholder="Tìm tên / email..."
               value={search}
               onChange={e => { setSearch(e.target.value); setPage(1) }}
-              className="w-[220px] px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1D4ED8]"
+              className="w-[220px] px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 bg-white text-zinc-900 placeholder:text-zinc-400"
             />
             <select
               value={statusFilter}
               onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1D4ED8]">
+              className="px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 bg-white text-zinc-900">
               <option value="">Tất cả trạng thái</option>
               <option value="active">Hoạt động</option>
               <option value="locked">Không hoạt động</option>
@@ -158,7 +150,7 @@ export default function Users() {
             <select
               value={sortBy}
               onChange={e => { setSortBy(e.target.value); setPage(1) }}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1D4ED8]">
+              className="px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 bg-white text-zinc-900">
               <option value="newest">Mới nhất</option>
               <option value="oldest">Cũ nhất</option>
               <option value="az">A → Z</option>
@@ -168,26 +160,26 @@ export default function Users() {
         </div>
 
         {/* ── Table ──────────────────────────────────────── */}
-        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-xs">
           {loading ? (
             <div className="flex items-center justify-center h-32">
-              <div className="w-7 h-7 border-4 border-[#1D4ED8] border-t-transparent rounded-full animate-spin" />
+              <div className="w-7 h-7 border-4 border-zinc-900 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : users.length === 0 ? (
             search || statusFilter ? (
               <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-                <SearchX size={36} className="text-gray-300" />
-                <p className="text-sm font-medium text-gray-500">Không tìm thấy người dùng phù hợp</p>
-                <p className="text-xs text-gray-400">Thử thay đổi từ khoá hoặc bộ lọc</p>
+                <SearchX size={36} className="text-zinc-300" />
+                <p className="text-sm font-medium text-zinc-500">Không tìm thấy người dùng phù hợp</p>
+                <p className="text-xs text-zinc-400">Thử thay đổi từ khoá hoặc bộ lọc</p>
               </div>
             ) : (
-              <p className="text-center text-gray-400 py-12 text-sm">Không có người dùng nào</p>
+              <p className="text-center text-zinc-400 py-12 text-sm">Không có người dùng nào</p>
             )
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-xs text-gray-400 bg-gray-50 border-b border-gray-100">
+                  <tr className="text-[11px] text-zinc-500 bg-zinc-50 border-b border-zinc-200">
                     <th className="px-5 py-3 text-left font-medium">Người dùng</th>
                     <th className="px-4 py-3 text-left font-medium">Vai trò</th>
                     <th className="px-4 py-3 text-left font-medium">Trạng thái</th>
@@ -204,17 +196,17 @@ export default function Users() {
                       <tr
                         key={u.id}
                         onClick={() => navigate(`/admin/users/${u.id}`)}
-                        className={`border-b border-gray-50 hover:bg-gray-50 transition cursor-pointer ${idx % 2 === 1 ? 'bg-gray-50/50' : ''}`}>
+                        className={`border-b border-zinc-100 hover:bg-zinc-50 transition cursor-pointer ${idx % 2 === 1 ? 'bg-zinc-50/40' : ''}`}>
 
                         {/* Người dùng */}
                         <td className="px-5 py-3">
                           <div className="flex items-center gap-3">
-                            <div className={`w-9 h-9 rounded-full ${AVATAR_COLORS[avatarColorIdx(u.id)]} text-white text-xs font-bold flex items-center justify-center shrink-0`}>
+                            <div className="w-8 h-8 rounded-full bg-zinc-900 text-white text-xs font-bold flex items-center justify-center shrink-0">
                               {avatarInitials(u.name)}
                             </div>
                             <div>
-                              <p className="font-medium text-gray-800">{u.name}</p>
-                              <p className="text-xs text-gray-400">{u.email}</p>
+                              <p className="font-medium text-zinc-900 text-xs">{u.name}</p>
+                              <p className="text-[11px] text-zinc-500">{u.email}</p>
                             </div>
                           </div>
                         </td>
@@ -222,36 +214,36 @@ export default function Users() {
                         {/* Vai trò */}
                         <td className="px-4 py-3">
                           {u.role === 'admin'
-                            ? <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">Admin</span>
-                            : <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">User</span>
+                            ? <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-900 text-white">Admin</span>
+                            : <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-100 text-zinc-700 border border-zinc-200">User</span>
                           }
                         </td>
 
                         {/* Trạng thái */}
                         <td className="px-4 py-3">
                           {u.isLocked
-                            ? <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-600">Không HĐ</span>
-                            : <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Hoạt động</span>
+                            ? <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-50 text-red-600 border border-red-200">Không HĐ</span>
+                            : <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-100 text-zinc-800 border border-zinc-200">Hoạt động</span>
                           }
                         </td>
 
                         {/* Lượt thi */}
-                        <td className="px-4 py-3 text-right tabular-nums text-gray-700 font-medium hidden sm:table-cell">
+                        <td className="px-4 py-3 text-right tabular-nums text-zinc-700 font-medium hidden sm:table-cell">
                           {u._count?.attempts ?? 0}
                         </td>
 
                         {/* Band TB */}
                         <td className="px-4 py-3 text-right tabular-nums hidden md:table-cell">
                           {band != null
-                            ? <span className={`font-bold ${band >= 7 ? 'text-green-600' : band >= 5 ? 'text-yellow-600' : 'text-red-500'}`}>
+                            ? <span className="font-semibold text-zinc-900">
                                 {band.toFixed(1)}
                               </span>
-                            : <span className="text-gray-300">—</span>
+                            : <span className="text-zinc-300">—</span>
                           }
                         </td>
 
                         {/* Ngày tham gia */}
-                        <td className="px-4 py-3 text-xs text-gray-400 hidden lg:table-cell">
+                        <td className="px-4 py-3 text-[11px] text-zinc-500 hidden lg:table-cell">
                           {fmtDate(u.createdAt)}
                         </td>
 
@@ -261,7 +253,7 @@ export default function Users() {
                             <button
                               onClick={() => navigate(`/admin/users/${u.id}`)}
                               title="Xem / Sửa"
-                              className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 transition">
+                              className="p-1.5 rounded-lg border border-zinc-200 text-zinc-600 hover:bg-zinc-100 transition shadow-2xs">
                               <Pencil size={15} />
                             </button>
                             {u.isLocked ? (
@@ -269,7 +261,7 @@ export default function Users() {
                                 onClick={() => setConfirmUnlock({ id: u.id, name: u.name })}
                                 disabled={togglingId === u.id}
                                 title="Mở khoá"
-                                className="p-1.5 rounded-lg border border-green-200 text-green-600 hover:bg-green-50 transition">
+                                className="p-1.5 rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-100 transition shadow-2xs">
                                 <Unlock size={15} />
                               </button>
                             ) : (
@@ -277,14 +269,14 @@ export default function Users() {
                                 onClick={() => setConfirmLock({ id: u.id, name: u.name })}
                                 disabled={togglingId === u.id}
                                 title="Khoá tài khoản"
-                                className="p-1.5 rounded-lg border border-orange-200 text-orange-500 hover:bg-orange-50 transition">
+                                className="p-1.5 rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-100 transition shadow-2xs">
                                 <Lock size={15} />
                               </button>
                             )}
                             <button
                               onClick={() => setConfirmDelete({ id: u.id, name: u.name, isLocked: u.isLocked })}
                               title="Xoá tài khoản"
-                              className="p-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition">
+                              className="p-1.5 rounded-lg border border-zinc-200 text-red-500 hover:bg-red-50 hover:border-red-200 transition shadow-2xs">
                               <Trash2 size={15} />
                             </button>
                           </div>
@@ -299,24 +291,24 @@ export default function Users() {
 
           {/* Pagination */}
           {total > 0 && (
-            <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100">
-              <span className="text-xs text-gray-400">
+            <div className="flex items-center justify-between px-5 py-3 border-t border-zinc-100">
+              <span className="text-xs text-zinc-500">
                 Hiển thị {startIdx}–{endIdx} / {total} người dùng
               </span>
               <div className="flex items-center gap-2">
                 <button
                   disabled={page <= 1}
                   onClick={() => setPage(p => p - 1)}
-                  className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50">
+                  className="px-3 py-1.5 text-xs rounded-lg border border-zinc-200 disabled:opacity-40 hover:bg-zinc-50 font-medium transition shadow-2xs">
                   ←
                 </button>
-                <span className="text-xs text-gray-500 font-medium">
+                <span className="text-xs text-zinc-600 font-semibold">
                   {page} / {pages}
                 </span>
                 <button
                   disabled={page >= pages}
                   onClick={() => setPage(p => p + 1)}
-                  className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50">
+                  className="px-3 py-1.5 text-xs rounded-lg border border-zinc-200 disabled:opacity-40 hover:bg-zinc-50 font-medium transition shadow-2xs">
                   →
                 </button>
               </div>
@@ -330,20 +322,20 @@ export default function Users() {
         <div
           onClick={() => setConfirmLock(null)}
           style={{ position:'fixed', inset:0, zIndex:9999, backgroundColor:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
-          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
-            <h3 className="font-bold text-gray-800 mb-2">Khoá tài khoản</h3>
-            <p className="text-sm text-gray-600 mb-6">
+          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm border border-zinc-200">
+            <h3 className="text-sm font-semibold text-zinc-900 mb-2">Khoá tài khoản</h3>
+            <p className="text-xs text-zinc-600 mb-6">
               Khoá tài khoản <strong>{confirmLock.name}</strong>? User sẽ không thể đăng nhập cho đến khi được mở khoá.
             </p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setConfirmLock(null)}
-                className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
+                className="px-3.5 py-2 rounded-lg border border-zinc-200 text-xs text-zinc-700 hover:bg-zinc-50 font-medium transition">
                 Huỷ
               </button>
               <button
                 onClick={() => executeLock(confirmLock.id, false)}
-                className="px-4 py-2 rounded-xl bg-orange-500 text-white text-sm font-bold hover:bg-orange-600 transition">
+                className="px-3.5 py-2 rounded-lg bg-zinc-900 text-white text-xs font-medium hover:bg-zinc-800 transition">
                 Khoá
               </button>
             </div>
@@ -356,20 +348,20 @@ export default function Users() {
         <div
           onClick={() => setConfirmUnlock(null)}
           style={{ position:'fixed', inset:0, zIndex:9999, backgroundColor:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
-          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
-            <h3 className="font-bold text-gray-800 mb-2">Mở khoá tài khoản</h3>
-            <p className="text-sm text-gray-600 mb-6">
+          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm border border-zinc-200">
+            <h3 className="text-sm font-semibold text-zinc-900 mb-2">Mở khoá tài khoản</h3>
+            <p className="text-xs text-zinc-600 mb-6">
               Mở khoá tài khoản <strong>{confirmUnlock.name}</strong>? User sẽ có thể đăng nhập trở lại.
             </p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setConfirmUnlock(null)}
-                className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
+                className="px-3.5 py-2 rounded-lg border border-zinc-200 text-xs text-zinc-700 hover:bg-zinc-50 font-medium transition">
                 Huỷ
               </button>
               <button
                 onClick={() => executeLock(confirmUnlock.id, true)}
-                className="px-4 py-2 rounded-xl bg-green-500 text-white text-sm font-bold hover:bg-green-600 transition">
+                className="px-3.5 py-2 rounded-lg bg-zinc-900 text-white text-xs font-medium hover:bg-zinc-800 transition">
                 Mở khoá
               </button>
             </div>
@@ -382,20 +374,20 @@ export default function Users() {
         <div
           onClick={() => setConfirmDelete(null)}
           style={{ position:'fixed', inset:0, zIndex:9999, backgroundColor:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
-          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
-            <h3 className="font-bold text-gray-800 mb-2">Xác nhận xóa</h3>
-            <p className="text-sm text-gray-600 mb-6">
+          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm border border-zinc-200">
+            <h3 className="text-sm font-semibold text-zinc-900 mb-2">Xác nhận xóa</h3>
+            <p className="text-xs text-zinc-600 mb-6">
               Xóa người dùng <strong>{confirmDelete.name}</strong>? Hành động này không thể hoàn tác.
             </p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setConfirmDelete(null)}
-                className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
+                className="px-3.5 py-2 rounded-lg border border-zinc-200 text-xs text-zinc-700 hover:bg-zinc-50 font-medium transition">
                 Huỷ
               </button>
               <button
                 onClick={handleDelete}
-                className="px-4 py-2 rounded-xl bg-red-500 text-white text-sm font-bold hover:bg-red-600 transition">
+                className="px-3.5 py-2 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700 transition">
                 Xóa
               </button>
             </div>

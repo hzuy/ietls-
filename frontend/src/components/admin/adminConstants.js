@@ -80,16 +80,16 @@ export function getQuestionGroupTheme(type) {
       }
     case 'mcq':
       return {
-        cardBg: 'bg-blue-50/80',
-        cardBorder: 'border-blue-300',
-        headerBg: 'bg-blue-100/60 border-blue-200',
-        badge: 'bg-blue-100 text-blue-800 border-blue-300',
-        subBoxBg: 'bg-blue-100/50',
-        subBoxBorder: 'border-blue-200',
-        subBoxText: 'text-blue-800',
-        subBoxHover: 'hover:bg-blue-200/60',
-        subBoxBtn: 'bg-blue-200/70 text-blue-900 border-blue-300',
-        accentColor: 'accent-blue-600',
+        cardBg: 'bg-zinc-50/80',
+        cardBorder: 'border-zinc-300',
+        headerBg: 'bg-zinc-100/60 border-zinc-200',
+        badge: 'bg-zinc-100 text-zinc-800 border-zinc-300',
+        subBoxBg: 'bg-zinc-100/50',
+        subBoxBorder: 'border-zinc-200',
+        subBoxText: 'text-zinc-800',
+        subBoxHover: 'hover:bg-zinc-200/60',
+        subBoxBtn: 'bg-zinc-200/70 text-zinc-900 border-zinc-300',
+        accentColor: 'accent-zinc-900',
       }
     case 'mcq_multi':
       return {
@@ -373,16 +373,114 @@ export const recalcAllGroupNumbers = (passages) => {
   let next = 1
   return passages.map(p => ({
     ...p,
-    questionGroups: p.questionGroups.map(g => {
+    questionGroups: (p.questionGroups || []).map(g => {
       const slots = getGroupSlots(g)
       const newStart = next
       const newEnd = slots > 0 ? next + slots - 1 : next
       next = newEnd + 1
+
       if (TOKEN_BASED_TYPES.includes(g.type)) {
-        return { ...g, qNumberStart: newStart, qNumberEnd: newEnd }
+        // Collect tokens in order of appearance
+        const seenTokens = new Set()
+        const tokenOrder = []
+        ;(g.noteSections || []).forEach(ns => {
+          ;(ns.lines || []).forEach(l => {
+            const text = l.contentWithTokens || l.content || ''
+            for (const m of text.matchAll(/\[Q:(\d+)\]/g)) {
+              const num = parseInt(m[1], 10)
+              if (!seenTokens.has(num)) {
+                seenTokens.add(num)
+                tokenOrder.push(num)
+              }
+            }
+          })
+        })
+
+        if (tokenOrder.length === 0) {
+          // No tokens in text (e.g. diagram_label or empty note_completion)
+          let qNum = newStart
+          const updatedQuestions = (g.questions || []).map(q => {
+            const num = qNum
+            qNum += 1
+            return { ...q, number: num }
+          })
+          return {
+            ...g,
+            qNumberStart: newStart,
+            qNumberEnd: newEnd,
+            questions: updatedQuestions,
+          }
+        }
+
+        const oldToNew = new Map()
+        tokenOrder.forEach((oldNum, idx) => {
+          oldToNew.set(oldNum, newStart + idx)
+        })
+
+        const rewriteText = (str) => {
+          if (!str) return str
+          return str.replace(/\[Q:(\d+)\]/g, (match, p1) => {
+            const oldNum = parseInt(p1, 10)
+            const newNum = oldToNew.get(oldNum)
+            return newNum !== undefined ? `[Q:${newNum}]` : match
+          })
+        }
+
+        const updatedNoteSections = (g.noteSections || []).map(ns => ({
+          ...ns,
+          lines: (ns.lines || []).map(l => {
+            const updatedLine = { ...l }
+            if (l.content !== undefined) updatedLine.content = rewriteText(l.content)
+            if (l.contentWithTokens !== undefined) updatedLine.contentWithTokens = rewriteText(l.contentWithTokens)
+            if (l.content !== undefined && l.contentWithTokens === undefined) {
+              updatedLine.contentWithTokens = updatedLine.content
+            }
+            if (l.contentWithTokens !== undefined && l.content === undefined) {
+              updatedLine.content = updatedLine.contentWithTokens
+            }
+            return updatedLine
+          })
+        }))
+
+        const qByOldNum = new Map()
+        ;(g.questions || []).forEach(q => {
+          qByOldNum.set(q.number, q)
+        })
+
+        const updatedQuestions = []
+        const usedOldNums = new Set()
+
+        tokenOrder.forEach((oldNum, idx) => {
+          const q = qByOldNum.get(oldNum)
+          if (q) {
+            updatedQuestions.push({ ...q, number: newStart + idx })
+            usedOldNums.add(oldNum)
+          } else {
+            updatedQuestions.push({ number: newStart + idx, questionText: '', correctAnswer: '' })
+          }
+        })
+
+        let extraIdx = tokenOrder.length
+        ;(g.questions || []).forEach(q => {
+          if (!usedOldNums.has(q.number)) {
+            updatedQuestions.push({ ...q, number: newStart + extraIdx })
+            extraIdx++
+          }
+        })
+
+        updatedQuestions.sort((a, b) => a.number - b.number)
+
+        return {
+          ...g,
+          qNumberStart: newStart,
+          qNumberEnd: newEnd,
+          questions: updatedQuestions,
+          noteSections: updatedNoteSections,
+        }
       }
+
       let qNum = newStart
-      const updatedQuestions = g.questions.map(q => {
+      const updatedQuestions = (g.questions || []).map(q => {
         const num = qNum
         qNum += (g.type === 'mcq_multi') ? (g.maxChoices || 2) : 1
         return { ...q, number: num }
@@ -461,11 +559,11 @@ export const emptySpeakingForm = () => ({
 })
 
 // ─── STYLES ──────────────────────────────────────────────────────────────────
-export const inputCls = 'w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition'
-export const labelCls = 'block text-xs font-semibold text-slate-600 mb-1'
-export const btnPrimary = 'bg-blue-600 text-white px-5 py-2.5 rounded-lg font-semibold text-sm hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed'
-export const btnSecondary = 'border border-slate-200 text-slate-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 transition'
-export const btnDanger = 'text-rose-600 hover:text-rose-700 text-xs px-2 py-1 rounded-lg hover:bg-rose-50 transition font-medium'
+export const inputCls = 'w-full border border-zinc-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200 transition bg-white text-zinc-900 placeholder:text-zinc-400'
+export const labelCls = 'block text-xs font-medium text-zinc-700 mb-1.5'
+export const btnPrimary = 'bg-zinc-900 text-white px-3.5 py-2 rounded-lg font-medium text-xs hover:bg-zinc-800 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed'
+export const btnSecondary = 'bg-white border border-zinc-200 text-zinc-900 px-3.5 py-2 rounded-lg text-xs font-medium hover:bg-zinc-50 transition shadow-xs'
+export const btnDanger = 'text-red-600 hover:text-red-700 text-xs px-2 py-1 rounded-lg hover:bg-red-50 transition font-medium'
 
 // URL ảnh/asset: nguồn chân lý ở src/utils/media.js. Re-export giữ tên cũ để
 // mọi editor/tab admin đang import { SERVER_BASE, toImgSrc } từ đây không phải sửa.

@@ -4,6 +4,7 @@ import { formatBand } from '../../utils/ielts'
 import useDebounce from '../../hooks/useDebounce'
 import { btnSecondary, btnDanger } from './adminConstants'
 import { SkeletonTable } from '../skeletons'
+import { Star } from 'lucide-react'
 
 // Bản đồ tùy chọn sort (UI) → cặp { sortBy, sortOrder } gửi lên GET /admin/exams
 const SORT_MAP = {
@@ -68,8 +69,34 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
         count = exam.questionCount ?? 0; total = 40; break
       case 'writing':
         count = exam.writingTasks?.length ?? 0; total = 2; break
-      case 'speaking':
-        count = (exam.speakingParts || []).filter(p => (p._count?.questions ?? 0) > 0).length; total = 3; break
+      case 'speaking': {
+        count = (exam.speakingParts || []).filter(p => {
+          const qCount = p._count?.questions ?? (Array.isArray(p.questions) ? p.questions.length : 0)
+          const hasCueCard = typeof p.cueCard === 'string' && p.cueCard.trim() !== ''
+          const partNum = Number(p.number ?? p.partNumber)
+
+          // Part 1: kiểm tra số lượng câu hỏi hoặc mô tả / cueCard
+          if (partNum === 1) {
+            return qCount > 0 || hasCueCard
+          }
+          // Part 2: kiểm tra cueCard (cueCard?.trim() !== '') hoặc câu hỏi (questions.length > 0)
+          if (partNum === 2) {
+            return hasCueCard || qCount > 0
+          }
+          // Part 3: có ít nhất 1 câu hỏi con hoặc cueCard / topics thảo luận
+          if (partNum === 3) {
+            if (qCount > 0 || hasCueCard) return true
+            if (Array.isArray(p.topics)) {
+              return p.topics.some(t => Array.isArray(t.questions) && t.questions.some(q => typeof q === 'string' && q.trim() !== ''))
+            }
+            return false
+          }
+          // Fallback khi không có p.number (VD: dữ liệu legacy hoặc mock test)
+          return hasCueCard || qCount > 0
+        }).length
+        total = 3
+        break
+      }
       default: return null
     }
     const over  = count > total
@@ -152,14 +179,14 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
       {/* Stats cards — số liệu toàn DB theo skill/bộ đề/tìm kiếm (từ backend) */}
       <div className="grid grid-cols-2 gap-3 mb-5 sm:grid-cols-4">
         {[
-          { label: 'Tổng đề',         value: stats ? stats.totalExams : '—',            color: 'bg-blue-50 text-blue-700' },
-          { label: 'Tổng lượt làm',   value: stats ? stats.totalAttempts : '—',         color: 'bg-emerald-50 text-emerald-700' },
-          { label: 'Band TB',          value: stats && stats.avgBand != null ? formatBand(stats.avgBand) : '—', color: 'bg-slate-50 text-slate-700' },
-          { label: 'Chưa có câu hỏi', value: stats ? stats.noQuestionsCount : '—',      color: (stats?.noQuestionsCount ?? 0) > 0 ? 'bg-amber-50 text-amber-700' : 'bg-slate-50 text-slate-400' },
+          { label: 'Tổng đề',         value: stats ? stats.totalExams : '—' },
+          { label: 'Tổng lượt làm',   value: stats ? stats.totalAttempts : '—' },
+          { label: 'Band TB',          value: stats && stats.avgBand != null ? formatBand(stats.avgBand) : '—' },
+          { label: 'Chưa có câu hỏi', value: stats ? stats.noQuestionsCount : '—' },
         ].map(card => (
-          <div key={card.label} className={`rounded-lg p-3 ${card.color} border border-slate-200/60`}>
-            <div className="text-xl font-bold">{card.value}</div>
-            <div className="text-xs mt-0.5 opacity-75">{card.label}</div>
+          <div key={card.label} className="rounded-lg p-3 bg-white border border-zinc-200 shadow-2xs">
+            <div className="text-xl font-bold text-zinc-900">{card.value}</div>
+            <div className="text-xs mt-0.5 text-zinc-500">{card.label}</div>
           </div>
         ))}
       </div>
@@ -173,14 +200,14 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
           placeholder="Tìm theo tên đề..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="flex-1 min-w-[160px] px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-[#1D4ED8] bg-white"
+          className="flex-1 min-w-[160px] px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 bg-white text-zinc-900 placeholder:text-zinc-400"
         />
         <label htmlFor="examlist-series" className="sr-only">Lọc theo bộ đề</label>
         <select
           id="examlist-series"
           value={filterSeries}
           onChange={e => handleSeriesChange(e.target.value)}
-          className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-[#1D4ED8] bg-white"
+          className="px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 bg-white text-zinc-900"
         >
           <option value="">Tất cả bộ đề</option>
           {examSeries.map(s => <option key={s.id} value={s.id.toString()}>{s.name}</option>)}
@@ -190,7 +217,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
           id="examlist-status"
           value={filterStatus}
           onChange={e => handleStatusChange(e.target.value)}
-          className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-[#1D4ED8] bg-white"
+          className="px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 bg-white text-zinc-900"
         >
           <option value="all">Tất cả trạng thái</option>
           <option value="has_questions">Có câu hỏi</option>
@@ -201,7 +228,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
           id="examlist-sort"
           value={sortBy}
           onChange={e => handleSortChange(e.target.value)}
-          className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-[#1D4ED8] bg-white"
+          className="px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 bg-white text-zinc-900"
         >
           <option value="newest">Mới nhất</option>
           <option value="oldest">Cũ nhất</option>
@@ -212,30 +239,30 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
         {hasActiveFilter && (
           <button
             onClick={resetFilters}
-            className="px-3 py-2 text-sm border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition bg-white"
+            className="px-3 py-2 text-xs font-medium border border-zinc-200 rounded-lg text-zinc-600 hover:bg-zinc-50 transition bg-white"
           >Reset</button>
         )}
       </div>
 
       {/* Result count */}
       {hasActiveFilter && (
-        <p className="text-xs text-slate-400 mb-3">{totalCount} đề khớp bộ lọc · đang xem trang {currentPage}/{totalPages}</p>
+        <p className="text-[11px] text-zinc-500 mb-3">{totalCount} đề khớp bộ lọc · đang xem trang {currentPage}/{totalPages}</p>
       )}
 
       {/* Exam list */}
       {error ? (
-        <div className="text-center py-10 text-sm">
+        <div className="text-center py-10 text-xs">
           <p className="text-rose-600 font-medium">Không tải được danh sách.</p>
           <button
             type="button"
             onClick={() => runFetch()}
-            className="mt-3 px-4 py-2 rounded-lg border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition"
+            className="mt-3 px-3.5 py-2 rounded-lg border border-zinc-200 text-zinc-600 font-medium hover:bg-zinc-50 transition text-xs"
           >Thử lại</button>
         </div>
       ) : loading && filtered.length === 0 ? (
         <SkeletonTable rows={6} cols={3} />
       ) : filtered.length === 0 ? (
-        <div className="text-center text-slate-400 py-8 text-sm">
+        <div className="text-center text-zinc-400 py-8 text-xs">
           {hasActiveFilter ? 'Không tìm thấy đề nào khớp với bộ lọc.' : 'Chưa có đề nào. Tạo đề đầu tiên!'}
         </div>
       ) : (
@@ -245,17 +272,17 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
             const isLoading = exam.id === loadingId
             return (
               <div key={exam.id}
-                style={isEditing ? { background: '#eff6ff', borderLeft: '3px solid #1D4ED8' } : {}}
+                style={isEditing ? { background: '#f4f4f5', borderLeft: '3px solid #18181b' } : {}}
                 className={`bg-white rounded-lg p-4 border flex items-center justify-between transition
-                  ${isEditing ? 'border-[#bfdbfe]' : 'border-slate-100 hover:border-slate-200'}`}>
+                  ${isEditing ? 'border-zinc-400' : 'border-zinc-200 hover:border-zinc-300'}`}>
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className={`font-semibold text-sm ${isEditing ? 'text-[#1D4ED8]' : 'text-slate-800'}`}>
+                      <p className={`font-semibold text-sm ${isEditing ? 'text-zinc-900 font-bold' : 'text-zinc-800'}`}>
                         {exam.title}
                       </p>
                       {isEditing && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#1D4ED8] text-white shrink-0">
+                        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-zinc-900 text-white shrink-0">
                           Đang chỉnh sửa
                         </span>
                       )}
@@ -263,7 +290,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
                         const badge = getQuestionBadge(exam)
                         if (!badge) return null
                         return (
-                          <span title={badge.title} style={{ background: badge.bg, color: badge.color, borderRadius: 9999, padding: '2px 8px', fontSize: 10, fontWeight: 600, flexShrink: 0 }}>
+                          <span title={badge.title} style={{ background: badge.bg, color: badge.color, borderRadius: 9999, padding: '2px 8px', fontSize: 11, fontWeight: 500, flexShrink: 0 }}>
                             {badge.text}
                           </span>
                         )
@@ -271,19 +298,20 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
                     </div>
                     <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                       {exam.bookNumber && exam.testNumber && (
-                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-100 text-zinc-800 border border-zinc-200/60">
                           Cambridge {exam.bookNumber} · Test {exam.testNumber}
                         </span>
                       )}
-                      <span className="text-xs text-slate-400">
+                      <span className="text-[11px] text-zinc-500">
                         {formatDate(exam.createdAt)}
                       </span>
-                      <span className="text-xs text-slate-400">
+                      <span className="text-[11px] text-zinc-500">
                         {exam._count?.attempts ?? 0} lượt làm
                       </span>
                       {exam.avgScore != null && exam.avgScore > 0 && (
-                        <span className="text-xs text-purple-600 font-medium">
-                          ★ Band {formatBand(exam.avgScore)} TB
+                        <span className="text-[11px] text-zinc-700 font-medium bg-zinc-100 px-2 py-0.5 rounded flex items-center gap-1">
+                          <Star className="w-3 h-3 fill-zinc-600 text-zinc-600 shrink-0" />
+                          <span>Band {formatBand(exam.avgScore)} TB</span>
                         </span>
                       )}
                     </div>
@@ -318,16 +346,16 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
 
       {/* Pagination Controls */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100">
-          <span className="text-xs text-slate-500">
-            Hiển thị trang <span className="font-semibold text-slate-700">{currentPage}</span> / <span className="font-semibold text-slate-700">{totalPages}</span> ({totalCount} đề)
+        <div className="flex items-center justify-between mt-6 pt-4 border-t border-zinc-200">
+          <span className="text-xs text-zinc-500">
+            Hiển thị trang <span className="font-semibold text-zinc-800">{currentPage}</span> / <span className="font-semibold text-zinc-800">{totalPages}</span> ({totalCount} đề)
           </span>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage <= 1 || loading}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              className="px-3.5 py-2 rounded-lg border border-zinc-200 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs"
             >
               ← Trang trước
             </button>
@@ -335,7 +363,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
               type="button"
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage >= totalPages || loading}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              className="px-3.5 py-2 rounded-lg border border-zinc-200 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs"
             >
               Trang sau →
             </button>
@@ -347,33 +375,30 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
       {confirmDelete && (
         <div
           onClick={() => setConfirmDelete(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/45"
+          className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/50"
         >
           <div
             onClick={e => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
             aria-labelledby="examlist-delete-title"
-            className="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm"
+            className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm border border-zinc-200"
           >
-            <h3 id="examlist-delete-title" className="font-bold text-slate-800 text-base mb-2">Xác nhận xóa</h3>
-            <p className="text-sm text-slate-600 leading-relaxed mb-6">
-              Bạn có chắc muốn xóa đề <span className="font-semibold text-slate-800">"{confirmDelete.title}"</span> không? Hành động này không thể hoàn tác.
+            <h3 id="examlist-delete-title" className="font-semibold text-zinc-900 text-sm mb-2">Xác nhận xóa</h3>
+            <p className="text-xs text-zinc-600 leading-relaxed mb-6">
+              Bạn có chắc muốn xóa đề <span className="font-medium text-zinc-900">"{confirmDelete.title}"</span> không? Hành động này không thể hoàn tác.
             </p>
             <div className="flex gap-3 justify-end">
               <button
                 type="button"
                 autoFocus
                 onClick={() => setConfirmDelete(null)}
-                className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition"
+                className="px-3.5 py-2 rounded-lg border border-zinc-200 text-zinc-700 text-xs font-medium hover:bg-zinc-50 transition shadow-2xs"
               >Quay lại</button>
               <button
                 type="button"
                 onClick={handleDeleteConfirm}
-                className="px-4 py-2 rounded-lg text-white text-sm font-bold transition"
-                style={{ background: '#dc2626' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#b91c1c'}
-                onMouseLeave={e => e.currentTarget.style.background = '#dc2626'}
+                className="px-3.5 py-2 rounded-lg text-white text-xs font-medium bg-red-600 hover:bg-red-700 transition shadow-xs"
               >Xóa</button>
             </div>
           </div>

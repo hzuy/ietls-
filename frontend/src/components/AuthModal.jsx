@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { GoogleLogin } from '@react-oauth/google'
 import { login, register, googleAuth } from '../services/userService'
+import { showAlert } from '../utils/alertUtils'
+import { AlertCircle } from 'lucide-react'
 
 export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
   const navigate = useNavigate()
@@ -35,7 +37,9 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
         onSuccess(data.user)
       }
     } catch (err) {
-      setGoogleError(err.response?.data?.message || 'Đăng nhập Google thất bại')
+      const msg = err.response?.data?.message || 'Đăng nhập Google thất bại'
+      setGoogleError(msg)
+      showAlert(msg, 'error')
     }
   }
 
@@ -56,7 +60,9 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
         onSuccess(data.user)
       }
     } catch (err) {
-      setLoginError(err.response?.data?.message || 'Đăng nhập thất bại')
+      const msg = err.response?.data?.message || 'Đăng nhập thất bại'
+      setLoginError(msg)
+      showAlert(msg, 'error')
     } finally {
       setLoginLoading(false)
     }
@@ -65,7 +71,9 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
   const handleRegister = async (e) => {
     e.preventDefault()
     if (regForm.password.length < 8) {
-      setRegError('Mật khẩu phải có ít nhất 8 ký tự')
+      const msg = 'Mật khẩu phải có ít nhất 8 ký tự'
+      setRegError(msg)
+      showAlert(msg, 'error')
       return
     }
     setRegLoading(true)
@@ -79,7 +87,9 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
       localStorage.removeItem('requirePasswordChange')
       onSuccess(data.user)
     } catch (err) {
-      setRegError(err.response?.data?.message || 'Đăng ký thất bại')
+      const msg = err.response?.data?.message || 'Đăng ký thất bại'
+      setRegError(msg)
+      showAlert(msg, 'error')
     } finally {
       setRegLoading(false)
     }
@@ -94,14 +104,15 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
   }, [onClose])
 
   const inputStyle = { border: '1px solid var(--border)', color: 'var(--text)' }
-  const inputCls   = 'w-full rounded-xl px-4 py-3 text-sm outline-none transition-all duration-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'
+  const inputCls   = 'w-full rounded-xl px-4 py-3 text-sm outline-none transition-all duration-300 focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900'
 
   // Khối "hoặc" + nút Google — dùng chung cho cả 2 tab, chỉ đổi text nút theo ngữ cảnh
   const googleSection = (
     <>
       {googleError && (
-        <div role="alert" className="p-3 rounded-xl mb-4 mt-4 text-sm font-medium bg-red-50 border border-red-200 text-red-600" style={{ fontFamily: 'var(--font-body)' }}>
-          ⚠️ {googleError}
+        <div role="alert" className="p-3 rounded-xl mb-4 mt-4 text-xs font-medium bg-red-50 border border-red-200 text-red-700 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+          <span>{googleError}</span>
         </div>
       )}
       <div className="flex items-center gap-3 my-5">
@@ -144,14 +155,14 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
         <div className="flex items-center justify-center gap-2 mb-6">
           <div style={{
             width: 32, height: 32, borderRadius: '50%',
-            background: '#2563EB',
+            background: 'var(--primary)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 2px 8px rgba(37,99,235,0.3)', flexShrink: 0,
+            boxShadow: '0 2px 8px rgba(24,24,27,0.2)', flexShrink: 0,
           }}>
             <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#fff' }} />
           </div>
-          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, letterSpacing: '-0.02em', color: '#0B2345' }} className="whitespace-nowrap">
-            IELTS<span style={{ color: '#2563EB', fontWeight: 500 }}>Pro</span>
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, letterSpacing: '-0.02em', color: 'var(--ink)' }} className="whitespace-nowrap">
+            IELTS<span style={{ color: 'var(--primary)', fontWeight: 500 }}>Pro</span>
           </span>
         </div>
 
@@ -164,7 +175,6 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
               className="pb-3 px-1 mr-6 text-sm font-bold transition-colors"
               style={{
                 fontFamily: 'var(--font-body)',
-                borderBottom: tab === t ? '2px solid var(--primary)' : '2px solid transparent',
                 color: tab === t ? 'var(--primary)' : 'var(--subtle)',
                 background: 'none', border: 'none',
                 borderBottom: tab === t ? '2px solid var(--primary)' : '2px solid transparent',
@@ -183,8 +193,9 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
             <p className="text-sm mb-5" style={{ fontFamily: 'var(--font-body)', color: 'var(--muted)' }}>Chào mừng bạn quay lại!</p>
 
             {loginError && (
-              <div role="alert" className="p-3 rounded-xl mb-4 text-sm font-medium bg-red-50 border border-red-200 text-red-600" style={{ fontFamily: 'var(--font-body)' }}>
-                ⚠️ {loginError}
+              <div role="alert" className="p-3 rounded-xl mb-4 text-xs font-medium bg-red-50 border border-red-200 text-red-700 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                <span>{loginError}</span>
               </div>
             )}
 
@@ -240,12 +251,13 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
         {/* REGISTER */}
         {tab === 'register' && (
           <>
-            <h2 className="text-xl font-extrabold mb-1" style={{ fontFamily: 'var(--font-display)', color: 'var(--ink)' }}>Tạo tài khoản</h2>
-            <p className="text-sm mb-5" style={{ fontFamily: 'var(--font-body)', color: 'var(--muted)' }}>Miễn phí, không cần thẻ tín dụng</p>
+            <h2 className="text-xl font-extrabold mb-1" style={{ fontFamily: 'var(--font-display)', color: 'var(--ink)' }}>Tạo tài khoản học viên</h2>
+            <p className="text-xs mb-5 text-zinc-500">Lưu trữ kết quả thi và theo dõi lộ trình nâng band điểm</p>
 
             {regError && (
-              <div role="alert" className="p-3 rounded-xl mb-4 text-sm font-medium bg-red-50 border border-red-200 text-red-600" style={{ fontFamily: 'var(--font-body)' }}>
-                ⚠️ {regError}
+              <div role="alert" className="p-3 rounded-xl mb-4 text-xs font-medium bg-red-50 border border-red-200 text-red-700 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                <span>{regError}</span>
               </div>
             )}
 

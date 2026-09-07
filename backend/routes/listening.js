@@ -1,6 +1,7 @@
 const express = require('express')
 const authMiddleware = require('../middleware/auth')
 const validate = require('../middleware/validate')
+const { objectiveSubmitLimiter } = require('../middleware/rateLimiter')
 const { listeningSubmitSchema } = require('../validators/submissionValidator')
 const { getListeningBand } = require('../lib/scoreUtils')
 
@@ -133,7 +134,7 @@ router.get('/exams/:id', authMiddleware, async (req, res) => {
 })
 
 
-router.post('/exams/:id/submit', authMiddleware, validate(listeningSubmitSchema), async (req, res) => {
+router.post('/exams/:id/submit', authMiddleware, objectiveSubmitLimiter, validate(listeningSubmitSchema), async (req, res) => {
   try {
     const { answers } = req.body
     const examId = parseInt(req.params.id)

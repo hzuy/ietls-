@@ -6,6 +6,7 @@ const validate = require('../../../middleware/validate')
 const { teacherOnly } = require('../../../lib/roles')
 const { createWritingExamSchema } = require('../../../validators/adminExamValidator')
 const { invalidate } = require('../../../lib/swrCache')
+const { checkDuplicateExamTest } = require('./core')
 
 // ─── CREATE WRITING EXAM ─────────────────────────────────────────────────────
 router.post('/exams/writing', authMiddleware, teacherOnly, validate(createWritingExamSchema), async (req, res) => {
@@ -16,6 +17,14 @@ router.post('/exams/writing', authMiddleware, teacherOnly, validate(createWritin
 
     const existing = await prisma.exam.findFirst({ where: { title: { equals: title, mode: 'insensitive' }, skill: 'writing' } })
     if (existing) return res.status(409).json({ message: `Đã tồn tại đề Writing có tên "${existing.title}". Vui lòng đặt tên khác.` })
+
+    // BUG-08: Chặn trùng testNumber trong cùng seriesId và bookNumber
+    if (seriesId && bookNumber && testNumber) {
+      const isDup = await checkDuplicateExamTest({ seriesId, bookNumber, testNumber, skill: 'writing' })
+      if (isDup) {
+        return res.status(409).json({ message: 'Đề thi với số Test này đã tồn tại trong cùng cuốn/bộ đề' })
+      }
+    }
 
     const exam = await prisma.exam.create({
       data: {

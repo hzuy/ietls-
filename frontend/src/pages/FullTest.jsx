@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import Breadcrumb from '../components/common/Breadcrumb'
+import { FolderArchive } from 'lucide-react'
 import ContentCard from '../components/common/ContentCard'
 import { SkeletonCard } from '../components/skeletons'
 import { CONTENT_CARD_CONFIG } from '../components/common/contentCardConfig'
@@ -28,8 +29,8 @@ function SeriesCard({ item, onClick }) {
         titleClamp={2}
         meta={{ type: 'count', text: hasTests ? `${item.testCount} bài test` : 'Chưa có bài' }}
         action={hasTests
-          ? { label: 'Làm bài ngay →', decorative: true }
-          : { label: 'Làm bài ngay →', disabled: true, disabledLabel: 'Đang cập nhật' }}
+          ? { label: 'Chi tiết đề thi →', decorative: true }
+          : { label: 'Chi tiết đề thi →', disabled: true, disabledLabel: 'Đang cập nhật' }}
         onClick={hasTests ? onClick : undefined}
       />
 
@@ -148,7 +149,7 @@ function SeriesRow({ title, count, children }) {
           aria-label="Cuộn trái"
           onClick={() => scroll(-1)}
           style={{ position: 'absolute', left: -20, top: '50%', transform: 'translateY(-50%)', zIndex: 10, width: 40, height: 40, borderRadius: '50%', display: showLeft ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', opacity: 0, transition: 'all 0.2s var(--ease-out-quart)' }}
-          className="group-hover/row:opacity-100 hover:text-slate-900 hover:border-slate-300"
+          className="group-hover/row:opacity-100 hover:text-zinc-900 hover:border-zinc-300"
         >
           <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>
         </button>
@@ -175,7 +176,7 @@ function SeriesRow({ title, count, children }) {
           aria-label="Cuộn phải"
           onClick={() => scroll(1)}
           style={{ position: 'absolute', right: -20, top: '50%', transform: 'translateY(-50%)', zIndex: 10, width: 40, height: 40, borderRadius: '50%', display: showRight ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', opacity: 0, transition: 'all 0.2s var(--ease-out-quart)' }}
-          className="group-hover/row:opacity-100 hover:text-slate-900 hover:border-slate-300"
+          className="group-hover/row:opacity-100 hover:text-zinc-900 hover:border-zinc-300"
         >
           <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
         </button>
@@ -244,7 +245,7 @@ export default function FullTest() {
   }, [])
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
+    <div className="min-h-screen bg-zinc-50/50">
       <Navbar />
 
       <div className="app-container pt-4 pb-0">
@@ -253,19 +254,19 @@ export default function FullTest() {
 
       <div className="app-container pt-4 pb-16 relative">
         {fetchError ? (
-          <div className="text-center py-20 px-6 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center">
-            <div className="w-16 h-16 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center mb-6 text-slate-400">
+          <div className="text-center py-20 px-6 bg-white rounded-2xl border border-zinc-200 shadow-xs flex flex-col items-center">
+            <div className="w-16 h-16 rounded-full bg-zinc-50 border border-zinc-200 flex items-center justify-center mb-6 text-zinc-400">
               <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
             </div>
-            <p className="text-[18px] font-bold text-slate-900 mb-2" style={{ fontFamily: 'var(--font-display)' }}>Không thể tải dữ liệu</p>
-            <p className="text-slate-600 mb-6 max-w-sm" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}>Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
-            <button className="btn-primary px-8 py-3 font-bold" style={{ fontSize: 'var(--fs-sm)' }} onClick={() => window.location.reload()}>Thử lại</button>
+            <p className="text-lg font-bold text-zinc-900 mb-2" style={{ fontFamily: 'var(--font-display)' }}>Không thể tải dữ liệu</p>
+            <p className="text-zinc-500 mb-6 max-w-sm text-sm" style={{ fontFamily: 'var(--font-body)' }}>Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
+            <button className="btn-primary px-8 py-3 font-bold text-sm" onClick={() => window.location.reload()}>Thử lại</button>
           </div>
         ) : loading ? (
           <div className="flex flex-col gap-12">
             {[1, 2].map(i => (
               <div key={i}>
-                <div className="h-7 w-48 bg-slate-200 animate-pulse rounded-md mb-6" />
+                <div className="h-7 w-48 bg-zinc-200 animate-pulse rounded-md mb-6" />
                 <div className="flex gap-6 overflow-hidden">
                   {[1, 2, 3, 4, 5, 6].map(j => (
                     <SkeletonCard key={j} className="w-[180px] sm:w-[200px] shrink-0" aspect="4/5" />
@@ -276,7 +277,7 @@ export default function FullTest() {
           </div>
         ) : Object.keys(groupedData).length === 0 ? (
           <div style={{ textAlign: 'center', padding: '80px 0', background: 'var(--surface)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-xs)' }}>
-            <div style={{ fontSize: 56, marginBottom: 24 }}>📭</div>
+            <FolderArchive className="w-12 h-12 text-zinc-400 mx-auto mb-3 stroke-[1.5]" />
             <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: 'var(--ink-soft)', margin: '0 0 8px' }}>Chưa có bộ đề nào</h3>
             <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text)', fontSize: 14 }}>Dữ liệu đang được cập nhật, vui lòng quay lại sau.</p>
           </div>

@@ -43,7 +43,9 @@ function moveToSubdir(file, subdir) {
   const destDir = path.join(uploadsDir, subdir)
   fs.mkdirSync(destDir, { recursive: true })
   const destPath = path.join(destDir, file.filename)
-  fs.renameSync(file.path, destPath)
+  if (file.path && fs.existsSync(file.path) && path.resolve(destPath) !== path.resolve(file.path)) {
+    fs.renameSync(file.path, destPath)
+  }
   return `/uploads/${subdir}/${file.filename}`
 }
 

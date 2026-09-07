@@ -92,7 +92,7 @@ function renderTrendBadge(trend) {
   }
   // insufficient_data: render Info badge instead of arrow
   return (
-    <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+    <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-zinc-100 text-zinc-700 border border-zinc-200">
       <Info className="w-3.5 h-3.5" />
       Chưa đủ bài thi
     </span>
@@ -179,7 +179,7 @@ export default function ProgressAnalysis() {
   const overallAccuracy = totalQuestionsAll > 0 ? ((totalCorrectAll / totalQuestionsAll) * 100).toFixed(1) : 0
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800">
+    <div className="min-h-screen flex flex-col bg-zinc-50/50 text-zinc-900 font-sans">
       <Navbar />
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8 md:py-12">
@@ -187,76 +187,76 @@ export default function ProgressAnalysis() {
         <div className="mb-8">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="p-2 rounded-xl bg-blue-100 text-blue-700">
+              <span className="p-2 rounded-xl bg-zinc-100 text-zinc-900 border border-zinc-200">
                 <BarChart3 className="w-5 h-5" />
               </span>
-              <span className="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200">
+              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-700 bg-zinc-100 px-2.5 py-1 rounded-full border border-zinc-200">
                 Unified 4-Skills Analytics
               </span>
             </div>
-            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
+            <h1 className="text-2xl md:text-3xl font-bold text-zinc-900 tracking-tight">
               Phân tích Lỗi sai & Lộ trình 4 Kỹ năng
             </h1>
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="text-sm text-zinc-500 mt-1">
               Theo dõi chi tiết tiêu chí IELTS Reading, Listening, Writing và Speaking kèm cố vấn AI cá nhân hóa.
             </p>
           </div>
 
           {/* Dedicated Skill Filter Toolbar (1 Single Row, No Wrap) */}
           <div className="mt-6 flex items-center overflow-x-auto pb-1 no-scrollbar">
-            <div className="flex flex-nowrap items-center gap-2 p-1.5 bg-slate-200/80 rounded-2xl border border-slate-300/60 shrink-0">
+            <div className="flex flex-nowrap items-center gap-1.5 p-1 bg-zinc-100 rounded-xl border border-zinc-200 shrink-0">
               <button
                 onClick={() => setSkillFilter('all')}
-                className={`whitespace-nowrap px-4 py-2 text-xs md:text-sm font-semibold rounded-xl transition-all cursor-pointer ${
+                className={`whitespace-nowrap px-3.5 py-1.5 text-xs md:text-sm font-medium rounded-lg transition cursor-pointer ${
                   skillFilter === 'all'
-                    ? 'bg-white text-blue-700 shadow-sm font-bold'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    ? 'bg-white text-zinc-900 shadow-xs font-semibold'
+                    : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/60'
                 }`}
               >
                 Tất cả kỹ năng
               </button>
               <button
                 onClick={() => setSkillFilter('reading')}
-                className={`whitespace-nowrap flex items-center gap-1.5 px-4 py-2 text-xs md:text-sm font-semibold rounded-xl transition-all cursor-pointer ${
+                className={`whitespace-nowrap flex items-center gap-1.5 px-3.5 py-1.5 text-xs md:text-sm font-medium rounded-lg transition cursor-pointer ${
                   skillFilter === 'reading'
-                    ? 'bg-white text-blue-700 shadow-sm font-bold'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    ? 'bg-white text-zinc-900 shadow-xs font-semibold'
+                    : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/60'
                 }`}
               >
-                <BookOpen className="w-4 h-4 text-blue-600 shrink-0" />
+                <BookOpen className="w-4 h-4 text-zinc-700 shrink-0" />
                 Reading
               </button>
               <button
                 onClick={() => setSkillFilter('listening')}
-                className={`whitespace-nowrap flex items-center gap-1.5 px-4 py-2 text-xs md:text-sm font-semibold rounded-xl transition-all cursor-pointer ${
+                className={`whitespace-nowrap flex items-center gap-1.5 px-3.5 py-1.5 text-xs md:text-sm font-medium rounded-lg transition cursor-pointer ${
                   skillFilter === 'listening'
-                    ? 'bg-white text-purple-700 shadow-sm font-bold'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    ? 'bg-white text-zinc-900 shadow-xs font-semibold'
+                    : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/60'
                 }`}
               >
-                <Headphones className="w-4 h-4 text-purple-600 shrink-0" />
+                <Headphones className="w-4 h-4 text-zinc-700 shrink-0" />
                 Listening
               </button>
               <button
                 onClick={() => setSkillFilter('writing')}
-                className={`whitespace-nowrap flex items-center gap-1.5 px-4 py-2 text-xs md:text-sm font-semibold rounded-xl transition-all cursor-pointer ${
+                className={`whitespace-nowrap flex items-center gap-1.5 px-3.5 py-1.5 text-xs md:text-sm font-medium rounded-lg transition cursor-pointer ${
                   skillFilter === 'writing'
-                    ? 'bg-white text-amber-700 shadow-sm font-bold'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    ? 'bg-white text-zinc-900 shadow-xs font-semibold'
+                    : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/60'
                 }`}
               >
-                <PenTool className="w-4 h-4 text-amber-600 shrink-0" />
+                <PenTool className="w-4 h-4 text-zinc-700 shrink-0" />
                 Writing
               </button>
               <button
                 onClick={() => setSkillFilter('speaking')}
-                className={`whitespace-nowrap flex items-center gap-1.5 px-4 py-2 text-xs md:text-sm font-semibold rounded-xl transition-all cursor-pointer ${
+                className={`whitespace-nowrap flex items-center gap-1.5 px-3.5 py-1.5 text-xs md:text-sm font-medium rounded-lg transition cursor-pointer ${
                   skillFilter === 'speaking'
-                    ? 'bg-white text-rose-700 shadow-sm font-bold'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    ? 'bg-white text-zinc-900 shadow-xs font-semibold'
+                    : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/60'
                 }`}
               >
-                <Mic className="w-4 h-4 text-rose-600 shrink-0" />
+                <Mic className="w-4 h-4 text-zinc-700 shrink-0" />
                 Speaking
               </button>
             </div>
@@ -280,54 +280,54 @@ export default function ProgressAnalysis() {
             </button>
           </div>
         ) : (
-          <div className="space-y-10">
+          <div className="space-y-8">
             {/* Overview Metric Bar */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Reading/Listening</span>
-                <div className="text-2xl font-black text-slate-900 mt-1">{totalQuestionsAll} câu</div>
-                <span className="text-xs text-slate-500 mt-1 block">Đã ghi nhận trong log</span>
+              <div className="bg-white p-5 rounded-xl border border-zinc-200 shadow-xs">
+                <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Reading/Listening</span>
+                <div className="text-2xl font-black text-zinc-900 mt-1 font-mono">{totalQuestionsAll} câu</div>
+                <span className="text-xs text-zinc-500 mt-1 block">Đã ghi nhận trong log</span>
               </div>
-              <div className="bg-white p-5 rounded-3xl border border-emerald-200/80 shadow-sm bg-emerald-50/20">
+              <div className="bg-white p-5 rounded-xl border border-emerald-200/80 shadow-xs bg-emerald-50/20">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Tỉ lệ đúng R/L</span>
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                 </div>
-                <div className="text-2xl font-black text-emerald-700 mt-1">{overallAccuracy}%</div>
+                <div className="text-2xl font-black text-emerald-700 mt-1 font-mono">{overallAccuracy}%</div>
                 <span className="text-xs text-emerald-600 mt-1 font-semibold block">{totalCorrectAll} câu làm đúng</span>
               </div>
-              <div className="bg-white p-5 rounded-3xl border border-amber-200/80 shadow-sm bg-amber-50/20">
+              <div className="bg-white p-5 rounded-xl border border-zinc-200 shadow-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">Bài viết Writing</span>
-                  <PenTool className="w-4 h-4 text-amber-600" />
+                  <span className="text-xs font-bold text-zinc-700 uppercase tracking-wider">Bài viết Writing</span>
+                  <PenTool className="w-4 h-4 text-zinc-600" />
                 </div>
-                <div className="text-2xl font-black text-amber-700 mt-1">{writingCriteria[0]?.sampleCount || 0} bài</div>
-                <span className="text-xs text-amber-600 mt-1 font-semibold block">Đã được AI chấm điểm</span>
+                <div className="text-2xl font-black text-zinc-900 mt-1 font-mono">{writingCriteria[0]?.sampleCount || 0} bài</div>
+                <span className="text-xs text-zinc-500 mt-1 font-medium block">Đã được AI chấm điểm</span>
               </div>
-              <div className="bg-white p-5 rounded-3xl border border-rose-200/80 shadow-sm bg-rose-50/20">
+              <div className="bg-white p-5 rounded-xl border border-zinc-200 shadow-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-rose-700 uppercase tracking-wider">Bài nói Speaking</span>
-                  <Mic className="w-4 h-4 text-rose-600" />
+                  <span className="text-xs font-bold text-zinc-700 uppercase tracking-wider">Bài nói Speaking</span>
+                  <Mic className="w-4 h-4 text-zinc-600" />
                 </div>
-                <div className="text-2xl font-black text-rose-700 mt-1">{speakingCriteria[0]?.sampleCount || 0} bài</div>
-                <span className="text-xs text-rose-600 mt-1 font-semibold block">Đã được AI chấm điểm</span>
+                <div className="text-2xl font-black text-zinc-900 mt-1 font-mono">{speakingCriteria[0]?.sampleCount || 0} bài</div>
+                <span className="text-xs text-zinc-500 mt-1 font-medium block">Đã được AI chấm điểm</span>
               </div>
             </div>
 
             {/* SECTION 1: Error Breakdown (Reading & Listening) */}
             {(skillFilter === 'all' || skillFilter === 'reading' || skillFilter === 'listening') && (
-              <section className="bg-white rounded-3xl p-6 md:p-8 border border-slate-200/80 shadow-sm">
+              <section className="bg-white rounded-xl p-6 md:p-8 border border-zinc-200 shadow-xs">
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                      <BarChart3 className="w-5 h-5 text-blue-600" />
+                    <h2 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
+                      <BarChart3 className="w-5 h-5 text-zinc-900" />
                       {skillFilter === 'reading'
                         ? 'Thống kê Reading theo dạng bài'
                         : skillFilter === 'listening'
                         ? 'Thống kê Listening theo dạng bài'
                         : 'Thống kê Reading & Listening theo dạng bài'}
                     </h2>
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-zinc-500 mt-1">
                       Sắp xếp ưu tiên các dạng bài có tỉ lệ lỗi cao lên trước. Phân biệt câu <strong className="text-rose-600 font-semibold">Làm sai</strong> và câu <strong className="text-amber-600 font-semibold">Chưa kịp làm (Bỏ qua)</strong>.
                     </p>
                   </div>
@@ -335,7 +335,7 @@ export default function ProgressAnalysis() {
 
                 {filteredBreakdown.length === 0 ? (
                   <div className="py-8 text-center">
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-zinc-400">
                       {skillFilter === 'reading'
                         ? 'Chưa có dữ liệu làm bài Reading.'
                         : skillFilter === 'listening'
@@ -353,39 +353,39 @@ export default function ProgressAnalysis() {
                       return (
                         <div
                           key={`${item.skillType}-${item.questionType}-${index}`}
-                          className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70"
+                          className="p-4 rounded-xl bg-zinc-50/70 border border-zinc-200"
                         >
                           <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-2">
                             <div className="flex items-center gap-2">
                               <span
-                                className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md ${
+                                className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${
                                   item.skillType === 'reading'
-                                    ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                                    : 'bg-purple-100 text-purple-700 border border-purple-200'
+                                    ? 'bg-zinc-200/80 text-zinc-800 border border-zinc-300'
+                                    : 'bg-zinc-200/80 text-zinc-800 border border-zinc-300'
                                 }`}
                               >
                                 {item.skillType}
                               </span>
-                              <span className="font-bold text-slate-800 text-sm">
+                              <span className="font-bold text-zinc-900 text-sm">
                                 {formatQuestionType(item.questionType)}
                               </span>
                             </div>
 
                             <div className="flex items-center gap-3 text-xs font-semibold">
-                              <span className="text-slate-500">Tổng: <strong>{item.total}</strong> câu</span>
+                              <span className="text-zinc-500">Tổng: <strong>{item.total}</strong> câu</span>
                               <span className="text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
                                 Tỉ lệ lỗi: <strong>{(item.errorRate * 100).toFixed(1)}%</strong>
                               </span>
                             </div>
                           </div>
 
-                          <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden flex mb-2">
+                          <div className="w-full h-2.5 bg-zinc-200 rounded-full overflow-hidden flex mb-2">
                             {correctPct > 0 && <div style={{ width: `${correctPct}%` }} className="bg-emerald-500" />}
                             {wrongPct > 0 && <div style={{ width: `${wrongPct}%` }} className="bg-rose-500" />}
                             {skippedPct > 0 && <div style={{ width: `${skippedPct}%` }} className="bg-amber-400" />}
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600 font-medium">
+                          <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-600 font-medium">
                             <span>Đúng: <strong className="text-emerald-700">{item.correct}</strong></span>
                             <span>Làm sai: <strong className="text-rose-700">{item.wrong}</strong></span>
                             <span>Bỏ qua: <strong className="text-amber-700">{item.skipped}</strong></span>
@@ -400,14 +400,14 @@ export default function ProgressAnalysis() {
 
             {/* SECTION 2: Writing Criteria Analysis */}
             {(skillFilter === 'all' || skillFilter === 'writing') && (
-              <section className="bg-white rounded-3xl p-6 md:p-8 border border-slate-200/80 shadow-sm">
+              <section className="bg-white rounded-xl p-6 md:p-8 border border-zinc-200 shadow-xs">
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                      <PenTool className="w-5 h-5 text-amber-600" />
+                    <h2 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
+                      <PenTool className="w-5 h-5 text-zinc-700" />
                       Phân tích tiêu chí IELTS Writing (4 Criteria)
                     </h2>
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-zinc-500 mt-1">
                       Sắp xếp theo điểm trung bình tăng dần (tiêu chí yếu nhất được xếp lên trước).
                     </p>
                   </div>
@@ -415,24 +415,24 @@ export default function ProgressAnalysis() {
 
                 {writingCriteria.length === 0 ? (
                   <div className="py-10 text-center flex flex-col items-center justify-center">
-                    <PenTool className="w-10 h-10 text-amber-300 mb-2" />
-                    <h4 className="text-sm font-bold text-slate-700">Chưa có bài Writing nào được chấm</h4>
-                    <p className="text-xs text-slate-500 mt-1">Hãy nộp bài viết đầu tiên để AI ghi nhận và phân tích điểm tiêu chí.</p>
+                    <PenTool className="w-10 h-10 text-zinc-300 mb-2" />
+                    <h4 className="text-sm font-bold text-zinc-700">Chưa có bài Writing nào được chấm</h4>
+                    <p className="text-xs text-zinc-500 mt-1">Hãy nộp bài viết đầu tiên để AI ghi nhận và phân tích điểm tiêu chí.</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {writingCriteria.map(item => (
                       <div
                         key={item.criterion}
-                        className="p-5 rounded-2xl bg-amber-50/20 border border-amber-200/60 flex flex-col justify-between"
+                        className="p-5 rounded-xl bg-zinc-50/70 border border-zinc-200 flex flex-col justify-between"
                       >
                         <div>
                           <div className="flex items-start justify-between gap-2 mb-2">
                             <div>
-                              <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-md">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-700 bg-zinc-200/80 px-2 py-0.5 rounded-md">
                                 Writing Criteria
                               </span>
-                              <h4 className="font-bold text-slate-900 text-sm mt-1">
+                              <h4 className="font-bold text-zinc-900 text-sm mt-1">
                                 {formatCriterionName(item.criterion)}
                               </h4>
                             </div>
@@ -440,16 +440,16 @@ export default function ProgressAnalysis() {
                           </div>
 
                           <div className="flex items-baseline gap-2 my-3">
-                            <span className="text-3xl font-black text-amber-700">{item.avgScore}</span>
-                            <span className="text-xs text-slate-500 font-semibold">/ 9.0 Band (Trung bình {item.sampleCount} bài)</span>
+                            <span className="text-3xl font-black text-zinc-900 font-mono">{item.avgScore}</span>
+                            <span className="text-xs text-zinc-500 font-medium">/ 9.0 Band (Trung bình {item.sampleCount} bài)</span>
                           </div>
 
-                          <div className="text-xs text-slate-600 font-medium mb-3">
-                            Lần gần nhất: <strong className="text-slate-800">{item.latestScore}</strong> Band
+                          <div className="text-xs text-zinc-600 font-medium mb-3">
+                            Lần gần nhất: <strong className="text-zinc-900">{item.latestScore}</strong> Band
                           </div>
 
                           {item.latestComment && (
-                            <div className="p-3 rounded-xl bg-white border border-amber-200/50 text-xs text-slate-700 italic leading-relaxed">
+                            <div className="p-3 rounded-lg bg-white border border-zinc-200 text-xs text-zinc-700 italic leading-relaxed">
                               "{item.latestComment}"
                             </div>
                           )}
@@ -463,14 +463,14 @@ export default function ProgressAnalysis() {
 
             {/* SECTION 3: Speaking Criteria Analysis */}
             {(skillFilter === 'all' || skillFilter === 'speaking') && (
-              <section className="bg-white rounded-3xl p-6 md:p-8 border border-slate-200/80 shadow-sm">
+              <section className="bg-white rounded-xl p-6 md:p-8 border border-zinc-200 shadow-xs">
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                      <Mic className="w-5 h-5 text-rose-600" />
+                    <h2 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
+                      <Mic className="w-5 h-5 text-zinc-700" />
                       Phân tích tiêu chí IELTS Speaking (4 Criteria)
                     </h2>
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-zinc-500 mt-1">
                       Sắp xếp theo điểm trung bình tăng dần (tiêu chí yếu nhất được xếp lên trước).
                     </p>
                   </div>
@@ -478,24 +478,24 @@ export default function ProgressAnalysis() {
 
                 {speakingCriteria.length === 0 ? (
                   <div className="py-10 text-center flex flex-col items-center justify-center">
-                    <Mic className="w-10 h-10 text-rose-300 mb-2" />
-                    <h4 className="text-sm font-bold text-slate-700">Chưa có bài Speaking nào được chấm</h4>
-                    <p className="text-xs text-slate-500 mt-1">Hãy nộp bài nói đầu tiên để AI ghi nhận và phân tích điểm tiêu chí.</p>
+                    <Mic className="w-10 h-10 text-zinc-300 mb-2" />
+                    <h4 className="text-sm font-bold text-zinc-700">Chưa có bài Speaking nào được chấm</h4>
+                    <p className="text-xs text-zinc-500 mt-1">Hãy nộp bài nói đầu tiên để AI ghi nhận và phân tích điểm tiêu chí.</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {speakingCriteria.map(item => (
                       <div
                         key={item.criterion}
-                        className="p-5 rounded-2xl bg-rose-50/20 border border-rose-200/60 flex flex-col justify-between"
+                        className="p-5 rounded-xl bg-zinc-50/70 border border-zinc-200 flex flex-col justify-between"
                       >
                         <div>
                           <div className="flex items-start justify-between gap-2 mb-2">
                             <div>
-                              <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-700 bg-rose-100/80 px-2 py-0.5 rounded-md">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-700 bg-zinc-200/80 px-2 py-0.5 rounded-md">
                                 Speaking Criteria
                               </span>
-                              <h4 className="font-bold text-slate-900 text-sm mt-1">
+                              <h4 className="font-bold text-zinc-900 text-sm mt-1">
                                 {formatCriterionName(item.criterion)}
                               </h4>
                             </div>
@@ -503,16 +503,16 @@ export default function ProgressAnalysis() {
                           </div>
 
                           <div className="flex items-baseline gap-2 my-3">
-                            <span className="text-3xl font-black text-rose-700">{item.avgScore}</span>
-                            <span className="text-xs text-slate-500 font-semibold">/ 9.0 Band (Trung bình {item.sampleCount} bài)</span>
+                            <span className="text-3xl font-black text-zinc-900 font-mono">{item.avgScore}</span>
+                            <span className="text-xs text-zinc-500 font-medium">/ 9.0 Band (Trung bình {item.sampleCount} bài)</span>
                           </div>
 
-                          <div className="text-xs text-slate-600 font-medium mb-3">
-                            Lần gần nhất: <strong className="text-slate-800">{item.latestScore}</strong> Band
+                          <div className="text-xs text-zinc-600 font-medium mb-3">
+                            Lần gần nhất: <strong className="text-zinc-900">{item.latestScore}</strong> Band
                           </div>
 
                           {item.latestComment && (
-                            <div className="p-3 rounded-xl bg-white border border-rose-200/50 text-xs text-slate-700 italic leading-relaxed">
+                            <div className="p-3 rounded-lg bg-white border border-zinc-200 text-xs text-zinc-700 italic leading-relaxed">
                               "{item.latestComment}"
                             </div>
                           )}
@@ -525,17 +525,17 @@ export default function ProgressAnalysis() {
             )}
 
             {/* SECTION 4: UNIFIED 4-SKILLS AI ADVISOR */}
-            <section className="bg-gradient-to-br from-indigo-900 via-slate-900 to-blue-950 rounded-3xl p-6 md:p-8 text-white shadow-xl border border-indigo-800/50">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-8 pb-6 border-b border-indigo-800/60">
+            <section className="bg-zinc-900 rounded-2xl p-6 md:p-8 text-white shadow-xs border border-zinc-800">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-8 pb-6 border-b border-zinc-800">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-amber-400 animate-bounce" />
-                    <span className="text-xs font-bold text-amber-300 uppercase tracking-widest bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
+                    <Sparkles className="w-5 h-5 text-amber-400" />
+                    <span className="text-xs font-semibold text-zinc-300 uppercase tracking-widest bg-zinc-800 px-2.5 py-1 rounded-full border border-zinc-700">
                       Unified AI Advisor (4 Skills)
                     </span>
                   </div>
-                  <h2 className="text-2xl font-black text-white">Cố vấn Học thuật AI Toàn diện</h2>
-                  <p className="text-xs text-indigo-200 max-w-xl">
+                  <h2 className="text-2xl font-bold text-white tracking-tight">Cố vấn Học thuật AI Toàn diện</h2>
+                  <p className="text-xs text-zinc-400 max-w-xl">
                     Nhấp vào nút bên dưới để AI phân tích chuyên sâu dữ liệu 4 kỹ năng và lập lộ trình ôn tập cá nhân hóa. <em>(Tối đa 5 lượt/ngày).</em>
                   </p>
                 </div>
@@ -543,7 +543,7 @@ export default function ProgressAnalysis() {
                 <button
                   onClick={handleFetchAdvice}
                   disabled={aiLoading}
-                  className="flex items-center justify-center gap-2 px-6 py-3.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 text-sm font-extrabold rounded-2xl transition-all shadow-lg hover:shadow-amber-500/20 disabled:opacity-50 shrink-0 cursor-pointer"
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 bg-white hover:bg-zinc-100 text-zinc-900 text-sm font-semibold rounded-xl transition shadow-xs disabled:opacity-50 shrink-0 cursor-pointer"
                 >
                   {aiLoading ? (
                     <>
@@ -552,8 +552,8 @@ export default function ProgressAnalysis() {
                     </>
                   ) : (
                     <>
-                      <Sparkles className="w-4 h-4" />
-                      <span>✨ Nhận nhận xét từ AI</span>
+                      <Sparkles className="w-4 h-4 text-amber-500" />
+                      <span>Nhận nhận xét từ AI</span>
                     </>
                   )}
                 </button>
@@ -562,10 +562,10 @@ export default function ProgressAnalysis() {
               {/* AI Error Notification */}
               {aiError && (
                 <div
-                  className={`p-5 rounded-2xl border text-sm font-medium mb-6 ${
+                  className={`p-4 rounded-xl border text-sm font-medium mb-6 ${
                     aiError.isRateLimit
-                      ? 'bg-amber-500/15 border-amber-400/30 text-amber-200'
-                      : 'bg-rose-500/15 border-rose-400/30 text-rose-200'
+                      ? 'bg-amber-500/10 border-amber-500/30 text-amber-200'
+                      : 'bg-rose-500/10 border-rose-500/30 text-rose-200'
                   }`}
                 >
                   <div className="flex items-center gap-2.5 font-bold mb-1">
@@ -578,50 +578,50 @@ export default function ProgressAnalysis() {
 
               {/* AI Response Display */}
               {aiLoading ? (
-                <div className="p-8 rounded-2xl bg-indigo-950/40 border border-indigo-800/40 animate-pulse space-y-4">
-                  <div className="h-5 bg-indigo-800/40 rounded-lg w-1/3" />
-                  <div className="h-4 bg-indigo-800/30 rounded-lg w-3/4" />
-                  <div className="h-4 bg-indigo-800/30 rounded-lg w-2/3" />
+                <div className="p-8 rounded-xl bg-zinc-950/60 border border-zinc-800 animate-pulse space-y-4">
+                  <div className="h-5 bg-zinc-800 rounded-lg w-1/3" />
+                  <div className="h-4 bg-zinc-800/60 rounded-lg w-3/4" />
+                  <div className="h-4 bg-zinc-800/60 rounded-lg w-2/3" />
                 </div>
               ) : aiResponse?.insufficientData ? (
-                <div className="p-6 rounded-2xl bg-amber-500/10 border border-amber-400/30 text-amber-200 text-sm">
-                  <div className="flex items-center gap-2 font-bold mb-2 text-amber-300">
+                <div className="p-6 rounded-xl bg-zinc-950/60 border border-zinc-800 text-zinc-300 text-sm">
+                  <div className="flex items-center gap-2 font-bold mb-2 text-amber-400">
                     <AlertTriangle className="w-5 h-5" />
                     <span>Chưa đủ dữ liệu để AI nhận xét</span>
                   </div>
-                  <p className="text-xs leading-relaxed">
+                  <p className="text-xs leading-relaxed text-zinc-400">
                     {aiResponse.message}
                   </p>
                 </div>
               ) : aiResponse?.advice ? (
                 <div className="space-y-6">
                   {/* Summary Card */}
-                  <div className="p-5 md:p-6 rounded-2xl bg-indigo-950/60 border border-indigo-700/50 backdrop-blur-sm">
-                    <h3 className="text-sm font-bold text-amber-300 uppercase tracking-wider flex items-center gap-2 mb-2">
-                      <Sparkles className="w-4 h-4" />
+                  <div className="p-5 md:p-6 rounded-xl bg-zinc-950/60 border border-zinc-800 backdrop-blur-sm">
+                    <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2 mb-2">
+                      <Sparkles className="w-4 h-4 text-amber-400" />
                       Đánh giá Tổng quan 4 Kỹ năng
                     </h3>
-                    <p className="text-sm leading-relaxed text-indigo-100 font-medium">
+                    <p className="text-sm leading-relaxed text-zinc-200 font-normal">
                       {aiResponse.advice.summary}
                     </p>
                   </div>
 
                   {/* 3 Skill Cards/Tabs */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
                     {/* Reading & Listening */}
-                    <div className="p-5 rounded-2xl bg-slate-900/60 border border-blue-800/50 backdrop-blur-sm">
-                      <h4 className="text-sm font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2 mb-3">
-                        <BookOpen className="w-4 h-4" />
+                    <div className="p-5 rounded-xl bg-zinc-950/60 border border-zinc-800 backdrop-blur-sm">
+                      <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2 mb-3">
+                        <BookOpen className="w-4 h-4 text-zinc-400" />
                         Reading & Listening
                       </h4>
 
                       {!aiResponse.advice.skills?.reading_listening?.available ? (
-                        <p className="text-xs text-slate-400 italic">Chưa đủ dữ liệu để đánh giá kỹ năng này.</p>
+                        <p className="text-xs text-zinc-500 italic">Chưa đủ dữ liệu để đánh giá kỹ năng này.</p>
                       ) : (
                         <div className="space-y-3 text-xs">
                           <div>
                             <span className="font-bold text-emerald-400 block mb-1">Điểm mạnh:</span>
-                            <ul className="space-y-1 text-slate-200">
+                            <ul className="space-y-1 text-zinc-300">
                               {aiResponse.advice.skills.reading_listening.strengths?.map((s, i) => (
                                 <li key={i}>• {s}</li>
                               ))}
@@ -629,7 +629,7 @@ export default function ProgressAnalysis() {
                           </div>
                           <div>
                             <span className="font-bold text-amber-400 block mb-1">Cần chú ý:</span>
-                            <ul className="space-y-1 text-slate-200">
+                            <ul className="space-y-1 text-zinc-300">
                               {aiResponse.advice.skills.reading_listening.weaknesses?.map((w, i) => (
                                 <li key={i}>• {w}</li>
                               ))}
@@ -640,19 +640,19 @@ export default function ProgressAnalysis() {
                     </div>
 
                     {/* Writing */}
-                    <div className="p-5 rounded-2xl bg-slate-900/60 border border-amber-800/50 backdrop-blur-sm">
-                      <h4 className="text-sm font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2 mb-3">
-                        <PenTool className="w-4 h-4" />
+                    <div className="p-5 rounded-xl bg-zinc-950/60 border border-zinc-800 backdrop-blur-sm">
+                      <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2 mb-3">
+                        <PenTool className="w-4 h-4 text-zinc-400" />
                         Writing
                       </h4>
 
                       {!aiResponse.advice.skills?.writing?.available ? (
-                        <p className="text-xs text-slate-400 italic">Chưa đủ dữ liệu để đánh giá kỹ năng này.</p>
+                        <p className="text-xs text-zinc-500 italic">Chưa đủ dữ liệu để đánh giá kỹ năng này.</p>
                       ) : (
                         <div className="space-y-3 text-xs">
                           <div>
                             <span className="font-bold text-emerald-400 block mb-1">Điểm mạnh:</span>
-                            <ul className="space-y-1 text-slate-200">
+                            <ul className="space-y-1 text-zinc-300">
                               {aiResponse.advice.skills.writing.strengths?.map((s, i) => (
                                 <li key={i}>• {s}</li>
                               ))}
@@ -660,7 +660,7 @@ export default function ProgressAnalysis() {
                           </div>
                           <div>
                             <span className="font-bold text-amber-400 block mb-1">Cần chú ý:</span>
-                            <ul className="space-y-1 text-slate-200">
+                            <ul className="space-y-1 text-zinc-300">
                               {aiResponse.advice.skills.writing.weaknesses?.map((w, i) => (
                                 <li key={i}>• {w}</li>
                               ))}
@@ -671,19 +671,19 @@ export default function ProgressAnalysis() {
                     </div>
 
                     {/* Speaking */}
-                    <div className="p-5 rounded-2xl bg-slate-900/60 border border-rose-800/50 backdrop-blur-sm">
-                      <h4 className="text-sm font-bold text-rose-400 uppercase tracking-wider flex items-center gap-2 mb-3">
-                        <Mic className="w-4 h-4" />
+                    <div className="p-5 rounded-xl bg-zinc-950/60 border border-zinc-800 backdrop-blur-sm">
+                      <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2 mb-3">
+                        <Mic className="w-4 h-4 text-zinc-400" />
                         Speaking
                       </h4>
 
                       {!aiResponse.advice.skills?.speaking?.available ? (
-                        <p className="text-xs text-slate-400 italic">Chưa đủ dữ liệu để đánh giá kỹ năng này.</p>
+                        <p className="text-xs text-zinc-500 italic">Chưa đủ dữ liệu để đánh giá kỹ năng này.</p>
                       ) : (
                         <div className="space-y-3 text-xs">
                           <div>
                             <span className="font-bold text-emerald-400 block mb-1">Điểm mạnh:</span>
-                            <ul className="space-y-1 text-slate-200">
+                            <ul className="space-y-1 text-zinc-300">
                               {aiResponse.advice.skills.speaking.strengths?.map((s, i) => (
                                 <li key={i}>• {s}</li>
                               ))}
@@ -691,7 +691,7 @@ export default function ProgressAnalysis() {
                           </div>
                           <div>
                             <span className="font-bold text-amber-400 block mb-1">Cần chú ý:</span>
-                            <ul className="space-y-1 text-slate-200">
+                            <ul className="space-y-1 text-zinc-300">
                               {aiResponse.advice.skills.speaking.weaknesses?.map((w, i) => (
                                 <li key={i}>• {w}</li>
                               ))}
@@ -703,18 +703,18 @@ export default function ProgressAnalysis() {
                   </div>
 
                   {/* Action Items Card */}
-                  <div className="p-5 md:p-6 rounded-2xl bg-blue-950/60 border border-blue-700/50 backdrop-blur-sm">
-                    <h3 className="text-sm font-bold text-blue-300 uppercase tracking-wider flex items-center gap-2 mb-3">
-                      <Lightbulb className="w-4 h-4 text-blue-400" />
+                  <div className="p-5 md:p-6 rounded-xl bg-zinc-950/60 border border-zinc-800 backdrop-blur-sm">
+                    <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2 mb-3">
+                      <Lightbulb className="w-4 h-4 text-zinc-400" />
                       Lộ trình hành động khuyến nghị (Ưu tiên kỹ năng yếu nhất)
                     </h3>
                     <div className="space-y-2.5">
                       {aiResponse.advice.actionItems?.map((act, i) => (
-                        <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-blue-900/40 border border-blue-800/40 text-xs md:text-sm text-blue-100">
-                          <span className="w-6 h-6 rounded-lg bg-blue-600 text-white font-bold flex items-center justify-center shrink-0 text-xs">
+                        <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-zinc-800/60 border border-zinc-700/60 text-xs md:text-sm text-zinc-200">
+                          <span className="w-6 h-6 rounded-md bg-zinc-700 text-white font-bold flex items-center justify-center shrink-0 text-xs">
                             {i + 1}
                           </span>
-                          <span className="mt-0.5">{act}</span>
+                          <span className="mt-0.5 leading-relaxed">{act}</span>
                         </div>
                       ))}
                     </div>

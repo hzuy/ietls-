@@ -127,6 +127,44 @@ describe('SampleManager — smoke (Giai đoạn 0)', () => {
     expect(sampleService.createWritingSample).not.toHaveBeenCalled()
   })
 
+  it('chặn Lưu khi thiếu tiêu đề — không gọi create', async () => {
+    render(
+      <ToastProvider>
+        <SampleManager kind="writing" />
+      </ToastProvider>
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: '+ Thêm mới' }))
+    fireEvent.change(screen.getByPlaceholderText(KINDS.writing.contentPlaceholder), {
+      target: { value: 'Nội dung bài viết nhưng không có tên' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu' }))
+
+    await waitFor(() => expect(screen.getByText('Vui lòng nhập tên bài')).toBeInTheDocument())
+    expect(sampleService.createWritingSample).not.toHaveBeenCalled()
+  })
+
+  it('cảnh báo confirm khi bấm Hủy trong khi form đang có dữ liệu chưa lưu (BUG-13)', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    render(<SampleManager kind="writing" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: '+ Thêm mới' }))
+    fireEvent.change(screen.getByPlaceholderText(KINDS.writing.titlePlaceholder), {
+      target: { value: 'Dữ liệu dở dang' },
+    })
+
+    // Bấm Hủy khi confirm trả về false -> vẫn ở form
+    fireEvent.click(screen.getByRole('button', { name: 'Hủy' }))
+    expect(confirmSpy).toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Lưu' })).toBeInTheDocument()
+
+    // Bấm Hủy khi confirm trả về true -> thoát về list
+    confirmSpy.mockReturnValue(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Hủy' }))
+    expect(await screen.findByRole('heading', { name: 'Writing Samples' })).toBeInTheDocument()
+    confirmSpy.mockRestore()
+  })
+
   it.each(['writing', 'speaking'])('Tags: %s form không còn khối Tags', async (kind) => {
     render(<SampleManager kind={kind} />)
     fireEvent.click(await screen.findByRole('button', { name: '+ Thêm mới' }))

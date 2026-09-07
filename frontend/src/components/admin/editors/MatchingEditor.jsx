@@ -1,51 +1,24 @@
-/**
- * LƯU Ý KIẾN TRÚC: Đây là 1 trong 2 bản implementation song song cho loại câu hỏi này.
- * Bản kia: src/components/practice/MatchingEditor.jsx
- * 2 bản đã fork khác nhau (xem chi tiết trong CLAUDE.md — phần "Known Issues").
- * Khi sửa bug hoặc thêm tính năng ở đây, cân nhắc đồng bộ sang bản kia nếu áp dụng được.
- * Kế hoạch dài hạn: hợp nhất thành 1 bản tham số hóa (numberingMode: auto/manual, themeSource)
- * — chưa thực hiện, cần đánh giá riêng.
- */
 import { useState, useRef } from 'react'
-import api from '../../../utils/axios'
-import { inputCls, labelCls, btnSecondary, toImgSrc, getQuestionGroupTheme } from '../adminConstants'
+import { uploadImage as uploadImageService } from '../../../services/examService'
+import { inputCls, labelCls, btnSecondary, toImgSrc } from '../adminConstants'
+import { getQuestionGroupTheme as getAdminTheme } from '../adminConstants'
+import { getQuestionGroupTheme as getPracticeTheme } from '../../../utils/practiceConfig'
 import { useToast } from '../../../context/ToastContext'
+import { Upload } from 'lucide-react'
 
-export default function MatchingEditor({ group = {}, onChange }) {
+export default function MatchingEditor({
+  group = {},
+  onChange,
+  numberingMode = 'auto',
+  themeSource = 'admin'
+}) {
   const { showToast } = useToast()
   const groupType = group?.type || 'matching'
   const isMap = groupType === 'map_diagram'
-  const theme = getQuestionGroupTheme(groupType)
+  const theme = themeSource === 'practice'
+    ? getPracticeTheme(groupType)
+    : getAdminTheme(groupType)
 
-  const updateOption = (oi, field, val) => {
-    onChange({ ...group, matchingOptions: group.matchingOptions.map((mo, i) => i !== oi ? mo : { ...mo, [field]: val }) })
-  }
-
-  const addOption = () => {
-    const nextLetter = String.fromCharCode(65 + group.matchingOptions.length)
-    onChange({ ...group, matchingOptions: [...group.matchingOptions, { letter: nextLetter, text: '' }] })
-  }
-
-  const removeOption = (oi) => {
-    onChange({ ...group, matchingOptions: group.matchingOptions.filter((_, i) => i !== oi) })
-  }
-
-  const addQuestion = () => {
-    const nextNum = group.questions.length > 0 ? group.qNumberEnd + 1 : group.qNumberStart
-    onChange({ ...group, qNumberEnd: nextNum, questions: [...group.questions, { number: nextNum, questionText: '', correctAnswer: '' }] })
-  }
-
-  const removeQuestion = (qi) => {
-    const newQs = group.questions.filter((_, i) => i !== qi)
-    onChange({ ...group, questions: newQs, qNumberEnd: newQs.length > 0 ? newQs[newQs.length - 1].number : group.qNumberStart })
-  }
-
-  const updateQ = (qi, field, val) => {
-    onChange({ ...group, questions: group.questions.map((q, i) => i !== qi ? q : { ...q, [field]: val }) })
-  }
-
-  const options = group.matchingOptions.filter(mo => (mo.letter || mo.optionLetter))
-  const usedAnswers = new Set(group.questions.map(q => q.correctAnswer).filter(Boolean))
   const [imgUploading, setImgUploading] = useState(false)
   const imgRef = useRef(null)
 
@@ -54,11 +27,68 @@ export default function MatchingEditor({ group = {}, onChange }) {
     try {
       const formData = new FormData()
       formData.append('image', file)
-      const res = await api.post('/admin/upload-image', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-      onChange({ ...group, imageUrl: res.data.imageUrl })
-    } catch { showToast('Lỗi upload ảnh', 'error') }
-    finally { setImgUploading(false) }
+      const res = await uploadImageService(formData)
+      onChange({ ...group, imageUrl: res.imageUrl })
+    } catch {
+      showToast('Lỗi upload ảnh', 'error')
+    } finally {
+      setImgUploading(false)
+    }
   }
+
+  const updateOption = (oi, field, val) => {
+    onChange({
+      ...group,
+      matchingOptions: (group.matchingOptions || []).map((mo, i) => i !== oi ? mo : { ...mo, [field]: val })
+    })
+  }
+
+  const addOption = () => {
+    const list = group.matchingOptions || []
+    const nextLetter = String.fromCharCode(65 + list.length)
+    onChange({ ...group, matchingOptions: [...list, { letter: nextLetter, text: '' }] })
+  }
+
+  const removeOption = (oi) => {
+    onChange({
+      ...group,
+      matchingOptions: (group.matchingOptions || []).filter((_, i) => i !== oi)
+    })
+  }
+
+  const addQuestion = () => {
+    const qs = group.questions || []
+    const nextNum = qs.length > 0
+      ? (numberingMode === 'manual'
+          ? Math.max(...qs.map(q => q.number || 0)) + 1
+          : Math.max(group.qNumberEnd || 0, ...qs.map(q => q.number || 0)) + 1)
+      : (group.qNumberStart || 1)
+
+    onChange({
+      ...group,
+      qNumberEnd: nextNum,
+      questions: [...qs, { number: nextNum, questionText: '', correctAnswer: '' }]
+    })
+  }
+
+  const removeQuestion = (qi) => {
+    const newQs = (group.questions || []).filter((_, i) => i !== qi)
+    const newEnd = newQs.length > 0
+      ? Math.max(...newQs.map(q => q.number || (group.qNumberStart || 1)))
+      : (group.qNumberStart || 1)
+    onChange({ ...group, questions: newQs, qNumberEnd: newEnd })
+  }
+
+  const updateQ = (qi, field, val) => {
+    onChange({
+      ...group,
+      questions: (group.questions || []).map((q, i) => i !== qi ? q : { ...q, [field]: val })
+    })
+  }
+
+  const options = (group.matchingOptions || []).filter(mo => (mo.letter || mo.optionLetter))
+  const usedAnswers = new Set((group.questions || []).map(q => q.correctAnswer).filter(Boolean))
+  const noFilter = group.type === 'matching' || group.type === 'map_diagram'
 
   return (
     <div className="space-y-3">
@@ -66,20 +96,39 @@ export default function MatchingEditor({ group = {}, onChange }) {
         <div>
           <label className={labelCls}>Hình ảnh Map/Diagram</label>
           <div className="flex gap-2">
-            <input className={inputCls} placeholder="URL ảnh (tự điền sau upload)"
-              value={group.imageUrl || ''} onChange={e => onChange({ ...group, imageUrl: e.target.value })} />
-            <button type="button" onClick={() => imgRef.current?.click()} disabled={imgUploading}
-              className={`${btnSecondary} whitespace-nowrap`}>
-              {imgUploading ? 'Đang upload...' : '🖼 Upload ảnh'}
+            <input
+              className={inputCls}
+              placeholder="URL ảnh (tự điền sau upload)"
+              value={group.imageUrl || ''}
+              onChange={e => onChange({ ...group, imageUrl: e.target.value })}
+            />
+            <button
+              type="button"
+              onClick={() => imgRef.current?.click()}
+              disabled={imgUploading}
+              className={`${btnSecondary} whitespace-nowrap flex items-center gap-1.5`}
+            >
+              {imgUploading ? 'Đang upload...' : (
+                <>
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Upload ảnh</span>
+                </>
+              )}
             </button>
-            <input type="file" accept=".jpg,.jpeg,.png,.gif,.webp" className="hidden"
+            <input
+              type="file"
+              accept=".jpg,.jpeg,.png,.gif,.webp"
+              className="hidden"
               ref={imgRef}
-              onChange={e => e.target.files[0] && uploadImage(e.target.files[0])} />
+              onChange={e => e.target.files[0] && uploadImage(e.target.files[0])}
+            />
           </div>
           {group.imageUrl && (
             <img
               src={toImgSrc(group.imageUrl)}
-              alt="map/diagram" className="mt-2 max-h-56 rounded-lg border object-contain w-full bg-slate-50" />
+              alt="map/diagram"
+              className="mt-2 max-h-56 rounded-lg border object-contain w-full bg-zinc-50"
+            />
           )}
         </div>
       )}
@@ -87,36 +136,59 @@ export default function MatchingEditor({ group = {}, onChange }) {
       <div className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-lg p-3.5`}>
         <div className="flex items-center justify-between mb-2">
           <p className={`text-xs font-bold ${theme.subBoxText}`}>Danh sách lựa chọn (A, B, C...)</p>
-          <button type="button" onClick={addOption}
-            className={`text-xs ${theme.subBoxText} font-semibold hover:underline`}>+ Thêm</button>
+          <button
+            type="button"
+            onClick={addOption}
+            className={`text-xs ${theme.subBoxText} font-medium hover:underline`}
+          >
+            + Thêm
+          </button>
         </div>
         <div className="space-y-2">
-          {group.matchingOptions.map((mo, oi) => (
+          {(group.matchingOptions || []).map((mo, oi) => (
             <div key={oi} className="flex items-center gap-2">
-              <input className={`w-10 border ${theme.subBoxBorder} bg-white rounded px-1 py-1 text-xs text-center font-bold focus:outline-none`}
-                value={mo.letter} onChange={e => updateOption(oi, 'letter', e.target.value)} />
-              <input className={`flex-1 border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-sm focus:outline-none`}
+              <input
+                className={`w-10 border ${theme.subBoxBorder} bg-white rounded px-1 py-1 text-xs text-center font-medium focus:outline-none`}
+                value={mo.letter || mo.optionLetter || ''}
+                onChange={e => updateOption(oi, 'letter', e.target.value)}
+              />
+              <input
+                className={`flex-1 border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none`}
                 placeholder="Nội dung lựa chọn..."
-                value={mo.text} onChange={e => updateOption(oi, 'text', e.target.value)} />
-              <button type="button" onClick={() => removeOption(oi)} className="text-red-400 hover:text-red-600 text-xs">✕</button>
+                value={mo.text || mo.optionText || ''}
+                onChange={e => updateOption(oi, 'text', e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => removeOption(oi)}
+                className="text-red-400 hover:text-red-600 text-xs"
+              >
+                ✕
+              </button>
             </div>
           ))}
         </div>
       </div>
 
       <div className="space-y-2">
-        {group.questions.map((q, qi) => (
+        {(group.questions || []).map((q, qi) => (
           <div key={qi} className={`flex items-center gap-2 ${theme.subBoxBg} rounded-lg p-2.5 border ${theme.subBoxBorder}`}>
             <span className={`text-xs font-bold ${theme.subBoxText} w-10 shrink-0`}>Q{q.number}:</span>
-            <input className={`flex-1 border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-sm focus:outline-none`}
+            <input
+              className={`flex-1 border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none`}
               placeholder={isMap ? 'Tên mục (VD: Farm shop, Disabled entry...)' : 'Đối tượng cần matching (VD: Cafe, Shop...)'}
-              value={q.questionText} onChange={e => updateQ(qi, 'questionText', e.target.value)} />
-            <select className="border border-[#e2e8f0] rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-[#3B82F6] bg-white max-w-[260px]"
-              value={q.correctAnswer} onChange={e => updateQ(qi, 'correctAnswer', e.target.value)}>
+              value={q.questionText || ''}
+              onChange={e => updateQ(qi, 'questionText', e.target.value)}
+            />
+            <select
+              className={`border ${theme.subBoxBorder} rounded-lg px-2 py-1 text-xs text-zinc-900 focus:outline-none bg-white max-w-[260px]`}
+              value={q.correctAnswer || ''}
+              onChange={e => updateQ(qi, 'correctAnswer', e.target.value)}
+            >
               <option value="">-- Đáp án --</option>
               {options.filter(mo => {
+                if (noFilter) return true
                 const letter = mo.letter || mo.optionLetter
-                // If canReuse is true, we don't filter out used answers
                 return group.canReuse || letter === q.correctAnswer || !usedAnswers.has(letter)
               }).map(mo => {
                 const letter = mo.letter || mo.optionLetter
@@ -124,11 +196,20 @@ export default function MatchingEditor({ group = {}, onChange }) {
                 return <option key={letter} value={letter}>{text ? `${letter} - ${text}` : letter}</option>
               })}
             </select>
-            <button type="button" onClick={() => removeQuestion(qi)} className="text-blue-500 text-xs">✕</button>
+            <button
+              type="button"
+              onClick={() => removeQuestion(qi)}
+              className="text-red-400 hover:text-red-600 text-xs"
+            >
+              ✕
+            </button>
           </div>
         ))}
-        <button type="button" onClick={addQuestion}
-          className="w-full border-2 border-dashed border-blue-200 rounded-lg py-2 text-sm text-blue-400 hover:border-blue-400 hover:text-blue-600 transition font-medium">
+        <button
+          type="button"
+          onClick={addQuestion}
+          className={`w-full border-2 border-dashed ${theme.subBoxBorder} ${theme.subBoxText} bg-white/50 hover:bg-white rounded-lg py-2 text-xs font-medium transition`}
+        >
           + Thêm câu hỏi
         </button>
       </div>

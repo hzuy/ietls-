@@ -7,6 +7,7 @@ import { FormDirtyProvider } from './context/FormDirtyContext'
 import Footer from './components/Footer'
 import ErrorBoundary from './components/ErrorBoundary'
 import AdminLayout from './components/AdminLayout'
+import AIChatbotDrawer from './components/common/AIChatbotDrawer'
 import { getAdminSettings } from './services/adminService'
 import { purgeExpiredDrafts } from './services/draftService'
 
@@ -52,7 +53,7 @@ const Trash             = lazy(() => import('./pages/admin/Trash'))
 function PageLoader() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 32, height: 32, border: '3px solid #e2e8f0', borderTopColor: '#1D4ED8', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+      <div style={{ width: 32, height: 32, border: '3px solid #e2e8f0', borderTopColor: '#18181b', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
@@ -186,6 +187,7 @@ export default function App() {
               </Routes>
             </Suspense>
             <FooterWrapper />
+            <AIChatbotDrawer />
             </FormDirtyProvider>
           </ToastProvider>
         </AuthProvider>

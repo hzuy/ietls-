@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 
 export default function MatchingDragGroup({ group, answers, onAnswer, previewMode, showAnswers }) {
   const [draggingLetter, setDraggingLetter] = useState(null)
@@ -45,10 +45,10 @@ export default function MatchingDragGroup({ group, answers, onAnswer, previewMod
 
   return (
     <div className="mb-6">
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3 text-sm">
-        <p className="font-bold text-gray-800 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
-        {group.instruction && <p className="text-gray-600 text-xs mb-1">{group.instruction}</p>}
-        {!previewMode && <p className="text-gray-500 text-xs italic">Kéo đáp án từ cột phải vào ô, hoặc click chọn → click ô.</p>}
+      <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 mb-3 text-sm">
+        <p className="font-semibold text-zinc-900 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
+        {group.instruction && <p className="text-zinc-600 text-xs mb-1">{group.instruction}</p>}
+        {!previewMode && <p className="text-zinc-500 text-xs italic">Kéo đáp án từ cột phải vào ô, hoặc click chọn → click ô.</p>}
       </div>
 
       <div className="flex gap-3">
@@ -61,9 +61,9 @@ export default function MatchingDragGroup({ group, answers, onAnswer, previewMod
             const isClickable = !!(selectedLetter && !previewMode)
 
             return (
-              <div key={q.id} className="bg-white rounded-xl border border-gray-200 p-3">
-                <p className="text-sm text-gray-800 mb-2 leading-relaxed flex gap-2">
-                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-[var(--primary-hover)] font-bold text-xs shrink-0 mt-0.5">{q.number}</span>
+              <div key={q.id} className="bg-white rounded-xl border border-zinc-200 p-3.5 shadow-xs">
+                <p className="text-sm text-zinc-900 mb-2 leading-relaxed flex gap-2">
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-900 font-bold text-xs shrink-0 mt-0.5">{q.number}</span>
                   <span>{q.questionText}</span>
                 </p>
                 <div
@@ -73,21 +73,21 @@ export default function MatchingDragGroup({ group, answers, onAnswer, previewMod
                   onClick={() => handleSlotClick(q.id)}
                   className={`min-h-[38px] rounded-lg border-2 px-3 py-1.5 flex items-center text-sm transition
                     ${!previewMode ? 'cursor-pointer' : ''}
-                    ${isOver ? 'border-[var(--primary-hover)] bg-[var(--primary-light)]'
-                    : answer ? 'border-[var(--primary)] bg-[var(--primary-light)]'
-                    : isClickable ? 'border-[var(--primary-hover)] border-dashed bg-blue-50/50'
-                    : 'border-dashed border-gray-300 bg-gray-50'}`}
+                    ${isOver ? 'border-zinc-900 bg-zinc-100'
+                    : answer ? 'border-zinc-900 bg-zinc-50'
+                    : isClickable ? 'border-zinc-400 border-dashed bg-zinc-50'
+                    : 'border-dashed border-zinc-300 bg-zinc-50/50'}`}
                 >
                   {answer ? (
                     <div className="flex items-center gap-2 w-full">
-                      <span className="font-bold text-[var(--primary-hover)] text-xs shrink-0">{answer}</span>
-                      <span className="text-[var(--primary-hover)] text-xs flex-1 leading-snug">{answerOpt?.optionText}</span>
+                      <span className="font-bold text-zinc-900 text-xs shrink-0">{answer}</span>
+                      <span className="text-zinc-900 font-medium text-xs flex-1 leading-snug">{answerOpt?.optionText}</span>
                       {!previewMode && (
-                        <button onClick={e => clearSlot(q.id, e)} className="text-gray-400 hover:text-red-500 text-base leading-none shrink-0">×</button>
+                        <button onClick={e => clearSlot(q.id, e)} className="text-zinc-400 hover:text-red-500 text-base leading-none shrink-0">×</button>
                       )}
                     </div>
                   ) : (
-                    <span className="text-gray-400 text-xs italic">
+                    <span className="text-zinc-400 text-xs italic">
                       {previewMode ? '—' : 'Kéo hoặc click đáp án...'}
                     </span>
                   )}
@@ -99,7 +99,7 @@ export default function MatchingDragGroup({ group, answers, onAnswer, previewMod
 
         {/* Right: options pool */}
         <div className="w-48 shrink-0">
-          <p className="text-xs font-bold text-gray-500 uppercase mb-2 px-1">Options</p>
+          <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2 px-1">Options</p>
           <div className="space-y-1.5">
             {(() => {
               const groupAnswerValues = questions.map(q => answers[q.id]).filter(Boolean)
@@ -119,17 +119,17 @@ export default function MatchingDragGroup({ group, answers, onAnswer, previewMod
                   onClick={() => handleOptionClick(opt.optionLetter)}
                   className={`flex items-start gap-2 px-3 py-2 rounded-lg border text-xs transition select-none
                     ${previewMode
-                      ? 'border-gray-200 bg-white cursor-default'
+                      ? 'border-zinc-200 bg-white cursor-default'
                       : isSelectedOpt
-                      ? 'border-[var(--primary-hover)] bg-[var(--primary-light)] cursor-pointer shadow-sm'
+                      ? 'border-zinc-900 bg-zinc-100 cursor-pointer shadow-xs font-medium text-zinc-900'
                       : isDraggingThis
-                      ? 'opacity-40 border-gray-200 bg-white'
+                      ? 'opacity-40 border-zinc-200 bg-white'
                       : isUsed
-                      ? 'border-gray-200 bg-gray-50 opacity-40 cursor-grab'
-                      : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/50 cursor-grab active:cursor-grabbing'}`}
+                      ? 'border-zinc-200 bg-zinc-50 opacity-40 cursor-grab'
+                      : 'border-zinc-200 bg-white hover:border-zinc-400 hover:bg-zinc-50 cursor-grab active:cursor-grabbing text-zinc-700'}`}
                 >
-                  <span className="font-bold text-[var(--primary-hover)] shrink-0">{opt.optionLetter}</span>
-                  <span className="text-gray-700 leading-relaxed">{opt.optionText}</span>
+                  <span className="font-bold text-zinc-900 shrink-0">{opt.optionLetter}</span>
+                  <span className="text-zinc-700 leading-relaxed">{opt.optionText}</span>
                 </div>
               )
             })})()}

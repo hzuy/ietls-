@@ -6,6 +6,7 @@ const validate = require('../../../middleware/validate')
 const { teacherOnly } = require('../../../lib/roles')
 const { createSpeakingExamSchema } = require('../../../validators/adminExamValidator')
 const { invalidate } = require('../../../lib/swrCache')
+const { checkDuplicateExamTest } = require('./core')
 
 // ─── CREATE SPEAKING EXAM ────────────────────────────────────────────────────
 router.post('/exams/speaking', authMiddleware, teacherOnly, validate(createSpeakingExamSchema), async (req, res) => {
@@ -18,6 +19,14 @@ router.post('/exams/speaking', authMiddleware, teacherOnly, validate(createSpeak
     const existing = await prisma.exam.findFirst({ where: { title: { equals: title, mode: 'insensitive' }, skill: 'speaking' } })
     if (existing) return res.status(409).json({ message: `Đã tồn tại đề Speaking có tên "${existing.title}". Vui lòng đặt tên khác.` })
 
+    // BUG-08: Chặn trùng testNumber trong cùng seriesId và bookNumber
+    if (seriesId && bookNumber && testNumber) {
+      const isDup = await checkDuplicateExamTest({ seriesId, bookNumber, testNumber, skill: 'speaking' })
+      if (isDup) {
+        return res.status(409).json({ message: 'Đề thi với số Test này đã tồn tại trong cùng cuốn/bộ đề' })
+      }
+    }
+
     const exam = await prisma.exam.create({
       data: {
         title,
@@ -29,9 +38,9 @@ router.post('/exams/speaking', authMiddleware, teacherOnly, validate(createSpeak
           create: [
             {
               number: 1,
-              cueCard: part1.cueCard || null,
+              cueCard: part1?.cueCard || null,
               questions: {
-                create: part1.questions.filter(q => q.trim()).map((q, i) => ({
+                create: (part1?.questions || []).filter(q => q.trim()).map((q, i) => ({
                   orderNum: i + 1,
                   questionText: q
                 }))
@@ -39,9 +48,9 @@ router.post('/exams/speaking', authMiddleware, teacherOnly, validate(createSpeak
             },
             {
               number: 2,
-              cueCard: part2.cueCard || null,
+              cueCard: part2?.cueCard || null,
               questions: {
-                create: part2.questions.filter(q => q.trim()).map((q, i) => ({
+                create: (part2?.questions || []).filter(q => q.trim()).map((q, i) => ({
                   orderNum: i + 1,
                   questionText: q
                 }))
@@ -49,9 +58,9 @@ router.post('/exams/speaking', authMiddleware, teacherOnly, validate(createSpeak
             },
             {
               number: 3,
-              cueCard: part3.cueCard || null,
+              cueCard: part3?.cueCard || null,
               questions: {
-                create: part3.questions.filter(q => q.trim()).map((q, i) => ({
+                create: (part3?.questions || []).filter(q => q.trim()).map((q, i) => ({
                   orderNum: i + 1,
                   questionText: q
                 }))

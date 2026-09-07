@@ -44,7 +44,8 @@ Full-stack IELTS exam practice app. Backend is Express 5 + Prisma + PostgreSQL o
 
 ### Backend structure
 - `server.js` — Express entry point, CORS config, route mounting
-- `routes/` — One file per skill: `reading.js`, `listening.js`, `writing.js`, `speaking.js`, `auth.js`, `admin.js`, `fulltest.js`, `stats.js`, `chatbot.js`
+- `routes/` — One file per skill: `reading.js`, `listening.js`, `writing.js`, `speaking.js`, `auth.js`, `fulltest.js`, `stats.js`, `chatbot.js`, plus `home.js`, `practice.js`, `samples.js`, `user.js`. Admin logic lives under `routes/admin/` (see below), mounted from `routes/admin.js`.
+- `routes/admin/` — `dashboard.js`, `examSeries.js`, `trash.js`, `uploads.js`, `users.js`, and `exams/` (`core.js` + one file per skill: `reading.js`, `listening.js`, `writing.js`, `speaking.js`) for exam CRUD.
 - `middleware/` — JWT auth (`authenticateToken`), admin check (`isAdmin`)
 - `prisma/schema.prisma` — Full DB schema (15+ models)
 - `lib/` — `prisma.js` (singleton client), `scoreUtils.js` (band conversion), `groqClient.js` (lazy Groq init)
@@ -123,58 +124,77 @@ cd frontend && npx vitest run src/hooks/useDebounce.test.js
 - **Admin panel** — Full CRUD for all content types (Reading, Listening, Writing, Speaking exams; Series/Books; Writing & Speaking samples; Users); soft-delete / Trash recovery; image & audio upload. Sub-routes under `backend/routes/admin/`. (The Cambridge PDF import pipeline was removed — unused, 0 real attempts, produced flat questions the group-based editors couldn't round-trip.)
 - **Auth / User profile** — Register, login (bcryptjs + JWT 7-day), profile page, password change, streak tracking.
 - **Series & Practice** — Browse/manage exam series and standalone practice exams; leaderboard per series.
+- **Cloud Storage & Media Management (Phase 4)** — Module `storageService` tích hợp Cloudinary SDK tự động upload ảnh đề thi, audio Listening và thumbnail WebP tối ưu; có cơ chế fallback cục bộ mượt mà về `backend/uploads/` khi không cấu hình Cloud credentials để dev/test luôn hoạt động; Groq Whisper STT hỗ trợ stream audio trực tiếp từ Cloud URLs.
+- **Rate Limiting Submission Endpoints (Phase 4)** — Sử dụng `express-rate-limit` bảo vệ các endpoint nộp bài (`/reading/exams/:id/submit`, `/listening/exams/:id/submit`, `/writing/exams/:id/submit`, `/speaking/exams/:id/submit`, và các retry endpoint): định danh độc lập theo `userId`, giới hạn 20 lượt/15 phút cho Reading/Listening và 10 lượt/15 phút cho Writing/Speaking, trả về mã 429 kèm thông báo tiếng Việt thân thiện, ngăn chặn spam và bảo vệ quota Groq AI.
 
 ### Present but with known gaps / not fully tested
 
 - **Admin → Users & Accounts pages** (`admin/UserDetail.jsx`, `admin/Accounts.jsx`) — BUG-06: "showing X of Y" count display incomplete; BUG-07: some action handlers (ban/reset) wired up but not confirmed end-to-end; BUG-21: role-change guard (admin-only) implemented but not covered by tests.
 - **Admin → SeriesManager** (`admin/SeriesManager.jsx`) — BUG-08: duplicate `testNumber` validation client-side only, no backend constraint; BUG-09: deleted test count badge present but may not reflect real-time state; BUG-10: single-series fetch path implemented but untested in isolation.
 - **Admin → Analytics** (`admin/Analytics.jsx`) — BUG-19: shared bar-chart component referenced but wiring to teacher-only data path is partially stubbed; teacher analytics link on Dashboard exists but content coverage unclear.
-- **`correctAnswer.security.test.js`** — Untracked file in repo root (not inside `routes/`); not wired into the Vitest config; needs to be moved and registered.
 
 ### Not implemented / skeleton only
 
-- No rate limiting on Reading/Listening/Writing/Speaking submission endpoints (only Chatbot and AI Advice are rate-limited).
-- No cloud storage integration — uploaded audio/images go to `backend/uploads/` (local disk); production deployment note exists in README but no S3/Cloudinary code is present.
 - No email verification or password-reset flow.
 - No HTTPS / TLS termination inside the app (expected to be handled by reverse proxy).
 
 ### TODO / FIXME comments found in source
 
-| Tag | File | Description |
-|-----|------|-------------|
-| BUG-06 | `frontend/src/pages/admin/UserDetail.jsx:113` | "Showing X of Y" displayed vs total count incomplete |
-| BUG-07 | `frontend/src/pages/admin/UserDetail.jsx:37,80,157` | Action handlers (ban, reset, etc.) need end-to-end verification |
-| BUG-08 | `frontend/src/pages/admin/SeriesManager.jsx:78` | Duplicate `testNumber` validation is client-side only |
-| BUG-09 | `frontend/src/pages/admin/SeriesManager.jsx:282` | Deleted test count badge may be stale |
-| BUG-10 | `frontend/src/pages/admin/SeriesManager.jsx:44` | Single-series fetch path |
-| BUG-13 | `frontend/src/pages/admin/ReadingPractice.jsx:164,169` | Unsaved-changes guard / dirty navigation block |
-| BUG-13 | `frontend/src/pages/admin/ListeningPractice.jsx:164,169` | Same as above for Listening editor |
-| BUG-14 | `frontend/src/pages/admin/WritingSamples.jsx:34,41,52` | Draft auto-save for writing samples editor |
-| BUG-15 | `frontend/src/pages/admin/WritingSamples.jsx:95` | Validate content not empty before save |
-| BUG-15 | `frontend/src/pages/admin/SpeakingSamples.jsx:96` | Same validation for speaking samples |
-| BUG-19 | `frontend/src/pages/admin/Analytics.jsx:12` | Shared bar-chart component wiring |
-| BUG-19 | `frontend/src/pages/admin/Dashboard.jsx:255` | Teacher charts link |
-| BUG-21 | `frontend/src/pages/admin/Accounts.jsx:129` | Enforce admin-only role changes |
-| BUG-26 | `backend/routes/reading.js:142` | `max_attempts_per_exam` setting enforcement (implemented, needs test) |
-| BUG-26 | `backend/routes/listening.js:141` | Same for Listening |
-| BUG-26 | `backend/routes/writing.js:175` | Same for Writing |
-| BUG-28 | `backend/routes/admin/trash.js` | Auto-purge soft-deleted items older than 30 days — **DONE**. Fire-and-forget IIFE inside `GET /admin/trash` hard-deletes anything with `deletedAt` older than 30 days. Not a real cron: only runs when an admin/teacher opens the Trash page. Before the P0-1 fix it silently failed (FK violation) for any exam that had `AnswerLog` rows; now `hardDeleteExams` clears `AnswerLog` + wraps the chain in `$transaction`, so it completes. |
+| Tag | File | Description | Status |
+|-----|------|-------------|--------|
+| BUG-06 | `frontend/src/pages/admin/UserDetail.jsx:113` | "Showing X of Y" displayed vs total count incomplete | **DONE** (Phân trang hiển thị chính xác `shownAttempts` vs `totalAttempts` + test) |
+| BUG-07 | `frontend/src/pages/admin/UserDetail.jsx:37,80,157` | Action handlers (ban, reset, etc.) need end-to-end verification | **DONE** (Hoàn thiện `handleToggleLock`, `handleResetPassword`, `handleDelete` + unit tests) |
+| BUG-08 | `frontend/src/pages/admin/SeriesManager.jsx:78` | Duplicate `testNumber` validation is client-side only | **DONE** (Bổ sung `checkDuplicateExamTest` trả về 409 ở backend + check bookNumber + tests) |
+| BUG-09 | `frontend/src/pages/admin/SeriesManager.jsx:282` | Deleted test count badge may be stale | **DONE** (Đồng bộ real-time badge qua `notifyTrashChanged()` trên toàn bộ thao tác xóa/khôi phục) |
+| BUG-10 | `frontend/src/pages/admin/SeriesManager.jsx:44` | Single-series fetch path | **DONE** (Tái cấu trúc sang `CambridgeTab` & `CambridgeBookComponents` với live cache invalidation) |
+| BUG-13 | `frontend/src/pages/admin/ReadingPractice.jsx:164,169` | Unsaved-changes guard / dirty navigation block | **DONE** (Bổ sung `handleCancelOrBack` với `NAV_LEAVE_MSG` confirm trước khi đổi view) |
+| BUG-13 | `frontend/src/pages/admin/ListeningPractice.jsx:164,169` | Same as above for Listening editor | **DONE** (Bổ sung `handleCancelOrBack` với `NAV_LEAVE_MSG` confirm trước khi đổi view) |
+| BUG-14 | `frontend/src/pages/admin/WritingSamples.jsx:34,41,52` | Draft auto-save for writing samples editor | **DONE** (Hợp nhất trong `SampleManager` với `useDraftPersistence` 2s/30s) |
+| BUG-15 | `frontend/src/pages/admin/WritingSamples.jsx:95` | Validate content not empty before save | **DONE** (Chặn lưu khi rỗng tiêu đề/nội dung qua `plainContent.trim()` + test) |
+| BUG-15 | `frontend/src/pages/admin/SpeakingSamples.jsx:96` | Same validation for speaking samples | **DONE** (Chặn lưu khi rỗng tiêu đề/nội dung qua `plainContent.trim()` + test) |
+| BUG-19 | `frontend/src/pages/admin/Analytics.jsx:12` | Shared bar-chart component wiring | Chờ audit riêng |
+| BUG-19 | `frontend/src/pages/admin/Dashboard.jsx:255` | Teacher charts link | Chờ audit riêng |
+| BUG-21 | `frontend/src/pages/admin/Accounts.jsx:129` | Enforce admin-only role changes | **DONE** (Backend guard 403 cho role modification + 9 unit tests trong `adminUsers.test.js`) |
+| BUG-26 | `backend/routes/reading.js:142` | `max_attempts_per_exam` setting enforcement | **DONE** (Chặn nộp bài trả 429 khi vượt max_attempts + unit tests trong `reading.test.js`) |
+| BUG-26 | `backend/routes/listening.js:141` | Same for Listening | **DONE** (Chặn nộp bài trả 429 khi vượt max_attempts + unit tests trong `listening.test.js`) |
+| BUG-26 | `backend/routes/writing.js:175` | Same for Writing | **DONE** (Chặn nộp bài trả 429 khi vượt max_attempts + unit tests trong `writing.test.js`) |
+| BUG-28 | `backend/routes/admin/trash.js` | Auto-purge soft-deleted items older than 30 days — **DONE**. Fire-and-forget IIFE inside `GET /admin/trash` hard-deletes anything with `deletedAt` older than 30 days. Not a real cron: only runs when an admin/teacher opens the Trash page. Before the P0-1 fix it silently failed (FK violation) for any exam that had `AnswerLog` rows; now `hardDeleteExams` clears `AnswerLog` + wraps the chain in `$transaction`, so it completes. | **DONE** |
 
 ### Known issues — cần audit riêng sau
 
-- **`PUT /admin/exams/:id` tái sinh toàn bộ Question ID mỗi lần sửa đề.** Route này `passage.deleteMany` + tạo lại tất cả passage/question với ID mới trên mỗi lần cập nhật nội dung. Hệ quả: `attempt.answers` (JSON key theo questionId) và các dòng `QuestionAnswer` của những lượt thi ĐÃ tồn tại trước khi sửa đề bị lệch/mồ côi — không tái chấm lại được, và breakdown chi tiết theo từng câu của lượt cũ bị mất. Cần audit riêng: có nên **giữ nguyên Question ID khi update** (diff nội dung, chỉ update field thay đổi, chỉ tạo/xóa câu thực sự thêm/bớt) thay vì xóa-tạo-lại, để bảo toàn lịch sử answer của học viên đã làm bài. Ảnh hưởng: tất cả 4 skill dùng chung pattern này trong `routes/admin/exams/core.js` (PUT) + `reading.js`/`listening.js`/`writing.js`/`speaking.js` (POST create).
+- **`PUT /admin/exams/:id` tái sinh toàn bộ Question ID mỗi lần sửa đề — ĐÃ ĐƯỢC XỬ LÝ.**
+  Đã refactor `routes/admin/exams/core.js` cùng `reading.js` và `listening.js` sang cơ chế diff-based upsert toàn phần bọc trong `prisma.$transaction`:
+  1. Giữ nguyên ID của `Passage` và `ListeningSection` hiện có bằng cách match theo `p.id`/`s.id` hoặc `number`.
+  2. Diffing `QuestionGroup` theo `id` hoặc `sortOrder`.
+  3. Diffing `Question` ưu tiên match theo `q.id` (nếu client gửi lên) và fallback theo `q.number`. Cập nhật in-place các field thay đổi (`questionText`, `correctAnswer`, `options`, `type`, v.v.), chỉ tạo mới câu hỏi thực sự thêm và xóa câu hỏi thực sự bớt.
+  4. Nếu có câu hỏi cần xóa mà đã có `QuestionAnswer` hoặc `AnswerLog` của học viên, pipeline chặn ngay lập tức và trả mã lỗi `409 Conflict` (kèm danh sách chi tiết các câu bị chặn), không để xảy ra mồ côi hoặc đứt gãy khóa ngoại.
+  5. Hỗ trợ đầy đủ các nhóm câu hỏi đặc thù: `matching_headings` (cập nhật `matchingOptions`), `diagram_label` (ánh xạ `hint` sang `questionText`, `type: 'fill_blank'`).
+  6. Frontend `ReadingTab` và `ListeningTab` giữ nguyên `id` của passage/section, questionGroup và question trong `loadForEdit` và gửi kèm trong `payload` PUT.
 
-  **Speaking đã được sửa (commit `03d857c`, B-3) theo cách TỐT HƠN — dùng làm mẫu tham khảo cho Reading/Listening.** Thay vì `speakingPart.deleteMany` + tạo lại, PUT speaking giờ **reuse 3 SpeakingPart cũ** (luôn là Part 1/2/3): chỉ `speakingPart.update` `cueCard` + `speakingQuestion.deleteMany({ partId })` + `createMany` (SpeakingQuestion không có FK ngoài nào trỏ vào nên xóa-tạo-lại vô hại). `SpeakingAnswer` giữ nguyên `partId` → **không mất, không cả mồ côi** (trước đó bị `speakingAnswer.deleteMany` xóa hẳn vì FK `partId` NOT NULL + no cascade). Bọc `$transaction`. Áp dụng tương tự cho Reading/Listening phức tạp hơn — `Passage`/`ListeningSection` cũng cố định về số lượng/thứ tự nên reuse được, nhưng bên trong còn `QuestionGroup` → `Question` (+ `NoteSection`/`NoteLine`/`MatchingOption`) nhiều lớp, và `QuestionAnswer.questionId` là cái cần bảo toàn (khác Speaking — `SpeakingAnswer` trỏ `partId` chứ không phải questionId). Hướng: reuse Passage/Section ID + diff QuestionGroup theo `sortOrder` + diff Question theo `number`, chỉ tạo/xóa cái thực sự thêm/bớt. Khả thi, cần task riêng.
+- **Editor câu hỏi tồn tại 2 bản implementation song song đã fork khác nhau — ĐÃ ĐƯỢC XỬ LÝ (Phase 3).**
+  Đã hợp nhất hoàn toàn 4 question editors (`MCQGroupEditor`, `MatchingEditor`, `NoteCompletionEditor`, `TableCompletionEditor`) vào một nguồn chuẩn duy nhất tại `frontend/src/components/admin/editors/`:
+  1. Hỗ trợ đầy đủ các tham số cấu hình: `numberingMode: 'auto' | 'manual'`, `themeSource: 'admin' | 'practice'`.
+  2. Tích hợp trọn vẹn các tính năng hoàn thiện nhất: `maxChoices` (1..10), cảnh báo chọn X/maxChoices, re-index & cleanup `correctAnswer` an toàn khi xóa option, duplicate option warnings, upload diagram map, và `syncQuestionsToTokens` chống mồ côi câu hỏi.
+  3. Cập nhật import tại `PracticeGroupCard.jsx`, `ReadingGroupEditor.jsx`, `ListeningTab.jsx`.
+  4. Đã xóa an toàn 4 file trùng lặp trong `frontend/src/components/practice/`.
 
-- **Editor câu hỏi tồn tại 2 bản implementation song song đã fork khác nhau.** Mỗi loại (MCQGroup, Matching, NoteCompletion, TableCompletion) có 1 bản ở `frontend/src/components/practice/` và 1 bản ở `frontend/src/components/admin/editors/`. Bản `practice/` được dùng bởi form soạn đề **Reading** (`ReadingTab` → `admin/editors/ReadingGroupEditor` → import từ `practice/`) và 2 trang `ReadingPractice.jsx` / `ListeningPractice.jsx`. Bản `admin/editors/` được dùng bởi form soạn đề **Listening** (`ListeningTab`). 2 bản đã lệch nhau: theme source (`practiceConfig` vs `adminConstants`), `min` của `maxChoices` (2 vs 1), cách đánh số/`qNumberEnd` cho MCQ multi, và các validation/cleanup nhỏ (đợt 4 mới port cảnh báo "chọn X/maxChoices" + dọn `correctAnswer` khi xóa option từ `admin/editors/MCQGroupEditor` sang `practice/MCQGroupEditor`; các bản khác vẫn chưa đồng bộ). Mỗi file có comment `LƯU Ý KIẾN TRÚC` ở đầu trỏ sang bản kia. Cần audit riêng: hợp nhất thành 1 bản tham số hóa (`numberingMode: auto/manual`, `themeSource`) rồi xóa bản trùng.
+- **Auto-renumber cho câu hỏi loại token-based (note/table/summary/diagram) (P1-3) — ĐÃ ĐƯỢC XỬ LÝ.**
+  Đã cập nhật `recalcAllGroupNumbers` (dùng chung cho Reading và Listening) và `recalcGroups` trong `utils/practiceConfig.js`:
+  1. Quét toàn bộ token `[Q:n]` trong `noteSections` theo thứ tự xuất hiện.
+  2. Tạo bản đồ mapping `oldNum -> newStart + idx` và rewrite token một lượt qua Regex replacer chống va chạm số (`replace(/\[Q:(\d+)\]/g, ...)`).
+  3. Quét và cập nhật lại `Question.number` cho từng câu hỏi con theo đúng số mới, đồng thời bảo toàn `id` và các thuộc tính khác.
+  4. Hỗ trợ cả `diagram_label` (tự động renumber questions theo `newStart + idx` dù không có text token).
+  5. Đảm bảo logic scoring ở backend (`routes/reading.js` / `routes/listening.js`) và breakdown kết quả luôn khớp 100% khoảng `[qNumberStart, qNumberEnd]`.
 
-- **Auto-renumber KHÔNG cập nhật câu hỏi loại token-based (note/table/summary/diagram) — tồn tại ở CẢ Reading LẪN Listening (P1-3).** `recalcAllGroupNumbers` (dùng chung cho Reading qua passages và Listening qua sections — `ListeningTab` đã chuyển sang auto-numbering, bỏ input "Từ câu" thủ công) khi gặp `TOKEN_BASED_TYPES` chỉ ghi lại `qNumberStart`/`qNumberEnd` của nhóm, **không** viết lại token `[Q:n]` trong `noteSections[].lines[].contentWithTokens` cũng như `Question.number` của từng câu con. Hệ quả: nếu một nhóm token-based bị dịch số vì nhóm phía trước nó thay đổi số câu (hoặc bị move), thì `Question.number` (bằng id token gán lúc chèn) sẽ lệch khỏi khoảng `[qNumberStart, qNumberEnd]` mới. UI admin + trang làm bài hiển thị số theo `qNumberStart + vị-trí` nên trông vẫn đúng, nhưng scoring và result-detail (`routes/reading.js` / `routes/listening.js`) lọc câu bằng `q.number >= g.qNumberStart && q.number <= g.qNumberEnd` → sẽ **loại nhầm** các câu token bị lệch (không chấm, không hiện trong breakdown). **Dữ liệu thật hiện CHƯA bị ảnh hưởng** (audit 08/2026: mọi nhóm note-completion trong 4 đề Listening đều đứng đầu section nên `qNumberStart` không đổi; Reading tương tự chưa phát hiện case). Cần audit/sửa riêng cho cả 2 skill: cho `recalcAllGroupNumbers` renumber luôn `Question.number` của câu token + rewrite `[Q:n]` trong content khi khoảng số của nhóm thay đổi.
+- **`ReadingTab` thiếu 3 cơ chế UX/a11y mà `ListeningTab` đã có — ĐÃ ĐƯỢC XỬ LÝ (Phase 3).**
+  Đã port hoàn chỉnh 3 cơ chế từ `ListeningTab` sang `ReadingTab`:
+  1. **Validate trước submit**: Chặn submit khi passage thiếu title hoặc body rỗng; chặn khi passage có nhóm câu hỏi nhưng nhóm có 0 câu; hiển thị `window.confirm` cảnh báo nếu tổng số câu của đề ≠ 40.
+  2. **Error banner persistent thay cho `alert()`**: Thay thế triệt để `alert()` khi `loadForEdit` lỗi hoặc submit lỗi bằng Error Banner đỏ cố định ở đầu form và tự động cuộn lên đầu form (`formRef.current?.scrollIntoView`); dùng Toast notification đồng bộ hệ thống cho các thông báo thao tác.
+  3. **Trợ năng (a11y) Accordion Passage**: Nút toggle có `aria-expanded` và `aria-controls`, panel nội dung có `id`, `role="region"`, và `aria-label={"Đoạn văn " + (index + 1)}`.
 
-- **`ReadingTab` thiếu 3 cơ chế UX/a11y mà `ListeningTab` đã có (đảo chiều so với hướng "port từ Reading sang Listening").** Đợt audit ListeningTab (08/2026) xây MỚI cho Listening 3 thứ mà Reading chưa từng có:
-  1. **Validate trước submit** — `ListeningTab.handleSubmit` chặn lưu khi có section chứa nhóm câu hỏi nhưng thiếu file audio, hoặc có nhóm 0 câu; và hỏi xác nhận (`window.confirm`) khi tổng số câu ≠ 40. `ReadingTab.handleSubmit` **không có** guardrail nào — chỉ dựa vào `required` của input title + validate backend (không chặn passage rỗng, group 0 câu, thân bài rỗng).
-  2. **Error banner persistent thay cho `alert()`** — `ListeningTab` chuyển `loadForEdit` fail → `setError(...)` (banner đỏ trong form, cuộn tới) và `uploadAudio`/`transcribeAudio`/`handleDelete` fail → `showToast(...)`. `ReadingTab` vẫn dùng `alert('Lỗi tải đề để sửa')` / `alert('Lỗi xóa đề')` cho `loadForEdit` và `handleDelete`.
-  3. **`aria-expanded` + `aria-controls` cho accordion** — mỗi nút toggle Section trong `ListeningTab` có `aria-expanded`/`aria-controls`, panel có `id` khớp + `role="region"` + `aria-label`. Accordion Passage của `ReadingTab` chưa có gì.
+- **Cache tab kỹ năng bị cũ (stale) sau khi xóa cuốn ở `CambridgeTab` — ĐÃ ĐƯỢC XỬ LÝ (Phase 4).**
+  Đã hoàn thiện cơ chế đồng bộ dọn dẹp cache giữa `CambridgeTab` và `Admin.jsx`:
+  1. `CambridgeTab.jsx` kích hoạt `onExamsChanged?.()` trên tất cả các thao tác thay đổi bộ đề/cuốn (thêm, sửa tên, xóa bộ đề; thêm, đổi số, xóa cuốn; upload ảnh bìa cuốn).
+  2. `Admin.jsx` xử lý `handleExamsChanged`: gọi `fetchCounts()`, tải lại `getExamSeries()`, xóa sạch cache `tabCache` của cả 4 kỹ năng (`reading`, `listening`, `writing`, `speaking`), và nếu đang mở một tab kỹ năng thì tự động gọi `fetchSkillExams(activeTab, { force: true })` ngay lập tức.
+  3. `Admin.jsx` đăng ký lắng nghe sự kiện `onTrashChanged` từ `adminService`, tự động làm mới danh sách đề thi và bộ đề khi admin khôi phục hoặc xóa vĩnh viễn trong Thùng rác mà không cần tải lại trang (F5).
 
-  Đề xuất: khi quay lại `ReadingTab`, port ngược 3 cơ chế này từ `ListeningTab` sang (điều chỉnh "section" → "passage", thêm check thân bài rỗng) để 2 tab đối xứng về UX/a11y thay vì lệch 1 chiều.
-
-- **Cache tab kỹ năng bị cũ (stale) sau khi xóa cuốn ở `CambridgeTab`.** Chỉ xóa một `BookCover` (cuốn) mới soft-delete kéo theo các `Exam` bên trong (`routes/admin/examSeries.js` — `DELETE /exam-series/:seriesId/books/:bookNumber` → `exam.updateMany` set `deletedAt`). **Xóa một `ExamSeries` (bộ đề) KHÔNG đụng gì tới book/exam con** (`DELETE /exam-series/:id` chỉ set `deletedAt` trên chính series — mục 1.4 đã audit); hệ quả là một series đã ở trong thùng rác vẫn có thể còn book/exam LIVE (P0-2 đã thêm guard chặn xóa vĩnh viễn series khi còn con LIVE). Sau khi xóa book, `CambridgeTab` không phát tín hiệu refresh nào lên `Admin.jsx` → cache `tabCache` của các tab Reading/Listening/Writing/Speaking vẫn giữ danh sách cũ; admin phải F5 thủ công mới thấy đúng. Hành vi này có SẴN từ trước đợt audit 08/2026 (`handleDeleteBook`/`handleDeleteSeries` chưa bao giờ gọi `onRefresh`; prop `onRefresh` duy nhất từng có đã bị xóa cùng `PDFImportTab`). Không gấp, không ảnh hưởng dữ liệu — chỉ là cache UX chưa đồng bộ. Hướng sửa: cho `CambridgeTab` nhận lại một callback `onExamsChanged` từ `Admin.jsx` và gọi sau mỗi book/series delete để invalidate `tabCache` cả 4 skill (hoặc chuyển danh sách exam sang fetch tươi khi chuyển tab).

@@ -5,6 +5,7 @@ const path = require('path')
 const fs = require('fs')
 const authMiddleware = require('../middleware/auth')
 const validate = require('../middleware/validate')
+const { aiSubmitLimiter } = require('../middleware/rateLimiter')
 const { speakingSubmitSchema, transcribeSchema } = require('../validators/submissionValidator')
 const { cleanJsonRaw, repairTruncatedJson } = require('../services/json/jsonSanitizer')
 
@@ -290,7 +291,7 @@ Trả về JSON (không có gì khác):
   }
 }
 
-router.post('/exams/:id/submit', authMiddleware, validate(speakingSubmitSchema), async (req, res) => {
+router.post('/exams/:id/submit', authMiddleware, aiSubmitLimiter, validate(speakingSubmitSchema), async (req, res) => {
   try {
     const { partId, transcript } = req.body
     const examId = parseInt(req.params.id)
@@ -370,7 +371,7 @@ router.get('/answers/:id/status', authMiddleware, async (req, res) => {
 // yêu cầu người dùng ghi âm lại. Khác với /submit (luôn tạo answer MỚI): retry
 // chấm lại NGAY trên bản ghi cũ, dùng cho lỗi hạ tầng AI (model đổi, timeout...)
 // chứ không phải muốn nói lại nội dung (dùng nút "Nộp lại" ở FE cho trường hợp đó).
-router.post('/answers/:id/retry', authMiddleware, async (req, res) => {
+router.post('/answers/:id/retry', authMiddleware, aiSubmitLimiter, async (req, res) => {
   try {
     const answerId = parseInt(req.params.id)
     const answer = await prisma.speakingAnswer.findUnique({

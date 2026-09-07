@@ -21,9 +21,105 @@ export const recalcGroups = (groups) => {
     const newStart = next
     const newEnd = slots > 0 ? next + slots - 1 : next
     next = newEnd + 1
+
     if (TOKEN_BASED_TYPES.includes(g.type)) {
-      return { ...g, qNumberStart: newStart, qNumberEnd: newEnd }
+      const seenTokens = new Set()
+      const tokenOrder = []
+      ;(g.noteSections || []).forEach(ns => {
+        ;(ns.lines || []).forEach(l => {
+          const text = l.contentWithTokens || l.content || ''
+          for (const m of text.matchAll(/\[Q:(\d+)\]/g)) {
+            const num = parseInt(m[1], 10)
+            if (!seenTokens.has(num)) {
+              seenTokens.add(num)
+              tokenOrder.push(num)
+            }
+          }
+        })
+      })
+
+      if (tokenOrder.length === 0) {
+        let qNum = newStart
+        const updatedQuestions = (g.questions || []).map(q => {
+          const num = qNum
+          qNum += 1
+          return { ...q, number: num }
+        })
+        return {
+          ...g,
+          qNumberStart: newStart,
+          qNumberEnd: newEnd,
+          questions: updatedQuestions,
+        }
+      }
+
+      const oldToNew = new Map()
+      tokenOrder.forEach((oldNum, idx) => {
+        oldToNew.set(oldNum, newStart + idx)
+      })
+
+      const rewriteText = (str) => {
+        if (!str) return str
+        return str.replace(/\[Q:(\d+)\]/g, (match, p1) => {
+          const oldNum = parseInt(p1, 10)
+          const newNum = oldToNew.get(oldNum)
+          return newNum !== undefined ? `[Q:${newNum}]` : match
+        })
+      }
+
+      const updatedNoteSections = (g.noteSections || []).map(ns => ({
+        ...ns,
+        lines: (ns.lines || []).map(l => {
+          const updatedLine = { ...l }
+          if (l.content !== undefined) updatedLine.content = rewriteText(l.content)
+          if (l.contentWithTokens !== undefined) updatedLine.contentWithTokens = rewriteText(l.contentWithTokens)
+          if (l.content !== undefined && l.contentWithTokens === undefined) {
+            updatedLine.contentWithTokens = updatedLine.content
+          }
+          if (l.contentWithTokens !== undefined && l.content === undefined) {
+            updatedLine.content = updatedLine.contentWithTokens
+          }
+          return updatedLine
+        })
+      }))
+
+      const qByOldNum = new Map()
+      ;(g.questions || []).forEach(q => {
+        qByOldNum.set(q.number, q)
+      })
+
+      const updatedQuestions = []
+      const usedOldNums = new Set()
+
+      tokenOrder.forEach((oldNum, idx) => {
+        const q = qByOldNum.get(oldNum)
+        if (q) {
+          updatedQuestions.push({ ...q, number: newStart + idx })
+          usedOldNums.add(oldNum)
+        } else {
+          updatedQuestions.push({ number: newStart + idx, questionText: '', correctAnswer: '' })
+        }
+      })
+
+      let extraIdx = tokenOrder.length
+      ;(g.questions || []).forEach(q => {
+        if (!usedOldNums.has(q.number)) {
+          updatedQuestions.push({ ...q, number: newStart + extraIdx })
+          extraIdx++
+        }
+      })
+
+      updatedQuestions.sort((a, b) => a.number - b.number)
+
+      return {
+        ...g,
+        qNumberStart: newStart,
+        qNumberEnd: newEnd,
+        questions: updatedQuestions,
+        noteSections: updatedNoteSections,
+      }
     }
+
     let qNum = newStart
     const updatedQuestions = (g.questions || []).map(q => {
       const num = qNum
@@ -40,10 +136,10 @@ export const getGroupSlots = (group) => {
 }
 
 // ─── STYLES ──────────────────────────────────────────────────────────────────
-export const inputCls = 'w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition'
-export const labelCls = 'block text-xs font-semibold text-slate-600 mb-1'
-export const btnPrimary = 'bg-blue-600 text-white px-5 py-2.5 rounded-lg font-semibold text-sm hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed'
-export const btnSecondary = 'border border-slate-200 text-slate-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 transition'
+export const inputCls = 'w-full border border-zinc-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200 transition bg-white text-zinc-900 placeholder:text-zinc-400'
+export const labelCls = 'block text-xs font-medium text-zinc-700 mb-1.5'
+export const btnPrimary = 'bg-zinc-900 text-white px-3.5 py-2 rounded-lg font-medium text-xs hover:bg-zinc-800 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed'
+export const btnSecondary = 'bg-white border border-zinc-200 text-zinc-900 px-3.5 py-2 rounded-lg text-xs font-medium hover:bg-zinc-50 transition shadow-xs'
 
 // ─── READING GROUP CONSTANTS ──────────────────────────────────────────────────
 export const READING_GROUP_TYPES = [
@@ -153,16 +249,16 @@ export function getQuestionGroupTheme(type) {
       }
     case 'mcq':
       return {
-        cardBg: 'bg-blue-50/80',
-        cardBorder: 'border-blue-300',
-        headerBg: 'bg-blue-100/60 border-blue-200',
-        badge: 'bg-blue-100 text-blue-800 border-blue-300',
-        subBoxBg: 'bg-blue-100/50',
-        subBoxBorder: 'border-blue-200',
-        subBoxText: 'text-blue-800',
-        subBoxHover: 'hover:bg-blue-200/60',
-        subBoxBtn: 'bg-blue-200/70 text-blue-900 border-blue-300',
-        accentColor: 'accent-blue-600',
+        cardBg: 'bg-zinc-50',
+        cardBorder: 'border-zinc-200',
+        headerBg: 'bg-zinc-100/70 border-zinc-200',
+        badge: 'bg-zinc-100 text-zinc-800 border-zinc-300',
+        subBoxBg: 'bg-zinc-100/60',
+        subBoxBorder: 'border-zinc-200',
+        subBoxText: 'text-zinc-800',
+        subBoxHover: 'hover:bg-zinc-200/60',
+        subBoxBtn: 'bg-zinc-200/70 text-zinc-900 border-zinc-300',
+        accentColor: 'accent-zinc-900',
       }
     case 'mcq_multi':
       return {
@@ -345,7 +441,7 @@ export const GROUP_TYPE_COLORS = {
   matching_drag:        'bg-pink-100 text-pink-800 border-pink-300',
   diagram_label:        'bg-red-100 text-red-800 border-red-300',
   matching_headings:    'bg-violet-100 text-violet-800 border-violet-300',
-  mcq:                  'bg-blue-100 text-blue-800 border-blue-300',
+  mcq:                  'bg-zinc-100 text-zinc-800 border-zinc-300',
   mcq_multi:            'bg-indigo-100 text-indigo-800 border-indigo-300',
   short_answer:         'bg-rose-100 text-rose-800 border-rose-300',
   summary_completion:   'bg-lime-100 text-lime-800 border-lime-300',

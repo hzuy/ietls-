@@ -28,6 +28,7 @@ const prismaMock = {
     ]),
     count: vi.fn().mockResolvedValue(1),
     findUnique: vi.fn(),
+    findFirst: vi.fn(),
     update: vi.fn().mockResolvedValue({})
   },
   attempt: {
@@ -79,6 +80,15 @@ const prismaMock = {
     findMany: vi.fn(),
     update: vi.fn().mockResolvedValue({}),
     create: vi.fn().mockResolvedValue({})
+  },
+  speakingPart: {
+    findMany: vi.fn(),
+    update: vi.fn().mockResolvedValue({}),
+    create: vi.fn().mockResolvedValue({})
+  },
+  speakingQuestion: {
+    deleteMany: vi.fn().mockResolvedValue({}),
+    createMany: vi.fn().mockResolvedValue({})
   },
   $transaction: vi.fn()
 }
@@ -486,6 +496,137 @@ describe('Admin Exams Router — PUT (diff-based upsert)', () => {
     expect(prismaMock.question.delete).not.toHaveBeenCalled()
   })
 
+  it('PUT reading exam matches and updates by explicit question.id even if question numbers changed', async () => {
+    prismaMock.exam.findUnique.mockResolvedValueOnce({ skill: 'reading' }).mockResolvedValueOnce({ id: 10, passages: [] })
+    prismaMock.passage.findMany.mockResolvedValueOnce([oldReadingPassage()])
+
+    // Old questions had numbers 1 and 2 with ids 701 and 702.
+    // In new body, numbers are shifted to 5 and 6, but ids 701 and 702 are passed explicitly.
+    const body = {
+      title: 'Reading Test 1',
+      passages: [{
+        number: 1, title: 'Passage 1', subtitle: null, letteredParagraphs: false, body: 'Body text',
+        questionGroups: [{
+          id: 601,
+          type: 'mcq', qNumberStart: 5, qNumberEnd: 6, instruction: '', maxChoices: 2, canReuse: false,
+          questions: [
+            { id: 701, number: 5, questionText: 'Q1 renumbered to 5', options: ['A', 'B'], correctAnswer: 'A' },
+            { id: 702, number: 6, questionText: 'Q2 renumbered to 6', options: ['A', 'B'], correctAnswer: 'B' }
+          ]
+        }],
+        questions: []
+      }]
+    }
+
+    await request(app)
+      .put('/api/admin/exams/10')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send(body)
+      .expect(200)
+
+    expect(prismaMock.question.update).toHaveBeenCalledTimes(2)
+    expect(prismaMock.question.createMany).not.toHaveBeenCalled()
+    expect(prismaMock.question.delete).not.toHaveBeenCalled()
+
+    expect(prismaMock.question.update).toHaveBeenCalledWith({
+      where: { id: 701 },
+      data: expect.objectContaining({ number: 5, questionText: 'Q1 renumbered to 5' })
+    })
+    expect(prismaMock.question.update).toHaveBeenCalledWith({
+      where: { id: 702 },
+      data: expect.objectContaining({ number: 6, questionText: 'Q2 renumbered to 6' })
+    })
+  })
+
+  it('PUT reading exam handles matching_headings group and replaces matching options', async () => {
+    prismaMock.exam.findUnique.mockResolvedValueOnce({ skill: 'reading' }).mockResolvedValueOnce({ id: 10, passages: [] })
+    prismaMock.passage.findMany.mockResolvedValueOnce([{
+      id: 501, number: 1,
+      questions: [],
+      questionGroups: [
+        {
+          id: 601, sortOrder: 0, type: 'matching_headings',
+          matchingOptions: [{ id: 801, optionLetter: 'i', optionText: 'Old Heading' }],
+          questions: [{ id: 701, number: 1 }]
+        }
+      ]
+    }])
+
+    const body = {
+      title: 'Reading Test 1',
+      passages: [{
+        number: 1, title: 'Passage 1', subtitle: null, letteredParagraphs: false, body: 'Body text',
+        questionGroups: [{
+          id: 601,
+          type: 'matching_headings', qNumberStart: 1, qNumberEnd: 1, instruction: 'Choose headings',
+          matchingOptions: [
+            { letter: 'i', text: 'New Heading 1' },
+            { letter: 'ii', text: 'New Heading 2' }
+          ],
+          questions: [{ id: 701, number: 1, questionText: 'Paragraph A', correctAnswer: 'i' }]
+        }],
+        questions: []
+      }]
+    }
+
+    await request(app)
+      .put('/api/admin/exams/10')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send(body)
+      .expect(200)
+
+    expect(prismaMock.matchingOption.deleteMany).toHaveBeenCalledWith({ where: { groupId: 601 } })
+    expect(prismaMock.matchingOption.createMany).toHaveBeenCalledWith({
+      data: [
+        { groupId: 601, optionLetter: 'i', optionText: 'New Heading 1', sortOrder: 0 },
+        { groupId: 601, optionLetter: 'ii', optionText: 'New Heading 2', sortOrder: 1 }
+      ]
+    })
+    expect(prismaMock.question.update).toHaveBeenCalledWith({
+      where: { id: 701 },
+      data: expect.objectContaining({ number: 1, type: 'matching_headings' })
+    })
+  })
+
+  it('PUT reading exam handles diagram_label group mapping hint to questionText and type to fill_blank', async () => {
+    prismaMock.exam.findUnique.mockResolvedValueOnce({ skill: 'reading' }).mockResolvedValueOnce({ id: 10, passages: [] })
+    prismaMock.passage.findMany.mockResolvedValueOnce([{
+      id: 501, number: 1,
+      questions: [],
+      questionGroups: [
+        {
+          id: 601, sortOrder: 0, type: 'diagram_label',
+          questions: [{ id: 701, number: 1 }]
+        }
+      ]
+    }])
+
+    const body = {
+      title: 'Reading Test 1',
+      passages: [{
+        number: 1, title: 'Passage 1', subtitle: null, letteredParagraphs: false, body: 'Body text',
+        questionGroups: [{
+          id: 601,
+          type: 'diagram_label', qNumberStart: 1, qNumberEnd: 1, instruction: 'Label diagram',
+          imageUrl: '/uploads/diagram.png',
+          questions: [{ id: 701, number: 1, hint: 'Top of arch', correctAnswer: 'keystone' }]
+        }],
+        questions: []
+      }]
+    }
+
+    await request(app)
+      .put('/api/admin/exams/10')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send(body)
+      .expect(200)
+
+    expect(prismaMock.question.update).toHaveBeenCalledWith({
+      where: { id: 701 },
+      data: expect.objectContaining({ questionText: 'Top of arch', type: 'fill_blank', correctAnswer: 'keystone' })
+    })
+  })
+
   // ─── Writing ───────────────────────────────────────────────────────────────
   it('PUT writing exam updates both existing WritingTask rows in place, preserving id', async () => {
     prismaMock.exam.findUnique
@@ -520,5 +661,124 @@ describe('Admin Exams Router — PUT (diff-based upsert)', () => {
     expect(prismaMock.writingTask.update).toHaveBeenCalledTimes(1)
     expect(prismaMock.writingTask.create).toHaveBeenCalledTimes(1)
     expect(prismaMock.writingTask.create.mock.calls[0][0].data).toEqual(expect.objectContaining({ number: 2, examId: 30 }))
+  })
+
+  // ─── Duplicate testNumber Validation (BUG-08) ─────────────────────────────
+  it('PUT exam returns 409 if testNumber is already taken in the same series and book', async () => {
+    prismaMock.exam.findUnique.mockResolvedValueOnce({ id: 10, skill: 'reading', seriesId: 1, bookNumber: 19, testNumber: 1 })
+    prismaMock.exam.findFirst.mockResolvedValueOnce({ id: 99, title: 'Existing Test' })
+
+    const res = await request(app)
+      .put('/api/admin/exams/10')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send({ title: 'Duplicate Test', testNumber: 2, bookNumber: 19, seriesId: 1 })
+      .expect(409)
+
+    expect(res.body.message).toContain('đã tồn tại')
+  })
+
+  it('POST /exams/reading returns 409 if testNumber is already taken in the same series and book', async () => {
+    prismaMock.exam.findFirst
+      .mockResolvedValueOnce(null) // title check passes
+      .mockResolvedValueOnce({ id: 99, title: 'Existing Test' }) // checkDuplicateExamTest matches
+
+    const res = await request(app)
+      .post('/api/admin/exams/reading')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send({ title: 'New Test', seriesId: 1, bookNumber: 19, testNumber: 1, passages: [] })
+      .expect(409)
+
+    expect(res.body.message).toContain('đã tồn tại trong cùng cuốn/bộ đề')
+  })
+
+  // ─── Speaking Exams (GET, PUT, POST) ───────────────────────────────────────
+  it('GET /api/admin/exams selects number, cueCard, and _count.questions for speakingParts', async () => {
+    await request(app)
+      .get('/api/admin/exams?skill=speaking')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .expect(200)
+
+    const call = prismaMock.exam.findMany.mock.calls.at(-1)[0]
+    expect(call.select.speakingParts).toEqual({
+      select: {
+        id: true,
+        number: true,
+        cueCard: true,
+        _count: { select: { questions: true } }
+      }
+    })
+  })
+
+  it('PUT speaking exam updates cueCard and questions for all 3 parts in place', async () => {
+    prismaMock.exam.findUnique
+      .mockResolvedValueOnce({ skill: 'speaking', seriesId: 1 })
+      .mockResolvedValueOnce({
+        id: 40,
+        speakingParts: [
+          { id: 101, number: 1 },
+          { id: 102, number: 2 },
+          { id: 103, number: 3 }
+        ]
+      })
+    prismaMock.speakingPart.findMany.mockResolvedValueOnce([
+      { id: 101, number: 1 },
+      { id: 102, number: 2 },
+      { id: 103, number: 3 }
+    ])
+
+    await request(app)
+      .put('/api/admin/exams/40')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send({
+        title: 'Cambridge 18 Speaking Test 1',
+        part1: { cueCard: 'Desc 1', questions: ['Q1', 'Q2'] },
+        part2: { cueCard: 'Describe a law...', questions: [] },
+        part3: { cueCard: 'Desc 3', questions: ['##TOPIC##:Rules', 'Q3', 'Q4'] }
+      })
+      .expect(200)
+
+    expect(prismaMock.speakingPart.update).toHaveBeenCalledTimes(3)
+    expect(prismaMock.speakingQuestion.deleteMany).toHaveBeenCalledTimes(3)
+    expect(prismaMock.speakingQuestion.createMany).toHaveBeenCalledTimes(2) // Part 1 (2 qs) and Part 3 (3 qs)
+  })
+
+  it('POST /api/admin/exams/speaking creates all 3 parts with questions and cueCards', async () => {
+    prismaMock.exam.findFirst
+      .mockResolvedValueOnce(null) // title check passes
+    prismaMock.exam.create = vi.fn().mockResolvedValueOnce({
+      id: 41,
+      title: 'New Speaking Test',
+      speakingParts: [
+        { id: 201, number: 1, cueCard: 'P1', questions: [{ id: 1 }] },
+        { id: 202, number: 2, cueCard: 'P2 Cue Card', questions: [] },
+        { id: 203, number: 3, cueCard: 'P3', questions: [{ id: 2 }] }
+      ]
+    })
+
+    const res = await request(app)
+      .post('/api/admin/exams/speaking')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send({
+        title: 'New Speaking Test',
+        part1: { cueCard: 'P1 desc', questions: ['Q1'] },
+        part2: { cueCard: 'P2 Cue Card prompt', questions: [] },
+        part3: { cueCard: 'P3 desc', questions: ['##TOPIC##:Social Media', 'Q2'] }
+      })
+      .expect(201)
+
+    expect(res.body.id).toBe(41)
+    expect(prismaMock.exam.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        title: 'New Speaking Test',
+        skill: 'speaking',
+        speakingParts: expect.objectContaining({
+          create: expect.arrayContaining([
+            expect.objectContaining({ number: 1 }),
+            expect.objectContaining({ number: 2, cueCard: 'P2 Cue Card prompt' }),
+            expect.objectContaining({ number: 3 })
+          ])
+        })
+      })
+    }))
   })
 })

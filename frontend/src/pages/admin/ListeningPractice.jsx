@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
-import { useUnsavedChanges } from '../../hooks/useUnsavedChanges'
+import { useUnsavedChanges, NAV_LEAVE_MSG } from '../../hooks/useUnsavedChanges'
 import { useDraftPersistence } from '../../hooks/useDraftPersistence'
 import { useCollapsibleGroups } from '../../hooks/useCollapsibleGroups'
 import { validateAudioFile } from '../../utils/fileValidation'
 import { ConfirmDeleteModal, DraftBanner, DraftSavedHint, AdminListHeader, ThumbnailPicker } from '../../components/admin/contentPageUI'
 import { useToast } from '../../context/ToastContext'
+import { Volume2, Eye } from 'lucide-react'
 import PracticeGroupCard from '../../components/admin/PracticeGroupCard'
 import {
   getListeningPracticeList, getListeningPractice,
@@ -31,26 +32,26 @@ function ListeningPracticePreviewModal({ form, showAnswers, setShowAnswers, onCl
       <div className="bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
         style={{ width: '90vw', maxWidth: 800, height: '90vh' }}
         onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-3 bg-indigo-50 border-b border-indigo-200 shrink-0">
+        <div className="flex items-center justify-between px-6 py-3 bg-zinc-50 border-b border-zinc-200 shrink-0">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-bold text-indigo-800">Xem trước — {form.title || 'Listening Practice'}</span>
+            <span className="text-sm font-bold text-zinc-900">Xem trước — {form.title || 'Listening Practice'}</span>
             <button type="button" onClick={() => setShowAnswers(v => !v)}
-              className={`text-xs px-3 py-1 rounded-full font-semibold transition ${showAnswers ? 'bg-[#1D4ED8] text-white' : 'bg-white border border-slate-200 text-slate-500 hover:border-[#bfdbfe] hover:text-[#1D4ED8]'}`}>
+              className={`text-xs px-3 py-1 rounded-full font-semibold transition ${showAnswers ? 'bg-zinc-900 text-white' : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50'}`}>
               {showAnswers ? 'Ẩn đáp án' : 'Hiện đáp án'}
             </button>
           </div>
           <button type="button" onClick={onClose}
-            className="text-xs px-3 py-1.5 rounded-lg border border-indigo-200 text-indigo-600 hover:bg-indigo-100 transition font-medium">
+            className="text-xs px-3 py-1.5 rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-100 transition font-medium">
             ✕ Đóng
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto bg-slate-50 px-6 py-6">
+        <div className="flex-1 overflow-y-auto bg-zinc-50 px-6 py-6">
           {form.context && (
-            <p className="text-xs text-slate-500 italic mb-5 border-l-2 border-[#bfdbfe] pl-3">{form.context}</p>
+            <p className="text-xs text-zinc-500 italic mb-5 border-l-2 border-zinc-300 pl-3">{form.context}</p>
           )}
           {form.questionGroups.length > 0
             ? form.questionGroups.map((g, gi) => <AdminGroupPreview key={gi} group={g} showAnswers={showAnswers} />)
-            : <p className="text-sm text-slate-400 italic text-center mt-10">Chưa có câu hỏi</p>}
+            : <p className="text-sm text-zinc-400 italic text-center mt-10">Chưa có câu hỏi</p>}
         </div>
       </div>
     </div>
@@ -105,8 +106,14 @@ export default function ListeningPractice() {
 
   const load = async () => {
     setLoading(true)
-    try { setList(await getListeningPracticeList()) } catch {}
+    try { setList(await getListeningPracticeList()) } catch (err) { console.error(err) }
     setLoading(false)
+  }
+
+  const handleCancelOrBack = () => {
+    if (isDirty && !window.confirm(NAV_LEAVE_MSG)) return
+    setIsDirty(false)
+    setView('list')
   }
 
   useEffect(() => { load() }, [])
@@ -236,8 +243,8 @@ export default function ListeningPractice() {
       <>
         <div className="p-6 max-w-6xl mx-auto">
           <div className="flex items-center gap-3 mb-6">
-            <button onClick={() => { setIsDirty(false); setView('list') }} aria-label="Quay lại danh sách" className="text-slate-500 hover:text-slate-700 text-xl font-bold transition">←</button>
-            <h1 className="text-xl font-bold text-slate-800">
+            <button onClick={handleCancelOrBack} aria-label="Quay lại danh sách" className="text-zinc-500 hover:text-zinc-700 text-sm font-semibold transition">←</button>
+            <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">
               {editing ? 'Chỉnh sửa bài Listening Practice' : 'Thêm bài Listening Practice mới'}
             </h1>
           </div>
@@ -249,27 +256,27 @@ export default function ListeningPractice() {
 
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
             <div className="space-y-4">
-              <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+              <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs">
                 <label className={labelCls}>Tên bài <span className="text-red-500 font-normal">*</span></label>
                 <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                   placeholder="VD: Listening — Section 1: Telephone Enquiry"
                   className={inputCls} />
               </div>
 
-              <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+              <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs">
                 <label className={labelCls}>Mô tả tình huống (Context)</label>
                 <textarea value={form.context} onChange={e => setForm(f => ({ ...f, context: e.target.value }))}
                   rows={4} placeholder="VD: You will hear a conversation between a student and a library assistant..."
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-400 resize-y"
+                  className="w-full px-3 py-2 border border-zinc-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 resize-y bg-white text-zinc-900 placeholder:text-zinc-400"
                   style={{ lineHeight: 1.7 }} />
               </div>
 
-              <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+              <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs">
                 <div className="flex items-center justify-between mb-4">
                   <label className={labelCls + ' mb-0'}>Nhóm câu hỏi</label>
                   <div className="flex items-center gap-2">
                     <select value={addGroupType} onChange={e => setAddGroupType(e.target.value)}
-                      className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400 bg-white">
+                      className="text-xs border border-zinc-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 bg-white text-zinc-800 cursor-pointer">
                       {LISTENING_GROUP_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                     </select>
                     <button type="button" onClick={handleAddGroup} className={btnPrimary + ' py-1.5 px-3'}>
@@ -280,14 +287,14 @@ export default function ListeningPractice() {
                 {form.questionGroups.length > 1 && (
                   <div className="flex justify-end gap-2 mb-2 text-xs">
                     <button type="button" onClick={() => groupCollapse.setAll(form.questionGroups.map(g => g._id))}
-                      className="text-slate-500 hover:text-slate-700 font-medium">Mở tất cả</button>
-                    <span className="text-slate-300">·</span>
+                      className="text-zinc-500 hover:text-zinc-700 font-medium">Mở tất cả</button>
+                    <span className="text-zinc-300">·</span>
                     <button type="button" onClick={() => groupCollapse.setAll([])}
-                      className="text-slate-500 hover:text-slate-700 font-medium">Thu gọn tất cả</button>
+                      className="text-zinc-500 hover:text-zinc-700 font-medium">Thu gọn tất cả</button>
                   </div>
                 )}
                 {form.questionGroups.length === 0 ? (
-                  <div className="text-center text-slate-400 text-sm py-8 border-2 border-dashed border-slate-200 rounded-lg">
+                  <div className="text-center text-zinc-400 text-xs py-8 border-2 border-dashed border-zinc-200 rounded-xl">
                     Chưa có nhóm câu hỏi nào. Chọn loại và bấm "+ Thêm nhóm".
                   </div>
                 ) : (
@@ -311,7 +318,7 @@ export default function ListeningPractice() {
             </div>
 
             <div className="space-y-3 lg:sticky lg:top-6 lg:self-start">
-              <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+              <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs">
                 <ThumbnailPicker
                   preview={form.thumbPreview}
                   onSelect={file => setForm(f => ({ ...f, thumbFile: file, thumbPreview: URL.createObjectURL(file) }))}
@@ -320,16 +327,16 @@ export default function ListeningPractice() {
                 />
               </div>
 
-              <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+              <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs">
                 <label className={labelCls}>File Audio</label>
                 {form.audioName || form.audioUrl ? (
                   <>
-                    <div className="flex items-center gap-2 p-2.5 bg-green-50 rounded-lg border border-green-200">
-                      <span className="text-lg shrink-0">🎵</span>
-                      <span className="text-xs text-green-700 flex-1 truncate">{form.audioName || 'Audio đã upload'}</span>
+                    <div className="flex items-center gap-2 p-2.5 bg-emerald-50 rounded-lg border border-emerald-200">
+                      <Volume2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span className="text-xs text-emerald-800 font-medium flex-1 truncate">{form.audioName || 'Audio đã upload'}</span>
                       <button onClick={() => setForm(f => ({ ...f, audioFile: null, audioName: null, audioUrl: null }))}
                         aria-label="Xóa file audio"
-                        className="text-blue-500 hover:text-blue-600 text-sm shrink-0">×</button>
+                        className="text-zinc-400 hover:text-red-500 text-sm shrink-0 font-bold transition">×</button>
                     </div>
                     {form.audioUrl && (
                       <audio controls
@@ -339,8 +346,8 @@ export default function ListeningPractice() {
                   </>
                 ) : (
                   <button onClick={() => audioRef.current.click()}
-                    className="w-full border-2 border-dashed border-slate-200 rounded-lg bg-slate-50 hover:border-blue-300 hover:bg-blue-50/30 transition flex flex-col items-center justify-center gap-2 text-slate-400 text-sm cursor-pointer py-4">
-                    <span className="text-2xl">🎵</span>
+                    className="w-full border-2 border-dashed border-zinc-200 rounded-xl bg-zinc-50 hover:border-zinc-400 hover:bg-zinc-100/50 transition flex flex-col items-center justify-center gap-1.5 text-zinc-500 text-xs cursor-pointer py-4">
+                    <Volume2 className="w-6 h-6 text-zinc-400" />
                     <span>Chọn file audio (mp3, m4a...)</span>
                   </button>
                 )}
@@ -349,12 +356,13 @@ export default function ListeningPractice() {
               </div>
 
               <button type="button" onClick={() => setShowPreview(true)}
-                className={btnSecondary + ' w-full text-center'}>
-                👁 Xem trước nội dung đề
+                className={btnSecondary + ' w-full flex items-center justify-center gap-1.5'}>
+                <Eye className="w-3.5 h-3.5 text-zinc-500" />
+                <span>Xem trước nội dung đề</span>
               </button>
 
               <div className="flex gap-2">
-                <button onClick={() => setView('list')} className={btnSecondary + ' flex-1 justify-center'}>Hủy</button>
+                <button type="button" onClick={handleCancelOrBack} className={btnSecondary + ' flex-1 justify-center'}>Hủy</button>
                 <button onClick={handleSave} disabled={saving} className={btnPrimary + ' flex-1 justify-center'}>
                   {saving ? 'Đang lưu...' : 'Lưu bài'}
                 </button>
@@ -383,33 +391,33 @@ export default function ListeningPractice() {
           onAdd={openAdd}
         />
 
-        <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
-          {loading ? <div className="p-10 text-center text-sm text-slate-400">Đang tải...</div>
-            : list.length === 0 ? <div className="p-10 text-center text-sm text-slate-400">Chưa có bài nào.</div>
+        <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-xs">
+          {loading ? <div className="p-10 text-center text-xs text-zinc-400">Đang tải...</div>
+            : list.length === 0 ? <div className="p-10 text-center text-xs text-zinc-400">Chưa có bài nào.</div>
             : (
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50">
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 w-16">Ảnh</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">Tên bài</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 hidden sm:table-cell">Audio</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 hidden sm:table-cell">Câu</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 hidden sm:table-cell">Ngày tạo</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500">Hành động</th>
+                  <tr className="border-b border-zinc-200 bg-zinc-50">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 w-16">Ảnh</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500">Tên bài</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 hidden sm:table-cell">Audio</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 hidden sm:table-cell">Câu</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 hidden sm:table-cell">Ngày tạo</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-zinc-500">Hành động</th>
                   </tr>
                 </thead>
                 <tbody>
                   {list.map(item => (
-                    <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50 transition">
+                    <tr key={item.id} className="border-b border-zinc-100 hover:bg-zinc-50 transition">
                       <td className="px-4 py-3">
-                        <div style={{ width: 60, height: 40, borderRadius: 6, overflow: 'hidden', background: '#f1f5f9', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ width: 60, height: 40, borderRadius: 6, overflow: 'hidden', background: '#f4f4f5', border: '1px solid #e4e4e7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <ImageWithFallback
                             src={resolveImg(item.thumbnailUrl)}
                             alt={item.title || 'Thumbnail'}
                           />
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm font-medium text-slate-800">{item.title}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-zinc-800">{item.title}</td>
                       <td className="px-4 py-3 hidden sm:table-cell">
                         {item.audioUrl
                           ? <span className="text-xs text-green-600 font-medium">🎵 Có audio</span>
@@ -418,16 +426,16 @@ export default function ListeningPractice() {
                       <td className="px-4 py-3 hidden sm:table-cell">
                         {(() => {
                           const count = item.questionCount ?? 0; const total = 40
-                          const bg    = count === total ? '#dcfce7' : count > total ? '#fee2e2' : '#f1f5f9'
-                          const color = count === total ? '#15803d' : count > total ? '#dc2626' : '#64748b'
+                          const bg    = count === total ? '#dcfce7' : count > total ? '#fee2e2' : '#f4f4f5'
+                          const color = count === total ? '#15803d' : count > total ? '#dc2626' : '#71717a'
                           return <span style={{ background: bg, color, borderRadius: 9999, padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>{count}/{total}</span>
                         })()}
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-500 hidden sm:table-cell">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</td>
+                      <td className="px-4 py-3 text-sm text-zinc-500 hidden sm:table-cell">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
-                          <button onClick={() => openEdit(item)} className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium transition">Sửa</button>
-                          <button onClick={() => setDelConfirm(item.id)} className="text-xs px-3 py-1.5 rounded-lg border border-blue-200 text-red-500 hover:bg-blue-50 font-medium transition">Xóa</button>
+                          <button onClick={() => openEdit(item)} className="text-xs px-3 py-1.5 rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-100 font-medium transition shadow-2xs">Sửa</button>
+                          <button onClick={() => setDelConfirm(item.id)} className="text-xs px-3 py-1.5 rounded-xl border border-zinc-200 text-red-500 hover:bg-red-50 hover:border-red-200 font-medium transition shadow-2xs">Xóa</button>
                         </div>
                       </td>
                     </tr>

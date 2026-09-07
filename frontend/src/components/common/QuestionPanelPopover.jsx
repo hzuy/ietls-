@@ -21,15 +21,15 @@ export default function QuestionPanelPopover({ groups, activeIndex, bottomOffset
     <>
       <div className="fixed inset-0 z-30" onClick={onClose} />
       <div
-        className="fixed left-4 z-40 bg-white rounded-lg shadow-lg border border-gray-200 w-72 max-h-80 overflow-y-auto"
+        className="fixed left-4 z-40 bg-white rounded-xl shadow-lg border border-zinc-200 w-72 max-h-80 overflow-y-auto"
         style={{ bottom: bottomOffset }}
       >
-        <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
-          <h3 className="font-bold text-gray-800 text-sm">Bảng câu hỏi</h3>
+        <div className="sticky top-0 bg-white border-b border-zinc-100 px-4 py-3 flex items-center justify-between">
+          <h3 className="font-semibold text-zinc-900 text-sm">Bảng câu hỏi</h3>
           <button
             aria-label="Đóng"
             onClick={onClose}
-            className="w-6 h-6 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 text-xs font-bold transition"
+            className="w-6 h-6 flex items-center justify-center rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 text-xs font-bold transition cursor-pointer"
           >✕</button>
         </div>
         <div className="px-4 py-3 space-y-4">
@@ -40,8 +40,8 @@ export default function QuestionPanelPopover({ groups, activeIndex, bottomOffset
             const isActive = activeIndex === gi
             return (
               <div key={gi}>
-                <p className={`text-xs font-bold mb-1.5 ${isActive ? 'text-[var(--primary-hover)]' : 'text-gray-500'}`}>
-                  {g.label} <span className="font-mono font-normal text-gray-400">· {answered}/{total}</span>
+                <p className={`text-xs font-semibold mb-1.5 ${isActive ? 'text-zinc-900' : 'text-zinc-500'}`}>
+                  {g.label} <span className="font-mono font-normal text-zinc-400 tabular-nums">· {answered}/{total}</span>
                 </p>
                 <div
                   className="h-1 rounded-full mb-2.5 overflow-hidden"

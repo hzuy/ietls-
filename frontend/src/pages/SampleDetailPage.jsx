@@ -34,7 +34,7 @@ export default function SampleDetailPage({ skill }) {
   // Dữ liệu tags cũ vẫn còn trong DB, chỉ không render.
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
+    <div className="min-h-screen bg-zinc-50/50">
       <Navbar />
       <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '32px 24px' }}>
         {/* Back */}
@@ -59,7 +59,7 @@ export default function SampleDetailPage({ skill }) {
           ← Quay lại danh sách
         </button>
 
-        <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-md)', padding: '48px' }}>
+        <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-8 md:p-12">
 
           <div style={{ maxWidth: '900px', margin: '0 auto' }}>
 

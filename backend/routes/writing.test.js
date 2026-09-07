@@ -92,6 +92,37 @@ describe('Writing Submission Routes', () => {
       expect(res.body.message).toBe('Bài viết quá ngắn!')
     })
 
+    // ─── BUG-26: max_attempts_per_exam tests ──────────────────────────────
+    it('allows submission when attempts count is below max_attempts_per_exam', async () => {
+      prismaMock.writingTask.findUnique.mockResolvedValue({ id: 10, examId: 1, prompt: 'Task 1 prompt', number: 1 })
+      prismaMock.setting.findUnique.mockResolvedValue({ key: 'max_attempts_per_exam', value: '2' })
+      prismaMock.attempt.count.mockResolvedValue(1)
+      prismaMock.writingAnswer.create.mockResolvedValue({ id: 51, status: 'pending' })
+
+      const res = await request(app)
+        .post('/api/writing/exams/1/submit')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+        .send({ taskId: 10, essay: sampleEssay })
+
+      expect(res.status).toBe(200)
+      expect(res.body.answerId).toBe(51)
+    })
+
+    it('blocks submission with 429 when user reaches max_attempts_per_exam', async () => {
+      prismaMock.writingTask.findUnique.mockResolvedValue({ id: 10, examId: 1, prompt: 'Task 1 prompt', number: 1 })
+      prismaMock.setting.findUnique.mockResolvedValue({ key: 'max_attempts_per_exam', value: '2' })
+      prismaMock.attempt.count.mockResolvedValue(2)
+
+      const res = await request(app)
+        .post('/api/writing/exams/1/submit')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+        .send({ taskId: 10, essay: sampleEssay })
+
+      expect(res.status).toBe(429)
+      expect(res.body.message).toBe('Bạn đã đạt giới hạn 2 lượt thi cho đề này.')
+      expect(prismaMock.writingAnswer.create).not.toHaveBeenCalled()
+    })
+
     describe('autoSubmit — tự động nộp khi hết giờ', () => {
       it('autoSubmit=true + bài dưới 50 từ → 200 graded band 0, KHÔNG gọi AI', async () => {
         prismaMock.writingTask.findUnique.mockResolvedValue({ id: 10, examId: 1, prompt: 'p', number: 1 })

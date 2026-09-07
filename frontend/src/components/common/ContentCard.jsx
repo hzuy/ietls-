@@ -42,14 +42,14 @@ const CHIP_TONES = {
   neutral:   { bg: 'var(--surface-raised)', color: 'var(--muted)', border: 'var(--border)' },
 }
 
-// Công thức hover "showcase" — trích nguyên từ BookCard/PracticeCard cũ.
+// Công thức hover "showcase" — chuẩn hóa phong cách Zinc Monochrome.
 const SHOWCASE = {
   transition:  'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-  restShadow:  '0 4px 12px rgba(15, 23, 42, 0.05)',
-  hoverShadow: '0 20px 35px -8px rgba(37, 99, 235, 0.22), 0 10px 20px -6px rgba(37, 99, 235, 0.12)',
-  restBorder:  '1px solid #e2e8f0',
-  hoverBorder: '1.5px solid #60A5FA',
-  hoverInk:    '#2563EB',
+  restShadow:  '0 2px 8px rgba(0, 0, 0, 0.04)',
+  hoverShadow: '0 16px 30px -6px rgba(0, 0, 0, 0.12), 0 6px 12px -4px rgba(0, 0, 0, 0.06)',
+  restBorder:  '1px solid #e4e4e7',
+  hoverBorder: '1.5px solid #18181b',
+  hoverInk:    '#18181b',
 }
 
 function Chip({ label, tone }) {

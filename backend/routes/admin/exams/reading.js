@@ -6,6 +6,7 @@ const validate = require('../../../middleware/validate')
 const { teacherOnly } = require('../../../lib/roles')
 const { createReadingExamSchema } = require('../../../validators/adminExamValidator')
 const { invalidate } = require('../../../lib/swrCache')
+const { checkDuplicateExamTest } = require('./core')
 
 // ─── CREATE READING EXAM ─────────────────────────────────────────────────────
 router.post('/exams/reading', authMiddleware, teacherOnly, validate(createReadingExamSchema), async (req, res) => {
@@ -14,6 +15,14 @@ router.post('/exams/reading', authMiddleware, teacherOnly, validate(createReadin
 
     const existing = await prisma.exam.findFirst({ where: { title: { equals: title, mode: 'insensitive' }, skill: 'reading' } })
     if (existing) return res.status(409).json({ message: `Đã tồn tại đề Reading có tên "${existing.title}". Vui lòng đặt tên khác.` })
+
+    // BUG-08: Chặn trùng testNumber trong cùng seriesId và bookNumber
+    if (seriesId && bookNumber && testNumber) {
+      const isDup = await checkDuplicateExamTest({ seriesId, bookNumber, testNumber, skill: 'reading' })
+      if (isDup) {
+        return res.status(409).json({ message: 'Đề thi với số Test này đã tồn tại trong cùng cuốn/bộ đề' })
+      }
+    }
 
     const buildReadingGroupData = (g, gi) => {
       const base = {
@@ -54,7 +63,7 @@ router.post('/exams/reading', authMiddleware, teacherOnly, validate(createReadin
               sortOrder: nsi,
               lines: {
                 create: (ns.lines || []).map((l, li) => ({
-                  contentWithTokens: l.content || '',
+                  contentWithTokens: l.contentWithTokens || l.content || '',
                   lineType: l.lineType || 'content',
                   sortOrder: li
                 }))
@@ -108,7 +117,7 @@ router.post('/exams/reading', authMiddleware, teacherOnly, validate(createReadin
               sortOrder: nsi,
               lines: {
                 create: (ns.lines || []).map((l, li) => ({
-                  contentWithTokens: l.content || '',
+                  contentWithTokens: l.contentWithTokens || l.content || '',
                   lineType: l.lineType || 'content',
                   sortOrder: li
                 }))

@@ -1,57 +1,69 @@
-/**
- * LƯU Ý KIẾN TRÚC: Đây là 1 trong 2 bản implementation song song cho loại câu hỏi này.
- * Bản kia: src/components/practice/MCQGroupEditor.jsx
- * 2 bản đã fork khác nhau (xem chi tiết trong CLAUDE.md — phần "Known Issues").
- * Khi sửa bug hoặc thêm tính năng ở đây, cân nhắc đồng bộ sang bản kia nếu áp dụng được.
- * Kế hoạch dài hạn: hợp nhất thành 1 bản tham số hóa (numberingMode: auto/manual, themeSource)
- * — chưa thực hiện, cần đánh giá riêng.
- */
-import { getQuestionGroupTheme } from '../adminConstants'
+import { getQuestionGroupTheme as getAdminTheme } from '../adminConstants'
+import { getQuestionGroupTheme as getPracticeTheme } from '../../../utils/practiceConfig'
 import { deriveCorrectIndices, correctAnswerFromIndices, reindexAfterRemoval } from '../../../utils/mcqAnswer'
+import { AlertCircle } from 'lucide-react'
 
-export default function MCQGroupEditor({ group = {}, onChange }) {
+export default function MCQGroupEditor({
+  group = {},
+  onChange,
+  numberingMode = 'auto',
+  themeSource = 'admin'
+}) {
   const groupType = group?.type || 'mcq'
   const isMulti = groupType === 'mcq_multi'
   const maxChoices = group.maxChoices || 2
-  const theme = getQuestionGroupTheme(groupType)
+  const theme = themeSource === 'practice'
+    ? getPracticeTheme(groupType)
+    : getAdminTheme(groupType)
 
   const defaultOpts = isMulti ? ['', '', '', '', ''] : ['', '', '', '']
 
   const addQuestion = () => {
     if (isMulti) {
-      const nextNum = group.qNumberStart + group.questions.length * maxChoices
-      const newQs = [...group.questions, { number: nextNum, questionText: '', options: [...defaultOpts], correctAnswer: '' }]
-      const newEnd = group.qNumberStart + newQs.length * maxChoices - 1
+      const nextNum = numberingMode === 'manual' && group.questions?.length > 0
+        ? Math.max(...group.questions.map(q => q.number || 0)) + 1
+        : (group.qNumberStart || 1) + (group.questions?.length || 0) * maxChoices
+      const newQs = [...(group.questions || []), { number: nextNum, questionText: '', options: [...defaultOpts], correctAnswer: '' }]
+      const newEnd = (group.qNumberStart || 1) + newQs.length * maxChoices - 1
       onChange({ ...group, qNumberEnd: newEnd, questions: newQs })
     } else {
-      const nextNum = group.questions.length > 0 ? group.qNumberEnd + 1 : group.qNumberStart
+      const qs = group.questions || []
+      const nextNum = qs.length > 0
+        ? Math.max(group.qNumberEnd || 0, ...qs.map(q => q.number || 0)) + 1
+        : (group.qNumberStart || 1)
       onChange({
         ...group,
         qNumberEnd: nextNum,
-        questions: [...group.questions, { number: nextNum, questionText: '', options: [...defaultOpts], correctAnswer: '' }]
+        questions: [...qs, { number: nextNum, questionText: '', options: [...defaultOpts], correctAnswer: '' }]
       })
     }
   }
 
   const removeQuestion = (qi) => {
-    const newQs = group.questions.filter((_, i) => i !== qi)
+    const newQs = (group.questions || []).filter((_, i) => i !== qi)
     if (isMulti) {
-      const newEnd = newQs.length > 0 ? group.qNumberStart + newQs.length * maxChoices - 1 : group.qNumberStart
-      onChange({ ...group, questions: newQs, qNumberEnd: Math.max(group.qNumberStart, newEnd) })
+      const newEnd = newQs.length > 0
+        ? (group.qNumberStart || 1) + newQs.length * maxChoices - 1
+        : (group.qNumberStart || 1)
+      onChange({ ...group, questions: newQs, qNumberEnd: Math.max(group.qNumberStart || 1, newEnd) })
     } else {
-      onChange({ ...group, questions: newQs, qNumberEnd: newQs.length > 0 ? newQs[newQs.length - 1].number : group.qNumberStart })
+      const newEnd = newQs.length > 0
+        ? Math.max(...newQs.map(q => q.number || (group.qNumberStart || 1)))
+        : (group.qNumberStart || 1)
+      onChange({ ...group, questions: newQs, qNumberEnd: newEnd })
     }
   }
 
   const updateQ = (qi, field, val) => {
-    onChange({ ...group, questions: group.questions.map((q, i) => i !== qi ? q : { ...q, [field]: val }) })
+    onChange({ ...group, questions: (group.questions || []).map((q, i) => i !== qi ? q : { ...q, [field]: val }) })
   }
 
   const patchQ = (qi, patch) =>
-    onChange({ ...group, questions: group.questions.map((q, i) => i !== qi ? q : { ...q, ...patch }) })
+    onChange({ ...group, questions: (group.questions || []).map((item, i) => i !== qi ? item : { ...item, ...patch }) })
 
   const updateOption = (qi, oi, val) => {
-    const q = group.questions[qi]
+    const q = (group.questions || [])[qi]
+    if (!q) return
     const oldOpts = q.options || defaultOpts
     const opts = [...oldOpts]
     opts[oi] = val
@@ -65,12 +77,14 @@ export default function MCQGroupEditor({ group = {}, onChange }) {
   }
 
   const addOption = (qi) => {
-    const q = group.questions[qi]
+    const q = (group.questions || [])[qi]
+    if (!q) return
     patchQ(qi, { options: [...(q.options || defaultOpts), ''] })
   }
 
   const removeOption = (qi, oi) => {
-    const q = group.questions[qi]
+    const q = (group.questions || [])[qi]
+    if (!q) return
     const oldOpts = q.options || defaultOpts
     const opts = oldOpts.filter((_, i) => i !== oi)
     // Shift correct indices to their new positions, then re-serialize — never
@@ -82,7 +96,8 @@ export default function MCQGroupEditor({ group = {}, onChange }) {
   // Multi MCQ: toggle a single option BY INDEX — independent of whether its
   // text matches any other option.
   const toggleCorrectAt = (qi, oi) => {
-    const q = group.questions[qi]
+    const q = (group.questions || [])[qi]
+    if (!q) return
     const opts = q.options || defaultOpts
     const cur = deriveCorrectIndices(q.correctAnswer, opts)
     const next = cur.includes(oi) ? cur.filter(x => x !== oi) : [...cur, oi]
@@ -93,7 +108,8 @@ export default function MCQGroupEditor({ group = {}, onChange }) {
   // clear). correctAnswer is written as the verbatim option text — same stored
   // format as before, no migration.
   const setSingleCorrect = (qi, oi) => {
-    const q = group.questions[qi]
+    const q = (group.questions || [])[qi]
+    if (!q) return
     const opts = q.options || defaultOpts
     const already = deriveCorrectIndices(q.correctAnswer, opts).includes(oi)
     patchQ(qi, { correctAnswer: already ? '' : correctAnswerFromIndices([oi], opts) })
@@ -102,23 +118,24 @@ export default function MCQGroupEditor({ group = {}, onChange }) {
   return (
     <div className="space-y-3">
       {isMulti && (
-        <div className="flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2">
-          <span className="text-xs font-bold text-indigo-700 shrink-0">Số đáp án cần chọn:</span>
+        <div className="flex items-center gap-3 bg-zinc-100 border border-zinc-200 rounded-lg px-3 py-2">
+          <span className="text-xs font-medium text-zinc-800 shrink-0">Số đáp án cần chọn (maxChoices):</span>
           <input
             type="number" min={1} max={10}
-            className="w-16 border border-indigo-200 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:border-indigo-400"
+            className="w-16 border border-zinc-300 rounded-lg px-2 py-1 text-xs text-center font-medium focus:outline-none focus:border-zinc-500 bg-white text-zinc-900"
             value={maxChoices}
             onChange={e => {
               const newMax = parseInt(e.target.value) || 2
-              const newEnd = group.qNumberStart + (group.questions.length * newMax) - 1
-              onChange({ ...group, maxChoices: newMax, qNumberEnd: Math.max(group.qNumberStart, newEnd) })
+              const questionsLen = (group.questions || []).length
+              const newEnd = (group.qNumberStart || 1) + (questionsLen * newMax) - 1
+              onChange({ ...group, maxChoices: newMax, qNumberEnd: Math.max(group.qNumberStart || 1, newEnd) })
             }}
           />
-          <span className="text-xs text-indigo-500">(mặc định 2 — "Choose TWO")</span>
+          <span className="text-[11px] text-zinc-500">(mặc định 2 — "Choose TWO")</span>
         </div>
       )}
 
-      {group.questions.map((q, qi) => {
+      {(group.questions || []).map((q, qi) => {
         const opts = q.options || defaultOpts
         // Which options are marked correct — tracked as an index Set, derived
         // from the stored text once per render, never re-matched per option.
@@ -136,34 +153,53 @@ export default function MCQGroupEditor({ group = {}, onChange }) {
           if (t && trimmedOpts.some((u, j) => j !== i && u === t)) dupOptIdx.add(i)
         })
 
+        const displayLabel = isMulti
+          ? `Câu ${(group.qNumberStart || 1) + qi * maxChoices}–${(group.qNumberStart || 1) + qi * maxChoices + maxChoices - 1}`
+          : `Câu ${q.number}`
+
         return (
           <div key={qi} className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-lg p-3 space-y-2`}>
             <div className="flex items-center justify-between">
-              <span className={`text-xs font-bold ${theme.subBoxText}`}>
-                {isMulti
-                  ? `Câu ${group.qNumberStart + qi * maxChoices}–${group.qNumberStart + qi * maxChoices + maxChoices - 1}`
-                  : `Câu ${q.number}`}
+              <span className={`text-xs font-semibold ${theme.subBoxText}`}>
+                {displayLabel}
               </span>
-              <button type="button" onClick={() => removeQuestion(qi)}
-                className="text-red-500 hover:text-red-600 text-xs font-semibold">✕ Xóa</button>
+              <button
+                type="button"
+                onClick={() => removeQuestion(qi)}
+                className="text-red-500 hover:text-red-600 text-xs font-medium"
+              >
+                ✕ Xóa
+              </button>
             </div>
-            <textarea rows={2}
-              className={`w-full border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-sm resize-none focus:outline-none`}
+            <textarea
+              rows={2}
+              className={`w-full border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-xs text-zinc-900 placeholder:text-zinc-400 resize-none focus:outline-none`}
               placeholder="Nội dung câu hỏi..."
-              value={q.questionText} onChange={e => updateQ(qi, 'questionText', e.target.value)} />
+              value={q.questionText || ''}
+              onChange={e => updateQ(qi, 'questionText', e.target.value)}
+            />
 
             {isMulti ? (
               /* Multi: dynamic options with checkboxes for correct answer */
               <div className="space-y-1.5">
-                <p className="text-[10px] text-slate-400 font-medium">Tick ô bên phải để đánh dấu đáp án đúng</p>
+                <p className="text-[10px] text-zinc-500 font-medium">Tick ô bên phải để đánh dấu đáp án đúng</p>
                 {opts.map((opt, oi) => {
                   const letter = String.fromCharCode(65 + oi)
                   const isCorrect = correctIdx.has(oi)
                   return (
-                    <div key={oi} className={`flex items-center gap-2 rounded-lg px-2 py-1 ${isCorrect ? 'bg-[#eff6ff] border border-[#bfdbfe]' : 'border border-transparent'}`}>
-                      <span className="text-xs font-bold text-slate-400 w-5 shrink-0">{letter}.</span>
+                    <div
+                      key={oi}
+                      className={`flex items-center gap-2 rounded-lg px-2 py-1 ${isCorrect ? `${theme.subBoxBg} border ${theme.subBoxBorder}` : 'border border-transparent'}`}
+                    >
+                      <span className="text-xs font-bold text-zinc-500 w-5 shrink-0">{letter}.</span>
                       <input
-                        className={`flex-1 border rounded-lg px-2 py-1 text-sm focus:outline-none ${dupOptIdx.has(oi) ? 'border-red-400 ring-1 ring-red-200' : isCorrect ? 'border-[#e2e8f0] focus:border-[#3B82F6] bg-[#eff6ff]' : 'border-blue-200 focus:border-blue-400'}`}
+                        className={`flex-1 border rounded-lg px-2 py-1 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none bg-white ${
+                          dupOptIdx.has(oi)
+                            ? 'border-red-400 ring-1 ring-red-200'
+                            : isCorrect
+                              ? `${theme.subBoxBorder} font-semibold`
+                              : 'border-zinc-200 focus:border-zinc-500'
+                        }`}
                         placeholder={`Lựa chọn ${letter}...`}
                         value={opt}
                         onChange={e => updateOption(qi, oi, e.target.value)}
@@ -174,49 +210,71 @@ export default function MCQGroupEditor({ group = {}, onChange }) {
                         disabled={!opt.trim()}
                         onChange={() => toggleCorrectAt(qi, oi)}
                         title="Đánh dấu đáp án đúng"
-                        className="w-4 h-4 accent-[#1D4ED8] shrink-0 cursor-pointer"
+                        className={`w-4 h-4 ${theme.accentColor || 'accent-zinc-900'} shrink-0 cursor-pointer`}
                       />
                       {opts.length > 2 && (
-                        <button type="button" onClick={() => removeOption(qi, oi)}
-                          className="text-blue-400 hover:text-red-500 text-xs shrink-0">✕</button>
+                        <button
+                          type="button"
+                          onClick={() => removeOption(qi, oi)}
+                          className="text-red-400 hover:text-red-600 text-xs shrink-0"
+                        >
+                          ✕
+                        </button>
                       )}
                     </div>
                   )
                 })}
-                <button type="button" onClick={() => addOption(qi)}
-                  className="text-xs text-blue-400 hover:text-blue-600 font-medium mt-1">+ Thêm lựa chọn</button>
+                <button
+                  type="button"
+                  onClick={() => addOption(qi)}
+                  className={`text-xs ${theme.subBoxText} font-medium hover:underline mt-1`}
+                >
+                  + Thêm lựa chọn
+                </button>
                 {warn && (
-                  <p className={`text-xs font-semibold mt-1 ${correctCount < maxChoices ? 'text-amber-600' : 'text-red-500'}`}>
-                    ⚠ Đang chọn {correctCount}/{maxChoices} đáp án đúng
-                    {correctCount < maxChoices ? ` — cần chọn thêm ${maxChoices - correctCount}` : ` — chọn thừa ${correctCount - maxChoices}`}
+                  <p className={`text-xs font-medium mt-1 flex items-center gap-1 ${correctCount < maxChoices ? 'text-amber-600' : 'text-red-500'}`}>
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>
+                      Đang chọn {correctCount}/{maxChoices} đáp án đúng
+                      {correctCount < maxChoices ? ` — cần chọn thêm ${maxChoices - correctCount}` : ` — chọn thừa ${correctCount - maxChoices}`}
+                    </span>
                   </p>
                 )}
               </div>
             ) : (
               /* Single MCQ: one radio per option — correctAnswer stores the chosen option's text */
               <div className="space-y-1.5">
-                <p className="text-[10px] text-slate-400 font-medium">Chọn nút tròn bên phải để đánh dấu đáp án đúng</p>
+                <p className="text-[10px] text-zinc-500 font-medium">Chọn nút tròn bên phải để đánh dấu đáp án đúng</p>
                 {opts.map((opt, oi) => {
                   const letter = String.fromCharCode(65 + oi)
                   const isCorrect = correctIdx.has(oi)
                   return (
-                    <div key={oi} className={`flex items-center gap-2 rounded-lg px-2 py-1 ${isCorrect ? 'bg-[#eff6ff] border border-[#bfdbfe]' : 'border border-transparent'}`}>
-                      <span className="text-xs font-bold text-slate-400 w-5 shrink-0">{letter}.</span>
+                    <div
+                      key={oi}
+                      className={`flex items-center gap-2 rounded-lg px-2 py-1 ${isCorrect ? `${theme.subBoxBg} border ${theme.subBoxBorder}` : 'border border-transparent'}`}
+                    >
+                      <span className="text-xs font-bold text-zinc-500 w-5 shrink-0">{letter}.</span>
                       <input
-                        className={`flex-1 border rounded-lg px-2 py-1 text-sm focus:outline-none ${dupOptIdx.has(oi) ? 'border-red-400 ring-1 ring-red-200' : isCorrect ? 'border-[#e2e8f0] focus:border-[#3B82F6] bg-[#eff6ff]' : 'border-blue-200 focus:border-blue-400'}`}
+                        className={`flex-1 border rounded-lg px-2 py-1 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none bg-white ${
+                          dupOptIdx.has(oi)
+                            ? 'border-red-400 ring-1 ring-red-200'
+                            : isCorrect
+                              ? `${theme.subBoxBorder} font-semibold`
+                              : 'border-zinc-200 focus:border-zinc-500'
+                        }`}
                         placeholder={`Lựa chọn ${letter}...`}
                         value={opt}
                         onChange={e => updateOption(qi, oi, e.target.value)}
                       />
                       <input
                         type="radio"
-                        name={`mcq-correct-${group.qNumberStart}-${qi}`}
+                        name={`mcq-correct-${group.qNumberStart || 1}-${qi}`}
                         checked={isCorrect}
                         disabled={!opt.trim()}
                         onClick={() => setSingleCorrect(qi, oi)}
                         onChange={() => {}}
                         title="Đánh dấu đáp án đúng"
-                        className="w-4 h-4 accent-[#1D4ED8] shrink-0 cursor-pointer"
+                        className={`w-4 h-4 ${theme.accentColor || 'accent-zinc-900'} shrink-0 cursor-pointer`}
                       />
                     </div>
                   )
@@ -234,8 +292,11 @@ export default function MCQGroupEditor({ group = {}, onChange }) {
           </div>
         )
       })}
-      <button type="button" onClick={addQuestion}
-        className="w-full border-2 border-dashed border-blue-200 rounded-lg py-2 text-sm text-blue-400 hover:border-blue-400 hover:text-blue-600 transition font-medium">
+      <button
+        type="button"
+        onClick={addQuestion}
+        className="w-full border-2 border-dashed border-zinc-300 rounded-lg py-2 text-sm text-zinc-600 hover:border-zinc-500 hover:text-zinc-900 hover:bg-zinc-50 transition font-medium"
+      >
         + Thêm câu hỏi {isMulti ? 'MCQ Multi' : 'MCQ'}
       </button>
     </div>

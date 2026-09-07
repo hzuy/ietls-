@@ -66,35 +66,35 @@ export default function Staff() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-xl md:text-2xl font-bold text-slate-900">Quản lý nhân sự</h1>
-            <p className="text-sm text-slate-500 mt-0.5">Danh sách admin và giảng viên trong hệ thống</p>
+            <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Quản lý nhân sự</h1>
+            <p className="text-xs text-zinc-500 mt-1">Danh sách admin và giảng viên trong hệ thống</p>
           </div>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="bg-purple-50 rounded-2xl p-4 border border-purple-100">
-            <div className="text-2xl font-bold text-purple-600">{adminCount}</div>
-            <div className="text-xs text-gray-500 mt-1 font-medium">Admin</div>
+          <div className="bg-white rounded-2xl p-4 border border-zinc-200 shadow-xs">
+            <div className="text-2xl font-bold tabular-nums text-zinc-900">{adminCount}</div>
+            <div className="text-xs text-zinc-500 mt-1 font-medium">Admin</div>
           </div>
-          <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100">
-            <div className="text-2xl font-bold text-[#1D4ED8]">{teacherCount}</div>
-            <div className="text-xs text-gray-500 mt-1 font-medium">Teacher</div>
+          <div className="bg-white rounded-2xl p-4 border border-zinc-200 shadow-xs">
+            <div className="text-2xl font-bold tabular-nums text-zinc-900">{teacherCount}</div>
+            <div className="text-xs text-zinc-500 mt-1 font-medium">Teacher</div>
           </div>
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center h-32">
-              <div className="w-7 h-7 border-4 border-[#1D4ED8] border-t-transparent rounded-full animate-spin" />
+              <div className="w-7 h-7 border-4 border-zinc-900 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : staff.length === 0 ? (
-            <p className="text-center text-gray-400 py-12 text-sm">Chưa có nhân sự nào</p>
+            <p className="text-center text-zinc-400 py-12 text-xs">Chưa có nhân sự nào</p>
           ) : (
-            <table className="w-full text-sm">
+            <table className="w-full text-xs">
               <thead>
-                <tr className="text-xs text-gray-400 bg-gray-50 border-b border-gray-100">
+                <tr className="text-[11px] text-zinc-500 bg-zinc-50 border-b border-zinc-200">
                   <th className="px-5 py-3 text-left font-medium">Tên / Email</th>
                   <th className="px-4 py-3 text-left font-medium">Vai trò</th>
                   <th className="px-4 py-3 text-left font-medium">Ngày tham gia</th>
@@ -103,35 +103,31 @@ export default function Staff() {
               </thead>
               <tbody>
                 {staff.map(s => (
-                  <tr key={s.id} className="border-b border-gray-50 hover:bg-gray-50">
+                  <tr key={s.id} className="border-b border-zinc-100 hover:bg-zinc-50 transition">
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2">
                         <div>
-                          <p className="font-medium text-gray-800">{s.name}</p>
-                          <p className="text-xs text-gray-400">{s.email}</p>
+                          <p className="font-medium text-zinc-900 text-xs">{s.name}</p>
+                          <p className="text-[11px] text-zinc-500">{s.email}</p>
                         </div>
                         {s.id === currentUser.id && (
-                          <span className="text-xs text-gray-300 font-medium">(bạn)</span>
+                          <span className="text-[11px] text-zinc-400 font-medium">(bạn)</span>
                         )}
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                        s.role === 'admin'
-                          ? 'bg-purple-100 text-purple-700'
-                          : 'bg-blue-100 text-blue-700'
-                      }`}>
+                      <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-100 text-zinc-800 border border-zinc-200">
                         {s.role === 'admin' ? 'Admin' : 'Teacher'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-400">{fmtDate(s.createdAt)}</td>
+                    <td className="px-4 py-3 text-[11px] text-zinc-500">{fmtDate(s.createdAt)}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1.5 flex-wrap">
                         {s.role === 'teacher' && (
                           <button
                             onClick={() => handleMakeAdmin(s.id)}
                             disabled={actionLoading === s.id + '_admin'}
-                            className="px-2.5 py-1 rounded-lg text-xs border border-purple-200 text-purple-600 hover:bg-purple-50 transition disabled:opacity-50">
+                            className="px-2.5 py-1 rounded-lg text-xs border border-zinc-200 text-zinc-700 hover:bg-zinc-100 transition disabled:opacity-50 font-medium shadow-2xs">
                             {actionLoading === s.id + '_admin' ? '...' : 'Nâng Admin'}
                           </button>
                         )}
@@ -139,14 +135,14 @@ export default function Staff() {
                           <button
                             onClick={() => handleMakeTeacher(s.id)}
                             disabled={actionLoading === s.id + '_teacher'}
-                            className="px-2.5 py-1 rounded-lg text-xs border border-blue-200 text-blue-600 hover:bg-blue-50 transition disabled:opacity-50">
+                            className="px-2.5 py-1 rounded-lg text-xs border border-zinc-200 text-zinc-700 hover:bg-zinc-100 transition disabled:opacity-50 font-medium shadow-2xs">
                             {actionLoading === s.id + '_teacher' ? '...' : 'Hạ Teacher'}
                           </button>
                         )}
                         {s.id !== currentUser.id && (
                           <button
                             onClick={() => setConfirmRemove({ id: s.id, name: s.name })}
-                            className="px-2.5 py-1 rounded-lg text-xs border border-blue-200 text-red-500 hover:bg-blue-50 transition">
+                            className="px-2.5 py-1 rounded-lg text-xs border border-zinc-200 text-red-500 hover:bg-red-50 hover:border-red-200 transition font-medium shadow-2xs">
                             Xóa khỏi staff
                           </button>
                         )}
@@ -165,20 +161,20 @@ export default function Staff() {
         <div
           onClick={() => setConfirmRemove(null)}
           style={{ position: 'fixed', inset: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
-            <h3 className="font-bold text-gray-800 mb-2">Xác nhận xóa khỏi staff</h3>
-            <p className="text-sm text-gray-600 mb-6">
+          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm border border-zinc-200">
+            <h3 className="text-sm font-semibold text-zinc-900 mb-2">Xác nhận xóa khỏi staff</h3>
+            <p className="text-xs text-zinc-600 mb-6">
               Xóa quyền staff của <strong>{confirmRemove.name}</strong>? Tài khoản sẽ trở về role <strong>User</strong>.
             </p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setConfirmRemove(null)}
-                className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
+                className="px-3.5 py-2 rounded-lg border border-zinc-200 text-xs text-zinc-700 hover:bg-zinc-50 font-medium transition">
                 Huỷ
               </button>
               <button
                 onClick={handleRemoveStaff}
-                className="px-4 py-2 rounded-xl bg-blue-500 text-white text-sm font-bold hover:bg-blue-600 transition">
+                className="px-3.5 py-2 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700 transition">
                 Xóa
               </button>
             </div>

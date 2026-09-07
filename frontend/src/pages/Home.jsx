@@ -1,34 +1,159 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BookOpen } from 'lucide-react'
+import {
+  BookOpen,
+  Flame,
+  ArrowRight,
+  Clock,
+  Headphones,
+  FileText,
+  Mic,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react'
 import Navbar from '../components/Navbar'
+import { useAuth } from '../context/AuthContext'
 import { useAuthGate } from '../hooks/useAuthGate'
-import ContentCard from '../components/common/ContentCard'
-import { SkeletonCard } from '../components/skeletons'
-import SectionHeader from '../components/home/SectionHeader'
-import SeriesCarousel from '../components/home/SeriesCarousel'
+import { getUserStats } from '../services/userService'
 import { API_BASE, resolveImg } from '../utils/media'
 
-// Placeholder ảnh (khi item không có thumbnail) — riêng cho 2 loại card trang chủ:
-const BOOK_PLACEHOLDER = { bg: 'var(--primary-light)', icon: '📚' }                                   // V1 — Full Test book
-const PRACTICE_PLACEHOLDER = { bg: 'var(--border-soft)', icon: <BookOpen className="w-8 h-8 text-slate-400 stroke-[1.75]" /> } // V2 — Reading/Listening/Writing/Speaking
-
-function HomeSectionError() {
+function HomeSectionError({ onRetry }) {
   return (
-    <div className="col-span-full w-full text-center py-10 px-6 bg-slate-50 rounded-[var(--radius-lg)] border border-slate-200 flex flex-col items-center">
-      <div className="w-12 h-12 rounded-full bg-white border border-slate-200 flex items-center justify-center mb-4 text-slate-400">
-        <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-        </svg>
+    <div className="w-full text-center py-8 px-6 bg-zinc-50 dark:bg-zinc-900/50 rounded-xl border border-zinc-200 dark:border-zinc-800 flex flex-col items-center">
+      <p className="font-semibold text-xs text-zinc-900 dark:text-zinc-100 mb-1">
+        Không thể tải dữ liệu đề thi
+      </p>
+      <p className="mb-3 text-[11px] text-zinc-500 dark:text-zinc-400">
+        Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.
+      </p>
+      <button
+        onClick={onRetry || (() => window.location.reload())}
+        className="text-xs font-medium px-3 py-1.5 rounded-lg bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 cursor-pointer"
+      >
+        Thử lại
+      </button>
+    </div>
+  )
+}
+
+function CompactBookCard({ book, onClick }) {
+  const [imgError, setImgError] = useState(false)
+  const hasImage = book.coverImageUrl && !imgError
+
+  return (
+    <div
+      onClick={onClick}
+      className="group flex-shrink-0 w-[145px] sm:w-[160px] cursor-pointer flex flex-col transition-all duration-200"
+    >
+      {/* Book Cover */}
+      <div className="w-full aspect-[3/4] rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800/80 shadow-2xs group-hover:shadow-md group-hover:border-zinc-400 dark:group-hover:border-zinc-600 transition-all duration-300 relative flex flex-col justify-between">
+        {hasImage ? (
+          <img
+            src={resolveImg(book.coverImageUrl)}
+            alt={book.title}
+            onError={() => setImgError(true)}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            loading="lazy"
+          />
+        ) : (
+          /* Elegant Minimalist Typography Cover */
+          <div className="w-full h-full flex flex-col justify-between p-3.5 bg-gradient-to-b from-zinc-100 to-zinc-200/80 dark:from-zinc-800 dark:to-zinc-900 text-center select-none">
+            <div className="flex items-center justify-between text-[9px] font-bold font-mono uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
+              <span>IELTS</span>
+              <span>ACAD</span>
+            </div>
+            <div className="my-auto py-1">
+              <span className="block text-[10px] font-bold text-zinc-500 dark:text-zinc-400 tracking-wider uppercase font-mono">
+                {book.seriesName || 'CAMBRIDGE'}
+              </span>
+              <span className="block text-3xl font-black text-zinc-900 dark:text-zinc-50 font-mono tracking-tight my-0.5">
+                {book.bookNumber}
+              </span>
+            </div>
+            <div className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400 border-t border-zinc-300/60 dark:border-zinc-700/60 pt-1.5">
+              4 Full Tests
+            </div>
+          </div>
+        )}
       </div>
-      <p className="font-bold text-slate-900 mb-1" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-base)' }}>Lỗi tải dữ liệu</p>
-      <p className="mb-4 max-w-sm" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)', color: 'var(--muted)' }}>Không thể kết nối máy chủ.</p>
-      <button className="btn-primary" onClick={() => window.location.reload()}>Thử lại</button>
+
+      {/* Book Info */}
+      <div className="mt-2 text-left">
+        <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors">
+          {book.title}
+        </h3>
+        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5">
+          {book.testCount} đề Full Test
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function CompactBookTrack({ books, onBookClick }) {
+  const scrollRef = useRef(null)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(true)
+
+  const checkScroll = () => {
+    if (!scrollRef.current) return
+    const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current
+    setCanScrollLeft(scrollLeft > 10)
+    setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10)
+  }
+
+  const scroll = (direction) => {
+    if (!scrollRef.current) return
+    scrollRef.current.scrollBy({ left: direction * 360, behavior: 'smooth' })
+  }
+
+  useEffect(() => {
+    checkScroll()
+    window.addEventListener('resize', checkScroll)
+    return () => window.removeEventListener('resize', checkScroll)
+  }, [books])
+
+  return (
+    <div className="relative group/track">
+      {canScrollLeft && (
+        <button
+          onClick={() => scroll(-1)}
+          aria-label="Cuộn sang trái"
+          className="absolute -left-3 top-1/3 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-md flex items-center justify-center text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition cursor-pointer"
+        >
+          <ChevronLeft className="w-4 h-4 stroke-[2]" />
+        </button>
+      )}
+
+      <div
+        ref={scrollRef}
+        onScroll={checkScroll}
+        className="flex gap-4 overflow-x-auto pb-3 custom-scrollbar scroll-smooth"
+      >
+        {books.map((book, i) => (
+          <CompactBookCard
+            key={`${book.seriesId}-${book.bookNumber}-${i}`}
+            book={book}
+            onClick={() => onBookClick(book)}
+          />
+        ))}
+      </div>
+
+      {canScrollRight && (
+        <button
+          onClick={() => scroll(1)}
+          aria-label="Cuộn sang phải"
+          className="absolute -right-3 top-1/3 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-md flex items-center justify-center text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition cursor-pointer"
+        >
+          <ChevronRight className="w-4 h-4 stroke-[2]" />
+        </button>
+      )}
     </div>
   )
 }
 
 export default function Home() {
+  const { user } = useAuth()
   const gate = useAuthGate()
   const navigate = useNavigate()
 
@@ -37,11 +162,10 @@ export default function Home() {
   const [listening, setListening] = useState(null)
   const [writingSamples, setWritingSamples] = useState(null)
   const [speakingSamples, setSpeakingSamples] = useState(null)
+  const [userStats, setUserStats] = useState(null)
+  const [latestDraft, setLatestDraft] = useState(null)
 
-  useEffect(() => {
-    document.title = 'IELTS Pro — Hệ sinh thái luyện thi thông minh'
-    // 1 request gộp thay cho 5 call riêng lẻ (backend: GET /api/home — Promise.all
-    // + SWR cache). Lỗi mạng → mọi section hiện trạng thái 'error' như trước.
+  const loadData = () => {
     fetch(API_BASE + '/home')
       .then(r => { if (!r.ok) throw new Error('API Error'); return r.json() })
       .then(d => {
@@ -58,7 +182,41 @@ export default function Home() {
         setWritingSamples('error')
         setSpeakingSamples('error')
       })
-  }, [])
+  }
+
+  useEffect(() => {
+    document.title = 'IELTS Platform — Không gian Luyện thi & Khảo thí IELTS'
+    loadData()
+
+    if (user) {
+      getUserStats()
+        .then(data => setUserStats(data))
+        .catch(() => setUserStats(null))
+
+      // Scan localStorage for in-progress draft
+      try {
+        const keys = Object.keys(localStorage).filter(k => k.startsWith(`ielts_draft_${user.id}_`))
+        let best = null
+        for (const k of keys) {
+          const item = localStorage.getItem(k)
+          if (!item) continue
+          try {
+            const d = JSON.parse(item)
+            if (d && d.data && Object.keys(d.data).length > 0) {
+              if (!best || Date.parse(d.savedAt) > Date.parse(best.savedAt)) {
+                best = d
+              }
+            }
+          } catch (_e) {
+            // Ignore parse error
+          }
+        }
+        setLatestDraft(best)
+      } catch (_e) {
+        // Ignore storage access error
+      }
+    }
+  }, [user])
 
   const groupedFullTests = useMemo(() => {
     if (!fullTestsData || fullTestsData === 'error') return []
@@ -80,330 +238,246 @@ export default function Home() {
     return Object.values(rows).map(r => ({ ...r, books: r.books.sort((a, b) => b.bookNumber - a.bookNumber) }))
   }, [fullTestsData])
 
+  const allBooks = useMemo(() => {
+    return groupedFullTests.flatMap(series => series.books)
+  }, [groupedFullTests])
+
+  const handleResumeDraft = () => {
+    if (!latestDraft) return
+    const skill = latestDraft.skillType
+    const path = skill === 'reading'
+      ? `/practice/reading/${latestDraft.examId}`
+      : skill === 'listening'
+      ? `/practice/listening/${latestDraft.examId}`
+      : skill === 'writing'
+      ? `/writing/${latestDraft.examId}`
+      : skill === 'speaking'
+      ? `/speaking/${latestDraft.examId}`
+      : `/cambridge`
+    navigate(path)
+  }
+
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-zinc-50/50 dark:bg-zinc-950 flex flex-col">
       <Navbar />
 
-      {/* ── Hero ────────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden border-b border-slate-200">
-        {/* Scattered dot pattern */}
+      {/* ── 1. Tinh gọn triệt để khối Hero Section ────────────────────────── */}
+      <section className="relative overflow-hidden border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60">
         <div className="bg-dots" aria-hidden="true" />
+        <div className="app-container py-8 md:py-10 relative">
+          <div className="max-w-2xl anim-fade-up">
+            <h1
+              className="text-2xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight"
+              style={{ fontFamily: 'var(--font-display)' }}
+            >
+              Không gian Luyện thi & Khảo thí IELTS
+            </h1>
 
-        <div className="app-container section-py relative">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-10 md:gap-16">
+            <p
+              className="text-sm text-zinc-500 dark:text-zinc-400 max-w-xl leading-relaxed mt-2"
+              style={{ fontFamily: 'var(--font-body)' }}
+            >
+              Nền tảng kiểm tra trực tuyến mô phỏng kỳ thi trên máy tính, tích hợp AI phân tích 4 kỹ năng.
+            </p>
 
-            {/* Left — text block */}
-            <div className="flex-1 anim-fade-up" style={{ maxWidth: '44ch' }}>
-              <h1 className="mb-5 font-extrabold" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-4xl)', color: 'var(--ink-soft)', lineHeight: 1.05 }}>
-                Luyện thi <span style={{ color: 'var(--primary)' }}>IELTS</span>{' '}
-                chuyên nghiệp cùng AI
-              </h1>
-              <p className="leading-relaxed mb-2" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-lg)', color: 'var(--muted)' }}>
-                Kho đề thi thực tế từ Cambridge, chấm điểm và nhận xét chi tiết bằng trí tuệ nhân tạo.
-              </p>
-              <p className="mb-8" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-base)', color: 'var(--subtle)' }}>
-                Nâng band thần tốc ngay hôm nay.
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <button className="btn-primary" onClick={() => gate('/cambridge', { tab: 'register' })}>Bắt đầu ngay</button>
-                <button className="btn-secondary" onClick={() => gate('/full-test', { tab: 'register' })}>Xem bộ đề</button>
-              </div>
+            <div className="flex flex-wrap items-center gap-3 mt-5">
+              <button
+                onClick={() => gate('/cambridge')}
+                className="bg-zinc-900 hover:bg-black text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-zinc-900 text-xs font-medium py-2.5 px-4 rounded-lg shadow-xs transition-colors cursor-pointer"
+              >
+                Vào phòng thi Cambridge
+              </button>
+              <button
+                onClick={() => {
+                  const el = document.getElementById('quick-skills-section')
+                  if (el) el.scrollIntoView({ behavior: 'smooth' })
+                  else gate('/practice/reading')
+                }}
+                className="bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-900 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium py-2.5 px-4 rounded-lg transition-colors cursor-pointer"
+              >
+                Luyện tập kỹ năng
+              </button>
             </div>
-
-            {/* Right — AI Neural Network (desktop only) */}
-            <div className="hidden md:flex items-center justify-center flex-shrink-0 anim-fade-in delay-2" aria-hidden="true">
-              <div className="hero-net-wrap">
-                <svg className="hero-net-svg" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                  <defs>
-                    <radialGradient id="net-core-grad" cx="35%" cy="30%" r="70%" fx="35%" fy="30%">
-                      <stop offset="0%"   style={{stopColor:'var(--net-grad-0)'}} />
-                      <stop offset="50%"  style={{stopColor:'var(--net-grad-50)'}} />
-                      <stop offset="100%" style={{stopColor:'var(--net-grad-100)'}} />
-                    </radialGradient>
-                    {/* Glow blur for core halo */}
-                    <filter id="net-glow-f" x="-100%" y="-100%" width="300%" height="300%">
-                      <feGaussianBlur stdDeviation="10" />
-                    </filter>
-                    {/* Bloom for data-flow dots */}
-                    <filter id="net-dot-f" x="-200%" y="-200%" width="500%" height="500%">
-                      <feGaussianBlur stdDeviation="2" result="blur" />
-                      <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-                    </filter>
-                  </defs>
-
-                  {/* ── Orbit group — entire constellation rotates CW 30s ── */}
-                  <g className="net-orbit">
-                    {/* Spokes: Core(200,200) → each satellite */}
-                    <line x1="200" y1="200" x2="281" y2="119" stroke="var(--net-line-stroke)" strokeWidth="1.5" />
-                    <line x1="200" y1="200" x2="119" y2="119" stroke="var(--net-line-stroke)" strokeWidth="1.5" />
-                    <line x1="200" y1="200" x2="119" y2="281" stroke="var(--net-line-stroke)" strokeWidth="1.5" />
-                    <line x1="200" y1="200" x2="281" y2="281" stroke="var(--net-line-stroke)" strokeWidth="1.5" />
-                    {/* Diamond ring CW: S1(281,119)→S4(281,281)→S3(119,281)→S2(119,119)→S1 */}
-                    <line x1="281" y1="119" x2="281" y2="281" stroke="var(--net-line-stroke)" strokeWidth="1.5" />
-                    <line x1="281" y1="281" x2="119" y2="281" stroke="var(--net-line-stroke)" strokeWidth="1.5" />
-                    <line x1="119" y1="281" x2="119" y2="119" stroke="var(--net-line-stroke)" strokeWidth="1.5" />
-                    <line x1="119" y1="119" x2="281" y2="119" stroke="var(--net-line-stroke)" strokeWidth="1.5" />
-                    {/* Diagonal S1→S3 — dimmer, dashed, no data-flow dot */}
-                    <line x1="281" y1="119" x2="119" y2="281" stroke="var(--net-line-dim)" strokeWidth="1" strokeDasharray="4 3" />
-
-                    {/* Data-flow dots — outward on spokes (4 dots, staggered) */}
-                    <circle className="net-flow-dot" r="3" fill="var(--net-dot-fill)" filter="url(#net-dot-f)">
-                      <animateMotion dur="2.2s" repeatCount="indefinite" path="M200,200 L281,119" />
-                    </circle>
-                    <circle className="net-flow-dot" r="3" fill="var(--net-dot-fill)" filter="url(#net-dot-f)">
-                      <animateMotion dur="2.2s" begin="-1.65s" repeatCount="indefinite" path="M200,200 L119,119" />
-                    </circle>
-                    <circle className="net-flow-dot" r="3" fill="var(--net-dot-fill)" filter="url(#net-dot-f)">
-                      <animateMotion dur="2.2s" begin="-0.55s" repeatCount="indefinite" path="M200,200 L119,281" />
-                    </circle>
-                    <circle className="net-flow-dot" r="3" fill="var(--net-dot-fill)" filter="url(#net-dot-f)">
-                      <animateMotion dur="2.2s" begin="-1.1s" repeatCount="indefinite" path="M200,200 L281,281" />
-                    </circle>
-                    {/* Data-flow dots — CW on diamond ring (4 dots evenly staggered) */}
-                    <circle className="net-flow-dot" r="2.5" fill="var(--net-dot-fill)" filter="url(#net-dot-f)">
-                      <animateMotion dur="7s" repeatCount="indefinite"
-                        path="M281,119 L281,281 L119,281 L119,119 L281,119" />
-                    </circle>
-                    <circle className="net-flow-dot" r="2.5" fill="var(--net-dot-fill)" filter="url(#net-dot-f)">
-                      <animateMotion dur="7s" begin="-1.75s" repeatCount="indefinite"
-                        path="M281,119 L281,281 L119,281 L119,119 L281,119" />
-                    </circle>
-                    <circle className="net-flow-dot" r="2.5" fill="var(--net-dot-fill)" filter="url(#net-dot-f)">
-                      <animateMotion dur="7s" begin="-3.5s" repeatCount="indefinite"
-                        path="M281,119 L281,281 L119,281 L119,119 L281,119" />
-                    </circle>
-                    <circle className="net-flow-dot" r="2.5" fill="var(--net-dot-fill)" filter="url(#net-dot-f)">
-                      <animateMotion dur="7s" begin="-5.25s" repeatCount="indefinite"
-                        path="M281,119 L281,281 L119,281 L119,119 L281,119" />
-                    </circle>
-
-                    {/* Decorator dots at orbit r=72 */}
-                    <circle cx="272" cy="200" r="4.5" fill="var(--net-dec-fill)" />
-                    <circle cx="200" cy="128" r="4.5" fill="var(--net-dec-fill)" />
-                    <circle cx="128" cy="200" r="4.5" fill="var(--net-dec-fill)" />
-                    <circle cx="200" cy="272" r="4.5" fill="var(--net-dec-fill)" />
-
-                    {/* S1 — Listening (top-right 281,119) */}
-                    <circle cx="281" cy="119" r="26" fill="var(--net-node-bg)" stroke="var(--net-node-border)" strokeWidth="1.5" />
-                    {/* net-icon-counter: bounding box = (269,107,24,24) → center = (281,119) = node center ✓ */}
-                    <g className="net-icon-counter">
-                      <svg x="269" y="107" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                        stroke="var(--net-node-icon)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/>
-                      </svg>
-                    </g>
-
-                    {/* S2 — Reading (top-left 119,119) */}
-                    <circle cx="119" cy="119" r="26" fill="var(--net-node-bg)" stroke="var(--net-node-border)" strokeWidth="1.5" />
-                    {/* bounding box = (107,107,24,24) → center = (119,119) ✓ */}
-                    <g className="net-icon-counter">
-                      <svg x="107" y="107" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                        stroke="var(--net-node-icon)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 5v16"/>
-                        <path d="M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z"/>
-                      </svg>
-                    </g>
-
-                    {/* S3 — Writing (bottom-left 119,281) */}
-                    <circle cx="119" cy="281" r="26" fill="var(--net-node-bg)" stroke="var(--net-node-border)" strokeWidth="1.5" />
-                    {/* bounding box = (107,269,24,24) → center = (119,281) ✓ */}
-                    <g className="net-icon-counter">
-                      <svg x="107" y="269" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                        stroke="var(--net-node-icon)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M15.707 21.293a1 1 0 0 1-1.414 0l-1.586-1.586a1 1 0 0 1 0-1.414l5.586-5.586a1 1 0 0 1 1.414 0l1.586 1.586a1 1 0 0 1 0 1.414z"/>
-                        <path d="m18 13-1.375-6.874a1 1 0 0 0-.746-.776L3.235 2.028a1 1 0 0 0-1.207 1.207L5.35 15.879a1 1 0 0 0 .776.746L13 18"/>
-                        <path d="m2.3 2.3 7.286 7.286"/>
-                        <circle cx="11" cy="11" r="2"/>
-                      </svg>
-                    </g>
-
-                    {/* S4 — Speaking (bottom-right 281,281) */}
-                    <circle cx="281" cy="281" r="26" fill="var(--net-node-bg)" stroke="var(--net-node-border)" strokeWidth="1.5" />
-                    {/* bounding box = (269,269,24,24) → center = (281,281) ✓ */}
-                    <g className="net-icon-counter">
-                      <svg x="269" y="269" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                        stroke="var(--net-node-icon)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 19v3"/>
-                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                        <rect x="9" y="2" width="6" height="13" rx="3"/>
-                      </svg>
-                    </g>
-                  </g>
-
-                  {/* ── Core — sphere + glow breathe, outside orbit ── */}
-                  <g className="net-core-breathe">
-                    {/* Glow halo — blurred, animates opacity */}
-                    <circle cx="200" cy="200" r="54" fill="var(--net-core-glow)"
-                      className="net-glow-halo" filter="url(#net-glow-f)" opacity="0.5" />
-                    {/* Sphere */}
-                    <circle cx="200" cy="200" r="38"
-                      fill="url(#net-core-grad)" stroke="var(--net-core-border)" strokeWidth="1.5" />
-                  </g>
-
-                  {/* ── BrainCircuit icon — direct child of main SVG, no animated parent ──
-                      Static rotate(90°) around icon center (200,200). No class, no animation.
-                      Only transform rule: rotate(90 200 200) — permanent, never overridden. */}
-                  <g transform="rotate(90 200 200)">
-                    <svg x="183" y="183" width="34" height="34" viewBox="0 0 24 24" fill="none"
-                      stroke="var(--net-core-icon)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/>
-                      <path d="M9 13a4.5 4.5 0 0 0 3-4"/>
-                      <path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/>
-                      <path d="M3.477 10.896a4 4 0 0 1 .585-.396"/>
-                      <path d="M6 18a4 4 0 0 1-1.967-.516"/>
-                      <path d="M12 13h4"/>
-                      <path d="M12 18h6a2 2 0 0 1 2 2v1"/>
-                      <path d="M12 8h8"/>
-                      <path d="M16 8V5a2 2 0 0 1 2-2"/>
-                      <circle cx="16" cy="13" r=".5" fill="var(--net-core-icon)" stroke="none"/>
-                      <circle cx="18" cy="3"  r=".5" fill="var(--net-core-icon)" stroke="none"/>
-                      <circle cx="20" cy="21" r=".5" fill="var(--net-core-icon)" stroke="none"/>
-                      <circle cx="20" cy="8"  r=".5" fill="var(--net-core-icon)" stroke="none"/>
-                    </svg>
-                  </g>
-                </svg>
-              </div>
-            </div>
-
           </div>
+
+          {/* ── 2. Thẻ trạng thái cá nhân (Status Pill / Banner) ────────────────── */}
+          <div className="mt-6 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-3.5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 max-w-2xl">
+            {/* Bên trái: Streak icon lửa nhỏ + số ngày liên tục */}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/50 border border-amber-200/80 dark:border-amber-900/40 flex items-center justify-center shrink-0">
+                <Flame className="w-4 h-4 text-amber-500" />
+              </div>
+              <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate">
+                {user ? `${userStats?.streak ?? 0} ngày luyện tập liên tục` : 'Mục tiêu: Rèn luyện liên tục mỗi ngày'}
+              </span>
+            </div>
+
+            {/* Divider */}
+            <div className="hidden sm:block w-px h-4 bg-zinc-200 dark:bg-zinc-700 shrink-0" />
+
+            {/* Bên phải: Đang làm dở hoặc Mục tiêu hôm nay */}
+            <div className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400 min-w-0">
+              {latestDraft ? (
+                <>
+                  <Clock className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                  <span className="truncate">
+                    Đang làm: <strong className="font-semibold text-zinc-900 dark:text-zinc-100">{latestDraft.skillType ? latestDraft.skillType.toUpperCase() : 'IELTS'}</strong>
+                  </span>
+                  <button
+                    onClick={handleResumeDraft}
+                    className="text-xs font-medium text-zinc-900 dark:text-zinc-100 underline cursor-pointer hover:text-black dark:hover:text-white shrink-0 ml-1"
+                  >
+                    Tiếp tục
+                  </button>
+                </>
+              ) : (
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                  Mục tiêu hôm nay: Hoàn thành 1 bài Test
+                </span>
+              )}
+            </div>
+          </div>
+
         </div>
       </section>
 
-      {/* ── Main content ─────────────────────────────────────────────────────── */}
-      <div className="app-container section-py flex flex-col gap-16">
+      {/* ── 3. Nội dung chính: Danh mục đề tinh giản ──────────────────────── */}
+      <main className="app-container py-8 flex-1 flex flex-col gap-9">
 
-        {/* Full Tests: Cambridge & Practice Plus */}
-        {fullTestsData === 'error' ? (
-          <section>
-            <SectionHeader title="IELTS Full Test" count="Lỗi" to="/cambridge" />
-            <div className="grid grid-cols-1 mt-6"><HomeSectionError /></div>
-          </section>
-        ) : groupedFullTests.length > 0 && (
-          <>
-            {groupedFullTests.map(series => (
-              <SeriesCarousel key={series.seriesId} title={series.seriesName} count={`${series.books.length} cuốn`} to="/full-test">
-                {series.books.map((book, i) => (
-                  <div key={book.title} className="flex-shrink-0 shrink-0 w-[180px] sm:w-[200px]" style={{ scrollSnapAlign: 'start' }}>
-                    <ContentCard
-                      className={`anim-fade-up delay-${i % 4 + 1}`}
-                      hoverStyle="showcase"
-                      image={resolveImg(book.coverImageUrl)}
-                      imageAlt={book.title}
-                      placeholder={BOOK_PLACEHOLDER}
-                      thumbAspect="160px"
-                      title={book.title}
-                      titleClamp={2}
-                      meta={{ type: 'count', text: `${book.testCount} bài test` }}
-                      onClick={() => navigate(`/full-test/${book.seriesId}?book=${book.bookNumber}`)}
-                    />
-                  </div>
-                ))}
-              </SeriesCarousel>
-            ))}
-          </>
-        )}
+        {/* Section 1: Bộ đề Cambridge Academic */}
+        <section className="flex flex-col gap-4">
+          <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                Bộ đề Cambridge Academic
+              </h2>
+              <span className="text-[11px] font-mono text-zinc-400 dark:text-zinc-500">
+                (Đề chuẩn IDP / British Council)
+              </span>
+            </div>
+            <button
+              onClick={() => gate('/cambridge')}
+              className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 flex items-center gap-1 transition-colors cursor-pointer"
+            >
+              <span>Xem tất cả</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
 
-        {/* IELTS Reading Practice */}
-        <section>
-          <SectionHeader title="IELTS Reading Practice" to="/practice/reading" />
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mt-6">
-            {reading === null ? [0,1,2,3].map(i => <SkeletonCard key={i} />) :
-             reading === 'error' ? <HomeSectionError /> :
-             reading.slice(0, 4).map((item, i) => (
-               <ContentCard key={item.id}
-                 className={`anim-fade-up delay-${i + 1}`}
-                 hoverStyle="showcase"
-                 accentBar
-                 image={resolveImg(item.thumbnailUrl || item.coverImageUrl)}
-                 imageAlt={item.title}
-                 placeholder={PRACTICE_PLACEHOLDER}
-                 thumbAspect="160px"
-                 title={item.title}
-                 titleClamp={2}
-                 meta={item.questionCount != null ? { type: 'count', text: `${item.questionCount} câu` } : undefined}
-                 action={{ label: 'Làm bài', onClick: () => gate(`/practice/reading/${item.id}`) }}
-               />
-             ))}
+          {fullTestsData === 'error' ? (
+            <HomeSectionError onRetry={loadData} />
+          ) : fullTestsData === null ? (
+            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
+              {[0, 1, 2, 3, 4].map(i => (
+                <div key={i} className="w-[145px] sm:w-[160px] shrink-0">
+                  <div className="w-full aspect-[3/4] bg-zinc-100 dark:bg-zinc-800/60 rounded-xl animate-pulse" />
+                  <div className="h-3.5 bg-zinc-100 dark:bg-zinc-800/60 rounded mt-2.5 w-3/4 animate-pulse" />
+                  <div className="h-3 bg-zinc-100 dark:bg-zinc-800/60 rounded mt-1.5 w-1/2 animate-pulse" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <CompactBookTrack
+              books={allBooks}
+              onBookClick={(book) => navigate(`/full-test/${book.seriesId}?book=${book.bookNumber}`)}
+            />
+          )}
+        </section>
+
+        {/* Section 2: Luyện tập theo Kỹ năng (Quick Skill Access) */}
+        <section id="quick-skills-section" className="flex flex-col gap-4">
+          <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                Luyện tập theo Kỹ năng
+              </h2>
+              <span className="text-[11px] font-mono text-zinc-400 dark:text-zinc-500">
+                (Phân loại dạng bài học thuật)
+              </span>
+            </div>
+          </div>
+
+          {/* 4 Thẻ ngang nhỏ gọn: Reading, Listening, Writing, Speaking kèm số lượng đề */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            {/* Reading */}
+            <div
+              onClick={() => gate('/practice/reading')}
+              className="group flex items-center justify-between p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-400 dark:hover:border-zinc-600 hover:shadow-xs transition-all cursor-pointer"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-700 dark:text-zinc-300 group-hover:bg-zinc-900 group-hover:text-white dark:group-hover:bg-zinc-100 dark:group-hover:text-zinc-900 transition-colors shrink-0">
+                  <BookOpen className="w-5 h-5 stroke-[1.75]" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">Reading</h3>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5 truncate">
+                    {Array.isArray(reading) ? `${reading.length} bài luyện tập` : 'T/F/NG, Matching'}
+                  </p>
+                </div>
+              </div>
+              <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-100 group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
+            </div>
+
+            {/* Listening */}
+            <div
+              onClick={() => gate('/practice/listening')}
+              className="group flex items-center justify-between p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-400 dark:hover:border-zinc-600 hover:shadow-xs transition-all cursor-pointer"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-700 dark:text-zinc-300 group-hover:bg-zinc-900 group-hover:text-white dark:group-hover:bg-zinc-100 dark:group-hover:text-zinc-900 transition-colors shrink-0">
+                  <Headphones className="w-5 h-5 stroke-[1.75]" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">Listening</h3>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5 truncate">
+                    {Array.isArray(listening) ? `${listening.length} bài luyện tập` : 'Audio & Transcript'}
+                  </p>
+                </div>
+              </div>
+              <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-100 group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
+            </div>
+
+            {/* Writing */}
+            <div
+              onClick={() => navigate('/writing-samples')}
+              className="group flex items-center justify-between p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-400 dark:hover:border-zinc-600 hover:shadow-xs transition-all cursor-pointer"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-700 dark:text-zinc-300 group-hover:bg-zinc-900 group-hover:text-white dark:group-hover:bg-zinc-100 dark:group-hover:text-zinc-900 transition-colors shrink-0">
+                  <FileText className="w-5 h-5 stroke-[1.75]" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">Writing</h3>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5 truncate">
+                    {Array.isArray(writingSamples) ? `${writingSamples.length} bài mẫu Band 8+` : 'Task 1 & Task 2'}
+                  </p>
+                </div>
+              </div>
+              <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-100 group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
+            </div>
+
+            {/* Speaking */}
+            <div
+              onClick={() => navigate('/speaking-samples')}
+              className="group flex items-center justify-between p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-400 dark:hover:border-zinc-600 hover:shadow-xs transition-all cursor-pointer"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-700 dark:text-zinc-300 group-hover:bg-zinc-900 group-hover:text-white dark:group-hover:bg-zinc-100 dark:group-hover:text-zinc-900 transition-colors shrink-0">
+                  <Mic className="w-5 h-5 stroke-[1.75]" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">Speaking</h3>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5 truncate">
+                    {Array.isArray(speakingSamples) ? `${speakingSamples.length} bài mẫu Band 8+` : 'Part 1, 2, 3'}
+                  </p>
+                </div>
+              </div>
+              <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-100 group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
+            </div>
           </div>
         </section>
 
-        {/* IELTS Listening Practice */}
-        <section>
-          <SectionHeader title="IELTS Listening Practice" to="/practice/listening" />
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mt-6">
-            {listening === null ? [0,1,2,3].map(i => <SkeletonCard key={i} />) :
-             listening === 'error' ? <HomeSectionError /> :
-             listening.slice(0, 4).map((item, i) => (
-               <ContentCard key={item.id}
-                 className={`anim-fade-up delay-${i + 1}`}
-                 hoverStyle="showcase"
-                 accentBar
-                 image={resolveImg(item.thumbnailUrl || item.coverImageUrl)}
-                 imageAlt={item.title}
-                 placeholder={PRACTICE_PLACEHOLDER}
-                 thumbAspect="160px"
-                 title={item.title}
-                 titleClamp={2}
-                 meta={item.questionCount != null ? { type: 'count', text: `${item.questionCount} câu` } : undefined}
-                 action={{ label: 'Làm bài', onClick: () => gate(`/practice/listening/${item.id}`) }}
-               />
-             ))}
-          </div>
-        </section>
-
-        {/* IELTS Writing Samples */}
-        {(writingSamples === 'error' || writingSamples === null || (writingSamples && writingSamples.length > 0)) && (
-          <section>
-            <SectionHeader title="IELTS Writing Samples" to="/writing-samples" />
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mt-6">
-              {writingSamples === null ? [0,1,2,3].map(i => <SkeletonCard key={i} />) :
-               writingSamples === 'error' ? <HomeSectionError /> :
-               writingSamples.slice(0, 4).map((item, i) => (
-                 <ContentCard key={item.id}
-                   className={`anim-fade-up delay-${i + 1}`}
-                   hoverStyle="showcase"
-                   accentBar
-                   image={resolveImg(item.thumbnailUrl || item.coverImageUrl)}
-                   imageAlt={item.title}
-                   placeholder={PRACTICE_PLACEHOLDER}
-                   thumbAspect="160px"
-                   title={item.title}
-                   titleClamp={2}
-                   meta={item.questionCount != null ? { type: 'count', text: `${item.questionCount} câu` } : undefined}
-                   action={{ label: 'Xem bài mẫu', onClick: () => navigate(`/samples/writing/${item.id}`) }}
-                 />
-               ))}
-            </div>
-          </section>
-        )}
-
-        {/* IELTS Speaking Samples */}
-        {(speakingSamples === 'error' || speakingSamples === null || (speakingSamples && speakingSamples.length > 0)) && (
-          <section>
-            <SectionHeader title="IELTS Speaking Samples" to="/speaking-samples" />
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mt-6">
-              {speakingSamples === null ? [0,1,2,3].map(i => <SkeletonCard key={i} />) :
-               speakingSamples === 'error' ? <HomeSectionError /> :
-               speakingSamples.slice(0, 4).map((item, i) => (
-                 <ContentCard key={item.id}
-                   className={`anim-fade-up delay-${i + 1}`}
-                   hoverStyle="showcase"
-                   accentBar
-                   image={resolveImg(item.thumbnailUrl || item.coverImageUrl)}
-                   imageAlt={item.title}
-                   placeholder={PRACTICE_PLACEHOLDER}
-                   thumbAspect="160px"
-                   title={item.title}
-                   titleClamp={2}
-                   meta={item.questionCount != null ? { type: 'count', text: `${item.questionCount} câu` } : undefined}
-                   action={{ label: 'Xem bài mẫu', onClick: () => navigate(`/samples/speaking/${item.id}`) }}
-                 />
-               ))}
-            </div>
-          </section>
-        )}
-
-      </div>
+      </main>
     </div>
   )
 }

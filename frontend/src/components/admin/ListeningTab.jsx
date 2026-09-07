@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import api from '../../utils/axios'
+import { showAlert } from '../../utils/alertUtils'
+import { notifyTrashChanged } from '../../services/adminService'
 import {
   GROUP_TYPES, GROUP_INSTRUCTIONS, SECTION_HINTS,
   emptyListeningForm, emptyGroupOf,
@@ -18,6 +20,7 @@ import NoteCompletionEditor from './editors/NoteCompletionEditor'
 import MCQGroupEditor from './editors/MCQGroupEditor'
 import MatchingEditor from './editors/MatchingEditor'
 import AdminGroupPreview from '../practice/AdminGroupPreview'
+import { Volume2, Upload, Sparkles, Eye, ChevronDown } from 'lucide-react'
 
 // ─── PREVIEW: LISTENING FORM ──────────────────────────────────────────────────
 
@@ -39,13 +42,13 @@ function ListeningFormPreview({ form, showAnswers }) {
               onClick={() => setActiveSection(si)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition"
               style={{
-                background: isActive ? '#1D4ED8' : '#fff',
-                color: isActive ? '#fff' : '#1e293b',
-                borderColor: isActive ? '#1D4ED8' : '#e2e8f0',
+                background: isActive ? '#18181b' : '#fff',
+                color: isActive ? '#fff' : '#18181b',
+                borderColor: isActive ? '#18181b' : '#e4e4e7',
               }}
             >
               Section {s.number}
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-zinc-100 text-zinc-600'}`}>
                 {total}
               </span>
             </button>
@@ -57,7 +60,7 @@ function ListeningFormPreview({ form, showAnswers }) {
       {section && (
         <div>
           {section.context && (
-            <p className="text-xs text-slate-500 italic mb-3 border-l-2 border-[#bfdbfe] pl-2">{section.context}</p>
+            <p className="text-xs text-zinc-500 italic mb-3 border-l-2 border-zinc-300 pl-2">{section.context}</p>
           )}
           {section.questionGroups.length > 0 ? (
             <div className="space-y-3">
@@ -66,7 +69,7 @@ function ListeningFormPreview({ form, showAnswers }) {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-slate-400 italic">Chưa có câu hỏi</p>
+            <p className="text-sm text-zinc-400 italic">Chưa có câu hỏi</p>
           )}
         </div>
       )}
@@ -90,10 +93,10 @@ function GroupEditor({ group = {}, onChange, onRemove }) {
         <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${theme.badge}`}>
           {typeLabel}
         </span>
-        <span className="text-xs text-slate-500 font-semibold">
+        <span className="text-xs text-zinc-500 font-semibold">
           Câu {group.qNumberStart}–{group.qNumberEnd}
         </span>
-        <span className="text-[10px] text-slate-400">tự động đánh số</span>
+        <span className="text-[10px] text-zinc-400">tự động đánh số</span>
         <div className="flex-1" />
         <div className="flex items-center gap-2">
           <button type="button" onClick={onRemove}
@@ -128,8 +131,8 @@ function GroupEditor({ group = {}, onChange, onRemove }) {
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={group.canReuse || false}
                   onChange={e => onChange({ ...group, canReuse: e.target.checked })}
-                  className="accent-[#1D4ED8]" />
-                <span className="text-xs text-slate-600 font-medium">Cho phép dùng lại chữ cái (mỗi lựa chọn có thể khớp nhiều câu)</span>
+                  className="accent-zinc-900" />
+                <span className="text-xs text-zinc-600 font-medium">Cho phép dùng lại chữ cái (mỗi lựa chọn có thể khớp nhiều câu)</span>
               </label>
             )}
             <MatchingEditor group={group} onChange={onChange} />
@@ -143,8 +146,8 @@ function GroupEditor({ group = {}, onChange, onRemove }) {
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={group.canReuse || false}
                 onChange={e => onChange({ ...group, canReuse: e.target.checked })}
-                className="accent-[#1D4ED8]" />
-              <span className="text-xs text-slate-600 font-medium">Cho phép dùng lại chữ cái (mỗi lựa chọn có thể khớp nhiều câu)</span>
+                className="accent-zinc-900" />
+              <span className="text-xs text-zinc-600 font-medium">Cho phép dùng lại chữ cái (mỗi lựa chọn có thể khớp nhiều câu)</span>
             </label>
             <MatchingEditor group={group} onChange={onChange} />
           </div>
@@ -181,7 +184,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   const formRef = useRef(null)
   const previewRef = useRef(null)
 
-  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
+  const showToast = (msg) => { showAlert(msg); setToast(msg); setTimeout(() => setToast(''), 3000) }
 
   // Scroll the preview panel into view once it has rendered (not when hidden).
   useEffect(() => {
@@ -250,12 +253,14 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         bookNumber: exam.bookNumber?.toString() || '',
         testNumber: exam.testNumber?.toString() || '',
         seriesId: exam.seriesId?.toString() || '',
-        sections: exam.listeningSections.map(s => ({
+        sections: recalcAllListeningNumbers(exam.listeningSections.map(s => ({
+          id: s.id,
           number: s.number,
           context: s.context || '',
           audioUrl: s.audioUrl || '',
           transcript: s.transcript || '',
           questionGroups: (s.questionGroups || []).map(g => ({
+            id: g.id,
             _id: g.id,
             type: g.type,
             qNumberStart: g.qNumberStart,
@@ -268,13 +273,14 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
             })),
             matchingOptions: (g.matchingOptions || []).map(mo => ({ letter: mo.optionLetter, text: mo.optionText })),
             questions: (g.questions || []).map(q => ({
+              id: q.id,
               number: q.number,
               questionText: q.questionText || '',
               options: q.options || ['','','',''],
               correctAnswer: q.correctAnswer || ''
             }))
           }))
-        }))
+        })))
       })
       setEditingId(id)
       setOpenSection(0)
@@ -282,7 +288,9 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       setTimeout(() => setEditHighlight(false), 2000)
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch {
-      setError('Lỗi tải đề để sửa. Thử lại.')
+      const msg = 'Lỗi tải đề để sửa. Thử lại.'
+      setError(msg)
+      showAlert(msg, 'error')
       formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
     finally { setLoadingEdit(false) }
@@ -393,7 +401,9 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       })
     })
     if (problems.length) {
-      setError('Không thể lưu đề:\n• ' + problems.join('\n• '))
+      const msg = 'Không thể lưu đề:\n• ' + problems.join('\n• ')
+      setError(msg)
+      showAlert(msg, 'error')
       formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       return
     }
@@ -412,11 +422,13 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         testNumber: form.testNumber ? parseInt(form.testNumber) : null,
         seriesId: form.seriesId ? parseInt(form.seriesId) : null,
         sections: form.sections.map(s => ({
+          ...(s.id ? { id: s.id } : {}),
           number: s.number,
           context: s.context,
           audioUrl: s.audioUrl || null,
           transcript: s.transcript || null,
           questionGroups: s.questionGroups.map(g => ({
+            ...(typeof g._id === 'number' ? { id: g._id } : (g.id ? { id: g.id } : {})),
             type: g.type,
             qNumberStart: g.qNumberStart,
             qNumberEnd: g.qNumberEnd,
@@ -424,7 +436,13 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
             imageUrl: g.imageUrl || null,
             noteSections: g.noteSections,
             matchingOptions: g.matchingOptions,
-            questions: g.questions
+            questions: (g.questions || []).map(q => ({
+              ...(q.id ? { id: q.id } : {}),
+              number: q.number,
+              questionText: q.questionText || '',
+              options: q.options || ['','','',''],
+              correctAnswer: q.correctAnswer || ''
+            }))
           }))
         }))
       }
@@ -443,12 +461,11 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       }
     } catch (err) {
       const data = err.response?.data
-      if (data?.blockedQuestions?.length) {
-        const lines = data.blockedQuestions.map(b => `Section ${b.sectionNumber} - Câu ${b.questionNumber}`)
-        setError(`${data.message}\n${lines.join('\n')}`)
-      } else {
-        setError(data?.message || 'Lỗi lưu đề Listening')
-      }
+      const errMsg = data?.blockedQuestions?.length
+        ? `${data.message}\n${data.blockedQuestions.map(b => `Section ${b.sectionNumber} - Câu ${b.questionNumber}`).join('\n')}`
+        : (data?.message || 'Lỗi lưu đề Listening')
+      setError(errMsg)
+      showAlert(errMsg, 'error')
     } finally {
       setSubmitting(false)
     }
@@ -458,6 +475,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     // Xác nhận đã do modal của ExamList đảm nhiệm trước khi gọi onDelete
     try {
       await api.delete(`/admin/exams/${id}`)
+      notifyTrashChanged()
       onRefresh()
     } catch { showToast('Lỗi xóa đề') }
   }
@@ -465,42 +483,42 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   return (
     <div className="space-y-6">
       {toast && (
-        <div className="fixed bottom-4 right-4 bg-slate-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg z-50">
+        <div className="fixed bottom-4 right-4 bg-zinc-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg z-50">
           {toast}
         </div>
       )}
       <div className="relative">
       {loadingEdit && (
         <div className="absolute inset-0 z-20 rounded-2xl bg-white/70 backdrop-blur-[1px] flex items-center justify-center">
-          <span className="text-sm font-semibold text-slate-500">Đang tải đề để sửa…</span>
+          <span className="text-sm font-semibold text-zinc-500">Đang tải đề để sửa…</span>
         </div>
       )}
       <form ref={formRef} onSubmit={handleSubmit} aria-busy={loadingEdit}
-        className={`bg-white rounded-2xl p-6 border shadow-sm transition-all duration-500 ${loadingEdit ? 'opacity-60 pointer-events-none select-none' : ''} ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-slate-100'}`}>
-        <h3 className="font-bold text-slate-800 mb-5">
+        className={`bg-white rounded-2xl p-6 border shadow-xs transition-all duration-500 ${loadingEdit ? 'opacity-60 pointer-events-none select-none' : ''} ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-zinc-200'}`}>
+        <h3 className="text-sm font-semibold text-zinc-900 mb-5">
           {editingId ? `Sửa đề Listening #${editingId}` : 'Tạo đề Listening mới'}
         </h3>
 
-        {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-lg mb-4 text-sm whitespace-pre-line">{error}</div>}
+        {error && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg mb-4 text-sm whitespace-pre-line">{error}</div>}
 
         {draftBanner && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 flex items-center justify-between">
-            <span className="text-sm text-yellow-700">Có bản nháp chưa lưu. Khôi phục?</span>
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex items-center justify-between">
+            <span className="text-sm text-amber-700">Có bản nháp chưa lưu. Khôi phục?</span>
             <div className="flex gap-2">
               <button type="button" onClick={() => { setForm(draftBanner.data); setDraftBanner(null) }}
-                className="text-xs px-2.5 py-1 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 transition">Khôi phục</button>
+                className="text-xs px-2.5 py-1 bg-amber-500 text-white rounded-lg font-semibold hover:bg-amber-600 transition">Khôi phục</button>
               <button type="button" onClick={() => { localStorage.removeItem(draftBanner.key); setDraftBanner(null) }}
-                className="text-xs px-2.5 py-1 border border-yellow-300 text-yellow-700 rounded-lg hover:bg-yellow-100 transition">Bỏ qua</button>
+                className="text-xs px-2.5 py-1 border border-amber-300 text-amber-700 rounded-lg hover:bg-amber-100 transition">Bỏ qua</button>
             </div>
           </div>
         )}
 
         {editingId && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex items-center justify-between">
-            <span className="text-sm font-semibold text-amber-700">Đang sửa đề #{editingId}</span>
+          <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-3 mb-4 flex items-center justify-between">
+            <span className="text-sm font-semibold text-zinc-800">Đang sửa đề #{editingId}</span>
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => setShowPreview(v => !v)}
-                className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-blue-200 bg-white text-blue-500 hover:border-blue-400 hover:text-blue-700 transition">
+                className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 transition shadow-2xs">
                 {showPreview ? 'Ẩn preview' : 'Preview'}
               </button>
               <button type="button" onClick={cancelEdit} className={btnSecondary + ' text-xs'}>Hủy sửa</button>
@@ -513,8 +531,8 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
           <input className={inputCls} required placeholder="VD: Cambridge 19 Test 1 Listening"
             value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
         </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-5">
-          <p className="text-xs font-bold text-blue-700 mb-2">Gắn nhãn bộ đề (tuỳ chọn)</p>
+        <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-3 mb-5">
+          <p className="text-xs font-medium text-zinc-700 mb-2">Gắn nhãn bộ đề (tuỳ chọn)</p>
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className={labelCls}>Bộ đề</label>
@@ -542,23 +560,32 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
 
         <div className="space-y-3 mb-5">
           {form.sections.map((section, si) => (
-            <div key={si} className="border border-slate-200 rounded-2xl overflow-hidden">
+            <div key={si} className="border border-zinc-200 rounded-2xl overflow-hidden">
               <button
                 type="button"
                 onClick={() => setOpenSection(openSection === si ? -1 : si)}
                 aria-expanded={openSection === si}
                 aria-controls={`ls-section-panel-${si}`}
-                className="w-full flex items-center justify-between px-5 py-3 bg-slate-50 hover:bg-slate-100 transition"
+                className="w-full flex items-center justify-between px-5 py-3 bg-zinc-50 hover:bg-zinc-100/80 transition-colors"
               >
                 <div className="flex flex-col items-start text-left">
-                  <span className="font-semibold text-base text-slate-800">Section {section.number}</span>
-                  <span className="text-sm text-slate-500 mt-0.5">{SECTION_HINTS[section.number] || ''}</span>
+                  <span className="font-medium text-sm text-zinc-800">Section {section.number}</span>
+                  <span className="text-xs text-zinc-500 mt-0.5">{SECTION_HINTS[section.number] || ''}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-slate-500">{section.questionGroups.length} nhóm · {section.questionGroups.reduce((a, g) => a + (g.qNumberEnd - g.qNumberStart + 1), 0)} câu</span>
-                  {section.audioUrl && <span className="text-xs bg-[#eff6ff] text-[#1D4ED8] font-semibold px-2 py-0.5 rounded-full">🎵 Audio</span>}
-                  {section.transcript && <span className="text-xs bg-blue-100 text-blue-600 font-semibold px-2 py-0.5 rounded-full">Transcript</span>}
-                  <span className="text-slate-400 text-xs">{openSection === si ? '▲' : '▼'}</span>
+                  <span className="text-[11px] text-zinc-500 font-medium">{section.questionGroups.length} nhóm · {section.questionGroups.reduce((a, g) => a + (g.qNumberEnd - g.qNumberStart + 1), 0)} câu</span>
+                  {section.audioUrl && (
+                    <span className="text-[11px] bg-zinc-100 text-zinc-800 border border-zinc-200 font-medium px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <Volume2 className="w-3 h-3 text-zinc-600" />
+                      <span>Audio</span>
+                    </span>
+                  )}
+                  {section.transcript && (
+                    <span className="text-[11px] bg-zinc-100 text-zinc-800 border border-zinc-200 font-medium px-2 py-0.5 rounded-full">
+                      Transcript
+                    </span>
+                  )}
+                  <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${openSection === si ? 'rotate-180' : ''}`} />
                 </div>
               </button>
 
@@ -570,8 +597,13 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
                       <input className={inputCls} placeholder="URL audio sau khi upload"
                         value={section.audioUrl} onChange={e => updateSection(si, 'audioUrl', e.target.value)} />
                       <button type="button" onClick={() => fileRefs.current[si]?.click()} disabled={uploading[si]}
-                        className={`${btnSecondary} whitespace-nowrap`}>
-                        {uploading[si] ? 'Đang upload...' : '📁 Upload MP3'}
+                        className={`${btnSecondary} whitespace-nowrap flex items-center gap-1.5`}>
+                        {uploading[si] ? 'Đang upload...' : (
+                          <>
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>Upload MP3</span>
+                          </>
+                        )}
                       </button>
                       <input type="file" accept=".mp3,.wav,.ogg,.m4a,.aac" className="hidden"
                         ref={el => fileRefs.current[si] = el}
@@ -599,25 +631,28 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
                       <label className={labelCls}>Transcript</label>
                       <button type="button" onClick={() => transcribeAudio(si)}
                         disabled={!section.audioUrl || transcribing[si]}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
-                        style={{
-                          backgroundColor: section.audioUrl && !transcribing[si] ? '#EFF6FF' : '#F3F4F6',
-                          color: section.audioUrl && !transcribing[si] ? '#2563EB' : '#9CA3AF',
-                          border: `1px solid ${section.audioUrl && !transcribing[si] ? '#BFDBFE' : '#E5E7EB'}`,
-                          cursor: section.audioUrl && !transcribing[si] ? 'pointer' : 'not-allowed'
-                        }}>
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition border ${
+                          section.audioUrl && !transcribing[si]
+                            ? 'bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border-zinc-300 cursor-pointer'
+                            : 'bg-zinc-50 text-zinc-400 border-zinc-200 cursor-not-allowed'
+                        }`}>
                         {transcribing[si] ? (
                           <>
-                            <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none">
+                            <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
                               <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70"/>
                             </svg>
                             Đang phiên âm...
                           </>
-                        ) : <>🤖 AI Phiên âm</>}
+                        ) : (
+                          <>
+                            <Sparkles className="w-3.5 h-3.5 text-zinc-700" />
+                            AI Phiên âm
+                          </>
+                        )}
                       </button>
                     </div>
                     <textarea className={`${inputCls} h-28 resize-none`}
-                      placeholder={section.audioUrl ? 'Nhấn "🤖 AI Phiên âm" hoặc nhập thủ công...' : 'Upload audio để dùng AI phiên âm...'}
+                      placeholder={section.audioUrl ? 'Nhấn "AI Phiên âm" hoặc nhập thủ công...' : 'Upload audio để dùng AI phiên âm...'}
                       value={section.transcript} onChange={e => updateSection(si, 'transcript', e.target.value)} />
                   </div>
 
@@ -631,13 +666,13 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
                               type="button"
                               onClick={() => moveGroup(si, gi, -1)}
                               disabled={gi === 0}
-                              className="w-6 h-6 flex items-center justify-center rounded border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-25 text-xs transition"
+                              className="w-6 h-6 flex items-center justify-center rounded border border-zinc-200 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 disabled:opacity-25 text-xs transition"
                               title="Di chuyển lên">▲</button>
                             <button
                               type="button"
                               onClick={() => moveGroup(si, gi, 1)}
                               disabled={gi === section.questionGroups.length - 1}
-                              className="w-6 h-6 flex items-center justify-center rounded border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-25 text-xs transition"
+                              className="w-6 h-6 flex items-center justify-center rounded border border-zinc-200 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 disabled:opacity-25 text-xs transition"
                               title="Di chuyển xuống">▼</button>
                           </div>
                           <div className="flex-1">
@@ -652,28 +687,28 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
                     </div>
 
                     {addingGroupSection === si ? (
-                      <div className="border border-dashed border-[#1D4ED8] rounded-lg p-4">
-                        <p className="text-xs font-bold text-slate-600 mb-3">Chọn loại nhóm câu hỏi:</p>
+                      <div className="border border-dashed border-zinc-400 rounded-lg p-4 bg-zinc-50/50">
+                        <p className="text-xs font-bold text-zinc-700 mb-3">Chọn loại nhóm câu hỏi:</p>
                         <div className="grid grid-cols-2 gap-2">
                           {GROUP_TYPES.map(t => (
                             <button
                               key={t.value}
                               type="button"
                               onClick={() => addGroup(si, t.value)}
-                              className="text-left px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 hover:border-[#1D4ED8] hover:text-[#1D4ED8] hover:bg-blue-50 transition font-medium"
+                              className="text-left px-3 py-2 border border-zinc-200 rounded-lg text-sm text-zinc-700 hover:border-zinc-900 hover:text-zinc-900 hover:bg-zinc-100 transition font-medium"
                             >
                               {t.label}
                             </button>
                           ))}
                         </div>
                         <button type="button" onClick={() => setAddingGroupSection(null)}
-                          className="mt-2 text-xs text-slate-400 hover:text-slate-600">Hủy</button>
+                          className="mt-2 text-xs text-zinc-400 hover:text-zinc-600">Hủy</button>
                       </div>
                     ) : (
                       <button
                         type="button"
                         onClick={() => setAddingGroupSection(si)}
-                        className="w-full border-2 border-dashed border-slate-200 rounded-lg py-3 text-sm text-slate-400 hover:border-[#1D4ED8] hover:text-[#1D4ED8] transition font-medium">
+                        className="w-full border-2 border-dashed border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50 text-zinc-600 hover:text-zinc-900 rounded-lg py-2 px-3 text-xs font-medium transition">
                         + Thêm nhóm câu hỏi
                       </button>
                     )}
@@ -685,14 +720,19 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         </div>
 
         <button type="submit" disabled={submitting || loadingEdit} className={btnPrimary + ' w-full'}>
-          {submitting ? 'Đang lưu...' : editingId ? 'Cập nhật đề Listening' : '💾 Tạo đề Listening'}
+          {submitting ? 'Đang lưu...' : editingId ? 'Cập nhật đề Listening' : 'Tạo đề Listening'}
         </button>
         <button
           type="button"
           onClick={() => setShowPreview(v => !v)}
-          className={`w-full py-2.5 rounded-lg border-2 text-sm font-semibold transition ${showPreview ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-dashed border-slate-200 text-slate-400 hover:border-indigo-300 hover:text-indigo-600'}`}
+          className={`w-full py-2 px-3 rounded-lg border text-xs font-medium transition flex items-center justify-center gap-1.5 ${
+            showPreview
+              ? 'border-zinc-400 bg-zinc-100 text-zinc-900'
+              : 'border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50 text-zinc-600 hover:text-zinc-900'
+          }`}
         >
-          {showPreview ? '▲ Thu gọn preview' : '👁 Xem trước nội dung đề'}
+          <Eye className="w-3.5 h-3.5" />
+          <span>{showPreview ? 'Thu gọn preview' : 'Xem trước nội dung đề'}</span>
         </button>
       </form>
       </div>
@@ -710,8 +750,8 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         </div>
       )}
 
-      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-        <h3 className="font-bold text-slate-800 mb-4">Danh sách đề Listening ({paginationData?.total ?? exams.length})</h3>
+      <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-xs">
+        <h3 className="text-base font-semibold text-zinc-900 mb-4">Danh sách đề Listening ({paginationData?.total ?? exams.length})</h3>
         <ExamList exams={exams} skill="listening" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} error={loadError} />
       </div>
     </div>

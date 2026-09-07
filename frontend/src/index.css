@@ -4,49 +4,49 @@
 /* ─── Google Fonts ──────────────────────────────────────────────────────────── */
 /* ─── Design Tokens ─────────────────────────────────────────────────────────── */
 :root {
-  /* Brand */
-  --primary:        #2563EB;   /* Secondary bright blue */
-  --primary-hover:  #1D4ED8;   /* Hover state */
-  --primary-light:  #ebf2ff;
+  /* Brand - Zinc Monochrome */
+  --primary:        #18181b;   /* Zinc 900 */
+  --primary-hover:  #09090b;   /* Zinc 950 / Black */
+  --primary-light:  #f4f4f5;   /* Zinc 100 */
 
-  /* Palette — Academic Navy */
-  --ink:            #0B2345;   /* Deep brand navy */
-  --ink-soft:       #0F172A;   /* Slate heading text */
+  /* Palette — Deep Ink */
+  --ink:            #18181b;   /* Zinc 900 heading */
+  --ink-soft:       #27272a;   /* Zinc 800 text */
 
   /* Surfaces */
-  --bg:             #F8FAFC;   /* Slate 50 page background */
+  --bg:             #ffffff;   /* Clean white background */
   --surface:        #ffffff;
-  --surface-raised: #F8FAFC;
-  --surface-alt:    #F8FAFC;
+  --surface-raised: #f4f4f5;   /* Zinc 100 */
+  --surface-alt:    #fafafa;   /* Zinc 50 */
 
   /* Text */
-  --text:           #475569;   /* Slate 600 body text */
-  --muted:          #64748B;   /* Slate 500 secondary text */
-  --subtle:         #94A3B8;   /* Slate 400 borders/subtle text */
+  --text:           #3f3f46;   /* Zinc 700 body text */
+  --muted:          #71717a;   /* Zinc 500 secondary text */
+  --subtle:         #a1a1aa;   /* Zinc 400 borders/subtle text */
 
   /* Borders */
-  --border:         #E2E8F0;   /* Slate 200 border */
-  --border-soft:    #F1F5F9;   /* Slate 100 border */
+  --border:         #e4e4e7;   /* Zinc 200 border */
+  --border-soft:    #f4f4f5;   /* Zinc 100 border */
 
-  /* Skill palette — Reading (deep navy) */
-  --skill-r-color:  #0B2345;
-  --skill-r-bg:     #EBF2FF;
-  --skill-r-border: #C2D7FF;
+  /* Skill palette — Reading */
+  --skill-r-color:  #18181b;
+  --skill-r-bg:     #f4f4f5;
+  --skill-r-border: #e4e4e7;
 
-  /* Skill palette — Listening (steel blue) */
-  --skill-l-color:  #1E40AF;
-  --skill-l-bg:     #EFF6FF;
-  --skill-l-border: #DBEAFE;
+  /* Skill palette — Listening */
+  --skill-l-color:  #27272a;
+  --skill-l-bg:     #f4f4f5;
+  --skill-l-border: #e4e4e7;
 
-  /* Skill palette — Writing (blue-purple) */
-  --skill-w-color:  #6D28D9;
-  --skill-w-bg:     #F5F3FF;
-  --skill-w-border: #EDE9FE;
+  /* Skill palette — Writing */
+  --skill-w-color:  #18181b;
+  --skill-w-bg:     #f4f4f5;
+  --skill-w-border: #e4e4e7;
 
-  /* Skill palette — Speaking (indigo) */
-  --skill-s-color:  #0369A1;
-  --skill-s-bg:     #F0F9FF;
-  --skill-s-border: #E0F2FE;
+  /* Skill palette — Speaking */
+  --skill-s-color:  #27272a;
+  --skill-s-bg:     #f4f4f5;
+  --skill-s-border: #e4e4e7;
 
   /* Semantic status tokens */
   --success:     #16a34a;   /* Green 600 */
@@ -100,8 +100,8 @@
 html { font-size: 100%; scroll-behavior: smooth; overflow-y: scroll; scrollbar-gutter: stable; }
 
 ::selection {
-  background: #dbeafe; /* blue-100 */
-  color: #0f172a;      /* slate-900 */
+  background: #e4e4e7; /* zinc-200 */
+  color: #18181b;      /* zinc-900 */
 }
 
 .answer-row::-webkit-scrollbar {
@@ -126,8 +126,6 @@ html { font-size: 100%; scroll-behavior: smooth; overflow-y: scroll; scrollbar-g
 body {
   font-family: var(--font-body);
   background-color: var(--bg);
-  background-image: linear-gradient(135deg, #EFF6FF 0%, #F9F5FF 50%, #FFF7ED 100%);
-  background-attachment: fixed;
   color: var(--text);
   font-size: var(--fs-base);
   font-weight: 400;
@@ -242,18 +240,18 @@ aside nav a, aside nav button { font-family: var(--font-body); }
   min-height: 44px; padding: 0.625rem 1.5rem;
   border-radius: var(--radius-md); border: none;
   background: var(--primary); color: #fff;
-  font-family: var(--font-body); font-size: var(--fs-sm); font-weight: 700;
+  font-family: var(--font-body); font-size: var(--fs-sm); font-weight: 600;
   cursor: pointer; letter-spacing: 0.01em;
-  box-shadow: 0 2px 8px rgba(26,86,219,0.3);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
 }
 .btn-primary:hover:not(:disabled) {
   background: var(--primary-hover);
-  box-shadow: 0 4px 14px rgba(26,86,219,0.45);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
   transform: translateY(-1px);
 }
 .btn-primary:disabled, button:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
@@ -265,13 +263,13 @@ aside nav a, aside nav button { font-family: var(--font-body); }
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 1rem;      /* 16px — matches Tailwind rounded-2xl used by admin content cards */
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-xs);
   transition: box-shadow var(--transition), border-color var(--transition), transform var(--transition);
 }
 .card-base:hover {
-  box-shadow: var(--shadow-lg);
-  border-color: var(--primary);
-  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+  border-color: #d4d4d8;
+  transform: translateY(-2px);
 }
 .card-flat {
   background: var(--surface);
@@ -362,48 +360,48 @@ aside nav a, aside nav button { font-family: var(--font-body); }
   transition: border-color var(--transition), box-shadow var(--transition);
 }
 .input-base::placeholder { color: var(--subtle); }
-.input-base:hover { border-color: #93C5FD; }
+.input-base:hover { border-color: #d4d4d8; }
 .input-base:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+  box-shadow: 0 0 0 2px #e4e4e7;
 }
 .input-base.is-error { border-color: var(--error); }
 .input-base.is-error:focus { box-shadow: 0 0 0 3px rgba(220,38,38,0.12); }
 
 /* ─── Disabled button ───────────────────────────────────────────────────────── */
 button:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 /* ─── Footer link ───────────────────────────────────────────────────────────── */
 .footer-link {
-  color: rgba(255,255,255,0.85);
+  color: #a1a1aa;
   text-decoration: none;
   transition: color 0.2s ease, opacity 0.2s ease;
 }
 .footer-link:hover {
-  color: #93C5FD;  /* blue-300 — legible on dark red bg */
+  color: #ffffff;
   opacity: 1;
 }
 
 /* ─── AI Neural Network Hero ────────────────────────────────────────────────── */
 
-/* ── Net color tokens — light mode defaults ── */
+/* ── Net color tokens — Zinc Monochrome defaults ── */
 :root {
   --net-grad-0:      #ffffff;
-  --net-grad-50:     #dbeafe;
-  --net-grad-100:    #bfdbfe;
-  --net-core-border: rgba(37,99,235,0.28);
-  --net-core-glow:   rgba(59,130,246,0.28);
-  --net-core-icon:   #1d4ed8;
+  --net-grad-50:     #f4f4f5;
+  --net-grad-100:    #e4e4e7;
+  --net-core-border: rgba(24,24,27,0.2);
+  --net-core-glow:   rgba(24,24,27,0.1);
+  --net-core-icon:   #18181b;
   --net-node-bg:     rgba(255,255,255,0.95);
-  --net-node-border: rgba(37,99,235,0.22);
-  --net-node-icon:   #2563eb;
-  --net-line-stroke: rgba(37,99,235,0.20);
-  --net-line-dim:    rgba(37,99,235,0.09);
-  --net-dot-fill:    #3b82f6;
-  --net-dec-fill:    rgba(37,99,235,0.28);
+  --net-node-border: rgba(24,24,27,0.18);
+  --net-node-icon:   #27272a;
+  --net-line-stroke: rgba(24,24,27,0.12);
+  --net-line-dim:    rgba(24,24,27,0.06);
+  --net-dot-fill:    #18181b;
+  --net-dec-fill:    rgba(24,24,27,0.2);
 }
 
 
@@ -484,7 +482,7 @@ button:disabled {
 .bg-dots {
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(circle, rgba(37,99,235,0.18) 1px, transparent 1px);
+  background-image: radial-gradient(circle, rgba(24,24,27,0.1) 1px, transparent 1px);
   background-size: 28px 28px;
   pointer-events: none;
   user-select: none;
@@ -492,7 +490,7 @@ button:disabled {
 }
 
 /* Legacy alias */
-.hero-dots { position: absolute; inset: 0; background-image: radial-gradient(circle, rgba(37,99,235,0.15) 1px, transparent 1px); background-size: 24px 24px; pointer-events: none; user-select: none; opacity: 0.35; }
+.hero-dots { position: absolute; inset: 0; background-image: radial-gradient(circle, rgba(24,24,27,0.08) 1px, transparent 1px); background-size: 24px 24px; pointer-events: none; user-select: none; opacity: 0.35; }
 
 /* ─── Global Base UI Standardization (Subtle) ─────────────────────────────── */
 
@@ -513,7 +511,7 @@ button, a, [role="button"] {
 }
 .btn-hover-default:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(15,23,42,0.08);
+  box-shadow: 0 4px 12px rgba(24,24,27,0.08);
 }
 
 /* 4. Navbar */
@@ -525,22 +523,23 @@ button, a, [role="button"] {
   transition: all var(--transition) !important;
 }
 .nav-item:hover:not(.active) {
-  background: #F8FAFC !important;
+  background: #f4f4f5 !important;
 }
 .nav-item.active {
-  background: #EFF6FF !important;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08) !important;
+  background: #f4f4f5 !important;
+  box-shadow: none !important;
   color: var(--primary) !important;
   font-weight: 600 !important;
 }
 
 /* 5. Link Hover — default colour shift; call-site hover:* utilities override it */
-a:hover:not(.footer-link), .nav-link:hover {
+a:hover:not(.footer-link):not(.admin-scope *):not(.admin-main *):not([class*="hover:text-"]),
+.nav-link:hover:not(.admin-scope *):not(.admin-main *):not([class*="hover:text-"]) {
   color: var(--primary);
   text-decoration: none;
 }
 .footer-link:hover {
-  color: #7AB3FF !important;
+  color: #ffffff !important;
 }
 /* Link underline animation */
 a.underline, .has-underline {
@@ -557,9 +556,17 @@ a.underline:hover::after, .has-underline:hover::after {
 }
 
 /* 6. Input */
-input:hover, textarea:hover, select:hover {
-  border-color: #93C5FD !important;
-  box-shadow: 0 0 0 4px rgba(59,130,246,.08) !important;
+input:hover:not(.admin-scope *):not(.admin-main *),
+textarea:hover:not(.admin-scope *):not(.admin-main *),
+select:hover:not(.admin-scope *):not(.admin-main *) {
+  border-color: #d4d4d8 !important;
+  box-shadow: none !important;
+}
+input:focus:not(.admin-scope *):not(.admin-main *),
+textarea:focus:not(.admin-scope *):not(.admin-main *),
+select:focus:not(.admin-scope *):not(.admin-main *) {
+  border-color: #18181b !important;
+  box-shadow: 0 0 0 2px #e4e4e7 !important;
 }
 input:focus, textarea:focus, select:focus {
   transition: .2s ease !important;
@@ -592,5 +599,25 @@ input:focus, textarea:focus, select:focus {
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* ─── Admin Isolation: strictly Neutral Zinc, never tint links, tabs, buttons or inputs blue ── */
+.admin-scope a:hover,
+.admin-scope button:hover,
+.admin-main a:hover,
+.admin-main button:hover {
+  text-decoration: none;
+}
+
+.admin-scope :is(input, textarea, select):hover,
+.admin-main :is(input, textarea, select):hover {
+  border-color: #d4d4d8 !important; /* zinc-300 */
+  box-shadow: none !important;
+}
+
+.admin-scope :is(input, textarea, select):focus,
+.admin-main :is(input, textarea, select):focus {
+  border-color: #18181b !important; /* zinc-900 */
+  box-shadow: 0 0 0 2px #e4e4e7 !important; /* zinc-200 */
 }
 

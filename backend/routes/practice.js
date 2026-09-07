@@ -7,9 +7,8 @@ const validate = require('../middleware/validate')
 const prisma = require('../lib/prisma')
 const { invalidate } = require('../lib/swrCache')
 const { getQuestionCount, getPracticeListCached } = require('../lib/publicContent')
-const { resizeUploadedCover } = require('../lib/imageResize')
-const { moveToSubdir } = require('../lib/adminUploads')
 const { createPracticeSchema, updatePracticeSchema } = require('../validators/contentValidator')
+const { uploadAudio, uploadOptimizedCover } = require('../services/storageService')
 
 const router = express.Router()
 
@@ -243,20 +242,25 @@ router.put('/admin/:skill/:id', authMiddleware, teacherOrAdmin, validate(updateP
 // thumbUpload/audioUpload (5MB / 50MB, lọc type) như endpoint /:id/* bên dưới.
 router.post('/admin/:skill/upload-thumbnail', authMiddleware, teacherOrAdmin, thumbUpload.single('thumbnail'), async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
-  const { url } = await resizeUploadedCover(req.file, { dir: thumbDir, urlPrefix: '/uploads/thumbnails' })
-  res.json({ url })
+  try {
+    const { url } = await uploadOptimizedCover(req.file, { dir: thumbDir, urlPrefix: '/uploads/thumbnails', folder: 'thumbnails' })
+    res.json({ url })
+  } catch (err) { res.status(500).json({ message: 'Lỗi upload', error: err.message }) }
 })
 
-router.post('/admin/listening/upload-audio', authMiddleware, teacherOrAdmin, audioUpload.single('audio'), (req, res) => {
+router.post('/admin/listening/upload-audio', authMiddleware, teacherOrAdmin, audioUpload.single('audio'), async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
-  res.json({ url: moveToSubdir(req.file, 'audio') })
+  try {
+    const { url } = await uploadAudio(req.file, { subdir: 'audio', folder: 'audio' })
+    res.json({ url })
+  } catch (err) { res.status(500).json({ message: 'Lỗi upload audio', error: err.message }) }
 })
 
 // ─── ADMIN: upload thumbnail (gắn thẳng vào record :id — giữ cho tương thích) ──
 router.post('/admin/:skill/:id/thumbnail', authMiddleware, teacherOrAdmin, thumbUpload.single('thumbnail'), async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
   try {
-    const { url: thumbnailUrl } = await resizeUploadedCover(req.file, { dir: thumbDir, urlPrefix: '/uploads/thumbnails' })
+    const { url: thumbnailUrl } = await uploadOptimizedCover(req.file, { dir: thumbDir, urlPrefix: '/uploads/thumbnails', folder: 'thumbnails' })
     const exam = await prisma.practiceExam.update({
       where: { id: parseInt(req.params.id) },
       data: { thumbnailUrl },
@@ -271,7 +275,7 @@ router.post('/admin/:skill/:id/thumbnail', authMiddleware, teacherOrAdmin, thumb
 router.post('/admin/listening/:id/audio', authMiddleware, teacherOrAdmin, audioUpload.single('audio'), async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
   try {
-    const audioUrl = moveToSubdir(req.file, 'audio')
+    const { url: audioUrl } = await uploadAudio(req.file, { subdir: 'audio', folder: 'audio' })
     const exam = await prisma.practiceExam.update({
       where: { id: parseInt(req.params.id) },
       data: { audioUrl },

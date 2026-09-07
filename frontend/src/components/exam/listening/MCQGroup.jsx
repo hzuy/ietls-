@@ -1,8 +1,8 @@
-﻿function InstructionBanner({ group }) {
+function InstructionBanner({ group }) {
   return (
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 text-sm">
-      <p className="font-bold text-gray-800 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
-      {group.instruction && <p className="text-gray-700">{group.instruction}</p>}
+    <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 mb-4 text-sm">
+      <p className="font-semibold text-zinc-900 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
+      {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
     </div>
   )
 }
@@ -37,8 +37,8 @@ export default function MCQGroup({ group, answers, onAnswer, isMulti, previewMod
           return (
             <div key={q.id} id={`question-${qStart}`} className="mb-4 scroll-mt-4">
               {q.questionText && (
-                <p className="text-sm text-gray-800 mb-2 leading-relaxed flex gap-2">
-                  <span className="font-bold text-gray-700 shrink-0">{qStart}–{qEnd}.</span>
+                <p className="text-sm text-zinc-900 mb-2 leading-relaxed flex gap-2">
+                  <span className="font-bold text-zinc-700 shrink-0">{qStart}–{qEnd}.</span>
                   <span>{q.questionText}</span>
                 </p>
               )}
@@ -49,10 +49,10 @@ export default function MCQGroup({ group, answers, onAnswer, isMulti, previewMod
                   return (
                     <label key={opt} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition
                       ${checked && previewMode && showAnswers ? 'bg-green-50 border border-green-400 text-green-700 cursor-default'
-                        : checked ? 'bg-blue-50 border border-blue-400 text-blue-700 cursor-pointer'
-                        : disabled ? 'border border-transparent text-gray-300 cursor-not-allowed'
-                        : 'hover:bg-gray-50 border border-transparent text-gray-700 cursor-pointer'}`}>
-                      <input type="checkbox" checked={checked} disabled={disabled} className="accent-blue-600"
+                        : checked ? 'bg-zinc-100 border border-zinc-900 text-zinc-900 font-medium cursor-pointer'
+                        : disabled ? 'border border-transparent text-zinc-300 cursor-not-allowed'
+                        : 'hover:bg-zinc-50 border border-transparent text-zinc-700 cursor-pointer'}`}>
+                      <input type="checkbox" checked={checked} disabled={disabled} className="accent-zinc-900"
                         onChange={() => handleChange(opt)} />
                       {opt}
                     </label>
@@ -75,8 +75,8 @@ export default function MCQGroup({ group, answers, onAnswer, isMulti, previewMod
         const displayAnswer = previewMode && showAnswers ? q.correctAnswer : answers[q.id]
         return (
           <div key={q.id} id={`question-${q.number}`} className="mb-5 scroll-mt-4">
-            <p className="text-sm text-gray-800 mb-2 leading-relaxed flex gap-2">
-              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold text-xs shrink-0 mt-0.5">{q.number}</span>
+            <p className="text-sm text-zinc-900 mb-2 leading-relaxed flex gap-2">
+              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-xs shrink-0 mt-0.5">{q.number}</span>
               <span>{q.questionText}</span>
             </p>
             <div className="space-y-1 pl-8">
@@ -85,13 +85,13 @@ export default function MCQGroup({ group, answers, onAnswer, isMulti, previewMod
                 return (
                   <label key={opt} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition
                     ${isSelected && previewMode && showAnswers ? 'bg-green-50 border border-green-400 text-green-700 cursor-default'
-                      : isSelected ? 'bg-blue-50 border border-blue-400 text-blue-700 cursor-pointer'
-                      : previewMode ? 'border border-transparent text-gray-500 cursor-default'
-                      : 'hover:bg-gray-50 border border-transparent cursor-pointer'}`}>
+                      : isSelected ? 'bg-zinc-100 border border-zinc-900 text-zinc-900 font-medium cursor-pointer'
+                      : previewMode ? 'border border-transparent text-zinc-400 cursor-default'
+                      : 'hover:bg-zinc-50 border border-transparent text-zinc-700 cursor-pointer'}`}>
                     <input type="radio" name={`q${q.id}`} checked={isSelected}
                       disabled={previewMode}
                       onChange={previewMode ? undefined : () => onAnswer(q.id, opt)}
-                      className="accent-blue-600" />
+                      className="accent-zinc-900" />
                     {opt}
                   </label>
                 )

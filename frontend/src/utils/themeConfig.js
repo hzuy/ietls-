@@ -32,9 +32,9 @@ export function getAnimationConfig(presetKey = 'normal', customOptions = {}) {
 export const LOADING_CONFIG = {
   progressBar: {
     height: 2,
-    gradient: 'linear-gradient(90deg, #2563EB, #60A5FA)',
+    gradient: 'linear-gradient(90deg, #18181b, #71717a)',
     zIndex: 99999,
-    boxShadow: '0 0 8px rgba(37,99,235,0.5)',
+    boxShadow: '0 0 8px rgba(24,24,27,0.3)',
     initialPercent: 15,
     crawlPercent: 55,
     crawlDelayMs: 80,
@@ -42,7 +42,7 @@ export const LOADING_CONFIG = {
     routeMinDelayMs: 120,
   },
   skeleton: {
-    bgClass: 'bg-gray-200',
+    bgClass: 'bg-zinc-200',
     animateClass: 'animate-pulse',
     roundedClass: 'rounded',
   },
@@ -55,22 +55,22 @@ export function getLoadingConfig(variant = 'progressBar') {
 // ─── SPEAKING PART THEMES ───────────────────────────────────────────────────
 export const SPEAKING_PART_THEMES = {
   1: {
-    cardBg: 'bg-sky-50/70 border-sky-300',
-    badge: 'bg-sky-500 text-white',
-    subBoxBg: 'bg-sky-100/50 border-sky-200 text-sky-900',
-    headerBg: 'bg-sky-100/60 border-sky-200',
+    cardBg: 'bg-zinc-50 border-zinc-300',
+    badge: 'bg-zinc-900 text-white',
+    subBoxBg: 'bg-zinc-100 border-zinc-200 text-zinc-900',
+    headerBg: 'bg-zinc-100/80 border-zinc-200',
   },
   2: {
-    cardBg: 'bg-purple-50/70 border-purple-300',
-    badge: 'bg-purple-500 text-white',
-    subBoxBg: 'bg-purple-100/50 border-purple-200 text-purple-900',
-    headerBg: 'bg-purple-100/60 border-purple-200',
+    cardBg: 'bg-zinc-50 border-zinc-300',
+    badge: 'bg-zinc-800 text-white',
+    subBoxBg: 'bg-zinc-100 border-zinc-200 text-zinc-900',
+    headerBg: 'bg-zinc-100/80 border-zinc-200',
   },
   3: {
-    cardBg: 'bg-amber-50/70 border-amber-300',
-    badge: 'bg-amber-500 text-white',
-    subBoxBg: 'bg-amber-100/50 border-amber-200 text-amber-900',
-    headerBg: 'bg-amber-100/60 border-amber-200',
+    cardBg: 'bg-zinc-50 border-zinc-300',
+    badge: 'bg-zinc-700 text-white',
+    subBoxBg: 'bg-zinc-100 border-zinc-200 text-zinc-900',
+    headerBg: 'bg-zinc-100/80 border-zinc-200',
   },
 }
 

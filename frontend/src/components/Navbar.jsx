@@ -11,7 +11,9 @@ function NavBtn({ children, active, onClick, hasDropdown }) {
   return (
     <button
       onClick={onClick}
-      className={`nav-item flex items-center gap-1 border-none tracking-[0.01em] whitespace-nowrap shrink-0 px-3 py-1.5 rounded-xl ${active ? 'active' : 'bg-transparent text-slate-600'}`}
+      className={`nav-item flex items-center gap-1 border-none tracking-[0.01em] whitespace-nowrap shrink-0 px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+        active ? 'bg-zinc-100 text-zinc-900 font-semibold' : 'bg-transparent text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100/70'
+      }`}
       style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}
     >
       <span className="whitespace-nowrap">{children}</span>
@@ -28,7 +30,7 @@ function CustomDropItem({ to, icon, label, bold, active }) {
   return (
     <GatedLink to={to} className="block no-underline">
       <div
-        className={`flex items-center gap-2.5 px-4 py-2 transition-colors duration-300 whitespace-nowrap rounded-md mx-1 cursor-pointer ${active ? 'bg-blue-50 text-blue-600 font-semibold' : 'bg-transparent text-slate-700 hover:bg-slate-50 hover:text-blue-600'} ${bold ? 'font-semibold' : ''}`}
+        className={`flex items-center gap-2.5 px-4 py-2 transition-colors duration-200 whitespace-nowrap rounded-md mx-1 cursor-pointer ${active ? 'bg-zinc-100 text-zinc-900 font-semibold' : 'bg-transparent text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900'} ${bold ? 'font-semibold' : ''}`}
         style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-sm)' }}
       >
         {icon && <span>{icon}</span>}
@@ -48,7 +50,7 @@ function MobileNavLink({ to, children, active, onClick }) {
     <GatedLink
       to={to}
       onClick={onClick}
-      className={`flex items-center px-4 py-3 rounded-xl no-underline transition-colors ${active ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-slate-700 hover:bg-slate-50'}`}
+      className={`flex items-center px-4 py-3 rounded-xl no-underline transition-colors ${active ? 'bg-zinc-100 text-zinc-900 font-semibold' : 'text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900'}`}
       style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--fs-base)', minHeight: 44 }}
     >
       {children}
@@ -137,7 +139,7 @@ export default function Navbar() {
 
           {/* Logo */}
           <Link to="/" style={{ textDecoration: 'none' }} className="flex items-center gap-2 shrink-0 whitespace-nowrap">
-            <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(37,99,235,0.3)', flexShrink: 0 }}>
+            <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(24,24,27,0.2)', flexShrink: 0 }}>
               <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#fff' }} />
             </div>
             <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20, letterSpacing: '-0.02em', color: 'var(--ink)' }} className="whitespace-nowrap">
@@ -147,28 +149,40 @@ export default function Navbar() {
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1 md:gap-1.5 flex-nowrap whitespace-nowrap shrink-0">
-            <NavBtn active={location.pathname === '/'} onClick={() => gate('/')}>Trang chủ</NavBtn>
+            <NavBtn active={location.pathname === '/'} onClick={() => gate('/')}>Tổng quan</NavBtn>
 
             <NavDropdown name="fulltest" isOpen={openDropdown === 'fulltest'} onOpen={openMenu} onClose={scheduleClose}
-              dropdownStyle={{ minWidth: 250 }}
-              trigger={<NavBtn active={isFullTestActive} onClick={() => gate('/full-test')} hasDropdown>Full Test</NavBtn>}
+              dropdownStyle={{ minWidth: 260 }}
+              trigger={<NavBtn active={isFullTestActive} onClick={() => gate('/cambridge')} hasDropdown>Phòng thi chuẩn hóa</NavBtn>}
             >
               <div style={{ padding: '4px 0' }}>
-                <CustomDropItem to="/full-test" label="Tất cả bộ đề" bold active={location.pathname === '/full-test'} />
+                <CustomDropItem to="/full-test" label="Tất cả bộ đề Full Test" bold active={location.pathname === '/full-test'} />
                 <NavDivider />
                 <CustomDropItem to="/cambridge" label="IELTS Cambridge Academic" active={location.pathname === '/cambridge'} />
                 <CustomDropItem to="/practice-plus" label="IELTS Practice Test Plus" active={location.pathname === '/practice-plus'} />
               </div>
             </NavDropdown>
 
-            <NavBtn active={location.pathname.startsWith('/practice/reading')} onClick={() => gate('/practice/reading')}>Reading</NavBtn>
-            <NavBtn active={location.pathname.startsWith('/practice/listening')} onClick={() => gate('/practice/listening')}>Listening</NavBtn>
+            <NavDropdown name="skills" isOpen={openDropdown === 'skills'} onOpen={openMenu} onClose={scheduleClose}
+              dropdownStyle={{ minWidth: 240 }}
+              trigger={
+                <NavBtn active={location.pathname.startsWith('/practice/')} onClick={() => gate('/practice/reading')} hasDropdown>
+                  Luyện tập kỹ năng
+                </NavBtn>
+              }
+            >
+              <div style={{ padding: '4px 0' }}>
+                <CustomDropItem to="/practice/reading" label="Reading" bold active={location.pathname.startsWith('/practice/reading')} />
+                <NavDivider />
+                <CustomDropItem to="/practice/listening" label="Listening" bold active={location.pathname.startsWith('/practice/listening')} />
+              </div>
+            </NavDropdown>
 
             <NavDropdown name="baimu" isOpen={openDropdown === 'baimu'} onOpen={openMenu} onClose={scheduleClose}
               dropdownStyle={{ width: 300 }}
               trigger={
                 <NavBtn active={location.pathname.startsWith('/writing-samples') || location.pathname.startsWith('/speaking-samples')} hasDropdown>
-                  Bài mẫu
+                  Thư viện bài mẫu
                 </NavBtn>
               }
             >
@@ -202,6 +216,10 @@ export default function Navbar() {
                 </div>
               </div>
             </NavDropdown>
+
+            <NavBtn active={location.pathname.startsWith('/progress')} onClick={() => gate('/progress')}>
+              Tiến độ & Phân tích
+            </NavBtn>
           </nav>
 
           {/* Desktop auth */}
@@ -210,7 +228,7 @@ export default function Navbar() {
                 <>
                   {/* Bot — progress link */}
                   <Link to="/progress"
-                    className="flex items-center justify-center rounded-lg bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 transition-all shrink-0 no-underline"
+                    className="flex items-center justify-center rounded-lg bg-zinc-100 border border-zinc-200 text-zinc-800 hover:bg-zinc-200 hover:text-zinc-900 transition-all shrink-0 no-underline"
                     style={{ width: 36, height: 36 }}
                     title="Phân tích lỗi sai"
                     aria-label="Phân tích lỗi sai"
@@ -232,7 +250,7 @@ export default function Navbar() {
                         color: '#fff', fontSize: 13, fontWeight: 700,
                         cursor: 'pointer', flexShrink: 0, padding: 0,
                         outline: 'none',
-                        boxShadow: userMenuOpen ? '0 0 0 2px #BFDBFE' : 'none',
+                        boxShadow: userMenuOpen ? '0 0 0 2px #e4e4e7' : 'none',
                         transition: 'box-shadow 0.2s ease',
                       }}
                     >
@@ -297,7 +315,7 @@ export default function Navbar() {
             {/* Mobile hamburger */}
             <button
               className="md:hidden flex items-center justify-center rounded-xl border transition-colors"
-              style={{ width: 44, height: 44, flexShrink: 0, borderColor: 'var(--border)', background: '#fff', color: '#334155' }}
+              style={{ width: 44, height: 44, flexShrink: 0, borderColor: 'var(--border)', background: '#fff', color: '#18181b' }}
               onClick={() => setMobileOpen(true)}
               aria-label="Mở menu"
               aria-expanded={mobileOpen}
@@ -360,31 +378,46 @@ export default function Navbar() {
 
         {/* Nav links */}
         <nav className="flex flex-col gap-1 px-3 py-4">
-          <MobileNavLink to="/" active={location.pathname === '/'} onClick={closeMobile}>Trang chủ</MobileNavLink>
-          <MobileNavLink to="/full-test" active={location.pathname === '/full-test'} onClick={closeMobile}>Full Test</MobileNavLink>
+          <MobileNavLink to="/" active={location.pathname === '/'} onClick={closeMobile}>Tổng quan</MobileNavLink>
+
+          <div className="px-3 pt-2.5 pb-1 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Phòng thi chuẩn hóa</div>
+          <MobileNavLink to="/full-test" active={location.pathname === '/full-test'} onClick={closeMobile}>
+            <span className="ml-2">Tất cả đề Full Test</span>
+          </MobileNavLink>
           <MobileNavLink to="/cambridge" active={location.pathname === '/cambridge'} onClick={closeMobile}>
-            <span className="ml-3 text-slate-500">Cambridge Academic</span>
+            <span className="ml-2">Cambridge Academic</span>
           </MobileNavLink>
           <MobileNavLink to="/practice-plus" active={location.pathname === '/practice-plus'} onClick={closeMobile}>
-            <span className="ml-3 text-slate-500">Practice Test Plus</span>
+            <span className="ml-2">Practice Test Plus</span>
           </MobileNavLink>
 
-          <div className="my-1 border-t border-slate-100" />
+          <div className="px-3 pt-2.5 pb-1 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Luyện tập kỹ năng</div>
+          <MobileNavLink to="/practice/reading" active={location.pathname.startsWith('/practice/reading')} onClick={closeMobile}>
+            <span className="ml-2">Reading</span>
+          </MobileNavLink>
+          <MobileNavLink to="/practice/listening" active={location.pathname.startsWith('/practice/listening')} onClick={closeMobile}>
+            <span className="ml-2">Listening</span>
+          </MobileNavLink>
 
-          <MobileNavLink to="/practice/reading" active={location.pathname.startsWith('/practice/reading')} onClick={closeMobile}>Reading</MobileNavLink>
-          <MobileNavLink to="/practice/listening" active={location.pathname.startsWith('/practice/listening')} onClick={closeMobile}>Listening</MobileNavLink>
+          <div className="px-3 pt-2.5 pb-1 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Thư viện bài mẫu</div>
+          <MobileNavLink to="/writing-samples" active={location.pathname.startsWith('/writing-samples')} onClick={closeMobile}>
+            <span className="ml-2">Writing</span>
+          </MobileNavLink>
+          <MobileNavLink to="/speaking-samples" active={location.pathname.startsWith('/speaking-samples')} onClick={closeMobile}>
+            <span className="ml-2">Speaking</span>
+          </MobileNavLink>
 
-          <div className="my-1 border-t border-slate-100" />
-
-          <MobileNavLink to="/writing-samples" active={location.pathname.startsWith('/writing-samples')} onClick={closeMobile}>Bài mẫu Writing</MobileNavLink>
-          <MobileNavLink to="/speaking-samples" active={location.pathname.startsWith('/speaking-samples')} onClick={closeMobile}>Bài mẫu Speaking</MobileNavLink>
+          <div className="my-1 border-t border-zinc-100" />
+          <MobileNavLink to="/progress" active={location.pathname.startsWith('/progress')} onClick={closeMobile}>
+            Tiến độ & Phân tích
+          </MobileNavLink>
         </nav>
 
         {/* Auth section */}
-        <div className="mt-auto border-t border-slate-100 px-3 py-4 flex flex-col gap-2">
+        <div className="mt-auto border-t border-zinc-100 px-3 py-4 flex flex-col gap-2">
           {isLoggedIn ? (
             <>
-              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 mb-1">
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-zinc-50 mb-1">
                 <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 15, flexShrink: 0 }}>
                   {user.name?.charAt(0)?.toUpperCase() || 'U'}
                 </div>

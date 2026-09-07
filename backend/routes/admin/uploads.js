@@ -7,29 +7,46 @@ const authMiddleware = require('../../middleware/auth')
 const validate = require('../../middleware/validate')
 const { teacherOnly } = require('../../lib/roles')
 const { transcribeUploadSchema, bookCoverSchema } = require('../../validators/contentValidator')
-const { uploadsDir, upload, imageUpload, moveToSubdir } = require('../../lib/adminUploads')
+const { uploadsDir, upload, imageUpload } = require('../../lib/adminUploads')
 const { getGroqClient } = require('../../lib/groqClient')
 const { invalidate } = require('../../lib/swrCache')
-const { resizeUploadedCover } = require('../../lib/imageResize')
+const {
+  uploadAudio,
+  uploadImage,
+  uploadOptimizedCover,
+  resolveAudioForTranscription,
+} = require('../../services/storageService')
 
 // ─── UPLOAD AUDIO ────────────────────────────────────────────────────────────
-router.post('/upload-audio', authMiddleware, teacherOnly, upload.single('audio'), (req, res) => {
+router.post('/upload-audio', authMiddleware, teacherOnly, upload.single('audio'), async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
-  const audioUrl = moveToSubdir(req.file, 'audio')
-  res.json({ audioUrl, filename: req.file.filename })
+  try {
+    const { url: audioUrl, filename } = await uploadAudio(req.file, { subdir: 'audio', folder: 'audio' })
+    res.json({ audioUrl, filename })
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi upload audio', error: error.message })
+  }
 })
 
 // ─── UPLOAD IMAGE ────────────────────────────────────────────────────────────
-router.post('/upload-image', authMiddleware, teacherOnly, imageUpload.single('image'), (req, res) => {
+router.post('/upload-image', authMiddleware, teacherOnly, imageUpload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
-  const imageUrl = moveToSubdir(req.file, 'questions')
-  res.json({ imageUrl, filename: req.file.filename })
+  try {
+    const { url: imageUrl, filename } = await uploadImage(req.file, { subdir: 'questions', folder: 'questions' })
+    res.json({ imageUrl, filename })
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi upload ảnh', error: error.message })
+  }
 })
 
 router.post('/exams/:id/cover', authMiddleware, teacherOnly, imageUpload.single('cover'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'Không có file ảnh' })
-    const { url: coverImageUrl } = await resizeUploadedCover(req.file, { dir: path.join(uploadsDir, 'covers'), urlPrefix: '/uploads/covers' })
+    const { url: coverImageUrl } = await uploadOptimizedCover(req.file, {
+      dir: path.join(uploadsDir, 'covers'),
+      urlPrefix: '/uploads/covers',
+      folder: 'covers',
+    })
     const exam = await prisma.exam.update({
       where: { id: parseInt(req.params.id) },
       data: { coverImageUrl },
@@ -44,15 +61,14 @@ router.post('/exams/:id/cover', authMiddleware, teacherOnly, imageUpload.single(
 
 // ─── TRANSCRIBE AUDIO (Groq Whisper) ────────────────────────────────────────
 router.post('/transcribe', authMiddleware, teacherOnly, validate(transcribeUploadSchema), async (req, res) => {
+  let audioResolution = null
   try {
     const { audioUrl } = req.body
 
-    const filename = audioUrl.replace('/uploads/', '')
-    const filePath = path.join(uploadsDir, filename)
+    audioResolution = await resolveAudioForTranscription(audioUrl)
+    const { filePath } = audioResolution
 
-    if (!fs.existsSync(filePath)) return res.status(404).json({ message: 'File audio không tồn tại trên server' })
-
-    if (process.env.NODE_ENV !== 'production') console.log('[Transcribe] Bắt đầu phiên âm:', filename)
+    if (process.env.NODE_ENV !== 'production') console.log('[Transcribe] Bắt đầu phiên âm:', path.basename(filePath))
     const groq = getGroqClient()
     const transcription = await groq.audio.transcriptions.create({
       file: fs.createReadStream(filePath),
@@ -68,6 +84,8 @@ router.post('/transcribe', authMiddleware, teacherOnly, validate(transcribeUploa
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') console.error('[Transcribe] Lỗi:', error.message)
     res.status(500).json({ message: 'Lỗi phiên âm: ' + error.message })
+  } finally {
+    if (audioResolution?.cleanup) audioResolution.cleanup()
   }
 })
 
@@ -89,7 +107,11 @@ router.post('/book-covers/:bookNumber', authMiddleware, teacherOnly, imageUpload
     if (!req.file) return res.status(400).json({ message: 'Không có file ảnh' })
     const bookNumber = parseInt(req.params.bookNumber)
     const seriesId = parseInt(req.body.seriesId) || 1
-    const { url: coverImageUrl } = await resizeUploadedCover(req.file, { dir: path.join(uploadsDir, 'covers'), urlPrefix: '/uploads/covers' })
+    const { url: coverImageUrl } = await uploadOptimizedCover(req.file, {
+      dir: path.join(uploadsDir, 'covers'),
+      urlPrefix: '/uploads/covers',
+      folder: 'covers',
+    })
     await prisma.bookCover.upsert({
       where: { seriesId_bookNumber: { seriesId, bookNumber } },
       create: { seriesId, bookNumber, coverImageUrl },

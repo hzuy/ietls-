@@ -1,6 +1,7 @@
 const express = require('express')
 const authMiddleware = require('../middleware/auth')
 const validate = require('../middleware/validate')
+const { objectiveSubmitLimiter } = require('../middleware/rateLimiter')
 const { readingSubmitSchema } = require('../validators/submissionValidator')
 const { getReadingBand } = require('../lib/scoreUtils')
 
@@ -134,7 +135,7 @@ router.get('/exams/:id', authMiddleware, async (req, res) => {
 })
 
 // Nộp bài
-router.post('/exams/:id/submit', authMiddleware, validate(readingSubmitSchema), async (req, res) => {
+router.post('/exams/:id/submit', authMiddleware, objectiveSubmitLimiter, validate(readingSubmitSchema), async (req, res) => {
   try {
     const { answers } = req.body // { questionId: userAnswer }
     const examId = parseInt(req.params.id)

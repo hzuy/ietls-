@@ -43,13 +43,13 @@ export default function Settings() {
 
   const set = (key, val) => setSettings(prev => ({ ...prev, [key]: val }))
 
-  const inputCls  = "w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1D4ED8] bg-white"
-  const labelCls  = "block text-sm font-semibold text-gray-700 mb-1.5"
-  const hintCls   = "text-xs text-gray-400 mt-1"
+  const inputCls  = "w-full px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 bg-white text-zinc-900 placeholder:text-zinc-400 shadow-2xs transition"
+  const labelCls  = "block text-xs font-medium text-zinc-700 mb-1.5"
+  const hintCls   = "text-[11px] text-zinc-500 mt-1"
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <div className="w-8 h-8 border-4 border-[#1D4ED8] border-t-transparent rounded-full animate-spin" />
+      <div className="w-8 h-8 border-4 border-zinc-900 border-t-transparent rounded-full animate-spin" />
     </div>
   )
 
@@ -58,15 +58,15 @@ export default function Settings() {
 
         {/* Page header */}
         <div className="mb-8">
-          <h1 className="text-xl md:text-2xl font-bold text-slate-900">Cài đặt hệ thống</h1>
-          <p className="text-sm text-slate-500 mt-1">Cấu hình vận hành nền tảng IELTS</p>
+          <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Cài đặt hệ thống</h1>
+          <p className="text-xs text-zinc-500 mt-1">Cấu hình vận hành nền tảng IELTS</p>
         </div>
 
         {/* ── SECTION 1: Thông tin chung ─────────────────── */}
-        <section className="bg-white rounded-2xl border border-gray-100 p-6 mb-5">
+        <section className="bg-white rounded-2xl border border-zinc-200 p-6 mb-5 shadow-xs">
           <div className="mb-5">
-            <h2 className="text-base font-bold text-gray-800">Thông tin chung</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Hiển thị trên giao diện người dùng</p>
+            <h2 className="text-sm font-semibold text-zinc-900">Thông tin chung</h2>
+            <p className="text-xs text-zinc-500 mt-0.5">Hiển thị trên giao diện người dùng</p>
           </div>
           <div className="space-y-5">
             <div>
@@ -92,10 +92,10 @@ export default function Settings() {
         </section>
 
         {/* ── SECTION 2: Thời gian làm bài ──────────────── */}
-        <section className="bg-white rounded-2xl border border-gray-100 p-6 mb-5">
+        <section className="bg-white rounded-2xl border border-zinc-200 p-6 mb-5 shadow-xs">
           <div className="mb-5">
-            <h2 className="text-base font-bold text-gray-800">Thời gian làm bài</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Thời gian mặc định cho mỗi kỹ năng (đơn vị: phút)</p>
+            <h2 className="text-sm font-semibold text-zinc-900">Thời gian làm bài</h2>
+            <p className="text-xs text-zinc-500 mt-0.5">Thời gian mặc định cho mỗi kỹ năng (đơn vị: phút)</p>
           </div>
           <div className="space-y-5">
             {[
@@ -120,10 +120,10 @@ export default function Settings() {
         </section>
 
         {/* ── SECTION 3: Giới hạn thi ───────────────────── */}
-        <section className="bg-white rounded-2xl border border-gray-100 p-6 mb-5">
+        <section className="bg-white rounded-2xl border border-zinc-200 p-6 mb-5 shadow-xs">
           <div className="mb-5">
-            <h2 className="text-base font-bold text-gray-800">Giới hạn thi</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Kiểm soát số lần học viên được làm mỗi đề</p>
+            <h2 className="text-sm font-semibold text-zinc-900">Giới hạn thi</h2>
+            <p className="text-xs text-zinc-500 mt-0.5">Kiểm soát số lần học viên được làm mỗi đề</p>
           </div>
           <div>
             <label className={labelCls}>Số lần thi tối đa mỗi đề</label>
@@ -139,10 +139,10 @@ export default function Settings() {
         </section>
 
         {/* ── SECTION 4: Cài đặt AI chấm điểm ──────────── */}
-        <section className="bg-white rounded-2xl border border-gray-100 p-6 mb-8">
+        <section className="bg-white rounded-2xl border border-zinc-200 p-6 mb-8 shadow-xs">
           <div className="mb-5">
-            <h2 className="text-base font-bold text-gray-800">Cài đặt AI chấm điểm</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Prompt template gửi đến AI — đảm bảo yêu cầu trả về JSON hợp lệ</p>
+            <h2 className="text-sm font-semibold text-zinc-900">Cài đặt AI chấm điểm</h2>
+            <p className="text-xs text-zinc-500 mt-0.5">Prompt template gửi đến AI — đảm bảo yêu cầu trả về JSON hợp lệ</p>
           </div>
           <div className="space-y-6">
             <div>
@@ -169,12 +169,12 @@ export default function Settings() {
         </section>
 
         {/* ── Save button ────────────────────────────────── */}
-        <div className="flex items-center justify-between bg-white rounded-2xl border border-gray-100 px-6 py-4">
-          <p className="text-sm text-gray-400">Nhấn lưu để áp dụng tất cả thay đổi</p>
+        <div className="flex items-center justify-between bg-white rounded-2xl border border-zinc-200 px-6 py-4 shadow-xs">
+          <p className="text-xs text-zinc-500">Nhấn lưu để áp dụng tất cả thay đổi</p>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-6 py-2.5 rounded-xl bg-[#1D4ED8] text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-60 min-w-[130px] text-center"
+            className="px-3.5 py-2 rounded-lg bg-zinc-900 text-white text-xs font-medium hover:bg-zinc-800 transition disabled:opacity-60 min-w-[120px] text-center shadow-xs"
           >
             {saving ? 'Đang lưu...' : saved ? '✓ Đã lưu' : 'Lưu tất cả'}
           </button>

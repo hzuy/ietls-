@@ -78,6 +78,28 @@ describe('SkillResult Component', () => {
 
     expect(screen.getByRole('button', { name: /Làm lại đề này/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Luyện bài khác/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Về trang chủ/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Trang chủ/i })).toBeInTheDocument()
+  })
+
+  it('renders Smart Answer Review filter tabs and filters questions', () => {
+    render(
+      <MemoryRouter>
+        <SkillResult skillType="reading" examId={1} dataProp={mockValidData} />
+      </MemoryRouter>
+    )
+
+    // Check Filter tabs
+    expect(screen.getByRole('button', { name: /Tất cả/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Câu sai cần sửa/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Câu đúng/i })).toBeInTheDocument()
+
+    // Check Question rows rendered
+    expect(screen.getAllByText('1').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('2').length).toBeGreaterThan(0)
+
+    // Check "Hỏi AI Tutor câu sai" CTA in Bento
+    expect(screen.getByRole('button', { name: /Hỏi AI Tutor câu sai/i })).toBeInTheDocument()
   })
 })
+
+

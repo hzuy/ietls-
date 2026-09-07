@@ -46,15 +46,7 @@ export default function SampleHeader({ type, taskLabel, title, examType }) {
         )}
       </div>
 
-      <h1 style={{
-        fontSize: 32,
-        fontWeight: 900,
-        fontFamily: 'var(--font-display)',
-        color: 'var(--ink)',
-        margin: 0,
-        lineHeight: 1.25,
-        letterSpacing: '-0.02em'
-      }}>
+      <h1 className="text-2xl font-bold text-zinc-900 tracking-tight leading-tight m-0">
         {title}
       </h1>
     </div>

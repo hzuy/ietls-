@@ -1,11 +1,11 @@
-﻿import MatchingTickGrid from '../../MatchingTickGrid'
+import MatchingTickGrid from '../../MatchingTickGrid'
 import { toImgSrc } from '../../../utils/media'
 
 function InstructionBanner({ group }) {
   return (
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 text-sm">
-      <p className="font-bold text-gray-800 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
-      {group.instruction && <p className="text-gray-700">{group.instruction}</p>}
+    <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 mb-4 text-sm">
+      <p className="font-semibold text-zinc-900 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
+      {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
     </div>
   )
 }
@@ -21,7 +21,7 @@ export default function MapDiagramGroup({ group, answers, onAnswer, previewMode,
       {group.imageUrl && (
         <div className="flex justify-center mb-5">
           <img src={toImgSrc(group.imageUrl)} alt="Map/Diagram"
-            className="max-w-full rounded-xl border border-gray-200 shadow-sm"
+            className="max-w-full rounded-xl border border-zinc-200 shadow-xs"
             onError={e => { e.target.style.display = 'none' }} />
         </div>
       )}
@@ -32,7 +32,7 @@ export default function MapDiagramGroup({ group, answers, onAnswer, previewMode,
         onAnswer={onAnswer}
         previewMode={previewMode}
         showAnswers={showAnswers}
-        accentColor="blue"
+        accentColor="zinc"
       />
     </div>
   )

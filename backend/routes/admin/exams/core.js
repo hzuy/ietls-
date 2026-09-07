@@ -36,7 +36,16 @@ function hasQuestionsFilterFor(skill) {
     case 'writing':
       return { writingTasks: { some: {} } }
     case 'speaking':
-      return { speakingParts: { some: { questions: { some: {} } } } }
+      return {
+        speakingParts: {
+          some: {
+            OR: [
+              { questions: { some: {} } },
+              { cueCard: { not: null } }
+            ]
+          }
+        }
+      }
     default:
       return null
   }
@@ -118,7 +127,7 @@ router.get('/exams', authMiddleware, teacherOnly, async (req, res) => {
             }
           },
           writingTasks:  { select: { id: true } },
-          speakingParts: { select: { id: true, _count: { select: { questions: true } } } },
+          speakingParts: { select: { id: true, number: true, cueCard: true, _count: { select: { questions: true } } } },
           _count: { select: { attempts: true } }
         }
       }),
@@ -268,8 +277,8 @@ class BlockedDeletionError extends Error {
 const EXAM_UPDATE_TX_OPTIONS = { timeout: 120000, maxWait: 15000 }
 
 const NOTE_GROUP_TYPES = ['note_completion', 'table_completion', 'drag_word_bank']
-const READING_MATCHING_GROUP_TYPES = ['matching_information', 'drag_word_bank', 'matching_drag']
-const LISTENING_MATCHING_GROUP_TYPES = ['matching', 'map_diagram', 'drag_word_bank', 'matching_drag']
+const READING_MATCHING_GROUP_TYPES = ['matching_information', 'drag_word_bank', 'matching_drag', 'matching_headings']
+const LISTENING_MATCHING_GROUP_TYPES = ['matching', 'map_diagram', 'drag_word_bank', 'matching_drag', 'matching_headings']
 
 function mapReadingQuestionFields(groupType, q) {
   if (['true_false_ng', 'yes_no_ng'].includes(groupType)) {
@@ -278,11 +287,17 @@ function mapReadingQuestionFields(groupType, q) {
   if (NOTE_GROUP_TYPES.includes(groupType)) {
     return { type: 'fill_blank', questionText: '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
   }
+  if (groupType === 'diagram_label') {
+    return { type: 'fill_blank', questionText: q.hint || q.questionText || '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
+  }
   if (groupType === 'matching_information') {
     return { type: 'matching_paragraph', questionText: q.questionText || '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
   }
   if (groupType === 'matching_drag') {
     return { type: 'matching', questionText: q.questionText || '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
+  }
+  if (groupType === 'matching_headings') {
+    return { type: 'matching_headings', questionText: q.questionText || '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
   }
   return {
     type: groupType, questionText: q.questionText || '',
@@ -295,11 +310,17 @@ function mapListeningQuestionFields(groupType, q) {
   if (NOTE_GROUP_TYPES.includes(groupType)) {
     return { type: 'fill_blank', questionText: '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
   }
+  if (groupType === 'diagram_label') {
+    return { type: 'fill_blank', questionText: q.hint || q.questionText || '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
+  }
   if (['matching', 'map_diagram'].includes(groupType)) {
     return { type: groupType, questionText: q.questionText || '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
   }
   if (groupType === 'matching_drag') {
     return { type: 'matching', questionText: q.questionText || '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
+  }
+  if (groupType === 'matching_headings') {
+    return { type: 'matching_headings', questionText: q.questionText || '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
   }
   return {
     type: groupType, questionText: q.questionText || '',
@@ -319,7 +340,11 @@ function mapStandaloneQuestionFields(q) {
 function buildNoteSectionsRaw(g) {
   return (g.noteSections || []).map((ns, nsi) => ({
     title: ns.title || '', sortOrder: nsi,
-    lines: (ns.lines || []).map((l, li) => ({ contentWithTokens: l.content || '', lineType: l.lineType || 'content', sortOrder: li }))
+    lines: (ns.lines || []).map((l, li) => ({
+      contentWithTokens: l.contentWithTokens || l.content || '',
+      lineType: l.lineType || 'content',
+      sortOrder: li
+    }))
   }))
 }
 
@@ -327,24 +352,43 @@ function buildMatchingOptionsRaw(g) {
   return (g.matchingOptions || []).map((mo, moi) => ({ optionLetter: mo.letter, optionText: mo.text || '', sortOrder: moi }))
 }
 
-// Diff an existing Question[] (id + number only) against submitted question
-// payloads, matched by `number`. Never touches the DB — callers decide what to
-// do with each bucket.
+// Diff an existing Question[] against submitted question payloads.
+// Supports matching by `id` first (if provided in payload and belongs to existing),
+// falling back to matching by `number`.
 function planQuestionDiff(existingQuestions, submittedQuestions, fieldMapper) {
+  const existingById = new Map(existingQuestions.map(q => [q.id, q]))
   const existingByNumber = new Map(existingQuestions.map(q => [q.number, q]))
-  const submittedNumbers = new Set(submittedQuestions.map(q => q.number))
+  const matchedExistingIds = new Set()
   const toUpdate = []
   const toCreate = []
-  const toPrune = []
+  const unmatchedSubmitted = []
+
+  // Phase 1: match by q.id if provided and exists in this group
   for (const q of submittedQuestions) {
-    const ex = existingByNumber.get(q.number)
     const fields = fieldMapper(q)
-    if (ex) toUpdate.push({ id: ex.id, data: { number: q.number, ...fields } })
-    else toCreate.push({ number: q.number, ...fields })
+    const qId = q.id ? parseInt(q.id) : null
+    if (qId && existingById.has(qId)) {
+      matchedExistingIds.add(qId)
+      toUpdate.push({ id: qId, data: { number: q.number, ...fields } })
+    } else {
+      unmatchedSubmitted.push({ q, fields })
+    }
   }
-  for (const ex of existingQuestions) {
-    if (!submittedNumbers.has(ex.number)) toPrune.push(ex)
+
+  // Phase 2: match remaining submitted by number
+  for (const { q, fields } of unmatchedSubmitted) {
+    const ex = existingByNumber.get(q.number)
+    if (ex && !matchedExistingIds.has(ex.id)) {
+      matchedExistingIds.add(ex.id)
+      toUpdate.push({ id: ex.id, data: { number: q.number, ...fields } })
+    } else {
+      toCreate.push({ number: q.number, ...fields })
+    }
   }
+
+  // Phase 3: any existing question not matched by id or number is pruned
+  const toPrune = existingQuestions.filter(ex => !matchedExistingIds.has(ex.id))
+
   return { toUpdate, toCreate, toPrune }
 }
 
@@ -421,6 +465,20 @@ async function findAnsweredQuestionIds(tx, questionIds) {
   return new Set([...qas.map(x => x.questionId), ...logs.map(x => x.questionId)])
 }
 
+async function checkDuplicateExamTest({ seriesId, bookNumber, testNumber, skill, excludeExamId = null }) {
+  if (!seriesId || !bookNumber || !testNumber || !skill) return false
+  const where = {
+    seriesId: parseInt(seriesId),
+    bookNumber: parseInt(bookNumber),
+    testNumber: parseInt(testNumber),
+    skill,
+    deletedAt: null,
+  }
+  if (excludeExamId) where.id = { not: parseInt(excludeExamId) }
+  const existing = await prisma.exam.findFirst({ where, select: { id: true } })
+  return !!existing
+}
+
 // ─── UPDATE EXAM ──────────────────────────────────────────────────────────────
 router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema), async (req, res) => {
   try {
@@ -428,9 +486,26 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
     const existing = await prisma.exam.findUnique({ where: { id }, select: { skill: true, seriesId: true } })
     if (!existing) return res.status(404).json({ message: 'Không tìm thấy đề' })
 
-    const { title, bookNumber, testNumber } = req.body
+    const { title, bookNumber, testNumber, seriesId } = req.body
+    const targetSeriesId = seriesId !== undefined
+      ? (seriesId ? parseInt(seriesId) : null)
+      : existing.seriesId
     const bn = bookNumber ? parseInt(bookNumber) : null
     const tn = testNumber ? parseInt(testNumber) : null
+
+    // BUG-08: Chặn trùng testNumber trong cùng seriesId và bookNumber
+    if (targetSeriesId && bn && tn) {
+      const isDup = await checkDuplicateExamTest({
+        seriesId: targetSeriesId,
+        bookNumber: bn,
+        testNumber: tn,
+        skill: existing.skill,
+        excludeExamId: id
+      })
+      if (isDup) {
+        return res.status(409).json({ message: 'Đề thi với số Test này đã tồn tại trong cùng cuốn/bộ đề' })
+      }
+    }
 
     if (existing.skill === 'reading') {
       const submittedPassages = req.body.passages || []
@@ -477,10 +552,18 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
 
               const submittedGroups = p.questionGroups || []
               const oldGroups = oldP.questionGroups
+              const oldGroupsById = new Map(oldGroups.map(og => [og.id, og]))
+              const matchedOldGroupIds = new Set()
+
               for (let gi = 0; gi < submittedGroups.length; gi++) {
                 const g = submittedGroups[gi]
-                const oldG = oldGroups[gi]
+                const gId = g.id ? parseInt(g.id) : null
+                let oldG = gId && oldGroupsById.has(gId) ? oldGroupsById.get(gId) : oldGroups[gi]
+                if (oldG && matchedOldGroupIds.has(oldG.id)) {
+                  oldG = oldGroups.find(og => !matchedOldGroupIds.has(og.id))
+                }
                 if (oldG) {
+                  matchedOldGroupIds.add(oldG.id)
                   const toPrune = planGroupUpdate(tx, oldG, g, gi, 'reading', operations)
                   toPrune.forEach(q => {
                     pruneQuestionIds.push(q.id)
@@ -490,8 +573,8 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
                   operations.push(() => tx.questionGroup.create({ data: { passageId: oldP.id, ...groupCreateData(g, gi, 'reading') } }))
                 }
               }
-              for (let gi = submittedGroups.length; gi < oldGroups.length; gi++) {
-                const oldG = oldGroups[gi]
+              for (const oldG of oldGroups) {
+                if (matchedOldGroupIds.has(oldG.id)) continue
                 const qIds = oldG.questions.map(q => q.id)
                 const labelsByQId = new Map(oldG.questions.map(q => [q.id, { passageNumber: p.number, groupSortOrder: oldG.sortOrder, questionNumber: q.number }]))
                 deleteGroupCandidates.push({ groupId: oldG.id, questionIds: qIds, labelsByQId })
@@ -592,10 +675,18 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
 
               const submittedGroups = s.questionGroups || []
               const oldGroups = oldS.questionGroups
+              const oldGroupsById = new Map(oldGroups.map(og => [og.id, og]))
+              const matchedOldGroupIds = new Set()
+
               for (let gi = 0; gi < submittedGroups.length; gi++) {
                 const g = submittedGroups[gi]
-                const oldG = oldGroups[gi]
+                const gId = g.id ? parseInt(g.id) : null
+                let oldG = gId && oldGroupsById.has(gId) ? oldGroupsById.get(gId) : oldGroups[gi]
+                if (oldG && matchedOldGroupIds.has(oldG.id)) {
+                  oldG = oldGroups.find(og => !matchedOldGroupIds.has(og.id))
+                }
                 if (oldG) {
+                  matchedOldGroupIds.add(oldG.id)
                   const toPrune = planGroupUpdate(tx, oldG, g, gi, 'listening', operations)
                   toPrune.forEach(q => {
                     pruneQuestionIds.push(q.id)
@@ -605,8 +696,8 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
                   operations.push(() => tx.questionGroup.create({ data: { sectionId: oldS.id, ...groupCreateData(g, gi, 'listening') } }))
                 }
               }
-              for (let gi = submittedGroups.length; gi < oldGroups.length; gi++) {
-                const oldG = oldGroups[gi]
+              for (const oldG of oldGroups) {
+                if (matchedOldGroupIds.has(oldG.id)) continue
                 const qIds = oldG.questions.map(q => q.id)
                 const labelsByQId = new Map(oldG.questions.map(q => [q.id, { sectionNumber: s.number, groupSortOrder: oldG.sortOrder, questionNumber: q.number }]))
                 deleteGroupCandidates.push({ groupId: oldG.id, questionIds: qIds, labelsByQId })
@@ -712,7 +803,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
       const partIdByNumber = new Map(existingParts.map(p => [p.number, p.id]))
 
       await prisma.$transaction(async (tx) => {
-        await tx.exam.update({ where: { id }, data: { title, bookNumber: bn, testNumber: tn } })
+        await tx.exam.update({ where: { id }, data: { title, bookNumber: bn, testNumber: tn, seriesId: targetSeriesId } })
 
         for (const number of [1, 2, 3]) {
           const src = srcByNumber[number] || {}
@@ -769,4 +860,5 @@ router.delete('/exams/:id', authMiddleware, teacherOnly, async (req, res) => {
   }
 })
 
+router.checkDuplicateExamTest = checkDuplicateExamTest
 module.exports = router

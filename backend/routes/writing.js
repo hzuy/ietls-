@@ -2,6 +2,7 @@ const express = require('express')
 const Groq = require('groq-sdk')
 const authMiddleware = require('../middleware/auth')
 const validate = require('../middleware/validate')
+const { aiSubmitLimiter } = require('../middleware/rateLimiter')
 const { writingSubmitSchema } = require('../validators/submissionValidator')
 const { cleanJsonRaw, repairTruncatedJson } = require('../services/json/jsonSanitizer')
 
@@ -225,7 +226,7 @@ Trả về JSON (không có gì khác):
   }
 }
 
-router.post('/exams/:id/submit', authMiddleware, validate(writingSubmitSchema), async (req, res) => {
+router.post('/exams/:id/submit', authMiddleware, aiSubmitLimiter, validate(writingSubmitSchema), async (req, res) => {
   try {
     const { taskId, essay, autoSubmit } = req.body
     const examId = parseInt(req.params.id)
@@ -343,7 +344,7 @@ router.get('/answers/:id/status', authMiddleware, async (req, res) => {
 // yêu cầu người dùng viết lại. Khác với /submit (luôn tạo answer MỚI): retry
 // chấm lại NGAY trên bản ghi cũ, dùng cho lỗi hạ tầng AI (model đổi, timeout...)
 // chứ không phải muốn viết lại nội dung (dùng nút "Nộp lại" ở FE cho trường hợp đó).
-router.post('/answers/:id/retry', authMiddleware, async (req, res) => {
+router.post('/answers/:id/retry', authMiddleware, aiSubmitLimiter, async (req, res) => {
   try {
     const answerId = parseInt(req.params.id)
     const answer = await prisma.writingAnswer.findUnique({

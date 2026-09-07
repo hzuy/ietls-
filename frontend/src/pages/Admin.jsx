@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Routes, Route, Navigate, useLocation, NavLink } from 'react-router-dom'
 import { getExams, getExamSeries, getExamCounts } from '../services/examService'
+import { onTrashChanged } from '../services/adminService'
 import ReadingTab from '../components/admin/ReadingTab'
 import ListeningTab from '../components/admin/ListeningTab'
 import WritingTab from '../components/admin/WritingTab'
@@ -62,10 +63,28 @@ export default function Admin() {
     fetchSkillExams(skill, { force: true })
   }
 
+  const handleExamsChanged = () => {
+    fetchCounts()
+    getExamSeries().then(data => setExamSeries(data)).catch(() => {})
+    setTabCache({ reading: null, listening: null, writing: null, speaking: null })
+    if (activeTab && activeTab !== 'cambridge') {
+      fetchSkillExams(activeTab, { force: true })
+    }
+  }
+
   useEffect(() => {
     fetchCounts()
     getExamSeries().then(data => setExamSeries(data)).catch(() => {})
-  }, [])
+    const unsub = onTrashChanged(() => {
+      fetchCounts()
+      getExamSeries().then(data => setExamSeries(data)).catch(() => {})
+      setTabCache({ reading: null, listening: null, writing: null, speaking: null })
+      if (activeTab && activeTab !== 'cambridge') {
+        fetchSkillExams(activeTab, { force: true })
+      }
+    })
+    return unsub
+  }, [activeTab])
 
   useEffect(() => {
     if (activeTab && activeTab !== 'cambridge') {
@@ -73,19 +92,17 @@ export default function Admin() {
     }
   }, [activeTab])
 
-  const currentTabExams = tabCache[activeTab]?.exams || []
-
   return (
     <div className="p-6 max-w-6xl mx-auto">
       {/* Page Header */}
       <div className="mb-6">
-        <h1 className="text-xl md:text-2xl font-bold text-slate-900">Quản lý đề thi</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Quản lý các bộ đề Cambridge và bài thi theo từng kỹ năng</p>
+        <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Quản lý đề thi</h1>
+        <p className="text-xs text-zinc-500 mt-1">Quản lý các bộ đề Cambridge và bài thi theo từng kỹ năng</p>
       </div>
 
       {/* Tab Navigation */}
       <div className="overflow-x-auto pb-1 no-scrollbar mb-8">
-        <div className="flex gap-2 bg-white p-1.5 rounded-2xl border border-gray-100 shadow-sm w-fit">
+        <div className="flex gap-2 bg-white p-1.5 rounded-2xl border border-zinc-200 shadow-xs w-fit">
           {TABS.map(tab => {
             const isTabActive = activeTab === tab.key
             return (
@@ -96,20 +113,22 @@ export default function Admin() {
                   e.preventDefault()
                   navigate(`/admin/exams/${tab.path}`)
                 }}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer select-none whitespace-nowrap shrink-0 ${
+                className={`group flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer select-none whitespace-nowrap shrink-0 ${
                   isTabActive
-                    ? 'bg-[#1D4ED8] text-white shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                    ? 'bg-zinc-900 text-white shadow-xs'
+                    : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
                 }`}
               >
                 <span>{tab.label}</span>
-                {tab.key !== 'cambridge' && (
+                {tabCounts[tab.key] !== undefined && (
                   <span
-                    className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
-                      isTabActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
+                    className={`px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors ${
+                      isTabActive
+                        ? 'bg-zinc-800 text-zinc-200'
+                        : 'bg-zinc-100 text-zinc-600 group-hover:bg-zinc-200'
                     }`}
                   >
-                    {tabCounts[tab.key] ?? 0}
+                    {tabCounts[tab.key]}
                   </span>
                 )}
               </NavLink>
@@ -121,7 +140,7 @@ export default function Admin() {
         {/* Tab Content via Nested Routes */}
         <Routes>
           <Route index element={<Navigate to="cambridge" replace />} />
-          <Route path="cambridge" element={<CambridgeTab initialSeriesList={examSeries} />} />
+          <Route path="cambridge" element={<CambridgeTab initialSeriesList={examSeries} onExamsChanged={handleExamsChanged} />} />
           <Route path="reading"   element={<ReadingTab exams={tabCache.reading?.exams || []} paginationData={tabCache.reading} fetchExams={(opts) => fetchSkillExams('reading', { ...opts, force: true })} onRefresh={() => handleRefresh('reading')} examSeries={examSeries} loading={loading} loadError={!!loadError.reading} />} />
           <Route path="listening" element={<ListeningTab exams={tabCache.listening?.exams || []} paginationData={tabCache.listening} fetchExams={(opts) => fetchSkillExams('listening', { ...opts, force: true })} onRefresh={() => handleRefresh('listening')} examSeries={examSeries} loading={loading} loadError={!!loadError.listening} />} />
           <Route path="writing"   element={<WritingTab exams={tabCache.writing?.exams || []} paginationData={tabCache.writing} fetchExams={(opts) => fetchSkillExams('writing', { ...opts, force: true })} onRefresh={() => handleRefresh('writing')} examSeries={examSeries} loading={loading} loadError={!!loadError.writing} />} />

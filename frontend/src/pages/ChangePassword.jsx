@@ -1,6 +1,7 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { changePassword } from '../services/userService'
+import { showAlert } from '../utils/alertUtils'
 
 export default function ChangePassword() {
   const [form, setForm] = useState({ oldPassword: '', newPassword: '', confirm: '' })
@@ -12,20 +13,27 @@ export default function ChangePassword() {
     e.preventDefault()
     setError('')
     if (form.newPassword.length < 8) {
-      setError('Mật khẩu mới phải có ít nhất 8 ký tự')
+      const msg = 'Mật khẩu mới phải có ít nhất 8 ký tự'
+      setError(msg)
+      showAlert(msg, 'error')
       return
     }
     if (form.newPassword !== form.confirm) {
-      setError('Mật khẩu xác nhận không khớp')
+      const msg = 'Mật khẩu xác nhận không khớp'
+      setError(msg)
+      showAlert(msg, 'error')
       return
     }
     setLoading(true)
     try {
       await changePassword(form.oldPassword, form.newPassword)
       localStorage.removeItem('requirePasswordChange')
+      showAlert('Đổi mật khẩu thành công!', 'success')
       navigate('/')
     } catch (err) {
-      setError(err.response?.data?.message || 'Đổi mật khẩu thất bại')
+      const msg = err.response?.data?.message || 'Đổi mật khẩu thất bại'
+      setError(msg)
+      showAlert(msg, 'error')
     } finally {
       setLoading(false)
     }
@@ -65,7 +73,7 @@ export default function ChangePassword() {
             <input
               id="cp-old"
               type="password"
-              className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all duration-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900"
               style={{ border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'var(--font-body)' }}
               placeholder="••••••••"
               value={form.oldPassword}
@@ -79,7 +87,7 @@ export default function ChangePassword() {
             <input
               id="cp-new"
               type="password"
-              className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all duration-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900"
               style={{ border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'var(--font-body)' }}
               placeholder="Tối thiểu 8 ký tự"
               value={form.newPassword}
@@ -93,7 +101,7 @@ export default function ChangePassword() {
             <input
               id="cp-confirm"
               type="password"
-              className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all duration-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900"
               style={{ border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'var(--font-body)' }}
               placeholder="Nhập lại mật khẩu mới"
               value={form.confirm}

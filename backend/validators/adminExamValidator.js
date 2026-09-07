@@ -2,6 +2,7 @@ const { z } = require('zod')
 
 // ─── BASE GROUP FIELDS ───────────────────────────────────────────────────────
 const baseGroupFields = {
+  id: z.coerce.number().optional(),
   qNumberStart: z.coerce.number({ message: 'qNumberStart phải là số' }),
   qNumberEnd: z.coerce.number({ message: 'qNumberEnd phải là số' }),
   instruction: z.string().optional().default(''),
@@ -16,6 +17,7 @@ const createTrueFalseSchema = (typeLiteral) => z.object({
   ...baseGroupFields,
   type: z.literal(typeLiteral),
   questions: z.array(z.object({
+    id: z.coerce.number().optional(),
     number: z.coerce.number(),
     questionText: z.string().optional().default(''),
     correctAnswer: z.string().optional().default(''),
@@ -26,9 +28,11 @@ const createNoteCompletionSchema = (typeLiteral) => z.object({
   ...baseGroupFields,
   type: z.literal(typeLiteral),
   noteSections: z.array(z.object({
+    id: z.coerce.number().optional(),
     title: z.string().optional().default(''),
     sortOrder: z.coerce.number().optional(),
     lines: z.array(z.object({
+      id: z.coerce.number().optional(),
       content: z.string().optional().default(''),
       // 'heading' is a legacy value already stored in production NoteLine rows
       // (predates this enum) — kept accepted so those exams remain saveable.
@@ -37,6 +41,7 @@ const createNoteCompletionSchema = (typeLiteral) => z.object({
     })).optional().default([]),
   })).optional().default([]),
   questions: z.array(z.object({
+    id: z.coerce.number().optional(),
     number: z.coerce.number(),
     correctAnswer: z.string().optional().default(''),
   })).optional().default([]),
@@ -46,10 +51,12 @@ const createMatchingSchema = (typeLiteral) => z.object({
   ...baseGroupFields,
   type: z.literal(typeLiteral),
   matchingOptions: z.array(z.object({
+    id: z.coerce.number().optional(),
     letter: z.string().optional().default(''),
     text: z.string().optional().default(''),
   })).optional().default([]),
   questions: z.array(z.object({
+    id: z.coerce.number().optional(),
     number: z.coerce.number(),
     questionText: z.string().optional().default(''),
     correctAnswer: z.string().optional().default(''),
@@ -60,17 +67,21 @@ const dragWordBankGroupSchema = z.object({
   ...baseGroupFields,
   type: z.literal('drag_word_bank'),
   noteSections: z.array(z.object({
+    id: z.coerce.number().optional(),
     title: z.string().optional().default(''),
     lines: z.array(z.object({
+      id: z.coerce.number().optional(),
       content: z.string().optional().default(''),
       lineType: z.string().optional().default('content'),
     })).optional().default([]),
   })).optional().default([]),
   matchingOptions: z.array(z.object({
+    id: z.coerce.number().optional(),
     letter: z.string().optional().default(''),
     text: z.string().optional().default(''),
   })).optional().default([]),
   questions: z.array(z.object({
+    id: z.coerce.number().optional(),
     number: z.coerce.number(),
     correctAnswer: z.string().optional().default(''),
   })).optional().default([]),
@@ -80,10 +91,12 @@ const matchingDragGroupSchema = z.object({
   ...baseGroupFields,
   type: z.literal('matching_drag'),
   matchingOptions: z.array(z.object({
+    id: z.coerce.number().optional(),
     letter: z.string().optional().default(''),
     text: z.string().optional().default(''),
   })).optional().default([]),
   questions: z.array(z.object({
+    id: z.coerce.number().optional(),
     number: z.coerce.number(),
     questionText: z.string().optional().default(''),
     correctAnswer: z.string().optional().default(''),
@@ -94,6 +107,7 @@ const diagramLabelGroupSchema = z.object({
   ...baseGroupFields,
   type: z.literal('diagram_label'),
   questions: z.array(z.object({
+    id: z.coerce.number().optional(),
     number: z.coerce.number(),
     hint: z.string().optional(),
     questionText: z.string().optional(),
@@ -105,10 +119,12 @@ const matchingHeadingsGroupSchema = z.object({
   ...baseGroupFields,
   type: z.literal('matching_headings'),
   matchingOptions: z.array(z.object({
+    id: z.coerce.number().optional(),
     letter: z.string().optional().default(''),
     text: z.string().optional().default(''),
   })).optional().default([]),
   questions: z.array(z.object({
+    id: z.coerce.number().optional(),
     number: z.coerce.number(),
     questionText: z.string().optional().default(''),
     correctAnswer: z.string().optional().default(''),
@@ -119,6 +135,7 @@ const createMcqSchema = (typeLiteral) => z.object({
   ...baseGroupFields,
   type: z.literal(typeLiteral),
   questions: z.array(z.object({
+    id: z.coerce.number().optional(),
     number: z.coerce.number(),
     questionText: z.string().optional().default(''),
     options: z.array(z.string()).optional(),

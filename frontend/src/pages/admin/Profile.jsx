@@ -4,7 +4,7 @@ import { getAdminMe, changeAdminPassword } from '../../services/adminService'
 
 
 const ROLE_LABEL = { admin: 'Admin', teacher: 'Teacher' }
-const ROLE_COLOR = { admin: 'bg-purple-100 text-purple-700', teacher: 'bg-blue-100 text-blue-700' }
+const ROLE_COLOR = { admin: 'bg-zinc-900 text-white', teacher: 'bg-zinc-100 text-zinc-800 border border-zinc-200' }
 
 export default function Profile() {
   const [profile, setProfile] = useState(null)
@@ -48,17 +48,17 @@ export default function Profile() {
 
   const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
 
-  const inputCls = 'w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1D4ED8] bg-white'
-  const labelCls = 'block text-sm font-semibold text-gray-700 mb-1.5'
+  const inputCls = 'w-full px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 bg-white text-zinc-900 placeholder:text-zinc-400 transition shadow-2xs'
+  const labelCls = 'block text-xs font-medium text-zinc-700 mb-1.5'
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <div className="w-8 h-8 border-4 border-[#1D4ED8] border-t-transparent rounded-full animate-spin" />
+      <div className="w-8 h-8 border-4 border-zinc-900 border-t-transparent rounded-full animate-spin" />
     </div>
   )
 
   if (!profile) return (
-    <div className="p-8 text-gray-400">Không thể tải thông tin tài khoản.</div>
+    <div className="p-8 text-zinc-400">Không thể tải thông tin tài khoản.</div>
   )
 
   const initials = profile.name
@@ -70,56 +70,56 @@ export default function Profile() {
 
         {/* Page header */}
         <div className="mb-8">
-          <h1 className="text-xl md:text-2xl font-bold text-slate-900">Cài đặt tài khoản</h1>
-          <p className="text-sm text-slate-500 mt-1">Thông tin tài khoản đang đăng nhập</p>
+          <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Cài đặt tài khoản</h1>
+          <p className="text-xs text-zinc-500 mt-1">Thông tin tài khoản đang đăng nhập</p>
         </div>
 
         {/* ── Profile card ─────────────────────────────── */}
-        <section className="bg-white rounded-2xl border border-gray-100 p-6 mb-5">
+        <section className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-6 mb-5">
           <div className="flex items-center gap-5">
             {/* Avatar */}
-            <div className="w-16 h-16 rounded-2xl bg-[#1D4ED8] flex items-center justify-center shrink-0">
-              <span className="text-white text-xl font-bold">{initials}</span>
+            <div className="w-14 h-14 rounded-2xl bg-zinc-900 flex items-center justify-center shrink-0">
+              <span className="text-white text-lg font-bold">{initials}</span>
             </div>
             {/* Info */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg font-bold text-gray-800">{profile.name}</h2>
-                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${ROLE_COLOR[profile.role] || 'bg-gray-100 text-gray-600'}`}>
+                <h2 className="text-base font-semibold text-zinc-900">{profile.name}</h2>
+                <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${ROLE_COLOR[profile.role] || 'bg-zinc-100 text-zinc-700 border border-zinc-200'}`}>
                   {ROLE_LABEL[profile.role] || profile.role}
                 </span>
               </div>
-              <p className="text-sm text-gray-500 mt-0.5">{profile.email}</p>
-              <p className="text-xs text-gray-400 mt-1">Tham gia: {fmtDate(profile.createdAt)}</p>
+              <p className="text-xs text-zinc-500 mt-0.5">{profile.email}</p>
+              <p className="text-[11px] text-zinc-500 mt-1">Tham gia: {fmtDate(profile.createdAt)}</p>
             </div>
           </div>
 
           {/* Detail rows */}
-          <div className="mt-5 pt-5 border-t border-gray-100 grid grid-cols-2 gap-4 text-sm">
+          <div className="mt-5 pt-5 border-t border-zinc-100 grid grid-cols-2 gap-4 text-xs">
             <div>
-              <p className="text-xs text-gray-400 mb-0.5">Họ tên</p>
-              <p className="font-medium text-gray-800">{profile.name}</p>
+              <p className="text-[11px] text-zinc-500 mb-0.5">Họ tên</p>
+              <p className="font-medium text-zinc-900">{profile.name}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-400 mb-0.5">Email</p>
-              <p className="font-medium text-gray-800">{profile.email}</p>
+              <p className="text-[11px] text-zinc-500 mb-0.5">Email</p>
+              <p className="font-medium text-zinc-900">{profile.email}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-400 mb-0.5">Role</p>
-              <p className="font-medium text-gray-800">{ROLE_LABEL[profile.role] || profile.role}</p>
+              <p className="text-[11px] text-zinc-500 mb-0.5">Role</p>
+              <p className="font-medium text-zinc-900">{ROLE_LABEL[profile.role] || profile.role}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-400 mb-0.5">Ngày tạo</p>
-              <p className="font-medium text-gray-800">{fmtDate(profile.createdAt)}</p>
+              <p className="text-[11px] text-zinc-500 mb-0.5">Ngày tạo</p>
+              <p className="font-medium text-zinc-900">{fmtDate(profile.createdAt)}</p>
             </div>
           </div>
         </section>
 
         {/* ── Đổi mật khẩu ─────────────────────────────── */}
-        <section className="bg-white rounded-2xl border border-gray-100 p-6">
+        <section className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-6">
           <div className="mb-5">
-            <h2 className="text-base font-bold text-gray-800">Đổi mật khẩu</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Mật khẩu mới phải ít nhất 6 ký tự</p>
+            <h2 className="text-sm font-semibold text-zinc-900">Đổi mật khẩu</h2>
+            <p className="text-xs text-zinc-500 mt-0.5">Mật khẩu mới phải ít nhất 6 ký tự</p>
           </div>
           <form onSubmit={handlePasswordChange} className="space-y-4">
             <div>
@@ -155,13 +155,13 @@ export default function Profile() {
                 required
               />
             </div>
-            {pwError && <p className="text-sm text-red-500">{pwError}</p>}
-            {pwSaved && <p className="text-sm text-green-600 font-medium">✓ Đổi mật khẩu thành công</p>}
+            {pwError && <p className="text-xs text-red-500">{pwError}</p>}
+            {pwSaved && <p className="text-xs text-green-600 font-medium">✓ Đổi mật khẩu thành công</p>}
             <div className="pt-1">
               <button
                 type="submit"
                 disabled={pwSaving}
-                className="px-6 py-2.5 rounded-xl bg-[#1D4ED8] text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-60"
+                className="px-3.5 py-2 rounded-lg bg-zinc-900 text-white text-xs font-medium hover:bg-zinc-800 transition disabled:opacity-60 shadow-xs"
               >
                 {pwSaving ? 'Đang lưu...' : 'Đổi mật khẩu'}
               </button>

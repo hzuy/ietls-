@@ -99,7 +99,9 @@ export function clearDraft(userId, examId, skillType) {
   if (!userId || !examId || !skillType) return
   try {
     localStorage.removeItem(draftKey(userId, examId, skillType))
-  } catch {}
+  } catch {
+    /* ignore storage errors */
+  }
 }
 
 /**

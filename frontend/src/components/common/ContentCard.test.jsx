@@ -154,12 +154,12 @@ describe('ContentCard — hoverStyle', () => {
     expect(root.style.transform).toContain('translateY(0)')
   })
 
-  it("showcase KHÔNG action: hover đổi màu tiêu đề sang #2563EB", () => {
+  it("showcase KHÔNG action: hover đổi màu tiêu đề sang #18181b", () => {
     render(<ContentCard {...base} hoverStyle="showcase" />)
     const p = screen.getByText(base.title)
     expect(p.style.color).toBe('var(--ink-soft)')
     fireEvent.mouseEnter(p.closest('.card-base'))
-    expect(p.style.color).toBe('rgb(37, 99, 235)')
+    expect(p.style.color).toBe('rgb(24, 24, 27)')
   })
 
   it("showcase CÓ action: hover KHÔNG đổi màu tiêu đề (feedback ở nút/accent bar)", () => {

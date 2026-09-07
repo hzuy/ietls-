@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 
 export default function DragWordBankGroup({ group, answers, onAnswer, previewMode, showAnswers }) {
   const [dragging, setDragging] = useState(null)    // letter being dragged
@@ -70,26 +70,26 @@ export default function DragWordBankGroup({ group, answers, onAnswer, previewMod
           onDrop={() => handleDrop(qNum)}
           onClick={() => handleBlankClick(qNum)}
           className={`inline-flex items-center gap-1 mx-1 min-w-[90px] px-2 py-0.5 border-2 rounded-lg text-sm align-middle transition
-            ${isHovered ? 'border-[var(--primary-hover)] bg-[var(--primary-light)]'
-            : answer ? 'border-[var(--primary)] bg-[var(--primary-light)]'
-            : isClickTarget ? 'border-[var(--primary-hover)] border-dashed bg-blue-50'
-            : 'border-gray-300 border-dashed bg-white'}
+            ${isHovered ? 'border-zinc-900 bg-zinc-100'
+            : answer ? 'border-zinc-900 bg-zinc-50'
+            : isClickTarget ? 'border-zinc-900 border-dashed bg-zinc-100'
+            : 'border-zinc-300 border-dashed bg-white'}
             ${!previewMode ? 'cursor-pointer' : ''}`}
         >
           {answer ? (
             <>
-              <span className="font-bold text-[var(--primary-hover)] text-xs">{answer}</span>
-              <span className="text-[var(--primary-hover)] font-medium text-xs leading-tight">{answerWord}</span>
+              <span className="font-bold text-zinc-900 text-xs">{answer}</span>
+              <span className="text-zinc-900 font-medium text-xs leading-tight">{answerWord}</span>
               {!previewMode && (
                 <button
                   onMouseDown={e => e.preventDefault()}
                   onClick={e => clearBlank(qNum, e)}
-                  className="ml-0.5 text-gray-400 hover:text-red-500 leading-none text-base"
+                  className="ml-0.5 text-zinc-400 hover:text-red-500 leading-none text-base"
                 >×</button>
               )}
             </>
           ) : (
-            <span className="text-gray-400 text-xs italic">{qNum}</span>
+            <span className="text-zinc-400 text-xs italic">{qNum}</span>
           )}
         </span>
       )
@@ -98,31 +98,31 @@ export default function DragWordBankGroup({ group, answers, onAnswer, previewMod
 
   return (
     <div className="mb-6">
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3 text-sm">
-        <p className="font-bold text-gray-800 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
-        {group.instruction && <p className="text-gray-600 text-xs mb-1">{group.instruction}</p>}
-        {!previewMode && <p className="text-gray-500 text-xs italic">Kéo từ Word Bank vào ô trống, hoặc click từ → click ô.</p>}
+      <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 mb-3 text-sm">
+        <p className="font-semibold text-zinc-900 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
+        {group.instruction && <p className="text-zinc-600 text-xs mb-1">{group.instruction}</p>}
+        {!previewMode && <p className="text-zinc-500 text-xs italic">Kéo từ Word Bank vào ô trống, hoặc click từ → click ô.</p>}
       </div>
 
       {/* Summary text with inline drop targets */}
-      <div className="rounded-xl p-4 mb-4 text-sm leading-9" style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)' }}>
+      <div className="bg-white rounded-xl border border-zinc-200 shadow-xs p-4 mb-4 text-sm leading-9">
         {(group.noteSections || []).map((ns, nsi) => (
           <div key={nsi} className={nsi > 0 ? 'mt-3' : ''}>
-            {ns.title && <div className="font-bold text-gray-700 mb-1.5 pb-1 border-b border-amber-200">{ns.title}</div>}
+            {ns.title && <div className="font-semibold text-zinc-900 mb-1.5 pb-1 border-b border-zinc-200">{ns.title}</div>}
             {(ns.lines || []).map((line, li) => {
               const content = line.contentWithTokens || line.content || ''
               if (line.lineType === 'heading') {
-                return <p key={li} className="font-bold text-gray-800 text-[0.95rem] mt-2">{content}</p>
+                return <p key={li} className="font-semibold text-zinc-900 text-[0.95rem] mt-2">{content}</p>
               }
-              return <p key={li} className="leading-9">{parseContent(content)}</p>
+              return <p key={li} className="leading-9 text-zinc-800">{parseContent(content)}</p>
             })}
           </div>
         ))}
       </div>
 
       {/* Word Bank */}
-      <div className={`rounded-xl p-3 border ${previewMode ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-gray-200'}`}>
-        <p className={`text-xs font-bold uppercase mb-2 ${previewMode ? 'text-indigo-700' : 'text-gray-500'}`}>Word Bank</p>
+      <div className="bg-white border border-zinc-200 rounded-xl p-4 shadow-xs">
+        <p className="text-xs font-semibold uppercase tracking-wider mb-2 text-zinc-500">Word Bank</p>
         <div className="flex flex-wrap gap-2">
           {wordBank.map(wb => {
             const isUsed = usedLetters.has(wb.optionLetter)
@@ -136,14 +136,14 @@ export default function DragWordBankGroup({ group, answers, onAnswer, previewMod
                 onClick={() => handleWordBankClick(wb.optionLetter)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm transition select-none
                   ${previewMode
-                    ? 'border-indigo-200 bg-white cursor-default text-gray-700'
+                    ? 'border-zinc-200 bg-white cursor-default text-zinc-700'
                     : isUsed
-                    ? 'opacity-35 cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
+                    ? 'opacity-35 cursor-not-allowed border-zinc-200 bg-zinc-50 text-zinc-400'
                     : isSelectedItem
-                    ? 'border-[var(--primary-hover)] bg-[var(--primary-light)] cursor-pointer shadow-sm'
-                    : 'border-[var(--primary)] bg-white hover:bg-blue-50 cursor-grab active:cursor-grabbing'}`}
+                    ? 'border-zinc-900 bg-zinc-100 cursor-pointer shadow-xs font-medium text-zinc-900'
+                    : 'border-zinc-200 bg-white hover:border-zinc-400 hover:bg-zinc-50 cursor-grab active:cursor-grabbing text-zinc-800'}`}
               >
-                <span className={`font-bold text-xs ${previewMode ? 'text-indigo-600' : 'text-[var(--primary-hover)]'}`}>{wb.optionLetter}</span>
+                <span className="font-bold text-xs text-zinc-900">{wb.optionLetter}</span>
                 <span>{wb.optionText}</span>
               </div>
             )

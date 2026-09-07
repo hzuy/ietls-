@@ -1,8 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
 import api from '../../utils/axios'
+import { showAlert } from '../../utils/alertUtils'
+import { notifyTrashChanged } from '../../services/adminService'
 import { emptyWritingForm, inputCls, labelCls, btnPrimary, btnSecondary, toImgSrc, useExamSeriesList, useSeriesBooks } from './adminConstants'
 import ExamList from './ExamList'
 import InlinePreviewPanel from '../common/InlinePreviewPanel'
+import { Upload, Trash2, Eye } from 'lucide-react'
 
 // ─── PREVIEW: WRITING ─────────────────────────────────────────────────────────
 
@@ -24,8 +27,8 @@ function WritingFormPreview({ form }) {
           <button key={t.num} type="button" onClick={() => setActiveTask(t.num)}
             className={`px-4 py-1.5 rounded-lg border text-sm font-medium transition ${
               activeTask === t.num
-                ? 'bg-blue-600 border-blue-600 text-white'
-                : 'bg-white border-slate-200 text-slate-800'
+                ? 'bg-zinc-900 border-zinc-900 text-white shadow-xs'
+                : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'
             }`}>
             Task {t.num}
           </button>
@@ -35,9 +38,9 @@ function WritingFormPreview({ form }) {
       {/* Content */}
       <div className="flex gap-4" style={{ minHeight: 320 }}>
         {/* Left: task prompt */}
-        <div className="flex-1 min-w-0 bg-white rounded-2xl border border-blue-200 p-5 overflow-y-auto" style={{ maxHeight: 480 }}>
+        <div className="flex-1 min-w-0 bg-white rounded-2xl border border-zinc-200 p-5 overflow-y-auto shadow-xs" style={{ maxHeight: 480 }}>
           <div className="flex items-center gap-2 mb-3">
-            <span className="px-2.5 py-0.5 rounded-lg bg-blue-600 text-white text-xs font-bold uppercase tracking-wide">
+            <span className="px-2.5 py-0.5 rounded-lg bg-zinc-900 text-white text-xs font-bold uppercase tracking-wide">
               TASK {task.num}
             </span>
           </div>
@@ -45,41 +48,41 @@ function WritingFormPreview({ form }) {
             <div onClick={() => setLightbox(toImgSrc(task.data.imageUrl))}
               className="relative cursor-pointer group mb-4 inline-block w-full">
               <img src={toImgSrc(task.data.imageUrl)} alt="Task 1 visual"
-                className="w-full rounded-lg border border-slate-200 object-contain" />
-              <div className="absolute bottom-2 right-2 bg-black/50 text-white rounded px-2 py-0.5 text-[11px] opacity-0 group-hover:opacity-100 transition-opacity">
+                className="w-full rounded-lg border border-zinc-200 object-contain" />
+              <div className="absolute bottom-2 right-2 bg-black/60 text-white rounded px-2 py-0.5 text-[11px] opacity-0 group-hover:opacity-100 transition-opacity">
                 Phóng to
               </div>
             </div>
           )}
           {task.data.prompt ? (
-            <p className="text-sm text-slate-700 leading-7">{task.data.prompt}</p>
+            <p className="text-sm text-zinc-700 leading-7">{task.data.prompt}</p>
           ) : (
-            <p className="text-sm text-slate-400 italic">Chưa có đề bài</p>
+            <p className="text-sm text-zinc-400 italic">Chưa có đề bài</p>
           )}
-          <div className="mt-5 pt-4 border-t border-slate-100 space-y-1">
-            <p className="text-xs text-slate-400">Tối thiểu <span className="font-bold text-slate-600">{task.minWords} từ</span></p>
-            <p className="text-xs text-slate-400">Khuyến nghị: <span className="font-medium text-slate-500">{task.timeHint}</span></p>
+          <div className="mt-5 pt-4 border-t border-zinc-200 space-y-1">
+            <p className="text-xs text-zinc-400">Tối thiểu <span className="font-bold text-zinc-700">{task.minWords} từ</span></p>
+            <p className="text-xs text-zinc-400">Khuyến nghị: <span className="font-medium text-zinc-500">{task.timeHint}</span></p>
           </div>
         </div>
 
         {/* Right: essay area demo */}
         <div className="w-80 shrink-0 flex flex-col gap-2">
-          <div className="bg-white rounded-lg border border-slate-200 flex-1 flex flex-col overflow-hidden">
-            <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500">Bài viết Task {task.num}</span>
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-400">
+          <div className="bg-white rounded-xl border border-zinc-200 flex-1 flex flex-col overflow-hidden shadow-xs">
+            <div className="px-4 py-2.5 border-b border-zinc-200 flex items-center justify-between">
+              <span className="text-xs font-semibold text-zinc-500">Bài viết Task {task.num}</span>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500">
                 0/{task.minWords} từ
               </span>
             </div>
             <textarea
               disabled
               placeholder={`Bắt đầu viết Task ${task.num} tại đây...`}
-              style={{ backgroundColor: '#f8fafc', flex: 1, minHeight: 200, padding: '16px', fontSize: 13, lineHeight: 1.75, resize: 'none', border: 'none', outline: 'none', color: '#9ca3af', cursor: 'not-allowed' }}
+              style={{ backgroundColor: '#f4f4f5', flex: 1, minHeight: 200, padding: '16px', fontSize: 13, lineHeight: 1.75, resize: 'none', border: 'none', outline: 'none', color: '#a1a1aa', cursor: 'not-allowed' }}
             />
           </div>
-          <p className="text-[10px] text-slate-300 italic text-center">Khu vực demo — không nhập được trong preview</p>
+          <p className="text-[10px] text-zinc-400 italic text-center">Khu vực demo — không nhập được trong preview</p>
           <button type="button" disabled
-            className="w-full py-2.5 rounded-lg bg-slate-200 text-slate-400 text-sm font-bold cursor-not-allowed opacity-60">
+            className="w-full py-2.5 rounded-xl bg-zinc-200 text-zinc-400 text-sm font-bold cursor-not-allowed opacity-60">
             Nộp Task {task.num} để AI chấm
           </button>
         </div>
@@ -122,7 +125,7 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   const previewRef = useRef(null)
   const imgRef = useRef(null)
 
-  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
+  const showToast = (msg) => { showAlert(msg); setToast(msg); setTimeout(() => setToast(''), 3000) }
 
   const uploadTask1Image = async (file) => {
     if (file.size > 5 * 1024 * 1024) { showToast('Ảnh tối đa 5MB'); return }
@@ -209,7 +212,9 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       setTimeout(() => setEditHighlight(false), 2000)
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch {
-      setError('Lỗi tải đề để sửa. Thử lại.')
+      const msg = 'Lỗi tải đề để sửa. Thử lại.'
+      setError(msg)
+      showAlert(msg, 'error')
       formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
     finally { setLoadingEdit(false) }
@@ -229,7 +234,9 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     if (!form.task1.prompt.trim()) problems.push('Task 1: chưa nhập đề bài')
     if (!form.task2.prompt.trim()) problems.push('Task 2: chưa nhập đề bài')
     if (problems.length) {
-      setError('Không thể lưu đề:\n• ' + problems.join('\n• '))
+      const msg = 'Không thể lưu đề:\n• ' + problems.join('\n• ')
+      setError(msg)
+      showAlert(msg, 'error')
       formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       return
     }
@@ -258,7 +265,9 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         onRefresh()
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Lỗi tạo đề Writing')
+      const msg = err.response?.data?.message || 'Lỗi tạo đề Writing'
+      setError(msg)
+      showAlert(msg, 'error')
     } finally {
       setSubmitting(false)
     }
@@ -268,6 +277,7 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     // Xác nhận đã do modal của ExamList đảm nhiệm trước khi gọi onDelete
     try {
       await api.delete(`/admin/exams/${id}`)
+      notifyTrashChanged()
       onRefresh()
     } catch { showToast('Lỗi xóa đề') }
   }
@@ -275,40 +285,40 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   return (
     <div className="space-y-6">
       {toast && (
-        <div className="fixed bottom-4 right-4 bg-slate-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg z-50">
+        <div className="fixed bottom-4 right-4 bg-zinc-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg z-50">
           {toast}
         </div>
       )}
       <div className="relative">
       {loadingEdit && (
         <div className="absolute inset-0 z-20 rounded-2xl bg-white/70 backdrop-blur-[1px] flex items-center justify-center">
-          <span className="text-sm font-semibold text-slate-500">Đang tải đề để sửa…</span>
+          <span className="text-sm font-semibold text-zinc-500">Đang tải đề để sửa…</span>
         </div>
       )}
       <form ref={formRef} onSubmit={handleSubmit} aria-busy={loadingEdit}
-        className={`bg-white rounded-2xl p-6 border shadow-sm transition-all duration-500 ${loadingEdit ? 'opacity-60 pointer-events-none select-none' : ''} ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-slate-100'}`}>
-        <h3 className="font-bold text-slate-800 mb-5">{editingId ? `Sửa đề Writing #${editingId}` : 'Tạo đề Writing mới'}</h3>
+        className={`bg-white rounded-2xl p-6 border shadow-xs transition-all duration-500 ${loadingEdit ? 'opacity-60 pointer-events-none select-none' : ''} ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-zinc-200'}`}>
+        <h3 className="text-sm font-semibold text-zinc-900 mb-5">{editingId ? `Sửa đề Writing #${editingId}` : 'Tạo đề Writing mới'}</h3>
 
-        {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-lg mb-4 text-sm whitespace-pre-line">{error}</div>}
+        {error && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg mb-4 text-sm whitespace-pre-line">{error}</div>}
 
         {draftBanner && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 flex items-center justify-between">
-            <span className="text-sm text-yellow-700">Có bản nháp chưa lưu. Khôi phục?</span>
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex items-center justify-between">
+            <span className="text-sm text-amber-700">Có bản nháp chưa lưu. Khôi phục?</span>
             <div className="flex gap-2">
               <button type="button" onClick={() => { setForm(draftBanner.data); setDraftBanner(null) }}
-                className="text-xs px-2.5 py-1 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 transition">Khôi phục</button>
+                className="text-xs px-2.5 py-1 bg-amber-500 text-white rounded-lg font-semibold hover:bg-amber-600 transition">Khôi phục</button>
               <button type="button" onClick={() => { localStorage.removeItem(draftBanner.key); setDraftBanner(null) }}
-                className="text-xs px-2.5 py-1 border border-yellow-300 text-yellow-700 rounded-lg hover:bg-yellow-100 transition">Bỏ qua</button>
+                className="text-xs px-2.5 py-1 border border-amber-300 text-amber-700 rounded-lg hover:bg-amber-100 transition">Bỏ qua</button>
             </div>
           </div>
         )}
 
         {editingId && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex items-center justify-between">
-            <span className="text-sm font-semibold text-amber-700">Đang sửa đề #{editingId}</span>
+          <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-3 mb-4 flex items-center justify-between">
+            <span className="text-sm font-semibold text-zinc-800">Đang sửa đề #{editingId}</span>
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => setShowPreview(v => !v)}
-                className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-blue-200 bg-white text-blue-500 hover:border-blue-400 hover:text-blue-700 transition">
+                className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 transition shadow-2xs">
                 {showPreview ? 'Ẩn preview' : 'Preview'}
               </button>
               <button type="button" onClick={cancelEdit} className={btnSecondary + ' text-xs'}>Hủy sửa</button>
@@ -323,8 +333,8 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
               value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
           </div>
         </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-5">
-          <p className="text-xs font-bold text-blue-700 mb-2">Gắn nhãn bộ đề (tuỳ chọn)</p>
+        <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-3 mb-5">
+          <p className="text-xs font-medium text-zinc-700 mb-2">Gắn nhãn bộ đề (tuỳ chọn)</p>
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className={labelCls}>Bộ đề</label>
@@ -351,21 +361,29 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         </div>
 
         {/* Task 1 */}
-        <div className="border border-slate-200 rounded-2xl p-5 mb-5 bg-slate-50">
+        <div className="border border-zinc-200 rounded-2xl p-5 mb-5 bg-zinc-50/60">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">1</div>
-            <span className="font-semibold text-base text-slate-800">Task 1 — Mô tả biểu đồ / bản đồ / quy trình (tối thiểu 150 từ)</span>
+            <div className="w-7 h-7 rounded-full bg-zinc-900 text-white text-xs font-bold flex items-center justify-center">1</div>
+            <span className="font-medium text-sm text-zinc-800">Task 1 — Mô tả biểu đồ / bản đồ / quy trình (tối thiểu 150 từ)</span>
           </div>
           <div className="mb-4">
             <label className={labelCls}>Hình ảnh (biểu đồ / bản đồ) — tùy chọn</label>
             <div className="flex gap-2">
               <button type="button" onClick={() => imgRef.current?.click()} disabled={imgUploading}
-                className={`${btnSecondary} whitespace-nowrap`}>
-                {imgUploading ? 'Đang upload...' : '📷 Upload ảnh'}
+                className={`${btnSecondary} whitespace-nowrap flex items-center gap-1.5`}>
+                {imgUploading ? 'Đang upload...' : (
+                  <>
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Upload ảnh</span>
+                  </>
+                )}
               </button>
               {form.task1.imageUrl && (
                 <button type="button" onClick={() => setForm(f => ({ ...f, task1: { ...f.task1, imageUrl: '' } }))}
-                  className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 text-xs px-2 py-1 rounded transition">✕ Xóa ảnh</button>
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50 text-xs px-2 py-1 rounded transition flex items-center gap-1">
+                  <Trash2 className="w-3 h-3" />
+                  <span>Xóa ảnh</span>
+                </button>
               )}
               <input ref={imgRef} type="file" accept=".png,.jpg,.jpeg" className="hidden"
                 onChange={e => { if (e.target.files[0]) uploadTask1Image(e.target.files[0]); e.target.value = '' }} />
@@ -373,9 +391,9 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
             {form.task1.imageUrl && (
               <img
                 src={toImgSrc(form.task1.imageUrl)}
-                alt="task1 preview" className="mt-2 max-h-48 rounded-lg border object-contain w-full bg-slate-50" />
+                alt="task1 preview" className="mt-2 max-h-48 rounded-lg border border-zinc-200 object-contain w-full bg-zinc-50" />
             )}
-            <p className="text-xs text-slate-400 mt-1">PNG hoặc JPG, tối đa 5MB</p>
+            <p className="text-xs text-zinc-400 mt-1">PNG hoặc JPG, tối đa 5MB</p>
           </div>
           <div>
             <label className={labelCls}>Đề bài Task 1</label>
@@ -387,10 +405,10 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         </div>
 
         {/* Task 2 */}
-        <div className="border border-slate-200 rounded-2xl p-5 mb-6 bg-slate-50">
+        <div className="border border-zinc-200 rounded-2xl p-5 mb-6 bg-zinc-50/60">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">2</div>
-            <span className="font-semibold text-base text-slate-800">Task 2 — Viết luận (tối thiểu 250 từ)</span>
+            <div className="w-7 h-7 rounded-full bg-zinc-900 text-white text-xs font-bold flex items-center justify-center">2</div>
+            <span className="font-medium text-sm text-zinc-800">Task 2 — Viết luận (tối thiểu 250 từ)</span>
           </div>
           <div>
             <label className={labelCls}>Đề bài Task 2 (Essay)</label>
@@ -407,9 +425,14 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         <button
           type="button"
           onClick={() => setShowPreview(v => !v)}
-          className={`w-full py-2.5 rounded-lg border-2 text-sm font-semibold transition ${showPreview ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-dashed border-slate-200 text-slate-400 hover:border-indigo-300 hover:text-indigo-600'}`}
+          className={`w-full py-2 px-3 rounded-lg border text-xs font-medium transition flex items-center justify-center gap-1.5 ${
+            showPreview
+              ? 'border-zinc-400 bg-zinc-100 text-zinc-900'
+              : 'border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50 text-zinc-600 hover:text-zinc-900'
+          }`}
         >
-          {showPreview ? '▲ Thu gọn preview' : '👁 Xem trước nội dung đề'}
+          <Eye className="w-3.5 h-3.5" />
+          <span>{showPreview ? 'Thu gọn preview' : 'Xem trước nội dung đề'}</span>
         </button>
       </form>
       </div>
@@ -426,8 +449,8 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         </div>
       )}
 
-      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-        <h3 className="font-bold text-slate-800 mb-4">Danh sách đề Writing ({paginationData?.total ?? exams.length})</h3>
+      <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-xs">
+        <h3 className="text-base font-semibold text-zinc-900 mb-4">Danh sách đề Writing ({paginationData?.total ?? exams.length})</h3>
         <ExamList exams={exams} skill="writing" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} error={loadError} />
       </div>
     </div>

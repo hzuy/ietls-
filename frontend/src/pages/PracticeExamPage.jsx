@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 
 import Navbar from '../components/Navbar'
 import { getPractice } from '../services/practiceService'
-import { BookOpen, Headphones, ArrowLeft } from 'lucide-react'
+import { BookOpen, Headphones, ArrowLeft, X, Clock } from 'lucide-react'
 import MatchingTickGrid from '../components/MatchingTickGrid'
 import DragWordBankGroup from '../components/DragWordBankGroup'
 import MatchingDragGroup from '../components/MatchingDragGroup'
@@ -242,38 +242,37 @@ function ReadingPracticeExam({ exam, onBack }) {
 
   // ── Start screen ────────────────────────────────────────────────────────────
   if (phase === 'start') return (
-    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
-      <div className="bg-white rounded-2xl shadow-lg p-10 max-w-md w-full text-center flex flex-col items-center" style={{ background: 'var(--surface)', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-md)', padding: 40 }}>
-        <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200/80 flex items-center justify-center mx-auto mb-5">
-          <BookOpen className="w-8 h-8 text-slate-600 stroke-[1.75]" />
+    <div className="min-h-screen flex items-center justify-center bg-zinc-50/50">
+      <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-10 max-w-md w-full text-center flex flex-col items-center">
+        <div className="w-16 h-16 rounded-2xl bg-zinc-100 border border-zinc-200 flex items-center justify-center mx-auto mb-5">
+          <BookOpen className="w-8 h-8 text-zinc-700 stroke-[1.75]" />
         </div>
-        <h1 className="text-xl font-bold mb-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--ink-soft)' }}>{exam.title}</h1>
-        <p className="text-sm mb-1" style={{ color: 'var(--text)' }}>1 Passage · {totalSlots} câu hỏi</p>
-        <p className="text-sm mb-8" style={{ color: 'var(--text)' }}>Thời gian: <span className="font-semibold" style={{ color: 'var(--skill-r-color)' }}>20 phút</span></p>
-        <div className="rounded-xl p-4 text-left text-sm mb-8 space-y-1 w-full" style={{ background: 'var(--skill-r-bg)', border: '1px solid var(--skill-r-border)', color: 'var(--ink-soft)' }}>
+        <h1 className="text-2xl font-bold text-zinc-900 tracking-tight mb-2">{exam.title}</h1>
+        <p className="text-sm text-zinc-500 mb-1">1 Passage · {totalSlots} câu hỏi</p>
+        <p className="text-sm text-zinc-500 mb-8">Thời gian: <span className="font-semibold text-zinc-900">20 phút</span></p>
+        <div className="rounded-xl p-4 text-left text-sm mb-8 space-y-1 w-full bg-zinc-50 border border-zinc-200 text-zinc-700">
           <p>• Đọc passage bên trái, trả lời câu hỏi bên phải</p>
           <p>• Bài sẽ tự nộp khi hết giờ</p>
         </div>
         {draftMeta?.hasDraft ? (
           <>
-            <button onClick={resumeDraft} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 'var(--fs-base)', marginBottom: 8 }}>
+            <button onClick={resumeDraft} className="w-full py-3 rounded-xl font-medium text-sm bg-zinc-900 hover:bg-black text-white transition shadow-xs cursor-pointer mb-2">
               Tiếp tục{draftMeta.savedAt ? ` (đã lưu ${formatSavedAt(draftMeta.savedAt)})` : ''} →
             </button>
-            <button onClick={startFresh} className="w-full text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-all duration-200 ease-in-out font-medium text-xs cursor-pointer" style={{ width: '100%', padding: '10px 0', borderRadius: '12px', marginBottom: 4 }}>
+            <button onClick={startFresh} className="w-full text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 transition font-medium text-xs py-2 rounded-xl mb-1 cursor-pointer">
               Làm lại từ đầu
             </button>
           </>
         ) : (
-          <button onClick={() => setPhase('exam')} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 'var(--fs-base)', marginBottom: 8 }}>
+          <button onClick={() => setPhase('exam')} className="w-full py-3 rounded-xl font-medium text-sm bg-zinc-900 hover:bg-black text-white transition shadow-xs cursor-pointer mb-2">
             Bắt đầu làm bài
           </button>
         )}
         <button
           onClick={onBack}
-          className="w-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all duration-200 ease-in-out font-medium text-sm flex items-center justify-center gap-1.5 cursor-pointer"
-          style={{ width: '100%', padding: '12px 0', borderRadius: '12px' }}
+          className="w-full text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition font-medium text-sm py-2.5 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
         >
-          <ArrowLeft className="w-4 h-4 text-slate-500" /> Quay lại
+          <ArrowLeft className="w-4 h-4 text-zinc-500" /> Quay lại
         </button>
       </div>
     </div>
@@ -291,19 +290,37 @@ function ReadingPracticeExam({ exam, onBack }) {
 
   // ── Exam screen ─────────────────────────────────────────────────────────────
   return (
-    <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: 'var(--bg)' }}>
+    <div className="h-screen flex flex-col overflow-hidden bg-zinc-50/50">
       {/* Header */}
-      <header className="text-white px-6 py-3 flex items-center justify-between shrink-0" style={{ backgroundColor: 'var(--ink)' }}>
+      <header className="h-14 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 px-6 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-3 min-w-0">
-          <button onClick={() => setShowExitConfirm(true)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold text-base shrink-0 transition">✕</button>
-          <span className="text-sm font-semibold truncate">{exam.title}</span>
+          <button
+            type="button"
+            aria-label="Đóng bài thi"
+            onClick={() => setShowExitConfirm(true)}
+            className="h-8 px-2.5 flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-xs font-medium transition cursor-pointer shrink-0"
+            title="Thoát bài thi"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Thoát</span>
+          </button>
+          <span className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">{exam.title}</span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {lastSavedAt && (
-            <span className="text-white/45 text-[11px] whitespace-nowrap">✓ Đã lưu {formatSavedAt(lastSavedAt)}</span>
+            <span className="text-[11px] text-zinc-400 dark:text-zinc-500 whitespace-nowrap">✓ Đã lưu {formatSavedAt(lastSavedAt)}</span>
           )}
-          <span className="text-blue-200 text-xs">{answered}/{totalSlots} câu</span>
-          <div className={`font-mono font-bold text-sm px-3 py-1 rounded ${timeLeft < 300 ? 'bg-blue-500' : timeLeft < 600 ? 'bg-yellow-500 text-black' : 'bg-blue-700'}`}>
+          <span className="text-xs text-zinc-500 dark:text-zinc-400 font-mono tabular-nums">{answered}/{totalSlots} câu</span>
+          <div
+            className={`tabular-nums text-xs font-semibold px-2.5 py-1 rounded-lg border flex items-center gap-1.5 ${
+              timeLeft < 300
+                ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900/60'
+                : timeLeft < 600
+                ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/60'
+                : 'text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" />
             {fmt(timeLeft)}
           </div>
         </div>
@@ -312,11 +329,11 @@ function ReadingPracticeExam({ exam, onBack }) {
       {/* Body */}
       <div ref={bodyRef} className={`flex-1 flex flex-col md:flex-row overflow-hidden${isDragging ? ' select-none' : ''}`}>
         {/* Left: Passage */}
-        <div className="overflow-y-auto bg-white px-8 py-6 border-b md:border-b-0 md:border-r border-gray-200"
+        <div className="overflow-y-auto bg-white px-8 py-6 border-b md:border-b-0 md:border-r border-zinc-200"
           style={{ width: isMobile ? '100%' : `${splitRatio}%` }}>
-          <h2 className="text-xl font-bold text-gray-900 text-center mb-1 leading-snug" style={{ fontFamily: 'var(--font-reading)' }}>{exam.title}</h2>
-          <div className="w-16 h-0.5 bg-blue-500 mx-auto mb-6" />
-          <div className="text-gray-800 text-[0.92rem] leading-8" style={{ fontFamily: 'var(--font-reading)' }}>
+          <h2 className="text-lg font-semibold text-zinc-900 text-center mb-1 leading-snug">{exam.title}</h2>
+          <div className="w-16 h-0.5 bg-zinc-900 mx-auto mb-6" />
+          <div className="text-zinc-800 text-sm leading-relaxed font-normal" style={{ fontFamily: 'var(--font-reading)' }}>
             {(exam.passage || '').split(/\n\s*\n|\n/).map(s => s.trim()).filter(Boolean).map((para, i) => (
               <p key={i} className="mb-5 indent-6">{para.charAt(0).toUpperCase() + para.slice(1)}</p>
             ))}
@@ -326,23 +343,23 @@ function ReadingPracticeExam({ exam, onBack }) {
         {/* Drag divider */}
         <div
           className="group relative flex-shrink-0 hidden md:flex flex-col items-center justify-center w-2 hover:w-3 transition-all duration-100 cursor-col-resize select-none"
-          style={{ backgroundColor: isDragging ? 'var(--primary-light)' : undefined }}
+          style={{ backgroundColor: isDragging ? '#d4d4d8' : undefined }}
           onMouseDown={handleDividerMouseDown}
         >
-          <div className={`w-full h-full absolute inset-0 transition-colors ${isDragging ? 'bg-blue-300' : 'bg-gray-200 group-hover:bg-blue-200'}`} />
+          <div className={`w-full h-full absolute inset-0 transition-colors ${isDragging ? 'bg-zinc-400' : 'bg-zinc-200 group-hover:bg-zinc-300'}`} />
           <div className="relative z-10 flex flex-col gap-1 pointer-events-none">
-            <div className={`w-0.5 h-4 rounded-full transition-colors ${isDragging ? 'bg-blue-600' : 'bg-gray-400 group-hover:bg-blue-500'}`} />
-            <div className={`w-0.5 h-4 rounded-full transition-colors ${isDragging ? 'bg-blue-600' : 'bg-gray-400 group-hover:bg-blue-500'}`} />
+            <div className={`w-0.5 h-4 rounded-full transition-colors ${isDragging ? 'bg-zinc-900' : 'bg-zinc-400 group-hover:bg-zinc-600'}`} />
+            <div className={`w-0.5 h-4 rounded-full transition-colors ${isDragging ? 'bg-zinc-900' : 'bg-zinc-400 group-hover:bg-zinc-600'}`} />
           </div>
           <button onMouseDown={e => e.stopPropagation()} onClick={resetSplit} title="Reset 50/50"
-            className="absolute top-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white border border-gray-300 rounded text-gray-500 hover:text-blue-600 hover:border-blue-400 text-[10px] px-1 py-0.5 shadow-sm leading-none">
+            className="absolute top-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white border border-zinc-300 rounded text-zinc-500 hover:text-zinc-900 hover:border-zinc-400 text-[10px] px-1 py-0.5 shadow-xs leading-none">
             ⇔
           </button>
         </div>
 
         {/* Right: Questions */}
-        <div className="overflow-y-auto px-6 py-5 max-md:w-full"
-          style={{ width: isMobile ? '100%' : `${100 - splitRatio}%`, backgroundColor: 'var(--surface-raised)' }}>
+        <div className="overflow-y-auto px-6 py-5 max-md:w-full bg-zinc-50/50"
+          style={{ width: isMobile ? '100%' : `${100 - splitRatio}%` }}>
           {groups.map((group, gi) => (
             <ReadingPracticeGroupBlock key={group.id || gi} group={normalizeGroup(group)} answers={answers} onAnswer={onAnswer} />
           ))}
@@ -350,24 +367,25 @@ function ReadingPracticeExam({ exam, onBack }) {
       </div>
 
       {/* Bottom navigator bar — single row */}
-      <div className="bg-white border-t border-gray-200 shrink-0 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-        <div className="px-6 py-3 flex items-center gap-4">
-          <span className="text-[13px] text-gray-400 shrink-0 min-w-[90px]">Đã làm {answered}/{totalSlots} câu</span>
-          <div className="flex flex-wrap gap-2 flex-1 justify-center">
-            {navItems.map(({ number, qId }) => (
-              <QuestionNavButton
-                key={number}
-                number={number}
-                status={qId && answers[qId] ? 'answered' : 'unanswered'}
-                onClick={() => jumpToQuestion(number)}
-              />
-            ))}
-          </div>
-          <button onClick={() => setShowConfirm(true)}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md font-bold text-sm transition-colors shrink-0">
-            Nộp bài
-          </button>
+      <div className="h-14 px-6 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 flex items-center gap-4 shrink-0 z-20">
+        <span className="text-xs text-zinc-500 shrink-0 min-w-[90px] font-mono tabular-nums">Đã làm {answered}/{totalSlots} câu</span>
+        <div className="flex flex-wrap gap-2 flex-1 justify-center">
+          {navItems.map(({ number, qId }) => (
+            <QuestionNavButton
+              key={number}
+              number={number}
+              status={qId && answers[qId] ? 'answered' : 'unanswered'}
+              onClick={() => jumpToQuestion(number)}
+            />
+          ))}
         </div>
+        <button
+          type="button"
+          onClick={() => setShowConfirm(true)}
+          className="bg-red-600 hover:bg-red-700 text-white text-xs font-medium py-2 px-4 rounded-xl shadow-xs transition-colors shrink-0 cursor-pointer"
+        >
+          Nộp bài
+        </button>
       </div>
 
       {/* Exit confirm */}
@@ -383,14 +401,14 @@ function ReadingPracticeExam({ exam, onBack }) {
 
       {/* Submit confirm */}
       {showConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowConfirm(false)}>
-          <div className="p-8 shadow-2xl max-w-sm w-full mx-4" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }} onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-bold mb-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--ink-soft)' }}>Nộp bài?</h2>
-            <p className="text-sm mb-2" style={{ color: 'var(--text)' }}>Bạn có chắc muốn nộp bài không?</p>
-            <p className="text-sm font-semibold mb-6" style={{ color: 'var(--ink-soft)' }}>Đã làm: <span style={{ color: 'var(--primary)' }}>{answered}/{totalSlots}</span> câu</p>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4" onClick={() => setShowConfirm(false)}>
+          <div className="p-6 shadow-xl max-w-sm w-full bg-white rounded-2xl border border-zinc-200" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold text-zinc-900 mb-2">Nộp bài?</h2>
+            <p className="text-sm text-zinc-600 mb-2">Bạn có chắc muốn nộp bài không?</p>
+            <p className="text-sm font-medium text-zinc-900 mb-6">Đã làm: <span className="font-semibold text-zinc-900">{answered}/{totalSlots}</span> câu</p>
             <div className="flex gap-3">
-              <button onClick={() => setShowConfirm(false)} className="flex-1 py-2.5 btn-secondary text-sm font-semibold transition">Tiếp tục làm</button>
-              <button onClick={() => { setShowConfirm(false); doSubmit() }} className="flex-1 py-2.5 btn-danger text-sm font-bold transition">Nộp bài</button>
+              <button onClick={() => setShowConfirm(false)} className="flex-1 py-2.5 bg-white border border-zinc-200 text-zinc-900 hover:bg-zinc-100 rounded-lg font-medium text-sm transition cursor-pointer">Tiếp tục làm</button>
+              <button onClick={() => { setShowConfirm(false); doSubmit() }} className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm transition shadow-xs cursor-pointer">Nộp bài</button>
             </div>
           </div>
         </div>
@@ -582,38 +600,37 @@ function ListeningPracticeExam({ exam, onBack }) {
 
   // Start screen
   if (phase === 'start') return (
-    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
-      <div className="rounded-2xl shadow-lg p-10 max-w-md w-full text-center flex flex-col items-center" style={{ background: 'var(--surface)', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-md)', padding: 40 }}>
-        <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200/80 flex items-center justify-center mx-auto mb-5">
-          <Headphones className="w-8 h-8 text-slate-600 stroke-[1.75]" />
+    <div className="min-h-screen flex items-center justify-center bg-zinc-50/50">
+      <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-10 max-w-md w-full text-center flex flex-col items-center">
+        <div className="w-16 h-16 rounded-2xl bg-zinc-100 border border-zinc-200 flex items-center justify-center mx-auto mb-5">
+          <Headphones className="w-8 h-8 text-zinc-700 stroke-[1.75]" />
         </div>
-        <h1 className="text-xl font-bold mb-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--ink-soft)' }}>{exam.title}</h1>
-        <p className="text-sm mb-1" style={{ color: 'var(--text)' }}>{totalSlots} câu hỏi</p>
-        <p className="text-sm mb-8" style={{ color: 'var(--text)' }}>Thời gian: <span className="font-semibold" style={{ color: 'var(--skill-l-color)' }}>10 phút</span></p>
-        <div className="rounded-xl p-4 text-left text-sm mb-8 space-y-1 w-full" style={{ background: 'var(--skill-l-bg)', border: '1px solid var(--skill-l-border)', color: 'var(--ink-soft)' }}>
+        <h1 className="text-2xl font-bold text-zinc-900 tracking-tight mb-2">{exam.title}</h1>
+        <p className="text-sm text-zinc-500 mb-1">{totalSlots} câu hỏi</p>
+        <p className="text-sm text-zinc-500 mb-8">Thời gian: <span className="font-semibold text-zinc-900">10 phút</span></p>
+        <div className="rounded-xl p-4 text-left text-sm mb-8 space-y-1 w-full bg-zinc-50 border border-zinc-200 text-zinc-700">
           <p>• Nghe audio và trả lời các câu hỏi</p>
           <p>• Bài sẽ tự nộp khi hết giờ</p>
         </div>
         {draftMeta?.hasDraft ? (
           <>
-            <button onClick={resumeDraft} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 'var(--fs-base)', marginBottom: 8 }}>
+            <button onClick={resumeDraft} className="w-full py-3 rounded-xl font-medium text-sm bg-zinc-900 hover:bg-black text-white transition shadow-xs cursor-pointer mb-2">
               Tiếp tục{draftMeta.savedAt ? ` (đã lưu ${formatSavedAt(draftMeta.savedAt)})` : ''} →
             </button>
-            <button onClick={startFresh} className="w-full text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-all duration-200 ease-in-out font-medium text-xs cursor-pointer" style={{ width: '100%', padding: '10px 0', borderRadius: '12px', marginBottom: 4 }}>
+            <button onClick={startFresh} className="w-full text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 transition font-medium text-xs py-2 rounded-xl mb-1 cursor-pointer">
               Làm lại từ đầu
             </button>
           </>
         ) : (
-          <button onClick={() => setPhase('exam')} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 'var(--fs-base)', marginBottom: 8 }}>
+          <button onClick={() => setPhase('exam')} className="w-full py-3 rounded-xl font-medium text-sm bg-zinc-900 hover:bg-black text-white transition shadow-xs cursor-pointer mb-2">
             Bắt đầu làm bài
           </button>
         )}
         <button
           onClick={onBack}
-          className="w-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all duration-200 ease-in-out font-medium text-sm flex items-center justify-center gap-1.5 cursor-pointer"
-          style={{ width: '100%', padding: '12px 0', borderRadius: '12px' }}
+          className="w-full text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition font-medium text-sm py-2.5 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
         >
-          <ArrowLeft className="w-4 h-4 text-slate-500" /> Quay lại
+          <ArrowLeft className="w-4 h-4 text-zinc-500" /> Quay lại
         </button>
       </div>
     </div>
@@ -631,19 +648,37 @@ function ListeningPracticeExam({ exam, onBack }) {
 
   // Exam screen
   return (
-    <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: 'var(--bg)' }}>
+    <div className="h-screen flex flex-col overflow-hidden bg-zinc-50/50">
       {/* Header */}
-      <header className="text-white px-6 py-3 flex items-center justify-between shrink-0" style={{ backgroundColor: 'var(--ink)' }}>
+      <header className="h-14 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 px-6 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-3 min-w-0">
-          <button onClick={() => setShowExitConfirm(true)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold text-base shrink-0 transition">✕</button>
-          <span className="text-sm font-semibold truncate">{exam.title}</span>
+          <button
+            type="button"
+            aria-label="Đóng bài thi"
+            onClick={() => setShowExitConfirm(true)}
+            className="h-8 px-2.5 flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-xs font-medium transition cursor-pointer shrink-0"
+            title="Thoát bài thi"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Thoát</span>
+          </button>
+          <span className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">{exam.title}</span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {lastSavedAt && (
-            <span className="text-white/45 text-[11px] whitespace-nowrap">✓ Đã lưu {formatSavedAt(lastSavedAt)}</span>
+            <span className="text-[11px] text-zinc-400 dark:text-zinc-500 whitespace-nowrap">✓ Đã lưu {formatSavedAt(lastSavedAt)}</span>
           )}
-          <span className="text-blue-200 text-xs">{answered}/{totalSlots} câu</span>
-          <div className={`font-mono font-bold text-sm px-3 py-1 rounded ${timeLeft < 120 ? 'bg-blue-500' : timeLeft < 300 ? 'bg-yellow-500 text-black' : 'bg-blue-700'}`}>
+          <span className="text-xs text-zinc-500 dark:text-zinc-400 font-mono tabular-nums">{answered}/{totalSlots} câu</span>
+          <div
+            className={`tabular-nums text-xs font-semibold px-2.5 py-1 rounded-lg border flex items-center gap-1.5 ${
+              timeLeft < 120
+                ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900/60'
+                : timeLeft < 300
+                ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/60'
+                : 'text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" />
             {fmt(timeLeft)}
           </div>
         </div>
@@ -651,17 +686,17 @@ function ListeningPracticeExam({ exam, onBack }) {
 
       {/* Sticky audio player */}
       {exam.audioUrl && (
-        <div className="bg-white border-b border-gray-200 px-6 py-4 shrink-0">
-          <audio controls src={resolveImg(exam.audioUrl)} className="w-full h-10" />
+        <div className="bg-zinc-50 border-b border-zinc-200 px-6 py-3 shrink-0">
+          <audio controls src={resolveImg(exam.audioUrl)} className="w-full h-10 accent-zinc-900" />
         </div>
       )}
 
       {/* Scrollable questions */}
-      <div className="flex-1 overflow-y-auto px-6 py-5" style={{ backgroundColor: 'var(--surface-raised)' }}>
+      <div className="flex-1 overflow-y-auto px-6 py-5 bg-zinc-50/50">
         {exam.passage && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-5">
-            <p className="text-xs font-bold text-gray-500 uppercase mb-2">Context / Situation</p>
-            <p className="text-sm text-gray-700 leading-7 whitespace-pre-wrap">{exam.passage}</p>
+          <div className="bg-white rounded-xl border border-zinc-200 shadow-xs p-5 mb-5 max-w-2xl mx-auto">
+            <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Context / Situation</p>
+            <p className="text-sm text-zinc-800 leading-relaxed font-normal whitespace-pre-wrap">{exam.passage}</p>
           </div>
         )}
         <div className="max-w-2xl mx-auto">
@@ -672,24 +707,25 @@ function ListeningPracticeExam({ exam, onBack }) {
       </div>
 
       {/* Bottom navigator */}
-      <div className="bg-white border-t border-gray-200 shrink-0 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-        <div className="px-6 py-3 flex items-center gap-4">
-          <span className="text-[13px] text-gray-400 shrink-0 min-w-[90px]">Đã làm {answered}/{totalSlots} câu</span>
-          <div className="flex flex-wrap gap-2 flex-1 justify-center">
-            {navItems.map(({ number }) => (
-              <QuestionNavButton
-                key={number}
-                number={number}
-                status={answers[number] ? 'answered' : 'unanswered'}
-                onClick={() => jumpToQuestion(number)}
-              />
-            ))}
-          </div>
-          <button onClick={() => setShowConfirm(true)}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md font-bold text-sm transition-colors shrink-0">
-            Nộp bài
-          </button>
+      <div className="h-14 px-6 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 flex items-center gap-4 shrink-0 z-20">
+        <span className="text-xs text-zinc-500 shrink-0 min-w-[90px] font-mono tabular-nums">Đã làm {answered}/{totalSlots} câu</span>
+        <div className="flex flex-wrap gap-2 flex-1 justify-center">
+          {navItems.map(({ number }) => (
+            <QuestionNavButton
+              key={number}
+              number={number}
+              status={answers[number] ? 'answered' : 'unanswered'}
+              onClick={() => jumpToQuestion(number)}
+            />
+          ))}
         </div>
+        <button
+          type="button"
+          onClick={() => setShowConfirm(true)}
+          className="bg-red-600 hover:bg-red-700 text-white text-xs font-medium py-2 px-4 rounded-xl shadow-xs transition-colors shrink-0 cursor-pointer"
+        >
+          Nộp bài
+        </button>
       </div>
 
       {/* Exit confirm */}
@@ -705,14 +741,14 @@ function ListeningPracticeExam({ exam, onBack }) {
 
       {/* Submit confirm */}
       {showConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowConfirm(false)}>
-          <div className="p-8 shadow-2xl max-w-sm w-full mx-4" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }} onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-bold mb-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--ink-soft)' }}>Nộp bài?</h2>
-            <p className="text-sm mb-2" style={{ color: 'var(--text)' }}>Bạn có chắc muốn nộp bài không?</p>
-            <p className="text-sm font-semibold mb-6" style={{ color: 'var(--ink-soft)' }}>Đã làm: <span style={{ color: 'var(--primary)' }}>{answered}/{totalSlots}</span> câu</p>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4" onClick={() => setShowConfirm(false)}>
+          <div className="p-6 shadow-xl max-w-sm w-full bg-white rounded-2xl border border-zinc-200" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold text-zinc-900 mb-2">Nộp bài?</h2>
+            <p className="text-sm text-zinc-600 mb-2">Bạn có chắc muốn nộp bài không?</p>
+            <p className="text-sm font-medium text-zinc-900 mb-6">Đã làm: <span className="font-semibold text-zinc-900">{answered}/{totalSlots}</span> câu</p>
             <div className="flex gap-3">
-              <button onClick={() => setShowConfirm(false)} className="flex-1 py-2.5 btn-secondary text-sm font-semibold transition">Tiếp tục làm</button>
-              <button onClick={() => { setShowConfirm(false); doSubmit() }} className="flex-1 py-2.5 btn-danger text-sm font-bold transition">Nộp bài</button>
+              <button onClick={() => setShowConfirm(false)} className="flex-1 py-2.5 bg-white border border-zinc-200 text-zinc-900 hover:bg-zinc-100 rounded-lg font-medium text-sm transition cursor-pointer">Tiếp tục làm</button>
+              <button onClick={() => { setShowConfirm(false); doSubmit() }} className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm transition shadow-xs cursor-pointer">Nộp bài</button>
             </div>
           </div>
         </div>

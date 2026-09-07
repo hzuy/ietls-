@@ -25,22 +25,22 @@ export default function ConfirmExitModal({
   return (
     <Modal onClose={onClose} title={title} size="sm">
       <div className="p-8">
-        <h2 className="text-slate-900 text-lg font-bold mb-2 tracking-tight">
+        <h2 className="text-zinc-900 text-lg font-semibold mb-2 tracking-tight">
           {title}
         </h2>
-        <p className="text-slate-500 text-sm mb-6 leading-relaxed">
+        <p className="text-zinc-500 text-sm mb-6 leading-relaxed">
           {message}
         </p>
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="btn-primary flex-1 py-2.5 text-sm font-bold transition cursor-pointer"
+            className="btn-primary flex-1 py-2.5 rounded-lg text-sm font-medium transition cursor-pointer shadow-xs"
           >
             {cancelText}
           </button>
           <button
             onClick={onConfirm}
-            className="btn-danger flex-1 py-2.5 text-sm font-bold transition cursor-pointer"
+            className="btn-danger flex-1 py-2.5 rounded-lg text-sm font-medium transition cursor-pointer"
           >
             {confirmText}
           </button>

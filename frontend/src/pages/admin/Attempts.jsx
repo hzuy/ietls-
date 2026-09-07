@@ -27,8 +27,8 @@ const fmtDateTime = (d) =>
 function DetailRow({ label, children }) {
   return (
     <div className="flex items-start justify-between gap-4">
-      <dt className="text-slate-500 shrink-0">{label}</dt>
-      <dd className="text-slate-800 font-medium text-right">{children}</dd>
+      <dt className="text-zinc-500 shrink-0">{label}</dt>
+      <dd className="text-zinc-900 font-medium text-right">{children}</dd>
     </div>
   )
 }
@@ -48,19 +48,19 @@ function AttemptDetailModal({ attempt: a, onClose }) {
 
   return (
     <Modal onClose={onClose} title={`Chi tiết lượt thi #${a.id}`} size="md">
-      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
-        <h2 className="font-bold text-slate-800">Chi tiết lượt thi</h2>
+      <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200 shrink-0">
+        <h2 className="text-sm font-semibold text-zinc-900">Chi tiết lượt thi</h2>
         <button onClick={onClose} aria-label="Đóng"
-          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 font-bold transition">✕</button>
+          className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-zinc-100 text-zinc-400 font-bold transition">✕</button>
       </div>
 
-      <div className="p-5 space-y-4 text-sm">
+      <div className="p-5 space-y-4 text-xs">
         <div>
-          <p className="font-semibold text-slate-800">{a.user?.name || '—'}</p>
-          <p className="text-xs text-slate-500">{a.user?.email || ''}</p>
+          <p className="font-semibold text-zinc-900 text-xs">{a.user?.name || '—'}</p>
+          <p className="text-[11px] text-zinc-500">{a.user?.email || ''}</p>
         </div>
 
-        <dl className="space-y-2.5 pt-3 border-t border-slate-100">
+        <dl className="space-y-2.5 pt-3 border-t border-zinc-100">
           <DetailRow label="Kỹ năng">{SKILL_LABEL[a.exam?.skill] || a.exam?.skill || '—'}</DetailRow>
           <DetailRow label="Đề thi">{a.exam?.title || '—'}</DetailRow>
           <DetailRow label="Band">{getBandPill(a.score)}</DetailRow>
@@ -74,13 +74,13 @@ function AttemptDetailModal({ attempt: a, onClose }) {
         </dl>
 
         {criteria && (
-          <div className="pt-3 border-t border-slate-100">
-            <p className="text-xs font-semibold text-slate-500 mb-2">Band theo tiêu chí</p>
+          <div className="pt-3 border-t border-zinc-100">
+            <p className="text-xs font-medium text-zinc-500 mb-2">Band theo tiêu chí</p>
             <div className="space-y-1.5">
               {Object.entries(criteria).map(([key, v]) => (
                 <div key={key} className="flex items-center justify-between">
-                  <span className="text-slate-600">{CRITERION_LABEL[key] || key.replace(/_/g, ' ')}</span>
-                  <span className="font-semibold text-slate-800">
+                  <span className="text-zinc-600">{CRITERION_LABEL[key] || key.replace(/_/g, ' ')}</span>
+                  <span className="font-semibold text-zinc-900">
                     {v && v.score != null ? Number(v.score).toFixed(1) : '—'}
                   </span>
                 </div>
@@ -90,7 +90,7 @@ function AttemptDetailModal({ attempt: a, onClose }) {
         )}
 
         {(a.exam?.skill === 'writing' || a.exam?.skill === 'speaking') && !criteria && a.score == null && (
-          <p className="text-xs text-slate-400 italic pt-2">Đề đang được AI chấm — chưa có điểm chi tiết.</p>
+          <p className="text-[11px] text-zinc-400 italic pt-2">Đề đang được AI chấm — chưa có điểm chi tiết.</p>
         )}
       </div>
     </Modal>
@@ -98,10 +98,10 @@ function AttemptDetailModal({ attempt: a, onClose }) {
 }
 
 function getBandPill(score) {
-  if (score == null) return <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">Đang chấm</span>
-  if (score >= 7.0) return <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">BAND {score.toFixed(1)}</span>
-  if (score >= 5.0) return <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200">BAND {score.toFixed(1)}</span>
-  return <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 border border-rose-200">BAND {score.toFixed(1)}</span>
+  if (score == null) return <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200">Đang chấm</span>
+  if (score >= 7.0) return <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-900 text-white">BAND {score.toFixed(1)}</span>
+  if (score >= 5.0) return <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-800 border border-zinc-200">BAND {score.toFixed(1)}</span>
+  return <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-50 text-zinc-500 border border-zinc-200">BAND {score.toFixed(1)}</span>
 }
 
 export default function Attempts() {
@@ -279,13 +279,13 @@ export default function Attempts() {
         {/* Top Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 w-full">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
+            <h1 className="text-xl font-semibold text-zinc-900 tracking-tight flex items-center gap-2.5">
               Lịch sử bài thi
-              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200">
                 {total} lượt
               </span>
             </h1>
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="text-xs text-zinc-500 mt-1">
               Quản lý và tra cứu chi tiết các lượt làm bài thi của học viên
             </p>
           </div>
@@ -294,31 +294,31 @@ export default function Attempts() {
           <div className="flex items-center gap-2 flex-wrap">
             {/* Sắp xếp — server-side, áp dụng trên toàn bộ kết quả */}
             <div className="relative">
-              <ArrowUpDown className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <ArrowUpDown className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <select
                 value={sortMode}
                 onChange={e => { setSortMode(e.target.value); setPage(1) }}
                 aria-label="Sắp xếp"
-                className="h-10 pl-9 pr-9 text-sm border border-slate-200 rounded-lg text-slate-700 bg-white appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
+                className="h-9 pl-8 pr-8 text-xs border border-zinc-200 rounded-lg text-zinc-700 bg-white appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition shadow-2xs"
               >
                 <option value="recent">Mới nhất</option>
                 <option value="band_desc">Band cao nhất</option>
                 <option value="band_asc">Band thấp nhất</option>
               </select>
-              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
             <button
               type="button"
               onClick={handleExportExcel}
               disabled={exporting || selectedAttemptIds.length === 0}
               title={selectedAttemptIds.length === 0 ? 'Tích chọn ít nhất 1 bài thi để Download' : `Tải ${selectedAttemptIds.length} bài thi đã chọn`}
-              className={`flex items-center gap-2 px-4 h-10 rounded-lg border border-slate-200 bg-white text-slate-700 text-sm font-normal transition shadow-xs ${
+              className={`flex items-center gap-2 px-3.5 h-9 rounded-lg border border-zinc-200 bg-white text-zinc-700 text-xs font-medium transition shadow-2xs ${
                 selectedAttemptIds.length === 0 || exporting
                   ? 'opacity-50 cursor-not-allowed pointer-events-none'
-                  : 'cursor-pointer hover:bg-slate-50 hover:border-slate-300'
+                  : 'cursor-pointer hover:bg-zinc-50 hover:border-zinc-300'
               }`}
             >
-              <Download className="w-4 h-4 text-slate-500" />
+              <Download className="w-3.5 h-3.5 text-zinc-500" />
               <span>
                 {exporting
                   ? 'Đang xuất...'
@@ -331,69 +331,69 @@ export default function Attempts() {
         </div>
 
         {/* Filter Card — lưới 4 cột đồng nhất: mọi hàng phủ đủ chiều ngang, nút Đặt lại là ô cuối lưới */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs mb-6 w-full">
+        <div className="bg-white rounded-2xl border border-zinc-200 p-5 shadow-xs mb-6 w-full">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
 
             {/* Tìm kiếm — 2/4 cột (rộng gấp đôi các ô còn lại) */}
             <div className="md:col-span-2">
-              <label className="text-xs font-medium text-slate-500 mb-1 block">Tìm kiếm</label>
+              <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Tìm kiếm</label>
               <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   placeholder="Tìm theo tên hoặc email học viên..."
                   value={search}
                   onChange={e => { setSearch(e.target.value); setPage(1) }}
-                  className="w-full h-10 pl-9 pr-3 text-sm border border-slate-200 rounded-lg text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
+                  className="w-full h-9 pl-8 pr-3 text-xs border border-zinc-200 rounded-lg text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition shadow-2xs bg-white"
                 />
               </div>
             </div>
 
             {/* Kỹ năng */}
             <div>
-              <label className="text-xs font-medium text-slate-500 mb-1 block">Kỹ năng</label>
+              <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Kỹ năng</label>
               <div className="relative w-full">
                 <select
                   value={skill}
                   onChange={e => { setSkill(e.target.value); setPage(1) }}
-                  className="w-full h-10 pl-3 pr-9 text-sm border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition font-normal bg-white appearance-none cursor-pointer"
+                  className="w-full h-9 pl-3 pr-8 text-xs border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition font-normal bg-white appearance-none cursor-pointer shadow-2xs"
                 >
                   <option value="">Tất cả kỹ năng</option>
                   {Object.entries(SKILL_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
-                <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             </div>
 
             {/* Bộ đề */}
             <div>
-              <label className="text-xs font-medium text-slate-500 mb-1 block">Bộ đề</label>
+              <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Bộ đề</label>
               <div className="relative w-full">
                 <select
                   value={seriesId}
                   onChange={e => { setSeriesId(e.target.value); setPage(1) }}
-                  className="w-full h-10 pl-3 pr-9 text-sm border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition font-normal bg-white appearance-none cursor-pointer"
+                  className="w-full h-9 pl-3 pr-8 text-xs border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition font-normal bg-white appearance-none cursor-pointer shadow-2xs"
                 >
                   <option value="">Tất cả bộ đề</option>
                   {examSeries.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
-                <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             </div>
 
             {/* Khoảng ngày — 2/4 cột, thẳng hàng dưới ô Tìm kiếm */}
             <div className="md:col-span-2">
-              <label className="text-xs font-medium text-slate-500 mb-1 block">Khoảng ngày</label>
-              <div className="flex items-center border border-slate-200 rounded-lg h-10 bg-white w-full focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-600 transition">
+              <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Khoảng ngày</label>
+              <div className="flex items-center border border-zinc-200 rounded-lg h-9 bg-white w-full focus-within:ring-1 focus-within:ring-zinc-900 focus-within:border-zinc-900 transition shadow-2xs">
                 <input
                   type="date"
                   value={dateFrom}
                   onChange={handleDateFrom}
                   max={todayStr}
                   aria-label="Từ ngày"
-                  className="flex-1 min-w-0 h-full px-2.5 text-sm bg-transparent cursor-pointer text-slate-700 focus:outline-none [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                  className="flex-1 min-w-0 h-full px-2.5 text-xs bg-transparent cursor-pointer text-zinc-900 focus:outline-none [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                 />
-                <span className="text-xs text-slate-400 shrink-0">–</span>
+                <span className="text-xs text-zinc-400 shrink-0">–</span>
                 <input
                   type="date"
                   value={dateTo}
@@ -401,25 +401,25 @@ export default function Attempts() {
                   min={dateFrom || undefined}
                   max={todayStr}
                   aria-label="Đến ngày"
-                  className="flex-1 min-w-0 h-full px-2.5 text-sm bg-transparent cursor-pointer text-slate-700 focus:outline-none [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                  className="flex-1 min-w-0 h-full px-2.5 text-xs bg-transparent cursor-pointer text-zinc-900 focus:outline-none [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                 />
               </div>
             </div>
 
             {/* Khoảng Band — cùng style với Khoảng ngày */}
             <div>
-              <label className="text-xs font-medium text-slate-500 mb-1 block">Khoảng Band</label>
-              <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 h-10 bg-white w-full focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-600 transition">
+              <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Khoảng Band</label>
+              <div className="flex items-center gap-2 border border-zinc-200 rounded-lg px-3 h-9 bg-white w-full focus-within:ring-1 focus-within:ring-zinc-900 focus-within:border-zinc-900 transition shadow-2xs">
                 <input
                   type="number" min="0" max="9" step="0.5" placeholder="Từ" value={scoreMin}
                   onChange={handleScoreMinChange} onBlur={handleScoreMinBlur}
-                  className="w-full text-sm text-center font-normal text-slate-700 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className="w-full text-xs text-center font-normal text-zinc-900 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder:text-zinc-400"
                 />
-                <span className="text-xs text-slate-400 shrink-0">–</span>
+                <span className="text-xs text-zinc-400 shrink-0">–</span>
                 <input
                   type="number" min="0" max="9" step="0.5" placeholder="Đến" value={scoreMax}
                   onChange={handleScoreMaxChange} onBlur={handleScoreMaxBlur}
-                  className="w-full text-sm text-center font-normal text-slate-700 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className="w-full text-xs text-center font-normal text-zinc-900 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder:text-zinc-400"
                 />
               </div>
             </div>
@@ -429,9 +429,9 @@ export default function Attempts() {
               <button
                 type="button"
                 onClick={reset}
-                className="w-full h-10 justify-center border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 px-4 rounded-lg text-sm font-medium flex items-center gap-1.5 transition cursor-pointer"
+                className="w-full h-9 justify-center border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 px-3.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
               >
-                <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                <RotateCcw className="w-3.5 h-3.5 text-zinc-500" />
                 <span>Đặt lại</span>
               </button>
             </div>
@@ -442,69 +442,65 @@ export default function Attempts() {
         {loading ? (
           <SkeletonTable rows={8} cols={7} />
         ) : (
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden w-full flex-1 shadow-xs">
+        <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden w-full flex-1 shadow-xs">
           {attempts.length === 0 ? (
-            <p className="text-center text-slate-400 py-16 text-sm font-medium">Không có lượt thi nào khớp bộ lọc</p>
+            <p className="text-center text-zinc-400 py-16 text-xs font-medium">Không có lượt thi nào khớp bộ lọc</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50/50 border-b border-slate-200">
-                    <th className="px-4 py-3.5 text-center w-10">
+                  <tr className="text-[11px] font-medium text-zinc-500 bg-zinc-50 border-b border-zinc-200">
+                    <th className="px-4 py-3 text-center w-10">
                       <input
                         type="checkbox"
                         checked={isAllSelected}
                         onChange={handleSelectAll}
-                        className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        className="w-3.5 h-3.5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 cursor-pointer accent-zinc-900"
                       />
                     </th>
-                    <th className="px-5 py-3.5 text-left">Học viên</th>
-                    <th className="px-4 py-3.5 text-left">Kỹ năng</th>
-                    <th className="px-4 py-3.5 text-left">Đề thi</th>
-                    <th className="px-4 py-3.5 text-left">Band Score</th>
-                    <th className="px-4 py-3.5 text-left">Ngày làm bài</th>
-                    <th className="px-4 py-3.5 text-right">Thao tác</th>
+                    <th className="px-5 py-3 text-left">Học viên</th>
+                    <th className="px-4 py-3 text-left">Kỹ năng</th>
+                    <th className="px-4 py-3 text-left">Đề thi</th>
+                    <th className="px-4 py-3 text-left">Band Score</th>
+                    <th className="px-4 py-3 text-left">Ngày làm bài</th>
+                    <th className="px-4 py-3 text-right">Thao tác</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-zinc-100">
                   {displayedAttempts.map(a => (
-                    <tr key={a.id} className="odd:bg-slate-50/40 hover:bg-slate-50/60 transition-colors">
-                      <td className="px-4 py-3.5 text-center w-10">
+                    <tr key={a.id} className="odd:bg-zinc-50/40 hover:bg-zinc-50 transition-colors">
+                      <td className="px-4 py-3 text-center w-10">
                         <input
                           type="checkbox"
                           checked={selectedAttemptIds.includes(a.id)}
                           onChange={() => handleSelectOne(a.id)}
-                          className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          className="w-3.5 h-3.5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 cursor-pointer accent-zinc-900"
                         />
                       </td>
-                      <td className="px-5 py-3.5">
-                        <p className="font-semibold text-slate-800">{a.user?.name}</p>
-                        <p className="text-xs text-slate-400">{a.user?.email}</p>
+                      <td className="px-5 py-3">
+                        <p className="font-medium text-zinc-900 text-xs">{a.user?.name}</p>
+                        <p className="text-[11px] text-zinc-500">{a.user?.email}</p>
                       </td>
-                      <td className="px-4 py-3.5">
+                      <td className="px-4 py-3">
                         <span
-                          className="px-2.5 py-1 rounded-full text-xs font-semibold"
-                          style={{
-                            backgroundColor: ADMIN_SKILL_COLORS[a.exam?.skill]?.bg,
-                            color: ADMIN_SKILL_COLORS[a.exam?.skill]?.text
-                          }}
+                          className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-100 text-zinc-800 border border-zinc-200"
                         >
                           {SKILL_LABEL[a.exam?.skill]}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 text-slate-600 font-medium max-w-[240px] truncate">{a.exam?.title}</td>
-                      <td className="px-4 py-3.5">
+                      <td className="px-4 py-3 text-zinc-700 font-medium max-w-[240px] truncate text-xs">{a.exam?.title}</td>
+                      <td className="px-4 py-3">
                         {getBandPill(a.score)}
                       </td>
-                      <td className="px-4 py-3.5 text-xs font-medium text-slate-500">
+                      <td className="px-4 py-3 text-[11px] text-zinc-500">
                         {new Date(a.createdAt).toLocaleDateString('vi-VN')}
                       </td>
-                      <td className="px-4 py-3.5 text-right">
+                      <td className="px-4 py-3 text-right">
                         <button
                           type="button"
                           onClick={() => setDetailAttempt(a)}
                           title="Xem tóm tắt lượt thi"
-                          className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 hover:text-blue-600 transition shadow-xs"
+                          className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-100 hover:text-zinc-900 transition shadow-2xs cursor-pointer"
                         >
                           <Eye className="w-3.5 h-3.5" />
                           <span>Chi tiết</span>
@@ -519,20 +515,20 @@ export default function Attempts() {
 
           {/* Pagination */}
           {pages > 1 && (
-            <div className="flex items-center justify-between px-5 py-3.5 border-t border-slate-200 bg-slate-50/30">
-              <span className="text-xs font-medium text-slate-500">Trang {page} / {pages}</span>
+            <div className="flex items-center justify-between px-5 py-3.5 border-t border-zinc-200 bg-zinc-50/50">
+              <span className="text-xs font-medium text-zinc-500">Trang {page} / {pages}</span>
               <div className="flex items-center gap-1.5">
                 <button
                   disabled={page <= 1}
                   onClick={() => setPage(p => p - 1)}
-                  className="p-1.5 text-xs rounded-lg border border-slate-200 bg-white text-slate-600 disabled:opacity-40 hover:bg-slate-50 transition cursor-pointer flex items-center justify-center"
+                  className="p-1.5 text-xs rounded-xl border border-zinc-200 bg-white text-zinc-600 disabled:opacity-40 hover:bg-zinc-50 transition cursor-pointer flex items-center justify-center"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <button
                   disabled={page >= pages}
                   onClick={() => setPage(p => p + 1)}
-                  className="p-1.5 text-xs rounded-lg border border-slate-200 bg-white text-slate-600 disabled:opacity-40 hover:bg-slate-50 transition cursor-pointer flex items-center justify-center"
+                  className="p-1.5 text-xs rounded-xl border border-zinc-200 bg-white text-zinc-600 disabled:opacity-40 hover:bg-zinc-50 transition cursor-pointer flex items-center justify-center"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>

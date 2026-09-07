@@ -43,15 +43,15 @@ const NAV_ALL = [
 
 // Single source of truth for every sidebar entry (nav links + logout).
 const navCls = (isActive) =>
-  `flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition group ${
+  `flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors group ${
     isActive
-      ? 'bg-blue-50/80 text-blue-600 font-semibold'
-      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+      ? 'bg-zinc-100 text-zinc-900 font-semibold shadow-none border-l-2 border-zinc-900 rounded-l-none'
+      : 'text-zinc-600 hover:bg-zinc-100/80 hover:text-zinc-900'
   }`
 
 const navIconCls = (isActive) =>
   `shrink-0 transition-colors ${
-    isActive ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'
+    isActive ? 'text-zinc-900' : 'text-zinc-500 group-hover:text-zinc-900'
   }`
 
 // Fallback riêng cho vùng nội dung — CHỈ thay phần trong <main>, không đụng
@@ -61,7 +61,7 @@ const navIconCls = (isActive) =>
 function AdminContentLoader() {
   return (
     <div className="flex items-center justify-center h-64">
-      <div className="w-8 h-8 border-4 border-[#1D4ED8] border-t-transparent rounded-full animate-spin" />
+      <div className="w-8 h-8 border-4 border-zinc-900 border-t-transparent rounded-full animate-spin" />
     </div>
   )
 }
@@ -186,7 +186,7 @@ export default function AdminLayout() {
             />
             <span className="flex-1">{item.label}</span>
             {item.trash && trashCount > 0 && (
-              <span className="ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full bg-blue-500 text-white leading-none">
+              <span className="ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full bg-zinc-900 text-white leading-none">
                 {trashCount}
               </span>
             )}
@@ -217,16 +217,16 @@ export default function AdminLayout() {
   )
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
+    <div className="admin-scope min-h-screen bg-zinc-50 flex flex-col md:flex-row">
       {/* Mobile Header (< 768px) */}
-      <header className="md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
+      <header className="md:hidden bg-white border-b border-zinc-200 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-[#1D4ED8] rounded-lg flex items-center justify-center">
+          <div className="w-8 h-8 bg-zinc-900 rounded-lg flex items-center justify-center">
             <span className="text-white text-xs font-bold">A</span>
           </div>
           <div>
-            <p className="text-sm font-semibold text-slate-800 leading-tight">Admin Panel</p>
-            <p className="text-[11px] text-slate-500 leading-tight">IELTS Management</p>
+            <p className="text-sm font-semibold text-zinc-900 leading-tight">Admin Panel</p>
+            <p className="text-[11px] text-zinc-500 leading-tight">IELTS Management</p>
           </div>
         </div>
         <button
@@ -234,7 +234,7 @@ export default function AdminLayout() {
           onClick={() => setMobileOpen(true)}
           aria-label="Mở menu"
           aria-expanded={mobileOpen}
-          className="p-2 -mr-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="p-2 -mr-2 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-900"
         >
           <Menu className="w-6 h-6" />
         </button>
@@ -261,21 +261,21 @@ export default function AdminLayout() {
             tabIndex={-1}
             className="relative w-64 max-w-[85vw] bg-white h-full shadow-2xl flex flex-col z-10 outline-none animate-in slide-in-from-left duration-200"
           >
-            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+            <div className="p-4 border-b border-zinc-200 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-[#1D4ED8] rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-zinc-900 rounded-lg flex items-center justify-center">
                   <span className="text-white text-xs font-bold">A</span>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-800 leading-tight">Admin Panel</p>
-                  <p className="text-[11px] text-slate-500 leading-tight">IELTS Management</p>
+                  <p className="text-sm font-semibold text-zinc-900 leading-tight">Admin Panel</p>
+                  <p className="text-[11px] text-zinc-500 leading-tight">IELTS Management</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setMobileOpen(false)}
                 aria-label="Đóng menu"
-                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="p-1.5 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-900"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -287,16 +287,16 @@ export default function AdminLayout() {
       )}
 
       {/* Desktop / Tablet Sidebar (hidden on mobile, flex on md+) */}
-      <aside className="hidden md:flex w-56 bg-white border-r border-gray-100 flex-col shrink-0 sticky top-0 h-screen">
+      <aside className="hidden md:flex w-56 bg-white border-r border-zinc-200 flex-col shrink-0 sticky top-0 h-screen">
         {/* Logo */}
-        <div className="px-5 py-5 border-b border-gray-100">
+        <div className="px-5 py-5 border-b border-zinc-200">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-[#1D4ED8] rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-zinc-900 rounded-lg flex items-center justify-center">
               <span className="text-white text-xs font-bold">A</span>
             </div>
             <div>
-              <p className="text-sm font-semibold text-slate-800">Admin Panel</p>
-              <p className="text-xs text-slate-500">IELTS Management</p>
+              <p className="text-sm font-semibold text-zinc-900">Admin Panel</p>
+              <p className="text-xs text-zinc-500">IELTS Management</p>
             </div>
           </div>
         </div>
@@ -317,24 +317,24 @@ export default function AdminLayout() {
         <Modal onClose={() => setShowLogout(false)} title="Đăng xuất" size="sm">
           <div className="p-6">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
-                <LogOut className="w-5 h-5 text-slate-600" strokeWidth={2} />
+              <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center">
+                <LogOut className="w-5 h-5 text-zinc-600" strokeWidth={2} />
               </div>
-              <h3 className="font-bold text-gray-800 text-base">Đăng xuất</h3>
+              <h3 className="font-bold text-zinc-900 text-base">Đăng xuất</h3>
             </div>
-            <p className="text-sm text-gray-600 mb-6">
+            <p className="text-sm text-zinc-600 mb-6">
               Bạn có chắc muốn đăng xuất không?
             </p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setShowLogout(false)}
-                className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 font-medium"
+                className="px-4 py-2 rounded-xl border border-zinc-200 text-sm text-zinc-700 hover:bg-zinc-50 font-medium transition-colors"
               >
                 Huỷ
               </button>
               <button
                 onClick={handleLogout}
-                className="px-4 py-2 rounded-xl bg-blue-500 text-white text-sm font-bold hover:bg-blue-600 transition"
+                className="px-4 py-2 rounded-xl bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-800 transition-colors shadow-sm"
               >
                 Xác nhận
               </button>

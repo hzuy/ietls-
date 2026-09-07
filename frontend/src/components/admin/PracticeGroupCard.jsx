@@ -4,10 +4,10 @@ import {
   inputCls, labelCls,
 } from '../../utils/practiceConfig'
 import TrueFalseEditor from '../practice/TrueFalseEditor'
-import NoteCompletionEditor from '../practice/NoteCompletionEditor'
-import TableCompletionEditor from '../practice/TableCompletionEditor'
-import MCQGroupEditor from '../practice/MCQGroupEditor'
-import MatchingEditor from '../practice/MatchingEditor'
+import NoteCompletionEditor from './editors/NoteCompletionEditor'
+import TableCompletionEditor from './editors/TableCompletionEditor'
+import MCQGroupEditor from './editors/MCQGroupEditor'
+import MatchingEditor from './editors/MatchingEditor'
 import MatchingHeadingsEditor from '../practice/MatchingHeadingsEditor'
 import DiagramLabelEditor from '../practice/DiagramLabelEditor'
 import SummaryCompletionEditor from '../practice/SummaryCompletionEditor'
@@ -33,20 +33,20 @@ function chrome(skill, groupType) {
       card: `border ${t.cardBorder} ${t.cardBg} rounded-2xl overflow-hidden transition-all duration-200 mb-3 shadow-xs`,
       header: `flex items-center gap-3 px-4 py-3 border-b ${t.headerBg}`,
       badge: `text-xs font-bold px-2.5 py-1 rounded-full border ${t.badge}`,
-      range: 'text-xs text-slate-500 font-semibold',
+      range: 'text-xs text-zinc-600 font-semibold',
       moveWrap: 'flex items-center gap-1',
-      moveBtn: 'w-6 h-6 flex items-center justify-center rounded-lg border border-slate-200/80 bg-white text-slate-500 hover:text-slate-700 hover:bg-slate-50 disabled:opacity-30 text-xs transition',
+      moveBtn: 'w-6 h-6 flex items-center justify-center rounded-lg border border-zinc-200/80 bg-white text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50 disabled:opacity-30 text-xs transition',
       removeBtn: 'text-red-500 hover:text-red-600 text-xs font-semibold px-2.5 py-1 rounded-lg hover:bg-red-50/80 transition',
     }
   }
   return {
-    card: 'border border-slate-200 rounded-lg overflow-hidden mb-3',
-    header: 'flex items-center gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200',
-    badge: `text-xs font-bold px-2 py-0.5 rounded-full border ${GROUP_TYPE_COLORS[groupType] || 'bg-slate-100 text-slate-700 border-slate-300'}`,
-    range: 'text-xs text-slate-500 font-medium',
+    card: 'border border-zinc-200 rounded-lg overflow-hidden mb-3 bg-white shadow-2xs',
+    header: 'flex items-center gap-3 px-4 py-3 bg-zinc-50 border-b border-zinc-200',
+    badge: `text-xs font-bold px-2 py-0.5 rounded-full border ${GROUP_TYPE_COLORS[groupType] || 'bg-zinc-100 text-zinc-700 border-zinc-200'}`,
+    range: 'text-xs text-zinc-500 font-medium',
     moveWrap: 'flex flex-col gap-0.5',
-    moveBtn: 'w-5 h-5 flex items-center justify-center rounded border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-25 text-xs transition',
-    removeBtn: 'text-blue-500 hover:text-blue-600 text-xs font-medium px-2 py-0.5 rounded hover:bg-blue-50',
+    moveBtn: 'w-5 h-5 flex items-center justify-center rounded border border-zinc-200 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 disabled:opacity-25 text-xs transition',
+    removeBtn: 'text-red-600 hover:text-red-700 text-xs font-medium px-2 py-0.5 rounded hover:bg-red-50 transition',
   }
 }
 
@@ -71,7 +71,7 @@ export default function PracticeGroupCard({
           aria-expanded={expanded}
           aria-controls={bodyId}
           aria-label={expanded ? `Thu gọn nhóm ${typeLabel}` : `Bung nhóm ${typeLabel}`}
-          className={`text-slate-400 text-[10px] leading-none transition-transform hover:text-slate-600 ${expanded ? 'rotate-90' : ''}`}>▶</button>
+          className={`text-zinc-400 text-[10px] leading-none transition-transform hover:text-zinc-600 ${expanded ? 'rotate-90' : ''}`}>▶</button>
         <span className={s.badge}>
           {typeLabel}
         </span>
@@ -102,27 +102,27 @@ export default function PracticeGroupCard({
           <TrueFalseEditor group={group} onChange={onChange} />
         )}
         {group.type === 'note_completion' && (
-          <NoteCompletionEditor group={group} onChange={onChange} />
+          <NoteCompletionEditor group={group} onChange={onChange} themeSource="practice" />
         )}
         {group.type === 'table_completion' && (
-          <TableCompletionEditor group={group} onChange={onChange} />
+          <TableCompletionEditor group={group} onChange={onChange} themeSource="practice" />
         )}
         {(group.type === 'mcq' || group.type === 'mcq_multi') && (
-          <MCQGroupEditor group={group} onChange={onChange} />
+          <MCQGroupEditor group={group} onChange={onChange} themeSource="practice" />
         )}
         {group.type === 'matching_information' && (
           <div className="space-y-3">
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={group.canReuse || false}
                 onChange={e => onChange({ ...group, canReuse: e.target.checked })}
-                className="accent-[#1D4ED8]" />
-              <span className="text-xs text-slate-600 font-medium">Cho phép dùng lại chữ cái (mỗi đoạn có thể khớp nhiều câu)</span>
+                className="accent-zinc-900" />
+              <span className="text-xs text-zinc-600 font-medium">Cho phép dùng lại chữ cái (mỗi đoạn có thể khớp nhiều câu)</span>
             </label>
-            <MatchingEditor group={group} onChange={onChange} />
+            <MatchingEditor group={group} onChange={onChange} themeSource="practice" />
           </div>
         )}
         {(group.type === 'matching' || group.type === 'map_diagram') && (
-          <MatchingEditor group={group} onChange={onChange} />
+          <MatchingEditor group={group} onChange={onChange} themeSource="practice" />
         )}
         {group.type === 'drag_word_bank' && (
           skill === 'listening'
@@ -134,10 +134,10 @@ export default function PracticeGroupCard({
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={group.canReuse || false}
                 onChange={e => onChange({ ...group, canReuse: e.target.checked })}
-                className="accent-[#1D4ED8]" />
-              <span className="text-xs text-slate-600 font-medium">Cho phép dùng lại đáp án (mỗi đáp án có thể khớp nhiều câu)</span>
+                className="accent-zinc-900" />
+              <span className="text-xs text-zinc-600 font-medium">Cho phép dùng lại đáp án (mỗi đáp án có thể khớp nhiều câu)</span>
             </label>
-            <MatchingEditor group={group} onChange={onChange} />
+            <MatchingEditor group={group} onChange={onChange} themeSource="practice" />
           </div>
         )}
         {group.type === 'diagram_label' && (
@@ -148,8 +148,8 @@ export default function PracticeGroupCard({
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={group.canReuse || false}
                 onChange={e => onChange({ ...group, canReuse: e.target.checked })}
-                className="accent-green-600" />
-              <span className="text-xs text-slate-600 font-medium">Cho phép dùng lại heading (heading có thể khớp nhiều đoạn)</span>
+                className="accent-zinc-900" />
+              <span className="text-xs text-zinc-600 font-medium">Cho phép dùng lại heading (heading có thể khớp nhiều đoạn)</span>
             </label>
             <MatchingHeadingsEditor group={group} onChange={onChange} />
           </div>
