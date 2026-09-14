@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import Breadcrumb from '../components/common/Breadcrumb'
@@ -15,12 +15,11 @@ const SKILL_ICONS = {
   speaking: Mic,
 }
 
-export default function SeriesPage({ filterPattern, title, description }) {
+export default function SeriesPage({ filterPattern, title }) {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [books, setBooks] = useState([])
-  const [search, setSearch] = useState('')
 
   const fetchBooks = useCallback(() => {
     setLoading(true)
@@ -85,21 +84,14 @@ export default function SeriesPage({ filterPattern, title, description }) {
     fetchBooks()
   }, [fetchBooks])
 
-  const filteredBooks = useMemo(() => {
-    if (!search.trim()) return books
-    const words = search.trim().toLowerCase().split(/\s+/)
-    return books.filter(b => {
-      const haystack = b.title.toLowerCase()
-      return words.every(w => haystack.includes(w))
-    })
-  }, [books, search])
 
   return (
     <div className="min-h-screen bg-zinc-50/50 dark:bg-zinc-950 flex flex-col">
       <Navbar />
 
-      <div className="app-container pt-4 pb-0">
+      <div className="app-container pt-5 pb-1">
         <Breadcrumb
+          className="mb-0"
           items={[
             { label: 'Trang chủ', to: '/' },
             { label: 'Phòng thi chuẩn hóa', to: '/full-test' },
@@ -108,25 +100,7 @@ export default function SeriesPage({ filterPattern, title, description }) {
         />
       </div>
 
-      <div className="bg-white border-b border-zinc-200 mt-2">
-        <div className="app-container py-8">
-          <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">{title}</h1>
-          <p className="text-sm text-zinc-500 mt-1.5">{description}</p>
-          
-          <div className="mt-6 max-w-md relative">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 opacity-40 text-xs">🔍</span>
-            <input 
-              type="text"
-              placeholder="Tìm theo tên bộ đề (vd: Cambridge 19)"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 h-10 rounded-full border border-zinc-200 bg-zinc-50 text-sm text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-zinc-900 focus:bg-white transition-all"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="app-container py-8 flex-1">
+      <div className="app-container py-6 flex-1">
         {loading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
             {[1,2,3,4,5].map(i => (
@@ -150,15 +124,15 @@ export default function SeriesPage({ filterPattern, title, description }) {
               Thử lại
             </button>
           </div>
-        ) : filteredBooks.length === 0 ? (
+        ) : books.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-2xl border border-zinc-200 flex flex-col items-center">
             <FolderArchive className="w-12 h-12 text-zinc-300 stroke-[1.5] mb-4" />
             <h3 className="font-bold text-zinc-900 text-base">Không tìm thấy bộ đề nào</h3>
-            <p className="text-zinc-500 text-sm mt-1">Thử tìm kiếm với từ khóa khác</p>
+            <p className="text-zinc-500 text-sm mt-1">Hiện chưa có bộ đề nào trong danh mục này</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
-            {filteredBooks.map(book => {
+            {books.map(book => {
               const hasTests = book.testCount > 0
               const skills = Array.from(book.skills || [])
               return (

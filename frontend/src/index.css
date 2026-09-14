@@ -215,6 +215,16 @@ aside nav a, aside nav button { font-family: inherit; }
    section titles / meta text use <span>/<h*> and are unaffected. */
 .admin-main :is(input, textarea, select, button, [role="button"]) { font-size: var(--fs-sm); }
 
+/* ─── AI Tutor chatbot ───────────────────────────────────────────────────────── */
+/* Same footgun as above: the unlayered `button { font-size: var(--fs-base) }`
+   silently beat `text-xs` on the suggestion chip buttons, making them render
+   LARGER than the welcome message text (which sits on a <p>, not a <button>,
+   so it's unaffected and stays at Tailwind's fixed text-sm = 0.875rem). Pin
+   the chip to that exact fixed value — not `--fs-sm` (a responsive clamp that
+   only matches text-sm at desktop width) — so it matches the message bubble
+   at every viewport width, not just on desktop. */
+button.chatbot-chip { font-size: 0.875rem; line-height: 1.25rem; }
+
 /* ─── Animations ────────────────────────────────────────────────────────────── */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(18px); }

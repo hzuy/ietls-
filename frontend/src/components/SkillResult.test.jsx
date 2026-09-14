@@ -70,7 +70,7 @@ describe('SkillResult Component', () => {
     expect(screen.getByText('Không có dữ liệu chi tiết cho bài thi này.')).toBeInTheDocument()
   })
 
-  it('renders navigation CTAs (Làm lại đề này, Luyện bài khác, Về trang chủ)', () => {
+  it('renders navigation CTAs (Làm lại đề này, Hỏi AI Tutor câu sai)', () => {
     render(
       <MemoryRouter>
         <SkillResult skillType="reading" examId={1} dataProp={mockValidData} />
@@ -78,8 +78,7 @@ describe('SkillResult Component', () => {
     )
 
     expect(screen.getByRole('button', { name: /Làm lại đề này/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Luyện bài khác/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Trang chủ/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Hỏi AI Tutor câu sai/i })).toBeInTheDocument()
   })
 
   it('renders Smart Answer Review filter tabs and filters questions', () => {

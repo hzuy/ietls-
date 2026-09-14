@@ -219,4 +219,73 @@ describe('Chatbot API Routes (/api/chatbot/message)', () => {
     expect(systemMessage.content).toContain('TUYỆT ĐỐI TỪ CHỐI các chủ đề ngoài lề cuộc thi')
     expect(systemMessage.content).toContain('Trợ lý Học thuật AI IELTS')
   })
+
+  it('includes short-reply and no-heading/table formatting guardrail in the system prompt', async () => {
+    process.env.GROQ_API_KEY = 'test_groq_key'
+    const token = makeToken(301)
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 301,
+      name: 'User 301',
+      email: 'u301@example.com',
+      role: 'user',
+      createdAt: new Date(),
+    })
+    prismaMock.attempt.findMany.mockResolvedValue([])
+
+    await request(app)
+      .post('/api/chatbot/message')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ message: 'Xin chào' })
+
+    const callArgs = mockCreate.mock.calls[0][0]
+    const systemMessage = callArgs.messages.find(m => m.role === 'system')
+    expect(systemMessage.content).toContain('NGẮN GỌN')
+    expect(systemMessage.content).toContain('KHÔNG dùng heading markdown')
+    expect(systemMessage.content).toContain('KHÔNG dùng bảng dài')
+  })
+
+  it('rounds avgBand/bandBySkill to valid IELTS 0.5 steps instead of raw toFixed(2) decimals (regression: was producing values like 0.81)', async () => {
+    process.env.GROQ_API_KEY = 'test_groq_key'
+    const token = makeToken(302)
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 302,
+      name: 'User 302',
+      email: 'u302@example.com',
+      role: 'user',
+      createdAt: new Date(),
+    })
+    // Reading avg raw = (5 + 6.5) / 2 = 5.75 (không phải bước 0.5) -> phải làm tròn thành 6.0
+    // Listening = 7 (đã hợp lệ). Overall (ieltsOverall[6, 7]) = 6.5 -> hợp lệ.
+    // Trước fix: bandBySkill.reading = 5.75 (toFixed(2)), avgBand = (5.75+7)/2 = 6.38 — cả 2 đều sai IELTS.
+    prismaMock.attempt.findMany.mockResolvedValue([
+      { score: 5, finishedAt: new Date(), exam: { skill: 'reading' } },
+      { score: 6.5, finishedAt: new Date(), exam: { skill: 'reading' } },
+      { score: 7, finishedAt: new Date(), exam: { skill: 'listening' } },
+    ])
+
+    const res = await request(app)
+      .post('/api/chatbot/message')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ message: 'Điểm trung bình band của tôi là bao nhiêu?' })
+
+    expect(res.status).toBe(200)
+    const callArgs = mockCreate.mock.calls[0][0]
+    const systemMessage = callArgs.messages.find(m => m.role === 'system')
+
+    const contextMatch = systemMessage.content.match(/\{[\s\S]*"bandBySkill"[\s\S]*?\}\s*\}/)
+    expect(contextMatch).not.toBeNull()
+    const userContext = JSON.parse(contextMatch[0])
+
+    expect(userContext.bandBySkill.reading).toBe(6)
+    expect(userContext.bandBySkill.listening).toBe(7)
+    expect(userContext.overallAvgBand).toBe(6.5)
+
+    // Không giá trị band nào được phép lệch khỏi bước 0.5 (vd 0.81, 5.75, 6.38)
+    const allBandValues = [userContext.overallAvgBand, ...Object.values(userContext.bandBySkill).filter(v => v !== null)]
+    for (const v of allBandValues) {
+      expect((v * 2) % 1).toBe(0)
+    }
+
+    expect(systemMessage.content).toContain('Band điểm IELTS CHỈ có các mức 0, 0.5, 1.0, 1.5, 2.0 ... 9.0')
+  })
 })

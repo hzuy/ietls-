@@ -7,7 +7,7 @@ import { saveDraft, loadDraft, clearDraft, isDataEmpty, formatSavedAt } from '..
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
-import { PenTool, ArrowLeft, Clock, Sparkles, CheckCircle2, RotateCcw, AlertCircle, ChevronRight, X, BarChart2 } from 'lucide-react'
+import { PenTool, ArrowLeft, Clock, Sparkles, CheckCircle2, RotateCcw, AlertCircle, ChevronRight, X } from 'lucide-react'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
 import { renderFeedbackList } from '../utils/feedbackList'
@@ -475,51 +475,70 @@ export default function WritingExam() {
     const overallBand = Math.round(Math.min(9, Math.max(0, avg)) * 2) / 2
     return (
       <div className="min-h-screen bg-zinc-50/50 text-zinc-600 font-sans">
-        {/* Header */}
-        <div className="bg-[var(--ink)] border-b border-zinc-800 px-6 py-5">
-          <div className="max-w-3xl mx-auto">
-            <h1 className="text-white text-xl font-bold tracking-tight m-0">Kết quả Writing — AI chấm bài</h1>
-            <p className="text-zinc-400 text-xs mt-1 m-0 font-medium">{exam.title}</p>
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 py-3 flex items-center">
+          <div style={{ flex: 1 }} />
+          <div style={{ textAlign: 'center' }}>
+            <p className="font-bold text-sm text-zinc-900 m-0">
+              Kết quả Writing — AI chấm bài
+            </p>
+            <p className="text-xs text-zinc-500 m-0">
+              {exam.title}
+            </p>
+          </div>
+          <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              aria-label="Đóng"
+              className="w-8 h-8 rounded-full border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-bold cursor-pointer flex items-center justify-center transition"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
         {/* Content */}
-        <div className="app-container section-py">
-          <div className="max-w-3xl mx-auto flex flex-col gap-8">
-            {/* ── Bento Score Hero Card ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-              {/* Bento Col 1: Overall Band & Score (lg:col-span-4) */}
-              <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs flex flex-col items-center justify-center text-center">
-                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-3">
-                  Overall Band Score
-                </span>
-                <div className="w-24 h-24 rounded-full border-4 border-zinc-900 flex items-center justify-center mb-3">
-                  <span className="text-4xl font-extrabold font-mono tabular-nums text-zinc-900">
-                    {overallBand}
-                  </span>
-                </div>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Đã hoàn thành {exam.writingTasks.length} Tasks
-                </div>
-              </div>
-
-              {/* Bento Col 2: Breakdown per Task (lg:col-span-5) */}
-              <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-3.5">
-                    <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">
-                      Điểm từng Task
-                    </span>
-                    <span className="text-xs font-semibold text-zinc-500">
-                      Writing Academic
+        <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-16">
+          <div className="flex flex-col gap-8">
+            {/* ── Score Card Hero Section ── */}
+            <div className="w-full max-w-4xl mx-auto bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                {/* Cột 1: Vòng tròn Band Score & thông tin tổng quan */}
+                <div className="flex items-center justify-center gap-4">
+                  <div className="w-20 h-20 rounded-full border-4 border-zinc-900 flex items-center justify-center shrink-0">
+                    <span className="text-3xl font-extrabold font-mono tabular-nums text-zinc-900">
+                      {overallBand}
                     </span>
                   </div>
-                  <div className="space-y-3">
+                  <div className="flex flex-col items-start">
+                    <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                      Overall Band Score
+                    </span>
+                    <p className="text-sm font-bold text-zinc-900 m-0">
+                      IELTS Writing Academic
+                    </p>
+                    <p className="text-xs text-zinc-500 m-0 mt-0.5">
+                      Hoàn thành: {exam.writingTasks.length} Tasks
+                    </p>
+                  </div>
+                </div>
+
+                {/* Cột 2: Điểm thành phần rút gọn (TR, CC, LR, GRA) */}
+                <div className="flex flex-col justify-center items-center md:items-start border-t md:border-t-0 md:border-x border-zinc-100 px-6 py-2 gap-2">
+                  <div className="flex items-center justify-between w-full mb-1">
+                    <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
+                      Điểm từng Task
+                    </span>
+                    <span className="text-[11px] text-zinc-400 font-medium">
+                      TR · CC · LR · GRA
+                    </span>
+                  </div>
+                  <div className="w-full space-y-1.5">
                     {exam.writingTasks.map(t => (
-                      <div key={t.id} className="flex items-center justify-between text-xs">
+                      <div key={t.id} className="flex items-center justify-between text-xs w-full">
                         <div className="flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-full bg-zinc-100 font-semibold text-zinc-700 flex items-center justify-center text-[11px]">
+                          <span className="w-5 h-5 rounded-full bg-zinc-100 font-semibold text-zinc-700 flex items-center justify-center text-[10px]">
                             T{t.number}
                           </span>
                           <span className="font-semibold text-zinc-800">Task {t.number}</span>
@@ -532,38 +551,26 @@ export default function WritingExam() {
                     ))}
                   </div>
                 </div>
-                <div className="pt-3 mt-3 border-t border-zinc-100 text-xs text-zinc-500 flex items-center justify-between">
-                  <span>Tiêu chuẩn chấm:</span>
-                  <span className="font-medium text-zinc-700">TR · CC · LR · GRA</span>
-                </div>
-              </div>
 
-              {/* Bento Col 3: Quick Actions (lg:col-span-3) */}
-              <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs flex flex-col justify-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => askAITutor(`Tôi vừa hoàn thành bài thi Writing "${exam.title}" với điểm Overall Band ${overallBand} (${exam.writingTasks.map(t => `Task ${t.number}: Band ${results[t.id]?.overall}`).join(', ')}). Nhờ AI phân tích các tiêu chí cần ưu tiên nâng điểm và gợi ý bài tập luyện tập cụ thể giúp tôi.`)}
-                  className="w-full h-9 px-4 rounded-full text-xs sm:text-sm font-medium bg-zinc-900 hover:bg-zinc-800 text-white transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                  Hỏi AI Tutor phân tích
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate('/progress')}
-                  className="w-full h-9 px-4 rounded-full text-xs sm:text-sm font-medium border border-zinc-200 hover:bg-zinc-100 text-zinc-900 transition-colors flex items-center justify-center gap-2 cursor-pointer bg-white shadow-xs"
-                >
-                  <BarChart2 className="w-3.5 h-3.5 text-zinc-500" />
-                  Xem bảng phân tích
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate('/writing')}
-                  className="w-full h-9 px-4 rounded-full text-xs sm:text-sm font-medium bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <RotateCcw className="w-3.5 h-3.5 text-zinc-500" />
-                  Về danh sách đề
-                </button>
+                {/* Cột 3: Đúng 2 nút hành động cốt lõi */}
+                <div className="flex flex-col gap-2.5 justify-center w-full max-w-[220px] mx-auto">
+                  <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    className="h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer shadow-xs"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Làm lại bài thi</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => askAITutor(`Tôi vừa hoàn thành bài thi Writing "${exam.title}" với điểm Overall Band ${overallBand} (${exam.writingTasks.map(t => `Task ${t.number}: Band ${results[t.id]?.overall}`).join(', ')}). Nhờ AI phân tích các tiêu chí cần ưu tiên nâng điểm và gợi ý bài tập luyện tập cụ thể giúp tôi.`)}
+                    className="h-9 px-5 rounded-full border border-zinc-200 hover:bg-zinc-50 text-zinc-700 text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer bg-white"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Hỏi AI phân tích bài làm</span>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -975,6 +982,14 @@ export default function WritingExam() {
 
       {/* Exit confirmation modal — Back nút trình duyệt */}
       <ExitConfirmModal open={showExitModal} onStay={stayInExam} onLeave={leaveExam} />
+
+      {/* Loading overlay khi nộp bài */}
+      {submitting && (
+        <div className="fixed inset-0 z-50 bg-white/80 backdrop-blur-xs flex flex-col items-center justify-center gap-3">
+          <div className="w-10 h-10 border-3 border-zinc-200 border-t-zinc-900 rounded-full animate-spin" />
+          <p className="text-sm font-medium text-zinc-700">Đang chấm điểm và tổng hợp kết quả...</p>
+        </div>
+      )}
     </div>
   )
 }

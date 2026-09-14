@@ -912,6 +912,14 @@ export default function ReadingExam() {
       />
       {/* Exit confirmation modal — Back nút trình duyệt */}
       <ExitConfirmModal open={showExitModal} onStay={stayInExam} onLeave={leaveExam} />
+
+      {/* Loading overlay khi nộp bài */}
+      {submitting && (
+        <div className="fixed inset-0 z-50 bg-white/80 backdrop-blur-xs flex flex-col items-center justify-center gap-3">
+          <div className="w-10 h-10 border-3 border-zinc-200 border-t-zinc-900 rounded-full animate-spin" />
+          <p className="text-sm font-medium text-zinc-700">Đang chấm điểm và tổng hợp kết quả...</p>
+        </div>
+      )}
     </div>
   )
 }

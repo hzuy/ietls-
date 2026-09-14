@@ -5,7 +5,7 @@
  */
 import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { RotateCcw, BookOpen, Home, Trophy, Target, Award, AlertCircle, BarChart2, Check, Sparkles, X } from 'lucide-react'
+import { RotateCcw, AlertCircle, Sparkles, X, Check } from 'lucide-react'
 import api from '../utils/axios'
 import { askAITutor } from './common/AIChatbotDrawer'
 import QuestionTypeBreakdown from './exam/QuestionTypeBreakdown'
@@ -22,48 +22,6 @@ const BADGE_COLORS = {
   green: { bg: 'var(--success-bg)', text: 'var(--success)' },
   red:   { bg: 'var(--error-bg)',   text: 'var(--error)' },
   gray:  { bg: '#f3f4f6',           text: '#6b7280' },
-}
-
-// ─── Score messaging ──────────────────────────────────────────────────────────
-
-function getScoreMessage(correct, total) {
-  if (!total) return 'Chưa có dữ liệu kết quả.'
-  const r = correct / total
-  if (r === 0)   return 'Oops! Bạn chưa làm đúng câu nào, cố gắng lần sau nha.'
-  if (r < 0.3)   return 'Cố gắng thêm nhé! Bạn đang trên đà tiến bộ.'
-  if (r < 0.6)   return 'Khá tốt! Tiếp tục luyện tập để cải thiện thêm.'
-  if (r < 0.85)  return 'Tốt lắm! Bạn đang làm rất tốt.'
-  return 'Xuất sắc! Bạn đã làm rất tốt bài thi này!'
-}
-
-function ResultHeroIcon({ correct, total }) {
-  if (!total) {
-    return (
-      <div className="w-16 h-16 rounded-2xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-500">
-        <BookOpen className="w-8 h-8 stroke-[1.75]" />
-      </div>
-    )
-  }
-  const r = correct / total
-  if (r >= 0.85) {
-    return (
-      <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
-        <Trophy className="w-8 h-8 stroke-[1.75]" />
-      </div>
-    )
-  }
-  if (r >= 0.5) {
-    return (
-      <div className="w-16 h-16 rounded-2xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-900">
-        <Target className="w-8 h-8 stroke-[1.75]" />
-      </div>
-    )
-  }
-  return (
-    <div className="w-16 h-16 rounded-2xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-500">
-      <BookOpen className="w-8 h-8 stroke-[1.75]" />
-    </div>
-  )
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -206,20 +164,20 @@ function AnswerRow({ q, onAskAI }) {
           const isWrongOrSkipped = rowStatus === 'wrong' || skipped
 
           return (
-            <div key={num} className="answer-row group flex items-center justify-between gap-2 py-2 border-b border-zinc-100 last:border-0">
-              <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div key={num} className="answer-row group flex items-start sm:items-center justify-between gap-3 py-2 border-b border-zinc-100 last:border-0">
+              <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap sm:flex-nowrap">
                 <QNum num={num} status={rowStatus} />
                 {skipped ? (
                   <MissedLabel />
                 ) : rowStatus === 'wrong' ? (
-                  <span className="text-red-600 line-through text-xs font-medium truncate max-w-[130px]">
+                  <span className="text-red-600 line-through text-xs sm:text-sm font-medium break-words min-w-0 flex-1 leading-normal">
                     {rowUserAns}
                   </span>
                 ) : (
-                  <span className="text-zinc-400 text-xs font-medium">Đúng</span>
+                  <span className="text-zinc-400 text-xs sm:text-sm font-medium">Đúng</span>
                 )}
                 <span className="text-zinc-300">|</span>
-                <span className="text-emerald-600 font-semibold text-xs truncate">
+                <span className="text-emerald-600 font-semibold text-xs sm:text-sm break-words min-w-0 flex-1 leading-normal">
                   {q.answers[i]}
                 </span>
               </div>
@@ -228,7 +186,7 @@ function AnswerRow({ q, onAskAI }) {
                   type="button"
                   onClick={() => onAskAI(num, rowUserAns, q.answers[i])}
                   title="Hỏi AI Tutor giải thích câu này"
-                  className="shrink-0 text-[11px] font-medium text-zinc-600 hover:text-zinc-900 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-50 hover:bg-zinc-100 transition cursor-pointer border border-zinc-200 shadow-2xs"
+                  className="shrink-0 text-[11px] font-medium text-zinc-600 hover:text-zinc-900 flex items-center gap-1 px-3 py-1 rounded-full bg-zinc-50 hover:bg-zinc-100 transition cursor-pointer border border-zinc-200 shadow-2xs"
                 >
                   <Sparkles className="w-3 h-3 text-amber-500" />
                   <span>Hỏi AI Tutor</span>
@@ -247,20 +205,20 @@ function AnswerRow({ q, onAskAI }) {
   const isWrongOrSkipped = effectiveStatus === 'wrong' || skipped
 
   return (
-    <div className="answer-row group flex items-center justify-between gap-2 py-2 border-b border-zinc-100 last:border-0">
-      <div className="flex items-center gap-2 min-w-0 flex-1">
+    <div className="answer-row group flex items-start sm:items-center justify-between gap-3 py-2.5 border-b border-zinc-100 last:border-0">
+      <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap sm:flex-nowrap">
         <QNum num={q.number} status={effectiveStatus} />
         {skipped ? (
           <MissedLabel />
         ) : effectiveStatus === 'wrong' ? (
-          <span className="text-red-600 line-through text-xs font-medium truncate max-w-[130px]">
+          <span className="text-red-600 line-through text-xs sm:text-sm font-medium break-words min-w-0 flex-1 leading-normal">
             {q.userAnswer}
           </span>
         ) : (
-          <span className="text-zinc-400 text-xs font-medium">Đúng</span>
+          <span className="text-zinc-400 text-xs sm:text-sm font-medium">Đúng</span>
         )}
         <span className="text-zinc-300">|</span>
-        <span className="text-emerald-600 font-semibold text-xs truncate">
+        <span className="text-emerald-600 font-semibold text-xs sm:text-sm break-words min-w-0 flex-1 leading-normal">
           {q.correctAnswer}
         </span>
       </div>
@@ -451,7 +409,7 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
 
   const handleClose = () => {
     if (onClose) return onClose()
-    navigate(-1)
+    navigate('/')
   }
 
   const handleRetry = () => {
@@ -460,10 +418,6 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
     } else {
       navigate(`/${skillType}/${examId}`)
     }
-  }
-
-  const handleNextPractice = () => {
-    navigate(`/practice/${skillType}`)
   }
 
   const skillLabel = skillType === 'reading' ? 'Reading' : 'Listening'
@@ -531,143 +485,81 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
         </div>
       </div>
 
-      <div style={{ maxWidth: 860, margin: '0 auto', padding: '24px 20px 60px' }}>
+      <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-16">
 
-        {/* ── Bento Score Hero Card ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6">
-          {/* Bento Col 1: Overall Band & Score (lg:col-span-4) */}
-          <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs flex flex-col items-center justify-center text-center">
-            <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-3">
-              {isPractice ? 'Practice Score' : 'Band Score'}
-            </span>
-            <ScoreRing 
-              score={isPractice ? correct : (typeof bandScore === 'number' ? bandScore : 0)} 
-              maxScore={isPractice ? totalQuestions : 9} 
-              isPractice={isPractice} 
-              correct={correct} 
-              totalQuestions={totalQuestions} 
-              bandScore={bandScore} 
-            />
-            <div className="mt-4 flex items-center gap-2">
-              <ResultHeroIcon correct={correct} total={totalQuestions} />
-              <div className="text-left">
-                <p className="text-xs font-bold text-zinc-900 m-0">
-                  {correct}/{totalQuestions} câu đúng
-                </p>
-                <p className="text-[11px] text-zinc-500 m-0">
-                  Độ chính xác {totalQuestions ? Math.round((correct / totalQuestions) * 100) : 0}%
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Bento Col 2: Breakdown per Section/Part (lg:col-span-5) */}
-          <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">
-                  Chi tiết từng phần
+        {/* ── Score Card Hero Section ── */}
+        <div className="w-full max-w-4xl mx-auto bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+            {/* Cột 1: Vòng tròn Band Score lớn & thông tin điểm */}
+            <div className="flex items-center justify-center gap-4">
+              <ScoreRing 
+                score={isPractice ? correct : (typeof bandScore === 'number' ? bandScore : 0)} 
+                maxScore={isPractice ? totalQuestions : 9} 
+                isPractice={isPractice} 
+                correct={correct} 
+                totalQuestions={totalQuestions} 
+                bandScore={bandScore} 
+              />
+              <div className="flex flex-col items-start">
+                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                  {isPractice ? 'Practice Score' : 'Band Score'}
                 </span>
-                <span className="text-xs font-semibold text-zinc-600 truncate max-w-[160px]">
-                  {getScoreMessage(correct, totalQuestions)}
+                <p className="text-sm font-bold text-zinc-900 m-0">
+                  Đúng: {correct}/{totalQuestions} câu
+                </p>
+                <p className="text-xs text-zinc-500 m-0 mt-0.5">
+                  Độ chính xác: {totalQuestions ? Math.round((correct / totalQuestions) * 100) : 0}%
+                </p>
+              </div>
+            </div>
+
+            {/* Cột 2: Tóm tắt 3 chỉ số ngắn gọn trên 1 hàng/cột */}
+            <div className="flex flex-col justify-center items-center md:items-start border-t md:border-t-0 md:border-x border-zinc-100 px-6 py-2 gap-2">
+              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-0.5">
+                Tổng quan kết quả
+              </span>
+              <div className="h-2 w-full bg-zinc-100 rounded-full overflow-hidden flex">
+                {totalQuestions > 0 && (
+                  <>
+                    <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${(correct / totalQuestions) * 100}%` }} />
+                    <div className="h-full bg-red-500 transition-all duration-500" style={{ width: `${(wrong / totalQuestions) * 100}%` }} />
+                    <div className="h-full bg-zinc-400 transition-all duration-500" style={{ width: `${(missed / totalQuestions) * 100}%` }} />
+                  </>
+                )}
+              </div>
+              <div className="flex items-center justify-between w-full text-xs text-zinc-600 pt-1">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                  Đúng: <strong className="text-zinc-900 font-bold font-mono">{correct}</strong>
+                </span>
+                <span className="flex items-center gap-1.5 font-medium">
+                  <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                  Sai: <strong className="text-zinc-900 font-bold font-mono">{wrong}</strong>
+                </span>
+                <span className="flex items-center gap-1.5 font-medium">
+                  <span className="w-2 h-2 rounded-full bg-zinc-400 shrink-0" />
+                  Bỏ qua: <strong className="text-zinc-900 font-bold font-mono">{missed}</strong>
                 </span>
               </div>
-              <div className="space-y-2.5">
-                {(sections || []).map(sec => {
-                  let secCorrect = 0
-                  let secTotal = 0
-                  ;(sec.questions || []).forEach(q => {
-                    if (q.grouped) {
-                      ;(q.statuses || []).forEach(st => {
-                        secTotal++
-                        if (st === 'correct') secCorrect++
-                      })
-                    } else {
-                      secTotal++
-                      if (q.status === 'correct') secCorrect++
-                    }
-                  })
-                  const pct = secTotal ? Math.round((secCorrect / secTotal) * 100) : 0
-                  return (
-                    <div key={sec.number} className="flex items-center justify-between text-xs">
-                      <span className="text-zinc-600 font-medium w-24 truncate">
-                        {skillType === 'reading' ? `Passage ${sec.number}` : `Section ${sec.number}`}
-                      </span>
-                      <div className="flex items-center gap-2 flex-1 max-w-[180px] mx-2">
-                        <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-zinc-900 rounded-full transition-all duration-500"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      </div>
-                      <span className="font-mono font-semibold text-zinc-800 text-right w-12 shrink-0">
-                        {secCorrect}/{secTotal}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
             </div>
 
-            <div className="pt-3 mt-4 border-t border-zinc-100 flex items-center justify-between text-xs text-zinc-600">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                Đúng: <strong className="text-zinc-900">{correct}</strong>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-red-500" />
-                Sai: <strong className="text-zinc-900">{wrong}</strong>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-zinc-400" />
-                Bỏ qua: <strong className="text-zinc-900">{missed}</strong>
-              </span>
-            </div>
-          </div>
-
-          {/* Bento Col 3: Quick Action Cluster (lg:col-span-3) */}
-          <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs flex flex-col justify-center gap-2.5">
-            <button
-              type="button"
-              onClick={handleRetry}
-              className="w-full h-9 px-4 rounded-full text-xs sm:text-sm font-medium bg-zinc-900 hover:bg-zinc-800 text-white transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-zinc-300" />
-              Làm lại đề này
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/progress')}
-              className="w-full h-9 px-4 rounded-full text-xs sm:text-sm font-medium border border-zinc-200 hover:bg-zinc-100 text-zinc-900 transition-colors flex items-center justify-center gap-2 cursor-pointer bg-white shadow-xs"
-            >
-              <BarChart2 className="w-3.5 h-3.5 text-zinc-500" />
-              Xem bảng phân tích
-            </button>
-            <button
-              type="button"
-              onClick={() => askAITutor(`Tôi vừa hoàn thành bài thi ${bookName || ''} Test ${testNumber || ''} (${skillLabel}) với kết quả ${correct}/${totalQuestions} câu đúng (${typeof bandScore === 'number' ? `Band ${bandScore}` : ''}). Hãy phân tích lỗi sai phổ biến và hướng dẫn cải thiện giúp tôi.`)}
-              className="w-full h-9 px-4 rounded-full text-xs sm:text-sm font-medium bg-zinc-100 hover:bg-zinc-200 text-zinc-900 transition-colors flex items-center justify-center gap-2 cursor-pointer border border-zinc-200/80"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              Hỏi AI Tutor câu sai
-            </button>
-            <div className="pt-2 border-t border-zinc-100 flex items-center justify-between text-xs">
+            {/* Cột 3: Đúng 2 nút hành động cốt lõi */}
+            <div className="flex flex-col gap-2.5 justify-center w-full max-w-[220px] mx-auto">
               <button
                 type="button"
-                onClick={handleNextPractice}
-                className="text-zinc-600 hover:text-zinc-900 font-medium transition cursor-pointer bg-transparent border-none p-0 flex items-center gap-1"
+                onClick={handleRetry}
+                className="h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer shadow-xs"
               >
-                <BookOpen className="w-3.5 h-3.5" />
-                Luyện bài khác
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Làm lại đề này</span>
               </button>
               <button
                 type="button"
-                onClick={() => navigate('/')}
-                className="text-zinc-400 hover:text-zinc-700 font-medium transition cursor-pointer bg-transparent border-none p-0 flex items-center gap-1"
+                onClick={() => askAITutor(`Tôi vừa hoàn thành bài thi ${bookName || ''} Test ${testNumber || ''} (${skillLabel}) với kết quả ${correct}/${totalQuestions} câu đúng (${typeof bandScore === 'number' ? `Band ${bandScore}` : ''}). Hãy phân tích lỗi sai phổ biến và hướng dẫn cải thiện giúp tôi.`)}
+                className="h-9 px-5 rounded-full border border-zinc-200 hover:bg-zinc-50 text-zinc-700 text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer bg-white"
               >
-                <Home className="w-3.5 h-3.5" />
-                Trang chủ
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                <span>Hỏi AI Tutor câu sai</span>
               </button>
             </div>
           </div>

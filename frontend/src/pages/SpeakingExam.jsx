@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
 import { useSpeechRecording } from '../hooks/useSpeechRecording'
-import { Mic, ArrowLeft, X, Square, Play, Pause, AlertCircle, CheckCircle2, RotateCcw, Sparkles, Eye, BarChart2 } from 'lucide-react'
+import { Mic, ArrowLeft, X, Square, Play, Pause, AlertCircle, RotateCcw, Sparkles, Eye, Volume2 } from 'lucide-react'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
 import { renderFeedbackList } from '../utils/feedbackList'
@@ -24,6 +24,28 @@ const CRITERIA_LABELS = {
 // Part 2 chuẩn IELTS: 1 phút chuẩn bị + tối đa 2 phút nói.
 const PART2_PREP_SECONDS = 60
 const PART2_SPEAK_SECONDS = 120
+
+function HighlightedTranscript({ text }) {
+  if (!text) return <p className="text-zinc-400 italic text-sm m-0">Chưa có bản ghi âm bài nói.</p>
+  const tokens = text.split(/(\s+)/)
+  const fillerRegex = /^(uh|um|ah|er|eh|mm|hmm|like)$/i
+
+  return (
+    <p className="text-zinc-800 text-sm leading-relaxed m-0 font-normal">
+      {tokens.map((token, idx) => {
+        const clean = token.replace(/[.,!?;:"]/g, '').toLowerCase()
+        if (fillerRegex.test(clean)) {
+          return (
+            <span key={idx} className="bg-zinc-100 text-zinc-500 px-1 py-0.5 rounded text-xs mx-0.5 inline-block font-mono" title="Từ đệm / ngập ngừng">
+              {token}
+            </span>
+          )
+        }
+        return <span key={idx}>{token}</span>
+      })}
+    </p>
+  )
+}
 
 export default function SpeakingExam() {
   const { id } = useParams()
@@ -50,6 +72,7 @@ export default function SpeakingExam() {
   const [retryingPart, setRetryingPart] = useState(null)
   const [confirmResubmitId, setConfirmResubmitId] = useState(null) // partId đang chờ xác nhận "Nộp lại"
   const [fullTestStatus, setFullTestStatus] = useState(null)
+  const [playingPartId, setPlayingPartId] = useState(null)
   const pollTimerRef = useRef(null)
 
   // ── Layout mobile ──────────────────────────────────────────────────────────
@@ -496,51 +519,70 @@ export default function SpeakingExam() {
 
     return (
       <div className="min-h-screen bg-zinc-50/50 text-zinc-600 font-sans">
-        {/* Header */}
-        <div className="bg-[var(--ink)] border-b border-zinc-800 px-6 py-5">
-          <div className="max-w-3xl mx-auto">
-            <h1 className="text-white text-xl font-bold tracking-tight m-0">Kết quả Speaking — AI chấm bài</h1>
-            <p className="text-zinc-400 text-xs mt-1 m-0 font-medium">{exam.title}</p>
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 py-3 flex items-center">
+          <div style={{ flex: 1 }} />
+          <div style={{ textAlign: 'center' }}>
+            <p className="font-bold text-sm text-zinc-900 m-0">
+              Kết quả Speaking — AI chấm bài
+            </p>
+            <p className="text-xs text-zinc-500 m-0">
+              {exam.title}
+            </p>
+          </div>
+          <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              aria-label="Đóng"
+              className="w-8 h-8 rounded-full border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-bold cursor-pointer flex items-center justify-center transition"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
         {/* Content */}
-        <div className="app-container section-py">
-          <div className="max-w-3xl mx-auto flex flex-col gap-8">
-            {/* ── Bento Score Hero Card ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-              {/* Bento Col 1: Overall Band & Score (lg:col-span-4) */}
-              <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs flex flex-col items-center justify-center text-center">
-                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-3">
-                  Overall Band Score
-                </span>
-                <div className="w-24 h-24 rounded-full border-4 border-zinc-900 flex items-center justify-center mb-3">
-                  <span className="text-4xl font-extrabold font-mono tabular-nums text-zinc-900">
-                    {overallBand}
-                  </span>
-                </div>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Đã hoàn thành {exam.speakingParts.length} Parts
-                </div>
-              </div>
-
-              {/* Bento Col 2: Breakdown per Part (lg:col-span-5) */}
-              <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-3.5">
-                    <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">
-                      Điểm từng Part
-                    </span>
-                    <span className="text-xs font-semibold text-zinc-500">
-                      Speaking Interview
+        <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-16">
+          <div className="flex flex-col gap-8">
+            {/* ── Score Card Hero Section ── */}
+            <div className="w-full max-w-4xl mx-auto bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                {/* Cột 1: Vòng tròn Band Score & thông tin tổng quan */}
+                <div className="flex items-center justify-center gap-4">
+                  <div className="w-20 h-20 rounded-full border-4 border-zinc-900 flex items-center justify-center shrink-0">
+                    <span className="text-3xl font-extrabold font-mono tabular-nums text-zinc-900">
+                      {overallBand}
                     </span>
                   </div>
-                  <div className="space-y-3">
+                  <div className="flex flex-col items-start">
+                    <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                      Overall Band Score
+                    </span>
+                    <p className="text-sm font-bold text-zinc-900 m-0">
+                      IELTS Speaking Interview
+                    </p>
+                    <p className="text-xs text-zinc-500 m-0 mt-0.5">
+                      Hoàn thành: {exam.speakingParts.length} Parts
+                    </p>
+                  </div>
+                </div>
+
+                {/* Cột 2: Điểm từng Part */}
+                <div className="flex flex-col justify-center items-center md:items-start border-t md:border-t-0 md:border-x border-zinc-100 px-6 py-2 gap-2">
+                  <div className="flex items-center justify-between w-full mb-1">
+                    <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
+                      Điểm từng Part
+                    </span>
+                    <span className="text-[11px] text-zinc-400 font-medium">
+                      FC · PR · LR · GRA
+                    </span>
+                  </div>
+                  <div className="w-full space-y-1.5">
                     {exam.speakingParts.map(p => (
-                      <div key={p.id} className="flex items-center justify-between text-xs">
+                      <div key={p.id} className="flex items-center justify-between text-xs w-full">
                         <div className="flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-full bg-zinc-100 font-semibold text-zinc-700 flex items-center justify-center text-[11px]">
+                          <span className="w-5 h-5 rounded-full bg-zinc-100 font-semibold text-zinc-700 flex items-center justify-center text-[10px]">
                             P{p.number}
                           </span>
                           <span className="font-semibold text-zinc-800">Part {p.number}</span>
@@ -552,121 +594,144 @@ export default function SpeakingExam() {
                     ))}
                   </div>
                 </div>
-                <div className="pt-3 mt-3 border-t border-zinc-100 text-xs text-zinc-500 flex items-center justify-between">
-                  <span>Tiêu chuẩn chấm:</span>
-                  <span className="font-medium text-zinc-700">FC · PR · LR · GRA</span>
-                </div>
-              </div>
 
-              {/* Bento Col 3: Quick Actions (lg:col-span-3) */}
-              <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs flex flex-col justify-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => askAITutor(`Tôi vừa hoàn thành bài thi Speaking "${exam.title}" với điểm Overall Band ${overallBand} (${partScores.map((s, i) => `Part ${i + 1}: Band ${s}`).join(', ')}). Nhờ AI phân tích các tiêu chí cần ưu tiên nâng điểm và gợi ý phương pháp luyện phát âm/phản xạ giúp tôi.`)}
-                  className="w-full h-9 px-4 rounded-full text-xs sm:text-sm font-medium bg-zinc-900 hover:bg-zinc-800 text-white transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                  Hỏi AI Tutor phân tích
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate('/progress')}
-                  className="w-full h-9 px-4 rounded-full text-xs sm:text-sm font-medium border border-zinc-200 hover:bg-zinc-100 text-zinc-900 transition-colors flex items-center justify-center gap-2 cursor-pointer bg-white shadow-xs"
-                >
-                  <BarChart2 className="w-3.5 h-3.5 text-zinc-500" />
-                  Xem bảng phân tích
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate('/speaking')}
-                  className="w-full h-9 px-4 rounded-full text-xs sm:text-sm font-medium bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <RotateCcw className="w-3.5 h-3.5 text-zinc-500" />
-                  Về danh sách đề
-                </button>
+                {/* Cột 3: Đúng 2 nút hành động cốt lõi */}
+                <div className="flex flex-col gap-2.5 justify-center w-full max-w-[220px] mx-auto">
+                  <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    className="h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer shadow-xs"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Làm lại bài thi</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => askAITutor(`Tôi vừa hoàn thành bài thi Speaking "${exam.title}" với điểm Overall Band ${overallBand} (${partScores.map((s, i) => `Part ${i + 1}: Band ${s}`).join(', ')}). Nhờ AI phân tích các tiêu chí cần ưu tiên nâng điểm và gợi ý phương pháp luyện phát âm/phản xạ giúp tôi.`)}
+                    className="h-9 px-5 rounded-full border border-zinc-200 hover:bg-zinc-50 text-zinc-700 text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer bg-white"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Hỏi AI phân tích bài làm</span>
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* Per-part results */}
-            {exam.speakingParts.map(part => {
-              const r = results[part.id]
-              if (!r) return null
-              return (
-                <div key={part.id} className="flex flex-col gap-6">
-                  <h2 className="text-zinc-900 text-lg font-semibold tracking-tight m-0 border-b border-zinc-200 pb-2">
-                    Part {part.number}
-                  </h2>
+            {/* Per-part results: Luyện Nói card format */}
+            <div className="flex flex-col gap-4">
+              {exam.speakingParts.map(part => {
+                const r = results[part.id]
+                if (!r) return null
+                const partTitle = part.topic || part.cueCard || (part.questions?.map(q => q.questionText.replace(/^##TOPIC##:/, '')).filter(Boolean).slice(0, 2).join(' · ')) || `Speaking Part ${part.number}`
 
-                  {/* Part score overview */}
-                  <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-6 text-center transition-all duration-300">
-                    <div className="text-5xl font-extrabold font-mono tracking-tight mb-1" style={{ color: 'var(--ink)' }}>
-                      {r.overall}
+                const fluencyScore = r.criteria?.fluency?.score ?? '–'
+                const vocabScore = r.criteria?.vocabulary?.score ?? '–'
+                const grammarScore = r.criteria?.grammar?.score ?? '–'
+                const pronScore = r.criteria?.pronunciation?.score ?? '–'
+
+                return (
+                  <div key={part.id} className="bg-white border border-zinc-200 rounded-2xl p-5 mb-4 shadow-xs">
+                    {/* Header Part Card */}
+                    <div className="flex items-start justify-between gap-4 mb-3">
+                      <div>
+                        <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-1">
+                          TEST PART {part.number}: {partTitle}
+                        </span>
+                        <h3 className="text-base font-bold text-zinc-900 m-0">
+                          Đánh giá chi tiết Part {part.number}
+                        </h3>
+                      </div>
+                      <div className="bg-amber-100 text-amber-800 font-bold rounded-full w-12 h-12 flex items-center justify-center font-mono text-base shrink-0 shadow-2xs border border-amber-200/60" title={`Overall Part ${part.number}: Band ${r.overall}`}>
+                        {r.overall}
+                      </div>
                     </div>
-                    <div className="text-zinc-400 text-xs font-semibold uppercase tracking-wider">Band Score</div>
-                  </div>
 
-                  {/* 4 Criteria Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {Object.entries(CRITERIA_LABELS).map(([key, label]) => {
-                      const crit = r.criteria?.[key]
-                      const score = crit?.score
-                      const comment = crit?.comment || ''
+                    {/* Audio Player Bar */}
+                    <div className="flex items-center gap-3 bg-zinc-50 border border-zinc-200/80 rounded-xl px-3.5 py-2 mb-3">
+                      <button
+                        type="button"
+                        onClick={() => setPlayingPartId(prev => prev === part.id ? null : part.id)}
+                        className="w-8 h-8 rounded-full bg-zinc-900 text-white flex items-center justify-center hover:bg-zinc-800 transition cursor-pointer shrink-0"
+                        title={playingPartId === part.id ? "Tạm dừng" : "Nghe lại bài nói"}
+                      >
+                        {playingPartId === part.id ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
+                      </button>
+                      <div className="flex items-center gap-1 flex-1 h-6">
+                        {[35, 60, 45, 80, 65, 90, 40, 70, 85, 50, 75, 95, 60, 40, 80, 55, 70, 90, 65, 45, 85, 60, 75, 40, 55, 30].map((h, i) => (
+                          <span
+                            key={i}
+                            className={`w-1 rounded-full transition-all duration-300 ${
+                              playingPartId === part.id ? 'bg-zinc-800 animate-pulse' : 'bg-zinc-300'
+                            }`}
+                            style={{ height: `${h}%`, animationDelay: `${i * 60}ms` }}
+                          />
+                        ))}
+                      </div>
+                      <div className="text-[11px] font-mono font-medium text-zinc-500 shrink-0 flex items-center gap-1">
+                        <Volume2 className="w-3 h-3 text-zinc-400" />
+                        <span>Audio Recording</span>
+                      </div>
+                    </div>
 
-                      return (
-                        <div key={key} className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-6 flex flex-col justify-between transition-all duration-300 hover:border-zinc-300">
-                          <div>
-                            <div className="flex items-center justify-between mb-3">
-                              <span className="text-zinc-900 text-sm font-bold tracking-tight">{label}</span>
-                              <span className="px-2.5 py-0.5 rounded-full bg-zinc-100 text-zinc-900 text-xs font-mono font-bold border border-zinc-200">
-                                Band {score ?? '–'}
-                              </span>
-                            </div>
+                    {/* Transcript with highlights */}
+                    <div className="bg-zinc-50/70 rounded-xl border border-zinc-200/70 p-3.5 mb-3.5">
+                      <div className="flex items-center justify-between mb-1.5 text-xs text-zinc-500 font-medium">
+                        <span>Transcript bài nói của bạn:</span>
+                        <span className="text-[11px] font-mono text-zinc-400">
+                          {transcripts[part.id]?.trim() ? `${transcripts[part.id].trim().split(/\s+/).length} từ` : '0 từ'}
+                        </span>
+                      </div>
+                      <HighlightedTranscript text={transcripts[part.id]} />
+                    </div>
 
-                            <div className="text-4xl font-black font-mono mb-3 tracking-tight text-zinc-900">
-                              {score ?? '–'}
-                            </div>
+                    {/* 4 Criteria Badges Row (Pill badges) */}
+                    <div className="flex flex-wrap items-center gap-2 mb-4 pb-3 border-b border-zinc-100">
+                      <span className="rounded-full px-3 py-1 text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200/80 inline-flex items-center gap-1.5">
+                        Trôi chảy: <strong className="font-mono">{fluencyScore}</strong>
+                      </span>
+                      <span className="rounded-full px-3 py-1 text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200/80 inline-flex items-center gap-1.5">
+                        Từ vựng: <strong className="font-mono">{vocabScore}</strong>
+                      </span>
+                      <span className="rounded-full px-3 py-1 text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200/80 inline-flex items-center gap-1.5">
+                        Ngữ pháp: <strong className="font-mono">{grammarScore}</strong>
+                      </span>
+                      <span className="rounded-full px-3 py-1 text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200/80 inline-flex items-center gap-1.5">
+                        Phát âm: <strong className="font-mono">{pronScore}</strong>
+                      </span>
+                    </div>
 
-                            <div className="text-zinc-600 text-xs leading-relaxed font-medium mb-4 bg-zinc-50 rounded-xl p-3 border border-zinc-100">
-                              {comment || 'Chưa có nhận xét chi tiết.'}
-                            </div>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => askAITutor(`Tôi đang cần nâng band tiêu chí "${label}" trong IELTS Speaking Part ${part.number} (hiện tại: Band ${score ?? '–'}). Nhận xét của giám khảo: "${comment}". Bạn hãy chia sẻ kỹ thuật luyện nói, cách diễn đạt tự nhiên và lưu ý phản xạ để đạt band 7.5+ nhé.`)}
-                            className="w-full h-9 px-4 rounded-full text-xs font-medium text-zinc-700 hover:text-zinc-900 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer mt-auto"
-                          >
-                            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                            Hỏi AI cách nâng band tiêu chí này
-                          </button>
+                    {/* Feedback notes / Strengths & Improvements */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4 text-xs">
+                      {r.strengths && (
+                        <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-3">
+                          <span className="text-emerald-800 font-bold block mb-1">Điểm mạnh (Strengths)</span>
+                          {renderFeedbackList(r.strengths, 'text-emerald-600')}
                         </div>
-                      )
-                    })}
-                  </div>
+                      )}
+                      {r.improvements && (
+                        <div className="bg-orange-50/50 border border-orange-100 rounded-xl p-3">
+                          <span className="text-orange-800 font-bold block mb-1">Cần cải thiện (Improvements)</span>
+                          {renderFeedbackList(r.improvements, 'text-orange-600')}
+                        </div>
+                      )}
+                    </div>
 
-                  {/* Strengths */}
-                  <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-6 transition-all duration-300">
-                    <p className="text-zinc-900 text-sm font-bold mb-3">Điểm mạnh (Strengths)</p>
-                    {renderFeedbackList(r.strengths, 'text-emerald-500')}
+                    {/* AI tutor action button */}
+                    <button
+                      type="button"
+                      onClick={() => askAITutor(`Tôi vừa hoàn thành IELTS Speaking Part ${part.number} (${partTitle}) với kết quả Band ${r.overall} (Trôi chảy: ${fluencyScore}, Từ vựng: ${vocabScore}, Ngữ pháp: ${grammarScore}, Phát âm: ${pronScore}). Bài nói của tôi: "${transcripts[part.id]}". Hãy phân tích lỗi ngữ pháp/phát âm cụ thể và gợi ý cách diễn đạt band 7.5+ giúp tôi.`)}
+                      className="h-8 px-4 rounded-full text-xs font-medium text-zinc-700 hover:text-zinc-900 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                      Hỏi AI Tutor câu này
+                    </button>
                   </div>
-
-                  {/* Improvements */}
-                  <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-6 transition-all duration-300">
-                    <p className="text-zinc-900 text-sm font-bold mb-3">Điểm cần cải thiện & Gợi ý (Improvements)</p>
-                    {renderFeedbackList(r.improvements, 'text-orange-500')}
-                  </div>
-
-                  {/* User transcript */}
-                  <div className="bg-zinc-100 rounded-2xl border border-zinc-200 p-6 transition-all duration-300">
-                    <p className="text-zinc-600 text-sm font-bold mb-2">Bài nói của bạn</p>
-                    <p className="text-zinc-800 text-sm leading-relaxed m-0 font-medium italic">"{transcripts[part.id]}"</p>
-                  </div>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
 
             {/* Actions */}
-            <div className="flex flex-col gap-3 mt-4">
+            <div className="flex flex-col gap-3 mt-2">
               {fullTestStatus?.isComplete && (
                 <button
                   onClick={() => navigate(`/full-test/result?seriesId=${fullTestStatus.seriesId}&bookNumber=${fullTestStatus.bookNumber}&testNumber=${fullTestStatus.testNumber}`)}
@@ -1168,6 +1233,14 @@ export default function SpeakingExam() {
 
     {/* Exit confirmation modal — Back nút trình duyệt */}
     <ExitConfirmModal open={showExitModal} onStay={stayInExam} onLeave={leaveExam} />
+
+    {/* Loading overlay khi nộp bài */}
+    {submitting && (
+      <div className="fixed inset-0 z-50 bg-white/80 backdrop-blur-xs flex flex-col items-center justify-center gap-3">
+        <div className="w-10 h-10 border-3 border-zinc-200 border-t-zinc-900 rounded-full animate-spin" />
+        <p className="text-sm font-medium text-zinc-700">Đang chấm điểm và tổng hợp kết quả...</p>
+      </div>
+    )}
     </>
   )
 }

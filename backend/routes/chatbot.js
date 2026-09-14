@@ -5,6 +5,7 @@ const authMiddleware = require('../middleware/auth')
 const groqSdk = require('groq-sdk')
 const Groq = groqSdk.Groq || groqSdk.default || groqSdk
 const { getGroqModel } = require('../lib/groqClient')
+const { roundBand, ieltsOverall } = require('../lib/scoreUtils')
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Rate Limiter: chatbotRateLimiter (Max 20 requests per user per hour)
@@ -65,7 +66,10 @@ async function buildUserContext(userId, userMessage) {
     }
   }
 
-  const avg = arr => arr.length ? Number((arr.reduce((s, v) => s + v, 0) / arr.length).toFixed(2)) : null
+  // Band IELTS chỉ có bước 0.5 — dùng chung roundBand/ieltsOverall (lib/scoreUtils.js,
+  // cùng pattern đã chuẩn hóa ở routes/user.js) thay vì toFixed(2) thô, để AI không
+  // nhận số thập phân tùy ý (vd 0.81) rồi đọc lại y nguyên trong câu trả lời.
+  const avg = arr => arr.length ? roundBand(arr.reduce((s, v) => s + v, 0) / arr.length) : null
   const bandBySkill = {
     reading: avg(skillScores.reading),
     listening: avg(skillScores.listening),
@@ -74,7 +78,7 @@ async function buildUserContext(userId, userMessage) {
   }
 
   const activeBands = Object.values(bandBySkill).filter(v => v !== null)
-  const avgBand = activeBands.length ? Number((activeBands.reduce((s, v) => s + v, 0) / activeBands.length).toFixed(2)) : 0
+  const avgBand = activeBands.length ? ieltsOverall(activeBands) : 0
 
   // Streak calculation
   const finishedDates = attempts.map(a => a.finishedAt.toISOString().split('T')[0])
@@ -194,9 +198,11 @@ RÀO CHẮN BẢO VỆ & QUY TẮC BẮT BUỘC (STRICT GUARDRAILS):
    - Nếu học viên hỏi thông tin của người dùng khác, email khác hoặc tài khoản khác, bạn PHẢI TỪ CHỐI: "Tôi chỉ có thể hỗ trợ thông tin học tập của chính bạn."
 4. TÍNH CHÍNH XÁC VỀ DỮ LIỆU:
    - Chỉ trích dẫn chính xác số liệu có trong THÔNG TIN HỌC VIÊN ở trên (số bài đã hoàn thành: ${userContext.totalAttempts}, streak: ${userContext.streakDays} ngày, avgBand: ${userContext.overallAvgBand}). Không bịa đặt số liệu thống kê.
+   - Band điểm IELTS CHỈ có các mức 0, 0.5, 1.0, 1.5, 2.0 ... 9.0 (bước 0.5) — KHÔNG BAO GIỜ dùng số thập phân khác (ví dụ 0.81, 6.3, 7.25). Khi cần nhắc tới điểm số, LUÔN dùng đúng giá trị đã được cung cấp trong context ở trên (overallAvgBand, bandBySkill); TUYỆT ĐỐI KHÔNG tự cộng/chia trung bình lại từ các số liệu rời rạc trong hội thoại.
 5. ĐỊNH DẠNG TRẢ LỜI:
    - Trả lời bằng tiếng Việt (hoặc tiếng Anh nếu học viên yêu cầu sửa bài/giải thích từ vựng).
-   - Tận dụng định dạng Markdown chuẩn (dấu đầu dòng, in đậm từ khóa, bảng so sánh ngắn gọn nếu cần so sánh tiêu chí) để giao diện hiển thị rõ ràng, chuyên nghiệp.
+   - TRẢ LỜI NGẮN GỌN: tối đa 3-4 câu hoặc 2-3 gạch đầu dòng ngắn cho mỗi câu hỏi — đây là khung chat nhỏ (widget), không phải trang tài liệu. KHÔNG dùng heading markdown (##, ###), KHÔNG dùng bảng dài, KHÔNG in đậm nhiều đoạn văn liên tiếp.
+   - Nếu chủ đề cần giải thích sâu hơn mức 3-4 câu: tóm tắt ý chính quan trọng nhất trước, sau đó gợi ý học viên hỏi tiếp nếu muốn đi sâu chi tiết.
    - Giữ văn phong sư phạm chuẩn mực, súc tích, truyền cảm hứng và tập trung vào mục tiêu nâng band điểm.`
 
     // 4. Cap conversation history to maximum 6 items

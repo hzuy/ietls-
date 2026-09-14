@@ -477,14 +477,14 @@ export default function AIChatbotDrawer() {
 
           {/* Quick Context Chips (Only shown when 1 welcome message) — Viettel Store Style */}
           {messages.length === 1 && (
-            <div className="flex flex-col items-end gap-1.5 px-3 py-2 max-h-[140px] overflow-y-auto border-t border-zinc-100/80 bg-zinc-50/40">
+            <div className="flex flex-col items-end gap-1.5 px-3 py-2 max-h-[140px] overflow-y-auto border-t border-zinc-100/80 bg-white">
               {contextInfo.chips.map((chip) => (
                 <button
                   key={chip}
                   type="button"
                   onClick={() => handleChipClick(chip)}
                   title={chip}
-                  className="rounded-full border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 text-sm font-normal px-3.5 py-1.5 transition-colors whitespace-nowrap shadow-2xs cursor-pointer focus:outline-none"
+                  className="chatbot-chip rounded-full border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-600 font-normal text-sm px-3 py-1 transition-colors whitespace-nowrap shadow-2xs leading-normal cursor-pointer focus:outline-none"
                 >
                   <span>{getShortChipLabel(chip)}</span>
                   <span className="sr-only">{chip}</span>
@@ -498,7 +498,7 @@ export default function AIChatbotDrawer() {
             onSubmit={handleSubmit}
             className="pt-2 bg-white border-t border-zinc-100 flex flex-col select-none"
           >
-            <div className="h-10 px-3.5 bg-zinc-50/80 border border-zinc-200 rounded-full flex items-center gap-2 mx-3 mb-2 focus-within:border-zinc-300 focus-within:bg-white transition-all shadow-2xs">
+            <div className="h-9 px-3.5 bg-zinc-50/80 border border-zinc-200 rounded-full flex items-center gap-2 mx-3 mb-2 focus-within:border-zinc-300 focus-within:bg-white transition-all shadow-2xs">
               <input
                 ref={inputRef}
                 type="text"
@@ -507,7 +507,7 @@ export default function AIChatbotDrawer() {
                 disabled={loading}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Hỏi AI Tutor về IELTS..."
-                className="ai-chat-input flex-1 h-full w-full bg-transparent border-0 border-none outline-none focus:outline-none ring-0 focus:ring-0 shadow-none focus:shadow-none !border-none !outline-none !shadow-none !ring-0 text-sm font-normal leading-relaxed text-zinc-900 placeholder:text-zinc-400 placeholder:font-normal py-0 m-0"
+                className="ai-chat-input flex-1 h-full w-full bg-transparent border-0 border-none outline-none focus:outline-none ring-0 focus:ring-0 shadow-none focus:shadow-none !border-none !outline-none !shadow-none !ring-0 text-xs font-normal text-zinc-800 placeholder:text-zinc-400 placeholder:text-xs placeholder:font-normal py-0 m-0 leading-relaxed"
                 style={{ border: 'none', outline: 'none', boxShadow: 'none' }}
               />
               <button
