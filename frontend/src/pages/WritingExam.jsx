@@ -115,28 +115,9 @@ export default function WritingExam() {
     }
   }, [])
 
-  // Cảnh báo trình duyệt (beforeunload) khi thí sinh đóng tab/F5 trong lúc làm bài
-  useEffect(() => {
-    if (phase !== 'exam' || allSubmitted) return
-    const handleBeforeUnload = (e) => {
-      persistDraftNow()
-      e.preventDefault()
-      e.returnValue = ''
-    }
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [phase, allSubmitted, persistDraftNow])
-
-  // Chặn nút Back (<) của trình duyệt khi đang làm bài
-  const { showModal: showExitModal, stay: stayInExam, leave: leaveExam } = useBrowserHistoryGuard(phase === 'exam' && !allSubmitted, persistDraftNow)
-
-  // Khi đã nộp hết cả 2 task (hoặc bài chỉ có 1 task và đã nộp) → clear draft
-  useEffect(() => {
-    if (!allSubmitted) return
-    if (user) clearDraft(user.id || user._id, id, 'writing')
-  }, [allSubmitted, user, id])
-
   // ── Autosave draft ─────────────────────────────────────────────────────────
+  // Khai báo persistDraftNow TRƯỚC mọi chỗ dùng nó bên dưới (beforeunload effect,
+  // useBrowserHistoryGuard) — const bị TDZ nếu tham chiếu trước khi khai báo.
   const autosaveRef = useRef(null)
   useEffect(() => {
     autosaveRef.current = {
@@ -161,6 +142,27 @@ export default function WritingExam() {
     const interval = setInterval(persistDraftNow, 30000)
     return () => clearInterval(interval)
   }, [phase, id, persistDraftNow])
+
+  // Cảnh báo trình duyệt (beforeunload) khi thí sinh đóng tab/F5 trong lúc làm bài
+  useEffect(() => {
+    if (phase !== 'exam' || allSubmitted) return
+    const handleBeforeUnload = (e) => {
+      persistDraftNow()
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [phase, allSubmitted, persistDraftNow])
+
+  // Chặn nút Back (<) của trình duyệt khi đang làm bài
+  const { showModal: showExitModal, stay: stayInExam, leave: leaveExam } = useBrowserHistoryGuard(phase === 'exam' && !allSubmitted, persistDraftNow)
+
+  // Khi đã nộp hết cả 2 task (hoặc bài chỉ có 1 task và đã nộp) → clear draft
+  useEffect(() => {
+    if (!allSubmitted) return
+    if (user) clearDraft(user.id || user._id, id, 'writing')
+  }, [allSubmitted, user, id])
 
   const loadExam = useCallback(() => {
     setLoading(true)
