@@ -116,7 +116,7 @@ export default function StudentDetailModal({
           <button
             onClick={onClose}
             aria-label="Đóng"
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 transition"
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200/60 transition"
           >
             <X size={18} />
           </button>
@@ -135,7 +135,7 @@ export default function StudentDetailModal({
             {/* 1. Mini Bento: Điểm 4 kỹ năng */}
             <div>
               <div className="flex items-center justify-between mb-2.5">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
                   Điểm trung bình theo kỹ năng
                 </h3>
                 <span className="text-xs text-zinc-500 font-mono">
@@ -157,7 +157,7 @@ export default function StudentDetailModal({
                         </span>
                         <span className={`w-2 h-2 rounded-full ${theme.dot}`} />
                       </div>
-                      <div className="text-xl sm:text-2xl font-black font-mono text-zinc-900 dark:text-zinc-100">
+                      <div className="text-xl sm:text-2xl font-black font-mono text-zinc-900">
                         {score != null ? formatBand(score) : '—'}
                       </div>
                     </div>
@@ -168,15 +168,15 @@ export default function StudentDetailModal({
 
             {/* 2. Insights: Điểm mạnh & Cần cải thiện */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 flex items-center justify-center shrink-0 border border-emerald-200 dark:border-emerald-800">
+              <div className="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-200">
                   <TrendingUp size={18} />
                 </div>
                 <div className="min-w-0">
                   <div className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
                     Kỹ năng thế mạnh
                   </div>
-                  <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate">
+                  <div className="text-xs font-bold text-zinc-900 truncate">
                     {strongest
                       ? `${SKILL_LABEL[strongest[0]]} (Band ${formatBand(strongest[1])})`
                       : 'Đang cập nhật'}
@@ -184,15 +184,15 @@ export default function StudentDetailModal({
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 flex items-center justify-center shrink-0 border border-amber-200 dark:border-amber-800">
+              <div className="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center shrink-0 border border-amber-200">
                   <AlertCircle size={18} />
                 </div>
                 <div className="min-w-0">
                   <div className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
                     Cần rèn luyện thêm
                   </div>
-                  <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate">
+                  <div className="text-xs font-bold text-zinc-900 truncate">
                     {needsImprovement
                       ? `${SKILL_LABEL[needsImprovement[0]]} (Band ${formatBand(needsImprovement[1])})`
                       : 'Đồng đều 4 kỹ năng'}
@@ -203,11 +203,11 @@ export default function StudentDetailModal({
 
             {/* 3. Lịch sử bài thi gần nhất */}
             <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2.5">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-2.5">
                 Lịch sử bài thi gần nhất (Mới nhất)
               </h3>
               {attempts.length === 0 ? (
-                <p className="text-xs text-zinc-400 italic py-4 text-center border border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl">
+                <p className="text-xs text-zinc-400 italic py-4 text-center border border-dashed border-zinc-200 rounded-xl">
                   Chưa có bài thi nào được ghi nhận.
                 </p>
               ) : (
@@ -220,12 +220,12 @@ export default function StudentDetailModal({
                     return (
                       <div
                         key={att.id}
-                        className="p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between gap-3 text-xs"
+                        className="p-3 rounded-xl border border-zinc-200 bg-white flex items-center justify-between gap-3 text-xs"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <span className={`w-2 h-2 rounded-full shrink-0 ${theme.dot}`} />
                           <div className="min-w-0">
-                            <div className="font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+                            <div className="font-semibold text-zinc-900 truncate">
                               {att.exam?.title || `Bài thi #${att.examId}`}
                             </div>
                             <div className="text-[11px] text-zinc-500 flex items-center gap-2 mt-0.5">
@@ -239,7 +239,7 @@ export default function StudentDetailModal({
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${theme.badge}`}>
                             {SKILL_LABEL[skill]}
                           </span>
-                          <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded text-xs">
+                          <span className="font-mono font-bold text-zinc-900 dark:text-slate-100 bg-zinc-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs">
                             {att.score != null ? `Band ${formatBand(att.score)}` : '—'}
                           </span>
                         </div>
@@ -257,7 +257,7 @@ export default function StudentDetailModal({
       <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-3 bg-zinc-50/70 dark:bg-zinc-900/50">
         <button
           onClick={onClose}
-          className="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/70 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 transition"
+          className="h-9 px-5 rounded-full text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/70 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 transition cursor-pointer"
         >
           Đóng
         </button>
@@ -268,7 +268,7 @@ export default function StudentDetailModal({
               onClose()
               navigate(`/admin/users/${user.id}`)
             }}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 transition shadow-xs"
+            className="h-9 px-5 rounded-full flex items-center gap-1.5 text-xs font-semibold text-white bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 transition shadow-xs cursor-pointer"
           >
             <span>Xem hồ sơ đầy đủ</span>
             <ArrowUpRight size={14} />

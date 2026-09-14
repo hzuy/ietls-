@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getAdminStaff, makeAdmin, makeTeacher, removeStaff } from '../../services/adminService'
 import { useToast } from '../../context/ToastContext'
 import { SkeletonTable } from '../../components/skeletons'
+import Modal from '../../components/common/Modal'
 
 
 function fmtDate(iso) {
@@ -129,7 +130,7 @@ export default function Staff() {
                   <th className="px-5 py-3 text-left font-medium">Tên / Email</th>
                   <th className="px-4 py-3 text-left font-medium">Vai trò</th>
                   <th className="px-4 py-3 text-left font-medium">Ngày tham gia</th>
-                  <th className="px-4 py-3 text-left font-medium">Hành động</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-slate-400">HÀNH ĐỘNG</th>
                 </tr>
               </thead>
               <tbody>
@@ -147,18 +148,20 @@ export default function Staff() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-100 text-zinc-800 border border-zinc-200">
-                        {s.role === 'admin' ? 'Admin' : 'Teacher'}
-                      </span>
+                      {s.role === 'admin' ? (
+                        <span className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-xs px-2.5 py-0.5 rounded-full font-medium">Admin</span>
+                      ) : (
+                        <span className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 text-xs px-2.5 py-0.5 rounded-full font-medium">Teacher</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-[11px] text-zinc-500">{fmtDate(s.createdAt)}</td>
                     <td className="px-4 py-3">
-                      <div className="flex gap-1.5 flex-wrap">
+                      <div className="inline-flex items-center gap-1.5 flex-wrap">
                         {s.role === 'teacher' && (
                           <button
                             onClick={() => handleMakeAdmin(s.id)}
                             disabled={actionLoading === s.id + '_admin'}
-                            className="px-2.5 py-1 rounded-lg text-xs border border-zinc-200 text-zinc-700 hover:bg-zinc-100 transition disabled:opacity-50 font-medium shadow-2xs">
+                            className="h-8 px-3.5 rounded-full text-xs border border-zinc-200 dark:border-slate-700 text-zinc-700 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-slate-800 transition disabled:opacity-50 font-medium shadow-2xs cursor-pointer">
                             {actionLoading === s.id + '_admin' ? '...' : 'Nâng Admin'}
                           </button>
                         )}
@@ -166,14 +169,14 @@ export default function Staff() {
                           <button
                             onClick={() => handleMakeTeacher(s.id)}
                             disabled={actionLoading === s.id + '_teacher'}
-                            className="px-2.5 py-1 rounded-lg text-xs border border-zinc-200 text-zinc-700 hover:bg-zinc-100 transition disabled:opacity-50 font-medium shadow-2xs">
+                            className="h-8 px-3.5 rounded-full text-xs border border-zinc-200 dark:border-slate-700 text-zinc-700 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-slate-800 transition disabled:opacity-50 font-medium shadow-2xs cursor-pointer">
                             {actionLoading === s.id + '_teacher' ? '...' : 'Hạ Teacher'}
                           </button>
                         )}
                         {s.id !== currentUser.id && (
                           <button
                             onClick={() => setConfirmRemove({ id: s.id, name: s.name })}
-                            className="px-2.5 py-1 rounded-lg text-xs border border-zinc-200 text-red-500 hover:bg-red-50 hover:border-red-200 transition font-medium shadow-2xs">
+                            className="h-8 px-3.5 rounded-full text-xs border border-zinc-200 dark:border-slate-700 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-200 transition font-medium shadow-2xs cursor-pointer">
                             Xóa khỏi staff
                           </button>
                         )}
@@ -189,28 +192,24 @@ export default function Staff() {
 
       {/* Confirm modal */}
       {confirmRemove && (
-        <div
-          onClick={() => setConfirmRemove(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm border border-zinc-200">
-            <h3 className="text-sm font-semibold text-zinc-900 mb-2">Xác nhận xóa khỏi staff</h3>
-            <p className="text-xs text-zinc-600 mb-6">
-              Xóa quyền staff của <strong>{confirmRemove.name}</strong>? Tài khoản sẽ trở về role <strong>User</strong>.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setConfirmRemove(null)}
-                className="px-3.5 py-2 rounded-lg border border-zinc-200 text-xs text-zinc-700 hover:bg-zinc-50 font-medium transition">
-                Huỷ
-              </button>
-              <button
-                onClick={handleRemoveStaff}
-                className="px-3.5 py-2 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700 transition">
-                Xóa
-              </button>
-            </div>
+        <Modal onClose={() => setConfirmRemove(null)} title="Xác nhận xóa khỏi staff" size="sm" className="p-6">
+          <h3 className="text-sm font-semibold text-zinc-900 dark:text-slate-100 mb-2">Xác nhận xóa khỏi staff</h3>
+          <p className="text-xs text-zinc-600 dark:text-slate-400 mb-6">
+            Xóa quyền staff của <strong>{confirmRemove.name}</strong>? Tài khoản sẽ trở về role <strong>User</strong>.
+          </p>
+          <div className="flex gap-2.5 justify-end">
+            <button
+              onClick={() => setConfirmRemove(null)}
+              className="h-9 px-5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs sm:text-sm text-zinc-700 dark:text-slate-300 hover:bg-zinc-50 dark:hover:bg-slate-800 font-medium transition-colors cursor-pointer">
+              Huỷ
+            </button>
+            <button
+              onClick={handleRemoveStaff}
+              className="h-9 px-5 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer">
+              Xóa
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
     </>
   )

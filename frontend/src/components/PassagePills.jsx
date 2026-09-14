@@ -18,12 +18,12 @@ export default function PassagePills({ items, activeIndex, onChange }) {
             key={i}
             type="button"
             onClick={() => onChange(i)}
-            className={`h-9 px-3.5 sm:px-4 rounded-md text-xs sm:text-sm font-medium inline-flex items-center justify-center gap-2 leading-none transition-colors cursor-pointer shrink-0 ${
+            className={`h-9 px-3.5 sm:px-4 rounded-full text-xs sm:text-sm font-medium inline-flex items-center justify-center gap-2 leading-none transition-colors cursor-pointer shrink-0 ${
               isActive
-                ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xs'
+                ? 'bg-zinc-900 text-white shadow-xs'
                 : isComplete
-                ? 'bg-zinc-100 hover:bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100 border border-zinc-300 dark:border-zinc-700'
-                : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-400 border border-transparent'
+                ? 'bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border border-zinc-300'
+                : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 border border-transparent'
             }`}
           >
             <span>{item.label}</span>

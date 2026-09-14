@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getExams } from '../../services/examService'
 import { formatBand } from '../../utils/ielts'
 import useDebounce from '../../hooks/useDebounce'
-import { btnSecondary, btnDanger } from './adminConstants'
 import { SkeletonTable } from '../skeletons'
 import { Star } from 'lucide-react'
+import Modal from '../common/Modal'
 
 // Bản đồ tùy chọn sort (UI) → cặp { sortBy, sortOrder } gửi lên GET /admin/exams
 const SORT_MAP = {
@@ -350,7 +350,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
                   <button
                     onClick={() => !anyLoading && handleEdit(exam)}
                     disabled={anyLoading}
-                    className={btnSecondary + ' text-xs min-w-[72px] justify-center flex items-center gap-1.5'}
+                    className="h-8 px-4 rounded-full border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-zinc-800 dark:text-slate-200 hover:bg-zinc-100 dark:hover:bg-slate-700 text-xs font-medium min-w-[64px] justify-center flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
                   >
                     {isLoading ? (
                       <>
@@ -364,7 +364,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
                   <button
                     onClick={() => !anyLoading && setConfirmDelete({ id: exam.id, title: exam.title })}
                     disabled={anyLoading}
-                    className={btnDanger}
+                    className="h-8 px-3.5 rounded-full text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
                   >Xóa</button>
                 </div>
               </div>
@@ -407,36 +407,25 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
 
       {/* Delete confirm modal */}
       {confirmDelete && (
-        <div
-          onClick={() => setConfirmDelete(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/50"
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="examlist-delete-title"
-            className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm border border-zinc-200"
-          >
-            <h3 id="examlist-delete-title" className="font-semibold text-zinc-900 text-sm mb-2">Xác nhận xóa</h3>
-            <p className="text-xs text-zinc-600 leading-relaxed mb-6">
-              Bạn có chắc muốn xóa đề <span className="font-medium text-zinc-900">"{confirmDelete.title}"</span> không? Hành động này không thể hoàn tác.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                type="button"
-                autoFocus
-                onClick={() => setConfirmDelete(null)}
-                className="px-3.5 py-2 rounded-lg border border-zinc-200 text-zinc-700 text-xs font-medium hover:bg-zinc-50 transition shadow-2xs"
-              >Quay lại</button>
-              <button
-                type="button"
-                onClick={handleDeleteConfirm}
-                className="px-3.5 py-2 rounded-lg text-white text-xs font-medium bg-red-600 hover:bg-red-700 transition shadow-xs"
-              >Xóa</button>
-            </div>
+        <Modal onClose={() => setConfirmDelete(null)} title="Xác nhận xóa" size="sm" className="p-6">
+          <h3 id="examlist-delete-title" className="font-semibold text-zinc-900 dark:text-slate-100 text-sm mb-2">Xác nhận xóa</h3>
+          <p className="text-xs text-zinc-600 dark:text-slate-400 leading-relaxed mb-6">
+            Bạn có chắc muốn xóa đề <span className="font-medium text-zinc-900 dark:text-slate-100">"{confirmDelete.title}"</span> không? Hành động này không thể hoàn tác.
+          </p>
+          <div className="flex gap-2.5 justify-end">
+            <button
+              type="button"
+              autoFocus
+              onClick={() => setConfirmDelete(null)}
+              className="h-9 px-5 rounded-full border border-zinc-200 dark:border-slate-700 text-zinc-700 dark:text-slate-300 text-xs sm:text-sm font-medium hover:bg-zinc-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            >Quay lại</button>
+            <button
+              type="button"
+              onClick={handleDeleteConfirm}
+              className="h-9 px-5 rounded-full text-white text-xs sm:text-sm font-semibold bg-red-600 hover:bg-red-700 transition-colors shadow-xs cursor-pointer"
+            >Xóa</button>
           </div>
-        </div>
+        </Modal>
       )}
     </>
   )

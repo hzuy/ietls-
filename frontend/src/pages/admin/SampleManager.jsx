@@ -321,7 +321,7 @@ export default function SampleManager({ kind }) {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 hidden sm:table-cell">{cfg.taskColHeader}</th>
                   {cfg.showTags && <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 hidden sm:table-cell">Tags</th>}
                   <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 hidden sm:table-cell">Ngày tạo</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-zinc-500">Hành động</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-slate-400">HÀNH ĐỘNG</th>
                 </tr></thead>
                 <tbody>
                   {list.map(item => (
@@ -352,8 +352,8 @@ export default function SampleManager({ kind }) {
                       {cfg.showTags && <td className="px-4 py-3 hidden sm:table-cell"><div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{(item.tags || []).map(t => <span key={t} style={{ fontSize: 11, background: cfg.listChipStyle.background, color: cfg.listChipStyle.color, borderRadius: 6, padding: '2px 8px', border: '1px solid #e4e4e7' }}>{t}</span>)}</div></td>}
                       <td className="px-4 py-3 text-sm text-zinc-500 hidden sm:table-cell">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</td>
                       <td className="px-4 py-3"><div className="flex items-center justify-end gap-2">
-                        <button onClick={() => openEdit(item)} className="text-xs px-3 py-1.5 rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-100 font-medium transition shadow-2xs">Sửa</button>
-                        <button onClick={() => setDelConfirm(item.id)} className="text-xs px-3 py-1.5 rounded-lg border border-zinc-200 text-red-500 hover:bg-red-50 hover:border-red-200 font-medium transition shadow-2xs">Xóa</button>
+                        <button onClick={() => openEdit(item)} className="h-8 px-3.5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs font-medium text-zinc-700 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-slate-800 transition shadow-2xs cursor-pointer">Sửa</button>
+                        <button onClick={() => setDelConfirm(item.id)} className="h-8 px-3.5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs font-medium text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-200 transition shadow-2xs cursor-pointer">Xóa</button>
                       </div></td>
                     </tr>
                   ))}

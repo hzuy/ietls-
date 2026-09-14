@@ -114,11 +114,10 @@ function ActionButton({ action, showcase, hovered, topGap }) {
       type="button"
       disabled={disabled}
       onClick={decorative || disabled ? undefined : (e) => { e.stopPropagation(); action.onClick?.(e) }}
+      className="w-full h-9 rounded-full px-4 text-sm font-medium tracking-normal inline-flex items-center justify-center leading-none transition-colors select-none"
       style={{
-        width: '100%', padding: '8px 0', marginTop: topGap,
-        borderRadius: 'var(--radius-md)', border: 'none',
-        fontSize: 'var(--fs-sm)', fontWeight: 700,
-        transition: 'all var(--transition)',
+        marginTop: topGap,
+        border: 'none',
         ...tone,
         ...(decorative ? { pointerEvents: 'none' } : null),
       }}

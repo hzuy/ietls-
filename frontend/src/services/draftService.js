@@ -50,9 +50,12 @@ export function isDataEmpty(data) {
 
 /**
  * Save a draft.
- * @param {{ userId, examId, skillType, data, timeRemaining }} payload
+ * @param {{ userId, examId, skillType, data, timeRemaining, examTitle, totalQuestions, highlights }} payload
+ * `highlights` (Reading) — optional list of text-highlight ranges the thí sinh đã tô,
+ * đồng bộ cùng answers/timeRemaining ở mỗi lần autosave. Field độc lập với `data` nên
+ * không ảnh hưởng isDataEmpty() / các skill khác không gửi field này.
  */
-export function saveDraft({ userId, examId, skillType, data, timeRemaining }) {
+export function saveDraft({ userId, examId, skillType, data, timeRemaining, examTitle, totalQuestions, highlights }) {
   if (!userId || !examId || !skillType) return
   const key = draftKey(userId, examId, skillType)
   const payload = {
@@ -62,11 +65,44 @@ export function saveDraft({ userId, examId, skillType, data, timeRemaining }) {
     data: data || {},
     timeRemaining: timeRemaining ?? null,
     savedAt: new Date().toISOString(),
+    examTitle: examTitle ?? null,
+    totalQuestions: totalQuestions ?? null,
+    highlights: highlights ?? [],
   }
   try {
     localStorage.setItem(key, JSON.stringify(payload))
   } catch (e) {
     console.warn('[draftService] Failed to save draft:', e)
+  }
+}
+
+/**
+ * Get the most recent in-progress draft for a user.
+ * @param {string|number} userId
+ * @returns {object|null}
+ */
+export function getLatestDraft(userId) {
+  if (!userId) return null
+  try {
+    const keys = Object.keys(localStorage).filter(k => k.startsWith(`${PREFIX}_${userId}_`))
+    let best = null
+    for (const k of keys) {
+      const item = localStorage.getItem(k)
+      if (!item) continue
+      try {
+        const d = JSON.parse(item)
+        if (d && !isExpired(d) && !isDataEmpty(d.data)) {
+          if (!best || Date.parse(d.savedAt) > Date.parse(best.savedAt)) {
+            best = d
+          }
+        }
+      } catch {
+        // ignore parse error
+      }
+    }
+    return best
+  } catch {
+    return null
   }
 }
 

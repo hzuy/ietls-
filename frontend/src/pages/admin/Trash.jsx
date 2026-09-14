@@ -24,7 +24,7 @@ const TYPE_LABEL = {
 
 // One neutral tone for every type badge — the type is told apart by its icon + label,
 // not by colour (matches Attempts.jsx).
-const BADGE_CLS = 'text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-700 border border-zinc-200'
+const BADGE_CLS = 'text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-700 border border-zinc-200'
 
 const TABS = [
   { key: 'all',                label: 'Tất cả' },
@@ -149,7 +149,7 @@ export default function Trash() {
             <h1 className="text-xl font-semibold text-zinc-900 tracking-tight flex items-center gap-2.5">
               Thùng rác
               {items.length > 0 && (
-                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200">
+                <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-600 border border-zinc-200">
                   {items.length} mục
                 </span>
               )}
@@ -159,15 +159,19 @@ export default function Trash() {
           {items.length > 0 && (
             <button
               onClick={() => setPurgeConfirm(true)}
-              className="text-xs font-medium px-3.5 py-2 rounded-lg bg-zinc-100 text-zinc-800 hover:bg-zinc-200 border border-zinc-200 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900"
+              className="h-9 px-4 rounded-full text-xs font-medium bg-zinc-100 text-zinc-800 hover:bg-zinc-200 border border-zinc-200 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 cursor-pointer"
             >
               Dọn sạch thùng rác
             </button>
           )}
         </div>
 
-        {/* Tabs — flex-wrap */}
-        <div role="tablist" aria-label="Lọc theo loại" className="flex flex-wrap gap-2 items-center mb-5">
+        {/* Tabs — Gom nhóm gọn gàng trong container nền xám, bẻ dòng cân đối không tràn mép */}
+        <div
+          role="tablist"
+          aria-label="Lọc theo loại"
+          className="p-1.5 sm:p-2 bg-zinc-100/90 border border-zinc-200/80 rounded-2xl flex flex-wrap items-center gap-1.5 sm:gap-2 mb-6 shadow-2xs"
+        >
           {TABS.map(t => {
             const cnt = t.key === 'all' ? items.length : (countByType[t.key] || 0)
             const selected = tab === t.key
@@ -178,15 +182,19 @@ export default function Trash() {
                 aria-selected={selected}
                 aria-controls="trash-panel"
                 onClick={() => setTab(t.key)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-1 ${
+                className={`rounded-full px-4 h-8 text-xs font-medium transition-colors inline-flex items-center gap-1.5 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-1 ${
                   selected
                     ? 'bg-zinc-900 text-white shadow-xs'
-                    : 'bg-zinc-100 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/80'
+                    : 'bg-white hover:bg-zinc-100 text-zinc-600 rounded-full border border-zinc-200 transition-colors'
                 }`}
               >
-                {t.label}
+                <span>{t.label}</span>
                 {cnt > 0 && (
-                  <span className={`ml-1.5 text-[11px] ${selected ? 'text-zinc-300' : 'text-zinc-400'}`}>
+                  <span
+                    className={`text-[11px] tabular-nums font-normal ${
+                      selected ? 'text-zinc-300' : 'text-zinc-400'
+                    }`}
+                  >
                     ({cnt})
                   </span>
                 )}
@@ -199,19 +207,22 @@ export default function Trash() {
         {isPending && items.length === 0 ? (
           <SkeletonTable rows={6} cols={4} />
         ) : filtered.length === 0 ? (
-          <div className="text-center py-20">
-            <Trash2 size={48} strokeWidth={1.5} className="text-zinc-300 mx-auto mb-3" />
-            <p className="text-zinc-400 text-xs">Thùng rác trống</p>
+          <div className="w-full min-h-[340px] flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-white/50 p-8 text-center">
+            <div className="w-12 h-12 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-400 mb-3">
+              <Trash2 size={20} strokeWidth={1.5} />
+            </div>
+            <p className="text-sm font-medium text-zinc-900">Thùng rác trống</p>
+            <p className="text-xs text-zinc-500 mt-1">Không có mục nào bị xóa trong {PURGE_DAYS} ngày qua</p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
+          <div className="bg-white rounded-xl border border-zinc-200 shadow-xs overflow-hidden">
             <table className="w-full text-xs">
               <thead className="bg-zinc-50 border-b border-zinc-200">
-                <tr>
-                  <th className="px-4 py-3 text-left text-[11px] font-medium text-zinc-500">Tên</th>
-                  <th className="px-4 py-3 text-left text-[11px] font-medium text-zinc-500 hidden sm:table-cell w-40">Loại</th>
-                  <th className="px-4 py-3 text-left text-[11px] font-medium text-zinc-500 hidden sm:table-cell w-44">Ngày xóa</th>
-                  <th className="px-4 py-3 text-right text-[11px] font-medium text-zinc-500 w-52">Hành động</th>
+                <tr className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                  <th className="px-4 py-3 text-left">Tên</th>
+                  <th className="px-4 py-3 text-left hidden sm:table-cell w-40">Loại</th>
+                  <th className="px-4 py-3 text-left hidden sm:table-cell w-44">Ngày xóa</th>
+                  <th className="px-4 py-3 text-right w-52">HÀNH ĐỘNG</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
@@ -242,13 +253,13 @@ export default function Trash() {
                         <div className="flex items-center gap-2 justify-end">
                           <button
                             onClick={() => setConfirming({ ...item, action: 'restore' })}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg border border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-100 transition shadow-2xs focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900"
+                            className="h-8 px-3.5 rounded-full text-xs font-medium border border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-100 transition shadow-2xs focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 cursor-pointer"
                           >
                             Khôi phục
                           </button>
                           <button
                             onClick={() => setConfirming({ ...item, action: 'delete' })}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                            className="h-8 px-3.5 rounded-full text-xs font-medium bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 cursor-pointer"
                           >
                             {err ? 'Thử lại' : 'Xóa vĩnh viễn'}
                           </button>
@@ -270,8 +281,9 @@ export default function Trash() {
           onClose={() => setConfirming(null)}
           title={confirming.action === 'restore' ? 'Khôi phục mục này?' : 'Xóa vĩnh viễn mục này?'}
           size="sm"
+          className="p-6"
         >
-          <div className="p-6">
+          <div>
             <div className="flex items-center gap-3 mb-3">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center ${confirming.action === 'restore' ? 'bg-zinc-100' : 'bg-red-50'}`}>
                 {confirming.action === 'restore'
@@ -290,15 +302,15 @@ export default function Trash() {
                   ? 'Sẽ khôi phục cả các đề thi đã xóa cùng cuốn sách này.'
                   : 'Mục sẽ được khôi phục về trạng thái hoạt động.'}
             </p>
-            <div className="flex gap-3 justify-end">
+            <div className="flex gap-2.5 justify-end">
               <button onClick={() => setConfirming(null)}
-                className="px-3.5 py-2 rounded-lg border border-zinc-200 text-xs text-zinc-600 hover:bg-zinc-50 font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400">
+                className="h-9 px-5 rounded-full border border-zinc-200 text-xs sm:text-sm text-zinc-600 hover:bg-zinc-50 font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 cursor-pointer">
                 Hủy
               </button>
               <button
                 disabled={busy}
                 onClick={() => confirming.action === 'restore' ? handleRestore(confirming) : handleDelete(confirming)}
-                className={`px-3.5 py-2 rounded-lg text-xs font-medium text-white transition disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${
+                className={`h-9 px-5 rounded-full text-xs sm:text-sm font-semibold text-white transition disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 cursor-pointer ${
                   confirming.action === 'restore'
                     ? 'bg-zinc-900 hover:bg-zinc-800 focus-visible:ring-zinc-900'
                     : 'bg-red-600 hover:bg-red-700 focus-visible:ring-red-500'
@@ -313,8 +325,8 @@ export default function Trash() {
 
       {/* Confirm purge */}
       {purgeConfirm && (
-        <Modal onClose={() => setPurgeConfirm(false)} title="Dọn sạch thùng rác?" size="sm">
-          <div className="p-6">
+        <Modal onClose={() => setPurgeConfirm(false)} title="Dọn sạch thùng rác?" size="sm" className="p-6">
+          <div>
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center">
                 <AlertTriangle size={20} className="text-amber-500" />
@@ -323,13 +335,13 @@ export default function Trash() {
             </div>
             <p className="text-xs text-zinc-600 mb-1">Tất cả <span className="font-medium text-zinc-900">{items.length} mục</span> trong thùng rác sẽ bị xóa vĩnh viễn.</p>
             <p className="text-[11px] text-red-500 mb-5">Hành động này không thể hoàn tác.</p>
-            <div className="flex gap-3 justify-end">
+            <div className="flex gap-2.5 justify-end">
               <button onClick={() => setPurgeConfirm(false)}
-                className="px-3.5 py-2 rounded-lg border border-zinc-200 text-xs text-zinc-600 hover:bg-zinc-50 font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400">
+                className="h-9 px-5 rounded-full border border-zinc-200 text-xs sm:text-sm text-zinc-600 hover:bg-zinc-50 font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 cursor-pointer">
                 Hủy
               </button>
               <button disabled={busy} onClick={handlePurge}
-                className="px-3.5 py-2 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700 transition disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-1">
+                className="h-9 px-5 rounded-full bg-red-600 text-white text-xs sm:text-sm font-semibold hover:bg-red-700 transition disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-1 cursor-pointer">
                 {busy ? '...' : 'Xóa tất cả'}
               </button>
             </div>

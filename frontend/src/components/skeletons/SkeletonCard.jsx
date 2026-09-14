@@ -5,10 +5,12 @@
  * Props:
  *   count      {number}  Optional count of cards to render. Default 1.
  *   className  {string}  Extra classes on each card container.
- *   aspect     {string}  '16/9' (default) or '4/5' for portrait book cards.
+ *   aspect     {string}  '16/9' (default, h-40) | '4/5' | '3/4' for portrait book cards.
  */
 export default function SkeletonCard({ count, className = '', aspect = '16/9' }) {
-  const isPortrait = aspect === '4/5'
+  // Tailwind cần class arbitrary-value tĩnh trong source để generate — không nội suy
+  // `aspect-[${aspect}]` được, nên liệt kê tường minh từng tỉ lệ đang thực sự dùng.
+  const aspectClass = aspect === '4/5' ? 'aspect-[4/5]' : aspect === '3/4' ? 'aspect-[3/4]' : 'h-40'
 
   const renderCard = (key) => (
     <div
@@ -16,11 +18,7 @@ export default function SkeletonCard({ count, className = '', aspect = '16/9' })
       className={`card-base flex flex-col overflow-hidden h-full ${className}`}
     >
       {/* Thumbnail */}
-      <div
-        className={`w-full bg-slate-200 animate-pulse shrink-0 ${
-          isPortrait ? 'aspect-[4/5]' : 'h-40'
-        }`}
-      />
+      <div className={`w-full bg-slate-200 animate-pulse shrink-0 ${aspectClass}`} />
 
       {/* Content */}
       <div className="p-4 flex flex-col flex-1 gap-3">

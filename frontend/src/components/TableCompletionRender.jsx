@@ -21,7 +21,7 @@ function CellContent({ content, questions, answers, onAnswer, previewMode, showA
                 readOnly={previewMode}
                 onChange={previewMode ? undefined : e => onAnswer(q.id, e.target.value)}
                 placeholder={previewMode ? '' : '...'}
-                className={`border-b-2 ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} outline-none px-1 py-0.5 text-sm w-24 bg-transparent text-center transition`}
+                className={`border ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} rounded-full outline-none px-2.5 py-0.5 text-sm w-24 bg-white text-center transition`}
               />
             </span>
           )
@@ -46,14 +46,14 @@ export default function TableCompletionRender({ group, answers, onAnswer, previe
 
   return (
     <div id={`q-${group.qNumberStart}`} className="mb-6 scroll-mt-4">
-      <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 mb-3 text-sm">
+      <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-3 text-sm">
         <p className="font-semibold text-zinc-900 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
         {group.instruction && <p className="text-zinc-500 text-xs">{group.instruction}</p>}
       </div>
       {section.title && (
         <p className="text-sm font-semibold text-zinc-900 mb-2">{section.title}</p>
       )}
-      <div className="overflow-x-auto rounded-xl border border-zinc-200 shadow-xs bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-zinc-200 shadow-xs bg-white">
         <table className="w-full border-collapse text-sm">
           {headers.length > 0 && headers.some(h => (h || '').trim()) && (
             <thead>

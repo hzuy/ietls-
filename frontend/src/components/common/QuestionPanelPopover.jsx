@@ -21,7 +21,7 @@ export default function QuestionPanelPopover({ groups, activeIndex, bottomOffset
     <>
       <div className="fixed inset-0 z-30" onClick={onClose} />
       <div
-        className="fixed left-4 z-40 bg-white rounded-xl shadow-lg border border-zinc-200 w-72 max-h-80 overflow-y-auto"
+        className="fixed left-4 z-40 bg-white rounded-2xl shadow-lg border border-zinc-200 w-72 max-h-80 overflow-y-auto"
         style={{ bottom: bottomOffset }}
       >
         <div className="sticky top-0 bg-white border-b border-zinc-100 px-4 py-3 flex items-center justify-between">
@@ -62,6 +62,7 @@ export default function QuestionPanelPopover({ groups, activeIndex, bottomOffset
                     <QuestionNavButton
                       key={it.number}
                       number={it.number}
+                      roundedFull
                       status={it.answered ? 'answered' : 'unanswered'}
                       onClick={() => { onJump(it.ref); onClose() }}
                     />

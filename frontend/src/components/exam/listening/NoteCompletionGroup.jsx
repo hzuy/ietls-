@@ -1,6 +1,6 @@
 function InstructionBanner({ group }) {
   return (
-    <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 mb-4 text-sm">
+    <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
       <p className="font-semibold text-zinc-900 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
       {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
     </div>
@@ -16,11 +16,11 @@ function NoteTokenLine({ content, groupQuestions, answers, onAnswer, previewMode
         if (match) {
           const qNum = parseInt(match[1])
           const q = groupQuestions.find(q => q.number === qNum)
-          if (!q) return <span key={i} className="inline-block w-24 border-b-2 border-zinc-300 mx-1" />
+          if (!q) return <span key={i} className="inline-block w-24 border border-zinc-300 rounded-full mx-1" />
           const val = previewMode && showAnswers ? (q?.correctAnswer || '') : (answers[q.id] || '')
           const cls = previewMode && showAnswers
-            ? 'inline-block w-28 border-b-2 border-green-500 outline-none px-1 text-sm bg-transparent text-center font-semibold text-green-700'
-            : 'inline-block w-28 border-b-2 border-zinc-300 focus:border-zinc-900 outline-none px-1 text-sm bg-transparent text-center text-zinc-900'
+            ? 'inline-block w-28 border border-green-500 rounded-full outline-none px-3 text-sm bg-white text-center font-semibold text-green-700'
+            : 'inline-block w-28 border border-zinc-300 focus:border-zinc-900 rounded-full outline-none px-3 text-sm bg-white text-center text-zinc-900'
           return (
             <span key={i} className="inline-flex items-center gap-1 mx-1">
               <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-900 font-bold text-xs shrink-0">{qNum}</span>
@@ -53,7 +53,7 @@ export default function NoteCompletionGroup({ group, answers, onAnswer, previewM
             {ns.title && (
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2 pl-1">{ns.title}</p>
             )}
-            <div className="bg-white border border-zinc-200 rounded-xl p-4 space-y-0.5 shadow-xs">
+            <div className="bg-white border border-zinc-200 rounded-2xl p-5 space-y-0.5 shadow-xs">
               {(ns.lines || []).map(line => (
                 line.lineType === 'heading'
                   ? <p key={line.id} className="font-semibold text-zinc-900 text-[0.95rem] pt-2 pb-0.5">{line.contentWithTokens}</p>
@@ -74,7 +74,7 @@ export default function NoteCompletionGroup({ group, answers, onAnswer, previewM
               readOnly={previewMode}
               onChange={previewMode ? undefined : e => onAnswer(q.id, e.target.value)}
               placeholder={previewMode ? '' : '...'}
-              className={`border-b-2 ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} outline-none px-2 py-0.5 text-sm w-36 bg-transparent`} />
+              className={`border ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} rounded-full outline-none px-3 py-1 text-sm w-36 bg-white`} />
           </div>
         ))
       )}

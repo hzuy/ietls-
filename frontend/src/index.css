@@ -1,6 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap');
 @import "tailwindcss";
 
+/* Disable dark mode variant completely (never matches OS prefers-color-scheme) */
+@custom-variant dark (&:where(.never-dark, .never-dark *));
 @layer base {
   :root {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -112,6 +114,7 @@
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-out-expo:  cubic-bezier(0.16, 1, 0.3, 1);
 }
+
 
 /* ─── Reset & Base ──────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
@@ -229,6 +232,30 @@ aside nav a, aside nav button { font-family: inherit; }
 .anim-fade-up { animation: fadeUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .anim-fade-in { animation: fadeIn 0.4s ease both; }
 
+/* ─── Page transition (route change) ───────────────────────────────────────── */
+/* "to" KHÔNG khai báo transform (chỉ "from" có) — theo spec CSS Animations, giá trị
+   thiếu ở một keyframe dùng "underlying value" (ở đây là "none"), nên sau khi animation
+   kết thúc phần tử KHÔNG còn transform nào áp dụng. Quan trọng: nếu "to" khai báo lại
+   dù chỉ là translateY(0), computed value vẫn là ma trận identity chứ không phải "none",
+   khiến phần tử vĩnh viễn trở thành containing block cho mọi con cháu position:fixed —
+   modal/backdrop bên trong (Modal.jsx) sẽ bị kẹt trong vùng <main>, hở Sidebar và lệch
+   tâm thay vì phủ toàn viewport (xem StudentDetailModal / Trash / Attempts). */
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; }
+}
+.page-transition-in { animation: pageEnter 200ms ease-out both; }
+
+/* ─── Top route-loading progress bar ────────────────────────────────────────── */
+.top-progress-bar {
+  position: fixed;
+  top: 0; left: 0;
+  height: 2.5px;
+  background: var(--primary);
+  z-index: 9999;
+  transition: width 250ms ease-out, opacity 300ms ease-out;
+}
+
 .delay-1 { animation-delay: 0.07s; }
 .delay-2 { animation-delay: 0.14s; }
 .delay-3 { animation-delay: 0.21s; }
@@ -242,7 +269,8 @@ aside nav a, aside nav button { font-family: inherit; }
    Reset animation entirely so elements render at their natural (fully visible) state. */
 @media (prefers-reduced-motion: reduce) {
   .anim-fade-up,
-  .anim-fade-in {
+  .anim-fade-in,
+  .page-transition-in {
     animation: none;
   }
 }
@@ -259,7 +287,7 @@ aside nav a, aside nav button { font-family: inherit; }
 .btn-primary {
   display: inline-flex; align-items: center; justify-content: center;
   min-height: 44px; padding: 0.625rem 1.5rem;
-  border-radius: var(--radius-md); border: none;
+  border-radius: 9999px; border: none;
   background: var(--primary); color: #fff;
   font-size: var(--fs-sm); font-weight: 600;
   cursor: pointer; letter-spacing: 0.01em;
@@ -320,7 +348,7 @@ aside nav a, aside nav button { font-family: inherit; }
   min-height: 44px; padding: 0.625rem 1.5rem;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: 9999px;
   color: var(--text);
   font-size: var(--fs-sm); font-weight: 600;
   cursor: pointer;
@@ -337,7 +365,7 @@ aside nav a, aside nav button { font-family: inherit; }
   display: inline-flex; align-items: center; justify-content: center;
   min-height: 44px; padding: 0.625rem 1rem;
   background: transparent; border: none;
-  border-radius: var(--radius-md);
+  border-radius: 9999px;
   color: var(--muted);
   font-size: var(--fs-sm); font-weight: 500;
   cursor: pointer;
@@ -352,7 +380,7 @@ aside nav a, aside nav button { font-family: inherit; }
   display: inline-flex; align-items: center; justify-content: center;
   min-height: 44px; padding: 0.625rem 1.5rem;
   background: var(--error); color: #fff;
-  border: none; border-radius: var(--radius-md);
+  border: none; border-radius: 9999px;
   font-size: var(--fs-sm); font-weight: 700;
   cursor: pointer;
   transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
@@ -374,8 +402,8 @@ aside nav a, aside nav button { font-family: inherit; }
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 0.625rem 1rem;
+  border-radius: 9999px;
+  padding: 0.625rem 1.25rem;
   outline: none;
   transition: border-color var(--transition), box-shadow var(--transition);
 }
@@ -576,13 +604,13 @@ a.underline:hover::after, .has-underline:hover::after {
 }
 
 /* 6. Input */
-input:hover:not(.admin-scope *):not(.admin-main *),
+input:hover:not(.admin-scope *):not(.admin-main *):not(.ai-chat-input),
 textarea:hover:not(.admin-scope *):not(.admin-main *),
 select:hover:not(.admin-scope *):not(.admin-main *) {
   border-color: #d4d4d8 !important;
   box-shadow: none !important;
 }
-input:focus:not(.admin-scope *):not(.admin-main *),
+input:focus:not(.admin-scope *):not(.admin-main *):not(.ai-chat-input),
 textarea:focus:not(.admin-scope *):not(.admin-main *),
 select:focus:not(.admin-scope *):not(.admin-main *) {
   border-color: #18181b !important;
@@ -611,6 +639,14 @@ input:focus, textarea:focus, select:focus {
   from { opacity: 0; transform: translateY(-6px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* 8b. Dialog (ExamActionDialog) — fade + zoom-in nhẹ, không dùng plugin tailwindcss-animate
+   (chưa có trong project) nên hand-roll tương đương "animate-in fade-in zoom-in-95 duration-150". */
+@keyframes dialogIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.animate-dialog-in { animation: dialogIn 150ms ease-out both; }
 
 /* 9. Utility: hide scrollbar while preserving scroll functionality */
 .no-scrollbar::-webkit-scrollbar {

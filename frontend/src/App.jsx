@@ -4,12 +4,16 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClient } from './lib/queryClient'
 import { useAuth } from './context/AuthContext'
 import { AuthProvider } from './context/AuthContext'
+import { ThemeProvider } from './context/ThemeContext'
 import { ToastProvider } from './context/ToastContext'
 import { FormDirtyProvider } from './context/FormDirtyContext'
 import Footer from './components/Footer'
 import ErrorBoundary from './components/ErrorBoundary'
 import AdminLayout from './components/AdminLayout'
 import AIChatbotDrawer from './components/common/AIChatbotDrawer'
+import TopProgressBar from './components/common/TopProgressBar'
+import ScrollToTop from './components/common/ScrollToTop'
+import UserPageSkeleton from './components/skeletons/UserPageSkeleton'
 import { getAdminSettings } from './services/adminService'
 import { purgeExpiredDrafts } from './services/draftService'
 
@@ -51,11 +55,17 @@ const ListeningPractice = lazy(() => import('./pages/admin/ListeningPractice'))
 const SampleManager     = lazy(() => import('./pages/admin/SampleManager'))
 const Trash             = lazy(() => import('./pages/admin/Trash'))
 
-function PageLoader() {
+// Bọc nội dung route bằng key để animation "page-transition-in" (fade + slide nhẹ)
+// restart mỗi lần chuyển route — tránh nội dung xuất hiện nhấp nháy nền trắng.
+// Toàn bộ /admin/* dùng chung 1 key: AdminLayout (sidebar) không được remount khi
+// chuyển giữa các mục quản trị — animation riêng cho nội dung admin đặt trong
+// AdminLayout, bọc quanh <Outlet/>.
+function PageTransition({ children }) {
+  const { pathname } = useLocation()
+  const transitionKey = pathname.startsWith('/admin') ? '/admin' : pathname
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 32, height: 32, border: '3px solid #e2e8f0', borderTopColor: '#18181b', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+    <div key={transitionKey} className="page-transition-in">
+      {children}
     </div>
   )
 }
@@ -123,14 +133,18 @@ function AppEffects() {
 
 export default function App() {
   return (
+    <ThemeProvider>
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary>
         <BrowserRouter>
           <AuthProvider>
             <ToastProvider>
               <AppEffects />
+              <TopProgressBar />
+              <ScrollToTop />
               <FormDirtyProvider>
-              <Suspense fallback={<PageLoader />}>
+              <Suspense fallback={<UserPageSkeleton />}>
+                <PageTransition>
                 <Routes>
                   <Route path="/login" element={<Navigate to="/" replace state={{ authModal: 'login' }} />} />
                   <Route path="/register" element={<Navigate to="/" replace state={{ authModal: 'register' }} />} />
@@ -187,6 +201,7 @@ export default function App() {
                   {/* 404 Route */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
+                </PageTransition>
               </Suspense>
               <FooterWrapper />
               <AIChatbotDrawer />
@@ -196,5 +211,6 @@ export default function App() {
         </BrowserRouter>
       </ErrorBoundary>
     </QueryClientProvider>
+    </ThemeProvider>
   )
 }

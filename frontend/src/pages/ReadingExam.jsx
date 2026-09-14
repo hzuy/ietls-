@@ -2,13 +2,14 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { queryClient } from '../lib/queryClient'
-import { getReadingExam, getReadingExamWithAnswers, submitReadingExam, getFullTestStatus } from '../services/examService'
+import { getReadingExam, getReadingExamWithAnswers, submitReadingExam } from '../services/examService'
 import { getAdminSettings } from '../services/adminService'
 import { saveDraft, loadDraft, clearDraft, formatSavedAt } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
-import { BookOpen, ArrowLeft, Type, Clock, LayoutGrid, ChevronUp, ChevronDown } from 'lucide-react'
+import { BookOpen, ArrowLeft, Type, Clock, LayoutGrid, ChevronUp, ChevronDown, Highlighter, StickyNote, Trash2 } from 'lucide-react'
+import HighlightLayer, { getOffsetWithinElement } from '../components/exam/HighlightLayer'
 import MatchingTickGrid from '../components/MatchingTickGrid'
 import DragWordBankGroup from '../components/DragWordBankGroup'
 import MatchingDragGroup from '../components/MatchingDragGroup'
@@ -26,6 +27,7 @@ import { fmt } from '../utils/practiceUtils'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
 import ExitConfirmModal from '../components/common/ExitConfirmModal'
+import ExamActionDialog from '../components/common/ExamActionDialog'
 
 
 const DEFAULT_READING_TIME = 60 * 60
@@ -43,7 +45,6 @@ export default function ReadingExam() {
 
   const [exam, setExam] = useState(null)
   const [answers, setAnswers] = useState({})
-  const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -52,7 +53,6 @@ export default function ReadingExam() {
   const [phase, setPhase] = useState('start')
   const [showAnswers, setShowAnswers] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
-  const [fullTestStatus, setFullTestStatus] = useState(null)
   const [showNavNumbers, setShowNavNumbers] = useState(true)
   const [showQuestionPanel, setShowQuestionPanel] = useState(false)
   const [bottomBarHeight, setBottomBarHeight] = useState(52)
@@ -71,6 +71,13 @@ export default function ReadingExam() {
   const [isDragging, setIsDragging] = useState(false)
   const [fontSize, setFontSize] = useState('base')
 
+  // ── Highlight text (kiểu IELTS on Computer) ─────────────────────────────────
+  const passageTextRef = useRef(null)
+  const [highlights, setHighlights] = useState([]) // { id, passageIndex, paraIndex, start, end, note? }
+  const [selectionBubble, setSelectionBubble] = useState(null) // { x, y, paraIndex, start, end }
+  const [highlightMenu, setHighlightMenu] = useState(null) // { id, x, y, note }
+  const [noteEditor, setNoteEditor] = useState(null) // { x, y, paraIndex, start, end, value } | { x, y, id, value } (sửa ghi chú có sẵn)
+
   // ── Autosave draft ─────────────────────────────────────────────────────────
   // MỘT interval sống suốt phiên (deps [phase, previewMode, id]). KHÔNG đưa
   // answers/timeLeft/user vào deps — đổi liên tục → interval bị reset, không bao
@@ -79,12 +86,12 @@ export default function ReadingExam() {
   const autosaveRef = useRef(null)
   useEffect(() => {
     autosaveRef.current = {
-      answers, timeLeft,
+      answers, timeLeft, highlights,
       userId: user ? (user.id || user._id) : null,
     }
   })
   const persistDraftNow = useCallback(() => {
-    const { answers, timeLeft, userId } = autosaveRef.current
+    const { answers, timeLeft, highlights, userId } = autosaveRef.current
     if (!userId || !id) return
     // P3-2: đừng để answers rỗng ghi đè một draft cũ không rỗng
     // (vd reload KHÔNG kèm ?resume=true → vào 'exam' với answers = {})
@@ -92,10 +99,11 @@ export default function ReadingExam() {
       const existing = loadDraft(userId, id, 'reading')
       if (existing?.data && Object.keys(existing.data).length > 0) return
     }
-    saveDraft({ userId, examId: id, skillType: 'reading', data: answers, timeRemaining: timeLeft })
+    const examTitle = exam?.title || (exam?.seriesName ? `${exam.seriesName} · Test ${exam.testNumber} Reading` : 'IELTS Reading')
+    saveDraft({ userId, examId: id, skillType: 'reading', data: answers, timeRemaining: timeLeft, examTitle, totalQuestions: 40, highlights })
     savedDraftRef.current = JSON.stringify(answers)
     setLastSavedAt(new Date())
-  }, [id])
+  }, [id, exam])
   useEffect(() => {
     if (phase !== 'exam' || previewMode) return
     const interval = setInterval(persistDraftNow, 30000)
@@ -143,6 +151,7 @@ export default function ReadingExam() {
             savedDraftRef.current = JSON.stringify(draft.data)
             if (draft.timeRemaining != null) setTimeLeft(draft.timeRemaining)
             if (draft.savedAt) setLastSavedAt(new Date(draft.savedAt))
+            if (Array.isArray(draft.highlights)) setHighlights(draft.highlights)
           }
           setPhase('exam')
         }
@@ -161,14 +170,6 @@ export default function ReadingExam() {
     document.title = 'Bài thi Reading | IELTS Pro'
     loadExam()
   }, [loadExam])
-
-  useEffect(() => {
-    if (phase === 'result' && result) {
-      getFullTestStatus(id)
-        .then(data => { if (data.isComplete) setFullTestStatus(data) })
-        .catch(() => {})
-    }
-  }, [phase, result])
 
   const handleBack = () => {
     if (exam?.seriesId) {
@@ -221,11 +222,11 @@ export default function ReadingExam() {
   }
 
   useEffect(() => {
-    if (phase !== 'exam' || result || previewMode) return
+    if (phase !== 'exam' || previewMode) return
     if (timeLeft <= 0) { doSubmit(); return }
     const t = setInterval(() => setTimeLeft(s => s - 1), 1000)
     return () => clearInterval(t)
-  }, [phase, timeLeft, result, previewMode])
+  }, [phase, timeLeft, previewMode])
 
   useEffect(() => {
     if (!showConfirm) return
@@ -249,6 +250,122 @@ export default function ReadingExam() {
   }, [])
 
   const onAnswer = useCallback((qId, val) => setAnswers(a => ({ ...a, [qId]: val })), [])
+
+  // ── Highlight text (bôi đen → menu nổi Tô màu / Ghi chú; click highlight → Xóa) ──
+  const closeHighlightPopovers = useCallback(() => {
+    setSelectionBubble(null)
+    setHighlightMenu(null)
+    setNoteEditor(null)
+  }, [])
+
+  const handlePassageMouseUp = useCallback(() => {
+    const sel = window.getSelection()
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0 || !sel.toString().trim()) {
+      setSelectionBubble(null)
+      return
+    }
+    const range = sel.getRangeAt(0)
+    let node = range.startContainer
+    let paraEl = node.nodeType === 3 ? node.parentElement : node
+    while (paraEl && paraEl.getAttribute?.('data-para-index') == null) paraEl = paraEl.parentElement
+    if (!paraEl || !passageTextRef.current?.contains(paraEl)) { setSelectionBubble(null); return }
+
+    const paraIndex = parseInt(paraEl.getAttribute('data-para-index'), 10)
+    const startRaw = getOffsetWithinElement(paraEl, range.startContainer, range.startOffset)
+    const endRaw = getOffsetWithinElement(paraEl, range.endContainer, range.endOffset)
+    if (startRaw == null || endRaw == null || startRaw === endRaw) { setSelectionBubble(null); return }
+
+    const rect = range.getBoundingClientRect()
+    setHighlightMenu(null)
+    setNoteEditor(null)
+    setSelectionBubble({
+      x: rect.left + rect.width / 2,
+      y: rect.top,
+      paraIndex,
+      start: Math.min(startRaw, endRaw),
+      end: Math.max(startRaw, endRaw),
+    })
+  }, [])
+
+  const hasOverlap = useCallback((paraIndex, start, end, ignoreId) => {
+    return highlights.some(h =>
+      h.id !== ignoreId && h.passageIndex === activePassage && h.paraIndex === paraIndex &&
+      !(end <= h.start || start >= h.end)
+    )
+  }, [highlights, activePassage])
+
+  const applyHighlight = () => {
+    if (!selectionBubble) return
+    const { paraIndex, start, end } = selectionBubble
+    if (!hasOverlap(paraIndex, start, end)) {
+      setHighlights(prev => [...prev, {
+        id: `hl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        passageIndex: activePassage, paraIndex, start, end,
+      }])
+    }
+    window.getSelection()?.removeAllRanges()
+    setSelectionBubble(null)
+  }
+
+  const openNoteEditorForSelection = () => {
+    if (!selectionBubble) return
+    setNoteEditor({ ...selectionBubble, value: '' })
+    setSelectionBubble(null)
+  }
+
+  const saveNoteEditor = () => {
+    if (!noteEditor) return
+    const { paraIndex, start, end, id, value } = noteEditor
+    const note = value.trim() || undefined
+    if (id) {
+      // Sửa ghi chú của highlight có sẵn
+      setHighlights(prev => prev.map(h => (h.id === id ? { ...h, note } : h)))
+    } else if (!hasOverlap(paraIndex, start, end)) {
+      setHighlights(prev => [...prev, {
+        id: `hl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        passageIndex: activePassage, paraIndex, start, end, note,
+      }])
+    }
+    window.getSelection()?.removeAllRanges()
+    setNoteEditor(null)
+  }
+
+  const openHighlightMenu = useCallback((highlight, e) => {
+    setSelectionBubble(null)
+    setNoteEditor(null)
+    setHighlightMenu({ id: highlight.id, x: e.clientX, y: e.clientY, note: highlight.note })
+  }, [])
+
+  const clearHighlight = (highlightId) => {
+    setHighlights(prev => prev.filter(h => h.id !== highlightId))
+    setHighlightMenu(null)
+  }
+
+  const editHighlightNote = () => {
+    if (!highlightMenu) return
+    const target = highlights.find(h => h.id === highlightMenu.id)
+    if (!target) return
+    setNoteEditor({ id: target.id, x: highlightMenu.x, y: highlightMenu.y, value: target.note || '' })
+    setHighlightMenu(null)
+  }
+
+  // Đóng mọi popover khi đổi passage / rời màn hình exam
+  useEffect(() => { closeHighlightPopovers() }, [activePassage, closeHighlightPopovers])
+  useEffect(() => {
+    if (!selectionBubble && !highlightMenu && !noteEditor) return
+    const onKeyDown = (e) => { if (e.key === 'Escape') closeHighlightPopovers() }
+    const onMouseDown = (e) => {
+      if (e.target.closest?.('[data-highlight-popover]')) return
+      if (e.target.closest?.('mark[data-highlight-id]')) return
+      closeHighlightPopovers()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    document.addEventListener('mousedown', onMouseDown)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('mousedown', onMouseDown)
+    }
+  }, [selectionBubble, highlightMenu, noteEditor, closeHighlightPopovers])
 
   const doSubmit = async () => {
     setSubmitting(true)
@@ -401,13 +518,13 @@ export default function ReadingExam() {
           <p style={{ margin: 0 }}>• Có thể chuyển qua lại giữa các passage</p>
           <p style={{ margin: 0 }}>• Bài sẽ tự nộp khi hết giờ</p>
         </div>
-        <button onClick={() => setPhase('exam')} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 'var(--fs-base)', marginBottom: 8, textAlign: 'center' }}>
+        <button onClick={() => setPhase('exam')} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '9999px', fontSize: 'var(--fs-base)', marginBottom: 8, textAlign: 'center' }}>
           Bắt đầu làm bài
         </button>
         <button
           onClick={handleBack}
           className="w-full text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-all duration-200 ease-in-out font-medium text-sm flex items-center justify-center gap-1.5 cursor-pointer"
-          style={{ width: '100%', padding: '12px 0', borderRadius: '12px' }}
+          style={{ width: '100%', padding: '12px 0', borderRadius: '9999px' }}
         >
           <ArrowLeft className="w-4 h-4 text-zinc-500" /> Quay lại
         </button>
@@ -420,13 +537,13 @@ export default function ReadingExam() {
   return (
     <div className="h-dvh flex flex-col overflow-hidden" style={{ backgroundColor: 'var(--surface-raised)' }}>
       {/* Header */}
-      <header className="h-14 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 px-6 flex items-center justify-between shrink-0 z-30">
+      <header className="h-14 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+          <span className="text-xs sm:text-sm font-semibold text-zinc-900 truncate">
             {exam.title}
           </span>
           {previewMode && (
-            <span className="text-[11px] bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 px-2 py-0.5 rounded-md font-medium shrink-0">
+            <span className="text-[11px] bg-zinc-100 text-zinc-800 border border-zinc-200 px-2.5 py-0.5 rounded-full font-medium shrink-0">
               Chế độ Preview
             </span>
           )}
@@ -436,10 +553,10 @@ export default function ReadingExam() {
             <button
               type="button"
               onClick={() => setShowAnswers(v => !v)}
-              className={`text-xs px-3 py-1.5 rounded-lg font-medium transition cursor-pointer ${
+              className={`text-xs px-4 py-1.5 rounded-full font-medium transition cursor-pointer ${
                 showAnswers
-                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                  ? 'bg-zinc-900 text-white'
+                  : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
               }`}
             >
               {showAnswers ? 'Ẩn đáp án' : 'Hiện đáp án'}
@@ -447,20 +564,20 @@ export default function ReadingExam() {
           ) : (
             <>
               {lastSavedAt && (
-                <span className="text-[11px] text-zinc-400 dark:text-zinc-500 whitespace-nowrap">
+                <span className="text-[11px] text-zinc-400 whitespace-nowrap">
                   ✓ Đã lưu {formatSavedAt(lastSavedAt)}
                 </span>
               )}
-              <span className="text-xs text-zinc-500 dark:text-zinc-400 font-mono tabular-nums">
+              <span className="text-xs text-zinc-500 font-mono tabular-nums">
                 {answered}/{totalSlots} câu
               </span>
               <div
-                className={`tabular-nums text-xs font-semibold px-2.5 py-1 rounded-lg border flex items-center gap-1.5 ${
+                className={`tabular-nums text-xs font-semibold px-3 py-1 rounded-full border flex items-center gap-1.5 ${
                   timeLeft < 300
-                    ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900/60'
+                    ? 'text-red-600 bg-red-50 border-red-200'
                     : timeLeft < 600
-                    ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/60'
-                    : 'text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'
+                    ? 'text-amber-600 bg-amber-50 border-amber-200'
+                    : 'text-zinc-700 bg-zinc-100 border-zinc-200'
                 }`}
               >
                 <Clock className="w-3.5 h-3.5" />
@@ -475,13 +592,15 @@ export default function ReadingExam() {
       <div ref={bodyRef} className={`flex-1 flex flex-col md:flex-row overflow-hidden${isDragging ? ' select-none' : ''}`}>
         {/* Left: Passage text */}
         <div
+          ref={passageTextRef}
+          onMouseUp={handlePassageMouseUp}
           className="overflow-y-auto bg-white px-8 py-6 border-b md:border-b-0 md:border-r border-zinc-200"
           style={{ width: isMobile ? '100%' : `${splitRatio}%` }}
         >
           {/* Passage Toolbar */}
           <div className="sticky -top-6 -mx-8 px-8 py-2.5 mb-5 bg-white/95 backdrop-blur-xs border-b border-zinc-100 flex items-center justify-between z-10">
             <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Passage {activePassage + 1}</span>
-            <div className="flex items-center gap-1 bg-zinc-100 p-0.5 rounded-lg border border-zinc-200/80">
+            <div className="flex items-center gap-1 bg-zinc-100 p-0.5 rounded-full border border-zinc-200/80">
               <span className="text-[11px] font-medium text-zinc-400 px-1.5 flex items-center gap-1">
                 <Type className="w-3.5 h-3.5" />
               </span>
@@ -495,7 +614,7 @@ export default function ReadingExam() {
                   type="button"
                   onClick={() => setFontSize(size)}
                   title={`Cỡ chữ ${desc}`}
-                  className={`px-2 py-0.5 text-xs font-medium rounded-md transition-colors cursor-pointer border-none ${
+                  className={`px-2.5 py-0.5 text-xs font-medium rounded-full transition-colors cursor-pointer border-none ${
                     fontSize === size
                       ? 'bg-white text-zinc-900 shadow-xs font-semibold'
                       : 'bg-transparent text-zinc-500 hover:text-zinc-900'
@@ -517,17 +636,21 @@ export default function ReadingExam() {
                   .map(s => s.trim())
                   .filter(Boolean)
                   .map((para, i) => {
+                    const capitalized = para.charAt(0).toUpperCase() + para.slice(1)
+                    const paraHighlights = highlights.filter(h => h.passageIndex === activePassage && h.paraIndex === i)
+                    const content = (
+                      <HighlightLayer text={capitalized} ranges={paraHighlights} onHighlightClick={openHighlightMenu} />
+                    )
                     if (passage.letteredParagraphs) {
                       const letter = String.fromCharCode(65 + i)
                       return (
-                         <p key={i} className="mb-5">
+                         <p key={i} data-para-index={i} className="mb-5">
                           <span className="font-bold text-zinc-900 mr-2">{letter}</span>
-                          {para.charAt(0).toUpperCase() + para.slice(1)}
+                          {content}
                         </p>
                       )
                     }
-                    const capitalized = para.charAt(0).toUpperCase() + para.slice(1)
-                    return <p key={i} className="mb-5 indent-6">{capitalized}</p>
+                    return <p key={i} data-para-index={i} className="mb-5 indent-6">{content}</p>
                   })
               : null
             }
@@ -618,6 +741,7 @@ export default function ReadingExam() {
                   <QuestionNavButton
                     key={number}
                     number={number}
+                    roundedFull={true}
                     status={qId && answers[qId] ? 'answered' : 'unanswered'}
                     onClick={() => jumpToQuestion(number)}
                   />
@@ -635,7 +759,7 @@ export default function ReadingExam() {
                 title="Bảng câu hỏi"
                 aria-label="Bảng câu hỏi"
                 onClick={() => setShowQuestionPanel(v => !v)}
-                className={`w-9 h-9 flex items-center justify-center rounded-md border transition-all cursor-pointer ${
+                className={`w-9 h-9 flex items-center justify-center rounded-full border transition-all cursor-pointer ${
                   showQuestionPanel
                     ? 'bg-zinc-900 border-zinc-900 text-white shadow-xs'
                     : 'bg-white border-zinc-200 text-zinc-500 hover:border-zinc-400 hover:text-zinc-900'
@@ -648,7 +772,7 @@ export default function ReadingExam() {
                 title={showNavNumbers ? 'Thu gọn' : 'Mở rộng'}
                 aria-label={showNavNumbers ? 'Thu gọn' : 'Mở rộng'}
                 onClick={() => setShowNavNumbers(v => !v)}
-                className="w-9 h-9 flex items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-500 hover:border-zinc-400 hover:text-zinc-900 transition-all cursor-pointer"
+                className="w-9 h-9 flex items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 hover:border-zinc-400 hover:text-zinc-900 transition-all cursor-pointer"
               >
                 {showNavNumbers ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
               </button>
@@ -666,7 +790,7 @@ export default function ReadingExam() {
               <button
                 type="button"
                 onClick={() => setShowConfirm(true)}
-                className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-4 rounded-md shadow-xs transition-colors cursor-pointer shrink-0 inline-flex items-center justify-center leading-none"
+                className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-5 rounded-full shadow-xs transition-colors cursor-pointer shrink-0 inline-flex items-center justify-center leading-none"
               >
                 Nộp bài
               </button>
@@ -691,35 +815,101 @@ export default function ReadingExam() {
         />
       )}
 
-      {/* Confirm submit modal */}
-      {showConfirm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4" onClick={() => setShowConfirm(false)}>
-          <div className="p-6 shadow-xl max-w-sm w-full bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800" onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-1">Nộp bài?</h2>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-2">Bạn có chắc muốn nộp bài không?</p>
-            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-6">
-              Đã làm: <span className="font-mono text-zinc-900 dark:text-zinc-100">{answered}/{totalSlots}</span> câu
-            </p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowConfirm(false)}
-                className="flex-1 h-9 px-4 bg-white hover:bg-zinc-100 text-zinc-900 border border-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-100 dark:border-zinc-800 text-xs sm:text-sm font-medium rounded-md shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
-              >
-                Tiếp tục làm
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowConfirm(false); doSubmit() }}
-                disabled={submitting}
-                className="flex-1 h-9 px-4 bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium rounded-md shadow-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center leading-none"
-              >
-                {submitting ? 'Đang chấm...' : 'Nộp bài'}
-              </button>
-            </div>
+      {/* Floating bubble: bôi đen văn bản → Tô màu / Ghi chú */}
+      {selectionBubble && (
+        <div
+          data-highlight-popover
+          className="fixed z-[200] -translate-x-1/2 -translate-y-full flex items-center gap-0.5 bg-zinc-900 text-white rounded-full shadow-lg p-1"
+          style={{ left: selectionBubble.x, top: selectionBubble.y - 8 }}
+        >
+          <button
+            type="button"
+            onClick={applyHighlight}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full hover:bg-white/15 transition-colors cursor-pointer"
+          >
+            <Highlighter className="w-3.5 h-3.5" /> Tô màu
+          </button>
+          <div className="w-px h-4 bg-white/20" />
+          <button
+            type="button"
+            onClick={openNoteEditorForSelection}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full hover:bg-white/15 transition-colors cursor-pointer"
+          >
+            <StickyNote className="w-3.5 h-3.5" /> Ghi chú
+          </button>
+        </div>
+      )}
+
+      {/* Menu khi click vào đoạn đã highlight */}
+      {highlightMenu && (
+        <div
+          data-highlight-popover
+          className="fixed z-[200] -translate-x-1/2 flex items-center gap-0.5 bg-white border border-zinc-200 text-zinc-700 rounded-full shadow-lg p-1"
+          style={{ left: highlightMenu.x, top: highlightMenu.y + 12 }}
+        >
+          <button
+            type="button"
+            onClick={editHighlightNote}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full hover:bg-zinc-100 transition-colors cursor-pointer"
+          >
+            <StickyNote className="w-3.5 h-3.5" /> {highlightMenu.note ? 'Sửa ghi chú' : 'Thêm ghi chú'}
+          </button>
+          <div className="w-px h-4 bg-zinc-200" />
+          <button
+            type="button"
+            onClick={() => clearHighlight(highlightMenu.id)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+          >
+            <Trash2 className="w-3.5 h-3.5" /> Xóa highlight
+          </button>
+        </div>
+      )}
+
+      {/* Popover soạn ghi chú */}
+      {noteEditor && (
+        <div
+          data-highlight-popover
+          className="fixed z-[200] -translate-x-1/2 w-64 bg-white border border-zinc-200 rounded-2xl shadow-lg p-3 flex flex-col gap-2"
+          style={{ left: noteEditor.x, top: noteEditor.y + 12 }}
+        >
+          <textarea
+            autoFocus
+            rows={3}
+            value={noteEditor.value}
+            onChange={(e) => setNoteEditor(prev => ({ ...prev, value: e.target.value }))}
+            placeholder="Nhập ghi chú cho đoạn văn này..."
+            className="w-full text-xs text-zinc-800 bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-zinc-400"
+          />
+          <div className="flex justify-end gap-1.5">
+            <button
+              type="button"
+              onClick={() => setNoteEditor(null)}
+              className="h-7 px-3 text-xs font-medium rounded-full text-zinc-600 hover:bg-zinc-100 transition-colors cursor-pointer"
+            >
+              Hủy
+            </button>
+            <button
+              type="button"
+              onClick={saveNoteEditor}
+              className="h-7 px-3 text-xs font-medium rounded-full bg-zinc-900 text-white hover:bg-zinc-800 transition-colors cursor-pointer"
+            >
+              Lưu
+            </button>
           </div>
         </div>
       )}
+
+      {/* Confirm submit modal */}
+      <ExamActionDialog
+        open={showConfirm}
+        title="Nộp bài thi?"
+        description={`Đã làm: ${answered}/${totalSlots} câu. Bạn có chắc chắn muốn nộp bài?`}
+        cancelLabel="Tiếp tục làm"
+        confirmLabel={submitting ? 'Đang chấm...' : 'Nộp bài'}
+        confirmDisabled={submitting}
+        onCancel={() => setShowConfirm(false)}
+        onConfirm={() => { setShowConfirm(false); doSubmit() }}
+      />
       {/* Exit confirmation modal — Back nút trình duyệt */}
       <ExitConfirmModal open={showExitModal} onStay={stayInExam} onLeave={leaveExam} />
     </div>

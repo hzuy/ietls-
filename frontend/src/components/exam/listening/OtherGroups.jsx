@@ -20,7 +20,7 @@ import { toImgSrc } from '../../../utils/media'
 
 function InstructionBanner({ group }) {
   return (
-    <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 mb-4 text-sm">
+    <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
       <p className="font-semibold text-zinc-900 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
       {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
     </div>
@@ -34,7 +34,7 @@ function MatchingGroupInner({ group, answers, onAnswer, previewMode, showAnswers
     <div id={`question-${group.qNumberStart}`} className="mb-6 scroll-mt-4">
       <InstructionBanner group={group} />
       {(group.matchingOptions || []).length > 0 && (
-        <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3 mb-4">
+        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4">
           {(group.matchingOptions || []).map(mo => (
             <p key={mo.id} className="text-sm text-zinc-700 py-0.5">
               <span className="font-bold text-zinc-900 mr-2">{mo.optionLetter}.</span>{mo.optionText}
@@ -53,7 +53,7 @@ function MatchingGroupInner({ group, answers, onAnswer, previewMode, showAnswers
               value={previewMode && showAnswers ? (q.correctAnswer || '') : (answers[q.id] || '')}
               disabled={previewMode}
               onChange={previewMode ? undefined : e => onAnswer(q.id, e.target.value)}
-              className={`border ${previewMode && showAnswers ? 'border-green-400 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} rounded-lg px-3 py-1.5 text-sm outline-none bg-white min-w-32`}>
+              className={`border ${previewMode && showAnswers ? 'border-green-400 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} rounded-full px-3.5 py-1.5 text-sm outline-none bg-white min-w-32`}>
               <option value="">— Chọn —</option>
               {opts.map(opt => <option key={opt} value={opt}>{opt}</option>)}
             </select>

@@ -13,7 +13,7 @@ function SingleChoiceList({ options, q, answers, onAnswer, previewMode, showAnsw
         const displayAns = previewMode && showAnswers ? q.correctAnswer : answers[q.id]
         const isSelected = displayAns === opt
         return (
-          <label key={opt} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition
+          <label key={opt} className={`flex items-center gap-2 px-3.5 py-2 rounded-full text-sm transition
             ${isSelected && previewMode && showAnswers ? 'bg-green-50 border border-green-400 text-green-700 cursor-default'
               : isSelected ? 'bg-zinc-100 border border-zinc-900 text-zinc-900 font-medium cursor-pointer'
               : previewMode ? 'border border-transparent text-zinc-400 cursor-default'
@@ -30,7 +30,7 @@ function SingleChoiceList({ options, q, answers, onAnswer, previewMode, showAnsw
   )
 }
 
-function QuestionBlockInner({ q, globalIdx, answers, onAnswer, maxChoices = 2, previewMode, showAnswers }) {
+function QuestionBlockInner({ q, answers, onAnswer, maxChoices = 2, previewMode, showAnswers }) {
   const opts = q.options ? (typeof q.options === 'string' ? JSON.parse(q.options) : q.options) : []
   const selected = (answers[q.id] || '').split(',').filter(Boolean)
 
@@ -54,7 +54,7 @@ function QuestionBlockInner({ q, globalIdx, answers, onAnswer, maxChoices = 2, p
             const checked = previewMode && showAnswers ? correctList.includes(opt) : selected.includes(opt)
             const disabled = previewMode || (!checked && selected.length >= maxChoices)
             return (
-              <label key={opt} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition
+              <label key={opt} className={`flex items-center gap-2 px-3.5 py-2 rounded-full text-sm transition
                 ${checked && previewMode && showAnswers ? 'bg-green-50 border border-green-400 text-green-700 cursor-default'
                   : checked ? 'bg-zinc-100 border border-zinc-900 text-zinc-900 font-medium cursor-pointer'
                   : disabled ? 'border border-transparent text-zinc-300 cursor-not-allowed'
@@ -84,7 +84,7 @@ function QuestionBlockInner({ q, globalIdx, answers, onAnswer, maxChoices = 2, p
       {/* Text input: fill_blank, diagram_completion */}
       {['fill_blank', 'diagram_completion'].includes(q.type) && (
         <div className="pl-8">
-          {q.imageUrl && <img src={toImgSrc(q.imageUrl)} alt="diagram" className="img-crisp w-full max-w-sm rounded-lg mb-2 border border-zinc-200" style={{ imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)' }} loading="lazy" decoding="async" />}
+          {q.imageUrl && <img src={toImgSrc(q.imageUrl)} alt="diagram" className="img-crisp w-full max-w-sm rounded-2xl mb-2 border border-zinc-200" style={{ imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)' }} loading="lazy" decoding="async" />}
           <input type="text"
             value={previewMode && showAnswers ? (q.correctAnswer || '') : (answers[q.id] || '')}
             readOnly={previewMode}
@@ -97,13 +97,13 @@ function QuestionBlockInner({ q, globalIdx, answers, onAnswer, maxChoices = 2, p
       {/* Matching types — select dropdown */}
       {MATCHING_TYPES.includes(q.type) && (
         <div className="pl-8">
-          {q.imageUrl && <img src={toImgSrc(q.imageUrl)} alt="map/diagram" className="img-crisp w-full max-w-sm rounded-lg mb-2 border border-zinc-200" style={{ imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)' }} loading="lazy" decoding="async" />}
+          {q.imageUrl && <img src={toImgSrc(q.imageUrl)} alt="map/diagram" className="img-crisp w-full max-w-sm rounded-2xl mb-2 border border-zinc-200" style={{ imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)' }} loading="lazy" decoding="async" />}
           {opts.length > 0 ? (
             <select
               value={previewMode && showAnswers ? (q.correctAnswer || '') : (answers[q.id] || '')}
               disabled={previewMode}
               onChange={previewMode ? undefined : e => onAnswer(q.id, e.target.value)}
-              className={`border ${previewMode && showAnswers ? 'border-green-400 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} rounded-lg px-3 py-1.5 text-sm outline-none bg-white min-w-48`}>
+              className={`border ${previewMode && showAnswers ? 'border-green-400 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} rounded-full px-4 py-2 text-sm outline-none bg-white min-w-48`}>
               <option value="">— Chọn đáp án —</option>
               {opts.map(opt => <option key={opt} value={opt}>{opt}</option>)}
             </select>

@@ -2,9 +2,6 @@ import { useEffect, useState, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   BookOpen,
-  Flame,
-  ArrowRight,
-  Clock,
   Headphones,
   FileText,
   Mic,
@@ -13,6 +10,11 @@ import {
 } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import AcademicCover from '../components/common/AcademicCover'
+import ResumeHeroCard from '../components/home/ResumeHeroCard'
+import StreakWidget from '../components/home/StreakWidget'
+import BandOverviewWidget from '../components/home/BandOverviewWidget'
+import QuickFullTestWidget from '../components/home/QuickFullTestWidget'
+import { getLatestDraft, clearDraft } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
 import { useAuthGate } from '../hooks/useAuthGate'
 import { getUserStats } from '../services/userService'
@@ -20,16 +22,16 @@ import { API_BASE, resolveImg } from '../utils/media'
 
 function HomeSectionError({ onRetry }) {
   return (
-    <div className="w-full text-center py-8 px-6 bg-zinc-50 dark:bg-zinc-900/50 rounded-xl border border-zinc-200 dark:border-zinc-800 flex flex-col items-center">
-      <p className="font-semibold text-xs text-zinc-900 dark:text-zinc-100 mb-1">
+    <div className="w-full text-center py-8 px-6 bg-zinc-50 rounded-2xl border border-zinc-200 flex flex-col items-center">
+      <p className="font-semibold text-xs text-zinc-900 mb-1">
         Không thể tải dữ liệu đề thi
       </p>
-      <p className="mb-3 text-[11px] text-zinc-500 dark:text-zinc-400">
+      <p className="mb-3 text-[11px] text-zinc-500">
         Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.
       </p>
       <button
         onClick={onRetry || (() => window.location.reload())}
-        className="text-xs font-medium px-3 py-1.5 rounded-lg bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 cursor-pointer"
+        className="h-9 px-5 text-xs font-medium rounded-full bg-zinc-900 text-white cursor-pointer inline-flex items-center justify-center leading-none"
       >
         Thử lại
       </button>
@@ -47,7 +49,7 @@ function CompactBookCard({ book, onClick }) {
       className="group flex-shrink-0 w-[145px] sm:w-[160px] cursor-pointer flex flex-col transition-all duration-200"
     >
       {/* Book Cover */}
-      <div className="w-full aspect-[3/4] rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800/80 shadow-2xs group-hover:shadow-md group-hover:border-zinc-400 dark:group-hover:border-zinc-600 transition-all duration-300 relative flex flex-col justify-between">
+      <div className="w-full aspect-[3/4] rounded-xl overflow-hidden border border-zinc-200 bg-zinc-100 shadow-2xs group-hover:shadow-md group-hover:border-zinc-400 transition-all duration-300 relative flex flex-col justify-between">
         {hasImage ? (
           <img
             src={resolveImg(book.coverImageUrl)}
@@ -76,10 +78,10 @@ function CompactBookCard({ book, onClick }) {
 
       {/* Book Info */}
       <div className="mt-2 text-left">
-        <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors">
+        <h3 className="text-xs font-semibold text-zinc-900 truncate group-hover:text-zinc-600 transition-colors">
           {book.title}
         </h3>
-        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5">
+        <p className="text-[11px] text-zinc-500 font-mono mt-0.5">
           {book.testCount} đề Full Test
         </p>
       </div>
@@ -116,7 +118,7 @@ function CompactBookTrack({ books, onBookClick }) {
         <button
           onClick={() => scroll(-1)}
           aria-label="Cuộn sang trái"
-          className="absolute -left-3 top-1/3 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-md flex items-center justify-center text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition cursor-pointer"
+          className="absolute -left-3 top-1/3 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white border border-zinc-200 shadow-md flex items-center justify-center text-zinc-700 hover:bg-zinc-50 transition cursor-pointer"
         >
           <ChevronLeft className="w-4 h-4 stroke-[2]" />
         </button>
@@ -140,7 +142,7 @@ function CompactBookTrack({ books, onBookClick }) {
         <button
           onClick={() => scroll(1)}
           aria-label="Cuộn sang phải"
-          className="absolute -right-3 top-1/3 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-md flex items-center justify-center text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition cursor-pointer"
+          className="absolute -right-3 top-1/3 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white border border-zinc-200 shadow-md flex items-center justify-center text-zinc-700 hover:bg-zinc-50 transition cursor-pointer"
         >
           <ChevronRight className="w-4 h-4 stroke-[2]" />
         </button>
@@ -190,30 +192,14 @@ export default function Home() {
         .then(data => setUserStats(data))
         .catch(() => setUserStats(null))
 
-      // Scan localStorage for in-progress draft
-      try {
-        const keys = Object.keys(localStorage).filter(k => k.startsWith(`ielts_draft_${user.id}_`))
-        let best = null
-        for (const k of keys) {
-          const item = localStorage.getItem(k)
-          if (!item) continue
-          try {
-            const d = JSON.parse(item)
-            if (d && d.data && Object.keys(d.data).length > 0) {
-              if (!best || Date.parse(d.savedAt) > Date.parse(best.savedAt)) {
-                best = d
-              }
-            }
-          } catch (_e) {
-            // Ignore parse error
-          }
-        }
-        setLatestDraft(best)
-      } catch (_e) {
-        // Ignore storage access error
-      }
+      const draft = getLatestDraft(user.id || user._id)
+      setLatestDraft(draft)
+    } else {
+      setLatestDraft(null)
     }
   }, [user])
+
+  const [seriesTab, setSeriesTab] = useState('cambridge')
 
   const groupedFullTests = useMemo(() => {
     if (!fullTestsData || fullTestsData === 'error') return []
@@ -235,46 +221,108 @@ export default function Home() {
     return Object.values(rows).map(r => ({ ...r, books: r.books.sort((a, b) => b.bookNumber - a.bookNumber) }))
   }, [fullTestsData])
 
-  const allBooks = useMemo(() => {
-    return groupedFullTests.flatMap(series => series.books)
+  const cambridgeBooks = useMemo(() => {
+    return groupedFullTests
+      .filter(s => {
+        const name = (s.seriesName || '').toLowerCase()
+        return name.includes('cambridge') && !name.includes('practice') && !name.includes('plus')
+      })
+      .flatMap(s => s.books)
   }, [groupedFullTests])
 
-  const handleResumeDraft = () => {
-    if (!latestDraft) return
-    const skill = latestDraft.skillType
+  const practicePlusBooks = useMemo(() => {
+    return groupedFullTests
+      .filter(s => {
+        const name = (s.seriesName || '').toLowerCase()
+        return name.includes('practice') || name.includes('plus')
+      })
+      .flatMap(s => s.books)
+  }, [groupedFullTests])
+
+  const quickTestBooks = useMemo(() => {
+    return [...cambridgeBooks, ...practicePlusBooks]
+  }, [cambridgeBooks, practicePlusBooks])
+
+  const handleQuickBookSelect = (book) => {
+    navigate(`/full-test/${book.seriesId}?book=${book.bookNumber}`)
+  }
+
+  const enrichedDraft = useMemo(() => {
+    if (!latestDraft) return null
+    if (latestDraft.examTitle) return latestDraft
+
+    let title = null
+    const eId = String(latestDraft.examId)
+
+    if (Array.isArray(fullTestsData)) {
+      const match = fullTestsData.find(f => String(f.id) === eId)
+      if (match) {
+        title = `${match.seriesName || 'Cambridge'} ${match.bookNumber ? `· Test ${match.testNumber || match.bookNumber}` : ''}`
+      }
+    }
+    if (!title && Array.isArray(reading)) {
+      const match = reading.find(r => String(r.id) === eId)
+      if (match?.title) title = match.title
+    }
+    if (!title && Array.isArray(listening)) {
+      const match = listening.find(l => String(l.id) === eId)
+      if (match?.title) title = match.title
+    }
+
+    return {
+      ...latestDraft,
+      examTitle: title || latestDraft.examTitle,
+    }
+  }, [latestDraft, fullTestsData, reading, listening])
+
+  const handleResumeDraft = (draftToResume) => {
+    const d = draftToResume || enrichedDraft || latestDraft
+    if (!d) return
+    const skill = d.skillType
     const path = skill === 'reading'
-      ? `/practice/reading/${latestDraft.examId}`
+      ? `/reading/${d.examId}?resume=true`
       : skill === 'listening'
-      ? `/practice/listening/${latestDraft.examId}`
+      ? `/listening/${d.examId}?resume=true`
       : skill === 'writing'
-      ? `/writing/${latestDraft.examId}`
+      ? `/writing/${d.examId}?resume=true`
       : skill === 'speaking'
-      ? `/speaking/${latestDraft.examId}`
+      ? `/speaking/${d.examId}?resume=true`
+      : skill === 'practice-reading'
+      ? `/practice/reading/${d.examId}`
+      : skill === 'practice-listening'
+      ? `/practice/listening/${d.examId}`
       : `/cambridge`
     navigate(path)
   }
 
+  const handleDiscardDraft = (draftToDiscard) => {
+    const d = draftToDiscard || latestDraft
+    if (!d || !user) return
+    clearDraft(user.id || user._id, d.examId, d.skillType)
+    setLatestDraft(null)
+  }
+
   return (
-    <div className="min-h-screen bg-zinc-50/50 dark:bg-zinc-950 flex flex-col">
+    <div className="min-h-screen bg-zinc-50/50 flex flex-col">
       <Navbar />
 
       {/* ── 1. Tinh gọn triệt để khối Hero Section ────────────────────────── */}
-      <section className="relative overflow-hidden border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60">
+      <section className="relative overflow-hidden border-b border-zinc-200 bg-white">
         <div className="bg-dots" aria-hidden="true" />
         <div className="app-container py-8 md:py-10 relative">
           <div className="max-w-2xl anim-fade-up">
-            <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">
+            <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">
               Không gian Luyện thi & Khảo thí IELTS
             </h1>
 
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-xl leading-relaxed mt-2">
+            <p className="text-sm text-zinc-500 max-w-xl leading-relaxed mt-2">
               Nền tảng kiểm tra trực tuyến mô phỏng kỳ thi trên máy tính, tích hợp AI phân tích 4 kỹ năng.
             </p>
 
             <div className="flex flex-wrap items-center gap-3 mt-5">
               <button
                 onClick={() => gate('/cambridge')}
-                className="bg-zinc-900 hover:bg-black text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-zinc-900 text-xs font-medium py-2.5 px-4 rounded-lg shadow-xs transition-colors cursor-pointer"
+                className="h-9 px-5 bg-zinc-900 hover:bg-black text-white text-sm font-medium rounded-full shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
               >
                 Vào phòng thi Cambridge
               </button>
@@ -284,190 +332,312 @@ export default function Home() {
                   if (el) el.scrollIntoView({ behavior: 'smooth' })
                   else gate('/practice/reading')
                 }}
-                className="bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-900 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium py-2.5 px-4 rounded-lg transition-colors cursor-pointer"
+                className="h-9 px-5 bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-900 text-sm font-medium rounded-full transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
               >
                 Luyện tập kỹ năng
               </button>
             </div>
           </div>
-
-          {/* ── 2. Thẻ trạng thái cá nhân (Status Pill / Banner) ────────────────── */}
-          <div className="mt-6 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-3.5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 max-w-2xl">
-            {/* Bên trái: Streak icon lửa nhỏ + số ngày liên tục */}
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/50 border border-amber-200/80 dark:border-amber-900/40 flex items-center justify-center shrink-0">
-                <Flame className="w-4 h-4 text-amber-500" />
-              </div>
-              <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate">
-                {user ? `${userStats?.streak ?? 0} ngày luyện tập liên tục` : 'Mục tiêu: Rèn luyện liên tục mỗi ngày'}
-              </span>
-            </div>
-
-            {/* Divider */}
-            <div className="hidden sm:block w-px h-4 bg-zinc-200 dark:bg-zinc-700 shrink-0" />
-
-            {/* Bên phải: Đang làm dở hoặc Mục tiêu hôm nay */}
-            <div className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400 min-w-0">
-              {latestDraft ? (
-                <>
-                  <Clock className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                  <span className="truncate">
-                    Đang làm: <strong className="font-semibold text-zinc-900 dark:text-zinc-100">{latestDraft.skillType ? latestDraft.skillType.toUpperCase() : 'IELTS'}</strong>
-                  </span>
-                  <button
-                    onClick={handleResumeDraft}
-                    className="text-xs font-medium text-zinc-900 dark:text-zinc-100 underline cursor-pointer hover:text-black dark:hover:text-white shrink-0 ml-1"
-                  >
-                    Tiếp tục
-                  </button>
-                </>
-              ) : (
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Mục tiêu hôm nay: Hoàn thành 1 bài Test
-                </span>
-              )}
-            </div>
-          </div>
-
         </div>
       </section>
 
-      {/* ── 3. Nội dung chính: Danh mục đề tinh giản ──────────────────────── */}
-      <main className="app-container py-8 flex-1 flex flex-col gap-9">
+      {/* ── 2. Nội dung chính: Bố cục 2 cột (nội dung chính + widget rail) ─── */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-        {/* Section 1: Bộ đề Cambridge Academic */}
-        <section className="flex flex-col gap-4">
-          <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-                Bộ đề Cambridge Academic
-              </h2>
-              <span className="text-[11px] font-mono text-zinc-400 dark:text-zinc-500">
-                (Đề chuẩn IDP / British Council)
-              </span>
-            </div>
-            <button
-              onClick={() => gate('/cambridge')}
-              className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 flex items-center gap-1 transition-colors cursor-pointer"
-            >
-              <span>Xem tất cả</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+          {/* ── Cột chính bên trái ─────────────────────────────────────────── */}
+          <div className="lg:col-span-8 flex flex-col gap-9 min-w-0">
+
+            {/* Khối Hero: Tiếp tục bài làm dở */}
+            <section className="anim-fade-up">
+              {enrichedDraft ? (
+                <ResumeHeroCard
+                  draft={enrichedDraft}
+                  onResume={handleResumeDraft}
+                  onDiscard={handleDiscardDraft}
+                />
+              ) : (
+                <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-base font-semibold text-zinc-900">
+                      Bắt đầu luyện tập hôm nay
+                    </h2>
+                    <p className="text-xs text-zinc-500 mt-1">
+                      Chưa có bài làm dở nào. Chọn một đề để bắt đầu phiên luyện thi.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => gate('/cambridge')}
+                    className="h-9 px-5 bg-zinc-900 hover:bg-black text-white text-sm font-medium rounded-full shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none shrink-0"
+                  >
+                    Chọn đề luyện tập
+                  </button>
+                </div>
+              )}
+            </section>
+
+            {/* Section 1: Bộ đề Cambridge Academic & IELTS Practice Plus */}
+            <section className="flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-100">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div>
+                    <h2 className="text-base font-semibold text-zinc-900">
+                      {seriesTab === 'cambridge' ? 'Bộ đề Cambridge Academic' : 'Bộ đề IELTS Practice Test Plus'}
+                    </h2>
+                    <p className="text-[11px] font-mono text-zinc-400 mt-0.5">
+                      {seriesTab === 'cambridge' ? '(Đề chuẩn IDP / British Council)' : '(Dòng sách luyện đề chuyên sâu độ khó cao)'}
+                    </p>
+                  </div>
+
+                  {/* Segmented Switcher: Cambridge | Practice Plus | Luyện kỹ năng */}
+                  <div className="inline-flex p-1 bg-zinc-100 rounded-full border border-zinc-200 shrink-0 sm:ml-2">
+                    <button
+                      type="button"
+                      onClick={() => setSeriesTab('cambridge')}
+                      className={`px-4 py-1.5 text-xs rounded-full transition-all cursor-pointer ${
+                        seriesTab === 'cambridge'
+                          ? 'bg-white text-zinc-900 font-semibold shadow-2xs'
+                          : 'text-zinc-500 hover:text-zinc-900'
+                      }`}
+                    >
+                      Cambridge Academic
+                    </button>
+                    {practicePlusBooks.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSeriesTab('practice-plus')}
+                        className={`px-4 py-1.5 text-xs rounded-full transition-all cursor-pointer ${
+                          seriesTab === 'practice-plus'
+                            ? 'bg-white text-zinc-900 font-semibold shadow-2xs'
+                            : 'text-zinc-500 hover:text-zinc-900'
+                        }`}
+                      >
+                        Practice Plus
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('quick-skills-section')?.scrollIntoView({ behavior: 'smooth' })}
+                      className="px-4 py-1.5 text-xs rounded-full transition-all cursor-pointer text-zinc-500 hover:text-zinc-900"
+                    >
+                      Luyện kỹ năng
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => gate(seriesTab === 'cambridge' ? '/cambridge' : '/practice-plus')}
+                  className="text-xs font-semibold text-zinc-600 hover:text-zinc-900 transition-colors cursor-pointer self-start sm:self-auto"
+                >
+                  {seriesTab === 'cambridge' ? 'Xem trọn bộ Cambridge' : 'Xem trọn bộ Practice Plus'}
+                </button>
+              </div>
+
+              {fullTestsData === 'error' ? (
+                <HomeSectionError onRetry={loadData} />
+              ) : fullTestsData === null ? (
+                <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
+                  {[0, 1, 2, 3, 4].map(i => (
+                    <div key={i} className="w-[145px] sm:w-[160px] shrink-0">
+                      <div className="w-full aspect-[3/4] bg-zinc-100 rounded-xl animate-pulse" />
+                      <div className="h-3.5 bg-zinc-100 rounded mt-2.5 w-3/4 animate-pulse" />
+                      <div className="h-3 bg-zinc-100 rounded mt-1.5 w-1/2 animate-pulse" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <CompactBookTrack
+                  books={seriesTab === 'cambridge' ? cambridgeBooks : practicePlusBooks}
+                  onBookClick={(book) => navigate(`/full-test/${book.seriesId}?book=${book.bookNumber}`)}
+                />
+              )}
+            </section>
+
+            {/* Section 2: Luyện tập theo Kỹ năng (Interactive Skills Practice) */}
+            <section id="quick-skills-section" className="flex flex-col gap-4">
+              <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-semibold text-zinc-900">
+                    Luyện tập theo Kỹ năng
+                  </h2>
+                  <span className="text-[11px] font-mono text-zinc-400">
+                    (Bài thi tương tác chấm điểm tự động)
+                  </span>
+                </div>
+              </div>
+
+              {/* 2 Thẻ lớn cân đối: Reading & Listening */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Reading */}
+                <div
+                  onClick={() => gate('/practice/reading')}
+                  className="group relative flex flex-col justify-between p-5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 hover:shadow-xs transition-all cursor-pointer"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <span className="bg-zinc-100 text-zinc-700 font-mono text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full font-medium">
+                        ĐỀ THI TƯƠNG TÁC
+                      </span>
+                      <span className="text-xs text-zinc-500 font-mono">
+                        {Array.isArray(reading) ? `${reading.length} bài luyện tập` : 'T/F/NG, Matching'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-start gap-3.5">
+                      <div className="w-11 h-11 rounded-2xl bg-zinc-100 flex items-center justify-center text-zinc-700 group-hover:bg-zinc-900 group-hover:text-white transition-colors shrink-0">
+                        <BookOpen className="w-5 h-5 stroke-[1.75]" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-base font-semibold text-zinc-900 group-hover:text-black transition-colors">
+                          Reading Practice
+                        </h3>
+                        <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
+                          3 passage học thuật · 40 câu hỏi trắc nghiệm & điền từ · Bảng phân tích dạng bài chi tiết
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-zinc-100 text-xs font-medium text-zinc-900">
+                    <span>Luyện tập Reading</span>
+                  </div>
+                </div>
+
+                {/* Listening */}
+                <div
+                  onClick={() => gate('/practice/listening')}
+                  className="group relative flex flex-col justify-between p-5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 hover:shadow-xs transition-all cursor-pointer"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <span className="bg-zinc-100 text-zinc-700 font-mono text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full font-medium">
+                        ĐỀ THI TƯƠNG TÁC
+                      </span>
+                      <span className="text-xs text-zinc-500 font-mono">
+                        {Array.isArray(listening) ? `${listening.length} bài luyện tập` : 'Audio & Transcript'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-start gap-3.5">
+                      <div className="w-11 h-11 rounded-2xl bg-zinc-100 flex items-center justify-center text-zinc-700 group-hover:bg-zinc-900 group-hover:text-white transition-colors shrink-0">
+                        <Headphones className="w-5 h-5 stroke-[1.75]" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-base font-semibold text-zinc-900 group-hover:text-black transition-colors">
+                          Listening Practice
+                        </h3>
+                        <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
+                          4 section audio kèm transcript đối chiếu · 40 câu hỏi · Tự động phát & kiểm tra kết quả
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-zinc-100 text-xs font-medium text-zinc-900">
+                    <span>Luyện tập Listening</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Section 3: Thư viện bài mẫu học thuật (Writing & Speaking Reference Library) */}
+            <section className="flex flex-col gap-4">
+              <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-semibold text-zinc-900">
+                    Thư viện bài mẫu học thuật
+                  </h2>
+                  <span className="text-[11px] font-mono text-zinc-400">
+                    (Tài liệu tham khảo chuyên sâu Band 8.0+)
+                  </span>
+                </div>
+              </div>
+
+              {/* 2 Thẻ thư viện bài mẫu: Writing & Speaking */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Writing Samples */}
+                <div
+                  onClick={() => navigate('/writing-samples')}
+                  className="group relative flex flex-col justify-between p-5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 hover:shadow-xs transition-all cursor-pointer"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <span className="bg-zinc-100 text-zinc-600 font-mono text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full font-medium">
+                        THƯ VIỆN THAM KHẢO
+                      </span>
+                      <span className="text-xs text-zinc-500 font-mono">
+                        {Array.isArray(writingSamples) ? `${writingSamples.length} bài mẫu Band 8+` : 'Task 1 & Task 2'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-start gap-3.5">
+                      <div className="w-11 h-11 rounded-2xl bg-zinc-100 flex items-center justify-center text-zinc-700 group-hover:bg-zinc-900 group-hover:text-white transition-colors shrink-0">
+                        <FileText className="w-5 h-5 stroke-[1.75]" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-base font-semibold text-zinc-900 group-hover:text-black transition-colors">
+                          Writing Samples
+                        </h3>
+                        <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
+                          Kho bài viết mẫu Task 1 & Task 2 đạt Band 8.0+ kèm phân tích cấu trúc luận điểm và từ vựng học thuật
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-zinc-100 text-xs font-medium text-zinc-600 group-hover:text-zinc-900">
+                    <span>Khám phá bài mẫu Writing</span>
+                  </div>
+                </div>
+
+                {/* Speaking Samples */}
+                <div
+                  onClick={() => navigate('/speaking-samples')}
+                  className="group relative flex flex-col justify-between p-5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 hover:shadow-xs transition-all cursor-pointer"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <span className="bg-zinc-100 text-zinc-600 font-mono text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full font-medium">
+                        THƯ VIỆN THAM KHẢO
+                      </span>
+                      <span className="text-xs text-zinc-500 font-mono">
+                        {Array.isArray(speakingSamples) ? `${speakingSamples.length} bài mẫu Band 8+` : 'Part 1, 2, 3'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-start gap-3.5">
+                      <div className="w-11 h-11 rounded-2xl bg-zinc-100 flex items-center justify-center text-zinc-700 group-hover:bg-zinc-900 group-hover:text-white transition-colors shrink-0">
+                        <Mic className="w-5 h-5 stroke-[1.75]" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-base font-semibold text-zinc-900 group-hover:text-black transition-colors">
+                          Speaking Samples
+                        </h3>
+                        <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
+                          Gợi ý câu trả lời mẫu Part 1, 2, 3 kèm audio phát âm chuẩn bản xứ và cấu trúc câu ăn điểm Lexical Resource
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-zinc-100 text-xs font-medium text-zinc-600 group-hover:text-zinc-900">
+                    <span>Khám phá bài mẫu Speaking</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
           </div>
 
-          {fullTestsData === 'error' ? (
-            <HomeSectionError onRetry={loadData} />
-          ) : fullTestsData === null ? (
-            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
-              {[0, 1, 2, 3, 4].map(i => (
-                <div key={i} className="w-[145px] sm:w-[160px] shrink-0">
-                  <div className="w-full aspect-[3/4] bg-zinc-100 dark:bg-zinc-800/60 rounded-xl animate-pulse" />
-                  <div className="h-3.5 bg-zinc-100 dark:bg-zinc-800/60 rounded mt-2.5 w-3/4 animate-pulse" />
-                  <div className="h-3 bg-zinc-100 dark:bg-zinc-800/60 rounded mt-1.5 w-1/2 animate-pulse" />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <CompactBookTrack
-              books={allBooks}
-              onBookClick={(book) => navigate(`/full-test/${book.seriesId}?book=${book.bookNumber}`)}
-            />
-          )}
-        </section>
+          {/* ── Cột Widget Kỷ luật & Thống kê (bên phải, sticky) ────────────── */}
+          <aside className="lg:col-span-4 flex flex-col gap-4 lg:sticky lg:top-20">
+            <StreakWidget streak={userStats?.streak ?? 0} isAuthenticated={!!user} />
+            <BandOverviewWidget stats={userStats} isAuthenticated={!!user} />
+            <QuickFullTestWidget books={quickTestBooks} onSelect={handleQuickBookSelect} />
+          </aside>
 
-        {/* Section 2: Luyện tập theo Kỹ năng (Quick Skill Access) */}
-        <section id="quick-skills-section" className="flex flex-col gap-4">
-          <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-                Luyện tập theo Kỹ năng
-              </h2>
-              <span className="text-[11px] font-mono text-zinc-400 dark:text-zinc-500">
-                (Phân loại dạng bài học thuật)
-              </span>
-            </div>
-          </div>
-
-          {/* 4 Thẻ ngang nhỏ gọn: Reading, Listening, Writing, Speaking kèm số lượng đề */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            {/* Reading */}
-            <div
-              onClick={() => gate('/practice/reading')}
-              className="group flex items-center justify-between p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-400 dark:hover:border-zinc-600 hover:shadow-xs transition-all cursor-pointer"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-700 dark:text-zinc-300 group-hover:bg-zinc-900 group-hover:text-white dark:group-hover:bg-zinc-100 dark:group-hover:text-zinc-900 transition-colors shrink-0">
-                  <BookOpen className="w-5 h-5 stroke-[1.75]" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">Reading</h3>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5 truncate">
-                    {Array.isArray(reading) ? `${reading.length} bài luyện tập` : 'T/F/NG, Matching'}
-                  </p>
-                </div>
-              </div>
-              <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-100 group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
-            </div>
-
-            {/* Listening */}
-            <div
-              onClick={() => gate('/practice/listening')}
-              className="group flex items-center justify-between p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-400 dark:hover:border-zinc-600 hover:shadow-xs transition-all cursor-pointer"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-700 dark:text-zinc-300 group-hover:bg-zinc-900 group-hover:text-white dark:group-hover:bg-zinc-100 dark:group-hover:text-zinc-900 transition-colors shrink-0">
-                  <Headphones className="w-5 h-5 stroke-[1.75]" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">Listening</h3>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5 truncate">
-                    {Array.isArray(listening) ? `${listening.length} bài luyện tập` : 'Audio & Transcript'}
-                  </p>
-                </div>
-              </div>
-              <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-100 group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
-            </div>
-
-            {/* Writing */}
-            <div
-              onClick={() => navigate('/writing-samples')}
-              className="group flex items-center justify-between p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-400 dark:hover:border-zinc-600 hover:shadow-xs transition-all cursor-pointer"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-700 dark:text-zinc-300 group-hover:bg-zinc-900 group-hover:text-white dark:group-hover:bg-zinc-100 dark:group-hover:text-zinc-900 transition-colors shrink-0">
-                  <FileText className="w-5 h-5 stroke-[1.75]" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">Writing</h3>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5 truncate">
-                    {Array.isArray(writingSamples) ? `${writingSamples.length} bài mẫu Band 8+` : 'Task 1 & Task 2'}
-                  </p>
-                </div>
-              </div>
-              <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-100 group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
-            </div>
-
-            {/* Speaking */}
-            <div
-              onClick={() => navigate('/speaking-samples')}
-              className="group flex items-center justify-between p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-400 dark:hover:border-zinc-600 hover:shadow-xs transition-all cursor-pointer"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-700 dark:text-zinc-300 group-hover:bg-zinc-900 group-hover:text-white dark:group-hover:bg-zinc-100 dark:group-hover:text-zinc-900 transition-colors shrink-0">
-                  <Mic className="w-5 h-5 stroke-[1.75]" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">Speaking</h3>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5 truncate">
-                    {Array.isArray(speakingSamples) ? `${speakingSamples.length} bài mẫu Band 8+` : 'Part 1, 2, 3'}
-                  </p>
-                </div>
-              </div>
-              <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-100 group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
-            </div>
-          </div>
-        </section>
-
+        </div>
       </main>
     </div>
   )

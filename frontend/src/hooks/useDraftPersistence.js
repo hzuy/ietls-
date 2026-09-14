@@ -38,7 +38,6 @@ export function useDraftPersistence(key, form, { enabled, dirty }) {
       try { next = { data: JSON.parse(saved) } }
       catch { localStorage.removeItem(key) }
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDraftBanner(next)
   }, [enabled, key])
 

@@ -36,30 +36,6 @@ const audioUpload = multer({
   limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB — Groq Whisper limit
 })
 
-// ── Public: 4 Speaking samples mới nhất cho trang chủ ───────────────────────
-router.get('/samples', async (req, res) => {
-  try {
-    const exams = await prisma.exam.findMany({
-      where: { skill: 'speaking', deletedAt: null },
-      take: 4,
-      select: {
-        id: true, title: true, createdAt: true, coverImageUrl: true,
-        _count: { select: { attempts: true } },
-        speakingParts: { select: { number: true }, orderBy: { number: 'asc' }, take: 1 }
-      },
-      orderBy: { createdAt: 'desc' }
-    })
-    const result = exams.map(e => ({
-      id: e.id, title: e.title, createdAt: e.createdAt, coverImageUrl: e.coverImageUrl,
-      attemptCount: e._count.attempts,
-      tag: e.speakingParts[0] ? `Part ${e.speakingParts[0].number}` : 'Part 1'
-    }))
-    res.json(result)
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
-  }
-})
-
 router.get('/exams', authMiddleware, async (req, res) => {
   try {
     const exams = await prisma.exam.findMany({

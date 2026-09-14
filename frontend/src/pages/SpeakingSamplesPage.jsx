@@ -19,7 +19,7 @@ function FilterBtn({ active, onClick, children }) {
   return (
     <button
       onClick={onClick}
-      className={`block w-full text-left px-3 py-2 rounded-xl border-none cursor-pointer text-[13px] font-medium transition-all duration-200 ${
+      className={`block w-full text-left px-3.5 py-2 rounded-full border-none cursor-pointer text-[13px] font-medium transition-all duration-200 ${
         active 
           ? 'bg-zinc-100 text-zinc-900 font-semibold' 
           : 'bg-transparent text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'

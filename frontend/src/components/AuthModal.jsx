@@ -104,13 +104,13 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
   }, [onClose])
 
   const inputStyle = { border: '1px solid var(--border)', color: 'var(--text)' }
-  const inputCls   = 'w-full rounded-xl px-4 py-3 text-sm outline-none transition-all duration-300 focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900'
+  const inputCls   = 'w-full rounded-full px-5 py-3 text-sm outline-none transition-all duration-300 focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900'
 
   // Khối "hoặc" + nút Google — dùng chung cho cả 2 tab, chỉ đổi text nút theo ngữ cảnh
   const googleSection = (
     <>
       {googleError && (
-        <div role="alert" className="p-3 rounded-xl mb-4 mt-4 text-xs font-medium bg-red-50 border border-red-200 text-red-700 flex items-center gap-2">
+        <div role="alert" className="p-3 rounded-2xl mb-4 mt-4 text-xs font-medium bg-red-50 border border-red-200 text-red-700 flex items-center gap-2">
           <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
           <span>{googleError}</span>
         </div>
@@ -192,7 +192,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
             <p className="text-sm mb-5" style={{ color: 'var(--muted)' }}>Chào mừng bạn quay lại!</p>
 
             {loginError && (
-              <div role="alert" className="p-3 rounded-xl mb-4 text-xs font-medium bg-red-50 border border-red-200 text-red-700 flex items-center gap-2">
+              <div role="alert" className="p-3 rounded-2xl mb-4 text-xs font-medium bg-red-50 border border-red-200 text-red-700 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
                 <span>{loginError}</span>
               </div>
@@ -229,7 +229,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
               <button
                 type="submit"
                 disabled={loginLoading}
-                className="w-full py-3 rounded-xl text-sm font-bold btn-primary mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full py-3 rounded-full text-sm font-bold btn-primary mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {loginLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
               </button>
@@ -253,7 +253,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
             <p className="text-xs mb-5 text-zinc-500">Lưu trữ kết quả thi và theo dõi lộ trình nâng band điểm</p>
 
             {regError && (
-              <div role="alert" className="p-3 rounded-xl mb-4 text-xs font-medium bg-red-50 border border-red-200 text-red-700 flex items-center gap-2">
+              <div role="alert" className="p-3 rounded-2xl mb-4 text-xs font-medium bg-red-50 border border-red-200 text-red-700 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
                 <span>{regError}</span>
               </div>
@@ -303,7 +303,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
               <button
                 type="submit"
                 disabled={regLoading}
-                className="w-full py-3 rounded-xl text-sm font-bold btn-primary mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full py-3 rounded-full text-sm font-bold btn-primary mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {regLoading ? 'Đang tạo tài khoản...' : 'Đăng ký miễn phí'}
               </button>

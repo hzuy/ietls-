@@ -45,7 +45,7 @@ export default function MatchingDragGroup({ group, answers, onAnswer, previewMod
 
   return (
     <div className="mb-6">
-      <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 mb-3 text-sm">
+      <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-3 text-sm">
         <p className="font-semibold text-zinc-900 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
         {group.instruction && <p className="text-zinc-600 text-xs mb-1">{group.instruction}</p>}
         {!previewMode && <p className="text-zinc-500 text-xs italic">Kéo đáp án từ cột phải vào ô, hoặc click chọn → click ô.</p>}
@@ -61,7 +61,7 @@ export default function MatchingDragGroup({ group, answers, onAnswer, previewMod
             const isClickable = !!(selectedLetter && !previewMode)
 
             return (
-              <div key={q.id} className="bg-white rounded-xl border border-zinc-200 p-3.5 shadow-xs">
+              <div key={q.id} className="bg-white rounded-2xl border border-zinc-200 p-4 shadow-xs">
                 <p className="text-sm text-zinc-900 mb-2 leading-relaxed flex gap-2">
                   <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-900 font-bold text-xs shrink-0 mt-0.5">{q.number}</span>
                   <span>{q.questionText}</span>
@@ -71,7 +71,7 @@ export default function MatchingDragGroup({ group, answers, onAnswer, previewMod
                   onDragLeave={() => setDragOverQId(null)}
                   onDrop={() => handleDrop(q.id)}
                   onClick={() => handleSlotClick(q.id)}
-                  className={`min-h-[38px] rounded-lg border-2 px-3 py-1.5 flex items-center text-sm transition
+                  className={`min-h-[38px] rounded-full border-2 px-3.5 py-1.5 flex items-center text-sm transition
                     ${!previewMode ? 'cursor-pointer' : ''}
                     ${isOver ? 'border-zinc-900 bg-zinc-100'
                     : answer ? 'border-zinc-900 bg-zinc-50'
@@ -117,7 +117,7 @@ export default function MatchingDragGroup({ group, answers, onAnswer, previewMod
                     onDragStart={() => { setDraggingLetter(opt.optionLetter); setSelectedLetter(null) }}
                     onDragEnd={() => { setDraggingLetter(null); setDragOverQId(null) }}
                   onClick={() => handleOptionClick(opt.optionLetter)}
-                  className={`flex items-start gap-2 px-3 py-2 rounded-lg border text-xs transition select-none
+                  className={`flex items-start gap-2 px-3.5 py-2 rounded-full border text-xs transition select-none
                     ${previewMode
                       ? 'border-zinc-200 bg-white cursor-default'
                       : isSelectedOpt

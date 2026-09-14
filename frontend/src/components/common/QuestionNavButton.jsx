@@ -21,7 +21,7 @@ import { useState } from 'react'
  *   onClick  — () => void
  *   size     — cạnh nút tính bằng px (mặc định 32)
  */
-export default function QuestionNavButton({ number, status, onClick, size = 32 }) {
+export default function QuestionNavButton({ number, status, onClick, size = 32, roundedFull = false }) {
   const [hovered, setHovered] = useState(false)
   const answered = status === 'answered'
 
@@ -47,7 +47,7 @@ export default function QuestionNavButton({ number, status, onClick, size = 32 }
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: 'var(--radius-sm)',
+        borderRadius: roundedFull ? '9999px' : 'var(--radius-sm)',
         border: `1px solid ${borderColor}`,
         backgroundColor,
         color,

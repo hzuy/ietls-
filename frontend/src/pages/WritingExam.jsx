@@ -451,14 +451,14 @@ export default function WritingExam() {
         <button
           onClick={() => setPhase('exam')}
           className="btn-primary w-full text-sm font-bold transition-all duration-300"
-          style={{ width: '100%', padding: '12px 0', borderRadius: '12px', marginBottom: 8 }}
+          style={{ width: '100%', padding: '12px 0', borderRadius: '9999px', marginBottom: 8 }}
         >
           Bắt đầu làm bài
         </button>
         <button
           onClick={handleBack}
           className="w-full text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-all duration-200 ease-in-out font-medium text-sm flex items-center justify-center gap-1.5 cursor-pointer"
-          style={{ width: '100%', padding: '12px 0', borderRadius: '12px' }}
+          style={{ width: '100%', padding: '12px 0', borderRadius: '9999px' }}
         >
           <ArrowLeft className="w-4 h-4 text-zinc-500" /> Quay lại
         </button>
@@ -517,7 +517,7 @@ export default function WritingExam() {
                     {exam.writingTasks.map(t => (
                       <div key={t.id} className="flex items-center justify-between text-xs">
                         <div className="flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-md bg-zinc-100 font-semibold text-zinc-700 flex items-center justify-center text-[11px]">
+                          <span className="w-6 h-6 rounded-full bg-zinc-100 font-semibold text-zinc-700 flex items-center justify-center text-[11px]">
                             T{t.number}
                           </span>
                           <span className="font-semibold text-zinc-800">Task {t.number}</span>
@@ -541,7 +541,7 @@ export default function WritingExam() {
                 <button
                   type="button"
                   onClick={() => askAITutor(`Tôi vừa hoàn thành bài thi Writing "${exam.title}" với điểm Overall Band ${overallBand} (${exam.writingTasks.map(t => `Task ${t.number}: Band ${results[t.id]?.overall}`).join(', ')}). Nhờ AI phân tích các tiêu chí cần ưu tiên nâng điểm và gợi ý bài tập luyện tập cụ thể giúp tôi.`)}
-                  className="w-full h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium bg-zinc-900 hover:bg-zinc-800 text-white transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                  className="w-full h-9 px-4 rounded-full text-xs sm:text-sm font-medium bg-zinc-900 hover:bg-zinc-800 text-white transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-amber-300" />
                   Hỏi AI Tutor phân tích
@@ -549,7 +549,7 @@ export default function WritingExam() {
                 <button
                   type="button"
                   onClick={() => navigate('/progress')}
-                  className="w-full h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium border border-zinc-200 hover:bg-zinc-100 text-zinc-900 transition-colors flex items-center justify-center gap-2 cursor-pointer bg-white shadow-xs"
+                  className="w-full h-9 px-4 rounded-full text-xs sm:text-sm font-medium border border-zinc-200 hover:bg-zinc-100 text-zinc-900 transition-colors flex items-center justify-center gap-2 cursor-pointer bg-white shadow-xs"
                 >
                   <BarChart2 className="w-3.5 h-3.5 text-zinc-500" />
                   Xem bảng phân tích
@@ -557,7 +557,7 @@ export default function WritingExam() {
                 <button
                   type="button"
                   onClick={() => navigate('/writing')}
-                  className="w-full h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full h-9 px-4 rounded-full text-xs sm:text-sm font-medium bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-colors flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <RotateCcw className="w-3.5 h-3.5 text-zinc-500" />
                   Về danh sách đề
@@ -613,7 +613,7 @@ export default function WritingExam() {
                           <button
                             type="button"
                             onClick={() => askAITutor(`Tôi đang cần nâng band tiêu chí "${label}" trong IELTS Writing Task ${task.number} (hiện tại: Band ${score ?? '–'}). Nhận xét của giám khảo: "${comment}". Bạn hãy phân tích chi tiết điểm yếu, gợi ý cấu trúc câu và từ vựng band 7.5+ để cải thiện tiêu chí này giúp tôi.`)}
-                            className="w-full h-9 px-3 py-2 rounded-md text-xs font-medium text-zinc-700 hover:text-zinc-900 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer mt-auto"
+                            className="w-full h-9 px-4 rounded-full text-xs font-medium text-zinc-700 hover:text-zinc-900 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer mt-auto"
                           >
                             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                             Hỏi AI cách nâng band tiêu chí này
@@ -643,7 +643,7 @@ export default function WritingExam() {
               {fullTestStatus?.isComplete && (
                 <button
                   onClick={() => navigate(`/full-test/result?seriesId=${fullTestStatus.seriesId}&bookNumber=${fullTestStatus.bookNumber}&testNumber=${fullTestStatus.testNumber}`)}
-                  className="btn-primary w-full h-9 px-4 py-2 text-xs sm:text-sm font-medium rounded-md shadow-xs transition-colors cursor-pointer flex items-center justify-center"
+                  className="btn-primary w-full h-9 px-5 text-xs sm:text-sm font-medium rounded-full shadow-xs transition-colors cursor-pointer flex items-center justify-center"
                 >
                   Xem kết quả Full Test →
                 </button>
@@ -651,7 +651,7 @@ export default function WritingExam() {
               <button 
                 type="button"
                 onClick={() => navigate('/writing')} 
-                className="w-full h-9 px-4 py-2 border border-zinc-200 hover:bg-zinc-100 text-zinc-900 bg-white rounded-md text-xs sm:text-sm font-medium shadow-xs transition-colors cursor-pointer flex items-center justify-center"
+                className="w-full h-9 px-5 border border-zinc-200 hover:bg-zinc-100 text-zinc-900 bg-white rounded-full text-xs sm:text-sm font-medium shadow-xs transition-colors cursor-pointer flex items-center justify-center"
               >
                 Làm đề khác
               </button>
@@ -673,25 +673,25 @@ export default function WritingExam() {
   return (
     <div className="h-dvh flex flex-col overflow-hidden bg-zinc-50/50">
       {/* Header */}
-      <header className="h-14 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 px-6 flex items-center justify-between shrink-0 z-30">
+      <header className="h-14 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+          <span className="text-xs sm:text-sm font-semibold text-zinc-900 truncate">
             {exam.title}
           </span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {lastSavedAt && (
-            <span className="text-[11px] text-zinc-400 dark:text-zinc-500 whitespace-nowrap">
+            <span className="text-[11px] text-zinc-400 whitespace-nowrap">
               ✓ Đã lưu {formatSavedAt(lastSavedAt)}
             </span>
           )}
           <div
-            className={`tabular-nums text-xs font-semibold px-2.5 py-1 rounded-lg border flex items-center gap-1.5 ${
+            className={`tabular-nums text-xs font-semibold px-3 py-1 rounded-full border flex items-center gap-1.5 ${
               timeLeft < 300
-                ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900/60'
+                ? 'text-red-600 bg-red-50 border-red-200'
                 : timeLeft < 600
-                ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/60'
-                : 'text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'
+                ? 'text-amber-600 bg-amber-50 border-amber-200'
+                : 'text-zinc-700 bg-zinc-100 border-zinc-200'
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
@@ -760,7 +760,7 @@ export default function WritingExam() {
               <button
                 onClick={() => retryTask(task)}
                 disabled={retryingTask === task.id}
-                className="btn-primary h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium shadow-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
+                className="btn-primary h-9 px-4 rounded-full text-xs sm:text-sm font-medium shadow-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
               >
                 {retryingTask === task.id ? (
                   <>
@@ -783,7 +783,7 @@ export default function WritingExam() {
               <p className="font-bold text-zinc-900 text-lg mb-1">Task {task.number} đã được nộp!</p>
               <p className="text-zinc-500 text-sm mb-6 leading-relaxed">Kết quả chi tiết từ AI sẽ hiển thị sau khi hoàn thành tất cả các tasks của bài thi viết.</p>
               {exam.writingTasks.length > 1 && activeTask < exam.writingTasks.length - 1 && !isTaskDone(exam.writingTasks[activeTask + 1]?.id) && (
-                <button onClick={() => setActiveTask(activeTask + 1)} className="btn-primary h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium shadow-xs transition-colors cursor-pointer flex items-center justify-center">
+                <button onClick={() => setActiveTask(activeTask + 1)} className="btn-primary h-9 px-4 rounded-full text-xs sm:text-sm font-medium shadow-xs transition-colors cursor-pointer flex items-center justify-center">
                   Làm Task {task.number + 1} →
                 </button>
               )}
@@ -793,10 +793,10 @@ export default function WritingExam() {
                   <div className="flex flex-col items-center gap-2">
                     <p className="text-zinc-500 text-xs leading-relaxed m-0">Nộp lại sẽ ghi đè kết quả hiển thị bằng bài viết mới — bài cũ vẫn được lưu lại.</p>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => handleResubmit(task)} className="h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium bg-zinc-900 hover:bg-zinc-800 text-white shadow-xs transition-colors cursor-pointer flex items-center justify-center">
+                      <button onClick={() => handleResubmit(task)} className="h-9 px-4 rounded-full text-sm font-medium bg-zinc-900 hover:bg-zinc-800 text-white shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none">
                         Xác nhận nộp lại
                       </button>
-                      <button onClick={() => setConfirmResubmitId(null)} className="h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium bg-white hover:bg-zinc-100 text-zinc-900 border border-zinc-200 shadow-xs transition-colors cursor-pointer flex items-center justify-center">
+                      <button onClick={() => setConfirmResubmitId(null)} className="h-9 px-4 rounded-full text-sm font-medium bg-white hover:bg-zinc-100 text-zinc-900 border border-zinc-200 shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none">
                         Huỷ
                       </button>
                     </div>
@@ -830,7 +830,7 @@ export default function WritingExam() {
                   </span>
                   <button
                     onClick={() => submitTask(task)}
-                    className="ml-3 h-8 px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-md text-xs font-medium shadow-xs transition-colors cursor-pointer flex items-center gap-1"
+                    className="ml-3 h-8 px-3.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-full text-xs font-medium shadow-xs transition-colors cursor-pointer flex items-center gap-1"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     Thử nộp lại
@@ -854,7 +854,7 @@ export default function WritingExam() {
               <button
                 onClick={() => submitTask(task)}
                 disabled={submitting || words < 50}
-                className="mt-4 btn-primary h-9 px-4 rounded-md font-medium text-xs sm:text-sm w-full transition-colors shadow-xs disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 cursor-pointer leading-none">
+                className="mt-4 btn-primary h-9 px-5 rounded-full font-medium text-xs sm:text-sm w-full transition-colors shadow-xs disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 cursor-pointer leading-none">
                 {submitting ? (
                   <>
                     <Sparkles className="w-4 h-4 animate-spin" />
@@ -870,7 +870,7 @@ export default function WritingExam() {
       </div>
 
       {/* Bottom Bar */}
-      <div className="h-14 px-6 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-4 shrink-0 z-20">
+      <div className="h-14 px-6 bg-white border-t border-zinc-200 flex items-center justify-between gap-4 shrink-0 z-20">
         {/* Left/Middle: Task palette */}
         <div className="flex items-center gap-2">
           {exam.writingTasks.map((t, i) => {
@@ -881,11 +881,11 @@ export default function WritingExam() {
                 key={t.id}
                 type="button"
                 onClick={() => setActiveTask(i)}
-                className={`h-9 px-3.5 sm:px-4 rounded-md text-xs sm:text-sm font-medium inline-flex items-center justify-center gap-2 leading-none transition-all cursor-pointer ${
+                className={`h-9 px-3.5 sm:px-4 rounded-full text-xs sm:text-sm font-medium inline-flex items-center justify-center gap-2 leading-none transition-all cursor-pointer ${
                   done
-                    ? 'bg-zinc-900 text-white border border-zinc-900 dark:bg-zinc-100 dark:text-zinc-900'
-                    : 'border border-zinc-300 text-zinc-700 dark:border-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 hover:border-zinc-400'
-                } ${active ? 'ring-2 ring-zinc-900/20 dark:ring-zinc-100/30 font-semibold' : ''}`}
+                    ? 'bg-zinc-900 text-white border border-zinc-900'
+                    : 'border border-zinc-300 text-zinc-700 bg-white hover:border-zinc-400'
+                } ${active ? 'ring-2 ring-zinc-900/20 font-semibold' : ''}`}
               >
                 <span>Task {t.number}</span>
                 {done && <CheckCircle2 className="w-3.5 h-3.5" />}
@@ -900,7 +900,7 @@ export default function WritingExam() {
             type="button"
             onClick={() => submitTask(task)}
             disabled={submitting || words < 50 || taskDone}
-            className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-4 rounded-md shadow-xs transition-colors cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5 leading-none"
+            className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-5 rounded-full shadow-xs transition-colors cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5 leading-none"
           >
             {submitting ? (
               <>
@@ -933,7 +933,7 @@ export default function WritingExam() {
             </p>
             <button
               onClick={() => runAutoSubmit()}
-              className="btn-primary w-full h-9 px-4 rounded-md font-medium text-sm inline-flex items-center justify-center leading-none"
+              className="w-full h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white shadow-xs transition-colors cursor-pointer font-medium text-sm inline-flex items-center justify-center leading-none"
             >
               Nộp bài ngay
             </button>
@@ -955,7 +955,7 @@ export default function WritingExam() {
                 <p className="text-zinc-600 text-sm leading-relaxed mb-6">Một số task chưa nộp được. Vui lòng thử lại.</p>
                 <button
                   onClick={() => runAutoSubmit()}
-                  className="btn-primary w-full h-9 px-4 rounded-md font-medium text-sm inline-flex items-center justify-center leading-none"
+                  className="w-full h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white shadow-xs transition-colors cursor-pointer font-medium text-sm inline-flex items-center justify-center leading-none"
                 >
                   Thử lại
                 </button>

@@ -10,7 +10,7 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 
-import { roundIELTS, formatBand } from '../../utils/ielts'
+import { formatBand } from '../../utils/ielts'
 import { ADMIN_SKILL_COLORS, SKILL_LABEL, SKILL_ORDER } from '../../utils/adminSkillColors'
 
 // ─── Shared tooltip style ─────────────────────────────────────────────────────
@@ -158,16 +158,16 @@ export default function Dashboard() {
                         <stop offset="95%" stopColor="#18181b" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f4f4f5" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
                     <XAxis
                       dataKey="label"
-                      tick={{ fontSize: 10, fill: '#71717a' }}
+                      tick={{ fontSize: 10, fill: '#64748b' }}
                       tickLine={false}
                       axisLine={false}
                       interval="preserveStartEnd"
                     />
                     <YAxis
-                      tick={{ fontSize: 10, fill: '#71717a' }}
+                      tick={{ fontSize: 10, fill: '#64748b' }}
                       tickLine={false}
                       axisLine={false}
                       allowDecimals={false}

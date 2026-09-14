@@ -9,7 +9,7 @@ export default function LogoutConfirmModal({ open, onClose, onConfirm }) {
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{ background: 'var(--surface)', borderRadius: 'var(--radius-xl)', padding: 28, width: '100%', maxWidth: 360, boxShadow: 'var(--shadow-lg)', border: '1px solid var(--border)' }}
+        style={{ background: 'var(--surface)', borderRadius: '1rem', padding: 28, width: '100%', maxWidth: 360, boxShadow: 'var(--shadow-lg)', border: '1px solid var(--border)' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
           <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
@@ -21,13 +21,13 @@ export default function LogoutConfirmModal({ open, onClose, onConfirm }) {
         <div style={{ display: 'flex', gap: 10 }}>
           <button
             onClick={onClose}
-            style={{ flex: 1, padding: '10px 0', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 14, fontWeight: 600, color: 'var(--text)', cursor: 'pointer' }}
+            style={{ flex: 1, padding: '10px 0', borderRadius: '9999px', border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 14, fontWeight: 600, color: 'var(--text)', cursor: 'pointer' }}
             onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-raised)'}
             onMouseLeave={e => e.currentTarget.style.background = 'var(--surface)'}
           >Hủy</button>
           <button
             onClick={onConfirm}
-            style={{ flex: 1, padding: '10px 0', borderRadius: 'var(--radius-md)', border: 'none', background: '#dc2626', fontSize: 14, fontWeight: 700, color: 'white', cursor: 'pointer' }}
+            style={{ flex: 1, padding: '10px 0', borderRadius: '9999px', border: 'none', background: '#dc2626', fontSize: 14, fontWeight: 700, color: 'white', cursor: 'pointer' }}
             onMouseEnter={e => e.currentTarget.style.background = '#b91c1c'}
             onMouseLeave={e => e.currentTarget.style.background = '#dc2626'}
           >Đăng xuất</button>

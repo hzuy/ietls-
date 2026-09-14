@@ -463,7 +463,7 @@ export default function SpeakingExam() {
         <p className="text-zinc-500 text-sm mb-1">{exam.speakingParts.length} Parts</p>
         <p className="text-zinc-500 text-sm mb-6">Thời gian: <span className="font-bold text-zinc-900">~15 phút</span></p>
 
-        <div className="bg-zinc-50 rounded-xl border border-zinc-200 p-5 text-left text-sm text-zinc-600 mb-8 flex flex-col gap-2.5 leading-relaxed w-full">
+        <div className="bg-zinc-50 rounded-2xl border border-zinc-200 p-5 text-left text-sm text-zinc-600 mb-8 flex flex-col gap-2.5 leading-relaxed w-full">
           <p className="m-0">• Part 1: câu hỏi quen thuộc (~4 phút)</p>
           <p className="m-0">• Part 2: thuyết trình 2 phút (~4 phút)</p>
           <p className="m-0">• Part 3: thảo luận chuyên sâu (~5 phút)</p>
@@ -473,14 +473,14 @@ export default function SpeakingExam() {
         <button
           onClick={() => setPhase('exam')}
           className="btn-primary w-full text-sm font-medium transition shadow-xs"
-          style={{ width: '100%', padding: '12px 0', borderRadius: '12px', marginBottom: 8 }}
+          style={{ width: '100%', padding: '12px 0', borderRadius: '9999px', marginBottom: 8 }}
         >
           Bắt đầu làm bài
         </button>
         <button
           onClick={handleBack}
           className="w-full text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-all duration-200 ease-in-out font-medium text-sm flex items-center justify-center gap-1.5 cursor-pointer"
-          style={{ width: '100%', padding: '12px 0', borderRadius: '12px' }}
+          style={{ width: '100%', padding: '12px 0', borderRadius: '9999px' }}
         >
           <ArrowLeft className="w-4 h-4 text-zinc-500" /> Quay lại
         </button>
@@ -540,7 +540,7 @@ export default function SpeakingExam() {
                     {exam.speakingParts.map(p => (
                       <div key={p.id} className="flex items-center justify-between text-xs">
                         <div className="flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-md bg-zinc-100 font-semibold text-zinc-700 flex items-center justify-center text-[11px]">
+                          <span className="w-6 h-6 rounded-full bg-zinc-100 font-semibold text-zinc-700 flex items-center justify-center text-[11px]">
                             P{p.number}
                           </span>
                           <span className="font-semibold text-zinc-800">Part {p.number}</span>
@@ -563,7 +563,7 @@ export default function SpeakingExam() {
                 <button
                   type="button"
                   onClick={() => askAITutor(`Tôi vừa hoàn thành bài thi Speaking "${exam.title}" với điểm Overall Band ${overallBand} (${partScores.map((s, i) => `Part ${i + 1}: Band ${s}`).join(', ')}). Nhờ AI phân tích các tiêu chí cần ưu tiên nâng điểm và gợi ý phương pháp luyện phát âm/phản xạ giúp tôi.`)}
-                  className="w-full h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium bg-zinc-900 hover:bg-zinc-800 text-white transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                  className="w-full h-9 px-4 rounded-full text-xs sm:text-sm font-medium bg-zinc-900 hover:bg-zinc-800 text-white transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-amber-300" />
                   Hỏi AI Tutor phân tích
@@ -571,7 +571,7 @@ export default function SpeakingExam() {
                 <button
                   type="button"
                   onClick={() => navigate('/progress')}
-                  className="w-full h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium border border-zinc-200 hover:bg-zinc-100 text-zinc-900 transition-colors flex items-center justify-center gap-2 cursor-pointer bg-white shadow-xs"
+                  className="w-full h-9 px-4 rounded-full text-xs sm:text-sm font-medium border border-zinc-200 hover:bg-zinc-100 text-zinc-900 transition-colors flex items-center justify-center gap-2 cursor-pointer bg-white shadow-xs"
                 >
                   <BarChart2 className="w-3.5 h-3.5 text-zinc-500" />
                   Xem bảng phân tích
@@ -579,7 +579,7 @@ export default function SpeakingExam() {
                 <button
                   type="button"
                   onClick={() => navigate('/speaking')}
-                  className="w-full h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full h-9 px-4 rounded-full text-xs sm:text-sm font-medium bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-colors flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <RotateCcw className="w-3.5 h-3.5 text-zinc-500" />
                   Về danh sách đề
@@ -634,7 +634,7 @@ export default function SpeakingExam() {
                           <button
                             type="button"
                             onClick={() => askAITutor(`Tôi đang cần nâng band tiêu chí "${label}" trong IELTS Speaking Part ${part.number} (hiện tại: Band ${score ?? '–'}). Nhận xét của giám khảo: "${comment}". Bạn hãy chia sẻ kỹ thuật luyện nói, cách diễn đạt tự nhiên và lưu ý phản xạ để đạt band 7.5+ nhé.`)}
-                            className="w-full h-9 px-3 py-2 rounded-md text-xs font-medium text-zinc-700 hover:text-zinc-900 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer mt-auto"
+                            className="w-full h-9 px-4 rounded-full text-xs font-medium text-zinc-700 hover:text-zinc-900 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer mt-auto"
                           >
                             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                             Hỏi AI cách nâng band tiêu chí này
@@ -670,15 +670,15 @@ export default function SpeakingExam() {
               {fullTestStatus?.isComplete && (
                 <button
                   onClick={() => navigate(`/full-test/result?seriesId=${fullTestStatus.seriesId}&bookNumber=${fullTestStatus.bookNumber}&testNumber=${fullTestStatus.testNumber}`)}
-                  className="btn-primary w-full h-9 px-4 py-2 text-xs sm:text-sm font-medium rounded-md shadow-xs transition-colors cursor-pointer flex items-center justify-center"
+                  className="btn-primary w-full h-9 px-5 text-xs sm:text-sm font-medium rounded-full shadow-xs transition-colors cursor-pointer flex items-center justify-center"
                 >
                   Xem kết quả Full Test →
                 </button>
               )}
-              <button
+              <button 
                 type="button"
-                onClick={() => navigate('/speaking')}
-                className="w-full h-9 px-4 py-2 border border-zinc-200 hover:bg-zinc-100 text-zinc-900 bg-white rounded-md text-xs sm:text-sm font-medium shadow-xs transition-colors cursor-pointer flex items-center justify-center"
+                onClick={() => navigate('/speaking')} 
+                className="w-full h-9 px-5 border border-zinc-200 hover:bg-zinc-100 text-zinc-900 bg-white rounded-full text-xs sm:text-sm font-medium shadow-xs transition-colors cursor-pointer flex items-center justify-center"
               >
                 Làm đề khác
               </button>
@@ -700,13 +700,13 @@ export default function SpeakingExam() {
     <>
     <div className="h-dvh flex flex-col overflow-hidden bg-zinc-50/50">
       {/* Header */}
-      <header className="h-14 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 px-6 flex items-center justify-between shrink-0 z-30">
+      <header className="h-14 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+          <span className="text-xs sm:text-sm font-semibold text-zinc-900 truncate">
             {exam.title}
           </span>
           {previewMode && (
-            <span className="text-[11px] bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 px-2 py-0.5 rounded-md font-medium shrink-0">
+            <span className="text-[11px] bg-zinc-100 text-zinc-800 border border-zinc-200 px-2.5 py-0.5 rounded-full font-medium shrink-0">
               Chế độ Preview
             </span>
           )}
@@ -714,11 +714,11 @@ export default function SpeakingExam() {
         {!previewMode && (
           <div className="flex items-center gap-3 shrink-0">
             {lastSavedAt && (
-              <span className="text-[11px] text-zinc-400 dark:text-zinc-500 whitespace-nowrap">
+              <span className="text-[11px] text-zinc-400 whitespace-nowrap">
                 ✓ Đã lưu {formatSavedAt(lastSavedAt)}
               </span>
             )}
-            <span className="text-xs text-zinc-500 dark:text-zinc-400 font-mono tabular-nums">
+            <span className="text-xs text-zinc-500 font-mono tabular-nums">
               {exam.speakingParts.filter(p => isPartDone(p.id)).length}/{exam.speakingParts.length} parts hoàn thành
             </span>
           </div>
@@ -869,7 +869,7 @@ export default function SpeakingExam() {
               <button
                 onClick={() => retryPart(part)}
                 disabled={retryingPart === part.id}
-                className="btn-primary h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium shadow-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
+                className="btn-primary h-9 px-4 rounded-full text-xs sm:text-sm font-medium shadow-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
               >
                 {retryingPart === part.id ? (
                   <>
@@ -894,7 +894,7 @@ export default function SpeakingExam() {
               {activePart < exam.speakingParts.length - 1 ? (
                 <button
                   onClick={() => setActivePart(activePart + 1)}
-                  className="btn-primary h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium shadow-xs transition-colors cursor-pointer flex items-center justify-center"
+                  className="btn-primary h-9 px-4 rounded-full text-xs sm:text-sm font-medium shadow-xs transition-colors cursor-pointer flex items-center justify-center"
                 >
                   Tiếp tục Part {exam.speakingParts[activePart + 1].number} →
                 </button>
@@ -907,10 +907,10 @@ export default function SpeakingExam() {
                   <div className="flex flex-col items-center gap-2">
                     <p className="text-zinc-500 text-xs leading-relaxed m-0">Nộp lại sẽ ghi đè kết quả hiển thị bằng bài nói mới — bài cũ vẫn được lưu lại.</p>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => handleResubmit(part)} className="h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium bg-zinc-900 hover:bg-zinc-800 text-white shadow-xs transition-colors cursor-pointer flex items-center justify-center">
+                      <button onClick={() => handleResubmit(part)} className="h-9 px-4 rounded-full text-sm font-medium bg-zinc-900 hover:bg-zinc-800 text-white shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none">
                         Xác nhận nộp lại
                       </button>
-                      <button onClick={() => setConfirmResubmitId(null)} className="h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium bg-white hover:bg-zinc-100 text-zinc-900 border border-zinc-200 shadow-xs transition-colors cursor-pointer flex items-center justify-center">
+                      <button onClick={() => setConfirmResubmitId(null)} className="h-9 px-4 rounded-full text-sm font-medium bg-white hover:bg-zinc-100 text-zinc-900 border border-zinc-200 shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none">
                         Huỷ
                       </button>
                     </div>
@@ -941,7 +941,7 @@ export default function SpeakingExam() {
                   </span>
                   <button
                     onClick={() => submitPart(part)}
-                    className="ml-3 h-8 px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-md text-xs font-medium shadow-xs transition-colors cursor-pointer flex items-center gap-1"
+                    className="ml-3 h-8 px-3.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-full text-xs font-medium shadow-xs transition-colors cursor-pointer flex items-center gap-1"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     Thử nộp lại
@@ -959,7 +959,7 @@ export default function SpeakingExam() {
                   </div>
 
                   {/* Middle: Compact waveform + Timer */}
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-md">
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-full">
                     <div className="flex items-end gap-1 h-5 justify-center" style={{ width: '40px' }}>
                       {audioLevels.map((level, i) => (
                         <div
@@ -984,14 +984,14 @@ export default function SpeakingExam() {
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button
                       onClick={cancelRecording}
-                      className="flex items-center gap-1 h-8 px-3 py-1 rounded-md border border-zinc-300 text-zinc-600 text-xs font-medium bg-white hover:bg-zinc-50 transition-colors cursor-pointer shadow-xs"
+                      className="flex items-center gap-1 h-8 px-3.5 py-1 rounded-full border border-zinc-300 text-zinc-600 text-xs font-medium bg-white hover:bg-zinc-50 transition-colors cursor-pointer shadow-xs"
                     >
                       <X className="w-3.5 h-3.5" />
                       Huỷ
                     </button>
                     <button
                       onClick={stopRecording}
-                      className="flex items-center gap-1.5 h-8 px-3 py-1 rounded-md text-white text-xs font-medium bg-zinc-900 hover:bg-zinc-800 transition-colors cursor-pointer shadow-xs"
+                      className="flex items-center gap-1.5 h-8 px-3.5 py-1 rounded-full text-white text-xs font-medium bg-zinc-900 hover:bg-zinc-800 transition-colors cursor-pointer shadow-xs"
                     >
                       <Square className="w-3.5 h-3.5" fill="currentColor" />
                       Dừng và gửi
@@ -1016,7 +1016,7 @@ export default function SpeakingExam() {
                   </p>
                   <button
                     onClick={skipPrep}
-                    className="btn-primary mt-2 h-9 px-4 py-2 rounded-md font-medium text-xs sm:text-sm shadow-xs transition-colors cursor-pointer flex items-center justify-center"
+                    className="btn-primary mt-2 h-9 px-4 rounded-full font-medium text-xs sm:text-sm shadow-xs transition-colors cursor-pointer flex items-center justify-center"
                   >
                     Bắt đầu ngay
                   </button>
@@ -1045,7 +1045,7 @@ export default function SpeakingExam() {
 
                   {/* Chat bubble transcript — grows to fill remaining space, scrolls if long */}
                   {partTranscript && (
-                    <div className="flex-1 min-h-0 bg-white border border-zinc-200 rounded-xl p-4 flex flex-col gap-3.5 shadow-xs overflow-hidden">
+                    <div className="flex-1 min-h-0 bg-white border border-zinc-200 rounded-2xl p-4 flex flex-col gap-3.5 shadow-xs overflow-hidden">
                       {/* Header bar: Play button + Title (Left) and Word count (Right) */}
                       <div className="flex items-center justify-between pb-3 border-b border-zinc-100 flex-shrink-0">
                         <div className="flex items-center gap-2.5 min-w-0">
@@ -1096,7 +1096,7 @@ export default function SpeakingExam() {
                   <button
                     onClick={() => submitPart(part)}
                     disabled={submitting || wordCount < 10 || isTranscribing}
-                    className="flex-shrink-0 btn-primary h-9 px-4 py-2 rounded-md font-medium text-sm w-full transition-colors shadow-xs disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="flex-shrink-0 btn-primary h-9 px-5 rounded-full font-medium text-sm w-full transition-colors shadow-xs disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {submitting ? (
                       <>
@@ -1115,7 +1115,7 @@ export default function SpeakingExam() {
       </div>
 
       {/* Bottom Bar */}
-      <div className="h-14 px-6 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-4 shrink-0 z-20">
+      <div className="h-14 px-6 bg-white border-t border-zinc-200 flex items-center justify-between gap-4 shrink-0 z-20">
         {/* Left/Middle: Part palette */}
         <div className="flex items-center gap-2">
           {exam.speakingParts.map((p, i) => {
@@ -1126,11 +1126,11 @@ export default function SpeakingExam() {
                 key={p.id}
                 type="button"
                 onClick={() => setActivePart(i)}
-                className={`h-9 px-3.5 sm:px-4 rounded-md text-xs sm:text-sm font-medium inline-flex items-center justify-center gap-2 leading-none transition-all cursor-pointer ${
+                className={`h-9 px-3.5 sm:px-4 rounded-full text-xs sm:text-sm font-medium inline-flex items-center justify-center gap-2 leading-none transition-all cursor-pointer ${
                   done
-                    ? 'bg-zinc-900 text-white border border-zinc-900 dark:bg-zinc-100 dark:text-zinc-900'
-                    : 'border border-zinc-300 text-zinc-700 dark:border-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 hover:border-zinc-400'
-                } ${active ? 'ring-2 ring-zinc-900/20 dark:ring-zinc-100/30 font-semibold' : ''}`}
+                    ? 'bg-zinc-900 text-white border border-zinc-900'
+                    : 'border border-zinc-300 text-zinc-700 bg-white hover:border-zinc-400'
+                } ${active ? 'ring-2 ring-zinc-900/20 font-semibold' : ''}`}
               >
                 <span>Part {p.number}</span>
                 {done && <CheckCircle2 className="w-3.5 h-3.5" />}
@@ -1145,7 +1145,7 @@ export default function SpeakingExam() {
             type="button"
             onClick={() => submitPart(part)}
             disabled={submitting || wordCount < 10 || isTranscribing || partDone}
-            className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-4 rounded-md shadow-xs transition-colors cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5 leading-none"
+            className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-5 rounded-full shadow-xs transition-colors cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5 leading-none"
           >
             {submitting ? (
               <>

@@ -87,14 +87,12 @@ function SeriesCard({ s, onManage, onEdit, onDelete }) {
         <button onClick={() => setConfirmDelete(true)} className="py-2 px-3.5 rounded-lg border border-red-200 text-red-600 text-xs font-medium hover:bg-red-50 transition">Xóa</button>
       </div>
       {confirmDelete && (
-        <Modal onClose={() => setConfirmDelete(false)} title="Xóa bộ đề" size="xs">
-          <div className="p-6">
-            <h3 className="font-bold text-zinc-900 mb-2">Xóa bộ đề?</h3>
-            <p className="text-sm text-zinc-500 mb-4">Tất cả thông tin trong bộ đề <strong>{s.name}</strong> sẽ bị xóa.</p>
-            <div className="flex gap-2">
-              <button onClick={() => setConfirmDelete(false)} className="flex-1 py-2 rounded-lg border border-zinc-200 text-zinc-700 text-sm font-semibold hover:bg-zinc-50 transition shadow-2xs">Hủy</button>
-              <button onClick={() => { setConfirmDelete(false); onDelete(s.id) }} className="flex-1 py-2 rounded-lg bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition shadow-xs">Xóa</button>
-            </div>
+        <Modal onClose={() => setConfirmDelete(false)} title="Xóa bộ đề" size="xs" className="p-6">
+          <h3 className="font-bold text-zinc-900 dark:text-slate-100 mb-2">Xóa bộ đề?</h3>
+          <p className="text-sm text-zinc-500 dark:text-slate-400 mb-4">Tất cả thông tin trong bộ đề <strong>{s.name}</strong> sẽ bị xóa.</p>
+          <div className="flex gap-2.5">
+            <button onClick={() => setConfirmDelete(false)} className="flex-1 h-9 px-4 rounded-full border border-zinc-200 dark:border-slate-700 text-zinc-700 dark:text-slate-300 text-xs sm:text-sm font-semibold hover:bg-zinc-50 dark:hover:bg-slate-800 transition-colors cursor-pointer">Hủy</button>
+            <button onClick={() => { setConfirmDelete(false); onDelete(s.id) }} className="flex-1 h-9 px-4 rounded-full bg-red-600 text-white text-xs sm:text-sm font-semibold hover:bg-red-700 transition-colors shadow-xs cursor-pointer">Xóa</button>
           </div>
         </Modal>
       )}
@@ -259,14 +257,12 @@ function SeriesDetailView({ series, books, booksError, onBack, onBooksChanged, s
       )}
 
       {deleteBook && (
-        <Modal onClose={() => setDeleteBook(null)} title={`Xóa cuốn ${deleteBook}`} size="xs">
-          <div className="p-6">
-            <h3 className="font-bold text-zinc-900 mb-2">Xóa cuốn {deleteBook}?</h3>
-            <p className="text-sm text-zinc-500 mb-4">Tất cả đề thi (Reading, Listening, Writing, Speaking) trong cuốn này sẽ được chuyển vào Thùng rác và có thể khôi phục.</p>
-            <div className="flex gap-2">
-              <button onClick={() => setDeleteBook(null)} className="flex-1 py-2 rounded-lg border border-zinc-200 text-zinc-700 text-sm font-semibold hover:bg-zinc-50 transition shadow-2xs">Hủy</button>
-              <button onClick={() => handleDeleteBook(deleteBook)} className="flex-1 py-2 rounded-lg bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition shadow-xs">Xóa</button>
-            </div>
+        <Modal onClose={() => setDeleteBook(null)} title={`Xóa cuốn ${deleteBook}`} size="xs" className="p-6">
+          <h3 className="font-bold text-zinc-900 dark:text-slate-100 mb-2">Xóa cuốn {deleteBook}?</h3>
+          <p className="text-sm text-zinc-500 dark:text-slate-400 mb-4">Tất cả đề thi (Reading, Listening, Writing, Speaking) trong cuốn này sẽ được chuyển vào Thùng rác và có thể khôi phục.</p>
+          <div className="flex gap-2.5">
+            <button onClick={() => setDeleteBook(null)} className="flex-1 h-9 px-4 rounded-full border border-zinc-200 dark:border-slate-700 text-zinc-700 dark:text-slate-300 text-xs sm:text-sm font-semibold hover:bg-zinc-50 dark:hover:bg-slate-800 transition-colors cursor-pointer">Hủy</button>
+            <button onClick={() => handleDeleteBook(deleteBook)} className="flex-1 h-9 px-4 rounded-full bg-red-600 text-white text-xs sm:text-sm font-semibold hover:bg-red-700 transition-colors shadow-xs cursor-pointer">Xóa</button>
           </div>
         </Modal>
       )}

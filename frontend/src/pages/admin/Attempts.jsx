@@ -48,20 +48,20 @@ function AttemptDetailModal({ attempt: a, onClose }) {
   const showFinished = a.finishedAt && durationMs > 60_000
 
   return (
-    <Modal onClose={onClose} title={`Chi tiết lượt thi #${a.id}`} size="md">
-      <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200 shrink-0">
-        <h2 className="text-sm font-semibold text-zinc-900">Chi tiết lượt thi</h2>
+    <Modal onClose={onClose} title={`Chi tiết lượt thi #${a.id}`} size="md" className="overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200 dark:border-slate-800 shrink-0">
+        <h2 className="text-sm font-semibold text-zinc-900 dark:text-slate-100">Chi tiết lượt thi</h2>
         <button onClick={onClose} aria-label="Đóng"
-          className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-zinc-100 text-zinc-400 font-bold transition">✕</button>
+          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-slate-800 text-zinc-400 hover:text-zinc-600 dark:hover:text-slate-200 font-bold transition-colors cursor-pointer">✕</button>
       </div>
 
       <div className="p-5 space-y-4 text-xs">
         <div>
-          <p className="font-semibold text-zinc-900 text-xs">{a.user?.name || '—'}</p>
-          <p className="text-[11px] text-zinc-500">{a.user?.email || ''}</p>
+          <p className="font-semibold text-zinc-900 dark:text-slate-100 text-xs">{a.user?.name || '—'}</p>
+          <p className="text-[11px] text-zinc-500 dark:text-slate-400">{a.user?.email || ''}</p>
         </div>
 
-        <dl className="space-y-2.5 pt-3 border-t border-zinc-100">
+        <dl className="space-y-2.5 pt-3 border-t border-zinc-100 dark:border-slate-800">
           <DetailRow label="Kỹ năng">{SKILL_LABEL[a.exam?.skill] || a.exam?.skill || '—'}</DetailRow>
           <DetailRow label="Đề thi">{a.exam?.title || '—'}</DetailRow>
           <DetailRow label="Band">{getBandPill(a.score)}</DetailRow>
@@ -75,13 +75,13 @@ function AttemptDetailModal({ attempt: a, onClose }) {
         </dl>
 
         {criteria && (
-          <div className="pt-3 border-t border-zinc-100 space-y-2">
-            <p className="font-semibold text-zinc-700 text-xs">Điểm từng tiêu chí AI</p>
+          <div className="pt-3 border-t border-zinc-100 dark:border-slate-800 space-y-2">
+            <p className="font-semibold text-zinc-700 dark:text-slate-300 text-xs">Điểm từng tiêu chí AI</p>
             <div className="grid grid-cols-2 gap-2">
               {Object.entries(criteria).map(([k, v]) => (
-                <div key={k} className="p-2 rounded-lg bg-zinc-50 border border-zinc-100 flex items-center justify-between">
-                  <span className="text-zinc-500 text-[11px]">{CRITERION_LABEL[k] || k}</span>
-                  <span className="font-semibold text-zinc-900 font-mono text-[11px]">
+                <div key={k} className="p-2 rounded-lg bg-zinc-50 dark:bg-slate-800/60 border border-zinc-100 dark:border-slate-800 flex items-center justify-between">
+                  <span className="text-zinc-500 dark:text-slate-400 text-[11px]">{CRITERION_LABEL[k] || k}</span>
+                  <span className="font-semibold text-zinc-900 dark:text-slate-100 font-mono text-[11px]">
                     {typeof v === 'number' ? v.toFixed(1) : v}
                   </span>
                 </div>
@@ -91,7 +91,7 @@ function AttemptDetailModal({ attempt: a, onClose }) {
         )}
 
         {(a.exam?.skill === 'writing' || a.exam?.skill === 'speaking') && !criteria && a.score == null && (
-          <p className="text-[11px] text-zinc-400 italic pt-2">Đề đang được AI chấm — chưa có điểm chi tiết.</p>
+          <p className="text-[11px] text-zinc-400 dark:text-slate-500 italic pt-2">Đề đang được AI chấm — chưa có điểm chi tiết.</p>
         )}
       </div>
     </Modal>
@@ -99,10 +99,8 @@ function AttemptDetailModal({ attempt: a, onClose }) {
 }
 
 function getBandPill(score) {
-  if (score == null) return <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200">Đang chấm</span>
-  if (score >= 7.0) return <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-900 text-white">BAND {score.toFixed(1)}</span>
-  if (score >= 5.0) return <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-800 border border-zinc-200">BAND {score.toFixed(1)}</span>
-  return <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-50 text-zinc-500 border border-zinc-200">BAND {score.toFixed(1)}</span>
+  if (score == null) return <span className="font-mono text-xs px-2.5 py-1 rounded-md bg-zinc-100 text-zinc-400 border border-zinc-200">Đang chấm</span>
+  return <span className="font-mono text-xs px-2.5 py-1 rounded-md bg-zinc-100 text-zinc-800 border border-zinc-200">BAND {score.toFixed(1)}</span>
 }
 
 export default function Attempts() {
@@ -323,7 +321,7 @@ export default function Attempts() {
               onClick={handleExportExcel}
               disabled={exporting || selectedAttemptIds.length === 0}
               title={selectedAttemptIds.length === 0 ? 'Tích chọn ít nhất 1 bài thi để Download' : `Tải ${selectedAttemptIds.length} bài thi đã chọn`}
-              className={`flex items-center gap-2 px-3.5 h-9 rounded-lg border border-zinc-200 bg-white text-zinc-700 text-xs font-medium transition shadow-2xs ${
+              className={`flex items-center gap-2 px-3.5 h-9 rounded-md border border-zinc-200 bg-white text-zinc-700 text-xs font-medium transition shadow-2xs ${
                 selectedAttemptIds.length === 0 || exporting
                   ? 'opacity-50 cursor-not-allowed pointer-events-none'
                   : 'cursor-pointer hover:bg-zinc-50 hover:border-zinc-300'
@@ -342,7 +340,7 @@ export default function Attempts() {
         </div>
 
         {/* Filter Card — lưới 4 cột đồng nhất: mọi hàng phủ đủ chiều ngang, nút Đặt lại là ô cuối lưới */}
-        <div className="bg-white rounded-2xl border border-zinc-200 p-5 shadow-xs mb-6 w-full">
+        <div className="bg-white rounded-xl border border-zinc-200 p-4 sm:p-5 shadow-xs mb-6 w-full">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
 
             {/* Tìm kiếm — 2/4 cột (rộng gấp đôi các ô còn lại) */}
@@ -355,7 +353,7 @@ export default function Attempts() {
                   placeholder="Tìm theo tên hoặc email học viên..."
                   value={search}
                   onChange={e => { setSearch(e.target.value); setPage(1) }}
-                  className="w-full h-9 pl-8 pr-3 text-xs border border-zinc-200 rounded-lg text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition shadow-2xs bg-white"
+                  className="w-full h-9 pl-8 pr-3 text-xs border border-zinc-200 rounded-md text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition shadow-2xs bg-zinc-50"
                 />
               </div>
             </div>
@@ -367,7 +365,7 @@ export default function Attempts() {
                 <select
                   value={skill}
                   onChange={e => { setSkill(e.target.value); setPage(1) }}
-                  className="w-full h-9 pl-3 pr-8 text-xs border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition font-normal bg-white appearance-none cursor-pointer shadow-2xs"
+                  className="w-full h-9 pl-3 pr-8 text-xs border border-zinc-200 rounded-md text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition font-normal bg-zinc-50 appearance-none cursor-pointer shadow-2xs"
                 >
                   <option value="">Tất cả kỹ năng</option>
                   {Object.entries(SKILL_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -383,7 +381,7 @@ export default function Attempts() {
                 <select
                   value={seriesId}
                   onChange={e => { setSeriesId(e.target.value); setPage(1) }}
-                  className="w-full h-9 pl-3 pr-8 text-xs border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition font-normal bg-white appearance-none cursor-pointer shadow-2xs"
+                  className="w-full h-9 pl-3 pr-8 text-xs border border-zinc-200 rounded-md text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition font-normal bg-zinc-50 appearance-none cursor-pointer shadow-2xs"
                 >
                   <option value="">Tất cả bộ đề</option>
                   {examSeries.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -395,7 +393,7 @@ export default function Attempts() {
             {/* Khoảng ngày — 2/4 cột, thẳng hàng dưới ô Tìm kiếm */}
             <div className="md:col-span-2">
               <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Khoảng ngày</label>
-              <div className="flex items-center border border-zinc-200 rounded-lg h-9 bg-white w-full focus-within:ring-1 focus-within:ring-zinc-900 focus-within:border-zinc-900 transition shadow-2xs">
+              <div className="flex items-center border border-zinc-200 rounded-md h-9 bg-zinc-50 w-full focus-within:ring-1 focus-within:ring-zinc-900 focus-within:border-zinc-900 transition shadow-2xs">
                 <input
                   type="date"
                   value={dateFrom}
@@ -420,7 +418,7 @@ export default function Attempts() {
             {/* Khoảng Band — cùng style với Khoảng ngày */}
             <div>
               <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Khoảng Band</label>
-              <div className="flex items-center gap-2 border border-zinc-200 rounded-lg px-3 h-9 bg-white w-full focus-within:ring-1 focus-within:ring-zinc-900 focus-within:border-zinc-900 transition shadow-2xs">
+              <div className="flex items-center gap-2 border border-zinc-200 rounded-md px-3 h-9 bg-zinc-50 w-full focus-within:ring-1 focus-within:ring-zinc-900 focus-within:border-zinc-900 transition shadow-2xs">
                 <input
                   type="number" min="0" max="9" step="0.5" placeholder="Từ" value={scoreMin}
                   onChange={handleScoreMinChange} onBlur={handleScoreMinBlur}
@@ -440,7 +438,7 @@ export default function Attempts() {
               <button
                 type="button"
                 onClick={reset}
-                className="w-full h-9 justify-center border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 px-3.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+                className="w-full h-9 justify-center border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 px-3.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
               >
                 <RotateCcw className="w-3.5 h-3.5 text-zinc-500" />
                 <span>Đặt lại</span>
@@ -453,14 +451,14 @@ export default function Attempts() {
         {loading ? (
           <SkeletonTable rows={8} cols={7} />
         ) : (
-        <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden w-full flex-1 shadow-xs">
+        <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden w-full flex-1 shadow-xs">
           {attempts.length === 0 ? (
             <p className="text-center text-zinc-400 py-16 text-xs font-medium">Không có lượt thi nào khớp bộ lọc</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-[11px] font-medium text-zinc-500 bg-zinc-50 border-b border-zinc-200">
+                  <tr className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 bg-zinc-50 border-b border-zinc-200">
                     <th className="px-4 py-3 text-center w-10">
                       <input
                         type="checkbox"
@@ -474,7 +472,7 @@ export default function Attempts() {
                     <th className="px-4 py-3 text-left">Đề thi</th>
                     <th className="px-4 py-3 text-left">Band Score</th>
                     <th className="px-4 py-3 text-left">Ngày làm bài</th>
-                    <th className="px-4 py-3 text-right">Thao tác</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-slate-400">HÀNH ĐỘNG</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
@@ -503,7 +501,7 @@ export default function Attempts() {
                       <td className="px-4 py-3">
                         {getBandPill(a.score)}
                       </td>
-                      <td className="px-4 py-3 text-[11px] text-zinc-500">
+                      <td className="px-4 py-3 text-[11px] text-zinc-600 font-mono">
                         {new Date(a.createdAt).toLocaleDateString('vi-VN')}
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -511,7 +509,7 @@ export default function Attempts() {
                           type="button"
                           onClick={() => setDetailAttempt(a)}
                           title="Xem tóm tắt lượt thi"
-                          className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-100 hover:text-zinc-900 transition shadow-2xs cursor-pointer"
+                          className="h-8 px-4 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100 text-xs font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer"
                         >
                           <Eye className="w-3.5 h-3.5" />
                           <span>Chi tiết</span>

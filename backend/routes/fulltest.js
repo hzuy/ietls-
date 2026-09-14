@@ -117,35 +117,6 @@ async function getFullTestStatus(userId, seriesId, bookNumber, testNumber) {
   return { isFullTest: allFourAvailable, isComplete, seriesId, bookNumber, testNumber, skills, overallBand }
 }
 
-// Public: 4 Full Test series mới nhất cho trang chủ
-router.get('/featured', async (req, res) => {
-  try {
-    const series = await prisma.examSeries.findMany({
-      where: { deletedAt: null },
-      take: 4,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        bookCovers: { orderBy: { bookNumber: 'desc' }, take: 1 },
-        exams: {
-          where: { skill: 'reading' },
-          select: { id: true, _count: { select: { attempts: true } } },
-          take: 10
-        }
-      }
-    })
-    const result = series.map(s => ({
-      id: s.id,
-      name: s.name,
-      coverImageUrl: s.bookCovers[0]?.coverImageUrl ?? null,
-      bookCount: s.bookCovers.length,
-      attemptCount: s.exams.reduce((sum, e) => sum + e._count.attempts, 0)
-    }))
-    res.json(result)
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
-  }
-})
-
 // GET /full-test/status?examId=X
 router.get('/status', authMiddleware, async (req, res) => {
   try {

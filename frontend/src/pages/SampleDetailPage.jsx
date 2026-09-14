@@ -83,7 +83,7 @@ export default function SampleDetailPage({ skill }) {
             ) : skill === 'speaking' && sample.parts?.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                 {sample.parts.map(part => (
-                  <div key={part.id} style={{ background: 'var(--surface-raised)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-soft)', padding: '20px 24px' }}>
+                  <div key={part.id} style={{ background: 'var(--surface-raised)', borderRadius: '1rem', border: '1px solid var(--border-soft)', padding: '20px 24px' }}>
                     <div style={{ marginBottom: 14 }}>
                       <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>
                         {part.title || `Part ${part.partNumber}`}
@@ -94,7 +94,7 @@ export default function SampleDetailPage({ skill }) {
                     </div>
                     {part.questions?.length > 0 && (
                       <ol style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        {part.questions.map((q, qi) => (
+                        {part.questions.map((q) => (
                           <li key={q.id} style={{ fontSize: 15, color: 'var(--text)', lineHeight: 1.6 }}>
                             {q.questionText}
                           </li>

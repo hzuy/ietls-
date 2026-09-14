@@ -33,6 +33,7 @@ describe('SkillResult Component', () => {
     expect(screen.getByText(/Cambridge 19 · Test 1/i)).toBeInTheDocument()
     expect(screen.getByText('7.5')).toBeInTheDocument()
     expect(screen.getByText('True/False/Not Given')).toBeInTheDocument()
+    expect(screen.getByText('Phân tích theo dạng câu hỏi')).toBeInTheDocument()
   })
 
   it('handles missing questionTypes array without crashing', () => {
@@ -48,7 +49,7 @@ describe('SkillResult Component', () => {
     )
 
     expect(screen.getByText(/Answer key — Listening/i)).toBeInTheDocument()
-    expect(screen.queryByText('Bảng thống kê theo loại câu hỏi')).not.toBeInTheDocument()
+    expect(screen.queryByText('Phân tích theo dạng câu hỏi')).not.toBeInTheDocument()
   })
 
   it('handles missing sections array gracefully without crashing', () => {

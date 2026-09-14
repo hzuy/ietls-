@@ -10,8 +10,6 @@
  *   onAnswer     fn(id, l)  — called when user clicks a cell
  *   previewMode  bool
  *   showAnswers  bool
- *   accentColor  'purple'|'blue'  — color for question numbers
- *   globalOffset number     — base index for scroll anchors (omit if not needed)
  */
 export default function MatchingTickGrid({
   letters,
@@ -20,11 +18,9 @@ export default function MatchingTickGrid({
   onAnswer,
   previewMode,
   showAnswers,
-  accentColor = 'zinc',
-  globalOffset,
 }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-zinc-200 shadow-xs bg-white">
+    <div className="overflow-x-auto rounded-2xl border border-zinc-200 shadow-xs bg-white">
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="border-b border-zinc-200 bg-zinc-50/70">
@@ -37,7 +33,7 @@ export default function MatchingTickGrid({
           </tr>
         </thead>
         <tbody>
-          {questions.map((q, qi) => {
+          {questions.map((q) => {
             const currentAns = previewMode && showAnswers ? (q.correctAnswer || '') : (answers[q.id] || '')
             const rowSelected = !!currentAns
             const rowId = `q-${q.number}`
@@ -61,7 +57,7 @@ export default function MatchingTickGrid({
                         onClick={previewMode ? undefined : () => onAnswer(q.id, currentAns === l ? '' : l)}
                         disabled={previewMode}
                         className={`w-7 h-7 flex items-center justify-center mx-auto text-sm font-bold transition-all
-                          rounded border
+                          rounded-full border
                           ${isSelected
                             ? 'bg-zinc-900 border-zinc-900 text-white shadow-xs'
                             : previewMode

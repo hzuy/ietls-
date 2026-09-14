@@ -1,10 +1,11 @@
 import { Suspense, useState, useEffect, useCallback, useRef } from 'react'
-import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useFormDirty } from '../context/FormDirtyContext'
 import { NAV_LEAVE_MSG } from '../hooks/useUnsavedChanges'
 import { getTrashCount, onTrashChanged } from '../services/adminService'
 import Modal from './common/Modal'
+import AdminPageSkeleton from './skeletons/AdminPageSkeleton'
 import {
   LayoutDashboard,
   Users,
@@ -39,7 +40,6 @@ const NAV_ALL = [
   { to: '/admin/profile',   label: 'Cài đặt',           icon: Settings,    roles: ['admin', 'teacher'] },
 ]
 
-// Single source of truth for every sidebar entry (nav links + logout).
 const navCls = (isActive) =>
   `flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors group ${
     isActive
@@ -52,20 +52,18 @@ const navIconCls = (isActive) =>
     isActive ? 'text-zinc-900' : 'text-zinc-500 group-hover:text-zinc-900'
   }`
 
-// Fallback riêng cho vùng nội dung — CHỈ thay phần trong <main>, không đụng
-// sidebar/header. Suspense đặt ở đây (thay vì 1 Suspense duy nhất bọc toàn bộ
-// <Routes> ở App.jsx) để lần đầu vào 1 mục admin chưa cache chunk, sidebar vẫn
-// đứng yên, chỉ vùng nội dung hiện spinner.
-function AdminContentLoader() {
+// Bọc nội dung route con bằng key=pathname để animation "page-transition-in"
+// restart mỗi lần chuyển mục admin — sidebar (bên ngoài) không bị remount.
+function AdminContentTransition({ children }) {
+  const { pathname } = useLocation()
   return (
-    <div className="flex items-center justify-center h-64">
-      <div className="w-8 h-8 border-4 border-zinc-900 border-t-transparent rounded-full animate-spin" />
+    <div key={pathname} className="page-transition-in">
+      {children}
     </div>
   )
 }
 
 export default function AdminLayout() {
-  const navigate = useNavigate()
   const location = useLocation()
   const { role, handleLogout: authLogout } = useAuth()
   const isDirty = useFormDirty()
@@ -215,7 +213,7 @@ export default function AdminLayout() {
   )
 
   return (
-    <div className="admin-scope min-h-screen bg-zinc-50 flex flex-col md:flex-row">
+    <div className="admin-scope min-h-screen bg-zinc-50 text-zinc-900 flex flex-col md:flex-row">
       {/* Mobile Header (< 768px) */}
       <header className="md:hidden bg-white border-b border-zinc-200 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-2">
@@ -227,15 +225,17 @@ export default function AdminLayout() {
             <p className="text-[11px] text-zinc-500 leading-tight">IELTS Management</p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setMobileOpen(true)}
-          aria-label="Mở menu"
-          aria-expanded={mobileOpen}
-          className="p-2 -mr-2 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-900"
-        >
-          <Menu className="w-6 h-6" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Mở menu"
+            aria-expanded={mobileOpen}
+            className="p-2 -mr-2 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-900"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+        </div>
       </header>
 
       {/* Mobile Drawer (Slide-over with overlay and focus trap) */}
@@ -269,14 +269,16 @@ export default function AdminLayout() {
                   <p className="text-[11px] text-zinc-500 leading-tight">IELTS Management</p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setMobileOpen(false)}
-                aria-label="Đóng menu"
-                className="p-1.5 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-900"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setMobileOpen(false)}
+                  aria-label="Đóng menu"
+                  className="p-1.5 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {renderNav(() => setMobileOpen(false))}
@@ -287,14 +289,14 @@ export default function AdminLayout() {
       {/* Desktop / Tablet Sidebar (hidden on mobile, flex on md+) */}
       <aside className="hidden md:flex w-56 bg-white border-r border-zinc-200 flex-col shrink-0 sticky top-0 h-screen">
         {/* Logo */}
-        <div className="px-5 py-5 border-b border-zinc-200">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-zinc-900 rounded-lg flex items-center justify-center">
+        <div className="px-5 py-5 border-b border-zinc-200 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-8 h-8 bg-zinc-900 rounded-lg flex items-center justify-center shrink-0">
               <span className="text-white text-xs font-bold">A</span>
             </div>
-            <div>
-              <p className="text-sm font-semibold text-zinc-900">Admin Panel</p>
-              <p className="text-xs text-zinc-500">IELTS Management</p>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-zinc-900 truncate">Admin Panel</p>
+              <p className="text-xs text-zinc-500 truncate">IELTS Management</p>
             </div>
           </div>
         </div>
@@ -304,39 +306,39 @@ export default function AdminLayout() {
       </aside>
 
       {/* Main content — route con render qua <Outlet/>, Suspense riêng chỉ bọc vùng này */}
-      <main className="admin-main flex-1 min-w-0 overflow-y-auto" style={{ scrollbarGutter: 'stable' }}>
-        <Suspense fallback={<AdminContentLoader />}>
-          <Outlet />
+      <main className="admin-main flex-1 min-w-0 overflow-y-auto bg-zinc-50" style={{ scrollbarGutter: 'stable' }}>
+        <Suspense fallback={<AdminPageSkeleton />}>
+          <AdminContentTransition>
+            <Outlet />
+          </AdminContentTransition>
         </Suspense>
       </main>
 
       {/* Logout dialog */}
       {showLogout && (
-        <Modal onClose={() => setShowLogout(false)} title="Đăng xuất" size="sm">
-          <div className="p-6">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center">
-                <LogOut className="w-5 h-5 text-zinc-600" strokeWidth={2} />
-              </div>
-              <h3 className="font-bold text-zinc-900 text-base">Đăng xuất</h3>
+        <Modal onClose={() => setShowLogout(false)} title="Đăng xuất" size="sm" className="p-6">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center">
+              <LogOut className="w-5 h-5 text-zinc-600" strokeWidth={2} />
             </div>
-            <p className="text-sm text-zinc-600 mb-6">
-              Bạn có chắc muốn đăng xuất không?
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setShowLogout(false)}
-                className="px-4 py-2 rounded-xl border border-zinc-200 text-sm text-zinc-700 hover:bg-zinc-50 font-medium transition-colors"
-              >
-                Huỷ
-              </button>
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 rounded-xl bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-800 transition-colors shadow-sm"
-              >
-                Xác nhận
-              </button>
-            </div>
+            <h3 className="font-bold text-zinc-900 text-base">Đăng xuất</h3>
+          </div>
+          <p className="text-sm text-zinc-600 mb-6">
+            Bạn có chắc muốn đăng xuất không?
+          </p>
+          <div className="flex gap-2.5 justify-end">
+            <button
+              onClick={() => setShowLogout(false)}
+              className="h-9 px-5 rounded-full border border-zinc-200 text-xs sm:text-sm text-zinc-700 hover:bg-zinc-50 font-medium transition-colors cursor-pointer"
+            >
+              Huỷ
+            </button>
+            <button
+              onClick={handleLogout}
+              className="h-9 px-5 rounded-full bg-zinc-900 text-white text-xs sm:text-sm font-semibold hover:bg-zinc-800 transition-colors shadow-xs cursor-pointer"
+            >
+              Xác nhận
+            </button>
           </div>
         </Modal>
       )}

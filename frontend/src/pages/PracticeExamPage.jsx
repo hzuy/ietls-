@@ -15,10 +15,11 @@ import QuestionNavButton from '../components/common/QuestionNavButton'
 import { usePracticeDraft } from '../hooks/usePracticeDraft'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
 import ExitConfirmModal from '../components/common/ExitConfirmModal'
+import ExamActionDialog from '../components/common/ExamActionDialog'
 import { formatSavedAt } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
 
-import { normalizeGroup, fmt, buildListeningTokenMap } from '../utils/practiceUtils'
+import { normalizeGroup, fmt } from '../utils/practiceUtils'
 import ReadingPracticeGroupBlock from '../components/practice/ReadingPracticeGroupBlock'
 import ListeningPracticeGroupBlock from '../components/practice/ListeningPracticeGroupBlock'
 import { resolveImg } from '../utils/media'
@@ -157,9 +158,6 @@ function ReadingPracticeExam({ exam, onBack }) {
   const onAnswer = (qId, val) => setAnswers(a => ({ ...a, [qId]: val }))
 
   const doSubmit = async () => {
-    let correct = 0
-    let wrong = 0
-    let missed = 0
     const questions = []
     const typeStats = {}
     
@@ -186,13 +184,10 @@ function ReadingPracticeExam({ exam, onBack }) {
         }
         
         if (isCorrect) {
-          correct++
           typeStats[typeName].correct++
         } else if ((answers[qKey] || '').trim()) {
-          wrong++
           typeStats[typeName].wrong++
         } else {
-          missed++
           typeStats[typeName].missed++
         }
         typeStats[typeName].total++
@@ -249,27 +244,27 @@ function ReadingPracticeExam({ exam, onBack }) {
         <h1 className="text-2xl font-bold text-zinc-900 tracking-tight mb-2">{exam.title}</h1>
         <p className="text-sm text-zinc-500 mb-1">1 Passage · {totalSlots} câu hỏi</p>
         <p className="text-sm text-zinc-500 mb-8">Thời gian: <span className="font-semibold text-zinc-900">20 phút</span></p>
-        <div className="rounded-xl p-4 text-left text-sm mb-8 space-y-1 w-full bg-zinc-50 border border-zinc-200 text-zinc-700">
+        <div className="rounded-2xl p-4 text-left text-sm mb-8 space-y-1 w-full bg-zinc-50 border border-zinc-200 text-zinc-700">
           <p>• Đọc passage bên trái, trả lời câu hỏi bên phải</p>
           <p>• Bài sẽ tự nộp khi hết giờ</p>
         </div>
         {draftMeta?.hasDraft ? (
           <>
-            <button onClick={resumeDraft} className="w-full h-9 px-4 py-2 rounded-md font-medium text-xs sm:text-sm bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 transition-colors shadow-xs cursor-pointer mb-2 flex items-center justify-center">
-              Tiếp tục{draftMeta.savedAt ? ` (đã lưu ${formatSavedAt(draftMeta.savedAt)})` : ''} →
+            <button onClick={resumeDraft} className="w-full h-9 px-5 rounded-full font-medium text-sm tracking-normal bg-zinc-900 hover:bg-zinc-800 text-white transition-colors shadow-xs cursor-pointer mb-2 inline-flex items-center justify-center leading-none select-none">
+              Tiếp tục{draftMeta.savedAt ? ` (đã lưu ${formatSavedAt(draftMeta.savedAt)})` : ''}
             </button>
-            <button onClick={startFresh} className="w-full text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors font-medium text-xs h-9 py-2 rounded-md mb-1 cursor-pointer flex items-center justify-center">
+            <button onClick={startFresh} className="w-full text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 transition-colors font-medium text-sm tracking-normal h-9 rounded-full mb-1 cursor-pointer inline-flex items-center justify-center leading-none select-none">
               Làm lại từ đầu
             </button>
           </>
         ) : (
-          <button onClick={() => setPhase('exam')} className="w-full h-9 px-4 py-2 rounded-md font-medium text-xs sm:text-sm bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 transition-colors shadow-xs cursor-pointer mb-2 flex items-center justify-center">
+          <button onClick={() => setPhase('exam')} className="w-full h-9 px-5 rounded-full font-medium text-sm tracking-normal bg-zinc-900 hover:bg-zinc-800 text-white transition-colors shadow-xs cursor-pointer mb-2 inline-flex items-center justify-center leading-none select-none">
             Bắt đầu làm bài
           </button>
         )}
         <button
           onClick={onBack}
-          className="w-full text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-800 transition-colors font-medium text-xs sm:text-sm h-9 px-4 py-2 rounded-md flex items-center justify-center gap-1.5 cursor-pointer"
+          className="w-full text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors font-medium text-sm tracking-normal h-9 px-5 rounded-full inline-flex items-center justify-center leading-none gap-1.5 cursor-pointer select-none"
         >
           <ArrowLeft className="w-4 h-4 text-zinc-500" /> Quay lại
         </button>
@@ -291,22 +286,22 @@ function ReadingPracticeExam({ exam, onBack }) {
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-zinc-50/50">
       {/* Header */}
-      <header className="h-14 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 px-6 flex items-center justify-between shrink-0 z-30">
+      <header className="h-14 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">{exam.title}</span>
+          <span className="text-xs sm:text-sm font-semibold text-zinc-900 truncate">{exam.title}</span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {lastSavedAt && (
-            <span className="text-[11px] text-zinc-400 dark:text-zinc-500 whitespace-nowrap">✓ Đã lưu {formatSavedAt(lastSavedAt)}</span>
+            <span className="text-[11px] text-zinc-400 whitespace-nowrap">✓ Đã lưu {formatSavedAt(lastSavedAt)}</span>
           )}
-          <span className="text-xs text-zinc-500 dark:text-zinc-400 font-mono tabular-nums">{answered}/{totalSlots} câu</span>
+          <span className="text-xs text-zinc-500 font-mono tabular-nums">{answered}/{totalSlots} câu</span>
           <div
-            className={`tabular-nums text-xs font-semibold px-2.5 py-1 rounded-lg border flex items-center gap-1.5 ${
+            className={`tabular-nums text-xs font-semibold px-3 py-1 rounded-full border flex items-center gap-1.5 ${
               timeLeft < 300
-                ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900/60'
+                ? 'text-red-600 bg-red-50 border-red-200'
                 : timeLeft < 600
-                ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/60'
-                : 'text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'
+                ? 'text-amber-600 bg-amber-50 border-amber-200'
+                : 'text-zinc-700 bg-zinc-100 border-zinc-200'
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
@@ -341,7 +336,7 @@ function ReadingPracticeExam({ exam, onBack }) {
             <div className={`w-0.5 h-4 rounded-full transition-colors ${isDragging ? 'bg-zinc-900' : 'bg-zinc-400 group-hover:bg-zinc-600'}`} />
           </div>
           <button onMouseDown={e => e.stopPropagation()} onClick={resetSplit} title="Reset 50/50"
-            className="absolute top-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white border border-zinc-300 rounded text-zinc-500 hover:text-zinc-900 hover:border-zinc-400 text-[10px] px-1 py-0.5 shadow-xs leading-none">
+            className="absolute top-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white border border-zinc-300 rounded-full text-zinc-500 hover:text-zinc-900 hover:border-zinc-400 text-[10px] px-2 py-0.5 shadow-xs leading-none">
             ⇔
           </button>
         </div>
@@ -356,13 +351,14 @@ function ReadingPracticeExam({ exam, onBack }) {
       </div>
 
       {/* Bottom navigator bar — single row */}
-      <div className="h-14 px-6 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 flex items-center gap-4 shrink-0 z-20">
+      <div className="h-14 px-6 bg-white border-t border-zinc-200 flex items-center gap-4 shrink-0 z-20">
         <span className="text-xs text-zinc-500 shrink-0 min-w-[90px] font-mono tabular-nums">Đã làm {answered}/{totalSlots} câu</span>
         <div className="flex flex-wrap gap-2 flex-1 justify-center">
           {navItems.map(({ number, qId }) => (
             <QuestionNavButton
               key={number}
               number={number}
+              roundedFull={true}
               status={qId && answers[qId] ? 'answered' : 'unanswered'}
               onClick={() => jumpToQuestion(number)}
             />
@@ -371,38 +367,22 @@ function ReadingPracticeExam({ exam, onBack }) {
         <button
           type="button"
           onClick={() => setShowConfirm(true)}
-          className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-4 rounded-md shadow-xs transition-colors shrink-0 cursor-pointer inline-flex items-center justify-center leading-none"
+          className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-5 rounded-full shadow-xs transition-colors shrink-0 cursor-pointer inline-flex items-center justify-center leading-none"
         >
           Nộp bài
         </button>
       </div>
 
       {/* Submit confirm */}
-      {showConfirm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4" onClick={() => setShowConfirm(false)}>
-          <div className="p-6 shadow-xl max-w-sm w-full bg-white rounded-2xl border border-zinc-200" onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-semibold text-zinc-900 mb-2">Nộp bài?</h2>
-            <p className="text-sm text-zinc-600 mb-2">Bạn có chắc muốn nộp bài không?</p>
-            <p className="text-sm font-medium text-zinc-900 mb-6">Đã làm: <span className="font-semibold text-zinc-900">{answered}/{totalSlots}</span> câu</p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowConfirm(false)}
-                className="flex-1 h-9 px-4 bg-white hover:bg-zinc-100 text-zinc-900 border border-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-100 dark:border-zinc-800 text-xs sm:text-sm font-medium rounded-md shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
-              >
-                Tiếp tục làm
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowConfirm(false); doSubmit() }}
-                className="flex-1 h-9 px-4 bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium rounded-md shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
-              >
-                Nộp bài
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ExamActionDialog
+        open={showConfirm}
+        title="Nộp bài thi?"
+        description={`Đã làm: ${answered}/${totalSlots} câu. Bạn có chắc chắn muốn nộp bài?`}
+        cancelLabel="Tiếp tục làm"
+        confirmLabel="Nộp bài"
+        onCancel={() => setShowConfirm(false)}
+        onConfirm={() => { setShowConfirm(false); doSubmit() }}
+      />
       {/* Exit confirmation modal — Back nút trình duyệt */}
       <ExitConfirmModal open={showExitModal} onStay={stayInExam} onLeave={leaveExam} />
     </div>
@@ -511,9 +491,6 @@ function ListeningPracticeExam({ exam, onBack }) {
   }
 
   const doSubmit = async () => {
-    let correct = 0
-    let wrong = 0
-    let missed = 0
     const questions = []
     const typeStats = {}
     
@@ -549,13 +526,10 @@ function ListeningPracticeExam({ exam, onBack }) {
         }
         
         if (isCorrect) {
-          correct++
           typeStats[typeName].correct++
         } else if (userRaw) {
-          wrong++
           typeStats[typeName].wrong++
         } else {
-          missed++
           typeStats[typeName].missed++
         }
         typeStats[typeName].total++
@@ -599,27 +573,27 @@ function ListeningPracticeExam({ exam, onBack }) {
         <h1 className="text-2xl font-bold text-zinc-900 tracking-tight mb-2">{exam.title}</h1>
         <p className="text-sm text-zinc-500 mb-1">{totalSlots} câu hỏi</p>
         <p className="text-sm text-zinc-500 mb-8">Thời gian: <span className="font-semibold text-zinc-900">10 phút</span></p>
-        <div className="rounded-xl p-4 text-left text-sm mb-8 space-y-1 w-full bg-zinc-50 border border-zinc-200 text-zinc-700">
+        <div className="rounded-2xl p-4 text-left text-sm mb-8 space-y-1 w-full bg-zinc-50 border border-zinc-200 text-zinc-700">
           <p>• Nghe audio và trả lời các câu hỏi</p>
           <p>• Bài sẽ tự nộp khi hết giờ</p>
         </div>
         {draftMeta?.hasDraft ? (
           <>
-            <button onClick={resumeDraft} className="w-full h-9 px-4 py-2 rounded-md font-medium text-xs sm:text-sm bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 transition-colors shadow-xs cursor-pointer mb-2 flex items-center justify-center">
-              Tiếp tục{draftMeta.savedAt ? ` (đã lưu ${formatSavedAt(draftMeta.savedAt)})` : ''} →
+            <button onClick={resumeDraft} className="w-full h-9 px-5 rounded-full font-medium text-sm tracking-normal bg-zinc-900 hover:bg-zinc-800 text-white transition-colors shadow-xs cursor-pointer mb-2 inline-flex items-center justify-center leading-none select-none">
+              Tiếp tục{draftMeta.savedAt ? ` (đã lưu ${formatSavedAt(draftMeta.savedAt)})` : ''}
             </button>
-            <button onClick={startFresh} className="w-full text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors font-medium text-xs h-9 py-2 rounded-md mb-1 cursor-pointer flex items-center justify-center">
+            <button onClick={startFresh} className="w-full text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 transition-colors font-medium text-sm tracking-normal h-9 rounded-full mb-1 cursor-pointer inline-flex items-center justify-center leading-none select-none">
               Làm lại từ đầu
             </button>
           </>
         ) : (
-          <button onClick={() => setPhase('exam')} className="w-full h-9 px-4 py-2 rounded-md font-medium text-xs sm:text-sm bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 transition-colors shadow-xs cursor-pointer mb-2 flex items-center justify-center">
+          <button onClick={() => setPhase('exam')} className="w-full h-9 px-5 rounded-full font-medium text-sm tracking-normal bg-zinc-900 hover:bg-zinc-800 text-white transition-colors shadow-xs cursor-pointer mb-2 inline-flex items-center justify-center leading-none select-none">
             Bắt đầu làm bài
           </button>
         )}
         <button
           onClick={onBack}
-          className="w-full text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-800 transition-colors font-medium text-xs sm:text-sm h-9 px-4 py-2 rounded-md flex items-center justify-center gap-1.5 cursor-pointer"
+          className="w-full text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors font-medium text-sm tracking-normal h-9 px-5 rounded-full inline-flex items-center justify-center leading-none gap-1.5 cursor-pointer select-none"
         >
           <ArrowLeft className="w-4 h-4 text-zinc-500" /> Quay lại
         </button>
@@ -641,22 +615,22 @@ function ListeningPracticeExam({ exam, onBack }) {
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-zinc-50/50">
       {/* Header */}
-      <header className="h-14 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 px-6 flex items-center justify-between shrink-0 z-30">
+      <header className="h-14 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">{exam.title}</span>
+          <span className="text-xs sm:text-sm font-semibold text-zinc-900 truncate">{exam.title}</span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {lastSavedAt && (
-            <span className="text-[11px] text-zinc-400 dark:text-zinc-500 whitespace-nowrap">✓ Đã lưu {formatSavedAt(lastSavedAt)}</span>
+            <span className="text-[11px] text-zinc-400 whitespace-nowrap">✓ Đã lưu {formatSavedAt(lastSavedAt)}</span>
           )}
-          <span className="text-xs text-zinc-500 dark:text-zinc-400 font-mono tabular-nums">{answered}/{totalSlots} câu</span>
+          <span className="text-xs text-zinc-500 font-mono tabular-nums">{answered}/{totalSlots} câu</span>
           <div
-            className={`tabular-nums text-xs font-semibold px-2.5 py-1 rounded-lg border flex items-center gap-1.5 ${
+            className={`tabular-nums text-xs font-semibold px-3 py-1 rounded-full border flex items-center gap-1.5 ${
               timeLeft < 120
-                ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900/60'
+                ? 'text-red-600 bg-red-50 border-red-200'
                 : timeLeft < 300
-                ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/60'
-                : 'text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'
+                ? 'text-amber-600 bg-amber-50 border-amber-200'
+                : 'text-zinc-700 bg-zinc-100 border-zinc-200'
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
@@ -668,14 +642,14 @@ function ListeningPracticeExam({ exam, onBack }) {
       {/* Sticky audio player */}
       {exam.audioUrl && (
         <div className="bg-zinc-50 border-b border-zinc-200 px-6 py-3 shrink-0">
-          <audio controls src={resolveImg(exam.audioUrl)} className="w-full h-10 accent-zinc-900" />
+          <audio controls src={resolveImg(exam.audioUrl)} className="w-full h-10 rounded-full accent-zinc-900" />
         </div>
       )}
 
       {/* Scrollable questions */}
       <div className="flex-1 overflow-y-auto px-6 py-5 bg-zinc-50/50">
         {exam.passage && (
-          <div className="bg-white rounded-xl border border-zinc-200 shadow-xs p-5 mb-5 max-w-2xl mx-auto">
+          <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-5 mb-5 max-w-2xl mx-auto">
             <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Context / Situation</p>
             <p className="text-sm text-zinc-800 leading-relaxed font-normal whitespace-pre-wrap">{exam.passage}</p>
           </div>
@@ -688,13 +662,14 @@ function ListeningPracticeExam({ exam, onBack }) {
       </div>
 
       {/* Bottom navigator */}
-      <div className="h-14 px-6 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 flex items-center gap-4 shrink-0 z-20">
+      <div className="h-14 px-6 bg-white border-t border-zinc-200 flex items-center gap-4 shrink-0 z-20">
         <span className="text-xs text-zinc-500 shrink-0 min-w-[90px] font-mono tabular-nums">Đã làm {answered}/{totalSlots} câu</span>
         <div className="flex flex-wrap gap-2 flex-1 justify-center">
           {navItems.map(({ number }) => (
             <QuestionNavButton
               key={number}
               number={number}
+              roundedFull={true}
               status={answers[number] ? 'answered' : 'unanswered'}
               onClick={() => jumpToQuestion(number)}
             />
@@ -703,38 +678,22 @@ function ListeningPracticeExam({ exam, onBack }) {
         <button
           type="button"
           onClick={() => setShowConfirm(true)}
-          className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-4 rounded-md shadow-xs transition-colors shrink-0 cursor-pointer inline-flex items-center justify-center leading-none"
+          className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-5 rounded-full shadow-xs transition-colors shrink-0 cursor-pointer inline-flex items-center justify-center leading-none"
         >
           Nộp bài
         </button>
       </div>
 
       {/* Submit confirm */}
-      {showConfirm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4" onClick={() => setShowConfirm(false)}>
-          <div className="p-6 shadow-xl max-w-sm w-full bg-white rounded-2xl border border-zinc-200" onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-semibold text-zinc-900 mb-2">Nộp bài?</h2>
-            <p className="text-sm text-zinc-600 mb-2">Bạn có chắc muốn nộp bài không?</p>
-            <p className="text-sm font-medium text-zinc-900 mb-6">Đã làm: <span className="font-semibold text-zinc-900">{answered}/{totalSlots}</span> câu</p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowConfirm(false)}
-                className="flex-1 h-9 px-4 bg-white hover:bg-zinc-100 text-zinc-900 border border-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-100 dark:border-zinc-800 text-xs sm:text-sm font-medium rounded-md shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
-              >
-                Tiếp tục làm
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowConfirm(false); doSubmit() }}
-                className="flex-1 h-9 px-4 bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium rounded-md shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
-              >
-                Nộp bài
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ExamActionDialog
+        open={showConfirm}
+        title="Nộp bài thi?"
+        description={`Đã làm: ${answered}/${totalSlots} câu. Bạn có chắc chắn muốn nộp bài?`}
+        cancelLabel="Tiếp tục làm"
+        confirmLabel="Nộp bài"
+        onCancel={() => setShowConfirm(false)}
+        onConfirm={() => { setShowConfirm(false); doSubmit() }}
+      />
       {/* Exit confirmation modal — Back nút trình duyệt */}
       <ExitConfirmModal open={showExitModal} onStay={stayInExam} onLeave={leaveExam} />
     </div>

@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { btnSecondary, getQuestionGroupTheme } from '../../utils/practiceConfig'
+import { getQuestionGroupTheme } from '../../utils/practiceConfig'
 
 // Đồng bộ group.questions với các token [Q:n] còn thực sự tồn tại trong nội dung.
 // Khi người dùng xóa token khỏi text, câu hỏi tương ứng phải bị loại (tránh câu "mồ côi").

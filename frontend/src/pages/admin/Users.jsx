@@ -5,6 +5,7 @@ import { getAdminUsers, toggleUserLock, deleteAdminUser } from '../../services/a
 import { useToast } from '../../context/ToastContext'
 import { SkeletonTable } from '../../components/skeletons'
 import { Pencil, Lock, Unlock, Trash2, SearchX } from 'lucide-react'
+import Modal from '../../components/common/Modal'
 
 import { roundIELTS } from '../../utils/ielts'
 
@@ -182,7 +183,7 @@ export default function Users() {
         {/* ── Table ──────────────────────────────────────── */}
         <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-xs">
           {isPending && !data ? (
-            <SkeletonTable rows={8} cols={7} />
+            <SkeletonTable rows={8} cols={6} />
           ) : users.length === 0 ? (
             search || statusFilter ? (
               <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
@@ -199,12 +200,11 @@ export default function Users() {
                 <thead>
                   <tr className="text-[11px] text-zinc-500 bg-zinc-50 border-b border-zinc-200">
                     <th className="px-5 py-3 text-left font-medium">Người dùng</th>
-                    <th className="px-4 py-3 text-left font-medium">Vai trò</th>
                     <th className="px-4 py-3 text-left font-medium">Trạng thái</th>
-                    <th className="px-4 py-3 text-left font-medium hidden sm:table-cell">Lượt thi</th>
-                    <th className="px-4 py-3 text-left font-medium hidden md:table-cell">Band TB</th>
+                    <th className="px-4 py-3 text-right font-medium hidden sm:table-cell">Lượt thi</th>
+                    <th className="px-4 py-3 text-right font-medium hidden md:table-cell">Band TB</th>
                     <th className="px-4 py-3 text-left font-medium hidden lg:table-cell">Ngày tham gia</th>
-                    <th className="px-4 py-3 text-left font-medium">Hành động</th>
+                    <th className="px-5 py-3 text-right font-medium text-[11px] uppercase tracking-wider text-zinc-500">Hành động</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -227,14 +227,6 @@ export default function Users() {
                               <p className="text-[11px] text-zinc-500">{u.email}</p>
                             </div>
                           </div>
-                        </td>
-
-                        {/* Vai trò */}
-                        <td className="px-4 py-3">
-                          {u.role === 'admin'
-                            ? <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-900 text-white">Admin</span>
-                            : <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-100 text-zinc-700 border border-zinc-200">User</span>
-                          }
                         </td>
 
                         {/* Trạng thái */}
@@ -266,12 +258,12 @@ export default function Users() {
                         </td>
 
                         {/* Hành động */}
-                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                          <div className="flex gap-1.5">
+                        <td className="px-5 py-3 text-right" onClick={e => e.stopPropagation()}>
+                          <div className="inline-flex items-center justify-end gap-1">
                             <button
                               onClick={() => navigate(`/admin/users/${u.id}`)}
                               title="Xem / Sửa"
-                              className="p-1.5 rounded-lg border border-zinc-200 text-zinc-600 hover:bg-zinc-100 transition shadow-2xs">
+                              className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer">
                               <Pencil size={15} />
                             </button>
                             {u.isLocked ? (
@@ -279,7 +271,7 @@ export default function Users() {
                                 onClick={() => setConfirmUnlock({ id: u.id, name: u.name })}
                                 disabled={togglingId === u.id}
                                 title="Mở khoá"
-                                className="p-1.5 rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-100 transition shadow-2xs">
+                                className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer">
                                 <Unlock size={15} />
                               </button>
                             ) : (
@@ -287,14 +279,14 @@ export default function Users() {
                                 onClick={() => setConfirmLock({ id: u.id, name: u.name })}
                                 disabled={togglingId === u.id}
                                 title="Khoá tài khoản"
-                                className="p-1.5 rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-100 transition shadow-2xs">
+                                className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer">
                                 <Lock size={15} />
                               </button>
                             )}
                             <button
                               onClick={() => setConfirmDelete({ id: u.id, name: u.name, isLocked: u.isLocked })}
                               title="Xoá tài khoản"
-                              className="p-1.5 rounded-lg border border-zinc-200 text-red-500 hover:bg-red-50 hover:border-red-200 transition shadow-2xs">
+                              className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-500 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer">
                               <Trash2 size={15} />
                             </button>
                           </div>
@@ -337,80 +329,68 @@ export default function Users() {
 
       {/* ── Lock confirmation modal ────────────────────── */}
       {confirmLock && (
-        <div
-          onClick={() => setConfirmLock(null)}
-          style={{ position:'fixed', inset:0, zIndex:9999, backgroundColor:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
-          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm border border-zinc-200">
-            <h3 className="text-sm font-semibold text-zinc-900 mb-2">Khoá tài khoản</h3>
-            <p className="text-xs text-zinc-600 mb-6">
-              Khoá tài khoản <strong>{confirmLock.name}</strong>? User sẽ không thể đăng nhập cho đến khi được mở khoá.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setConfirmLock(null)}
-                className="px-3.5 py-2 rounded-lg border border-zinc-200 text-xs text-zinc-700 hover:bg-zinc-50 font-medium transition">
-                Huỷ
-              </button>
-              <button
-                onClick={() => executeLock(confirmLock.id, false)}
-                className="px-3.5 py-2 rounded-lg bg-zinc-900 text-white text-xs font-medium hover:bg-zinc-800 transition">
-                Khoá
-              </button>
-            </div>
+        <Modal onClose={() => setConfirmLock(null)} title="Khoá tài khoản" size="sm" className="p-6">
+          <h3 className="text-sm font-semibold text-zinc-900 mb-2">Khoá tài khoản</h3>
+          <p className="text-xs text-zinc-600 mb-6">
+            Khoá tài khoản <strong>{confirmLock.name}</strong>? User sẽ không thể đăng nhập cho đến khi được mở khoá.
+          </p>
+          <div className="flex gap-2.5 justify-end">
+            <button
+              onClick={() => setConfirmLock(null)}
+              className="h-9 px-5 rounded-full border border-zinc-200 text-xs sm:text-sm text-zinc-700 hover:bg-zinc-50 font-medium transition-colors cursor-pointer">
+              Huỷ
+            </button>
+            <button
+              onClick={() => executeLock(confirmLock.id, false)}
+              className="h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer">
+              Khoá
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* ── Unlock confirmation modal ──────────────────── */}
       {confirmUnlock && (
-        <div
-          onClick={() => setConfirmUnlock(null)}
-          style={{ position:'fixed', inset:0, zIndex:9999, backgroundColor:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
-          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm border border-zinc-200">
-            <h3 className="text-sm font-semibold text-zinc-900 mb-2">Mở khoá tài khoản</h3>
-            <p className="text-xs text-zinc-600 mb-6">
-              Mở khoá tài khoản <strong>{confirmUnlock.name}</strong>? User sẽ có thể đăng nhập trở lại.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setConfirmUnlock(null)}
-                className="px-3.5 py-2 rounded-lg border border-zinc-200 text-xs text-zinc-700 hover:bg-zinc-50 font-medium transition">
-                Huỷ
-              </button>
-              <button
-                onClick={() => executeLock(confirmUnlock.id, true)}
-                className="px-3.5 py-2 rounded-lg bg-zinc-900 text-white text-xs font-medium hover:bg-zinc-800 transition">
-                Mở khoá
-              </button>
-            </div>
+        <Modal onClose={() => setConfirmUnlock(null)} title="Mở khoá tài khoản" size="sm" className="p-6">
+          <h3 className="text-sm font-semibold text-zinc-900 mb-2">Mở khoá tài khoản</h3>
+          <p className="text-xs text-zinc-600 mb-6">
+            Mở khoá tài khoản <strong>{confirmUnlock.name}</strong>? User sẽ có thể đăng nhập trở lại.
+          </p>
+          <div className="flex gap-2.5 justify-end">
+            <button
+              onClick={() => setConfirmUnlock(null)}
+              className="h-9 px-5 rounded-full border border-zinc-200 text-xs sm:text-sm text-zinc-700 hover:bg-zinc-50 font-medium transition-colors cursor-pointer">
+              Huỷ
+            </button>
+            <button
+              onClick={() => executeLock(confirmUnlock.id, true)}
+              className="h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer">
+              Mở khoá
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* ── Delete modal ───────────────────────────────── */}
       {confirmDelete && (
-        <div
-          onClick={() => setConfirmDelete(null)}
-          style={{ position:'fixed', inset:0, zIndex:9999, backgroundColor:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
-          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm border border-zinc-200">
-            <h3 className="text-sm font-semibold text-zinc-900 mb-2">Xác nhận xóa</h3>
-            <p className="text-xs text-zinc-600 mb-6">
-              Xóa người dùng <strong>{confirmDelete.name}</strong>? Hành động này không thể hoàn tác.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setConfirmDelete(null)}
-                className="px-3.5 py-2 rounded-lg border border-zinc-200 text-xs text-zinc-700 hover:bg-zinc-50 font-medium transition">
-                Huỷ
-              </button>
-              <button
-                onClick={handleDelete}
-                className="px-3.5 py-2 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700 transition">
-                Xóa
-              </button>
-            </div>
+        <Modal onClose={() => setConfirmDelete(null)} title="Xác nhận xóa" size="sm" className="p-6">
+          <h3 className="text-sm font-semibold text-zinc-900 mb-2">Xác nhận xóa</h3>
+          <p className="text-xs text-zinc-600 mb-6">
+            Xóa người dùng <strong>{confirmDelete.name}</strong>? Hành động này không thể hoàn tác.
+          </p>
+          <div className="flex gap-2.5 justify-end">
+            <button
+              onClick={() => setConfirmDelete(null)}
+              className="h-9 px-5 rounded-full border border-zinc-200 text-xs sm:text-sm text-zinc-700 hover:bg-zinc-50 font-medium transition-colors cursor-pointer">
+              Huỷ
+            </button>
+            <button
+              onClick={handleDelete}
+              className="h-9 px-5 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer">
+              Xóa
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
     </>
   )

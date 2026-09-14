@@ -53,7 +53,7 @@ export default function MatchingHeadingsGroup({ group, answers, onAnswer, previe
 
   return (
     <div id={`question-${group.qNumberStart}`} className="mb-6 scroll-mt-4">
-      <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 mb-3 text-sm">
+      <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-3 text-sm">
         <p className="font-semibold text-zinc-900 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
         {group.instruction && <p className="text-zinc-600 text-xs mb-1">{group.instruction}</p>}
         {!previewMode && (
@@ -77,7 +77,7 @@ export default function MatchingHeadingsGroup({ group, answers, onAnswer, previe
                   onDragStart={() => { setDraggingKey(h.optionLetter); setSelectedKey(null) }}
                   onDragEnd={() => { setDraggingKey(null); setDragOverQId(null) }}
                   onClick={() => handleHeadingClick(h.optionLetter)}
-                  className={`flex items-start gap-2 px-3 py-2 rounded-lg border text-xs transition select-none
+                  className={`flex items-start gap-2 px-3.5 py-2 rounded-full border text-xs transition select-none
                     ${previewMode
                       ? 'border-zinc-200 bg-white cursor-default'
                       : isSelected
@@ -106,7 +106,7 @@ export default function MatchingHeadingsGroup({ group, answers, onAnswer, previe
             const isClickable = !!(selectedKey && !previewMode)
 
             return (
-              <div key={q.id} className="bg-white rounded-xl border border-zinc-200 p-3.5 shadow-xs">
+              <div key={q.id} className="bg-white rounded-2xl border border-zinc-200 p-4 shadow-xs">
                 <p className="text-sm text-zinc-900 mb-2 flex gap-2 items-start leading-relaxed">
                   <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-900 font-bold text-xs shrink-0 mt-0.5">
                     {q.number}
@@ -121,7 +121,7 @@ export default function MatchingHeadingsGroup({ group, answers, onAnswer, previe
                   onDragLeave={() => setDragOverQId(null)}
                   onDrop={() => handleDrop(q.id)}
                   onClick={() => handleParaClick(q.id)}
-                  className={`min-h-[38px] rounded-lg border-2 px-3 py-1.5 flex items-center text-sm transition
+                  className={`min-h-[38px] rounded-full border-2 px-3.5 py-1.5 flex items-center text-sm transition
                     ${!previewMode ? 'cursor-pointer' : ''}
                     ${isOver ? 'border-zinc-900 bg-zinc-100'
                     : answer ? 'border-zinc-900 bg-zinc-50'

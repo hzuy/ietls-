@@ -9,38 +9,6 @@ const { getOrSet, TTL_EXAM_DETAIL } = require('../utils/cache')
 const router = express.Router()
 const prisma = require('../lib/prisma')
 
-// Public: 4 bài Listening mới nhất cho trang chủ
-router.get('/featured', async (req, res) => {
-  try {
-    const exams = await prisma.exam.findMany({
-      where: { skill: 'listening', deletedAt: null },
-      take: 4,
-      select: {
-        id: true, title: true, createdAt: true, coverImageUrl: true,
-        _count: { select: { attempts: true } },
-        listeningSections: {
-          select: {
-            questions: { where: { groupId: null }, select: { id: true } },
-            questionGroups: { select: { qNumberStart: true, qNumberEnd: true } }
-          }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    })
-    const result = exams.map(e => ({
-      id: e.id, title: e.title, createdAt: e.createdAt, coverImageUrl: e.coverImageUrl,
-      attemptCount: e._count.attempts,
-      questionCount: e.listeningSections.reduce((sum, s) => {
-        const fromGroups = s.questionGroups.reduce((gs, g) => gs + (g.qNumberEnd - g.qNumberStart + 1), 0)
-        return sum + s.questions.length + fromGroups
-      }, 0)
-    }))
-    res.json(result)
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
-  }
-})
-
 router.get('/exams', authMiddleware, async (req, res) => {
   try {
     const exams = await prisma.exam.findMany({

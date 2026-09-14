@@ -3,7 +3,7 @@ import { toImgSrc } from '../../../utils/media'
 
 function InstructionBanner({ group }) {
   return (
-    <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 mb-4 text-sm">
+    <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
       <p className="font-semibold text-zinc-900 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
       {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
     </div>
@@ -21,7 +21,7 @@ export default function MapDiagramGroup({ group, answers, onAnswer, previewMode,
       {group.imageUrl && (
         <div className="flex justify-center mb-5">
           <img src={toImgSrc(group.imageUrl)} alt="Map/Diagram"
-            className="img-crisp max-w-full rounded-xl border border-zinc-200 shadow-xs"
+            className="img-crisp max-w-full rounded-2xl border border-zinc-200 shadow-xs"
             style={{ imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)' }}
             loading="lazy" decoding="async"
             onError={e => { e.target.style.display = 'none' }} />
@@ -34,7 +34,6 @@ export default function MapDiagramGroup({ group, answers, onAnswer, previewMode,
         onAnswer={onAnswer}
         previewMode={previewMode}
         showAnswers={showAnswers}
-        accentColor="zinc"
       />
     </div>
   )

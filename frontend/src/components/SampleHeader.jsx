@@ -18,7 +18,7 @@ export default function SampleHeader({ type, taskLabel, title, examType }) {
           <span style={{
             fontSize: 12,
             fontWeight: 700,
-            borderRadius: 'var(--radius-sm)',
+            borderRadius: '9999px',
             padding: '4px 12px',
             background: 'var(--primary-light)',
             color: 'var(--primary)',
@@ -32,7 +32,7 @@ export default function SampleHeader({ type, taskLabel, title, examType }) {
           <span style={{
             fontSize: 12,
             fontWeight: 600,
-            borderRadius: 'var(--radius-sm)',
+            borderRadius: '9999px',
             padding: '4px 12px',
             background: 'var(--surface-raised)',
             color: 'var(--muted)',

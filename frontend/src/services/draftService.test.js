@@ -3,6 +3,7 @@ import {
   saveDraft,
   loadDraft,
   checkDraft,
+  getLatestDraft,
   purgeExpiredDrafts,
   DRAFT_TTL_MS,
 } from './draftService'
@@ -79,5 +80,43 @@ describe('draftService — purgeExpiredDrafts', () => {
 
   it('localStorage rỗng → no-op, không throw', () => {
     expect(() => purgeExpiredDrafts()).not.toThrow()
+  })
+})
+
+describe('draftService — getLatestDraft', () => {
+  beforeEach(() => localStorage.clear())
+
+  it('trả về draft mới nhất còn hạn và có nội dung', () => {
+    writeDraftWithAge('u1', '1', 'reading', 10 * 60 * 1000, { 1: 'A' }) // 10 phút trước
+    writeDraftWithAge('u1', '2', 'listening', 2 * 60 * 1000, { 1: 'B', 2: 'C' }) // 2 phút trước (mới hơn)
+
+    const latest = getLatestDraft('u1')
+    expect(latest).not.toBeNull()
+    expect(latest.examId).toBe('2')
+    expect(latest.skillType).toBe('listening')
+  })
+
+  it('lưu và giữ đúng examTitle và totalQuestions', () => {
+    saveDraft({
+      userId: 'u1',
+      examId: 'cam-19-1',
+      skillType: 'reading',
+      data: { 1: 'A', 2: 'B' },
+      timeRemaining: 2400,
+      examTitle: 'Cambridge 19 · Test 1 Reading',
+      totalQuestions: 40,
+    })
+
+    const latest = getLatestDraft('u1')
+    expect(latest).not.toBeNull()
+    expect(latest.examTitle).toBe('Cambridge 19 · Test 1 Reading')
+    expect(latest.totalQuestions).toBe(40)
+  })
+
+  it('bỏ qua draft quá hạn hoặc rỗng', () => {
+    writeDraftWithAge('u1', '1', 'reading', DRAFT_TTL_MS + 10_000, { 1: 'A' }) // quá hạn
+    saveDraft({ userId: 'u1', examId: '2', skillType: 'listening', data: {} }) // rỗng
+
+    expect(getLatestDraft('u1')).toBeNull()
   })
 })

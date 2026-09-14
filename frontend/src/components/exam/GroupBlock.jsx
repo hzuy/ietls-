@@ -37,14 +37,14 @@ function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, 
           const val = previewMode && showAnswers ? (q?.correctAnswer || '') : (q ? (answers[q.id] || '') : '')
           return (
             <span key={i} className="inline-flex items-center mx-1">
-              <span className="text-xs font-bold text-zinc-900 bg-zinc-100 border border-zinc-200 px-1.5 py-0.5 rounded mr-0.5">{qNum}</span>
+              <span className="text-xs font-bold text-zinc-900 bg-zinc-100 border border-zinc-200 px-2 py-0.5 rounded-full mr-1">{qNum}</span>
               <input
                 type="text"
                 value={val}
                 readOnly={previewMode}
                 onChange={previewMode ? undefined : e => q && onAnswer(q.id, e.target.value)}
                 placeholder={previewMode ? '' : '...'}
-                className={`border-b-2 ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} outline-none px-1 py-0.5 text-sm w-24 bg-white transition text-center`}
+                className={`border ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} rounded-full outline-none px-3 py-0.5 text-sm w-28 bg-white transition text-center`}
               />
             </span>
           )
@@ -55,11 +55,11 @@ function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, 
 
     return (
       <div id={`q-${from}`} className="mb-6 scroll-mt-4">
-        <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 mb-3 text-sm">
+        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-3 text-sm">
           <p className="font-semibold text-zinc-900 mb-1">Questions {from}–{to}</p>
           {group.instruction && <p className="text-zinc-500 text-xs">{group.instruction}</p>}
         </div>
-        <div className="rounded-xl p-4 text-sm bg-white border border-zinc-200 shadow-xs">
+        <div className="rounded-2xl p-5 text-sm bg-white border border-zinc-200 shadow-xs">
           {(group.noteSections || []).map((ns, nsi) => (
             <div key={nsi} className="mb-3 last:mb-0">
               {ns.title && <div className="font-semibold text-zinc-900 mb-1.5 border-b border-zinc-200 pb-1">{ns.title}</div>}
@@ -85,7 +85,7 @@ function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, 
     const letters = (group.matchingOptions || []).map(mo => mo.optionLetter).filter(Boolean)
     return (
       <div id={`q-${from}`} className="mb-6 scroll-mt-4">
-        <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 mb-3 text-sm">
+        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-3 text-sm">
           <p className="font-semibold text-zinc-900 mb-1">Questions {from}–{to}</p>
           {group.instruction && <p className="text-zinc-500 text-xs mb-1">{group.instruction}</p>}
           <p className="text-zinc-400 text-xs italic">You may use any letter more than once.</p>
@@ -97,8 +97,6 @@ function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, 
           onAnswer={onAnswer}
           previewMode={previewMode}
           showAnswers={showAnswers}
-          accentColor="zinc"
-          globalOffset={globalOffset}
         />
       </div>
     )
@@ -144,7 +142,7 @@ function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, 
 
     return (
       <div id={`q-${from}`} className="mb-6 scroll-mt-4">
-        <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 mb-3 text-sm">
+        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-3 text-sm">
           <p className="font-semibold text-zinc-900 mb-1">Questions {from}–{to}</p>
           {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
         </div>
@@ -181,7 +179,7 @@ function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, 
                   const checked = previewMode && showAnswers ? correctSelected.includes(opt) : selected.includes(opt)
                   const disabled = previewMode || (!checked && limitReached)
                   return (
-                    <label key={opt} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition
+                    <label key={opt} className={`flex items-center gap-2 px-3.5 py-2 rounded-full text-sm transition
                       ${checked && previewMode && showAnswers ? 'bg-green-50 border border-green-400 text-green-700 cursor-default'
                         : checked ? 'bg-zinc-100 border border-zinc-900 text-zinc-900 font-medium cursor-pointer'
                         : disabled ? 'border border-transparent text-zinc-300 cursor-not-allowed'

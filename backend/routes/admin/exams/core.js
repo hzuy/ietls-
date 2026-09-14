@@ -228,25 +228,6 @@ router.get('/exams/:id', authMiddleware, teacherOnly, async (req, res) => {
   }
 })
 
-// ─── UPDATE BASIC INFO (title only — dùng cho trang quản lý nội dung) ────────
-router.put('/exams/:id/basic', authMiddleware, teacherOnly, async (req, res) => {
-  try {
-    const id = parseInt(req.params.id)
-    const { title } = req.body
-    if (!title?.trim()) return res.status(400).json({ message: 'Thiếu tiêu đề' })
-    const exam = await prisma.exam.update({
-      where: { id },
-      data: { title: title.trim() },
-      select: { id: true, title: true, skill: true, coverImageUrl: true, createdAt: true }
-    })
-    invalidate('fulltests:')
-    invalidateExamCaches(id)
-    res.json(exam)
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi cập nhật', error: error.message })
-  }
-})
-
 // ─── DIFF-BASED UPSERT HELPERS (Reading + Listening PUT) ────────────────────
 // PUT used to delete-and-recreate the whole Passage/ListeningSection → Question
 // tree on every save, which regenerates Question IDs and orphans QuestionAnswer/

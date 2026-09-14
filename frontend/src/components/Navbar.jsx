@@ -11,8 +11,10 @@ function NavBtn({ children, active, onClick, hasDropdown }) {
   return (
     <button
       onClick={onClick}
-      className={`nav-item flex items-center gap-1 border-none tracking-[0.01em] whitespace-nowrap shrink-0 px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
-        active ? 'bg-zinc-100 text-zinc-900 font-semibold' : 'bg-transparent text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100/70'
+      className={`nav-item flex items-center gap-1 border-none tracking-[0.01em] whitespace-nowrap shrink-0 px-3.5 py-1.5 rounded-full transition-all cursor-pointer ${
+        active
+          ? 'bg-zinc-100 text-zinc-900 font-semibold'
+          : 'bg-transparent text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100/70'
       }`}
       style={{ fontSize: 'var(--fs-sm)' }}
     >
@@ -30,7 +32,7 @@ function CustomDropItem({ to, icon, label, bold, active }) {
   return (
     <GatedLink to={to} className="block no-underline">
       <div
-        className={`flex items-center gap-2.5 px-4 py-2 transition-colors duration-200 whitespace-nowrap rounded-md mx-1 cursor-pointer ${active ? 'bg-zinc-100 text-zinc-900 font-semibold' : 'bg-transparent text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900'} ${bold ? 'font-semibold' : ''}`}
+        className={`flex items-center gap-2.5 px-4 py-2 transition-colors duration-200 whitespace-nowrap rounded-full mx-1 cursor-pointer ${active ? 'bg-zinc-100 text-zinc-900 font-semibold' : 'bg-transparent text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900'} ${bold ? 'font-semibold' : ''}`}
         style={{ fontSize: 'var(--fs-sm)' }}
       >
         {icon && <span>{icon}</span>}
@@ -50,7 +52,7 @@ function MobileNavLink({ to, children, active, onClick }) {
     <GatedLink
       to={to}
       onClick={onClick}
-      className={`flex items-center px-4 py-3 rounded-xl no-underline transition-colors ${active ? 'bg-zinc-100 text-zinc-900 font-semibold' : 'text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900'}`}
+      className={`flex items-center px-4 py-3 rounded-full no-underline transition-colors ${active ? 'bg-zinc-100 text-zinc-900 font-semibold' : 'text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900'}`}
       style={{ fontSize: 'var(--fs-base)', minHeight: 44 }}
     >
       {children}
@@ -134,7 +136,7 @@ export default function Navbar() {
         </div>
       )}
 
-      <header className={`w-full sticky top-0 z-50 h-16 border-b transition-all duration-300 ${scrolled ? 'bg-white/90 backdrop-blur-md shadow-[0_4px_12px_rgba(15,23,42,0.05)]' : 'bg-white'}`}>
+      <header className={`w-full sticky top-0 z-50 h-16 border-b border-zinc-200 transition-all duration-300 ${scrolled ? 'bg-white/90 backdrop-blur-md shadow-[0_4px_12px_rgba(15,23,42,0.05)]' : 'bg-white'}`}>
         <div className="app-container h-full flex items-center justify-between flex-nowrap gap-4">
 
           {/* Logo */}
@@ -228,7 +230,7 @@ export default function Navbar() {
                 <>
                   {/* Bot — progress link */}
                   <Link to="/progress"
-                    className="flex items-center justify-center rounded-lg bg-zinc-100 border border-zinc-200 text-zinc-800 hover:bg-zinc-200 hover:text-zinc-900 transition-all shrink-0 no-underline"
+                    className="flex items-center justify-center rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 hover:bg-zinc-200 hover:text-zinc-900 transition-all shrink-0 no-underline"
                     style={{ width: 36, height: 36 }}
                     title="Phân tích lỗi sai"
                     aria-label="Phân tích lỗi sai"
@@ -265,9 +267,9 @@ export default function Navbar() {
                           minWidth: 215,
                           background: 'var(--surface)',
                           border: '1px solid var(--border)',
-                          borderRadius: 'var(--radius-md)',
+                          borderRadius: '1rem',
                           boxShadow: 'var(--shadow-md)',
-                          padding: '4px',
+                          padding: '6px',
                           zIndex: 200,
                         }}
                       >
@@ -276,7 +278,7 @@ export default function Navbar() {
                           role="menuitem"
                           onClick={() => setUserMenuOpen(false)}
                           className="no-underline"
-                          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 'var(--fs-sm)', fontWeight: 500, transition: 'background 0.15s ease', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderRadius: '9999px', color: 'var(--text)', fontSize: 'var(--fs-sm)', fontWeight: 500, transition: 'background 0.15s ease', textDecoration: 'none', whiteSpace: 'nowrap' }}
                           onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-raised)'}
                           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                         >
@@ -289,7 +291,7 @@ export default function Navbar() {
                           onClick={() => { setUserMenuOpen(false); setShowLogoutConfirm(true) }}
                           style={{
                             display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-                            padding: '8px 12px', borderRadius: 'var(--radius-sm)',
+                            padding: '8px 14px', borderRadius: '9999px',
                             background: 'transparent', border: 'none', cursor: 'pointer',
                             color: 'var(--error)', fontSize: 'var(--fs-sm)', fontWeight: 500,
                             transition: 'background 0.15s ease', textAlign: 'left', whiteSpace: 'nowrap',
@@ -312,20 +314,22 @@ export default function Navbar() {
               )}
             </div>
 
-            {/* Mobile hamburger */}
-            <button
-              className="md:hidden flex items-center justify-center rounded-xl border transition-colors"
-              style={{ width: 44, height: 44, flexShrink: 0, borderColor: 'var(--border)', background: '#fff', color: '#18181b' }}
-              onClick={() => setMobileOpen(true)}
-              aria-label="Mở menu"
-              aria-expanded={mobileOpen}
-            >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                <line x1="3" y1="6" x2="17" y2="6"/>
-                <line x1="3" y1="10" x2="17" y2="10"/>
-                <line x1="3" y1="14" x2="17" y2="14"/>
-              </svg>
-            </button>
+            {/* Mobile: hamburger */}
+            <div className="md:hidden flex items-center gap-2 shrink-0">
+              <button
+                className="flex items-center justify-center rounded-full border transition-colors"
+                style={{ width: 44, height: 44, flexShrink: 0, borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--ink)' }}
+                onClick={() => setMobileOpen(true)}
+                aria-label="Mở menu"
+                aria-expanded={mobileOpen}
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                  <line x1="3" y1="6" x2="17" y2="6"/>
+                  <line x1="3" y1="10" x2="17" y2="10"/>
+                  <line x1="3" y1="14" x2="17" y2="14"/>
+                </svg>
+              </button>
+            </div>
         </div>
       </header>
 
@@ -348,7 +352,7 @@ export default function Navbar() {
           transition: 'transform var(--transition)',
           boxShadow: mobileOpen ? '4px 0 24px rgba(15,23,42,0.2)' : 'none',
           overflowY: 'auto',
-          background: '#fff',
+          background: 'var(--surface)',
         }}
         role="dialog"
         aria-modal="true"
@@ -366,7 +370,7 @@ export default function Navbar() {
           </Link>
           <button
             onClick={closeMobile}
-            className="flex items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 transition-colors"
+            className="flex items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100 transition-colors"
             style={{ width: 44, height: 44 }}
             aria-label="Đóng menu"
           >
@@ -417,7 +421,7 @@ export default function Navbar() {
         <div className="mt-auto border-t border-zinc-100 px-3 py-4 flex flex-col gap-2">
           {isLoggedIn ? (
             <>
-              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-zinc-50 mb-1">
+              <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-zinc-50 mb-1">
                 <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 15, flexShrink: 0 }}>
                   {user.name?.charAt(0)?.toUpperCase() || 'U'}
                 </div>
@@ -427,7 +431,7 @@ export default function Navbar() {
               <MobileNavLink to="/progress" active={location.pathname === '/progress'} onClick={closeMobile}>Phân tích lỗi sai</MobileNavLink>
               <button
                 onClick={() => { closeMobile(); setShowLogoutConfirm(true) }}
-                className="flex items-center w-full px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 transition-colors"
+                className="flex items-center w-full px-4 py-3 rounded-full text-red-500 hover:bg-red-50 transition-colors"
                 style={{ fontSize: 'var(--fs-base)', minHeight: 44, border: 'none', background: 'transparent', cursor: 'pointer' }}
               >
                 Đăng xuất

@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
+import Breadcrumb from '../components/common/Breadcrumb'
 import ContentCard from '../components/common/ContentCard'
 import AcademicCover from '../components/common/AcademicCover'
 import { SkeletonCard } from '../components/skeletons'
@@ -58,10 +59,18 @@ export default function SeriesPage({ filterPattern, title, description }) {
           title: `${b.seriesName} ${b.bookNumber}`
         }))
 
-        // Filter by series name pattern
-        const filtered = normalized.filter(b => 
-          b.seriesName.toLowerCase().includes(filterPattern.toLowerCase())
-        ).sort((a, b) => b.bookNumber - a.bookNumber)
+        // Filter strictly by series name pattern
+        const filtered = normalized.filter(b => {
+          const sName = (b.seriesName || '').toLowerCase()
+          const pattern = (filterPattern || '').toLowerCase()
+          if (pattern === 'cambridge') {
+            return sName.includes('cambridge') && !sName.includes('practice') && !sName.includes('plus')
+          }
+          if (pattern === 'practice') {
+            return sName.includes('practice') || sName.includes('plus')
+          }
+          return sName.includes(pattern)
+        }).sort((a, b) => b.bookNumber - a.bookNumber)
 
         setBooks(filtered)
         setLoading(false)
@@ -86,11 +95,21 @@ export default function SeriesPage({ filterPattern, title, description }) {
   }, [books, search])
 
   return (
-    <div className="min-h-screen bg-zinc-50/50">
+    <div className="min-h-screen bg-zinc-50/50 dark:bg-zinc-950 flex flex-col">
       <Navbar />
 
-      <div className="bg-white border-b border-zinc-200">
-        <div className="max-w-6xl mx-auto px-6 py-10">
+      <div className="app-container pt-4 pb-0">
+        <Breadcrumb
+          items={[
+            { label: 'Trang chủ', to: '/' },
+            { label: 'Phòng thi chuẩn hóa', to: '/full-test' },
+            { label: title }
+          ]}
+        />
+      </div>
+
+      <div className="bg-white border-b border-zinc-200 mt-2">
+        <div className="app-container py-8">
           <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">{title}</h1>
           <p className="text-sm text-zinc-500 mt-1.5">{description}</p>
           
@@ -101,17 +120,17 @@ export default function SeriesPage({ filterPattern, title, description }) {
               placeholder="Tìm theo tên bộ đề (vd: Cambridge 19)"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 text-sm text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-zinc-900 focus:bg-white transition-all"
+              className="w-full pl-9 pr-4 h-10 rounded-full border border-zinc-200 bg-zinc-50 text-sm text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-zinc-900 focus:bg-white transition-all"
             />
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-10">
+      <div className="app-container py-8 flex-1">
         {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {[1,2,3,4].map(i => (
-              <SkeletonCard key={i} aspect="4/5" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
+            {[1,2,3,4,5].map(i => (
+              <SkeletonCard key={i} aspect="3/4" />
             ))}
           </div>
         ) : error ? (
@@ -125,7 +144,7 @@ export default function SeriesPage({ filterPattern, title, description }) {
             </p>
             <button
               onClick={fetchBooks}
-              className="btn-primary flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm cursor-pointer"
+              className="btn-primary flex items-center justify-center gap-2 px-6 h-9 rounded-full font-semibold text-sm cursor-pointer"
             >
               <RefreshCw className="w-4 h-4" />
               Thử lại
@@ -138,7 +157,7 @@ export default function SeriesPage({ filterPattern, title, description }) {
             <p className="text-zinc-500 text-sm mt-1">Thử tìm kiếm với từ khóa khác</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
             {filteredBooks.map(book => {
               const hasTests = book.testCount > 0
               const skills = Array.from(book.skills || [])
@@ -156,12 +175,12 @@ export default function SeriesPage({ filterPattern, title, description }) {
                       skill="fullTest"
                     />
                   }
-                  thumbAspect="4/5"
+                  thumbAspect="3/4"
                   thumbOverlay={
                     <>
                       {!hasTests && (
                         <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5 }}>
-                          <span style={{ background: 'white', color: '#18181b', padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Sắp có bài</span>
+                          <span style={{ background: 'white', color: '#18181b', padding: '4px 12px', borderRadius: 9999, fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Sắp có bài</span>
                         </div>
                       )}
                       {skills.length > 0 && (
@@ -173,7 +192,7 @@ export default function SeriesPage({ filterPattern, title, description }) {
                               <span
                                 key={s}
                                 title={String(s).toUpperCase()}
-                                className="w-6 h-6 rounded-md bg-white/90 backdrop-blur-sm border border-zinc-200 shadow-xs flex items-center justify-center text-zinc-700"
+                                className="w-6 h-6 rounded-full bg-white/90 backdrop-blur-sm border border-zinc-200 shadow-xs flex items-center justify-center text-zinc-700"
                               >
                                 <IconComp className="w-3.5 h-3.5 text-zinc-700 stroke-[1.75]" />
                               </span>

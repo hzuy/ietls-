@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getAdminAnalytics, getAdminUser } from '../../services/adminService'
@@ -13,6 +13,7 @@ import {
 
 import { formatBand } from '../../utils/ielts'
 import { ADMIN_SKILL_COLORS, SKILL_LABEL, SKILL_ORDER } from '../../utils/adminSkillColors'
+import { getChartTheme } from '../../utils/chartTheme'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 // Dải màu phân cấp hiệu suất học thuật (Performance Palette) cho 6 mốc Band Score
@@ -28,30 +29,21 @@ const BAND_COLORS = [
 // Theme màu đồng bộ 4 kỹ năng giữa Doughnut Chart và Bảng phân tích chi tiết
 const SKILL_THEMES = {
   reading: {
-    badge: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800',
+    badge: 'bg-blue-50 text-blue-700 border-blue-200',
     bar: 'bg-blue-500',
   },
   listening: {
-    badge: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800',
+    badge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     bar: 'bg-emerald-500',
   },
   writing: {
-    badge: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800',
+    badge: 'bg-purple-50 text-purple-700 border-purple-200',
     bar: 'bg-purple-500',
   },
   speaking: {
-    badge: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800',
+    badge: 'bg-amber-50 text-amber-700 border-amber-200',
     bar: 'bg-amber-500',
   },
-}
-
-const tooltipStyle = {
-  backgroundColor: '#fff',
-  border: '1px solid #e4e4e7',
-  borderRadius: 12,
-  boxShadow: '0 4px 16px rgba(0,0,0,.06)',
-  fontSize: 12,
-  padding: '8px 12px',
 }
 
 // Date labels: monthly data (period=all) keeps YYYY-MM; daily data strips year
@@ -61,7 +53,9 @@ function formatDateLabel(date, period) {
 }
 
 // ─── Tooltips ────────────────────────────────────────────────────────────────
-function AttemptTooltip({ active, payload, label }) {
+// `tooltipStyle` truyền từ Analytics() (theo resolvedTheme) — background/border là
+// inline style thật (không phải class) nên phải tính theo theme ở JS, CSS không đụng tới được.
+function AttemptTooltip({ active, payload, label, tooltipStyle }) {
   if (!active || !payload?.length) return null
   return (
     <div style={tooltipStyle}>
@@ -71,7 +65,7 @@ function AttemptTooltip({ active, payload, label }) {
   )
 }
 
-function DonutTooltip({ active, payload, total }) {
+function DonutTooltip({ active, payload, total, tooltipStyle }) {
   if (!active || !payload?.length) return null
   const { skill, count } = payload[0].payload
   const pct = total > 0 ? Math.round((count / total) * 100) : 0
@@ -83,7 +77,7 @@ function DonutTooltip({ active, payload, total }) {
   )
 }
 
-function BandTooltip({ active, payload, label, total }) {
+function BandTooltip({ active, payload, label, total, tooltipStyle }) {
   if (!active || !payload?.length) return null
   const count = payload[0].value
   const pct = total > 0 ? Math.round((count / total) * 100) : 0
@@ -109,7 +103,8 @@ function ChartSkeleton({ height = 180 }) {
 // ─── Analytics page ───────────────────────────────────────────────────────────
 export default function Analytics() {
   const [period, setPeriod]           = useState('month')
-  const navigate  = useNavigate()
+  const navigate = useNavigate()
+  const chart = useMemo(() => getChartTheme(), [])
 
   const {
     data = null,
@@ -133,15 +128,28 @@ export default function Analytics() {
   const [studentDetail, setStudentDetail] = useState(null)
   const [loadingStudentDetail, setLoadingStudentDetail] = useState(false)
   const [selectedRank, setSelectedRank] = useState(null)
+  // Cache chi tiết học viên trong phiên xem Analytics — mở lại cùng học viên thì
+  // hiển thị tức thì (0ms), không gọi lại API. Không cần invalidate: dữ liệu chỉ
+  // sống trong session xem trang này, refresh trang sẽ tự làm mới.
+  const studentDetailCache = useRef(new Map())
 
   const handleOpenStudentDetail = useCallback(async (student, rank) => {
     setSelectedStudent(student)
     setSelectedRank(rank)
+
+    const cached = studentDetailCache.current.get(student.id)
+    if (cached) {
+      setStudentDetail(cached)
+      setLoadingStudentDetail(false)
+      return
+    }
+
     setStudentDetail(null)
     setLoadingStudentDetail(true)
 
     try {
       const detail = await getAdminUser(student.id)
+      studentDetailCache.current.set(student.id, detail)
       setStudentDetail(detail)
     } catch (err) {
       console.error('Không thể tải chi tiết học viên:', err)
@@ -274,33 +282,35 @@ export default function Analytics() {
                   <AreaChart data={displayDays} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                     <defs>
                       <linearGradient id="primaryGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%"  stopColor="#18181b" stopOpacity={0.12} />
-                        <stop offset="95%" stopColor="#18181b" stopOpacity={0} />
+                        <stop offset="5%"  stopColor={chart.lineFillFrom} stopOpacity={0.12} />
+                        <stop offset="95%" stopColor={chart.lineFillFrom} stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f4f4f5" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} opacity={chart.gridOpacity} vertical={false} />
                     <XAxis
                       dataKey="label"
-                      tick={{ fontSize: 10, fill: '#71717a' }}
+                      stroke={chart.axis}
+                      tick={{ fontSize: 10, fill: chart.axis }}
                       tickLine={false}
                       axisLine={false}
                       interval="preserveStartEnd"
                     />
                     <YAxis
-                      tick={{ fontSize: 10, fill: '#71717a' }}
+                      stroke={chart.axis}
+                      tick={{ fontSize: 10, fill: chart.axis }}
                       tickLine={false}
                       axisLine={false}
                       allowDecimals={false}
                     />
-                    <Tooltip content={<AttemptTooltip />} />
+                    <Tooltip content={<AttemptTooltip tooltipStyle={chart.tooltip} />} />
                     <Area
                       type="monotone"
                       dataKey="count"
-                      stroke="#18181b"
+                      stroke={chart.line}
                       strokeWidth={2}
                       fill="url(#primaryGrad)"
                       dot={false}
-                      activeDot={{ r: 4, strokeWidth: 0, fill: '#18181b' }}
+                      activeDot={{ r: 4, strokeWidth: 0, fill: chart.line }}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -341,7 +351,7 @@ export default function Analytics() {
                         <Cell key={entry.skill} fill={ADMIN_SKILL_COLORS[entry.skill].base} />
                       ))}
                     </Pie>
-                    <Tooltip content={<DonutTooltip total={totalSkill} />} />
+                    <Tooltip content={<DonutTooltip total={totalSkill} tooltipStyle={chart.tooltip} />} />
                   </PieChart>
                 </div>
 
@@ -376,26 +386,28 @@ export default function Analytics() {
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={data.bandDistribution} margin={{ top: 20, right: 8, left: -20, bottom: 0 }}
                 barCategoryGap="28%">
-                <CartesianGrid strokeDasharray="3 3" stroke="#f4f4f5" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} opacity={chart.gridOpacity} vertical={false} />
                 <XAxis
                   dataKey="range"
-                  tick={{ fontSize: 10, fill: '#71717a' }}
+                  stroke={chart.axis}
+                  tick={{ fontSize: 10, fill: chart.axis }}
                   tickLine={false}
                   axisLine={false}
                 />
                 <YAxis
-                  tick={{ fontSize: 10, fill: '#71717a' }}
+                  stroke={chart.axis}
+                  tick={{ fontSize: 10, fill: chart.axis }}
                   tickLine={false}
                   axisLine={false}
                   allowDecimals={false}
                 />
-                <Tooltip content={<BandTooltip total={bandTotal} />} />
+                <Tooltip content={<BandTooltip total={bandTotal} tooltipStyle={chart.tooltip} />} />
                 <Bar dataKey="count" radius={[6, 6, 0, 0]}>
                   {(data.bandDistribution || []).map((_, i) => (
                     <Cell key={i} fill={BAND_COLORS[i] ?? '#8b5cf6'} />
                   ))}
                   <LabelList dataKey="count" position="top"
-                    style={{ fontSize: 10, fill: '#71717a', fontWeight: 600 }} />
+                    style={{ fontSize: 10, fill: chart.axis, fontWeight: 600 }} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>

@@ -8,6 +8,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { RotateCcw, BookOpen, Home, Trophy, Target, Award, AlertCircle, BarChart2, Check, Sparkles, X } from 'lucide-react'
 import api from '../utils/axios'
 import { askAITutor } from './common/AIChatbotDrawer'
+import QuestionTypeBreakdown from './exam/QuestionTypeBreakdown'
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 
@@ -38,7 +39,7 @@ function getScoreMessage(correct, total) {
 function ResultHeroIcon({ correct, total }) {
   if (!total) {
     return (
-      <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-500">
+      <div className="w-16 h-16 rounded-2xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-500">
         <BookOpen className="w-8 h-8 stroke-[1.75]" />
       </div>
     )
@@ -46,20 +47,20 @@ function ResultHeroIcon({ correct, total }) {
   const r = correct / total
   if (r >= 0.85) {
     return (
-      <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+      <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
         <Trophy className="w-8 h-8 stroke-[1.75]" />
       </div>
     )
   }
   if (r >= 0.5) {
     return (
-      <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-900 dark:text-zinc-100">
+      <div className="w-16 h-16 rounded-2xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-900">
         <Target className="w-8 h-8 stroke-[1.75]" />
       </div>
     )
   }
   return (
-    <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-500">
+    <div className="w-16 h-16 rounded-2xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-500">
       <BookOpen className="w-8 h-8 stroke-[1.75]" />
     </div>
   )
@@ -268,7 +269,7 @@ function AnswerRow({ q, onAskAI }) {
           type="button"
           onClick={() => onAskAI(q.number, q.userAnswer, q.correctAnswer)}
           title="Hỏi AI Tutor giải thích câu này"
-          className="shrink-0 text-[11px] font-medium text-zinc-600 hover:text-zinc-900 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-50 hover:bg-zinc-100 transition cursor-pointer border border-zinc-200 shadow-2xs"
+          className="shrink-0 text-[11px] font-medium text-zinc-600 hover:text-zinc-900 flex items-center gap-1 px-3 py-1 rounded-full bg-zinc-50 hover:bg-zinc-100 transition cursor-pointer border border-zinc-200 shadow-2xs"
         >
           <Sparkles className="w-3 h-3 text-amber-500" />
           <span>Hỏi AI Tutor</span>
@@ -371,11 +372,11 @@ function ScoreRing({ score, maxScore, isPractice, correct, totalQuestions, bandS
         alignItems: 'center', justifyContent: 'center'
       }}>
         {isPractice ? (
-          <span className="text-3xl font-bold tabular-nums font-mono text-zinc-900 dark:text-zinc-100">
+          <span className="text-3xl font-bold tabular-nums font-mono text-zinc-900">
             {correct}/{totalQuestions}
           </span>
         ) : (
-          <span className="text-3xl font-bold tabular-nums font-mono text-zinc-900 dark:text-zinc-100">
+          <span className="text-3xl font-bold tabular-nums font-mono text-zinc-900">
             {typeof bandScore === 'number' ? bandScore.toFixed(1) : bandScore}
           </span>
         )}
@@ -471,7 +472,7 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
     <div className="min-h-screen bg-zinc-50/50">
       <div style={{ maxWidth: 780, margin: '0 auto', padding: '80px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
         {[1, 2, 3].map(i => (
-          <div key={i} className="bg-white border border-zinc-200 rounded-xl animate-pulse" style={{
+          <div key={i} className="bg-white border border-zinc-200 rounded-2xl animate-pulse" style={{
             height: i === 1 ? 180 : i === 2 ? 220 : 400,
           }} />
         ))}
@@ -481,7 +482,7 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
 
   if (error) return (
     <div className="min-h-screen bg-zinc-50/50 flex items-center justify-center p-4">
-      <div className="bg-white border border-zinc-200 rounded-xl p-8 text-center max-w-sm w-full shadow-xs">
+      <div className="bg-white border border-zinc-200 rounded-2xl p-8 text-center max-w-sm w-full shadow-xs">
         <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto mb-3 text-amber-600">
           <AlertCircle className="w-6 h-6 stroke-[2]" />
         </div>
@@ -490,7 +491,7 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
         </h2>
         <p className="text-sm text-zinc-500 mb-6">{error}</p>
         <button onClick={handleClose}
-          className="btn-primary px-4 py-2 rounded-md text-xs sm:text-sm font-medium h-9">
+          className="btn-primary px-5 h-9 rounded-full text-xs sm:text-sm font-medium">
           ← Quay lại
         </button>
       </div>
@@ -523,7 +524,7 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
             type="button"
             onClick={handleClose}
             aria-label="Đóng"
-            className="w-8 h-8 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-bold cursor-pointer flex items-center justify-center transition"
+            className="w-8 h-8 rounded-full border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-bold cursor-pointer flex items-center justify-center transition"
           >
             <X className="w-4 h-4" />
           </button>
@@ -630,7 +631,7 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
             <button
               type="button"
               onClick={handleRetry}
-              className="w-full h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium bg-zinc-900 hover:bg-zinc-800 text-white transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+              className="w-full h-9 px-4 rounded-full text-xs sm:text-sm font-medium bg-zinc-900 hover:bg-zinc-800 text-white transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
             >
               <RotateCcw className="w-3.5 h-3.5 text-zinc-300" />
               Làm lại đề này
@@ -638,7 +639,7 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
             <button
               type="button"
               onClick={() => navigate('/progress')}
-              className="w-full h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium border border-zinc-200 hover:bg-zinc-100 text-zinc-900 transition-colors flex items-center justify-center gap-2 cursor-pointer bg-white shadow-xs"
+              className="w-full h-9 px-4 rounded-full text-xs sm:text-sm font-medium border border-zinc-200 hover:bg-zinc-100 text-zinc-900 transition-colors flex items-center justify-center gap-2 cursor-pointer bg-white shadow-xs"
             >
               <BarChart2 className="w-3.5 h-3.5 text-zinc-500" />
               Xem bảng phân tích
@@ -646,7 +647,7 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
             <button
               type="button"
               onClick={() => askAITutor(`Tôi vừa hoàn thành bài thi ${bookName || ''} Test ${testNumber || ''} (${skillLabel}) với kết quả ${correct}/${totalQuestions} câu đúng (${typeof bandScore === 'number' ? `Band ${bandScore}` : ''}). Hãy phân tích lỗi sai phổ biến và hướng dẫn cải thiện giúp tôi.`)}
-              className="w-full h-9 px-4 py-2 rounded-md text-xs sm:text-sm font-medium bg-zinc-100 hover:bg-zinc-200 text-zinc-900 transition-colors flex items-center justify-center gap-2 cursor-pointer border border-zinc-200/80"
+              className="w-full h-9 px-4 rounded-full text-xs sm:text-sm font-medium bg-zinc-100 hover:bg-zinc-200 text-zinc-900 transition-colors flex items-center justify-center gap-2 cursor-pointer border border-zinc-200/80"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-500" />
               Hỏi AI Tutor câu sai
@@ -672,43 +673,13 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
           </div>
         </div>
 
-        {/* ── Stats Table ── */}
-        {questionTypes && questionTypes.length > 0 && (
-          <div className="bg-white border border-zinc-200 rounded-xl p-6 mb-5 shadow-xs">
-            <h3 className="text-sm font-bold text-zinc-900 m-0 mb-4">
-              Bảng thống kê theo loại câu hỏi
-            </h3>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  {['LOẠI', 'SỐ CÂU', 'ĐÚNG', 'SAI', 'BỎ QUA'].map((h, i) => (
-                    <th key={h} className="text-xs font-semibold uppercase tracking-wider text-zinc-500 border-b border-zinc-200 px-3 py-2.5" style={{ textAlign: i === 0 ? 'left' : 'center' }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(questionTypes || []).map(t => (
-                  <tr key={t.name}>
-                    <td className="px-3 py-3 text-left font-medium text-zinc-900 text-sm border-b border-zinc-100">{t.name}</td>
-                    <td className="px-3 py-3 text-center text-sm border-b border-zinc-100 text-zinc-700">{t.total}</td>
-                    <td className="px-3 py-3 text-center border-b border-zinc-100"><StatBadge value={t.correct} color="green" /></td>
-                    <td className="px-3 py-3 text-center border-b border-zinc-100"><StatBadge value={t.wrong}   color="red"   /></td>
-                    <td className="px-3 py-3 text-center border-b border-zinc-100"><StatBadge value={t.missed}  color="gray"  /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        )}
+        {/* ── Question-Type Breakdown Table ── */}
+        <QuestionTypeBreakdown questionTypes={questionTypes} sections={sections} />
 
         {/* ── Answer Key ── */}
         <div
           ref={answerKeyRef}
-          className="bg-white border border-zinc-200 rounded-xl p-6 shadow-xs"
+          className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs"
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-zinc-100">
             <div>
@@ -721,7 +692,7 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
             </div>
 
             {/* Smart Filter Tabs */}
-            <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-xl border border-zinc-200/60 shrink-0">
+            <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-full border border-zinc-200/60 shrink-0">
               {[
                 { id: 'all', label: `Tất cả (${totalQuestions})` },
                 { id: 'wrong', label: `Câu sai cần sửa (${wrong})` },
@@ -732,7 +703,7 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
                   key={tab.id}
                   type="button"
                   onClick={() => setFilterStatus(tab.id)}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer border-none ${
+                  className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors cursor-pointer border-none ${
                     filterStatus === tab.id
                       ? 'bg-white text-zinc-900 shadow-xs'
                       : 'bg-transparent text-zinc-500 hover:text-zinc-900'

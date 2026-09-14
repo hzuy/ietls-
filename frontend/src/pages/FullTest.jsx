@@ -38,8 +38,8 @@ function SeriesCard({ item, onClick }) {
         titleClamp={2}
         meta={{ type: 'count', text: hasTests ? `${item.testCount} bài test` : 'Chưa có bài' }}
         action={hasTests
-          ? { label: 'Chi tiết đề thi →', decorative: true }
-          : { label: 'Chi tiết đề thi →', disabled: true, disabledLabel: 'Đang cập nhật' }}
+          ? { label: 'Chi tiết đề thi', decorative: true }
+          : { label: 'Chi tiết đề thi', disabled: true, disabledLabel: 'Đang cập nhật' }}
         onClick={hasTests ? onClick : undefined}
       />
 
@@ -54,7 +54,7 @@ function SeriesCard({ item, onClick }) {
         >
           <span style={{
             background: 'rgba(255,255,255,0.92)', color: 'var(--ink-soft)',
-            fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 4,
+            fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 9999,
             textTransform: 'uppercase',
           }}>Sắp có bài</span>
         </div>
@@ -258,7 +258,7 @@ export default function FullTest() {
       <Navbar />
 
       <div className="app-container pt-4 pb-0">
-        <Breadcrumb items={[{ label: 'Trang chủ', to: '/' }, { label: 'IELTS Full Test' }]} />
+        <Breadcrumb items={[{ label: 'Trang chủ', to: '/' }, { label: 'Phòng thi chuẩn hóa' }]} />
       </div>
 
       <div className="app-container pt-4 pb-16 relative">
@@ -285,7 +285,7 @@ export default function FullTest() {
             ))}
           </div>
         ) : Object.keys(groupedData).length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '80px 0', background: 'var(--surface)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-xs)' }}>
+          <div style={{ textAlign: 'center', padding: '80px 0', background: 'var(--surface)', borderRadius: '1rem', border: '1px solid var(--border)', boxShadow: 'var(--shadow-xs)' }}>
             <FolderArchive className="w-12 h-12 text-zinc-400 mx-auto mb-3 stroke-[1.5]" />
             <h3 style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink-soft)', margin: '0 0 8px' }}>Chưa có bộ đề nào</h3>
             <p style={{ color: 'var(--text)', fontSize: 14 }}>Dữ liệu đang được cập nhật, vui lòng quay lại sau.</p>

@@ -5,9 +5,9 @@ export default function DiagramLabelGroup({ group, answers, onAnswer, previewMod
 
   return (
     <div id={`question-${group.qNumberStart}`} className="mb-6 scroll-mt-4">
-      <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 mb-3 text-sm">
+      <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-3 text-sm">
         <p className="font-semibold text-zinc-900 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
-        {group.instruction && <p className="text-zinc-600 text-xs">{group.instruction}</p>}
+        {group.instruction && <p className="text-zinc-600 text-xs mb-1">{group.instruction}</p>}
       </div>
 
       {group.imageUrl && (
@@ -15,14 +15,14 @@ export default function DiagramLabelGroup({ group, answers, onAnswer, previewMod
           <img
             src={resolveImg(group.imageUrl)}
             alt="diagram"
-            className="rounded-xl border border-zinc-200 object-contain bg-zinc-50"
+            className="rounded-2xl border border-zinc-200 object-contain bg-zinc-50"
             style={{ width: '100%', maxWidth: '600px' }}
           />
         </div>
       )}
 
       <div className="space-y-2">
-        {questions.map((q, qi) => {
+        {questions.map((q) => {
           const hint = q.questionText || ''
           const correctAns = q.correctAnswer || ''
           const userAns = previewMode && showAnswers ? correctAns : (answers[q.id] || '')
@@ -37,8 +37,8 @@ export default function DiagramLabelGroup({ group, answers, onAnswer, previewMod
                 value={userAns}
                 disabled={previewMode}
                 onChange={previewMode ? undefined : (e) => onAnswer(q.id, e.target.value)}
-                placeholder="________"
-                className={`flex-1 min-w-0 border-b-2 bg-transparent px-2 py-1 text-sm focus:outline-none transition
+                placeholder="Nhập đáp án..."
+                className={`flex-1 min-w-0 border bg-white px-3 py-1 text-sm rounded-full focus:outline-none transition
                   ${previewMode && showAnswers
                     ? 'border-green-500 text-green-700 font-semibold cursor-default'
                     : previewMode

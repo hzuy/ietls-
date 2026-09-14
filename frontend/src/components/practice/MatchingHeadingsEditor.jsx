@@ -1,4 +1,4 @@
-import { ROMAN_KEYS, inputCls, labelCls, getQuestionGroupTheme } from '../../utils/practiceConfig'
+import { ROMAN_KEYS, getQuestionGroupTheme } from '../../utils/practiceConfig'
 
 export default function MatchingHeadingsEditor({ group, onChange }) {
   const headings = group.matchingOptions || []

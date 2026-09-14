@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { queryClient } from '../lib/queryClient'
-import { getListeningExam, getListeningExamWithAnswers, submitListeningExam, getFullTestStatus } from '../services/examService'
+import { getListeningExam, getListeningExamWithAnswers, submitListeningExam } from '../services/examService'
 import { getAdminSettings } from '../services/adminService'
 import { saveDraft, loadDraft, clearDraft, formatSavedAt } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
@@ -28,6 +28,7 @@ import { toImgSrc } from '../utils/practiceConfig'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
 import ExitConfirmModal from '../components/common/ExitConfirmModal'
+import ExamActionDialog from '../components/common/ExamActionDialog'
 
 
 const DEFAULT_LISTENING_TIME = 40 * 60
@@ -45,7 +46,6 @@ export default function ListeningExam() {
 
   const [exam, setExam] = useState(null)
   const [answers, setAnswers] = useState({})
-  const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -54,7 +54,6 @@ export default function ListeningExam() {
   const [phase, setPhase] = useState('start')
   const [showAnswers, setShowAnswers] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
-  const [fullTestStatus, setFullTestStatus] = useState(null)
   const [showNavNumbers, setShowNavNumbers] = useState(true)
   const [showQuestionPanel, setShowQuestionPanel] = useState(false)
   const [bottomBarHeight, setBottomBarHeight] = useState(0)
@@ -156,11 +155,11 @@ export default function ListeningExam() {
   }, [previewMode, exam])
 
   useEffect(() => {
-    if (phase !== 'exam' || result || previewMode) return
+    if (phase !== 'exam' || previewMode) return
     if (timeLeft <= 0) { doSubmit(); return }
     const t = setInterval(() => setTimeLeft(s => s - 1), 1000)
     return () => clearInterval(t)
-  }, [phase, timeLeft, result, previewMode])
+  }, [phase, timeLeft, previewMode])
 
   useEffect(() => {
     if (audioRef.current) {
@@ -182,14 +181,6 @@ export default function ListeningExam() {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [showQuestionPanel])
-
-  useEffect(() => {
-    if (phase === 'result' && result) {
-      getFullTestStatus(id)
-        .then(data => { if (data.isComplete) setFullTestStatus(data) })
-        .catch(() => {})
-    }
-  }, [phase, result])
 
   const handleBack = () => {
     if (exam?.seriesId) {
@@ -281,25 +272,25 @@ export default function ListeningExam() {
   // ── Start ─────────────────────────────────────────────────────
   if (phase === 'start') return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div className="flex flex-col items-center" style={{ background: 'var(--surface)', borderRadius: '16px', boxShadow: 'var(--shadow-md)', padding: 40, maxWidth: 448, width: '100%', textAlign: 'center', border: '1px solid var(--border)' }}>
+      <div className="flex flex-col items-center" style={{ background: 'var(--surface)', borderRadius: '1rem', boxShadow: 'var(--shadow-md)', padding: 40, maxWidth: 448, width: '100%', textAlign: 'center', border: '1px solid var(--border)' }}>
         <div className="w-16 h-16 rounded-2xl bg-zinc-100 border border-zinc-200 flex items-center justify-center mx-auto mb-5">
           <Headphones className="w-8 h-8 text-zinc-600 stroke-[1.75]" />
         </div>
         <h1 className="text-2xl font-bold text-zinc-900 tracking-tight mb-2">{exam.title}</h1>
         <p style={{ color: 'var(--text)', fontSize: 'var(--fs-sm)', marginBottom: 4 }}>{exam.listeningSections.length} Sections · <span style={{ fontFamily: 'var(--font-mono)' }}>{allQ.length}</span> câu hỏi</p>
         <p style={{ color: 'var(--text)', fontSize: 'var(--fs-sm)', marginBottom: 32 }}>Thời gian: <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--skill-l-color)' }}>40 phút</span></p>
-        <div style={{ background: 'var(--skill-l-bg)', borderRadius: 'var(--radius-md)', padding: 16, textAlign: 'left', fontSize: 'var(--fs-sm)', color: 'var(--ink-soft)', marginBottom: 32, display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
+        <div style={{ background: 'var(--skill-l-bg)', borderRadius: '1rem', padding: 16, textAlign: 'left', fontSize: 'var(--fs-sm)', color: 'var(--ink-soft)', marginBottom: 32, display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
           <p style={{ margin: 0 }}>• Nghe audio rồi trả lời câu hỏi bên dưới</p>
           <p style={{ margin: 0 }}>• Có thể tua lại audio trong phần làm bài</p>
           <p style={{ margin: 0 }}>• Bài sẽ tự nộp khi hết giờ</p>
         </div>
-        <button onClick={() => setPhase('exam')} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '12px', fontSize: 'var(--fs-base)', marginBottom: 8 }}>
+        <button onClick={() => setPhase('exam')} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '9999px', fontSize: 'var(--fs-base)', marginBottom: 8 }}>
           Bắt đầu làm bài
         </button>
         <button
           onClick={handleBack}
           className="w-full text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-all duration-200 ease-in-out font-medium text-sm flex items-center justify-center gap-1.5 cursor-pointer"
-          style={{ width: '100%', padding: '12px 0', borderRadius: '12px' }}
+          style={{ width: '100%', padding: '12px 0', borderRadius: '9999px' }}
         >
           <ArrowLeft className="w-4 h-4 text-zinc-500" /> Quay lại
         </button>
@@ -312,13 +303,13 @@ export default function ListeningExam() {
   return (
     <div className="h-dvh flex flex-col overflow-hidden" style={{ backgroundColor: 'var(--surface-raised)' }}>
       {/* Header */}
-      <header className="h-14 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 px-6 flex items-center justify-between shrink-0 z-30">
+      <header className="h-14 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+          <span className="text-xs sm:text-sm font-semibold text-zinc-900 truncate">
             {exam.title}
           </span>
           {previewMode && (
-            <span className="text-[11px] bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 px-2 py-0.5 rounded-md font-medium shrink-0">
+            <span className="text-[11px] bg-zinc-100 text-zinc-800 border border-zinc-200 px-2.5 py-0.5 rounded-full font-medium shrink-0">
               Chế độ Preview
             </span>
           )}
@@ -328,10 +319,10 @@ export default function ListeningExam() {
             <button
               type="button"
               onClick={() => setShowAnswers(v => !v)}
-              className={`text-xs px-3 py-1.5 rounded-lg font-medium transition cursor-pointer ${
+              className={`text-xs px-4 py-1.5 rounded-full font-medium transition cursor-pointer ${
                 showAnswers
-                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                  ? 'bg-zinc-900 text-white'
+                  : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
               }`}
             >
               {showAnswers ? 'Ẩn đáp án' : 'Hiện đáp án'}
@@ -339,20 +330,20 @@ export default function ListeningExam() {
           ) : (
             <>
               {lastSavedAt && (
-                <span className="text-[11px] text-zinc-400 dark:text-zinc-500 whitespace-nowrap">
+                <span className="text-[11px] text-zinc-400 whitespace-nowrap">
                   ✓ Đã lưu {formatSavedAt(lastSavedAt)}
                 </span>
               )}
-              <span className="text-xs text-zinc-500 dark:text-zinc-400 font-mono tabular-nums">
+              <span className="text-xs text-zinc-500 font-mono tabular-nums">
                 {answered}/{allQ.length} câu
               </span>
               <div
-                className={`tabular-nums text-xs font-semibold px-2.5 py-1 rounded-lg border flex items-center gap-1.5 ${
+                className={`tabular-nums text-xs font-semibold px-3 py-1 rounded-full border flex items-center gap-1.5 ${
                   timeLeft < 300
-                    ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900/60'
+                    ? 'text-red-600 bg-red-50 border-red-200'
                     : timeLeft < 600
-                    ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/60'
-                    : 'text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'
+                    ? 'text-amber-600 bg-amber-50 border-amber-200'
+                    : 'text-zinc-700 bg-zinc-100 border-zinc-200'
                 }`}
               >
                 <Clock className="w-3.5 h-3.5" />
@@ -364,21 +355,21 @@ export default function ListeningExam() {
       </header>
 
       {/* Sticky Audio Player Bar — Pinned right below top bar */}
-      <div className="shrink-0 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 px-6 py-2.5 shadow-xs z-20">
+      <div className="shrink-0 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 py-2.5 shadow-xs z-20">
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 shrink-0">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-zinc-100 text-zinc-800 border border-zinc-200 shrink-0">
               Section {section.number}
             </span>
-            <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400 truncate">
+            <span className="text-xs font-medium text-zinc-600 truncate">
               {section.context || 'Listening Section'}
             </span>
           </div>
           <div className="w-full sm:w-auto flex-1 max-w-xl flex items-center justify-end">
             {section.audioUrl ? (
-              <audio ref={audioRef} controls className="w-full h-9 rounded-lg" src={toImgSrc(section.audioUrl)} />
+              <audio ref={audioRef} controls className="w-full h-9 rounded-full" src={toImgSrc(section.audioUrl)} />
             ) : (
-              <div className="w-full py-1.5 px-3 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs text-zinc-400 text-center">Chưa có file audio cho section này</div>
+              <div className="w-full py-1.5 px-3 rounded-full bg-zinc-100 text-xs text-zinc-400 text-center">Chưa có file audio cho section này</div>
             )}
           </div>
         </div>
@@ -388,7 +379,7 @@ export default function ListeningExam() {
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-6 py-6 space-y-4">
           {/* Questions */}
-          <div className="bg-white rounded-xl p-6 border border-zinc-200 shadow-xs">
+          <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-xs">
             <p className="text-xs font-bold text-[var(--primary-hover)] uppercase tracking-wider mb-5">
               Section {section.number}
               {section.context && <span className="font-normal text-zinc-400 ml-1">— {section.context}</span>}
@@ -397,7 +388,7 @@ export default function ListeningExam() {
             {/* Legacy: direct questions (groupId = null) */}
             {legacyGroups.map((group, gi) => (
               <div key={gi} className="mb-6">
-                <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4 mb-4 text-sm">
+                <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
                   <p className="font-semibold text-zinc-900 text-sm">Questions {startIdx + group.startOffset + 1}–{startIdx + group.startOffset + group.qs.length}</p>
                 </div>
                 {group.qs.map((q, qi) => (
@@ -431,6 +422,7 @@ export default function ListeningExam() {
                   <QuestionNavButton
                     key={slot.number}
                     number={slot.number}
+                    roundedFull={true}
                     status={slot.qId && answers[slot.qId] ? 'answered' : 'unanswered'}
                     onClick={() => jumpToQuestion(slot)}
                   />
@@ -448,7 +440,7 @@ export default function ListeningExam() {
                 title="Bảng câu hỏi"
                 aria-label="Bảng câu hỏi"
                 onClick={() => setShowQuestionPanel(v => !v)}
-                className={`w-9 h-9 flex items-center justify-center rounded-md border transition-all cursor-pointer ${
+                className={`w-9 h-9 flex items-center justify-center rounded-full border transition-all cursor-pointer ${
                   showQuestionPanel
                     ? 'bg-zinc-900 border-zinc-900 text-white shadow-xs'
                     : 'bg-white border-zinc-200 text-zinc-500 hover:border-zinc-400 hover:text-zinc-900'
@@ -461,7 +453,7 @@ export default function ListeningExam() {
                 title={showNavNumbers ? 'Thu gọn' : 'Mở rộng'}
                 aria-label={showNavNumbers ? 'Thu gọn' : 'Mở rộng'}
                 onClick={() => setShowNavNumbers(v => !v)}
-                className="w-9 h-9 flex items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-500 hover:border-zinc-400 hover:text-zinc-900 transition-all cursor-pointer"
+                className="w-9 h-9 flex items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 hover:border-zinc-400 hover:text-zinc-900 transition-all cursor-pointer"
               >
                 {showNavNumbers ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
               </button>
@@ -486,7 +478,7 @@ export default function ListeningExam() {
               <button
                 type="button"
                 onClick={() => setShowConfirm(true)}
-                className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-4 rounded-md shadow-xs transition-colors cursor-pointer shrink-0 inline-flex items-center justify-center leading-none"
+                className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-5 rounded-full shadow-xs transition-colors cursor-pointer shrink-0 inline-flex items-center justify-center leading-none"
               >
                 Nộp bài
               </button>
@@ -512,34 +504,16 @@ export default function ListeningExam() {
       )}
 
       {/* Confirm submit modal */}
-      {showConfirm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4" onClick={() => setShowConfirm(false)}>
-          <div className="p-6 shadow-xl max-w-sm w-full bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800" onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-1">Nộp bài?</h2>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-2">Bạn có chắc muốn nộp bài không?</p>
-            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-6">
-              Đã làm: <span className="font-mono text-zinc-900 dark:text-zinc-100">{answered}/{allQ.length}</span> câu
-            </p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowConfirm(false)}
-                className="flex-1 h-9 px-4 bg-white hover:bg-zinc-100 text-zinc-900 border border-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-100 dark:border-zinc-800 text-xs sm:text-sm font-medium rounded-md shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
-              >
-                Tiếp tục làm
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowConfirm(false); doSubmit() }}
-                disabled={submitting}
-                className="flex-1 h-9 px-4 bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium rounded-md shadow-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center leading-none"
-              >
-                {submitting ? 'Đang chấm...' : 'Nộp bài'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ExamActionDialog
+        open={showConfirm}
+        title="Nộp bài thi?"
+        description={`Đã làm: ${answered}/${allQ.length} câu. Bạn có chắc chắn muốn nộp bài?`}
+        cancelLabel="Tiếp tục làm"
+        confirmLabel={submitting ? 'Đang chấm...' : 'Nộp bài'}
+        confirmDisabled={submitting}
+        onCancel={() => setShowConfirm(false)}
+        onConfirm={() => { setShowConfirm(false); doSubmit() }}
+      />
       {/* Exit confirmation modal — Back nút trình duyệt */}
       <ExitConfirmModal open={showExitModal} onStay={stayInExam} onLeave={leaveExam} />
     </div>

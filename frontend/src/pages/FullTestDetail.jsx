@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'
 import Navbar from '../components/Navbar'
+import Breadcrumb from '../components/common/Breadcrumb'
 
 import { useAuth } from '../context/AuthContext'
 import { checkDraft } from '../services/draftService'
@@ -152,25 +153,27 @@ export default function FullTestDetail() {
   const title = `${bookData.seriesName} ${bookData.bookNumber}`
 
   return (
-    <div className="min-h-screen bg-zinc-50/50">
+    <div className="min-h-screen bg-zinc-50/50 dark:bg-zinc-950 flex flex-col">
       <Navbar />
-      <div className="max-w-6xl mx-auto px-4 py-6">
 
-        {/* Breadcrumb */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>
-          <Link to="/" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Trang chủ</Link>
-          <span>/</span>
-          <Link to="/full-test" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Full Test</Link>
-          <span>/</span>
-          <span style={{ color: 'var(--ink)', fontWeight: 600 }}>{title}</span>
-        </div>
+      <div className="app-container pt-4 pb-0">
+        <Breadcrumb
+          items={[
+            { label: 'Trang chủ', to: '/' },
+            { label: 'Phòng thi chuẩn hóa', to: '/full-test' },
+            { label: title }
+          ]}
+        />
+      </div>
+
+      <div className="app-container py-6 flex-1">
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-6 items-start">
           <div>
             {/* Hero */}
-            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', padding: 24, border: '1px solid var(--border)', boxShadow: 'var(--shadow-xs)', marginBottom: 20 }}>
+            <div style={{ background: 'var(--surface)', borderRadius: '1rem', padding: 24, border: '1px solid var(--border)', boxShadow: 'var(--shadow-xs)', marginBottom: 20 }}>
               <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-                <div style={{ width: 80, height: 110, borderRadius: 'var(--radius-sm)', overflow: 'hidden', flexShrink: 0, background: 'linear-gradient(135deg, var(--ink), var(--ink-soft))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 80, height: 110, borderRadius: '0.75rem', overflow: 'hidden', flexShrink: 0, background: 'linear-gradient(135deg, var(--ink), var(--ink-soft))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {resolveImg(bookData.coverImageUrl)
                     ? <img src={resolveImg(bookData.coverImageUrl)} alt={title} loading="lazy" decoding="async" onError={handleImgError} className="img-crisp" style={{ width: '100%', height: '100%', objectFit: 'cover', imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)', backfaceVisibility: 'hidden' }} />
                     : <AcademicCover title={title} compact={true} />
@@ -201,10 +204,10 @@ export default function FullTestDetail() {
                 const hasDraft = SKILL_ORDER.some(s => draftInfo[`${test.testNumber}-${s}`]?.hasDraft)
 
                 return (
-                  <div key={test.testNumber} style={{ background: 'var(--surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', padding: 18, boxShadow: 'var(--shadow-xs)' }}>
+                  <div key={test.testNumber} style={{ background: 'var(--surface)', borderRadius: '1rem', border: '1px solid var(--border)', padding: 18, boxShadow: 'var(--shadow-xs)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                       <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{`Test ${test.testNumber}`}</span>
-                      <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 'var(--radius-sm)', padding: '2px 8px', background: 'var(--skill-r-bg)', color: 'var(--skill-r-color)' }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, borderRadius: '9999px', padding: '2.5px 10px', background: 'var(--skill-r-bg)', color: 'var(--skill-r-color)' }}>
                         {`${availCount} kỹ năng`}
                       </span>
                     </div>
@@ -215,7 +218,7 @@ export default function FullTestDetail() {
                         const SkillIcon = m.Icon
                         return (
                           <span key={skill} style={{
-                            fontSize: 11, fontWeight: 700, borderRadius: 'var(--radius-sm)', padding: '3px 8px',
+                            fontSize: 11, fontWeight: 700, borderRadius: '9999px', padding: '3px 10px',
                             background: exam ? `var(${m.bgVar})` : 'var(--surface-raised)',
                             color: exam ? `var(${m.colorVar})` : 'var(--subtle)',
                             border: `1px solid ${exam ? `var(${m.borderVar})` : 'var(--border-soft)'}`,
@@ -234,18 +237,18 @@ export default function FullTestDetail() {
                           const dk = `${test.testNumber}-${s}`
                           if (!draftInfo[dk]?.hasDraft) return null
                           return (
-                            <span key={s} style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600, background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 6, padding: '2px 8px' }}>
+                            <span key={s} style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600, background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 9999, padding: '2px 10px' }}>
                               ● {SKILL_META[s].label} đang làm dở
                             </span>
                           )
                         })}
                       </div>
                     )}
-                    <button onClick={() => handleStart(test)} className="btn-hover-default" style={{ width: '100%', marginTop: 8, padding: '8px 0', borderRadius: 'var(--radius-md)', border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background var(--transition), transform .2s, box-shadow .2s' }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
+                    <button
+                      onClick={() => handleStart(test)}
+                      className="btn-hover-default mt-2 w-full h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-sm font-medium tracking-normal shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none select-none"
                     >
-                      Bắt đầu →
+                      Bắt đầu
                     </button>
                   </div>
                 )
@@ -255,10 +258,8 @@ export default function FullTestDetail() {
 
           {/* Sidebar */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* TODO: leaderboard bộ đề đã gỡ cùng model Series — chờ redesign trên API mới */}
-
             {/* Suggestions */}
-            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', padding: 18, boxShadow: 'var(--shadow-xs)' }}>
+            <div style={{ background: 'var(--surface)', borderRadius: '1rem', border: '1px solid var(--border)', padding: 18, boxShadow: 'var(--shadow-xs)' }}>
               <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', margin: '0 0 14px' }}>Gợi ý cho bạn</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {suggestions.map(book => (
@@ -267,7 +268,7 @@ export default function FullTestDetail() {
                     onClick={() => navigate(`/full-test/${book.seriesId}?book=${book.bookNumber}`)}
                     style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
                   >
-                    <div style={{ width: 36, height: 48, borderRadius: 'var(--radius-sm)', background: 'var(--surface-raised)', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: 36, height: 48, borderRadius: '0.75rem', background: 'var(--surface-raised)', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {book.coverImageUrl ? (
                         <img src={resolveImg(book.coverImageUrl)} alt="" loading="lazy" decoding="async" onError={handleImgError} className="img-crisp" style={{ width: '100%', height: '100%', objectFit: 'cover', imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)', backfaceVisibility: 'hidden' }} />
                       ) : (
@@ -302,7 +303,7 @@ export default function FullTestDetail() {
                 type="button"
                 onClick={() => setModal(null)}
                 aria-label="Đóng"
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-colors font-bold cursor-pointer border-none bg-transparent"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-colors font-bold cursor-pointer border-none bg-transparent"
               >
                 ✕
               </button>
@@ -313,7 +314,7 @@ export default function FullTestDetail() {
                 const exam = modal.exams[skill]
                 const hasDraft = draftInfo[`${modal.testNumber}-${skill}`]?.hasDraft
                 return (
-                  <div key={skill} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 14px', borderRadius: 'var(--radius-md)', border: `1px solid ${exam ? `var(${m.borderVar})` : 'var(--border)'}`, background: exam ? `var(${m.bgVar})` : 'var(--surface-raised)', opacity: exam ? 1 : 0.6 }}>
+                  <div key={skill} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 14px', borderRadius: '1rem', border: `1px solid ${exam ? `var(${m.borderVar})` : 'var(--border)'}`, background: exam ? `var(${m.bgVar})` : 'var(--surface-raised)', opacity: exam ? 1 : 0.6 }}>
                     <span className="shrink-0 flex items-center justify-center" style={{ color: exam ? `var(${m.colorVar})` : 'var(--subtle)' }}>
                       <m.Icon className="w-5 h-5" />
                     </span>
@@ -330,15 +331,12 @@ export default function FullTestDetail() {
                       hasDraft ? (
                         <button
                           onClick={() => navigate(`${m.path}/${exam.id}?resume=true`)}
-                          className="btn-hover-default"
-                          style={{ padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: 'none', background: '#f59e0b', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'transform .2s, box-shadow .2s' }}
-                        >Tiếp tục →</button>
+                          className="min-w-[88px] h-8 px-4 rounded-full bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium inline-flex items-center justify-center leading-none select-none shrink-0 whitespace-nowrap transition-colors shadow-xs cursor-pointer"
+                        >Tiếp tục</button>
                       ) : (
                         <button
                           onClick={() => navigate(`${m.path}/${exam.id}`)}
-                          style={{ padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'background var(--transition)' }}
-                          onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
-                          onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
+                          className="min-w-[88px] h-8 px-4 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-medium inline-flex items-center justify-center leading-none select-none shrink-0 whitespace-nowrap transition-colors shadow-xs cursor-pointer"
                         >Làm bài</button>
                       )
                     )}
