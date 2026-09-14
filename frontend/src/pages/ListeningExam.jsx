@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
 import { Headphones, ArrowLeft, Clock, LayoutGrid, ChevronUp, ChevronDown } from 'lucide-react'
-import { getSectionSlots } from '../utils/questionCount'
+import { getSectionSlots, isSlotAnswered } from '../utils/questionCount'
 import MatchingTickGrid from '../components/MatchingTickGrid'
 import DragWordBankGroup from '../components/DragWordBankGroup'
 import MatchingDragGroup from '../components/MatchingDragGroup'
@@ -72,10 +72,11 @@ export default function ListeningExam() {
     autosaveRef.current = {
       answers, timeLeft,
       userId: user ? (user.id || user._id) : null,
+      totalSlots: allQ.length,
     }
   })
   const persistDraftNow = useCallback(() => {
-    const { answers, timeLeft, userId } = autosaveRef.current
+    const { answers, timeLeft, userId, totalSlots: draftTotalSlots } = autosaveRef.current
     if (!userId || !id) return
     // P3-2: đừng để answers rỗng ghi đè một draft cũ không rỗng
     // (vd reload KHÔNG kèm ?resume=true → vào 'exam' với answers = {})
@@ -83,10 +84,11 @@ export default function ListeningExam() {
       const existing = loadDraft(userId, id, 'listening')
       if (existing?.data && Object.keys(existing.data).length > 0) return
     }
-    saveDraft({ userId, examId: id, skillType: 'listening', data: answers, timeRemaining: timeLeft })
+    const examTitle = exam?.title || (exam?.seriesName ? `${exam.seriesName} · Test ${exam.testNumber} Listening` : 'IELTS Listening')
+    saveDraft({ userId, examId: id, skillType: 'listening', data: answers, timeRemaining: timeLeft, examTitle, totalQuestions: draftTotalSlots || 40 })
     savedDraftRef.current = JSON.stringify(answers)
     setLastSavedAt(new Date())
-  }, [id])
+  }, [id, exam])
   useEffect(() => {
     if (phase !== 'exam' || previewMode) return
     const interval = setInterval(persistDraftNow, 30000)
@@ -243,7 +245,7 @@ export default function ListeningExam() {
   }, [activeSection, exam])
 
   const allQ = useMemo(() => exam?.listeningSections?.flatMap(s => getSectionSlots(s)) || [], [exam])
-  const answered = useMemo(() => allQ.filter(s => s.qId && answers[s.qId]).length, [allQ, answers])
+  const answered = useMemo(() => allQ.filter(s => isSlotAnswered(s, answers)).length, [allQ, answers])
 
   const section = exam?.listeningSections?.[activeSection] || null
   const startIdx = useMemo(() => {
@@ -254,6 +256,10 @@ export default function ListeningExam() {
   }, [activeSection, exam])
 
   const sectionSlots = useMemo(() => section ? getSectionSlots(section) : [], [section])
+  const sortedQuestionGroups = useMemo(() => {
+    if (!section?.questionGroups) return []
+    return [...section.questionGroups].sort((a, b) => (a.qNumberStart || 0) - (b.qNumberStart || 0))
+  }, [section?.questionGroups])
   const legacyGroups = useMemo(() => (section?.questions?.length > 0 ? groupByType(section.questions) : []), [section])
 
   if (loading) return <SkeletonExamPage />
@@ -399,7 +405,7 @@ export default function ListeningExam() {
             ))}
 
             {/* New: group-based questions */}
-            {(section.questionGroups || []).map(group => (
+            {sortedQuestionGroups.map(group => (
               <GroupBlock key={group.id} group={group} answers={answers} onAnswer={onAnswer}
                 previewMode={previewMode} showAnswers={showAnswers} />
             ))}
@@ -423,7 +429,7 @@ export default function ListeningExam() {
                     key={slot.number}
                     number={slot.number}
                     roundedFull={true}
-                    status={slot.qId && answers[slot.qId] ? 'answered' : 'unanswered'}
+                    status={isSlotAnswered(slot, answers) ? 'answered' : 'unanswered'}
                     onClick={() => jumpToQuestion(slot)}
                   />
                 ))}
@@ -465,7 +471,7 @@ export default function ListeningExam() {
                 const slots = getSectionSlots(s)
                 return {
                   label: `Section ${s.number}`,
-                  answered: slots.filter(sl => sl.qId && answers[sl.qId]).length,
+                  answered: slots.filter(sl => isSlotAnswered(sl, answers)).length,
                   total: slots.length,
                 }
               })}
@@ -496,9 +502,11 @@ export default function ListeningExam() {
           onJump={jumpToQuestion}
           groups={exam.listeningSections.map(s => ({
             label: `Section ${s.number}`,
-            items: [...getSectionSlots(s)]
-              .sort((a, b) => a.number - b.number)
-              .map(slot => ({ number: slot.number, answered: !!(slot.qId && answers[slot.qId]), ref: slot })),
+            items: getSectionSlots(s).map(slot => ({
+              number: slot.number,
+              answered: isSlotAnswered(slot, answers),
+              ref: slot
+            })),
           }))}
         />
       )}

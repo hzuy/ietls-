@@ -21,9 +21,9 @@ import QuestionPanelPopover from '../components/common/QuestionPanelPopover'
 import TableCompletionRender from '../components/TableCompletionRender'
 import GroupBlock from '../components/exam/GroupBlock'
 import TypeHeader from '../components/exam/TypeHeaders'
-import QuestionBlock from '../components/exam/QuestionBlock'
 import { groupByType } from '../components/exam/listening/OtherGroups'
 import { fmt } from '../utils/practiceUtils'
+import { getPassageSlots, isSlotAnswered } from '../utils/questionCount'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
 import ExitConfirmModal from '../components/common/ExitConfirmModal'
@@ -88,10 +88,11 @@ export default function ReadingExam() {
     autosaveRef.current = {
       answers, timeLeft, highlights,
       userId: user ? (user.id || user._id) : null,
+      totalSlots,
     }
   })
   const persistDraftNow = useCallback(() => {
-    const { answers, timeLeft, highlights, userId } = autosaveRef.current
+    const { answers, timeLeft, highlights, userId, totalSlots: draftTotalSlots } = autosaveRef.current
     if (!userId || !id) return
     // P3-2: đừng để answers rỗng ghi đè một draft cũ không rỗng
     // (vd reload KHÔNG kèm ?resume=true → vào 'exam' với answers = {})
@@ -100,7 +101,7 @@ export default function ReadingExam() {
       if (existing?.data && Object.keys(existing.data).length > 0) return
     }
     const examTitle = exam?.title || (exam?.seriesName ? `${exam.seriesName} · Test ${exam.testNumber} Reading` : 'IELTS Reading')
-    saveDraft({ userId, examId: id, skillType: 'reading', data: answers, timeRemaining: timeLeft, examTitle, totalQuestions: 40, highlights })
+    saveDraft({ userId, examId: id, skillType: 'reading', data: answers, timeRemaining: timeLeft, examTitle, totalQuestions: draftTotalSlots || 40, highlights })
     savedDraftRef.current = JSON.stringify(answers)
     setLastSavedAt(new Date())
   }, [id, exam])
@@ -386,50 +387,20 @@ export default function ReadingExam() {
     return passage.questions || []
   }
 
-  // Get total question slots for a passage (uses qNumberEnd - qNumberStart + 1 for groups)
-  const getPassageTotalSlots = (passage) => {
-    if (passage.questionGroups && passage.questionGroups.length > 0) {
-      return passage.questionGroups.reduce((sum, g) => sum + (g.qNumberEnd - g.qNumberStart + 1), 0)
-    }
-    return (passage.questions || []).length
-  }
-
-  // Get navigator items: one entry per slot number (expands ranges for mcq_multi etc.)
-  const getPassageNavItems = (passage) => {
-    if (!passage.questionGroups || passage.questionGroups.length === 0) {
-      return (passage.questions || []).map(q => ({ number: q.number, qId: q.id }))
-    }
-    return passage.questionGroups.flatMap(g => {
-      const items = []
-      for (let n = g.qNumberStart; n <= g.qNumberEnd; n++) {
-        let qId = null
-        if (g.type === 'mcq_multi') {
-          const maxC = g.maxChoices || 2
-          const qi = Math.floor((n - g.qNumberStart) / maxC)
-          qId = g.questions?.[qi]?.id ?? null
-        } else {
-          qId = (g.questions || []).find(q => q.number === n)?.id ?? null
-        }
-        items.push({ number: n, qId })
-      }
-      return items
-    })
-  }
-
   const jumpToQuestion = useCallback((qNumber) => {
     if (!exam?.passages) return
-    // Find which passage contains this question number
+    // Find which passage contains this question number using accurate slot numbers
     let passageIdx = -1
     for (let i = 0; i < exam.passages.length; i++) {
-      const pQs = getPassageQuestions(exam.passages[i])
-      if (pQs.some(q => q.number === qNumber)) { passageIdx = i; break }
+      const pSlots = getPassageSlots(exam.passages[i])
+      if (pSlots.some(s => s.number === qNumber)) { passageIdx = i; break }
     }
     if (passageIdx === -1) return
 
     const doScroll = () => {
       let el = document.getElementById(`q-${qNumber}`)
       if (!el) {
-        // Fallback for token-based groups: scroll to group start
+        // Fallback for token-based groups or mcq_multi: scroll to group start
         for (const group of (exam.passages[passageIdx].questionGroups || [])) {
           if (qNumber >= group.qNumberStart && qNumber <= group.qNumberEnd) {
             el = document.getElementById(`q-${group.qNumberStart}`)
@@ -448,9 +419,9 @@ export default function ReadingExam() {
     }
   }, [activePassage, exam])
 
-  const totalSlots = useMemo(() => exam?.passages ? exam.passages.reduce((sum, p) => sum + getPassageTotalSlots(p), 0) : 0, [exam])
-  const allNavItems = useMemo(() => exam?.passages ? exam.passages.flatMap(p => getPassageNavItems(p)) : [], [exam])
-  const answered = useMemo(() => allNavItems.filter(item => item.qId && answers[item.qId]).length, [allNavItems, answers])
+  const allNavItems = useMemo(() => exam?.passages ? exam.passages.flatMap(p => getPassageSlots(p)) : [], [exam])
+  const totalSlots = useMemo(() => allNavItems.length, [allNavItems])
+  const answered = useMemo(() => allNavItems.filter(slot => isSlotAnswered(slot, answers)).length, [allNavItems, answers])
 
   const passage = exam?.passages?.[activePassage] || null
   const useGroups = Boolean(passage?.questionGroups && passage.questionGroups.length > 0)
@@ -459,14 +430,14 @@ export default function ReadingExam() {
   const passageOffsets = useMemo(() => {
     if (!exam?.passages) return []
     return exam.passages.reduce((acc, p, i) => {
-      acc.push(i === 0 ? 0 : acc[i - 1] + getPassageQuestions(exam.passages[i - 1]).length)
+      acc.push(i === 0 ? 0 : acc[i - 1] + getPassageSlots(exam.passages[i - 1]).length)
       return acc
     }, [])
   }, [exam?.passages])
 
   const passageStartIdx = passageOffsets[activePassage] || 0
   const passageQuestions = useMemo(() => passage ? getPassageQuestions(passage) : [], [passage])
-  const currentPassageNavItems = useMemo(() => passage ? getPassageNavItems(passage) : [], [passage])
+  const currentPassageNavItems = useMemo(() => passage ? getPassageSlots(passage) : [], [passage])
   const sortedQuestionGroups = useMemo(() => {
     if (!passage?.questionGroups) return []
     return [...passage.questionGroups].sort((a, b) => a.qNumberStart - b.qNumberStart)
@@ -474,11 +445,11 @@ export default function ReadingExam() {
   const passagePillsItems = useMemo(() => {
     if (!exam?.passages) return []
     return exam.passages.map(p => {
-      const navItems = getPassageNavItems(p)
+      const slots = getPassageSlots(p)
       return {
         label: `Passage ${p.number}`,
-        answered: navItems.filter(s => s.qId && answers[s.qId]).length,
-        total: navItems.length,
+        answered: slots.filter(s => isSlotAnswered(s, answers)).length,
+        total: slots.length,
       }
     })
   }, [exam?.passages, answers])
@@ -737,13 +708,13 @@ export default function ReadingExam() {
           {showNavNumbers && (
             <div className="px-6 py-4 border-b border-gray-100 flex justify-center bg-white">
               <div className="flex flex-wrap gap-3 justify-center max-w-5xl">
-                {currentPassageNavItems.map(({ number, qId }) => (
+                {currentPassageNavItems.map((slot) => (
                   <QuestionNavButton
-                    key={number}
-                    number={number}
+                    key={slot.number}
+                    number={slot.number}
                     roundedFull={true}
-                    status={qId && answers[qId] ? 'answered' : 'unanswered'}
-                    onClick={() => jumpToQuestion(number)}
+                    status={isSlotAnswered(slot, answers) ? 'answered' : 'unanswered'}
+                    onClick={() => jumpToQuestion(slot.number)}
                   />
                 ))}
               </div>
@@ -808,9 +779,11 @@ export default function ReadingExam() {
           onJump={jumpToQuestion}
           groups={exam.passages.map(p => ({
             label: `Passage ${p.number}`,
-            items: [...getPassageNavItems(p)]
-              .sort((a, b) => a.number - b.number)
-              .map(({ number, qId }) => ({ number, answered: !!(qId && answers[qId]), ref: number })),
+            items: getPassageSlots(p).map(slot => ({
+              number: slot.number,
+              answered: isSlotAnswered(slot, answers),
+              ref: slot.number,
+            })),
           }))}
         />
       )}

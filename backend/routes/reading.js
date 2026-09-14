@@ -84,7 +84,10 @@ router.get('/exams/:id', authMiddleware, async (req, res) => {
                 ...(questionSelect ? { select: questionSelect } : {})
               },
               questionGroups: {
-                orderBy: { sortOrder: 'asc' },
+                orderBy: [
+                  { qNumberStart: 'asc' },
+                  { sortOrder: 'asc' }
+                ],
                 include: {
                   questions: {
                     orderBy: { number: 'asc' },
@@ -253,7 +256,10 @@ router.get('/exams/:id/result-detail', authMiddleware, async (req, res) => {
                 select: { id: true, number: true, type: true, questionText: true, correctAnswer: true }
               },
               questionGroups: {
-                orderBy: { sortOrder: 'asc' },
+                orderBy: [
+                  { qNumberStart: 'asc' },
+                  { sortOrder: 'asc' }
+                ],
                 select: {
                   id: true, type: true, qNumberStart: true, qNumberEnd: true, maxChoices: true,
                   questions: {
