@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { getQuestionGroupTheme } from '../../utils/practiceConfig'
+import Select from '../admin/Select'
 
 // Đồng bộ group.questions với các token [Q:n] còn thực sự tồn tại trong nội dung.
 // Khi người dùng xóa token khỏi text, câu hỏi tương ứng phải bị loại (tránh câu "mồ côi").
@@ -177,13 +178,17 @@ export default function SummaryCompletionEditor({ group, onChange }) {
               return (
                 <div key={q.number} className="flex items-center gap-2">
                   <span className={`text-xs font-bold ${theme.subBoxText} w-14 shrink-0`}>Q{q.number}:</span>
-                  <select className={`flex-1 border ${theme.subBoxBorder} rounded-lg px-2 py-1 text-sm focus:outline-none bg-white`}
-                    value={q.correctAnswer} onChange={e => updateAnswer(q.number, e.target.value)}>
-                    <option value="">-- Chọn --</option>
-                    {matchingOptions.filter(mo => !usedByOthers.has(mo.letter)).map(mo => (
-                      <option key={mo.letter} value={mo.letter}>{mo.letter}{mo.text ? ` - ${mo.text}` : ''}</option>
-                    ))}
-                  </select>
+                  <Select
+                    className="flex-1"
+                    ariaLabel={`Đáp án câu ${q.number}`}
+                    value={q.correctAnswer}
+                    onChange={v => updateAnswer(q.number, v)}
+                    options={[
+                      { value: '', label: '-- Chọn --' },
+                      ...matchingOptions.filter(mo => !usedByOthers.has(mo.letter))
+                        .map(mo => ({ value: mo.letter, label: `${mo.letter}${mo.text ? ` - ${mo.text}` : ''}` })),
+                    ]}
+                  />
                 </div>
               )
             })}
