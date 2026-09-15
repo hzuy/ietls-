@@ -4,6 +4,7 @@ import { inputCls, labelCls, btnSecondary, toImgSrc } from '../adminConstants'
 import { getQuestionGroupTheme as getAdminTheme } from '../adminConstants'
 import { getQuestionGroupTheme as getPracticeTheme } from '../../../utils/practiceConfig'
 import { useToast } from '../../../context/ToastContext'
+import Select from '../Select'
 import { Upload } from 'lucide-react'
 
 export default function MatchingEditor({
@@ -180,22 +181,24 @@ export default function MatchingEditor({
               value={q.questionText || ''}
               onChange={e => updateQ(qi, 'questionText', e.target.value)}
             />
-            <select
-              className={`border ${theme.subBoxBorder} rounded-lg px-2 py-1 text-xs text-zinc-900 focus:outline-none bg-white max-w-[260px]`}
+            <Select
+              className="max-w-[260px]"
+              ariaLabel="Đáp án"
               value={q.correctAnswer || ''}
-              onChange={e => updateQ(qi, 'correctAnswer', e.target.value)}
-            >
-              <option value="">-- Đáp án --</option>
-              {options.filter(mo => {
-                if (noFilter) return true
-                const letter = mo.letter || mo.optionLetter
-                return group.canReuse || letter === q.correctAnswer || !usedAnswers.has(letter)
-              }).map(mo => {
-                const letter = mo.letter || mo.optionLetter
-                const text = mo.text || mo.optionText || ''
-                return <option key={letter} value={letter}>{text ? `${letter} - ${text}` : letter}</option>
-              })}
-            </select>
+              onChange={v => updateQ(qi, 'correctAnswer', v)}
+              options={[
+                { value: '', label: '-- Đáp án --' },
+                ...options.filter(mo => {
+                  if (noFilter) return true
+                  const letter = mo.letter || mo.optionLetter
+                  return group.canReuse || letter === q.correctAnswer || !usedAnswers.has(letter)
+                }).map(mo => {
+                  const letter = mo.letter || mo.optionLetter
+                  const text = mo.text || mo.optionText || ''
+                  return { value: letter, label: text ? `${letter} - ${text}` : letter }
+                }),
+              ]}
+            />
             <button
               type="button"
               onClick={() => removeQuestion(qi)}

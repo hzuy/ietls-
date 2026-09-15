@@ -102,6 +102,25 @@ describe('Consolidated Question Editors', () => {
       rerender(<MatchingEditor group={standardGroup} onChange={vi.fn()} />)
       expect(screen.getByPlaceholderText(/Đối tượng cần matching/)).toBeInTheDocument()
     })
+
+    it('chọn đáp án qua dropdown (Select dùng chung) cập nhật đúng correctAnswer', () => {
+      const onChange = vi.fn()
+      const group = {
+        type: 'matching',
+        qNumberStart: 1,
+        qNumberEnd: 1,
+        matchingOptions: [{ letter: 'A', text: 'Category 1' }, { letter: 'B', text: 'Category 2' }],
+        questions: [{ number: 1, questionText: '', correctAnswer: '' }]
+      }
+      render(<MatchingEditor group={group} onChange={onChange} />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Đáp án' }))
+      fireEvent.click(screen.getByRole('option', { name: 'B - Category 2' }))
+
+      expect(onChange).toHaveBeenCalled()
+      const updatedGroup = onChange.mock.calls[0][0]
+      expect(updatedGroup.questions[0].correctAnswer).toBe('B')
+    })
   })
 
   describe('NoteCompletionEditor', () => {
