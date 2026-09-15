@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render as rtlRender, screen } from '@testing-library/react'
+import { render as rtlRender, screen, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import Accounts from './Accounts'
@@ -69,5 +69,21 @@ describe('Accounts page — TanStack Query & Skeleton caching', () => {
 
     expect(screen.getByText('Teacher User')).toBeInTheDocument()
     expect(screen.getByText('teacher@test.com')).toBeInTheDocument()
+  })
+
+  it('lets picking a role in the dropdown update the selected value', async () => {
+    vi.spyOn(adminService, 'getAdminAccounts').mockResolvedValue(mockAccounts)
+
+    renderAccounts()
+    await screen.findByText('Teacher User')
+
+    fireEvent.click(screen.getByRole('button', { name: '+ Tạo tài khoản' }))
+
+    expect(screen.getByRole('button', { name: 'Role' })).toHaveTextContent('Teacher (Quản lý đề thi)')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Role' }))
+    fireEvent.click(await screen.findByRole('option', { name: 'Admin (Quản lý hệ thống)' }))
+
+    expect(screen.getByRole('button', { name: 'Role' })).toHaveTextContent('Admin (Quản lý hệ thống)')
   })
 })

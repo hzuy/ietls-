@@ -8,6 +8,7 @@ import { showAlert } from '../../utils/alertUtils'
 import { SkeletonTable } from '../../components/skeletons'
 import { AdminListHeader } from '../../components/admin/contentPageUI'
 import Modal from '../../components/common/Modal'
+import Select from '../../components/admin/Select'
 
 
 function avatarInitials(name) {
@@ -201,11 +202,15 @@ export default function Accounts() {
                 {currentUser.role !== 'teacher' && (
                   <div>
                     <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Role</label>
-                    <select value={form.role} onChange={e => setForm({...form, role: e.target.value})}
-                      className="w-full px-3 py-2 text-xs border border-zinc-200 rounded-xl focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 bg-white text-zinc-900 transition shadow-2xs">
-                      <option value="teacher">Teacher (Quản lý đề thi)</option>
-                      <option value="admin">Admin (Quản lý hệ thống)</option>
-                    </select>
+                    <Select
+                      ariaLabel="Role"
+                      value={form.role}
+                      onChange={v => setForm({ ...form, role: v })}
+                      options={[
+                        { value: 'teacher', label: 'Teacher (Quản lý đề thi)' },
+                        { value: 'admin', label: 'Admin (Quản lý hệ thống)' },
+                      ]}
+                    />
                   </div>
                 )}
               </div>
