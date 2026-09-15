@@ -20,6 +20,7 @@ import {
 } from '../../utils/practiceConfig'
 import AdminGroupPreview from '../../components/practice/AdminGroupPreview'
 import ImageWithFallback from '../../components/common/ImageWithFallback'
+import Select from '../../components/admin/Select'
 
 // ─── PREVIEW MODAL ────────────────────────────────────────────────────────────
 function ListeningPracticePreviewModal({ form, showAnswers, setShowAnswers, onClose }) {
@@ -277,10 +278,13 @@ export default function ListeningPractice() {
                 <div className="flex items-center justify-between mb-4">
                   <label className={labelCls + ' mb-0'}>Nhóm câu hỏi</label>
                   <div className="flex items-center gap-2">
-                    <select value={addGroupType} onChange={e => setAddGroupType(e.target.value)}
-                      className="text-xs border border-zinc-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 bg-white text-zinc-800 cursor-pointer">
-                      {LISTENING_GROUP_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                    </select>
+                    <Select
+                      className="w-48"
+                      ariaLabel="Loại nhóm câu hỏi"
+                      value={addGroupType}
+                      onChange={setAddGroupType}
+                      options={LISTENING_GROUP_TYPES}
+                    />
                     <button type="button" onClick={handleAddGroup} className={btnPrimary + ' py-1.5 px-3'}>
                       + Thêm nhóm
                     </button>
