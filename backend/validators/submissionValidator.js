@@ -55,6 +55,17 @@ const attemptsQuerySchema = z.object({
   limit: z.preprocess(emptyToUndefined, z.coerce.number({ message: 'limit phải là số' }).int().positive().max(100).optional().default(20)),
 })
 
+// 7. Analytics Query Filter Schema (dùng cho GET /api/admin/analytics)
+// from/to chỉ có hiệu lực khi CẢ HAI cùng có mặt (route tự kiểm tra); period
+// mặc định 'today' khớp lựa chọn mặc định mới của dropdown lọc thời gian ở Analytics.jsx.
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'phải có định dạng YYYY-MM-DD')
+
+const analyticsQuerySchema = z.object({
+  period: z.preprocess(emptyToUndefined, z.enum(['today', 'week', 'month', 'all']).optional().default('today')),
+  from: z.preprocess(emptyToUndefined, isoDate.optional()),
+  to: z.preprocess(emptyToUndefined, isoDate.optional()),
+})
+
 module.exports = {
   readingSubmitSchema,
   listeningSubmitSchema,
@@ -62,4 +73,5 @@ module.exports = {
   speakingSubmitSchema,
   transcribeSchema,
   attemptsQuerySchema,
+  analyticsQuerySchema,
 }

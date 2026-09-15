@@ -7,6 +7,8 @@ const { teacherOnly } = require('../../../lib/roles')
 const { updateExamSchema } = require('../../../validators/adminExamValidator')
 const { invalidate } = require('../../../lib/swrCache')
 const { invalidateExamCaches } = require('../../../utils/cache')
+const { logAuditEvent } = require('../../../lib/auditLog')
+const { AUDIT_ACTIONS } = require('../../../lib/auditActions')
 
 // ─── GET EXAM COUNTS BY SKILL ───────────────────────────────────────────────
 router.get('/exams/counts', authMiddleware, teacherOnly, async (req, res) => {
@@ -413,7 +415,9 @@ function planGroupUpdate(tx, oldGroup, g, gi, skill, operations) {
   const plan = planQuestionDiff(oldGroup.questions, g.questions || [], q => mapFn(g.type, q))
   for (const u of plan.toUpdate) operations.push(() => tx.question.update({ where: { id: u.id }, data: u.data }))
   if (plan.toCreate.length) operations.push(() => tx.question.createMany({ data: plan.toCreate.map(q => ({ ...q, groupId: oldGroup.id })) }))
-  return plan.toPrune
+  // created/updated dùng cho audit log (exam.update, xem PUT /exams/:id) — số lượng
+  // bản ghi con bị đổi, không phải diff nội dung.
+  return { toPrune: plan.toPrune, created: plan.toCreate.length, updated: 1 + plan.toUpdate.length }
 }
 
 // Nested-create payload for a brand new QuestionGroup (no positional match in
@@ -493,6 +497,11 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
     if (existing.skill === 'reading') {
       const submittedPassages = req.body.passages || []
 
+      // Số lượng bản ghi con (Passage/QuestionGroup/Question) bị tạo/sửa/xóa —
+      // dùng cho audit log (exam.update) sau khi transaction commit. KHÔNG log
+      // full diff nội dung, chỉ đếm.
+      const counts = { created: 0, updated: 0, deleted: 0 }
+
       try {
         const updated = await prisma.$transaction(async (tx) => {
           // Everything below is planned first with zero DB writes; writes are
@@ -524,13 +533,17 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
                 title: p.title, subtitle: p.subtitle || null,
                 letteredParagraphs: p.letteredParagraphs || false, body: p.body
               }}))
+              counts.updated++
 
               const directPlan = planQuestionDiff(oldP.questions, p.questions || [], mapStandaloneQuestionFields)
               for (const u of directPlan.toUpdate) operations.push(() => tx.question.update({ where: { id: u.id }, data: u.data }))
               if (directPlan.toCreate.length) operations.push(() => tx.question.createMany({ data: directPlan.toCreate.map(q => ({ ...q, passageId: oldP.id })) }))
+              counts.created += directPlan.toCreate.length
+              counts.updated += directPlan.toUpdate.length
               directPlan.toPrune.forEach(q => {
                 pruneQuestionIds.push(q.id)
                 pruneLabels.set(q.id, { passageNumber: p.number, groupSortOrder: null, questionNumber: q.number })
+                counts.deleted++
               })
 
               const submittedGroups = p.questionGroups || []
@@ -547,13 +560,17 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
                 }
                 if (oldG) {
                   matchedOldGroupIds.add(oldG.id)
-                  const toPrune = planGroupUpdate(tx, oldG, g, gi, 'reading', operations)
-                  toPrune.forEach(q => {
+                  const groupResult = planGroupUpdate(tx, oldG, g, gi, 'reading', operations)
+                  counts.created += groupResult.created
+                  counts.updated += groupResult.updated
+                  groupResult.toPrune.forEach(q => {
                     pruneQuestionIds.push(q.id)
                     pruneLabels.set(q.id, { passageNumber: p.number, groupSortOrder: oldG.sortOrder, questionNumber: q.number })
+                    counts.deleted++
                   })
                 } else {
                   operations.push(() => tx.questionGroup.create({ data: { passageId: oldP.id, ...groupCreateData(g, gi, 'reading') } }))
+                  counts.created += 1 + (g.questions || []).length
                 }
               }
               for (const oldG of oldGroups) {
@@ -561,6 +578,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
                 const qIds = oldG.questions.map(q => q.id)
                 const labelsByQId = new Map(oldG.questions.map(q => [q.id, { passageNumber: p.number, groupSortOrder: oldG.sortOrder, questionNumber: q.number }]))
                 deleteGroupCandidates.push({ groupId: oldG.id, questionIds: qIds, labelsByQId })
+                counts.deleted += 1 + qIds.length
               }
             } else {
               operations.push(() => tx.passage.create({ data: {
@@ -571,6 +589,9 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
                 questions: (p.questions && p.questions.length)
                   ? { create: p.questions.map(q => ({ number: q.number, ...mapStandaloneQuestionFields(q) })) } : undefined
               }}))
+              counts.created += 1
+                + (p.questionGroups || []).reduce((s, g) => s + 1 + (g.questions || []).length, 0)
+                + (p.questions || []).length
             }
           }
 
@@ -581,6 +602,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
             oldP.questions.forEach(q => { qIds.push(q.id); labelsByQId.set(q.id, { passageNumber: oldP.number, groupSortOrder: null, questionNumber: q.number }) })
             oldP.questionGroups.forEach(g => g.questions.forEach(q => { qIds.push(q.id); labelsByQId.set(q.id, { passageNumber: oldP.number, groupSortOrder: g.sortOrder, questionNumber: q.number }) }))
             deletePassageCandidates.push({ passageId: oldP.id, questionIds: qIds, labelsByQId })
+            counts.deleted += 1 + oldP.questionGroups.length + qIds.length
           }
 
           const allCandidateIds = [
@@ -606,6 +628,13 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
         }, EXAM_UPDATE_TX_OPTIONS)
         invalidate('fulltests:')
         invalidateExamCaches(id)
+        await logAuditEvent(req, {
+          action: AUDIT_ACTIONS.EXAM_UPDATE,
+          entityType: 'Exam',
+          entityId: id,
+          entityLabel: updated.title,
+          metadata: counts
+        })
         return res.json(updated)
       } catch (err) {
         if (err instanceof BlockedDeletionError) {
@@ -620,6 +649,9 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
 
     if (existing.skill === 'listening') {
       const submittedSections = req.body.sections || []
+
+      // Cùng ý nghĩa với counts ở nhánh Reading — dùng cho audit log exam.update.
+      const counts = { created: 0, updated: 0, deleted: 0 }
 
       try {
         const updated = await prisma.$transaction(async (tx) => {
@@ -648,13 +680,17 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
               operations.push(() => tx.listeningSection.update({ where: { id: oldS.id }, data: {
                 context: s.context || '', audioUrl: s.audioUrl || null, transcript: s.transcript || null
               }}))
+              counts.updated++
 
               const directPlan = planQuestionDiff(oldS.questions, s.questions || [], mapStandaloneQuestionFields)
               for (const u of directPlan.toUpdate) operations.push(() => tx.question.update({ where: { id: u.id }, data: u.data }))
               if (directPlan.toCreate.length) operations.push(() => tx.question.createMany({ data: directPlan.toCreate.map(q => ({ ...q, listeningSectionId: oldS.id })) }))
+              counts.created += directPlan.toCreate.length
+              counts.updated += directPlan.toUpdate.length
               directPlan.toPrune.forEach(q => {
                 pruneQuestionIds.push(q.id)
                 pruneLabels.set(q.id, { sectionNumber: s.number, groupSortOrder: null, questionNumber: q.number })
+                counts.deleted++
               })
 
               const submittedGroups = s.questionGroups || []
@@ -671,13 +707,17 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
                 }
                 if (oldG) {
                   matchedOldGroupIds.add(oldG.id)
-                  const toPrune = planGroupUpdate(tx, oldG, g, gi, 'listening', operations)
-                  toPrune.forEach(q => {
+                  const groupResult = planGroupUpdate(tx, oldG, g, gi, 'listening', operations)
+                  counts.created += groupResult.created
+                  counts.updated += groupResult.updated
+                  groupResult.toPrune.forEach(q => {
                     pruneQuestionIds.push(q.id)
                     pruneLabels.set(q.id, { sectionNumber: s.number, groupSortOrder: oldG.sortOrder, questionNumber: q.number })
+                    counts.deleted++
                   })
                 } else {
                   operations.push(() => tx.questionGroup.create({ data: { sectionId: oldS.id, ...groupCreateData(g, gi, 'listening') } }))
+                  counts.created += 1 + (g.questions || []).length
                 }
               }
               for (const oldG of oldGroups) {
@@ -685,6 +725,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
                 const qIds = oldG.questions.map(q => q.id)
                 const labelsByQId = new Map(oldG.questions.map(q => [q.id, { sectionNumber: s.number, groupSortOrder: oldG.sortOrder, questionNumber: q.number }]))
                 deleteGroupCandidates.push({ groupId: oldG.id, questionIds: qIds, labelsByQId })
+                counts.deleted += 1 + qIds.length
               }
             } else {
               operations.push(() => tx.listeningSection.create({ data: {
@@ -694,6 +735,9 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
                 questions: (s.questions && s.questions.length)
                   ? { create: s.questions.map(q => ({ number: q.number, ...mapStandaloneQuestionFields(q) })) } : undefined
               }}))
+              counts.created += 1
+                + (s.questionGroups || []).reduce((sum, g) => sum + 1 + (g.questions || []).length, 0)
+                + (s.questions || []).length
             }
           }
 
@@ -704,6 +748,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
             oldS.questions.forEach(q => { qIds.push(q.id); labelsByQId.set(q.id, { sectionNumber: oldS.number, groupSortOrder: null, questionNumber: q.number }) })
             oldS.questionGroups.forEach(g => g.questions.forEach(q => { qIds.push(q.id); labelsByQId.set(q.id, { sectionNumber: oldS.number, groupSortOrder: g.sortOrder, questionNumber: q.number }) }))
             deleteSectionCandidates.push({ sectionId: oldS.id, questionIds: qIds, labelsByQId })
+            counts.deleted += 1 + oldS.questionGroups.length + qIds.length
           }
 
           const allCandidateIds = [
@@ -729,6 +774,13 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
         }, EXAM_UPDATE_TX_OPTIONS)
         invalidate('fulltests:')
         invalidateExamCaches(id)
+        await logAuditEvent(req, {
+          action: AUDIT_ACTIONS.EXAM_UPDATE,
+          entityType: 'Exam',
+          entityId: id,
+          entityLabel: updated.title,
+          metadata: counts
+        })
         return res.json(updated)
       } catch (err) {
         if (err instanceof BlockedDeletionError) {
@@ -756,20 +808,30 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
         { number: 2, prompt: task2.prompt, imageUrl: null, minWords: 250 }
       ]
 
+      const counts = { created: 0, updated: 0, deleted: 0 }
       const updated = await prisma.$transaction(async (tx) => {
         await tx.exam.update({ where: { id }, data: { title, bookNumber: bn, testNumber: tn } })
         for (const spec of specs) {
           const existingId = taskIdByNumber.get(spec.number)
           if (existingId) {
             await tx.writingTask.update({ where: { id: existingId }, data: { prompt: spec.prompt, imageUrl: spec.imageUrl, minWords: spec.minWords } })
+            counts.updated++
           } else {
             await tx.writingTask.create({ data: { examId: id, ...spec } })
+            counts.created++
           }
         }
         return tx.exam.findUnique({ where: { id }, include: { writingTasks: true } })
       }, EXAM_UPDATE_TX_OPTIONS)
       invalidate('fulltests:')
       invalidateExamCaches(id)
+      await logAuditEvent(req, {
+        action: AUDIT_ACTIONS.EXAM_UPDATE,
+        entityType: 'Exam',
+        entityId: id,
+        entityLabel: updated.title,
+        metadata: counts
+      })
       return res.json(updated)
     }
 
@@ -787,6 +849,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
         where: { examId: id }, select: { id: true, number: true }
       })
       const partIdByNumber = new Map(existingParts.map(p => [p.number, p.id]))
+      const counts = { created: 0, updated: 0, deleted: 0 }
 
       await prisma.$transaction(async (tx) => {
         await tx.exam.update({ where: { id }, data: { title, bookNumber: bn, testNumber: tn, seriesId: targetSeriesId } })
@@ -801,14 +864,18 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
           const partId = partIdByNumber.get(number)
           if (partId) {
             await tx.speakingPart.update({ where: { id: partId }, data: { cueCard } })
-            await tx.speakingQuestion.deleteMany({ where: { partId } })
+            counts.updated++
+            const deleted = await tx.speakingQuestion.deleteMany({ where: { partId } })
+            counts.deleted += deleted.count
             if (questions.length) {
               await tx.speakingQuestion.createMany({ data: questions.map(q => ({ ...q, partId })) })
+              counts.created += questions.length
             }
           } else {
             await tx.speakingPart.create({
               data: { examId: id, number, cueCard, questions: { create: questions } }
             })
+            counts.created += 1 + questions.length
           }
         }
       }, EXAM_UPDATE_TX_OPTIONS)
@@ -824,6 +891,13 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
       })
       invalidate('fulltests:')
       invalidateExamCaches(id)
+      await logAuditEvent(req, {
+        action: AUDIT_ACTIONS.EXAM_UPDATE,
+        entityType: 'Exam',
+        entityId: id,
+        entityLabel: updated.title,
+        metadata: counts
+      })
       return res.json(updated)
     }
 
@@ -838,9 +912,17 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
 router.delete('/exams/:id', authMiddleware, teacherOnly, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
+    // Đọc tên đề trước khi soft-delete để entityLabel vẫn đọc được sau này.
+    const existing = await prisma.exam.findUnique({ where: { id }, select: { title: true } })
     await prisma.exam.update({ where: { id }, data: { deletedAt: new Date() } })
     invalidate('fulltests:')
     invalidateExamCaches(id)
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.EXAM_DELETE,
+      entityType: 'Exam',
+      entityId: id,
+      entityLabel: existing?.title ?? null
+    })
     res.json({ message: 'Xóa đề thành công' })
   } catch (error) {
     console.error('[Delete exam]', error)

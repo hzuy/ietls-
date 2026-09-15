@@ -7,6 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
+Không có root `package.json`/workspace — đây là hai project riêng, luôn `cd backend` hoặc `cd frontend` trước khi chạy lệnh. Backend không có ESLint (`npm run lint` chỉ tồn tại ở frontend).
+
 ### Backend (`/backend`)
 ```bash
 npm run dev            # nodemon, port 3001 (ignore uploads/)
@@ -94,7 +96,7 @@ Frontend có tầng thứ tư: TanStack Query (`src/lib/queryClient.js`, staleTi
 - `src/services/*.js` — `examService`, `practiceService`, `sampleService`, `adminService`, `statsService`, `userService`, `chatbotService`, `draftService`. (Không có `authService` — auth nằm trong `context/AuthContext.jsx`.)
 - Context: `AuthContext` (user/token/role trong localStorage), `ToastContext`, `FormDirtyContext` (chặn rời trang khi form dirty), `ProgressBarContext`.
 - `src/services/draftService.js` — draft bài làm lưu **localStorage**, key `ielts_draft_{userId}_{examId}_{skillType}`, TTL 7 ngày, `purgeExpiredDrafts()` chạy 1 lần/phiên trong `App.jsx`. Payload khác nhau theo kỹ năng (map answer / `{essays, submittedTaskIds}` / `{transcripts, submittedPartIds}`).
-- Question editors đã hợp nhất về **một nguồn chuẩn duy nhất**: `src/components/admin/editors/`. Đừng tạo lại bản song song trong `components/practice/` (bản fork cũ đã bị xóa).
+- Question editors cấp group (MCQ, Matching, Note/Table Completion...) đã hợp nhất về một nguồn chuẩn: `src/components/admin/editors/` (dùng cho Exam, ví dụ `ReadingGroupEditor.jsx`). **`components/practice/` không phải code chết** — nó chứa các sub-editor theo loại câu hỏi (`TrueFalseEditor`, `MatchingHeadingsEditor`, `DiagramLabelEditor`, `SummaryCompletionEditor`/`...Simple`) được cả `admin/editors/ReadingGroupEditor.jsx` **lẫn** `admin/PracticeGroupCard.jsx` (editor của PracticeExam, dùng bởi `pages/admin/{ReadingPractice,ListeningPractice}.jsx`) cùng import — đây là tầng dùng chung giữa hai hệ Exam/PracticeExam, đừng nhân bản hay xóa nhầm. Thứ đã bị xóa trước đây là một bộ editor cấp group riêng cho Practice (song song với `admin/editors/`), không phải toàn bộ thư mục `components/practice/`.
 - `index.css` có global rule không nằm trong layer → âm thầm đè utility của Tailwind v4. Style không ăn thì kiểm tra file này trước khi nghi ngờ class.
 
 ### Auth

@@ -6,7 +6,7 @@ const prisma = require('../../lib/prisma')
 const authMiddleware = require('../../middleware/auth')
 const validate = require('../../middleware/validate')
 const { teacherOrAdmin, teacherOnly } = require('../../lib/roles')
-const { attemptsQuerySchema } = require('../../validators/submissionValidator')
+const { attemptsQuerySchema, analyticsQuerySchema } = require('../../validators/submissionValidator')
 const { roundBand } = require('../../lib/scoreUtils')
 
 // SWR cache + stampede protection — nay dùng chung ở lib/swrCache.js
@@ -15,26 +15,59 @@ const { getOrRevalidate } = require('../../lib/swrCache')
 
 // ─── OPTIMIZED DB AGGREGATIONS (Raw SQL for Performance) ─────────────────────
 
-// Gộp 6 câu count() Band Distribution thành 1 query SQL CASE WHEN duy nhất
-async function getBandDistribution() {
-  const rows = await prisma.$queryRaw`
-    SELECT 
-      COUNT(CASE WHEN score < 4 THEN 1 END)::int as c0,
-      COUNT(CASE WHEN score >= 4 AND score < 5 THEN 1 END)::int as c1,
-      COUNT(CASE WHEN score >= 5 AND score < 6 THEN 1 END)::int as c2,
-      COUNT(CASE WHEN score >= 6 AND score < 7 THEN 1 END)::int as c3,
-      COUNT(CASE WHEN score >= 7 AND score < 8 THEN 1 END)::int as c4,
-      COUNT(CASE WHEN score >= 8 THEN 1 END)::int as c5
-    FROM "Attempt"
-    WHERE score IS NOT NULL;
-  `
-  const row = (rows && rows[0]) || {}
+// Gộp 6 câu count() Band Distribution thành 1 query SQL CASE WHEN duy nhất.
+// since/until (nullable, độc lập nhau) giới hạn theo Attempt.createdAt — dùng
+// chung cho Dashboard overview (luôn unbounded, since=until=null) và Analytics
+// (unbounded khi period='all', chỉ since cho preset week/month, cả hai khi
+// dùng khoảng tùy chỉnh).
+async function getBandDistribution(since = null, until = null) {
+  let result
+  if (since && until) {
+    result = await prisma.$queryRaw`
+      SELECT
+        COUNT(CASE WHEN score < 4 THEN 1 END)::int as c0,
+        COUNT(CASE WHEN score >= 4 AND score < 5 THEN 1 END)::int as c1,
+        COUNT(CASE WHEN score >= 5 AND score < 6 THEN 1 END)::int as c2,
+        COUNT(CASE WHEN score >= 6 AND score < 7 THEN 1 END)::int as c3,
+        COUNT(CASE WHEN score >= 7 AND score < 8 THEN 1 END)::int as c4,
+        COUNT(CASE WHEN score >= 8 THEN 1 END)::int as c5
+      FROM "Attempt"
+      WHERE score IS NOT NULL AND "createdAt" >= ${since} AND "createdAt" <= ${until};
+    `
+  } else if (since) {
+    result = await prisma.$queryRaw`
+      SELECT
+        COUNT(CASE WHEN score < 4 THEN 1 END)::int as c0,
+        COUNT(CASE WHEN score >= 4 AND score < 5 THEN 1 END)::int as c1,
+        COUNT(CASE WHEN score >= 5 AND score < 6 THEN 1 END)::int as c2,
+        COUNT(CASE WHEN score >= 6 AND score < 7 THEN 1 END)::int as c3,
+        COUNT(CASE WHEN score >= 7 AND score < 8 THEN 1 END)::int as c4,
+        COUNT(CASE WHEN score >= 8 THEN 1 END)::int as c5
+      FROM "Attempt"
+      WHERE score IS NOT NULL AND "createdAt" >= ${since};
+    `
+  } else {
+    result = await prisma.$queryRaw`
+      SELECT
+        COUNT(CASE WHEN score < 4 THEN 1 END)::int as c0,
+        COUNT(CASE WHEN score >= 4 AND score < 5 THEN 1 END)::int as c1,
+        COUNT(CASE WHEN score >= 5 AND score < 6 THEN 1 END)::int as c2,
+        COUNT(CASE WHEN score >= 6 AND score < 7 THEN 1 END)::int as c3,
+        COUNT(CASE WHEN score >= 7 AND score < 8 THEN 1 END)::int as c4,
+        COUNT(CASE WHEN score >= 8 THEN 1 END)::int as c5
+      FROM "Attempt"
+      WHERE score IS NOT NULL;
+    `
+  }
+  const row = (result && result[0]) || {}
+  // Nhãn hiển thị theo đúng thang IELTS (nhảy 0.5, không có mốc .9) — điều kiện
+  // gom nhóm SQL ở trên GIỮ NGUYÊN (4.0 ≤ x < 5.0 vẫn đúng vì chỉ chứa 4.0 và 4.5).
   return [
     { range: '<4.0',     count: Number(row.c0 || 0) },
-    { range: '4.0–4.9',  count: Number(row.c1 || 0) },
-    { range: '5.0–5.9',  count: Number(row.c2 || 0) },
-    { range: '6.0–6.9',  count: Number(row.c3 || 0) },
-    { range: '7.0–7.9',  count: Number(row.c4 || 0) },
+    { range: '4.0–4.5',  count: Number(row.c1 || 0) },
+    { range: '5.0–5.5',  count: Number(row.c2 || 0) },
+    { range: '6.0–6.5',  count: Number(row.c3 || 0) },
+    { range: '7.0–7.5',  count: Number(row.c4 || 0) },
     { range: '8.0–9.0',  count: Number(row.c5 || 0) },
   ]
 }
@@ -95,6 +128,30 @@ async function getAttemptsByDay(since, daysCount, now = new Date()) {
     d.setDate(d.getDate() - i)
     const key = d.toISOString().slice(0, 10)
     dayMap[key] = countsByDate[key] || 0
+  }
+  return Object.entries(dayMap).map(([date, count]) => ({ date, count }))
+}
+
+// Biến thể của getAttemptsByDay cho khoảng tùy chỉnh (Analytics custom range):
+// since..until có thể là bất kỳ khoảng nào trong quá khứ, không neo vào "hôm
+// nay" như getAttemptsByDay (vốn luôn đếm ngược daysCount ngày từ `now`) —
+// nên cần đếm xuôi từ since đến until, độ dài khoảng bao nhiêu ngày cũng được
+// (kể cả 1 ngày hoặc dài hơn 30 ngày).
+async function getAttemptsByDayInRange(since, until) {
+  const rows = await prisma.$queryRaw`
+    SELECT TO_CHAR("createdAt", 'YYYY-MM-DD') as date, COUNT(*)::int as count
+    FROM "Attempt"
+    WHERE "createdAt" >= ${since} AND "createdAt" <= ${until}
+    GROUP BY TO_CHAR("createdAt", 'YYYY-MM-DD')
+  `
+  const countsByDate = Object.fromEntries((rows || []).map(r => [r.date, Number(r.count)]))
+
+  const dayMap = {}
+  const cursor = new Date(since)
+  while (cursor <= until) {
+    const key = cursor.toISOString().slice(0, 10)
+    dayMap[key] = countsByDate[key] || 0
+    cursor.setDate(cursor.getDate() + 1)
   }
   return Object.entries(dayMap).map(([date, count]) => ({ date, count }))
 }
@@ -379,12 +436,48 @@ router.post('/attempts/export', authMiddleware, teacherOnly, async (req, res) =>
 })
 
 // ─── ANALYTICS FETCHER ───────────────────────────────────────────────────────
-async function fetchAnalyticsData(period) {
-  const isAll = period === 'all'
-  const days = period === 'week' ? 7 : 30
-  const since = isAll ? null : (() => { const d = new Date(); d.setDate(d.getDate() - days); return d })()
-  // dateWhere: empty object when period=all (no date filter), otherwise restrict by since
-  const dateWhere = since ? { createdAt: { gte: since } } : {}
+// Hai chế độ, loại trừ nhau:
+// - preset ('today'|'week'|'month'|'all'): hành vi giữ NGUYÊN như trước — since
+//   tính ngược từ hôm nay, không có upper bound (until=null, ngầm định "đến hiện
+//   tại"). 'today' dùng cùng quy ước UTC-anchored calendar day với custom range
+//   bên dưới: since = 00:00 UTC của ngày hôm nay (không lệch múi giờ máy chạy Node).
+// - custom (from+to cùng có mặt): since/until là 00:00 ngày `from` và 23:59:59.999
+//   ngày `to` — bounded cả hai đầu, không neo vào "hôm nay". Giờ UTC tường minh
+//   (suffix Z), khớp với getAttemptsByDayInRange (gắn nhãn ngày bằng
+//   toISOString(), luôn UTC) và với session timezone UTC của Postgres (đã xác
+//   minh bằng current_setting('TIMEZONE')) — nếu parse theo giờ local của máy
+//   chạy Node (UTC+7), "since" sẽ lệch múi giờ khỏi TO_CHAR(...) phía SQL,
+//   khiến ngày đầu tiên của khoảng 1 ngày bị gắn nhãn lùi lại một ngày. Cách
+//   parse này cũng khớp với dateFrom/dateTo của route /attempts — chuỗi
+//   "YYYY-MM-DD" không giờ, theo spec ECMA-262 `new Date(dateOnlyString)`
+//   vốn đã parse theo UTC.
+async function fetchAnalyticsData({ period = 'today', from, to } = {}) {
+  const isCustom = Boolean(from && to)
+
+  let isAll, days, since, until
+  if (isCustom) {
+    isAll = false
+    days = null
+    since = new Date(`${from}T00:00:00.000Z`)
+    until = new Date(`${to}T23:59:59.999Z`)
+    if (since > until) { const t = since; since = until; until = t } // defensive swap — from/to đã đảo ngược
+  } else if (period === 'today') {
+    isAll = false
+    days = 1
+    since = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`)
+    until = null
+  } else {
+    isAll = period === 'all'
+    days = period === 'week' ? 7 : 30
+    since = isAll ? null : (() => { const d = new Date(); d.setDate(d.getDate() - days); return d })()
+    until = null
+  }
+
+  // dateWhere: empty object khi không có since (period=all), gte-only cho preset,
+  // gte+lte cho custom range
+  const dateWhere = since
+    ? (until ? { createdAt: { gte: since, lte: until } } : { createdAt: { gte: since } })
+    : {}
 
   const [
     totalAttempts, totalUsers, totalUsersAll, avgBandRaw, skillCountBySkill, skillAvgBySkill, topUsers,
@@ -413,8 +506,8 @@ async function fetchAnalyticsData(period) {
       orderBy: { _avg: { score: 'desc' } },
       take: 10
     }),
-    getAttemptsByDay(since, isAll ? null : days),
-    getBandDistribution(),
+    isCustom ? getAttemptsByDayInRange(since, until) : getAttemptsByDay(since, isAll ? null : days),
+    getBandDistribution(since, until),
   ])
 
   const allAnalyticsExamIds = [...new Set([...skillCountBySkill.map(r => r.examId), ...skillAvgBySkill.map(r => r.examId)])]
@@ -463,11 +556,13 @@ async function fetchAnalyticsData(period) {
 }
 
 // ─── ANALYTICS ROUTE ─────────────────────────────────────────────────────────
-router.get('/analytics', authMiddleware, teacherOnly, async (req, res) => {
+router.get('/analytics', authMiddleware, teacherOnly, validate(analyticsQuerySchema, 'query'), async (req, res) => {
   try {
-    const { period = 'month' } = req.query
-    const cacheKey = `analytics_${period}`
-    const result = await getOrRevalidate(cacheKey, () => fetchAnalyticsData(period))
+    // req.validatedQuery — xem middleware/validate.js (Express 5: req.query getter-only)
+    const { period, from, to } = req.validatedQuery
+    const isCustom = Boolean(from && to)
+    const cacheKey = isCustom ? `analytics_custom_${from}_${to}` : `analytics_${period}`
+    const result = await getOrRevalidate(cacheKey, () => fetchAnalyticsData(isCustom ? { from, to } : { period }))
     res.json(result)
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })

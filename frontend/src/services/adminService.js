@@ -2,7 +2,8 @@ import api from '../utils/axios'
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 export const getAdminDashboard = () => api.get('/admin/dashboard').then(r => r.data)
-export const getAdminAnalytics = (period) => api.get('/admin/analytics', { params: { period } }).then(r => r.data)
+// params: { period } cho 3 preset, hoặc { from, to } (YYYY-MM-DD) cho khoảng tùy chỉnh
+export const getAdminAnalytics = (params) => api.get('/admin/analytics', { params }).then(r => r.data)
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 export const getAdminUsers = (params) => api.get('/admin/users', { params }).then(r => r.data)

@@ -29,6 +29,17 @@
 | **Database** | Supabase PostgreSQL managed, project ref `qtuzysaqftzmveyvrzxz`. **Local dev VÀ prod trỏ CHUNG một database này** — không có DB riêng cho local. Migration chạy từ máy local lúc dev thường đã áp lên đúng cái DB mà prod dùng. Xem [bước 3.10](#bước-310--migration-kiểm-tra-trước-đừng-tự-động-chạy). |
 | **CI/CD** | Không có. GitHub Actions chỉ chạy test trên push/PR to `main`, **không tự deploy**. Mọi bước dưới đây là thủ công. |
 
+### Quyền trên web root — đọc trước khi chạy bất kỳ lệnh nào ở mục 3
+
+`huuduy` sở hữu `/var/www/hzuy`, nhưng **KHÔNG** sở hữu thư mục cha `/var/www` (root:root).
+
+Hệ quả bắt buộc phải nhớ:
+
+- **KHÔNG** tạo được thư mục anh em kiểu `/var/www/hzuy.backup-*` → `Permission denied`.
+- **KHÔNG** chạy được `rm -rf /var/www/hzuy && mkdir /var/www/hzuy` → xoá/tạo lại chính thư mục đó cần quyền ghi trên `/var/www`.
+- **CHỈ** được thao tác trên **nội dung bên trong** `/var/www/hzuy`.
+- `sudo` non-interactive (`ssh lab46 'sudo ...'`) **không chạy được** — cần TTY tương tác thật.
+
 ### Đường đi request
 
 ```
@@ -54,15 +65,16 @@ Cần có sẵn trước khi deploy (thiết lập một lần trên máy điề
 - **SSH key** `ed25519` tại `~/.ssh/id_ed25519`, đã `ssh-copy-id` lên server.
 - **Alias `lab46`** trong `~/.ssh/config`:
 
-  ```sshconfig
+```sshconfig
   Host lab46
       HostName 10.100.200.126
       User huuduy
       IdentityFile ~/.ssh/id_ed25519
-  ```
+```
 
 - User `huuduy` phải ở trong group `docker` trên server → chạy `docker` / `docker compose` không cần `sudo`.
 - Node.js **chỉ có ở máy local** — server không cài Node → **frontend luôn build ở local** ([bước 3.4](#bước-34--build-frontend-tại-local)).
+- Thư mục backup tồn tại trên server: `mkdir -p /home/huuduy/backups`.
 
 **Checklist biến môi trường** (thiếu cái nào thì tính năng liên quan âm thầm hỏng, không lỗi rõ ràng):
 
@@ -114,14 +126,33 @@ git push origin main
 
 > Giữ lịch sử fast-forward. Nếu không FF được → rebase branch lên `main` trước.
 
-### Bước 3.3 — SSH vào server, kéo code mới
+### Bước 3.3 — SSH vào server, ghi lại commit đang chạy, kéo code mới
 
 ```bash
 ssh lab46
 ```
 
+Ghi lại commit **đang chạy trên prod TRƯỚC khi pull** (cần cho rollback và để biết prod đang tụt bao xa so với `main`):
+
 ```bash
-cd /home/huuduy/ielts-app && git pull --ff-only
+cd /home/huuduy/ielts-app && git rev-parse --short HEAD
+```
+
+Xem những commit sắp được deploy lần này:
+
+```bash
+git fetch origin && git log --oneline HEAD..origin/main
+```
+
+> Không có auto-deploy → commit đã merge có thể nằm trên `main` nhiều ngày mà chưa lên prod.
+> Đọc kỹ danh sách này: nếu nó dài hơn dự kiến, nghĩa là lần deploy này đang mang theo cả
+> những thay đổi cũ chưa từng chạy thật. Đã từng có bug lọt production cả tuần theo đúng
+> kiểu này.
+
+Kéo code:
+
+```bash
+git pull --ff-only
 ```
 
 > `git pull` trên server chỉ cần cho **backend** (Docker build từ `./backend`) và cho `docker-compose.yml`. Frontend `dist/` **không** lấy từ git — nó được đẩy lên ở bước 3.7. Cứ pull để mọi thứ đồng bộ.
@@ -165,30 +196,71 @@ grep -rl "https://hzuy.net/api" frontend/dist/assets/*.js
   **Sự hiện diện của `localhost:3001` KHÔNG phải lỗi.**
   **Dấu hiệu lỗi thật là `https://hzuy.net/api` VẮNG MẶT.**
 
-### Bước 3.6 — Backup web root cũ trên server
+### Bước 3.6 — Backup web root cũ
+
+**KHÔNG** dùng `cp -a hzuy hzuy.backup-...` trong `/var/www` — thư mục cha là root:root, sẽ
+báo `Permission denied` ([mục 1](#quyền-trên-web-root--đọc-trước-khi-chạy-bất-kỳ-lệnh-nào-ở-mục-3)).
+Backup ra `$HOME` dưới dạng tar.
 
 Trên shell SSH của server:
 
 ```bash
-cd /var/www
-cp -a hzuy "hzuy.backup-$(date +%Y%m%d-%H%M%S)"
+mkdir -p /home/huuduy/backups
+tar -C /var/www/hzuy -czf "/home/huuduy/backups/hzuy-$(date +%Y%m%d-%H%M%S).tar.gz" .
 ```
 
-### Bước 3.7 — Đẩy build mới lên server
+Verify backup vừa tạo có nội dung thật (không phải tar rỗng — số file phải > 0):
+
+```bash
+ls -1t /home/huuduy/backups/hzuy-*.tar.gz | head -n 1 | xargs tar -tzf | wc -l
+```
+
+Dọn backup cũ, chỉ giữ 5 bản gần nhất:
+
+```bash
+ls -1t /home/huuduy/backups/hzuy-*.tar.gz | tail -n +6 | xargs -r rm -f
+```
+
+### Bước 3.7 — Đẩy build mới lên server (stage-then-swap)
+
+**KHÔNG** chạy `rm -rf /var/www/hzuy && mkdir -p /var/www/hzuy` — xoá rồi tạo lại chính thư mục
+đó cần quyền ghi trên `/var/www` → fail. Chỉ được thao tác **nội dung bên trong**.
+
+**KHÔNG** giải nén đè thẳng lên web root đang live. Nếu tar hỏng giữa chừng, site chết mà chưa
+kịp biết. Luôn stage vào thư mục tạm, verify, rồi mới swap.
 
 Từ **máy local** (git-bash / WSL / macOS terminal — cần `tar` + `ssh`):
 
-```bash
-ssh lab46 'rm -rf /var/www/hzuy && mkdir -p /var/www/hzuy'
-```
+Bước 1 — tạo thư mục stage sạch (web root live vẫn nguyên vẹn):
 
 ```bash
-tar -C frontend/dist -czf - . | ssh lab46 'tar -C /var/www/hzuy -xzf -'
+ssh lab46 'rm -rf /var/www/hzuy/.dist.new && mkdir -p /var/www/hzuy/.dist.new'
 ```
 
-> Xóa sạch rồi giải nén để không tích lũy file asset hash cũ. An toàn vì đã có backup ở bước 3.6.
-> Trên PowerShell thuần không có `tar` pipe tiện — dùng git-bash, hoặc
-> `scp -r frontend/dist/* lab46:/var/www/hzuy/` (nhớ xóa nội dung cũ trước).
+Bước 2 — đẩy build vào thư mục stage:
+
+```bash
+tar -C frontend/dist -czf - . | ssh lab46 'tar -C /var/www/hzuy/.dist.new -xzf -'
+```
+
+Bước 3 — verify nội dung stage TRƯỚC khi swap (phải thấy `index.html` và thư mục `assets`):
+
+```bash
+ssh lab46 'ls /var/www/hzuy/.dist.new/index.html && ls /var/www/hzuy/.dist.new/assets | head -n 3'
+```
+
+Bước 4 — swap: xoá nội dung cũ (trừ thư mục stage) rồi chuyển nội dung mới ra ngoài:
+
+```bash
+ssh lab46 'cd /var/www/hzuy && find . -maxdepth 1 -mindepth 1 ! -name ".dist.new" -exec rm -rf {} + && mv .dist.new/* .dist.new/.[!.]* . 2>/dev/null; rmdir .dist.new'
+```
+
+> Bước 4 là thao tác duy nhất có downtime, và chỉ kéo dài vài trăm ms (`mv` trong cùng
+> filesystem). Nếu bước 3 fail thì **dừng lại** — web root live chưa hề bị đụng tới, không cần
+> rollback gì cả.
+>
+> Xoá sạch nội dung cũ trước khi `mv` để không tích lũy file asset hash cũ. An toàn vì đã có
+> backup ở bước 3.6.
 
 ### Bước 3.8 — Verify quyền sở hữu web root
 
@@ -226,10 +298,18 @@ Trên server, ở thư mục có `docker-compose.yml`:
 cd /home/huuduy/ielts-app
 ```
 
-Ghi lại image cũ TRƯỚC khi build (cho rollback — xem [mục 4](#4-rollback)):
+Xem tên:tag image compose đang dùng:
 
 ```bash
 docker compose images backend
+```
+
+**Gắn tag cố định cho image hiện tại TRƯỚC khi build.** Sau khi build, image cũ trở thành
+dangling (`<none>`) — và cron prune Chủ nhật 3h sáng ([mục 6](#6-bảo-trì-định-kỳ)) sẽ **xoá mất
+nó**, làm rollback backend bất khả thi. Gắn tag `:previous` để prune không đụng tới:
+
+```bash
+docker tag <IMAGE_NAME>:<TAG> <IMAGE_NAME>:previous
 ```
 
 Build + restart:
@@ -264,9 +344,9 @@ docker exec ielts-app-backend npx prisma migrate status
     Vì DB dùng chung, một `DROP` chạy từ đây ảnh hưởng luôn cả môi trường dev.
   - Chỉ khi chắc chắn:
 
-    ```bash
+```bash
     docker exec ielts-app-backend npx prisma migrate deploy
-    ```
+```
 
 ### Bước 3.11 — Smoke test qua domain thật
 
@@ -310,10 +390,16 @@ curl -s https://hzuy.net/api/practice/reading | head -c 200
 
 ### Backend
 
-Điều kiện: đã lưu image id cũ ở [bước 3.9](#bước-39--backend-rebuild-container-chỉ-khi-có-đổi-backend) (`docker compose images backend`, hoặc `docker images | grep -i backend`).
+Điều kiện: đã gắn tag `:previous` cho image cũ ở [bước 3.9](#bước-39--backend-rebuild-container-chỉ-khi-có-đổi-backend).
 
 ```bash
 cd /home/huuduy/ielts-app
+```
+
+Xác nhận image `:previous` còn tồn tại:
+
+```bash
+docker images | grep previous
 ```
 
 Xem tên:tag image mà compose đang trông đợi:
@@ -322,26 +408,47 @@ Xem tên:tag image mà compose đang trông đợi:
 docker compose images backend
 ```
 
-Gán lại image cũ vào đúng tên:tag đó rồi restart:
+Gán image `:previous` vào đúng tên:tag đó rồi restart:
 
 ```bash
-docker tag <OLD_IMAGE_ID> <IMAGE_NAME>:<TAG>
+docker tag <IMAGE_NAME>:previous <IMAGE_NAME>:<TAG>
 docker compose up -d backend
 ```
 
+> Nếu **quên** gắn tag ở bước 3.9 và cron prune chưa chạy, vẫn vớt được image dangling bằng
+> `docker images -f dangling=true` rồi `docker tag <OLD_IMAGE_ID> <IMAGE_NAME>:<TAG>`. Nếu prune
+> đã chạy rồi thì image mất hẳn — cách duy nhất còn lại là `git checkout <commit-cũ>` (SHA ghi ở
+> [bước 3.3](#bước-33--ssh-vào-server-ghi-lại-commit-đang-chạy-kéo-code-mới)) rồi build lại.
+>
 > Nếu migration đã chạy ở bước 3.10 và cần lùi schema → phải viết migration đảo ngược thủ công.
 > Prisma không có `migrate down`. Cân nhắc kỹ vì DB dùng chung với dev.
 
 ### Frontend
 
-Trên shell SSH của server:
+**KHÔNG** dùng `rm -rf hzuy && mv hzuy.backup-<TS> hzuy` trong `/var/www` — không có quyền ghi
+trên thư mục cha. Giải nén backup tar vào **bên trong** web root.
+
+Trên shell SSH của server — chọn bản backup cần lùi về:
 
 ```bash
-cd /var/www
-rm -rf hzuy && mv hzuy.backup-<TIMESTAMP> hzuy
+ls -1t /home/huuduy/backups/hzuy-*.tar.gz
 ```
 
-Kiểm tra lại nhãn SELinux sau khi `mv` (xem [mục 5](#5-lỗi-thường-gặp--triage-nhanh)):
+Xoá nội dung hiện tại và giải nén backup vào chỗ cũ:
+
+```bash
+cd /var/www/hzuy
+find . -maxdepth 1 -mindepth 1 -exec rm -rf {} +
+tar -xzf /home/huuduy/backups/hzuy-<TIMESTAMP>.tar.gz -C /var/www/hzuy
+```
+
+Verify có nội dung:
+
+```bash
+ls /var/www/hzuy/index.html && ls /var/www/hzuy/assets | head -n 3
+```
+
+Kiểm tra lại nhãn SELinux sau khi giải nén (xem [mục 5](#5-lỗi-thường-gặp--triage-nhanh)):
 
 ```bash
 ls -Z /var/www/hzuy/index.html
@@ -359,13 +466,15 @@ sudo restorecon -RvF /var/www/hzuy
 
 | Triệu chứng | Nguyên nhân | Cách sửa |
 |---|---|---|
+| `Permission denied` khi tạo thư mục / xoá thư mục trong `/var/www` | `huuduy` không sở hữu `/var/www` (root:root), chỉ sở hữu `/var/www/hzuy` | Chỉ thao tác **nội dung bên trong** `/var/www/hzuy`; backup ra `/home/huuduy/backups` — xem [mục 1](#quyền-trên-web-root--đọc-trước-khi-chạy-bất-kỳ-lệnh-nào-ở-mục-3) |
 | Trang trắng / **403 Forbidden** hoặc **404** ở mọi file tĩnh, nhưng `curl https://hzuy.net/api/...` vẫn **200** | (a) SELinux context của web root sai (nhãn khác `httpd_sys_content_t`); hoặc (b) `root` Nginx trỏ vào thư mục rỗng/thiếu nội dung | (a) `sudo restorecon -RvF /var/www/hzuy` (hoặc `chcon` nếu không có TTY sudo), verify bằng `ls -Z /var/www/hzuy/index.html` phải ra `httpd_sys_content_t`. (b) Đảm bảo đã copy xong nội dung vào `/var/www/hzuy` **trước khi** đổi `root`/reload Nginx |
 | Trang **load được** nhưng mọi section gọi API báo *"Lỗi tải dữ liệu / Không thể kết nối máy chủ"*; `curl` API trực tiếp lại OK | `VITE_API_URL` bị build sai — bundle nhúng `http://localhost:3001/api` làm baseURL thật. Xảy ra nếu tự set `$env:VITE_API_URL` trong shell (process env đè file), hoặc `frontend/.env.production` bị xóa/sửa | Kiểm tra `frontend/.env.production` còn đúng `VITE_API_URL=https://hzuy.net/api` và không có biến `VITE_API_URL` nào set trong shell → build lại [bước 3.4](#bước-34--build-frontend-tại-local) + verify [bước 3.5](#bước-35--verify-ngay-trong-bundle-local-trước-khi-đẩy-lên), đẩy lại |
 | Google login lỗi (backend 500 hoặc frontend không hiện nút/redirect sai) | Thiếu `GOOGLE_CLIENT_ID` (`backend/.env` trên server) hoặc `VITE_GOOGLE_CLIENT_ID` (`frontend/.env.production` lúc build) — xem checklist ở [mục 2](#2-điều-kiện-tiên-quyết-và-checklist-biến-môi-trường) | Backend: thêm biến + `docker compose up -d backend`. Frontend: biến là build-time → phải sửa `.env.production` rồi build lại từ [bước 3.4](#bước-34--build-frontend-tại-local), không sửa được sau khi đã build |
 | API báo lỗi **CORS** trên console trình duyệt (`No 'Access-Control-Allow-Origin'`) | `backend/.env` trên server thiếu `FRONTEND_URL=https://hzuy.net` | Thêm biến vào `backend/.env` trên server, `docker compose up -d backend` |
+| Cần rollback backend nhưng không tìm thấy image cũ | Quên gắn tag `:previous` ở bước 3.9, và cron prune Chủ nhật đã xoá image dangling | Build lại từ commit cũ (SHA ghi ở [bước 3.3](#bước-33--ssh-vào-server-ghi-lại-commit-đang-chạy-kéo-code-mới)). Lần sau luôn gắn tag trước khi build |
 | `prisma migrate status` báo pending bất ngờ | Có migration mới chưa áp lên DB chung | Audit [bước 3.10](#bước-310--migration-kiểm-tra-trước-đừng-tự-động-chạy) trước khi `migrate deploy` |
 
-### Phân biệt 2 lỗi đầu (dễ nhầm là "cùng 1 vấn đề")
+### Phân biệt 2 lỗi web root / API (dễ nhầm là "cùng 1 vấn đề")
 
 Triệu chứng bên ngoài giống nhau ("trang không hoạt động"), nhưng:
 
@@ -386,6 +495,9 @@ Sau vài lần `docker compose build` sẽ tích image `<none>` (dangling) trên
 ```
 
 - Chạy Chủ nhật 3h sáng hàng tuần (giờ ít traffic).
+- ⚠️ Job này **xoá mọi image dangling**, kể cả image backend của lần deploy trước. Đó là lý do
+  [bước 3.9](#bước-39--backend-rebuild-container-chỉ-khi-có-đổi-backend) gắn tag `:previous` —
+  image có tag thì `prune -f` không đụng tới.
 - Dùng full path `/usr/bin/docker` (kiểm tra bằng `which docker`) vì `PATH` của cron tối giản
   hơn shell tương tác — `docker` trần có thể không tìm thấy binary.
 - Log ghi ra `~/docker-prune.log`; tự rotate giữ 500 dòng cuối sau mỗi lần chạy để không phình
@@ -396,4 +508,14 @@ Nếu crontab bị mất (đổi server, tái tạo user...), thêm lại bằng
 
 ```bash
 (crontab -l 2>/dev/null; echo "0 3 * * 0 /usr/bin/docker image prune -f >> /home/huuduy/docker-prune.log 2>&1 && tail -n 500 /home/huuduy/docker-prune.log > /home/huuduy/docker-prune.log.tmp && mv /home/huuduy/docker-prune.log.tmp /home/huuduy/docker-prune.log") | crontab -
+```
+
+### Dọn backup frontend cũ
+
+Backup tar tích lũy trong `/home/huuduy/backups` sau mỗi lần deploy. [Bước 3.6](#bước-36--backup-web-root-cũ)
+đã tự dọn, chỉ giữ 5 bản gần nhất. Kiểm tra thủ công khi cần:
+
+```bash
+ls -lht /home/huuduy/backups/ | head -n 10
+du -sh /home/huuduy/backups/
 ```

@@ -7,6 +7,8 @@ const { teacherOnly } = require('../../../lib/roles')
 const { createWritingExamSchema } = require('../../../validators/adminExamValidator')
 const { invalidate } = require('../../../lib/swrCache')
 const { checkDuplicateExamTest } = require('./core')
+const { logAuditEvent } = require('../../../lib/auditLog')
+const { AUDIT_ACTIONS } = require('../../../lib/auditActions')
 
 // ─── CREATE WRITING EXAM ─────────────────────────────────────────────────────
 router.post('/exams/writing', authMiddleware, teacherOnly, validate(createWritingExamSchema), async (req, res) => {
@@ -54,6 +56,15 @@ router.post('/exams/writing', authMiddleware, teacherOnly, validate(createWritin
     })
 
     invalidate('fulltests:')
+
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.EXAM_CREATE,
+      entityType: 'Exam',
+      entityId: exam.id,
+      entityLabel: exam.title,
+      metadata: { skill: 'writing', taskCount: exam.writingTasks.length }
+    })
+
     res.status(201).json(exam)
   } catch (error) {
     console.error(error)

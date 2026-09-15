@@ -390,14 +390,14 @@ export default function Attempts() {
             {/* Khoảng ngày — 2/4 cột, thẳng hàng dưới ô Tìm kiếm */}
             <div className="md:col-span-2">
               <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Khoảng ngày</label>
-              <div className="flex items-center border border-zinc-200 rounded-md h-9 bg-zinc-50 w-full focus-within:ring-1 focus-within:ring-zinc-900 focus-within:border-zinc-900 transition shadow-2xs">
+              <div className="flex items-center border border-zinc-200 rounded-md h-9 bg-zinc-50 w-full hover:border-zinc-300 focus-within:ring-2 focus-within:ring-zinc-200 focus-within:border-zinc-900 transition shadow-2xs">
                 <input
                   type="date"
                   value={dateFrom}
                   onChange={handleDateFrom}
                   max={todayStr}
                   aria-label="Từ ngày"
-                  className="flex-1 min-w-0 h-full px-2.5 text-xs bg-transparent cursor-pointer text-zinc-900 focus:outline-none [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                  className="grouped-field flex-1 min-w-0 h-full px-2.5 text-xs bg-transparent cursor-pointer text-zinc-900 focus:outline-none [color-scheme:light] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-datetime-edit-month-field]:bg-transparent [&::-webkit-datetime-edit-day-field]:bg-transparent [&::-webkit-datetime-edit-year-field]:bg-transparent [&::-webkit-datetime-edit-month-field]:text-zinc-900 [&::-webkit-datetime-edit-day-field]:text-zinc-900 [&::-webkit-datetime-edit-year-field]:text-zinc-900"
                 />
                 <span className="text-xs text-zinc-400 shrink-0">–</span>
                 <input
@@ -407,7 +407,7 @@ export default function Attempts() {
                   min={dateFrom || undefined}
                   max={todayStr}
                   aria-label="Đến ngày"
-                  className="flex-1 min-w-0 h-full px-2.5 text-xs bg-transparent cursor-pointer text-zinc-900 focus:outline-none [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                  className="grouped-field flex-1 min-w-0 h-full px-2.5 text-xs bg-transparent cursor-pointer text-zinc-900 focus:outline-none [color-scheme:light] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-datetime-edit-month-field]:bg-transparent [&::-webkit-datetime-edit-day-field]:bg-transparent [&::-webkit-datetime-edit-year-field]:bg-transparent [&::-webkit-datetime-edit-month-field]:text-zinc-900 [&::-webkit-datetime-edit-day-field]:text-zinc-900 [&::-webkit-datetime-edit-year-field]:text-zinc-900"
                 />
               </div>
             </div>
@@ -415,17 +415,17 @@ export default function Attempts() {
             {/* Khoảng Band — cùng style với Khoảng ngày */}
             <div>
               <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Khoảng Band</label>
-              <div className="flex items-center gap-2 border border-zinc-200 rounded-md px-3 h-9 bg-zinc-50 w-full focus-within:ring-1 focus-within:ring-zinc-900 focus-within:border-zinc-900 transition shadow-2xs">
+              <div className="flex items-center gap-2 border border-zinc-200 rounded-md px-3 h-9 bg-zinc-50 w-full hover:border-zinc-300 focus-within:ring-2 focus-within:ring-zinc-200 focus-within:border-zinc-900 transition shadow-2xs">
                 <input
                   type="number" min="0" max="9" step="0.5" placeholder="Từ" value={scoreMin}
                   onChange={handleScoreMinChange} onBlur={handleScoreMinBlur}
-                  className="w-full text-xs text-center font-normal text-zinc-900 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder:text-zinc-400"
+                  className="grouped-field w-full text-xs text-center font-normal text-zinc-900 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder:text-zinc-400"
                 />
                 <span className="text-xs text-zinc-400 shrink-0">–</span>
                 <input
                   type="number" min="0" max="9" step="0.5" placeholder="Đến" value={scoreMax}
                   onChange={handleScoreMaxChange} onBlur={handleScoreMaxBlur}
-                  className="w-full text-xs text-center font-normal text-zinc-900 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder:text-zinc-400"
+                  className="grouped-field w-full text-xs text-center font-normal text-zinc-900 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder:text-zinc-400"
                 />
               </div>
             </div>
@@ -435,7 +435,7 @@ export default function Attempts() {
               <button
                 type="button"
                 onClick={reset}
-                className="w-full h-9 justify-center border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 px-3.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+                className="w-full h-9 justify-center border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 hover:border-zinc-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-200 focus-visible:border-zinc-900 px-3.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
               >
                 <RotateCcw className="w-3.5 h-3.5 text-zinc-500" />
                 <span>Đặt lại</span>

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import request from 'supertest'
 import jwt from 'jsonwebtoken'
+import { AUDIT_ACTIONS } from '../lib/auditActions'
 
 process.env.JWT_SECRET = 'test_secret_key'
 
@@ -87,8 +88,11 @@ const prismaMock = {
     create: vi.fn().mockResolvedValue({})
   },
   speakingQuestion: {
-    deleteMany: vi.fn().mockResolvedValue({}),
+    deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
     createMany: vi.fn().mockResolvedValue({})
+  },
+  auditLog: {
+    create: vi.fn().mockResolvedValue({})
   },
   $transaction: vi.fn()
 }
@@ -780,5 +784,139 @@ describe('Admin Exams Router — PUT (diff-based upsert)', () => {
         })
       })
     }))
+  })
+})
+
+// ─── Audit Log wiring (exam.create / exam.update / exam.delete) ────────────
+// Verifies the explicit logAuditEvent() calls added to the exam create/update/
+// delete handlers — not a re-test of the diff-based upsert logic above.
+describe('Admin Exams Router — Audit Log', () => {
+  const teacherToken = jwt.sign({ userId: 2, email: 'teacher@example.com', role: 'teacher' }, 'test_secret_key', { expiresIn: '1h' })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    prismaMock.$transaction.mockImplementation(async (cb) => cb(prismaMock))
+  })
+
+  const oldReadingPassage = () => ({
+    id: 501, number: 1,
+    questions: [],
+    questionGroups: [
+      { id: 601, sortOrder: 0, questions: [{ id: 701, number: 1 }, { id: 702, number: 2 }] }
+    ]
+  })
+
+  const readingGroup = (questions) => ({
+    type: 'mcq', qNumberStart: 1, qNumberEnd: questions.length, instruction: '', maxChoices: 2, canReuse: false,
+    questions
+  })
+
+  const readingBody = (questions) => ({
+    title: 'Reading Test 1',
+    passages: [{
+      number: 1, title: 'Passage 1', subtitle: null, letteredParagraphs: false, body: 'Body text',
+      questionGroups: [readingGroup(questions)],
+      questions: []
+    }]
+  })
+
+  it('POST /exams/reading logs exam.create with entityLabel + skill/passage/question counts', async () => {
+    prismaMock.exam.findFirst.mockResolvedValueOnce(null)
+    prismaMock.exam.create = vi.fn().mockResolvedValueOnce({ id: 50, title: 'Brand New Reading' })
+
+    await request(app)
+      .post('/api/admin/exams/reading')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send({
+        title: 'Brand New Reading',
+        passages: [{ number: 1, title: 'P1', body: 'x', questionGroups: [readingGroup([{ number: 1, questionText: 'Q1', correctAnswer: 'A' }])], questions: [] }]
+      })
+      .expect(201)
+
+    expect(prismaMock.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorType: 'user',
+        actorUserId: 2,
+        actorEmail: 'teacher@example.com',
+        actorRole: 'teacher',
+        action: AUDIT_ACTIONS.EXAM_CREATE,
+        entityType: 'Exam',
+        entityId: 50,
+        entityLabel: 'Brand New Reading',
+        metadata: { skill: 'reading', passageCount: 1, questionCount: 1 }
+      })
+    })
+  })
+
+  it('PUT /exams/:id (reading, no deletions) logs exam.update with deleted: 0', async () => {
+    prismaMock.exam.findUnique.mockResolvedValueOnce({ skill: 'reading' }).mockResolvedValueOnce({ id: 10, title: 'Reading Test 1', passages: [] })
+    prismaMock.passage.findMany.mockResolvedValueOnce([oldReadingPassage()])
+
+    await request(app)
+      .put('/api/admin/exams/10')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send(readingBody([
+        { number: 1, questionText: 'Q1 updated', options: ['A', 'B'], correctAnswer: 'A' },
+        { number: 2, questionText: 'Q2 updated', options: ['A', 'B'], correctAnswer: 'B' }
+      ]))
+      .expect(200)
+
+    expect(prismaMock.auditLog.create).toHaveBeenCalledTimes(1)
+    const call = prismaMock.auditLog.create.mock.calls[0][0]
+    expect(call.data.action).toBe(AUDIT_ACTIONS.EXAM_UPDATE)
+    expect(call.data.entityId).toBe(10)
+    expect(call.data.entityLabel).toBe('Reading Test 1')
+    expect(call.data.metadata.deleted).toBe(0)
+  })
+
+  it('PUT /exams/:id (reading, 1 question deleted) logs exam.update with deleted: 1', async () => {
+    prismaMock.exam.findUnique.mockResolvedValueOnce({ skill: 'reading' }).mockResolvedValueOnce({ id: 10, title: 'Reading Test 1', passages: [] })
+    prismaMock.passage.findMany.mockResolvedValueOnce([oldReadingPassage()])
+    prismaMock.questionAnswer.findMany.mockResolvedValueOnce([])
+    prismaMock.answerLog.findMany.mockResolvedValueOnce([])
+
+    await request(app)
+      .put('/api/admin/exams/10')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send(readingBody([{ number: 1, questionText: 'Q1', options: ['A', 'B'], correctAnswer: 'A' }]))
+      .expect(200)
+
+    const call = prismaMock.auditLog.create.mock.calls[0][0]
+    expect(call.data.metadata.deleted).toBe(1)
+  })
+
+  it('PUT /exams/:id rejected with 409 (blocked deletion) does NOT write an audit log', async () => {
+    prismaMock.exam.findUnique.mockResolvedValueOnce({ skill: 'reading' })
+    prismaMock.passage.findMany.mockResolvedValueOnce([oldReadingPassage()])
+    prismaMock.questionAnswer.findMany.mockResolvedValueOnce([{ questionId: 702 }])
+    prismaMock.answerLog.findMany.mockResolvedValueOnce([])
+
+    await request(app)
+      .put('/api/admin/exams/10')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send(readingBody([{ number: 1, questionText: 'Q1', options: ['A', 'B'], correctAnswer: 'A' }]))
+      .expect(409)
+
+    expect(prismaMock.auditLog.create).not.toHaveBeenCalled()
+  })
+
+  it('DELETE /exams/:id reads the title before soft-delete and logs exam.delete with that snapshot', async () => {
+    prismaMock.exam.findUnique.mockResolvedValueOnce({ title: 'Đề sắp bị xóa' })
+
+    await request(app)
+      .delete('/api/admin/exams/77')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .expect(200)
+
+    expect(prismaMock.exam.findUnique).toHaveBeenCalledWith({ where: { id: 77 }, select: { title: true } })
+    expect(prismaMock.exam.update).toHaveBeenCalledWith({ where: { id: 77 }, data: { deletedAt: expect.any(Date) } })
+    expect(prismaMock.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: AUDIT_ACTIONS.EXAM_DELETE,
+        entityType: 'Exam',
+        entityId: 77,
+        entityLabel: 'Đề sắp bị xóa'
+      })
+    })
   })
 })

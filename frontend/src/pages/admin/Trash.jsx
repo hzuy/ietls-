@@ -166,11 +166,15 @@ export default function Trash() {
           )}
         </div>
 
-        {/* Tabs — Gom nhóm gọn gàng trong container nền xám, bẻ dòng cân đối không tràn mép */}
+        {/* Tabs — 11 pills cố định; cột theo breakpoint chọn để 11 chia dư tối đa 1 (hàng cuối chỉ
+            hụt đúng 1 pill với 2/3/4/6 cột) thay vì flex-wrap tự nhiên, vốn để hàng cuối hụt hẳn
+            nhiều item vì độ rộng pill lệch nhau theo độ dài nhãn. Giữ 4 cột suốt lg→xl (không nhảy
+            lên 6 ở xl=1280px) vì ở đó nhãn 2 từ dài nhất ("Speaking Samples") vỡ dòng — chỉ đủ chỗ
+            cho 6 cột không vỡ dòng từ 2xl=1536px trở lên. */}
         <div
           role="tablist"
           aria-label="Lọc theo loại"
-          className="p-1.5 sm:p-2 bg-zinc-100/90 border border-zinc-200/80 rounded-2xl flex flex-wrap items-center gap-1.5 sm:gap-2 mb-6 shadow-2xs"
+          className="p-1.5 sm:p-2 bg-zinc-100/90 border border-zinc-200/80 rounded-2xl grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-1.5 sm:gap-2 mb-6 shadow-2xs"
         >
           {TABS.map(t => {
             const cnt = t.key === 'all' ? items.length : (countByType[t.key] || 0)
@@ -182,7 +186,7 @@ export default function Trash() {
                 aria-selected={selected}
                 aria-controls="trash-panel"
                 onClick={() => setTab(t.key)}
-                className={`rounded-full px-4 h-8 text-xs font-medium transition-colors inline-flex items-center gap-1.5 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-1 ${
+                className={`w-full rounded-full px-4 h-8 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-1 ${
                   selected
                     ? 'bg-zinc-900 text-white shadow-xs'
                     : 'bg-white hover:bg-zinc-100 text-zinc-600 rounded-full border border-zinc-200 transition-colors'

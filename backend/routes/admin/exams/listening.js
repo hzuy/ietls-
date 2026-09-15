@@ -7,6 +7,8 @@ const { teacherOnly } = require('../../../lib/roles')
 const { createListeningExamSchema } = require('../../../validators/adminExamValidator')
 const { invalidate } = require('../../../lib/swrCache')
 const { checkDuplicateExamTest } = require('./core')
+const { logAuditEvent } = require('../../../lib/auditLog')
+const { AUDIT_ACTIONS } = require('../../../lib/auditActions')
 
 // ─── CREATE LISTENING EXAM ───────────────────────────────────────────────────
 router.post('/exams/listening', authMiddleware, teacherOnly, validate(createListeningExamSchema), async (req, res) => {
@@ -236,6 +238,21 @@ router.post('/exams/listening', authMiddleware, teacherOnly, validate(createList
     })
 
     invalidate('fulltests:')
+
+    const questionCount = sections.reduce((sum, s) => {
+      if (s.questionGroups) {
+        return sum + s.questionGroups.reduce((gs, g) => gs + (g.questions || []).length, 0)
+      }
+      return sum + (s.questions || []).length
+    }, 0)
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.EXAM_CREATE,
+      entityType: 'Exam',
+      entityId: exam.id,
+      entityLabel: exam.title,
+      metadata: { skill: 'listening', sectionCount: sections.length, questionCount }
+    })
+
     res.status(201).json(exam)
   } catch (error) {
     console.error(error)

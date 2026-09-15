@@ -11,12 +11,7 @@ vi.mock('../../services/adminService', () => ({
   getAdminUser: vi.fn(),
 }))
 
-// Mock ResizeObserver for Recharts ResponsiveContainer in jsdom
-window.ResizeObserver = class ResizeObserver {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
+// ResizeObserver/scrollIntoView đã được mock chung ở src/setupTests.js
 
 const createTestQueryClient = () => new QueryClient({
   defaultOptions: {
@@ -198,5 +193,55 @@ describe('Admin Analytics Component', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     })
+  })
+
+  it('defaults the period dropdown to "Hôm nay" and queries with period=today', async () => {
+    renderWithClient(<Analytics />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Hôm nay' })).toBeInTheDocument()
+    })
+    expect(adminService.getAdminAnalytics).toHaveBeenCalledWith({ period: 'today' })
+  })
+
+  it('switches period via the dropdown and re-queries with the selected preset', async () => {
+    renderWithClient(<Analytics />)
+
+    const trigger = await screen.findByRole('button', { name: 'Hôm nay' })
+    fireEvent.click(trigger)
+
+    const allOption = await screen.findByRole('option', { name: 'Tất cả' })
+    fireEvent.click(allOption)
+
+    await waitFor(() => {
+      expect(adminService.getAdminAnalytics).toHaveBeenCalledWith({ period: 'all' })
+    })
+    expect(await screen.findByRole('button', { name: 'Tất cả' })).toBeInTheDocument()
+  })
+
+  it('opens the custom date popover from the dropdown without changing period until Apply', async () => {
+    renderWithClient(<Analytics />)
+
+    const trigger = await screen.findByRole('button', { name: 'Hôm nay' })
+    fireEvent.click(trigger)
+
+    const customOption = await screen.findByRole('option', { name: 'Tùy chỉnh' })
+    fireEvent.click(customOption)
+
+    // Popover mở, nhưng nhãn nút vẫn giữ nguyên vì period chưa đổi
+    expect(await screen.findByLabelText('Từ ngày')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Hôm nay' })).toBeInTheDocument()
+    expect(adminService.getAdminAnalytics).not.toHaveBeenCalledWith(
+      expect.objectContaining({ from: expect.anything() })
+    )
+
+    fireEvent.change(screen.getByLabelText('Từ ngày'), { target: { value: '2026-09-01' } })
+    fireEvent.change(screen.getByLabelText('Đến ngày'), { target: { value: '2026-09-10' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Áp dụng' }))
+
+    await waitFor(() => {
+      expect(adminService.getAdminAnalytics).toHaveBeenCalledWith({ from: '2026-09-01', to: '2026-09-10' })
+    })
+    expect(await screen.findByRole('button', { name: '01/09 – 10/09' })).toBeInTheDocument()
   })
 })

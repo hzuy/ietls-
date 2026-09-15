@@ -8,6 +8,9 @@ Không bỏ qua bước kiểm thử/bảo mật để tiết kiệm thời gian
 - Trước khi bắt đầu bất kỳ feature/task mới nào, luôn xác định đang ở giai đoạn nào trong quy trình dưới đây.
 - Không tự ý nhảy cóc giai đoạn (ví dụ: không code thẳng khi chưa có plan cho feature lớn).
 - Với task nhỏ, đơn giản, có thể rút gọn nhưng vẫn phải qua bước test + security trước khi commit.
+- Với bug đã rõ hiện tượng, dùng nhánh Hotfix ở Giai đoạn 3b thay vì quay lại Giai đoạn 1.
+- Trước khi bắt đầu một thay đổi lớn, tạo checkpoint commit để dễ traceability/rollback.
+- Khi cần làm việc song song trên nhiều nhánh (ví dụ Claude Code CLI và Antigravity cùng lúc), dùng `git worktree` để tránh xung đột thư mục làm việc.
 
 ## Giai đoạn 1 — Ý tưởng & Lập kế hoạch
 Dùng khi: bắt đầu feature mới, thay đổi kiến trúc, hoặc chưa rõ yêu cầu.
@@ -39,6 +42,16 @@ Thứ tự:
 6. ak-security / ak-security-scan — audit bảo mật, quét secret rò rỉ
 7. ak-web-design-guidelines — review UI/UX/accessibility
 
+## Giai đoạn 3b — Hotfix (bug production đã rõ hiện tượng)
+Dùng khi: bug đã biết rõ hiện tượng, không phải feature mới, không cần research/brainstorm.
+Thứ tự:
+1. ak-scout — khảo sát code liên quan đến bug
+2. ak-debug — tìm root cause trước khi sửa
+3. ak-fix — sửa sau khi đã rõ nguyên nhân
+4. ak-test / ak-web-testing — xác nhận đã sửa đúng
+5. ak-security / ak-security-scan — audit nhanh phần vừa sửa
+6. ak-git — commit theo convention
+
 ## Giai đoạn 4 — Commit & Release
 Thứ tự:
 1. ak-git — commit theo convention
@@ -48,7 +61,7 @@ Thứ tự:
 ## Giai đoạn 5 — Triển khai
 Thứ tự:
 1. ak-devops — cấu hình hạ tầng
-2. ak-deploy — deploy lên Render/Vercel
+2. ak-deploy — deploy lên lab46 (Docker/Nginx), theo DEPLOY.md, dùng stage-then-swap
 3. seo-analysis — tối ưu SEO nếu cần
 
 ## Giai đoạn 6 — Tài liệu & Bảo vệ đồ án
@@ -65,6 +78,15 @@ ak-docs-seeker, ak-repomix, ak-gkg, ak-graphify, ak-tech-graph,
 ak-project-management, ak-plans-kanban, ak-watzup,
 ak-agent-browser, ak-chrome-profile
 
+## Không được làm
+- Không sửa code đang chạy ổn khi chưa xác nhận có bug thật.
+- Không gộp nhiều thay đổi không liên quan vào cùng một commit.
+- Không thao tác ghi/xoá dữ liệu thật (DB) khi chưa được xác nhận, kể cả với project một người làm.
+- Không bỏ qua bước test + security dù là task nhỏ.
+- Không tự ý nhảy cóc giai đoạn khi chưa rõ yêu cầu của feature lớn.
+
 ## Quy tắc tối giản cho công việc hàng ngày (project 1 người làm)
 Nếu không chắc dùng skill nào, ưu tiên theo trình tự lõi:
 ak-plan → ak-cook → ak-test + ak-security → ak-git + ak-ship → ak-deploy
+
+Với bug production: ak-scout → ak-debug → ak-fix → ak-test + ak-security → ak-git

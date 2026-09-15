@@ -1,8 +1,9 @@
-import { useState, useMemo, useCallback, useRef } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { Listbox, ListboxButton, ListboxOptions, ListboxOption } from '@headlessui/react'
 import { getAdminAnalytics, getAdminUser } from '../../services/adminService'
-import { Users2, BarChart2, Trophy, Award, ChevronRight } from 'lucide-react'
+import { Users2, BarChart2, Trophy, Award, ChevronRight, ChevronDown, Check } from 'lucide-react'
 import StudentDetailModal from '../../components/admin/StudentDetailModal'
 import {
   AreaChart, Area, BarChart, Bar,
@@ -51,6 +52,22 @@ function formatDateLabel(date, period) {
   if (!date) return ''
   return period === 'all' ? date.slice(0, 7) : date.slice(5) // MM-DD
 }
+
+// Nhãn nút dropdown khi đã áp dụng khoảng tùy chỉnh: "YYYY-MM-DD" → "DD/MM"
+function formatShortDate(iso) {
+  if (!iso) return ''
+  const [, m, d] = iso.split('-')
+  return `${d}/${m}`
+}
+
+// Thứ tự lựa chọn trong dropdown lọc thời gian — 'today' là mặc định khi mở trang
+const PERIOD_OPTIONS = [
+  { value: 'today',  label: 'Hôm nay' },
+  { value: 'week',   label: '7 ngày' },
+  { value: 'month',  label: '30 ngày' },
+  { value: 'all',    label: 'Tất cả' },
+  { value: 'custom', label: 'Tùy chỉnh' },
+]
 
 // ─── Tooltips ────────────────────────────────────────────────────────────────
 // `tooltipStyle` truyền từ Analytics() (theo resolvedTheme) — background/border là
@@ -102,19 +119,31 @@ function ChartSkeleton({ height = 180 }) {
 
 // ─── Analytics page ───────────────────────────────────────────────────────────
 export default function Analytics() {
-  const [period, setPeriod]           = useState('month')
+  const [period, setPeriod]           = useState('today') // 'today' | 'week' | 'month' | 'all' | 'custom'
+  const [customFrom, setCustomFrom]   = useState('')
+  const [customTo, setCustomTo]       = useState('')
+  const [showCustomPopover, setShowCustomPopover] = useState(false)
+  const popoverRef = useRef(null)
   const navigate = useNavigate()
   const chart = useMemo(() => getChartTheme(), [])
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], [])
+
+  // period='custom' chỉ được set từ handleApplyCustom, vốn đã chặn khi thiếu
+  // ngày — nhưng vẫn giữ điều kiện customFrom/customTo ở đây để query không
+  // bao giờ bắn request "custom" thiếu from/to trong bất kỳ trường hợp nào.
+  const isCustomRange = period === 'custom' && Boolean(customFrom && customTo)
 
   const {
     data = null,
     isLoading: initialLoading,
     isFetching: chartLoading,
   } = useQuery({
-    queryKey: ['admin', 'analytics', period],
+    queryKey: isCustomRange
+      ? ['admin', 'analytics', 'custom', customFrom, customTo]
+      : ['admin', 'analytics', period],
     queryFn: async () => {
       try {
-        return await getAdminAnalytics(period)
+        return await getAdminAnalytics(isCustomRange ? { from: customFrom, to: customTo } : { period })
       } catch (err) {
         if (err.response?.status === 403) navigate('/')
         throw err
@@ -122,6 +151,24 @@ export default function Analytics() {
     },
     staleTime: 1000 * 60 * 5,
   })
+
+  // Đóng popover khi click ra ngoài hoặc nhấn Escape — cùng pattern với
+  // userMenuRef trong Navbar.jsx.
+  useEffect(() => {
+    if (!showCustomPopover) return
+    const onMouseDown = (e) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target)) {
+        setShowCustomPopover(false)
+      }
+    }
+    const onKeyDown = (e) => { if (e.key === 'Escape') setShowCustomPopover(false) }
+    document.addEventListener('mousedown', onMouseDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [showCustomPopover])
 
   // Student Detail Modal state
   const [selectedStudent, setSelectedStudent] = useState(null)
@@ -173,7 +220,43 @@ export default function Analytics() {
 
   const handlePeriodChange = useCallback((p) => {
     setPeriod(p)
+    setShowCustomPopover(false)
   }, [])
+
+  // Chọn "Tùy chỉnh" trong dropdown chỉ mở popover chọn ngày — period chỉ thực
+  // sự đổi thành 'custom' sau khi bấm "Áp dụng" (handleApplyCustom).
+  const handleListboxChange = useCallback((value) => {
+    if (value === 'custom') {
+      setShowCustomPopover(true)
+    } else {
+      handlePeriodChange(value)
+    }
+  }, [handlePeriodChange])
+
+  const handleCustomFromChange = useCallback((e) => {
+    const value = e.target.value
+    setCustomFrom(value)
+    if (value && customTo && value > customTo) setCustomTo('')
+  }, [customTo])
+
+  const handleCustomToChange = useCallback((e) => {
+    setCustomTo(e.target.value)
+  }, [])
+
+  const handleApplyCustom = useCallback(() => {
+    if (!customFrom || !customTo) return
+    setPeriod('custom')
+    setShowCustomPopover(false)
+  }, [customFrom, customTo])
+
+  // Nhãn hiển thị trên nút dropdown: khoảng ngày đã áp dụng khi period='custom',
+  // ngược lại là nhãn preset tương ứng
+  const dropdownLabel = useMemo(() => {
+    if (period === 'custom' && isCustomRange) {
+      return `${formatShortDate(customFrom)} – ${formatShortDate(customTo)}`
+    }
+    return PERIOD_OPTIONS.find(o => o.value === period)?.label || 'Chọn khoảng'
+  }, [period, isCustomRange, customFrom, customTo])
 
   // ─── Derived data ───────────────────────────────────────────────────────────
   // period is the single source of truth — show all data returned for current period
@@ -222,19 +305,75 @@ export default function Analytics() {
   return (
     <div className="p-6 max-w-6xl mx-auto">
 
-        {/* ── Header + period toggle ── */}
+        {/* ── Header + period dropdown ── */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Thống kê & Phân tích</h1>
-          <div className="flex gap-1.5 flex-wrap">
-            {[['week', '7 ngày'], ['month', '30 ngày'], ['all', 'Tất cả']].map(([v, l]) => (
-              <button key={v} onClick={() => handlePeriodChange(v)}
-                disabled={chartLoading}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition shadow-2xs
-                  ${period === v ? 'bg-zinc-900 text-white shadow-xs' : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50'}
-                  ${chartLoading ? 'opacity-60 cursor-not-allowed' : ''}`}>
-                {l}
-              </button>
-            ))}
+
+          <div className="relative">
+            <Listbox value={period} onChange={handleListboxChange} disabled={chartLoading}>
+              {({ open }) => (
+                <>
+                  <ListboxButton
+                    className={`w-full sm:w-auto min-w-[136px] px-3 py-2 rounded-lg border border-zinc-200 bg-white text-xs font-medium text-zinc-700 shadow-2xs transition hover:bg-zinc-50 inline-flex items-center justify-between gap-2 cursor-pointer
+                      ${chartLoading ? 'opacity-60 cursor-not-allowed' : ''}`}>
+                    <span className="truncate">{dropdownLabel}</span>
+                    <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+                  </ListboxButton>
+
+                  <ListboxOptions
+                    anchor="bottom end"
+                    transition
+                    className="z-20 mt-2 w-44 rounded-xl border border-zinc-200 bg-white shadow-lg p-1 focus:outline-none transition duration-100 ease-out data-[closed]:opacity-0 data-[closed]:scale-95">
+                    {PERIOD_OPTIONS.map(opt => (
+                      <ListboxOption key={opt.value} value={opt.value}
+                        className={({ focus }) => `flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-xs font-medium cursor-pointer select-none transition-colors ${focus ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-700'}`}>
+                        {({ selected }) => (
+                          <>
+                            <span>{opt.label}</span>
+                            {selected && <Check className="w-3.5 h-3.5 text-zinc-900 shrink-0" />}
+                          </>
+                        )}
+                      </ListboxOption>
+                    ))}
+                  </ListboxOptions>
+                </>
+              )}
+            </Listbox>
+
+            {/* Popover chọn khoảng ngày — mở khi chọn "Tùy chỉnh" trong dropdown */}
+            {showCustomPopover && (
+              <div ref={popoverRef}
+                className="absolute right-0 top-full mt-2 z-20 w-72 bg-white border border-zinc-200 rounded-xl shadow-lg p-3">
+                <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Khoảng ngày</label>
+                <div className="flex items-center border border-zinc-200 rounded-md h-9 bg-zinc-50 w-full hover:border-zinc-300 focus-within:ring-2 focus-within:ring-zinc-200 focus-within:border-zinc-900 transition shadow-2xs">
+                  <input
+                    type="date"
+                    value={customFrom}
+                    onChange={handleCustomFromChange}
+                    max={todayStr}
+                    aria-label="Từ ngày"
+                    className="grouped-field flex-1 min-w-0 h-full px-2.5 text-xs bg-transparent cursor-pointer text-zinc-900 focus:outline-none [color-scheme:light] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-datetime-edit-month-field]:bg-transparent [&::-webkit-datetime-edit-day-field]:bg-transparent [&::-webkit-datetime-edit-year-field]:bg-transparent [&::-webkit-datetime-edit-month-field]:text-zinc-900 [&::-webkit-datetime-edit-day-field]:text-zinc-900 [&::-webkit-datetime-edit-year-field]:text-zinc-900"
+                  />
+                  <span className="text-xs text-zinc-400 shrink-0">–</span>
+                  <input
+                    type="date"
+                    value={customTo}
+                    onChange={handleCustomToChange}
+                    min={customFrom || undefined}
+                    max={todayStr}
+                    aria-label="Đến ngày"
+                    className="grouped-field flex-1 min-w-0 h-full px-2.5 text-xs bg-transparent cursor-pointer text-zinc-900 focus:outline-none [color-scheme:light] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-datetime-edit-month-field]:bg-transparent [&::-webkit-datetime-edit-day-field]:bg-transparent [&::-webkit-datetime-edit-year-field]:bg-transparent [&::-webkit-datetime-edit-month-field]:text-zinc-900 [&::-webkit-datetime-edit-day-field]:text-zinc-900 [&::-webkit-datetime-edit-year-field]:text-zinc-900"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleApplyCustom}
+                  disabled={!customFrom || !customTo}
+                  className="w-full h-8 mt-2 rounded-md bg-zinc-900 text-white text-xs font-medium transition hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-zinc-900 cursor-pointer">
+                  Áp dụng
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -377,12 +516,13 @@ export default function Analytics() {
           </div>
         </div>
 
-        {/* Band Score distribution — toàn thời gian, không phụ thuộc period → không skeleton khi đổi period */}
+        {/* Band Score distribution — nay lọc theo period/khoảng tùy chỉnh giống các biểu đồ
+            khác, nên dùng chung ChartSkeleton khi chartLoading thay vì luôn render tức thì */}
         <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs mb-6">
-          <h2 className="font-semibold text-zinc-900 text-sm mb-4">
-            Phân bố Band Score <span className="font-normal text-zinc-400 text-xs">(toàn thời gian)</span>
-          </h2>
-          {(data.bandDistribution || []).some(d => d.count > 0) ? (
+          <h2 className="font-semibold text-zinc-900 text-sm mb-4">Phân bố Band Score</h2>
+          {chartLoading ? (
+            <ChartSkeleton height={180} />
+          ) : (data.bandDistribution || []).some(d => d.count > 0) ? (
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={data.bandDistribution} margin={{ top: 20, right: 8, left: -20, bottom: 0 }}
                 barCategoryGap="28%">

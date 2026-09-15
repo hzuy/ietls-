@@ -7,6 +7,8 @@ const { teacherOnly } = require('../../../lib/roles')
 const { createSpeakingExamSchema } = require('../../../validators/adminExamValidator')
 const { invalidate } = require('../../../lib/swrCache')
 const { checkDuplicateExamTest } = require('./core')
+const { logAuditEvent } = require('../../../lib/auditLog')
+const { AUDIT_ACTIONS } = require('../../../lib/auditActions')
 
 // ─── CREATE SPEAKING EXAM ────────────────────────────────────────────────────
 router.post('/exams/speaking', authMiddleware, teacherOnly, validate(createSpeakingExamSchema), async (req, res) => {
@@ -75,6 +77,16 @@ router.post('/exams/speaking', authMiddleware, teacherOnly, validate(createSpeak
     })
 
     invalidate('fulltests:')
+
+    const questionCount = exam.speakingParts.reduce((sum, p) => sum + p.questions.length, 0)
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.EXAM_CREATE,
+      entityType: 'Exam',
+      entityId: exam.id,
+      entityLabel: exam.title,
+      metadata: { skill: 'speaking', partCount: exam.speakingParts.length, questionCount }
+    })
+
     res.status(201).json(exam)
   } catch (error) {
     console.error(error)

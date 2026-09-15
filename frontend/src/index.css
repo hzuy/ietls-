@@ -675,17 +675,28 @@ input:focus, textarea:focus, select:focus {
   text-decoration: none;
 }
 
-.admin-scope :is(input, textarea, select):hover,
-.admin-main :is(input, textarea, select):hover {
+.admin-scope :is(input, textarea, select):not(.grouped-field):hover,
+.admin-main :is(input, textarea, select):not(.grouped-field):hover {
   border-color: #d4d4d8 !important; /* zinc-300 */
   box-shadow: none !important;
 }
 
-.admin-scope :is(input, textarea, select):focus,
-.admin-main :is(input, textarea, select):focus {
+.admin-scope :is(input, textarea, select):not(.grouped-field):focus,
+.admin-main :is(input, textarea, select):not(.grouped-field):focus {
   border-color: #18181b !important; /* zinc-900 */
   box-shadow: 0 0 0 2px #e4e4e7 !important; /* zinc-200 */
 }
+
+/* `.grouped-field` — opt-out for an <input>/<select> nested inside a shared
+   bordered wrapper (e.g. the "Khoảng ngày" / "Khoảng Band" range boxes in
+   Admin > Lịch sử bài thi) where the WRAPPER already owns the visible
+   border/ring via :focus-within. Without this escape hatch, the rules above
+   (being unlayered + !important) also paint their own hover/focus border and
+   box-shadow directly on the child input the moment it — not just the
+   wrapper — receives hover/focus, producing a second, differently-sized ring
+   nested inside the wrapper's ring (visible border "thickening" between the
+   two range fields). Nothing else in the app uses this class, so this is a
+   no-op everywhere else. */
 
 /* ─── Ultra-Sharp Image Rendering (Retina & Anti-Blur) ─────────────────────── */
 .img-crisp {
