@@ -239,8 +239,8 @@ export default function Users() {
                         {/* Trạng thái */}
                         <td className="px-4 py-3">
                           {u.isLocked
-                            ? <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-50 text-red-600 border border-red-200">Không HĐ</span>
-                            : <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-100 text-zinc-800 border border-zinc-200">Hoạt động</span>
+                            ? <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-500/10 text-red-600 border border-red-500/20">Không HĐ</span>
+                            : <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">Hoạt động</span>
                           }
                         </td>
 

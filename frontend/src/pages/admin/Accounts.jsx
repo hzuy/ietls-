@@ -279,7 +279,7 @@ export default function Accounts() {
                       <td className="px-4 py-3 text-[11px] font-mono text-zinc-600">{fmtDate(acc.createdAt)}</td>
                       <td className="px-4 py-3">
                         {acc.isLocked ? (
-                          <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-red-500/10 text-red-600 border border-red-500/20">Khoá</span>
+                          <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-red-500/10 text-red-600 border border-red-500/20">Không HĐ</span>
                         ) : (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">Hoạt động</span>
                         )}
