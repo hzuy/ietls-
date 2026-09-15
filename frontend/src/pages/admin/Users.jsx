@@ -6,6 +6,7 @@ import { useToast } from '../../context/ToastContext'
 import { SkeletonTable } from '../../components/skeletons'
 import { Pencil, Lock, Unlock, Trash2, SearchX } from 'lucide-react'
 import Modal from '../../components/common/Modal'
+import Select from '../../components/admin/Select'
 
 import { roundIELTS } from '../../utils/ielts'
 
@@ -160,23 +161,29 @@ export default function Users() {
               onChange={e => { setSearch(e.target.value); setPage(1) }}
               className="w-[220px] px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 bg-white text-zinc-900 placeholder:text-zinc-400"
             />
-            <select
+            <Select
+              className="w-[168px]"
+              ariaLabel="Lọc theo trạng thái"
               value={statusFilter}
-              onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
-              className="px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 bg-white text-zinc-900">
-              <option value="">Tất cả trạng thái</option>
-              <option value="active">Hoạt động</option>
-              <option value="locked">Không hoạt động</option>
-            </select>
-            <select
+              onChange={v => { setStatusFilter(v); setPage(1) }}
+              options={[
+                { value: '', label: 'Tất cả trạng thái' },
+                { value: 'active', label: 'Hoạt động' },
+                { value: 'locked', label: 'Không hoạt động' },
+              ]}
+            />
+            <Select
+              className="w-[152px]"
+              ariaLabel="Sắp xếp"
               value={sortBy}
-              onChange={e => { setSortBy(e.target.value); setPage(1) }}
-              className="px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 bg-white text-zinc-900">
-              <option value="newest">Mới nhất</option>
-              <option value="oldest">Cũ nhất</option>
-              <option value="az">A → Z</option>
-              <option value="band">Band cao nhất</option>
-            </select>
+              onChange={v => { setSortBy(v); setPage(1) }}
+              options={[
+                { value: 'newest', label: 'Mới nhất' },
+                { value: 'oldest', label: 'Cũ nhất' },
+                { value: 'az', label: 'A → Z' },
+                { value: 'band', label: 'Band cao nhất' },
+              ]}
+            />
           </div>
         </div>
 

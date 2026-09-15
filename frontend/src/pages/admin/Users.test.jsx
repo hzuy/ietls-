@@ -131,4 +131,22 @@ describe('Users page — TanStack Query & Skeleton caching', () => {
       expect(adminService.deleteAdminUser).toHaveBeenCalledWith(1)
     })
   })
+
+  it('re-queries with the selected status when the status dropdown changes', async () => {
+    vi.spyOn(adminService, 'getAdminUsers').mockResolvedValue(mockUsersData)
+
+    renderUsers()
+
+    expect(await screen.findByText('Nguyen Van A')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Lọc theo trạng thái' }))
+    fireEvent.click(await screen.findByRole('option', { name: 'Không hoạt động' }))
+
+    await waitFor(() => {
+      expect(adminService.getAdminUsers).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'locked' })
+      )
+    })
+    expect(screen.getByText('Không hoạt động', { selector: 'button span' })).toBeInTheDocument()
+  })
 })
