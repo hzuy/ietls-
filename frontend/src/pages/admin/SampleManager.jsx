@@ -5,6 +5,7 @@ import { useDraftPersistence } from '../../hooks/useDraftPersistence'
 import { ConfirmDeleteModal, DraftBanner, DraftSavedHint, AdminListHeader, ThumbnailPicker } from '../../components/admin/contentPageUI'
 import { useToast } from '../../context/ToastContext'
 import ImageWithFallback from '../../components/common/ImageWithFallback'
+import Select from '../../components/admin/Select'
 
 import RichTextEditor from '../../components/RichTextEditor'
 import {
@@ -245,10 +246,12 @@ export default function SampleManager({ kind }) {
                 </div>
                 <div className="mb-3.5">
                   <label className="block text-xs font-medium text-zinc-700 mb-1.5">{cfg.taskFieldLabel}</label>
-                  <select value={form.level} onChange={e => setForm(f => ({ ...f, level: e.target.value, examType: '' }))}
-                    className="w-full px-3 py-2 border border-zinc-200 rounded-xl text-xs focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 transition bg-white text-zinc-900 shadow-2xs">
-                    {cfg.tasks.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                  </select>
+                  <Select
+                    ariaLabel={cfg.taskFieldLabel}
+                    value={form.level}
+                    onChange={v => setForm(f => ({ ...f, level: v, examType: '' }))}
+                    options={cfg.tasks}
+                  />
                 </div>
                 <div className="mb-3.5">
                   <label className="block text-xs font-medium text-zinc-700 mb-1.5">Dạng đề</label>
