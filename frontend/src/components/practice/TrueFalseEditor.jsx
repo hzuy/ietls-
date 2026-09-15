@@ -1,4 +1,5 @@
 import { getQuestionGroupTheme } from '../../utils/practiceConfig'
+import Select from '../admin/Select'
 
 export default function TrueFalseEditor({ group, onChange }) {
   const isTF = group.type === 'true_false_ng'
@@ -31,11 +32,15 @@ export default function TrueFalseEditor({ group, onChange }) {
             className={`w-full border ${theme.subBoxBorder} bg-white/80 rounded-lg px-2.5 py-1.5 text-sm resize-none focus:outline-none focus:bg-white`}
             placeholder="Nội dung câu phát biểu..."
             value={q.questionText} onChange={e => updateQ(qi, 'questionText', e.target.value)} />
-          <select className={`w-full border ${theme.subBoxBorder} rounded-lg px-2.5 py-1.5 text-sm focus:outline-none bg-white`}
-            value={q.correctAnswer} onChange={e => updateQ(qi, 'correctAnswer', e.target.value)}>
-            <option value="">-- Chọn đáp án --</option>
-            {answerOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-          </select>
+          <Select
+            ariaLabel="Đáp án đúng"
+            value={q.correctAnswer}
+            onChange={v => updateQ(qi, 'correctAnswer', v)}
+            options={[
+              { value: '', label: '-- Chọn đáp án --' },
+              ...answerOptions.map(opt => ({ value: opt, label: opt })),
+            ]}
+          />
         </div>
       ))}
       <button type="button" onClick={addQuestion}
