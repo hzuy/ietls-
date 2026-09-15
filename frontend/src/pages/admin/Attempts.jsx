@@ -6,8 +6,9 @@ import { useToast } from '../../context/ToastContext'
 import { SkeletonTable } from '../../components/skeletons'
 import { ADMIN_SKILL_COLORS, SKILL_LABEL } from '../../utils/adminSkillColors'
 import Modal from '../../components/common/Modal'
+import Select from '../../components/admin/Select'
 
-import { Download, RotateCcw, Eye, Search, ChevronLeft, ChevronRight, ChevronDown, ArrowUpDown } from 'lucide-react'
+import { Download, RotateCcw, Eye, Search, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react'
 import { useDebounce } from '../../hooks/useDebounce'
 
 const CRITERION_LABEL = {
@@ -302,20 +303,18 @@ export default function Attempts() {
           {/* Action Header — Sắp xếp (đổi thứ tự hiển thị) + Download, tách khỏi vùng filter */}
           <div className="flex items-center gap-2 flex-wrap">
             {/* Sắp xếp — server-side, áp dụng trên toàn bộ kết quả */}
-            <div className="relative">
-              <ArrowUpDown className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <select
-                value={sortMode}
-                onChange={e => { setSortMode(e.target.value); setPage(1) }}
-                aria-label="Sắp xếp"
-                className="h-9 pl-8 pr-8 text-xs border border-zinc-200 rounded-lg text-zinc-700 bg-white appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition shadow-2xs"
-              >
-                <option value="recent">Mới nhất</option>
-                <option value="band_desc">Band cao nhất</option>
-                <option value="band_asc">Band thấp nhất</option>
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
+            <Select
+              className="w-[160px]"
+              icon={ArrowUpDown}
+              ariaLabel="Sắp xếp"
+              value={sortMode}
+              onChange={v => { setSortMode(v); setPage(1) }}
+              options={[
+                { value: 'recent', label: 'Mới nhất' },
+                { value: 'band_desc', label: 'Band cao nhất' },
+                { value: 'band_asc', label: 'Band thấp nhất' },
+              ]}
+            />
             <button
               type="button"
               onClick={handleExportExcel}
@@ -361,33 +360,31 @@ export default function Attempts() {
             {/* Kỹ năng */}
             <div>
               <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Kỹ năng</label>
-              <div className="relative w-full">
-                <select
-                  value={skill}
-                  onChange={e => { setSkill(e.target.value); setPage(1) }}
-                  className="w-full h-9 pl-3 pr-8 text-xs border border-zinc-200 rounded-md text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition font-normal bg-zinc-50 appearance-none cursor-pointer shadow-2xs"
-                >
-                  <option value="">Tất cả kỹ năng</option>
-                  {Object.entries(SKILL_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
-                <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
+              <Select
+                buttonClassName="bg-zinc-50"
+                ariaLabel="Kỹ năng"
+                value={skill}
+                onChange={v => { setSkill(v); setPage(1) }}
+                options={[
+                  { value: '', label: 'Tất cả kỹ năng' },
+                  ...Object.entries(SKILL_LABEL).map(([v, l]) => ({ value: v, label: l })),
+                ]}
+              />
             </div>
 
             {/* Bộ đề */}
             <div>
               <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Bộ đề</label>
-              <div className="relative w-full">
-                <select
-                  value={seriesId}
-                  onChange={e => { setSeriesId(e.target.value); setPage(1) }}
-                  className="w-full h-9 pl-3 pr-8 text-xs border border-zinc-200 rounded-md text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition font-normal bg-zinc-50 appearance-none cursor-pointer shadow-2xs"
-                >
-                  <option value="">Tất cả bộ đề</option>
-                  {examSeries.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-                <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
+              <Select
+                buttonClassName="bg-zinc-50"
+                ariaLabel="Bộ đề"
+                value={seriesId}
+                onChange={v => { setSeriesId(v); setPage(1) }}
+                options={[
+                  { value: '', label: 'Tất cả bộ đề' },
+                  ...examSeries.map(s => ({ value: String(s.id), label: s.name })),
+                ]}
+              />
             </div>
 
             {/* Khoảng ngày — 2/4 cột, thẳng hàng dưới ô Tìm kiếm */}
