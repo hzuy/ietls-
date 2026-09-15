@@ -4,6 +4,7 @@ import api from '../../utils/axios'
 import { showAlert } from '../../utils/alertUtils'
 import { notifyTrashChanged } from '../../services/adminService'
 import { emptyWritingForm, inputCls, labelCls, btnPrimary, btnSecondary, toImgSrc, useExamSeriesList, useSeriesBooks } from './adminConstants'
+import Select from './Select'
 import ExamList from './ExamList'
 import InlinePreviewPanel from '../common/InlinePreviewPanel'
 import { Upload, Trash2, Eye } from 'lucide-react'
@@ -345,24 +346,41 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className={labelCls}>Bộ đề</label>
-              <select className={inputCls} value={form.seriesId} onChange={e => setForm({ ...form, seriesId: e.target.value, bookNumber: '' })}>
-                <option value="">-- Không gắn --</option>
-                {liveExamSeries.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              <Select
+                ariaLabel="Bộ đề"
+                value={form.seriesId}
+                onChange={v => setForm({ ...form, seriesId: v, bookNumber: '' })}
+                options={[
+                  { value: '', label: '-- Không gắn --' },
+                  ...liveExamSeries.map(s => ({ value: String(s.id), label: s.name })),
+                ]}
+              />
             </div>
             <div>
               <label className={labelCls}>Cuốn số</label>
-              <select className={inputCls} value={form.bookNumber} onChange={e => setForm({ ...form, bookNumber: e.target.value })} disabled={!form.seriesId}>
-                <option value="">-- Chọn cuốn --</option>
-                {seriesBooks.map(b => <option key={b.bookNumber} value={b.bookNumber}>{b.bookNumber}</option>)}
-              </select>
+              <Select
+                ariaLabel="Cuốn số"
+                value={form.bookNumber}
+                onChange={v => setForm({ ...form, bookNumber: v })}
+                disabled={!form.seriesId}
+                options={[
+                  { value: '', label: '-- Chọn cuốn --' },
+                  ...seriesBooks.map(b => ({ value: String(b.bookNumber), label: String(b.bookNumber) })),
+                ]}
+              />
             </div>
             <div>
               <label className={labelCls}>Test số</label>
-              <select className={inputCls} value={form.testNumber} onChange={e => setForm({ ...form, testNumber: e.target.value })} disabled={!form.bookNumber}>
-                <option value="">-- Chọn test --</option>
-                {[1, 2, 3, 4].map(n => <option key={n} value={n}>Test {n}</option>)}
-              </select>
+              <Select
+                ariaLabel="Test số"
+                value={form.testNumber}
+                onChange={v => setForm({ ...form, testNumber: v })}
+                disabled={!form.bookNumber}
+                options={[
+                  { value: '', label: '-- Chọn test --' },
+                  ...[1, 2, 3, 4].map(n => ({ value: String(n), label: `Test ${n}` })),
+                ]}
+              />
             </div>
           </div>
         </div>
