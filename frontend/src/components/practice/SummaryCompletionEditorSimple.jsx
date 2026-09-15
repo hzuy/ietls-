@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import Select from '../admin/Select'
 
 // Simplified Summary Completion editor for Listening (no lineType toggle, no addSection)
 export default function SummaryCompletionEditorSimple({ group, onChange }) {
@@ -120,13 +121,16 @@ export default function SummaryCompletionEditorSimple({ group, onChange }) {
               return (
                 <div key={tokenNum} className="flex items-center gap-2">
                   <span className="text-xs font-bold text-[#1D4ED8] w-14 shrink-0">Q{displayNum}:</span>
-                  <select className="flex-1 border border-[#e2e8f0] rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-[#3B82F6] bg-white"
-                    value={q?.correctAnswer || ''} onChange={e => updateAnswer(tokenNum, e.target.value)}>
-                    <option value="">-- chọn --</option>
-                    {matchingOptions.map((mo, mi) => (
-                      <option key={mi} value={mo.letter}>{mo.letter}. {mo.text}</option>
-                    ))}
-                  </select>
+                  <Select
+                    className="flex-1"
+                    ariaLabel={`Đáp án câu ${displayNum}`}
+                    value={q?.correctAnswer || ''}
+                    onChange={v => updateAnswer(tokenNum, v)}
+                    options={[
+                      { value: '', label: '-- chọn --' },
+                      ...matchingOptions.map(mo => ({ value: mo.letter, label: `${mo.letter}. ${mo.text}` })),
+                    ]}
+                  />
                 </div>
               )
             })}
