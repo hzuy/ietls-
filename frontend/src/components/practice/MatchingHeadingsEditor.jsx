@@ -1,4 +1,5 @@
 import { ROMAN_KEYS, getQuestionGroupTheme } from '../../utils/practiceConfig'
+import Select from '../admin/Select'
 
 export default function MatchingHeadingsEditor({ group, onChange }) {
   const headings = group.matchingOptions || []
@@ -82,13 +83,17 @@ export default function MatchingHeadingsEditor({ group, onChange }) {
               </div>
               <div className="flex items-center gap-2 pl-14">
                 <span className="text-xs text-slate-500 shrink-0">Đáp án:</span>
-                <select className={`flex-1 border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-sm focus:outline-none`}
-                  value={q.correctAnswer || ''} onChange={e => updateAnswer(i, e.target.value)}>
-                  <option value="">-- Chọn heading --</option>
-                  {headings.filter(h => group.canReuse || h.letter === q.correctAnswer || !usedAnswers.has(h.letter)).map(h => (
-                    <option key={h.letter} value={h.letter}>{h.letter} — {h.text}</option>
-                  ))}
-                </select>
+                <Select
+                  className="flex-1"
+                  ariaLabel="Heading đúng"
+                  value={q.correctAnswer || ''}
+                  onChange={v => updateAnswer(i, v)}
+                  options={[
+                    { value: '', label: '-- Chọn heading --' },
+                    ...headings.filter(h => group.canReuse || h.letter === q.correctAnswer || !usedAnswers.has(h.letter))
+                      .map(h => ({ value: h.letter, label: `${h.letter} — ${h.text}` })),
+                  ]}
+                />
               </div>
             </div>
           )
