@@ -6,6 +6,7 @@ import useDebounce from '../../hooks/useDebounce'
 import { SkeletonTable } from '../skeletons'
 import { Star } from 'lucide-react'
 import Modal from '../common/Modal'
+import Select from './Select'
 
 // Bản đồ tùy chọn sort (UI) → cặp { sortBy, sortOrder } gửi lên GET /admin/exams
 const SORT_MAP = {
@@ -229,39 +230,42 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
           className="flex-1 min-w-[160px] px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 bg-white text-zinc-900 placeholder:text-zinc-400"
         />
         <label htmlFor="examlist-series" className="sr-only">Lọc theo bộ đề</label>
-        <select
+        <Select
           id="examlist-series"
+          className="w-[168px]"
           value={filterSeries}
-          onChange={e => handleSeriesChange(e.target.value)}
-          className="px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 bg-white text-zinc-900"
-        >
-          <option value="">Tất cả bộ đề</option>
-          {examSeries.map(s => <option key={s.id} value={s.id.toString()}>{s.name}</option>)}
-        </select>
+          onChange={handleSeriesChange}
+          options={[
+            { value: '', label: 'Tất cả bộ đề' },
+            ...examSeries.map(s => ({ value: s.id.toString(), label: s.name })),
+          ]}
+        />
         <label htmlFor="examlist-status" className="sr-only">Lọc theo trạng thái câu hỏi</label>
-        <select
+        <Select
           id="examlist-status"
+          className="w-[168px]"
           value={filterStatus}
-          onChange={e => handleStatusChange(e.target.value)}
-          className="px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 bg-white text-zinc-900"
-        >
-          <option value="all">Tất cả trạng thái</option>
-          <option value="has_questions">Có câu hỏi</option>
-          <option value="no_questions">Chưa có câu hỏi</option>
-        </select>
+          onChange={handleStatusChange}
+          options={[
+            { value: 'all', label: 'Tất cả trạng thái' },
+            { value: 'has_questions', label: 'Có câu hỏi' },
+            { value: 'no_questions', label: 'Chưa có câu hỏi' },
+          ]}
+        />
         <label htmlFor="examlist-sort" className="sr-only">Sắp xếp</label>
-        <select
+        <Select
           id="examlist-sort"
+          className="w-[168px]"
           value={sortBy}
-          onChange={e => handleSortChange(e.target.value)}
-          className="px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 bg-white text-zinc-900"
-        >
-          <option value="newest">Mới nhất</option>
-          <option value="oldest">Cũ nhất</option>
-          <option value="name">Tên A→Z</option>
-          <option value="attempts">Nhiều lượt làm</option>
-          <option value="score">Band cao nhất</option>
-        </select>
+          onChange={handleSortChange}
+          options={[
+            { value: 'newest', label: 'Mới nhất' },
+            { value: 'oldest', label: 'Cũ nhất' },
+            { value: 'name', label: 'Tên A→Z' },
+            { value: 'attempts', label: 'Nhiều lượt làm' },
+            { value: 'score', label: 'Band cao nhất' },
+          ]}
+        />
         {hasActiveFilter && (
           <button
             onClick={resetFilters}

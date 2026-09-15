@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render as rtlRender, screen } from '@testing-library/react'
+import { render as rtlRender, screen, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import ExamList from './ExamList'
 
@@ -174,5 +174,26 @@ describe('ExamList — Speaking Part Badge & Validation Count', () => {
     expect(screen.getByText('2')).toBeInTheDocument()
     expect(screen.getByText('20')).toBeInTheDocument()
     expect(screen.getByText(/trên tổng số/)).toBeInTheDocument()
+  })
+
+  it('gọi fetchExams với tham số đúng khi đổi bộ lọc bộ đề/sắp xếp qua dropdown', () => {
+    const fetchExams = vi.fn()
+    const examSeries = [{ id: 5, name: 'Cambridge 18' }]
+
+    render(<ExamList
+      exams={[]}
+      skill="reading"
+      examSeries={examSeries}
+      fetchExams={fetchExams}
+      paginationData={{ total: 0, page: 1, pages: 1 }}
+    />)
+
+    fireEvent.click(screen.getByLabelText('Lọc theo bộ đề'))
+    fireEvent.click(screen.getByRole('option', { name: 'Cambridge 18' }))
+    expect(fetchExams).toHaveBeenCalledWith(expect.objectContaining({ seriesId: '5' }))
+
+    fireEvent.click(screen.getByLabelText('Sắp xếp'))
+    fireEvent.click(screen.getByRole('option', { name: 'Band cao nhất' }))
+    expect(fetchExams).toHaveBeenCalledWith(expect.objectContaining({ sortBy: 'score', sortOrder: 'desc' }))
   })
 })
