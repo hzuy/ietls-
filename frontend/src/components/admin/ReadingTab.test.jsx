@@ -115,4 +115,41 @@ describe('ReadingTab — UX & Accessibility', () => {
     // Chúng ta có thể kiểm tra xem alertSpy có bao giờ bị gọi không
     expect(alertSpy).not.toHaveBeenCalled()
   })
+
+  it('dropdown Bộ đề/Cuốn số/Test số (Select dùng chung) hoạt động và reset Cuốn số khi đổi Bộ đề', async () => {
+    api.get.mockImplementation((url) => {
+      if (url === '/admin/exam-series') {
+        return Promise.resolve({ data: [{ id: 7, name: 'Cambridge 19' }] })
+      }
+      if (url === '/admin/exam-series/7/books') {
+        return Promise.resolve({ data: [{ bookNumber: 1 }, { bookNumber: 2 }] })
+      }
+      return Promise.resolve({ data: [] })
+    })
+
+    render(<ReadingTab exams={[]} onRefresh={vi.fn()} />)
+
+    // Cuốn số ban đầu bị disable vì chưa chọn Bộ đề
+    expect(screen.getByRole('button', { name: 'Cuốn số' })).toBeDisabled()
+
+    // Chọn Bộ đề "Cambridge 19"
+    fireEvent.click(screen.getByRole('button', { name: 'Bộ đề' }))
+    fireEvent.click(await screen.findByRole('option', { name: 'Cambridge 19' }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Cuốn số' })).not.toBeDisabled()
+    })
+
+    // Chọn Cuốn số 2
+    fireEvent.click(screen.getByRole('button', { name: 'Cuốn số' }))
+    fireEvent.click(await screen.findByRole('option', { name: '2' }))
+    expect(screen.getByRole('button', { name: 'Cuốn số' })).toHaveTextContent('2')
+
+    // Đổi lại Bộ đề — Cuốn số phải reset về placeholder
+    fireEvent.click(screen.getByRole('button', { name: 'Bộ đề' }))
+    fireEvent.click(await screen.findByRole('option', { name: '-- Không gắn --' }))
+
+    expect(screen.getByRole('button', { name: 'Cuốn số' })).toHaveTextContent('-- Chọn cuốn --')
+    expect(screen.getByRole('button', { name: 'Cuốn số' })).toBeDisabled()
+  })
 })
