@@ -626,15 +626,19 @@ button:disabled {
 /* Legacy alias */
 .hero-dots { position: absolute; inset: 0; background-image: radial-gradient(circle, rgba(24,24,27,0.08) 1px, transparent 1px); background-size: 24px 24px; pointer-events: none; user-select: none; opacity: 0.35; }
 
-/* ─── Home Hero — nền tối "Quỹ đạo Band Score" (Đợt 3, chỉ Home.jsx) ─────────
-   Gradient TỰ kết thúc đúng bằng var(--bg) ở điểm cuối — không cần lớp overlay
-   fade riêng để nối với section sáng bên dưới, tránh seam cứng. Override lại
-   toàn bộ token --net-* (đã đăng ký ở :root phía trên) chỉ trong phạm vi class
-   này — không đụng gì ở nơi khác vì .hero-net-wrap hiện không được dùng ở đâu
-   ngoài Home.jsx. */
+/* ─── Home — nền tối "Quỹ đạo Band Score" kéo dài toàn trang (Việc 1, chỉ
+   Home.jsx). Nền tối đặt ở wrapper ngoài cùng (.home-page-dark) để chạy liên
+   tục hết trang, không cắt ở cuối hero — tránh seam cứng giữa hero và nội
+   dung bên dưới. .home-hero-dark chỉ còn override token --net-* (dùng bởi
+   HeroBandOrbit) trong phạm vi khối hero, bản thân nó không tự vẽ nền nữa. */
+.home-page-dark {
+  /* Điểm cuối #0b0a14 gần với zinc-950 (#09090b, nền Footer dùng chung toàn
+     site) để nối mượt vào Footer — không cần lớp fade riêng. */
+  background: linear-gradient(180deg, #1b1033 0%, #120f24 22%, #0b0a14 100%);
+}
+
 .home-hero-dark {
   position: relative;
-  background: linear-gradient(180deg, #1b1033 0%, #120f24 60%, var(--bg) 100%);
 
   --net-grad-0:      #2a1f4d;
   --net-grad-50:     #201640;

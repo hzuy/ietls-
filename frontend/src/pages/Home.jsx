@@ -76,12 +76,12 @@ function CompactBookCard({ book, onClick }) {
         )}
       </div>
 
-      {/* Book Info */}
+      {/* Book Info — nằm trực tiếp trên nền trang tối, không phải trong thẻ trắng */}
       <div className="mt-2 text-left">
-        <h3 className="text-xs font-semibold text-zinc-900 truncate group-hover:text-zinc-600 transition-colors">
+        <h3 className="text-xs font-semibold truncate group-hover:text-zinc-300 transition-colors" style={{ color: '#f4f4f5' }}>
           {book.title}
         </h3>
-        <p className="text-[11px] text-zinc-500 font-mono mt-0.5">
+        <p className="text-[11px] text-zinc-400 font-mono mt-0.5">
           {book.testCount} đề Full Test
         </p>
       </div>
@@ -263,7 +263,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] flex flex-col">
+    <div className="min-h-screen home-page-dark flex flex-col">
       {/* ── 1. Hero Section — nền tối "Quỹ đạo Band Score" (Đợt 3) ─────────── */}
       <section className="relative overflow-hidden home-hero-dark">
         <div className="bg-dots-light" aria-hidden="true" />
@@ -359,10 +359,10 @@ export default function Home() {
 
           {/* Section 1: Bộ đề Cambridge Academic & IELTS Practice Plus */}
             <section className="flex flex-col gap-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-100">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
                 <div className="flex items-center gap-3 flex-wrap">
                   <div>
-                    <h2 className="text-base font-semibold text-zinc-900">
+                    <h2 className="text-base font-semibold" style={{ color: '#f4f4f5' }}>
                       {seriesTab === 'cambridge' ? 'Bộ đề Cambridge Academic' : 'Bộ đề IELTS Practice Test Plus'}
                     </h2>
                     <p className="text-[11px] font-mono text-zinc-400 mt-0.5">
@@ -371,14 +371,14 @@ export default function Home() {
                   </div>
 
                   {/* Segmented Switcher: Cambridge | Practice Plus | Luyện kỹ năng */}
-                  <div className="inline-flex p-1 bg-zinc-100 rounded-full border border-zinc-200 shrink-0 sm:ml-2">
+                  <div className="inline-flex p-1 bg-white/10 rounded-full border border-white/15 shrink-0 sm:ml-2">
                     <button
                       type="button"
                       onClick={() => setSeriesTab('cambridge')}
                       className={`px-4 py-1.5 text-xs rounded-full transition-all cursor-pointer ${
                         seriesTab === 'cambridge'
                           ? 'bg-white text-zinc-900 font-semibold shadow-2xs'
-                          : 'text-zinc-500 hover:text-zinc-900'
+                          : 'text-zinc-400 hover:text-white'
                       }`}
                     >
                       Cambridge Academic
@@ -390,7 +390,7 @@ export default function Home() {
                         className={`px-4 py-1.5 text-xs rounded-full transition-all cursor-pointer ${
                           seriesTab === 'practice-plus'
                             ? 'bg-white text-zinc-900 font-semibold shadow-2xs'
-                            : 'text-zinc-500 hover:text-zinc-900'
+                            : 'text-zinc-400 hover:text-white'
                         }`}
                       >
                         Practice Plus
@@ -399,7 +399,7 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => document.getElementById('quick-skills-section')?.scrollIntoView({ behavior: 'smooth' })}
-                      className="px-4 py-1.5 text-xs rounded-full transition-all cursor-pointer text-zinc-500 hover:text-zinc-900"
+                      className="px-4 py-1.5 text-xs rounded-full transition-all cursor-pointer text-zinc-400 hover:text-white"
                     >
                       Luyện kỹ năng
                     </button>
@@ -408,7 +408,7 @@ export default function Home() {
 
                 <button
                   onClick={() => gate(seriesTab === 'cambridge' ? '/cambridge' : '/practice-plus')}
-                  className="text-xs font-semibold text-zinc-600 hover:text-zinc-900 transition-colors cursor-pointer self-start sm:self-auto"
+                  className="text-xs font-semibold text-zinc-300 hover:text-white transition-colors cursor-pointer self-start sm:self-auto"
                 >
                   {seriesTab === 'cambridge' ? 'Xem trọn bộ Cambridge' : 'Xem trọn bộ Practice Plus'}
                 </button>
@@ -420,9 +420,9 @@ export default function Home() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                   {[0, 1, 2, 3, 4, 5].map(i => (
                     <div key={i}>
-                      <div className="w-full aspect-[3/4] bg-zinc-100 rounded-xl animate-pulse" />
-                      <div className="h-3.5 bg-zinc-100 rounded mt-2.5 w-3/4 animate-pulse" />
-                      <div className="h-3 bg-zinc-100 rounded mt-1.5 w-1/2 animate-pulse" />
+                      <div className="w-full aspect-[3/4] bg-white/10 rounded-xl animate-pulse" />
+                      <div className="h-3.5 bg-white/10 rounded mt-2.5 w-3/4 animate-pulse" />
+                      <div className="h-3 bg-white/10 rounded mt-1.5 w-1/2 animate-pulse" />
                     </div>
                   ))}
                 </div>
@@ -439,9 +439,9 @@ export default function Home() {
                 giảm chiều cao trang, hạ độ ưu tiên thị giác so với dải tiến độ
                 và bộ đề Cambridge/Practice Plus ở trên. */}
             <section id="quick-skills-section" className="flex flex-col gap-4">
-              <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
+              <div className="flex items-center justify-between pb-3 border-b border-white/10">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-base font-semibold text-zinc-900 shrink-0">
+                  <h2 className="text-base font-semibold shrink-0" style={{ color: '#f4f4f5' }}>
                     Khám phá thêm
                   </h2>
                   <span className="text-[11px] font-mono text-zinc-400">
