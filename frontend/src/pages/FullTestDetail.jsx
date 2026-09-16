@@ -1,14 +1,16 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import Breadcrumb from '../components/common/Breadcrumb'
 
 import { useAuth } from '../context/AuthContext'
 import { checkDraft } from '../services/draftService'
-import { Headphones, BookOpen, PenTool, Mic, AlertCircle } from 'lucide-react'
+import { Headphones, BookOpen, PenTool, Mic, AlertCircle, RefreshCw, FolderArchive } from 'lucide-react'
 import { BACKEND_URL, resolveImg, handleImgError } from '../utils/media'
 import Modal from '../components/common/Modal'
 import AcademicCover from '../components/common/AcademicCover'
+import Card from '../components/common/Card'
+import { SkeletonCard } from '../components/skeletons'
 
 const SKILL_META = {
   reading:   { label: 'Reading',   Icon: BookOpen,   colorVar: '--skill-r-color', bgVar: '--skill-r-bg', borderVar: '--skill-r-border', path: '/reading',   desc: '3 passages · 40 câu · 60 phút' },
@@ -33,8 +35,11 @@ export default function FullTestDetail() {
   const [modal, setModal] = useState(null)
   const [draftInfo, setDraftInfo] = useState({}) // { [testNumber-skill]: checkDraft result }
 
-  useEffect(() => {
+  const fetchBookData = useCallback(() => {
     if (!bookNumber) return
+
+    setLoading(true)
+    setFetchError(false)
 
     fetch(`${BACKEND_URL}/api/admin/full-tests`, {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
@@ -92,6 +97,10 @@ export default function FullTestDetail() {
       })
   }, [seriesId, bookNumber])
 
+  useEffect(() => {
+    fetchBookData()
+  }, [fetchBookData])
+
   const suggestions = useMemo(() => {
     if (!allBooks.length || !bookData) return []
     const filtered = allBooks.filter(b =>
@@ -130,23 +139,45 @@ export default function FullTestDetail() {
 
   if (loading) return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}><Navbar />
-      <div className="max-w-6xl mx-auto px-6 py-16 text-center" style={{ color: 'var(--muted)' }}>Đang tải...</div>
+      <div className="app-container py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-6 items-start">
+          <div>
+            <div className="h-[158px] bg-white rounded-2xl border border-zinc-200 shadow-xs animate-pulse mb-5" />
+            <div className="h-6 w-32 bg-zinc-200 rounded-md animate-pulse mb-3.5" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {[1, 2, 3, 4].map(i => <SkeletonCard key={i} aspect="4/5" />)}
+            </div>
+          </div>
+          <div className="h-40 bg-white rounded-2xl border border-zinc-200 shadow-xs animate-pulse" />
+        </div>
+      </div>
     </div>
   )
 
   if (fetchError) return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}><Navbar />
-      <div className="max-w-6xl mx-auto px-6 py-16 text-center">
-        <AlertCircle className="w-10 h-10 text-zinc-400 mx-auto mb-3 stroke-[1.75]" />
+      <Card className="max-w-md mx-auto mt-16 text-center py-12 px-6 flex flex-col items-center">
+        <AlertCircle className="w-10 h-10 text-zinc-400 mb-3 stroke-[1.75]" />
         <p style={{ color: 'var(--ink)', fontWeight: 700, fontSize: 16 }}>Không thể tải dữ liệu</p>
-        <p style={{ color: 'var(--muted)', fontSize: 14 }}>Vui lòng kiểm tra kết nối và thử lại.</p>
-      </div>
+        <p className="mb-5" style={{ color: 'var(--muted)', fontSize: 14 }}>Vui lòng kiểm tra kết nối và thử lại.</p>
+        <button
+          onClick={fetchBookData}
+          className="btn-primary flex items-center justify-center gap-2 px-6 h-9 rounded-full font-semibold text-sm cursor-pointer"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Thử lại
+        </button>
+      </Card>
     </div>
   )
 
   if (!bookData || bookData.empty) return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}><Navbar />
-      <div className="max-w-6xl mx-auto px-6 py-16 text-center" style={{ color: 'var(--muted)' }}>Chưa có bài test nào trong cuốn sách này.</div>
+      <Card variant="flat" className="max-w-md mx-auto mt-16 text-center py-12 px-6 flex flex-col items-center">
+        <FolderArchive className="w-12 h-12 text-zinc-300 stroke-[1.5] mb-4" />
+        <h3 className="font-bold text-zinc-900 text-base">Chưa có bài test nào</h3>
+        <p className="text-zinc-500 text-sm mt-1">Cuốn sách này hiện chưa có bài test nào được thêm vào</p>
+      </Card>
     </div>
   )
 

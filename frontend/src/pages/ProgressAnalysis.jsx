@@ -331,14 +331,16 @@ export default function ProgressAnalysis() {
                 </div>
 
                 {filteredBreakdown.length === 0 ? (
-                  <div className="py-8 text-center">
-                    <p className="text-xs text-zinc-400">
+                  <div className="py-10 text-center flex flex-col items-center justify-center">
+                    <BarChart3 className="w-10 h-10 text-zinc-300 mb-2" />
+                    <h4 className="text-sm font-bold text-zinc-700">
                       {skillFilter === 'reading'
-                        ? 'Chưa có dữ liệu làm bài Reading.'
+                        ? 'Chưa có dữ liệu làm bài Reading'
                         : skillFilter === 'listening'
-                        ? 'Chưa có dữ liệu làm bài Listening.'
-                        : 'Chưa có dữ liệu làm bài Reading/Listening.'}
-                    </p>
+                        ? 'Chưa có dữ liệu làm bài Listening'
+                        : 'Chưa có dữ liệu làm bài Reading/Listening'}
+                    </h4>
+                    <p className="text-xs text-zinc-500 mt-1">Hoàn thành một bài thi để xem thống kê theo dạng câu hỏi.</p>
                   </div>
                 ) : (
                   <div className="space-y-4">

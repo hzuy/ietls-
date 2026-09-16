@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { AlertCircle, RefreshCw, FileQuestion } from 'lucide-react'
 import Navbar from '../components/Navbar'
 
 import Card from '../components/common/Card'
+import { SkeletonText } from '../components/skeletons'
 import SampleHeader from '../components/SampleHeader'
 import { getSample } from '../services/sampleService'
 import { sanitizeRichText } from '../utils/sanitizeHtml'
@@ -14,21 +16,60 @@ export default function SampleDetailPage({ skill }) {
   const navigate = useNavigate()
   const [sample, setSample] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
 
-  useEffect(() => {
+  const fetchSample = useCallback(() => {
+    setLoading(true)
+    setError(false)
     getSample(skill, id)
       .then(data => setSample(data))
-      .catch(() => navigate(-1))
+      .catch(() => setError(true))
       .finally(() => setLoading(false))
   }, [id, skill])
+
+  useEffect(() => {
+    fetchSample()
+  }, [fetchSample])
 
   if (loading) return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
       <Navbar />
-      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '64px 24px', textAlign: 'center', color: 'var(--muted)' }}>Đang tải...</div>
+      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '32px 24px' }}>
+        <Card className="p-8 md:p-12">
+          <SkeletonText lines={8} />
+        </Card>
+      </div>
     </div>
   )
-  if (!sample) return null
+
+  if (error) return (
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
+      <Navbar />
+      <Card className="max-w-md mx-auto mt-16 text-center py-12 px-6 flex flex-col items-center">
+        <AlertCircle className="w-10 h-10 text-zinc-400 mb-3 stroke-[1.75]" />
+        <p style={{ color: 'var(--ink)', fontWeight: 700, fontSize: 16 }}>Không thể tải bài mẫu</p>
+        <p className="mb-5" style={{ color: 'var(--muted)', fontSize: 14 }}>Vui lòng kiểm tra kết nối và thử lại.</p>
+        <button
+          onClick={fetchSample}
+          className="btn-primary flex items-center justify-center gap-2 px-6 h-9 rounded-full font-semibold text-sm cursor-pointer"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Thử lại
+        </button>
+      </Card>
+    </div>
+  )
+
+  if (!sample) return (
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
+      <Navbar />
+      <Card variant="flat" className="max-w-md mx-auto mt-16 text-center py-12 px-6 flex flex-col items-center">
+        <FileQuestion className="w-12 h-12 text-zinc-300 stroke-[1.5] mb-4" />
+        <h3 className="font-bold text-zinc-900 text-base">Không tìm thấy bài mẫu</h3>
+        <p className="text-zinc-500 text-sm mt-1">Bài mẫu này có thể đã bị gỡ hoặc không còn tồn tại</p>
+      </Card>
+    </div>
+  )
 
   const taskLabel = TASK_LABELS[sample.level] || null
   // Tags đã bỏ khỏi luồng soạn Writing/Speaking Sample → không hiển thị nữa.
