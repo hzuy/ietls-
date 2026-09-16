@@ -16,6 +16,7 @@ import ResumeHeroCard from '../components/home/ResumeHeroCard'
 import StreakWidget from '../components/home/StreakWidget'
 import BandOverviewWidget from '../components/home/BandOverviewWidget'
 import QuickFullTestWidget from '../components/home/QuickFullTestWidget'
+import HeroBandOrbit from '../components/home/HeroBandOrbit'
 import { getLatestDraft, clearDraft } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
 import { useAuthGate } from '../hooks/useAuthGate'
@@ -308,37 +309,48 @@ export default function Home() {
     <div className="min-h-screen bg-[var(--bg)] flex flex-col">
       <Navbar />
 
-      {/* ── 1. Tinh gọn triệt để khối Hero Section ────────────────────────── */}
-      <section className="relative overflow-hidden border-b border-zinc-200 bg-white">
-        <div className="bg-dots" aria-hidden="true" />
-        <div className="app-container py-8 md:py-10 relative">
-          <div className="max-w-2xl anim-fade-up">
-            <PageHeader
-              title="Không gian Luyện thi & Khảo thí IELTS"
-              subtitle="Nền tảng kiểm tra trực tuyến mô phỏng kỳ thi trên máy tính, tích hợp AI phân tích 4 kỹ năng."
-              subtitleClassName="text-sm text-zinc-500 max-w-xl leading-relaxed mt-2"
-            />
+      {/* ── 1. Hero Section — nền tối "Quỹ đạo Band Score" (Đợt 3) ─────────── */}
+      <section className="relative overflow-hidden home-hero-dark">
+        <div className="bg-dots-light" aria-hidden="true" />
+        <div className="home-hero-glow home-hero-glow-pulse" style={{ top: '-8%', right: '2%' }} aria-hidden="true" />
+        <div className="app-container py-12 md:py-16 relative">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-10">
+            <div className="max-w-2xl w-full anim-fade-up">
+              <PageHeader
+                title="Không gian Luyện thi & Khảo thí IELTS"
+                subtitle="Nền tảng kiểm tra trực tuyến mô phỏng kỳ thi trên máy tính, tích hợp AI phân tích 4 kỹ năng."
+                titleClassName="text-2xl sm:text-3xl font-bold text-white tracking-tight"
+                subtitleClassName="text-sm text-zinc-300 max-w-xl leading-relaxed mt-2"
+              />
 
-            <div className="flex flex-wrap items-center gap-3 mt-5">
-              <button
-                onClick={() => gate('/cambridge')}
-                className="h-9 px-5 text-white text-sm font-medium rounded-full shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
-                style={{ background: 'var(--primary)' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
-              >
-                Vào phòng thi Cambridge
-              </button>
-              <button
-                onClick={() => {
-                  const el = document.getElementById('quick-skills-section')
-                  if (el) el.scrollIntoView({ behavior: 'smooth' })
-                  else gate('/practice/reading')
-                }}
-                className="h-9 px-5 bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-900 text-sm font-medium rounded-full transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
-              >
-                Luyện tập kỹ năng
-              </button>
+              <div className="flex flex-wrap items-center gap-3 mt-5">
+                <button
+                  onClick={() => gate('/cambridge')}
+                  className="h-9 px-5 text-white text-sm font-medium rounded-full shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
+                  style={{ background: 'linear-gradient(135deg, #7c3aed, #5b21b6)' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'linear-gradient(135deg, #6d28d9, #4c1d95)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'linear-gradient(135deg, #7c3aed, #5b21b6)'}
+                >
+                  Vào phòng thi Cambridge
+                </button>
+                <button
+                  onClick={() => {
+                    const el = document.getElementById('quick-skills-section')
+                    if (el) el.scrollIntoView({ behavior: 'smooth' })
+                    else gate('/practice/reading')
+                  }}
+                  className="h-9 px-5 text-white text-sm font-medium rounded-full border transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
+                  style={{ borderColor: 'rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.06)' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.14)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                >
+                  Luyện tập kỹ năng
+                </button>
+              </div>
+            </div>
+
+            <div className="hidden md:flex items-center justify-center flex-shrink-0 anim-fade-in delay-2" aria-hidden="true">
+              <HeroBandOrbit />
             </div>
           </div>
         </div>
