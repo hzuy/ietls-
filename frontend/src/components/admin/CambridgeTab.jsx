@@ -21,6 +21,8 @@ function CambridgeTab({ initialSeriesList = [], onExamsChanged }) {
   const [editId, setEditId] = useState(null)
   const [editName, setEditName] = useState('')
   const [toast, setToast] = useState('')
+  const [addingSeries, setAddingSeries] = useState(false)
+  const [savingEdit, setSavingEdit] = useState(false)
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3500) }
 
@@ -69,7 +71,8 @@ function CambridgeTab({ initialSeriesList = [], onExamsChanged }) {
   }
 
   const handleAddSeries = async () => {
-    if (!newName.trim()) return
+    if (!newName.trim() || addingSeries) return
+    setAddingSeries(true)
     try {
       await api.post('/admin/exam-series', { name: newName.trim() })
       setNewName(''); setShowAdd(false)
@@ -77,10 +80,12 @@ function CambridgeTab({ initialSeriesList = [], onExamsChanged }) {
       onExamsChanged?.()
       showToast('✅ Đã tạo bộ đề')
     } catch { showToast('Lỗi tạo bộ đề') }
+    setAddingSeries(false)
   }
 
   const handleEditSeries = async (id) => {
-    if (!editName.trim()) return
+    if (!editName.trim() || savingEdit) return
+    setSavingEdit(true)
     try {
       const updated = await api.put(`/admin/exam-series/${id}`, { name: editName.trim() })
       setSeriesList(list => {
@@ -93,6 +98,7 @@ function CambridgeTab({ initialSeriesList = [], onExamsChanged }) {
       onExamsChanged?.()
       showToast('✅ Đã đổi tên bộ đề')
     } catch { showToast('Lỗi sửa tên bộ đề') }
+    setSavingEdit(false)
   }
 
   const handleDeleteSeries = async (id) => {
@@ -150,14 +156,15 @@ function CambridgeTab({ initialSeriesList = [], onExamsChanged }) {
             <div className="flex gap-2 mb-4">
               <input
                 autoFocus
-                className="flex-1 border border-zinc-200 rounded-lg px-3 py-2 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 outline-none"
+                disabled={addingSeries}
+                className="flex-1 border border-zinc-200 rounded-lg px-3 py-2 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 outline-none disabled:opacity-60"
                 placeholder="Tên bộ đề (VD: IELTS Practice Test Plus)"
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') handleAddSeries(); if (e.key === 'Escape') { setShowAdd(false); setNewName('') } }}
               />
-              <button onClick={handleAddSeries} className="px-3.5 py-2 rounded-lg bg-zinc-900 text-white text-xs font-medium hover:bg-zinc-800 transition shadow-sm">Tạo</button>
-              <button onClick={() => { setShowAdd(false); setNewName('') }} className="px-3.5 py-2 rounded-lg border border-zinc-200 text-zinc-700 text-xs font-medium hover:bg-zinc-50 transition shadow-2xs">Hủy</button>
+              <button onClick={handleAddSeries} disabled={addingSeries} className="px-3.5 py-2 rounded-lg bg-zinc-900 text-white text-xs font-medium hover:bg-zinc-800 transition shadow-sm disabled:opacity-70 disabled:cursor-not-allowed">{addingSeries ? 'Đang tạo...' : 'Tạo'}</button>
+              <button onClick={() => { setShowAdd(false); setNewName('') }} disabled={addingSeries} className="px-3.5 py-2 rounded-lg border border-zinc-200 text-zinc-700 text-xs font-medium hover:bg-zinc-50 transition shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed">Hủy</button>
             </div>
           )}
 
@@ -183,14 +190,15 @@ function CambridgeTab({ initialSeriesList = [], onExamsChanged }) {
                   <div key={s.id} className="bg-white border border-zinc-400 rounded-2xl p-4 shadow-sm flex flex-col gap-2">
                     <input
                       autoFocus
-                      className="border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 outline-none"
+                      disabled={savingEdit}
+                      className="border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 outline-none disabled:opacity-60"
                       value={editName}
                       onChange={e => setEditName(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') handleEditSeries(s.id); if (e.key === 'Escape') setEditId(null) }}
                     />
                     <div className="flex gap-2">
-                      <button onClick={() => handleEditSeries(s.id)} className="flex-1 py-1.5 rounded-lg bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-800 transition shadow-sm">Lưu</button>
-                      <button onClick={() => setEditId(null)} className="py-1.5 px-3 rounded-lg border border-zinc-200 text-zinc-600 text-xs hover:bg-zinc-50 transition shadow-2xs">Hủy</button>
+                      <button onClick={() => handleEditSeries(s.id)} disabled={savingEdit} className="flex-1 py-1.5 rounded-lg bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-800 transition shadow-sm disabled:opacity-70 disabled:cursor-not-allowed">{savingEdit ? 'Đang lưu...' : 'Lưu'}</button>
+                      <button onClick={() => setEditId(null)} disabled={savingEdit} className="py-1.5 px-3 rounded-lg border border-zinc-200 text-zinc-600 text-xs hover:bg-zinc-50 transition shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed">Hủy</button>
                     </div>
                   </div>
                 ) : (

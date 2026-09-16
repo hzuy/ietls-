@@ -17,11 +17,11 @@ import Modal from '../common/Modal'
 // ─── Modal xác nhận xoá ──────────────────────────────────────────────────────
 // role=dialog + aria-modal + Escape + overlay-click để đóng; nút Xóa màu
 // #dc2626 / hover #b91c1c (đã chuẩn hoá ở đợt polish trước).
-export function ConfirmDeleteModal({ open, title, message = 'Hành động này không thể hoàn tác.', onCancel, onConfirm }) {
+export function ConfirmDeleteModal({ open, title, message = 'Hành động này không thể hoàn tác.', onCancel, onConfirm, loading = false }) {
   if (!open) return null
 
   return (
-    <Modal onClose={onCancel} title={title} size="sm" className="p-6">
+    <Modal onClose={loading ? undefined : onCancel} title={title} size="sm" className="p-6">
       <div className="flex items-center gap-3 mb-3">
         <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950/40 flex items-center justify-center shrink-0">
           <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />
@@ -33,16 +33,19 @@ export function ConfirmDeleteModal({ open, title, message = 'Hành động này 
         <button
           type="button"
           onClick={onCancel}
-          className="h-9 px-5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs sm:text-sm text-zinc-700 dark:text-slate-300 hover:bg-zinc-50 dark:hover:bg-slate-800 font-medium transition-colors cursor-pointer"
+          disabled={loading}
+          className="h-9 px-5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs sm:text-sm text-zinc-700 dark:text-slate-300 hover:bg-zinc-50 dark:hover:bg-slate-800 font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Hủy
         </button>
         <button
           type="button"
           onClick={onConfirm}
-          className="h-9 px-5 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer"
+          disabled={loading}
+          className="h-9 px-5 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed inline-flex items-center gap-2"
         >
-          Xóa
+          {loading && <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />}
+          {loading ? 'Đang xóa...' : 'Xóa'}
         </button>
       </div>
     </Modal>

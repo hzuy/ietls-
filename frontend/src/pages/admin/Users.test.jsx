@@ -110,6 +110,55 @@ describe('Users page — TanStack Query & Skeleton caching', () => {
     })
   })
 
+  it('sends only one toggle-lock request and re-disables the row action while it is in flight', async () => {
+    vi.spyOn(adminService, 'getAdminUsers').mockResolvedValue(mockUsersData)
+    let resolveToggle
+    const togglePromise = new Promise((resolve) => { resolveToggle = resolve })
+    const toggleSpy = vi.spyOn(adminService, 'toggleUserLock').mockReturnValue(togglePromise)
+
+    renderUsers()
+    await screen.findByText('Nguyen Van A')
+
+    const lockRowBtn = screen.getAllByTitle('Khoá tài khoản')[0]
+    fireEvent.click(lockRowBtn)
+    const confirmBtn = await screen.findByRole('button', { name: 'Khoá' })
+
+    fireEvent.click(confirmBtn)
+    await vi.waitFor(() => expect(toggleSpy).toHaveBeenCalledTimes(1))
+
+    // Modal closes immediately; row action must stay disabled until the mutation settles
+    // so a second click (e.g. a fast double-click) cannot start a second toggle.
+    expect(screen.queryByRole('button', { name: 'Khoá' })).not.toBeInTheDocument()
+    expect(lockRowBtn).toBeDisabled()
+    fireEvent.click(lockRowBtn)
+    expect(toggleSpy).toHaveBeenCalledTimes(1)
+
+    resolveToggle({ isLocked: true })
+    await vi.waitFor(() => expect(lockRowBtn).not.toBeDisabled())
+  })
+
+  it('disables the delete confirm button while the delete mutation is pending, so a double-click sends only one delete request', async () => {
+    vi.spyOn(adminService, 'getAdminUsers').mockResolvedValue(mockUsersData)
+    let resolveDelete
+    const deletePromise = new Promise((resolve) => { resolveDelete = resolve })
+    const deleteSpy = vi.spyOn(adminService, 'deleteAdminUser').mockReturnValue(deletePromise)
+
+    renderUsers()
+    await screen.findByText('Nguyen Van A')
+
+    fireEvent.click(screen.getAllByTitle('Xoá tài khoản')[0])
+    const confirmBtn = await screen.findByRole('button', { name: 'Xóa' })
+
+    fireEvent.click(confirmBtn)
+    const pendingBtn = await screen.findByRole('button', { name: /Đang xóa/ })
+    expect(pendingBtn).toBeDisabled()
+
+    fireEvent.click(pendingBtn)
+    expect(deleteSpy).toHaveBeenCalledTimes(1)
+
+    resolveDelete({ message: 'Deleted' })
+  })
+
   it('calls deleteAdminUser on delete mutation and closes modal', async () => {
     vi.spyOn(adminService, 'getAdminUsers').mockResolvedValue(mockUsersData)
     vi.spyOn(adminService, 'deleteAdminUser').mockResolvedValue({ message: 'Deleted' })

@@ -19,6 +19,7 @@ const SORT_MAP = {
 
 function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries = [], paginationData, fetchExams, loading, error }) {
   const [loadingId, setLoadingId] = useState(null)
+  const [deletingId, setDeletingId] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -185,15 +186,20 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
   }
 
   const handleDeleteConfirm = async () => {
-    if (!confirmDelete) return
+    if (!confirmDelete || deletingId !== null) return
     const { id } = confirmDelete
     setConfirmDelete(null)
-    await onDelete(id)
-    queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
-    queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
+    setDeletingId(id)
+    try {
+      await onDelete(id)
+      queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
+    } finally {
+      setDeletingId(null)
+    }
   }
 
-  const anyLoading = loadingId !== null
+  const anyLoading = loadingId !== null || deletingId !== null
 
   const formatDate = (iso) => {
     if (!iso) return ''
@@ -369,7 +375,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
                     onClick={() => !anyLoading && setConfirmDelete({ id: exam.id, title: exam.title })}
                     disabled={anyLoading}
                     className="h-8 px-3.5 rounded-full text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
-                  >Xóa</button>
+                  >{exam.id === deletingId ? 'Đang xóa...' : 'Xóa'}</button>
                 </div>
               </div>
             )

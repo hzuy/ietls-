@@ -119,6 +119,8 @@ export default function SampleManager({ kind }) {
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [delConfirm, setDelConfirm] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+  const [loadingEditId, setLoadingEditId] = useState(null)
   const [isDirty, setIsDirty] = useState(false)
   const pristineRef = useRef('')
 
@@ -157,6 +159,8 @@ export default function SampleManager({ kind }) {
   }
 
   const openEdit = async (item) => {
+    if (loadingEditId !== null) return
+    setLoadingEditId(item.id)
     try {
       const data = await svc.get(item.id)
       const next = { title: data.title, level: data.level || '', examType: data.examType || '', content: data.content || '', tagInput: '', tags: cfg.showTags ? (data.tags || []) : [], thumbnailUrl: data.thumbnailUrl, thumbPreview: resolveImg(data.thumbnailUrl), thumbFile: null }
@@ -164,6 +168,7 @@ export default function SampleManager({ kind }) {
       setForm(next)
       setEditing(data); setIsDirty(false); setView('form')
     } catch { showToast('Lỗi tải', 'error') }
+    finally { setLoadingEditId(null) }
   }
 
   const addTag = () => {
@@ -212,12 +217,15 @@ export default function SampleManager({ kind }) {
   }
 
   const handleDelete = async (id) => {
+    if (deleting) return
+    setDeleting(true)
     try {
       await svc.remove(id)
       setDelConfirm(null)
       queryClient.invalidateQueries({ queryKey: ['admin', 'samples'] })
     }
     catch (err) { showToast(err.response?.data?.message || 'Lỗi xóa', 'error') }
+    finally { setDeleting(false) }
   }
 
   if (view === 'form') {
@@ -355,8 +363,8 @@ export default function SampleManager({ kind }) {
                       {cfg.showTags && <td className="px-4 py-3 hidden sm:table-cell"><div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{(item.tags || []).map(t => <span key={t} style={{ fontSize: 11, background: cfg.listChipStyle.background, color: cfg.listChipStyle.color, borderRadius: 6, padding: '2px 8px', border: '1px solid #e4e4e7' }}>{t}</span>)}</div></td>}
                       <td className="px-4 py-3 text-sm text-zinc-500 hidden sm:table-cell">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</td>
                       <td className="px-4 py-3"><div className="flex items-center justify-end gap-2">
-                        <button onClick={() => openEdit(item)} className="h-8 px-3.5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs font-medium text-zinc-700 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-slate-800 transition shadow-2xs cursor-pointer">Sửa</button>
-                        <button onClick={() => setDelConfirm(item.id)} className="h-8 px-3.5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs font-medium text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-200 transition shadow-2xs cursor-pointer">Xóa</button>
+                        <button onClick={() => openEdit(item)} disabled={loadingEditId !== null} className="h-8 px-3.5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs font-medium text-zinc-700 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-slate-800 transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{loadingEditId === item.id ? 'Đang tải...' : 'Sửa'}</button>
+                        <button onClick={() => setDelConfirm(item.id)} disabled={loadingEditId !== null} className="h-8 px-3.5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs font-medium text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-200 transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Xóa</button>
                       </div></td>
                     </tr>
                   ))}
@@ -370,6 +378,7 @@ export default function SampleManager({ kind }) {
         title={cfg.deleteTitle}
         onCancel={() => setDelConfirm(null)}
         onConfirm={() => handleDelete(delConfirm)}
+        loading={deleting}
       />
     </>
   )

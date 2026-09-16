@@ -16,6 +16,8 @@ export default function UserDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
   const [newPassword, setNewPassword] = useState(null)
+  const [deletingUser, setDeletingUser] = useState(false)
+  const [resettingPassword, setResettingPassword] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -47,18 +49,26 @@ export default function UserDetail() {
   }
 
   const handleDelete = async () => {
+    if (deletingUser) return
+    setDeletingUser(true)
     try {
       await deleteAdminUser(user.id)
       navigate('/admin/users')
-    } catch (err) { showToast(err.response?.data?.message || 'Lỗi xóa', 'error') }
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Lỗi xóa', 'error')
+      setDeletingUser(false)
+    }
   }
 
   const handleResetPassword = async () => {
+    if (resettingPassword) return
+    setResettingPassword(true)
     setConfirmReset(false)
     try {
       const result = await resetUserPassword(user.id)
       setNewPassword(result.newPassword)
     } catch { showToast('Lỗi reset mật khẩu', 'error') }
+    setResettingPassword(false)
   }
 
   return (
@@ -97,14 +107,14 @@ export default function UserDetail() {
                   className={`h-9 px-4 text-xs rounded-full border border-zinc-200 dark:border-slate-700 font-medium transition text-zinc-700 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-slate-800 cursor-pointer shadow-2xs`}>
                   {togglingLock ? '...' : user.isLocked ? 'Mở khoá' : 'Khoá'}
                 </button>
-                <button onClick={() => setConfirmReset(true)}
-                  className="h-9 px-4 text-xs rounded-full border border-zinc-200 dark:border-slate-700 text-zinc-700 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-slate-800 font-medium transition shadow-2xs flex items-center gap-1 cursor-pointer">
+                <button onClick={() => setConfirmReset(true)} disabled={resettingPassword}
+                  className="h-9 px-4 text-xs rounded-full border border-zinc-200 dark:border-slate-700 text-zinc-700 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-slate-800 font-medium transition shadow-2xs flex items-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
                   <KeyRound size={14} />
-                  Reset MK
+                  {resettingPassword ? 'Đang reset...' : 'Reset MK'}
                 </button>
-                <button onClick={() => setConfirmDelete(true)}
-                  className="h-9 px-4 text-xs rounded-full border border-zinc-200 dark:border-slate-700 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-200 font-medium transition shadow-2xs cursor-pointer">
-                  Xóa
+                <button onClick={() => setConfirmDelete(true)} disabled={deletingUser}
+                  className="h-9 px-4 text-xs rounded-full border border-zinc-200 dark:border-slate-700 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-200 font-medium transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                  {deletingUser ? 'Đang xóa...' : 'Xóa'}
                 </button>
               </div>
             </div>
@@ -184,8 +194,8 @@ export default function UserDetail() {
             Tạo mật khẩu ngẫu nhiên mới cho <strong>{user.name}</strong>? Mật khẩu cũ sẽ không còn hợp lệ.
           </p>
           <div className="flex gap-2.5 justify-end">
-            <button onClick={() => setConfirmReset(false)} className="h-9 px-5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs sm:text-sm text-zinc-700 dark:text-slate-300 hover:bg-zinc-50 dark:hover:bg-slate-800 font-medium transition-colors cursor-pointer">Huỷ</button>
-            <button onClick={handleResetPassword} className="h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer">Reset</button>
+            <button onClick={() => setConfirmReset(false)} disabled={resettingPassword} className="h-9 px-5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs sm:text-sm text-zinc-700 dark:text-slate-300 hover:bg-zinc-50 dark:hover:bg-slate-800 font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Huỷ</button>
+            <button onClick={handleResetPassword} disabled={resettingPassword} className="h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed">Reset</button>
           </div>
         </Modal>
       )}
@@ -211,8 +221,11 @@ export default function UserDetail() {
           <h3 className="text-sm font-semibold text-zinc-900 dark:text-slate-100 mb-2">Xác nhận xóa</h3>
           <p className="text-xs text-zinc-600 dark:text-slate-400 mb-6">Xóa người dùng <strong>{user.name}</strong>? Lịch sử thi sẽ được giữ lại (soft delete).</p>
           <div className="flex gap-2.5 justify-end">
-            <button onClick={() => setConfirmDelete(false)} className="h-9 px-5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs sm:text-sm text-zinc-700 dark:text-slate-300 hover:bg-zinc-50 dark:hover:bg-slate-800 font-medium transition-colors cursor-pointer">Huỷ</button>
-            <button onClick={handleDelete} className="h-9 px-5 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer">Xóa</button>
+            <button onClick={() => setConfirmDelete(false)} disabled={deletingUser} className="h-9 px-5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs sm:text-sm text-zinc-700 dark:text-slate-300 hover:bg-zinc-50 dark:hover:bg-slate-800 font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Huỷ</button>
+            <button onClick={handleDelete} disabled={deletingUser} className="h-9 px-5 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed inline-flex items-center gap-2">
+              {deletingUser && <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />}
+              {deletingUser ? 'Đang xóa...' : 'Xóa'}
+            </button>
           </div>
         </Modal>
       )}

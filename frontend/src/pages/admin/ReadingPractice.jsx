@@ -112,6 +112,8 @@ export default function ReadingPractice() {
   const [form, setForm]               = useState(EMPTY_FORM)
   const [saving, setSaving]           = useState(false)
   const [delConfirm, setDelConfirm]   = useState(null)
+  const [deleting, setDeleting]       = useState(false)
+  const [loadingEditId, setLoadingEditId] = useState(null)
   const [addGroupType, setAddGroupType] = useState(READING_GROUP_TYPES[0].value)
   const [showPreview, setShowPreview] = useState(false)
   const [showAnswers, setShowAnswers] = useState(false)
@@ -149,6 +151,8 @@ export default function ReadingPractice() {
   }
 
   const openEdit = async (item) => {
+    if (loadingEditId !== null) return
+    setLoadingEditId(item.id)
     try {
       const data  = await getReadingPractice(item.id)
       const qData = data.questions
@@ -166,6 +170,7 @@ export default function ReadingPractice() {
       setForm(next)
       setEditing(data); setShowPreview(false); setIsDirty(false); setView('form')
     } catch { showToast('Lỗi tải bài', 'error') }
+    finally { setLoadingEditId(null) }
   }
 
   const handleSave = async () => {
@@ -209,12 +214,15 @@ export default function ReadingPractice() {
   }
 
   const handleDelete = async (id) => {
+    if (deleting) return
+    setDeleting(true)
     try {
       await deleteReadingPractice(id)
       setDelConfirm(null)
       queryClient.invalidateQueries({ queryKey: ['admin', 'practice'] })
     }
     catch (err) { showToast(err.response?.data?.message || 'Lỗi xóa', 'error') }
+    finally { setDeleting(false) }
   }
 
   const handleGroupChange = (i, updated) => {
@@ -403,8 +411,8 @@ export default function ReadingPractice() {
                     <td className="px-4 py-3 text-sm text-zinc-500 hidden sm:table-cell">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => openEdit(item)} className="h-8 px-3.5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs font-medium text-zinc-700 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-slate-800 transition shadow-2xs cursor-pointer">Sửa</button>
-                        <button onClick={() => setDelConfirm(item.id)} className="h-8 px-3.5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs font-medium text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-200 transition shadow-2xs cursor-pointer">Xóa</button>
+                        <button onClick={() => openEdit(item)} disabled={loadingEditId !== null} className="h-8 px-3.5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs font-medium text-zinc-700 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-slate-800 transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{loadingEditId === item.id ? 'Đang tải...' : 'Sửa'}</button>
+                        <button onClick={() => setDelConfirm(item.id)} disabled={loadingEditId !== null} className="h-8 px-3.5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs font-medium text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-200 transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Xóa</button>
                       </div>
                     </td>
                   </tr>
@@ -420,6 +428,7 @@ export default function ReadingPractice() {
         title="Xóa bài đọc?"
         onCancel={() => setDelConfirm(null)}
         onConfirm={() => handleDelete(delConfirm)}
+        loading={deleting}
       />
     </>
   )

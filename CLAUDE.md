@@ -62,6 +62,15 @@ npm run db:dev:studio                    # Prisma Studio trỏ DB dev
 npm run db:dev:seed -- --cleanup         # xoá dữ liệu seed (giữ schema)
 ```
 
+**Tạo file `backend/docker-dev.env` (bắt buộc, không có sẵn khi mới clone repo — gitignored):** đây là điều kiện tiên quyết cho toàn bộ lệnh `db:dev:*`/`test:dev-db` ở trên. Tạo file `backend/docker-dev.env` với đúng nội dung sau (khớp credentials mặc định của service `postgres-dev` trong `docker-compose.yml` — chỉ đổi nếu bạn tự set `POSTGRES_DEV_USER`/`POSTGRES_DEV_PASSWORD`/`POSTGRES_DEV_DB` khác mặc định):
+
+```env
+DATABASE_URL="postgresql://ielts_dev:ielts_dev_local_only@127.0.0.1:5433/ielts_app_dev"
+DIRECT_URL="postgresql://ielts_dev:ielts_dev_local_only@127.0.0.1:5433/ielts_app_dev"
+```
+
+Thiếu file này hoặc `DATABASE_URL` bên trong không trỏ đúng `127.0.0.1:5433`, `backend/scripts/with-dev-db.js` sẽ báo lỗi rõ ràng và dừng ngay (không chạy lệnh thật) — không cần đoán.
+
 Cách hoạt động: `backend/docker-dev.env` (gitignored, không phải `.env`/`.env.*` nên không bị chặn ghi/sửa) chứa `DATABASE_URL`/`DIRECT_URL` trỏ `127.0.0.1:5433` (service `postgres-dev`, cổng riêng khác `5432` mặc định để không đụng Postgres cài sẵn trên máy). `backend/scripts/with-dev-db.js` nạp file này (override) rồi mới spawn lệnh thật (`npx prisma ...`, `vitest run`) — nên các script `db:dev:*`/`test:dev-db` trong `package.json` không bao giờ đụng `backend/.env`. Muốn chạy lệnh khác với DB dev: `node scripts/with-dev-db.js -- <lệnh>`.
 
 **Vì sao `db push` chứ không phải `migrate deploy`** *(lịch sử — xem "Lịch sử migration đã squash" bên dưới để biết trạng thái hiện tại)*: lịch sử migration từng có một chỗ mâu thuẫn — migration `20260320030649_rebuild_full_ielts` `DROP TABLE "Exam"`, nhưng bảng `Exam` chưa từng được tạo lại ở migration nào sau đó dù `schema.prisma` vẫn có `model Exam` (bảng chỉ tồn tại trên DB thật vì đã bị chỉnh tay ngoài lịch sử migration tại một thời điểm nào đó, không rõ khi nào). Replay `migrate deploy` từ đầu lên DB trắng từng dừng đúng ở migration kế tiếp, `20260321000000_remove_level_from_exam`, với lỗi Prisma `P3018` / Postgres `42P01`: `relation "Exam" does not exist`. Vấn đề này (và hai vấn đề tương tự ở `Series`/`SeriesExam`/`SeriesMapping`) **đã được giải quyết bằng squash baseline** — `migrate deploy` từ DB rỗng nay chạy sạch. `db push` không còn bắt buộc để dựng DB dev, nhưng script `db:dev:push`/hướng dẫn dưới đây vẫn giữ nguyên vì không nằm trong phạm vi lần squash này (đổi sang `migrate deploy` cho quy trình dựng DB dev là việc riêng, cần bàn trước) — vẫn đúng khi dùng, chỉ không còn là "phương án bắt buộc" nữa.
@@ -111,6 +120,7 @@ Loại thứ ba: **Samples** (`WritingSample` / `SpeakingSample*`) — bài mẫ
 - `lib/groqClient.js` — `getGroqClient()` lazy (không init lúc load module để test không cần key) và **`getGroqModel()`**: tên model text tập trung một chỗ, mặc định `openai/gpt-oss-120b`, override bằng `GROQ_MODEL`. Groq gỡ model khá thường xuyên (`llama-3.3-70b-versatile` đã bị gỡ 08/2026) — cần đổi model thì đổi env/`getGroqModel`, đừng hardcode lại trong từng route.
 - `services/storageService.js` — upload ảnh/audio lên Cloudinary nếu có credentials, **fallback êm** về `backend/uploads/` khi không có (dev/test luôn chạy được). `lib/imageResize.js` (sharp) sinh thumbnail WebP.
 - `lib/sanitizeHtml.js` — làm sạch HTML từ RichTextEditor trước khi lưu (frontend có `utils/sanitizeHtml.js` + DOMPurify khi render).
+- `PUT /admin/users/:id/toggle-lock` (`routes/admin/users.js`) là API **toggle một chiều** (`isLocked: !user.isLocked`), không nhận trạng thái đích mong muốn — gọi 2 lần liên tiếp sẽ trả tài khoản về trạng thái ban đầu (khoá rồi lại mở khoá) thay vì báo lỗi/no-op. Route tự thân không có idempotency key hay kiểm tra trạng thái mong muốn trong body; việc chống double-submit hiện chỉ nằm ở tầng giao diện (`Accounts.jsx`/`Users.jsx` disable nút xác nhận + nút hàng khi `lockMutation.isPending`). Nếu sau này có client khác (mobile app, script nội bộ, Postman collection) gọi thẳng endpoint này mà không qua UI hiện tại, cần xem lại — cân nhắc đổi sang API nhận trạng thái đích tường minh (`PUT .../lock` body `{ isLocked: true|false }`) hoặc thêm optimistic-concurrency check.
 
 ### Caching (3 tầng backend, dễ quên invalidate)
 1. `lib/swrCache.js` — stale-while-revalidate in-memory dùng chung: fresh → trả ngay; stale → trả data cũ + revalidate nền; cold → gộp promise chống stampede. Có `invalidate(key)`.

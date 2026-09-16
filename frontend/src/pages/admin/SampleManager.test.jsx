@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render as rtlRender, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render as rtlRender, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import SampleManager from './SampleManager'
 import { ToastProvider } from '../../context/ToastContext'
@@ -270,5 +270,31 @@ describe('SampleManager — smoke (Giai đoạn 0)', () => {
     // Vẫn hiển thị Speaking, KHÔNG bị Writing đè lên
     expect(screen.getByText('Speaking Fast Result')).toBeInTheDocument()
     expect(screen.queryByText('Writing Stale Result')).not.toBeInTheDocument()
+  })
+
+  it('disables the ConfirmDeleteModal "Xóa" button while deleting, so a double-click sends only one delete request', async () => {
+    sampleService.getWritingSamples.mockResolvedValue([
+      { id: 7, title: 'Bài mẫu cần xóa', level: 'task1', examType: '', thumbnailUrl: null, createdAt: '2026-01-01' },
+    ])
+    let resolveDelete
+    const deletePromise = new Promise((resolve) => { resolveDelete = resolve })
+    sampleService.deleteWritingSample.mockReturnValue(deletePromise)
+
+    render(<ToastProvider><SampleManager kind="writing" /></ToastProvider>)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Xóa' }))
+    const dialog = await screen.findByRole('dialog')
+    const confirmBtn = within(dialog).getByRole('button', { name: 'Xóa' })
+    fireEvent.click(confirmBtn)
+
+    const pendingBtn = await within(dialog).findByRole('button', { name: /Đang xóa/i })
+    expect(pendingBtn).toBeDisabled()
+    expect(within(dialog).getByRole('button', { name: 'Hủy' })).toBeDisabled()
+
+    fireEvent.click(pendingBtn)
+    expect(sampleService.deleteWritingSample).toHaveBeenCalledTimes(1)
+
+    resolveDelete()
+    await waitFor(() => expect(sampleService.getWritingSamples).toHaveBeenCalledTimes(2))
   })
 })
