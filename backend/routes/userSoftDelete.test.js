@@ -33,6 +33,24 @@ async function cleanupUser(id) {
   await prisma.user.deleteMany({ where: { id } })
 }
 
+// Một số endpoint (totalActive/totalLocked ở /admin/users, stats.totalUsers ở
+// /admin/dashboard) trả đếm TOÀN CỤC không lọc theo request — không thể so với
+// snapshot "trước - 1" vì file test tích hợp khác chạy song song trên cùng
+// postgres-dev có thể đang tạo/xóa user khác cùng lúc. pollFor cho phép so với
+// ground-truth tính lại tại mỗi lần thử: nếu route thật sự sai (bug), sai lệch
+// không tự khớp lại nên vẫn bắt được lỗi — chỉ hấp thụ đúng cửa sổ đua rất ngắn
+// giữa 2 lượt đọc gần như đồng thời. (cùng convention với routes/admin/auditLogs.test.js)
+async function pollFor(check, { timeoutMs = 3000, intervalMs = 150 } = {}) {
+  const start = Date.now()
+  let last = false
+  while (Date.now() - start < timeoutMs) {
+    last = await check()
+    if (last) return last
+    await new Promise(r => setTimeout(r, intervalMs))
+  }
+  return last
+}
+
 describeIntegration('Soft-delete User — bị loại khỏi đăng nhập/danh sách/thống kê (postgres-dev integration)', () => {
   let adminToken
   let adminUserId
@@ -85,7 +103,6 @@ describeIntegration('Soft-delete User — bị loại khỏi đăng nhập/danh 
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200)
       expect(beforeList.body.users.some(u => u.id === target.id)).toBe(true)
-      const activeBefore = beforeList.body.totalActive
 
       await request(app)
         .delete(`/api/admin/users/${target.id}`)
@@ -99,11 +116,27 @@ describeIntegration('Soft-delete User — bị loại khỏi đăng nhập/danh 
         .expect(200)
       expect(afterList.body.users.some(u => u.id === target.id)).toBe(false)
       expect(afterList.body.total).toBe(0)
-      // DELETE /users/:id cũng set isLocked:true — trước đó user không bị khóa,
-      // nên nếu còn bị đếm thì totalLocked sẽ tăng thay vì totalActive giảm.
-      // Soft-delete phải loại khỏi CẢ HAI, không chỉ chuyển nhóm.
-      expect(afterList.body.totalActive).toBe(activeBefore - 1)
-      expect(afterList.body.totalLocked).toBe(0)
+
+      // totalActive/totalLocked là đếm TOÀN CỤC (route không lọc theo `search`) nên không thể
+      // so với snapshot "trước - 1": file test khác chạy song song trên cùng postgres-dev có thể
+      // đang tạo/xóa user khác cùng lúc. Thay vào đó, so trực tiếp với cùng điều kiện đếm mà route
+      // dùng (role/isLocked/deletedAt) tại cùng thời điểm, và pollFor để chịu được cửa sổ đua rất
+      // ngắn giữa 2 lượt đọc — nếu soft-delete thật sự không loại trừ đúng, sai lệch này sẽ không
+      // bao giờ tự khớp lại nên vẫn bắt được lỗi thật, không chỉ che flake.
+      let latestCounts = null
+      const matched = await pollFor(async () => {
+        const res = await request(app)
+          .get('/api/admin/users')
+          .query({ search: target.email })
+          .set('Authorization', `Bearer ${adminToken}`)
+        const [expectedActive, expectedLocked] = await Promise.all([
+          prisma.user.count({ where: { role: 'user', isLocked: false, deletedAt: null } }),
+          prisma.user.count({ where: { role: 'user', isLocked: true, deletedAt: null } }),
+        ])
+        latestCounts = { totalActive: res.body.totalActive, totalLocked: res.body.totalLocked, expectedActive, expectedLocked }
+        return res.body.totalActive === expectedActive && res.body.totalLocked === expectedLocked
+      })
+      expect(matched, `totalActive/totalLocked không khớp ground-truth sau ${JSON.stringify(latestCounts)}`).toBe(true)
     } finally {
       await cleanupUser(target.id)
     }
@@ -134,18 +167,25 @@ describeIntegration('Soft-delete User — bị loại khỏi đăng nhập/danh 
       data: { name: `${MARKER} dash`, email: uniqueEmail('dash'), password: 'x', role: 'user' }
     })
     try {
-      const before = await request(app).get('/api/admin/dashboard').set('Authorization', `Bearer ${adminToken}`).expect(200)
-      const totalBefore = before.body.stats.totalUsers
-
       await prisma.user.update({ where: { id: target.id }, data: { deletedAt: new Date() } })
-      // Dashboard dùng SWR cache (swrCache) theo key 'dashboard_overview' — không có
-      // route invalidate riêng cho thay đổi User, nên đọc cache trực tiếp qua
-      // fetchDashboardOverviewData thay vì gọi lại endpoint (tránh flaky vì cache).
-      const { invalidate } = require('../lib/swrCache')
-      invalidate('dashboard_overview')
 
-      const after = await request(app).get('/api/admin/dashboard').set('Authorization', `Bearer ${adminToken}`).expect(200)
-      expect(after.body.stats.totalUsers).toBe(totalBefore - 1)
+      // stats.totalUsers là đếm TOÀN CỤC (role: 'user', deletedAt: null, không lọc theo test
+      // hiện tại), nên so với snapshot "trước - 1" sẽ flaky khi file test khác chạy song song
+      // trên cùng postgres-dev tạo/xóa user cùng lúc. So trực tiếp với cùng điều kiện đếm route
+      // dùng tại cùng thời điểm, và pollFor để chịu cửa sổ đua ngắn giữa các lượt đọc — nếu route
+      // thật sự không loại trừ user đã xóa, sai lệch không tự khớp lại nên vẫn bắt được lỗi.
+      // invalidate cache trước MỖI lần thử — nếu không, lượt gọi API đầu sẽ ghim giá trị cũ vào
+      // cache và các lần thử sau chỉ đọc lại cache đó thay vì tính lại.
+      const { invalidate } = require('../lib/swrCache')
+      let latestTotals = null
+      const matched = await pollFor(async () => {
+        invalidate('dashboard_overview')
+        const after = await request(app).get('/api/admin/dashboard').set('Authorization', `Bearer ${adminToken}`)
+        const expectedTotal = await prisma.user.count({ where: { role: 'user', deletedAt: null } })
+        latestTotals = { totalUsers: after.body.stats.totalUsers, expectedTotal }
+        return after.body.stats.totalUsers === expectedTotal
+      })
+      expect(matched, `stats.totalUsers không khớp ground-truth sau ${JSON.stringify(latestTotals)}`).toBe(true)
     } finally {
       await cleanupUser(target.id)
       require('../lib/swrCache').invalidate('dashboard_overview')
