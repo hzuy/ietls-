@@ -330,11 +330,14 @@ function ScoreRing({ score, maxScore, isPractice, correct, totalQuestions, bandS
         alignItems: 'center', justifyContent: 'center'
       }}>
         {isPractice ? (
+          // text-3xl — giữ nguyên: chuỗi "đúng/tổng" dài hơn band score (X.X),
+          // tăng lên text-4xl như bandScore bên dưới dễ tràn khỏi vòng tròn 88px cố định.
           <span className="text-3xl font-bold tabular-nums font-mono text-zinc-900">
             {correct}/{totalQuestions}
           </span>
         ) : (
-          <span className="text-3xl font-bold tabular-nums font-mono text-zinc-900">
+          // text-4xl — cùng cấp độ nổi bật với vòng điểm tổng ở FullTestResult (Đợt 2).
+          <span className="text-4xl font-bold tabular-nums font-mono text-zinc-900">
             {typeof bandScore === 'number' ? bandScore.toFixed(1) : bandScore}
           </span>
         )}

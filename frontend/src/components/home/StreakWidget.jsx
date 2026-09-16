@@ -15,7 +15,9 @@ export default function StreakWidget({ streak = 0, isAuthenticated }) {
         <Flame className="w-4 h-4" style={{ color: 'var(--primary)' }} />
       </div>
 
-      <StatValue as="p" size="text-2xl" value={isAuthenticated ? streak : 0} label="ngày luyện tập liên tục" />
+      {/* text-3xl — cùng cấp độ nổi bật với BandOverviewWidget/UserProfile cho
+          streak/band (Đợt 2), trước đây widget này lệch riêng ở text-2xl. */}
+      <StatValue as="p" value={isAuthenticated ? streak : 0} label="ngày luyện tập liên tục" />
 
       <div className="flex items-stretch gap-1.5 mt-3.5">
         {DAY_LABELS.map((label, i) => {
