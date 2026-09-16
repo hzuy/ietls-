@@ -198,10 +198,10 @@ export default function QuestionTypeBreakdown({ questionTypes, sections }) {
                         <div
                           className={`h-full rounded-full transition-all duration-500 ${
                             isProficient
-                              ? 'bg-emerald-500'
+                              ? 'bg-success'
                               : isAverage
-                              ? 'bg-amber-500'
-                              : 'bg-rose-500'
+                              ? 'bg-warning'
+                              : 'bg-error'
                           }`}
                           style={{ width: `${item.accuracyRate}%` }}
                         />
@@ -217,10 +217,10 @@ export default function QuestionTypeBreakdown({ questionTypes, sections }) {
                     <span
                       className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${
                         isProficient
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          ? 'bg-success-bg text-success-text border-success-border'
                           : isAverage
-                          ? 'bg-amber-50 text-amber-700 border-amber-200'
-                          : 'bg-rose-50 text-rose-700 border-rose-200'
+                          ? 'bg-warning-bg text-warning-text border-warning-border'
+                          : 'bg-error-bg text-error-text border-error-border'
                       }`}
                     >
                       {isProficient ? (

@@ -60,7 +60,7 @@ export default function ChangePassword() {
         {error && (
           <div
             role="alert"
-            className="p-3 rounded-xl mb-4 text-sm font-medium bg-slate-50 border border-slate-200 text-slate-700"
+            className="p-3 rounded-xl mb-4 text-sm font-medium bg-error-bg border border-error-border text-error-text"
           >
             {error}
           </div>

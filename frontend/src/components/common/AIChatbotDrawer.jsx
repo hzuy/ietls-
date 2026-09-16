@@ -376,7 +376,7 @@ export default function AIChatbotDrawer() {
         >
           <Sparkles className="w-5 h-5 text-white dark:text-zinc-900 transition-transform group-hover:rotate-12" />
           {/* Online indicator */}
-          <span className="absolute top-0.5 right-0.5 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-zinc-900" />
+          <span className="absolute top-0.5 right-0.5 w-3 h-3 rounded-full bg-success ring-2 ring-white dark:ring-zinc-900" />
         </button>
       )}
 
@@ -402,7 +402,7 @@ export default function AIChatbotDrawer() {
                   <span className="sr-only">Llama 3.3</span>
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                  <span className="w-2 h-2 rounded-full bg-success shrink-0" />
                   <span className="text-[11px] text-zinc-500">Sẵn sàng hỗ trợ</span>
                 </div>
               </div>
@@ -466,7 +466,7 @@ export default function AIChatbotDrawer() {
 
             {/* Error banner */}
             {errorMsg && (
-              <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs flex items-start gap-2">
+              <div className="p-2.5 rounded-xl bg-error-bg border border-error-border text-error-text text-xs flex items-start gap-2">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                 <span>{errorMsg}</span>
               </div>

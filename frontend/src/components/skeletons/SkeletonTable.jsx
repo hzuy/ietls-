@@ -13,9 +13,9 @@ export default function SkeletonTable({ rows = 8, cols = 5 }) {
   const colWidths = ['w-36', 'w-20', 'w-24', 'w-16', 'w-20', 'w-16', 'w-12']
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden animate-pulse">
+    <div className="bg-white rounded-2xl border border-zinc-100 overflow-hidden animate-pulse">
       {/* Fake thead */}
-      <div className="bg-gray-50 border-b border-gray-100 px-5 py-3 flex items-center gap-4">
+      <div className="bg-zinc-50 border-b border-zinc-100 px-5 py-3 flex items-center gap-4">
         {Array.from({ length: cols }).map((_, c) => (
           <SkeletonBase
             key={c}
@@ -28,7 +28,7 @@ export default function SkeletonTable({ rows = 8, cols = 5 }) {
       {Array.from({ length: rows }).map((_, r) => (
         <div
           key={r}
-          className="border-b border-gray-50 px-5 py-3.5 flex items-center gap-4"
+          className="border-b border-zinc-50 px-5 py-3.5 flex items-center gap-4"
         >
           {Array.from({ length: cols }).map((_, c) => {
             // First column gets an avatar + text stack style

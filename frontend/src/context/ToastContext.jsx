@@ -59,13 +59,13 @@ export function ToastProvider({ children }) {
           let iconColor = 'text-zinc-700'
 
           if (t.type === 'success') {
-            bgStyle = 'bg-emerald-50 border-emerald-200 text-emerald-900 shadow-emerald-100/50'
+            bgStyle = 'bg-success-bg border-success-border text-success-text shadow-lg'
             IconComp = CheckCircle2
-            iconColor = 'text-emerald-600'
+            iconColor = 'text-success'
           } else if (t.type === 'error') {
-            bgStyle = 'bg-rose-50 border-rose-200 text-rose-900 shadow-rose-100/50'
+            bgStyle = 'bg-error-bg border-error-border text-error-text shadow-lg'
             IconComp = AlertCircle
-            iconColor = 'text-rose-600'
+            iconColor = 'text-error'
           }
 
           return (
@@ -82,7 +82,7 @@ export function ToastProvider({ children }) {
                 type="button"
                 onClick={() => removeToast(t.id)}
                 aria-label="Đóng thông báo"
-                className="shrink-0 p-1 -mr-1 -mt-0.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-black/5 transition-colors focus:outline-none"
+                className="shrink-0 p-1 -mr-1 -mt-0.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-black/5 transition-colors focus:outline-none"
               >
                 <X className="w-4 h-4" />
               </button>

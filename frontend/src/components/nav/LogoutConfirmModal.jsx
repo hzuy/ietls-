@@ -12,8 +12,8 @@ export default function LogoutConfirmModal({ open, onClose, onConfirm }) {
         style={{ background: 'var(--surface)', borderRadius: '1rem', padding: 28, width: '100%', maxWidth: 360, boxShadow: 'var(--shadow-lg)', border: '1px solid var(--border)' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-          <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
-            <LogOut size={20} className="text-slate-600" strokeWidth={2} />
+          <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center">
+            <LogOut size={20} className="text-zinc-600" strokeWidth={2} />
           </div>
           <h3 style={{ fontWeight: 700, fontSize: 16, color: 'var(--ink)', margin: 0 }}>Đăng xuất</h3>
         </div>

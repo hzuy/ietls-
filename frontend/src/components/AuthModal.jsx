@@ -110,8 +110,8 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
   const googleSection = (
     <>
       {googleError && (
-        <div role="alert" className="p-3 rounded-2xl mb-4 mt-4 text-xs font-medium bg-red-50 border border-red-200 text-red-700 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+        <div role="alert" className="p-3 rounded-2xl mb-4 mt-4 text-xs font-medium bg-error-bg border border-error-border text-error-text flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-error shrink-0" />
           <span>{googleError}</span>
         </div>
       )}
@@ -146,7 +146,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
           onClick={onClose}
           aria-label="Đóng"
           style={{ position: 'absolute', top: 14, right: 18, color: 'var(--subtle)', fontSize: 22, lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer' }}
-          className="font-bold hover:text-gray-600 transition-colors"
+          className="font-bold hover:text-zinc-600 transition-colors"
         >
           ×
         </button>
@@ -192,8 +192,8 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
             <p className="text-sm mb-5" style={{ color: 'var(--muted)' }}>Chào mừng bạn quay lại!</p>
 
             {loginError && (
-              <div role="alert" className="p-3 rounded-2xl mb-4 text-xs font-medium bg-red-50 border border-red-200 text-red-700 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+              <div role="alert" className="p-3 rounded-2xl mb-4 text-xs font-medium bg-error-bg border border-error-border text-error-text flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-error shrink-0" />
                 <span>{loginError}</span>
               </div>
             )}
@@ -253,8 +253,8 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
             <p className="text-xs mb-5 text-zinc-500">Lưu trữ kết quả thi và theo dõi lộ trình nâng band điểm</p>
 
             {regError && (
-              <div role="alert" className="p-3 rounded-2xl mb-4 text-xs font-medium bg-red-50 border border-red-200 text-red-700 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+              <div role="alert" className="p-3 rounded-2xl mb-4 text-xs font-medium bg-error-bg border border-error-border text-error-text flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-error shrink-0" />
                 <span>{regError}</span>
               </div>
             )}

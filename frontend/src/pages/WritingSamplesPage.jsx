@@ -71,7 +71,7 @@ export default function WritingSamplesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50/50">
+    <div className="min-h-screen bg-[var(--bg)]">
       <Navbar />
 
       <div className="app-container pt-4 pb-0">
@@ -135,13 +135,13 @@ export default function WritingSamplesPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {[0,1,2,3,4,5].map(i => (
                 <div key={i} className="card-base flex flex-col h-full overflow-hidden">
-                  <div className="w-full aspect-video shrink-0 bg-slate-200 animate-pulse" />
+                  <div className="w-full aspect-video shrink-0 bg-zinc-200 animate-pulse" />
                   <div className="p-4 flex flex-col flex-1 gap-3">
-                    <div className="h-4 bg-slate-200 animate-pulse rounded w-[80%]" />
-                    <div className="h-4 bg-slate-200 animate-pulse rounded w-[50%]" />
+                    <div className="h-4 bg-zinc-200 animate-pulse rounded w-[80%]" />
+                    <div className="h-4 bg-zinc-200 animate-pulse rounded w-[50%]" />
                     <div className="mt-auto flex gap-2 pt-2">
-                      <div className="h-5 w-16 bg-slate-200 animate-pulse rounded-full" />
-                      <div className="h-5 w-20 bg-slate-200 animate-pulse rounded-full" />
+                      <div className="h-5 w-16 bg-zinc-200 animate-pulse rounded-full" />
+                      <div className="h-5 w-20 bg-zinc-200 animate-pulse rounded-full" />
                     </div>
                   </div>
                 </div>

@@ -10,7 +10,7 @@ export default function SkeletonChart() {
       {/* Stat cards row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[0, 1, 2, 3].map(i => (
-          <div key={i} className="bg-white rounded-xl border border-gray-100 p-5 flex flex-col gap-3">
+          <div key={i} className="bg-white rounded-xl border border-zinc-100 p-5 flex flex-col gap-3">
             <SkeletonBase className="h-8 w-8 rounded-lg" />
             <SkeletonBase className="h-7 w-16 rounded" />
             <SkeletonBase className="h-3 w-20 rounded" />
@@ -19,7 +19,7 @@ export default function SkeletonChart() {
       </div>
 
       {/* Chart area */}
-      <div className="bg-white rounded-xl border border-gray-100 p-6">
+      <div className="bg-white rounded-xl border border-zinc-100 p-6">
         <SkeletonBase className="h-5 w-40 rounded mb-6" />
         {/* Bar chart skeleton */}
         <div className="flex items-end gap-3 h-40">
@@ -42,7 +42,7 @@ export default function SkeletonChart() {
       {/* Second row — two side-by-side panels */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {[0, 1].map(i => (
-          <div key={i} className="bg-white rounded-xl border border-gray-100 p-6 space-y-3">
+          <div key={i} className="bg-white rounded-xl border border-zinc-100 p-6 space-y-3">
             <SkeletonBase className="h-5 w-32 rounded mb-4" />
             {[80, 60, 40, 70, 50].map((w, j) => (
               <div key={j} className="flex items-center gap-3">
