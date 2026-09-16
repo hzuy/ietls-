@@ -105,7 +105,26 @@ export default function FullTestDetail() {
     const filtered = allBooks.filter(b =>
       !(String(b.seriesId) === String(seriesId) && String(b.bookNumber) === String(bookNumber))
     )
-    return [...filtered].sort(() => 0.5 - Math.random()).slice(0, 4)
+    // Có chủ đích, ổn định giữa các lần tải (trước đây random mỗi lần tải — kiểu UX
+    // trang bán hàng, không phù hợp học tập): ưu tiên cùng bộ sách với cuốn đang xem,
+    // rồi trong mỗi nhóm sắp theo số thứ tự cuốn gần nhất (cuốn liền kề trước).
+    // API danh sách full-test chỉ trả seriesId/seriesName/bookNumber/coverImageUrl,
+    // không có trạng thái "đã làm/chưa làm" nên không dùng được tiêu chí đó ở đây.
+    const currentBookNumber = Number(bookNumber)
+    return [...filtered]
+      .sort((a, b) => {
+        const aSameSeries = String(a.seriesId) === String(seriesId) ? 0 : 1
+        const bSameSeries = String(b.seriesId) === String(seriesId) ? 0 : 1
+        if (aSameSeries !== bSameSeries) return aSameSeries - bSameSeries
+
+        const aDist = Math.abs(Number(a.bookNumber) - currentBookNumber)
+        const bDist = Math.abs(Number(b.bookNumber) - currentBookNumber)
+        if (aDist !== bDist) return aDist - bDist
+
+        if (a.seriesName !== b.seriesName) return a.seriesName.localeCompare(b.seriesName)
+        return Number(a.bookNumber) - Number(b.bookNumber)
+      })
+      .slice(0, 4)
   }, [allBooks, seriesId, bookNumber, bookData])
 
   // Load draft info for all skills in all tests (runs after bookData + user are ready)
