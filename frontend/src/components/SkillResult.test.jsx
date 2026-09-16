@@ -1,9 +1,22 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import SkillResult from './SkillResult'
 
 describe('SkillResult Component', () => {
+  // ScoreRing đếm số tăng dần bằng requestAnimationFrame (Đợt 2) — ép
+  // prefers-reduced-motion để band score/số câu đúng hiện giá trị cuối ngay,
+  // giống trải nghiệm thật của người dùng bật giảm chuyển động.
+  beforeEach(() => {
+    window.matchMedia = (query) => ({
+      matches: query.includes('prefers-reduced-motion'),
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })
+  })
+
+
   const mockValidData = {
     bookName: 'Cambridge 19',
     testNumber: 1,

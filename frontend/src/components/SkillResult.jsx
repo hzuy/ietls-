@@ -9,6 +9,7 @@ import { RotateCcw, AlertCircle, Sparkles, X, Check } from 'lucide-react'
 import api from '../utils/axios'
 import { askAITutor } from './common/AIChatbotDrawer'
 import QuestionTypeBreakdown from './exam/QuestionTypeBreakdown'
+import useCountUp from '../hooks/useCountUp'
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 
@@ -284,6 +285,8 @@ function SectionBlock({ section, skillType, filterStatus = 'all', onAskAI }) {
 
 function ScoreRing({ score, maxScore, isPractice, correct, totalQuestions, bandScore }) {
   const [progress, setProgress] = useState(0);
+  const countedCorrect = useCountUp(isPractice ? correct : undefined, { duration: 900 });
+  const countedBand = useCountUp(!isPractice ? bandScore : undefined, { duration: 900, decimals: 1 });
 
   useEffect(() => {
     // animate progress on mount
@@ -333,12 +336,12 @@ function ScoreRing({ score, maxScore, isPractice, correct, totalQuestions, bandS
           // text-3xl — giữ nguyên: chuỗi "đúng/tổng" dài hơn band score (X.X),
           // tăng lên text-4xl như bandScore bên dưới dễ tràn khỏi vòng tròn 88px cố định.
           <span className="text-3xl font-bold tabular-nums font-mono text-zinc-900">
-            {correct}/{totalQuestions}
+            {countedCorrect}/{totalQuestions}
           </span>
         ) : (
           // text-4xl — cùng cấp độ nổi bật với vòng điểm tổng ở FullTestResult (Đợt 2).
           <span className="text-4xl font-bold tabular-nums font-mono text-zinc-900">
-            {typeof bandScore === 'number' ? bandScore.toFixed(1) : bandScore}
+            {typeof bandScore === 'number' ? countedBand : bandScore}
           </span>
         )}
       </div>

@@ -5,6 +5,7 @@ import Navbar from '../components/Navbar'
 import Breadcrumb from '../components/common/Breadcrumb'
 import Card from '../components/common/Card'
 import PageHeader from '../components/common/PageHeader'
+import useCountUp from '../hooks/useCountUp'
 import { Headphones, BookOpen, PenTool, Mic, BarChart2, Clock, Sparkles, RotateCcw, ArrowRight, CheckCircle2 } from 'lucide-react'
 import { askAITutor } from '../components/common/AIChatbotDrawer'
 
@@ -26,6 +27,7 @@ export default function FullTestResult() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const countedOverallBand = useCountUp(data?.isComplete ? data.overallBand : undefined, { duration: 900, decimals: 1 })
 
   useEffect(() => {
     document.title = 'Kết quả bài thi | IELTS Pro'
@@ -147,7 +149,7 @@ export default function FullTestResult() {
               <>
                 <div className="w-24 h-24 rounded-full flex items-center justify-center mb-3" style={{ border: '4px solid var(--primary)' }}>
                   <span className="text-4xl font-extrabold font-mono text-zinc-900">
-                    {data.overallBand}
+                    {countedOverallBand}
                   </span>
                 </div>
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-success-bg text-success-text border border-success-border text-xs font-semibold">
