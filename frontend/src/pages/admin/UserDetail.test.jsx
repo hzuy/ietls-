@@ -100,6 +100,51 @@ describe('UserDetail — BUG-06 & BUG-07 Action Handlers & Pagination', () => {
     expect(await screen.findByText('TempPassword123')).toBeInTheDocument()
   })
 
+  it('disables Reset MK trigger + confirm button while a reset is in flight, so re-opening the modal cannot send a second reset request', async () => {
+    let resolveReset
+    const resetPromise = new Promise((resolve) => { resolveReset = resolve })
+    adminService.resetUserPassword.mockReturnValue(resetPromise)
+    renderComponent()
+
+    const resetBtn = await screen.findByRole('button', { name: /Reset MK/i })
+    fireEvent.click(resetBtn)
+    const confirmResetBtn = screen.getByRole('button', { name: 'Reset' })
+    fireEvent.click(confirmResetBtn)
+
+    await vi.waitFor(() => expect(adminService.resetUserPassword).toHaveBeenCalledTimes(1))
+
+    // Modal closes immediately on confirm; the trigger button must stay disabled
+    // until the request settles so a second click cannot start another reset.
+    const pendingResetBtn = await screen.findByRole('button', { name: /Đang reset/i })
+    expect(pendingResetBtn).toBeDisabled()
+    fireEvent.click(pendingResetBtn)
+    expect(adminService.resetUserPassword).toHaveBeenCalledTimes(1)
+
+    resolveReset({ newPassword: 'TempPassword123' })
+    await screen.findByText('TempPassword123')
+  })
+
+  it('disables the delete confirm button while the delete mutation is pending, so a double-click sends only one delete request', async () => {
+    let resolveDelete
+    const deletePromise = new Promise((resolve) => { resolveDelete = resolve })
+    adminService.deleteAdminUser.mockReturnValue(deletePromise)
+    renderComponent()
+
+    const delBtn = await screen.findByRole('button', { name: 'Xóa' })
+    fireEvent.click(delBtn)
+    const confirmDelBtn = screen.getAllByRole('button', { name: 'Xóa' })[1]
+    fireEvent.click(confirmDelBtn)
+
+    const pendingDelBtns = await screen.findAllByRole('button', { name: /Đang xóa/i })
+    expect(pendingDelBtns).toHaveLength(2) // header trigger + modal confirm, both disabled
+    pendingDelBtns.forEach(btn => expect(btn).toBeDisabled())
+    fireEvent.click(pendingDelBtns[1])
+    expect(adminService.deleteAdminUser).toHaveBeenCalledTimes(1)
+
+    resolveDelete({ message: 'Deleted' })
+    await screen.findByText('User List Page')
+  })
+
   it('BUG-07: Xóa người dùng mở modal xác nhận, gọi deleteAdminUser và điều hướng về /admin/users', async () => {
     adminService.deleteAdminUser.mockResolvedValueOnce({ message: 'Deleted' })
     renderComponent()
