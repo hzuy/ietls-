@@ -125,6 +125,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
           onSuccess={handleGoogleSuccess}
           onError={() => setGoogleError('Đăng nhập Google thất bại')}
           text={tab === 'register' ? 'signup_with' : 'signin_with'}
+          shape="pill"
           width="320"
         />
       </div>
