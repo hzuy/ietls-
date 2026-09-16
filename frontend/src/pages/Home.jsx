@@ -311,46 +311,53 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── 2. Nội dung chính: Bố cục 2 cột (nội dung chính + widget rail) ─── */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      {/* ── 2. Nội dung chính (Đợt 3 — Việc 5: 1 cột, tiến độ học tập lên đầu,
+           thay cho cột phụ hẹp trước đây) ──────────────────────────────── */}
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
+        <div className="flex flex-col gap-9">
 
-          {/* ── Cột chính bên trái ─────────────────────────────────────────── */}
-          <div className="lg:col-span-8 flex flex-col gap-9 min-w-0">
+          {/* Dải "Tiến độ của bạn": khối resume bài dở (rộng, nội dung dày) ở
+              trên, 3 widget thống kê (streak/band/lối tắt) xếp hàng ngang bên
+              dưới — thay cho cột phụ hẹp lg:col-span-4 trước đây, nơi 3 thứ giá
+              trị nhất bị nhét lép vế so với carousel bìa sách. */}
+          <section className="anim-fade-up flex flex-col gap-4">
+            {enrichedDraft ? (
+              <ResumeHeroCard
+                draft={enrichedDraft}
+                onResume={handleResumeDraft}
+                onDiscard={handleDiscardDraft}
+              />
+            ) : (
+              <Card className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-base font-semibold text-zinc-900">
+                    Bắt đầu luyện tập hôm nay
+                  </h2>
+                  <p className="text-xs text-zinc-500 mt-1">
+                    Chưa có bài làm dở nào. Chọn một đề để bắt đầu phiên luyện thi.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => gate('/cambridge')}
+                  className="h-9 px-5 text-white text-sm font-medium rounded-full shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none shrink-0"
+                  style={{ background: 'var(--primary)' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
+                >
+                  Chọn đề luyện tập
+                </button>
+              </Card>
+            )}
 
-            {/* Khối Hero: Tiếp tục bài làm dở */}
-            <section className="anim-fade-up">
-              {enrichedDraft ? (
-                <ResumeHeroCard
-                  draft={enrichedDraft}
-                  onResume={handleResumeDraft}
-                  onDiscard={handleDiscardDraft}
-                />
-              ) : (
-                <Card className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-base font-semibold text-zinc-900">
-                      Bắt đầu luyện tập hôm nay
-                    </h2>
-                    <p className="text-xs text-zinc-500 mt-1">
-                      Chưa có bài làm dở nào. Chọn một đề để bắt đầu phiên luyện thi.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => gate('/cambridge')}
-                    className="h-9 px-5 text-white text-sm font-medium rounded-full shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none shrink-0"
-                    style={{ background: 'var(--primary)' }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
-                  >
-                    Chọn đề luyện tập
-                  </button>
-                </Card>
-              )}
-            </section>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <StreakWidget streak={userStats?.streak ?? 0} isAuthenticated={!!user} />
+              <BandOverviewWidget stats={userStats} isAuthenticated={!!user} />
+              <QuickFullTestWidget books={quickTestBooks} onSelect={handleQuickBookSelect} />
+            </div>
+          </section>
 
-            {/* Section 1: Bộ đề Cambridge Academic & IELTS Practice Plus */}
+          {/* Section 1: Bộ đề Cambridge Academic & IELTS Practice Plus */}
             <section className="flex flex-col gap-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-100">
                 <div className="flex items-center gap-3 flex-wrap">
@@ -427,21 +434,23 @@ export default function Home() {
               )}
             </section>
 
-            {/* Section 2: Luyện tập theo Kỹ năng (Interactive Skills Practice) */}
+            {/* Section 2 (Đợt 3 — Việc 5): gộp "Luyện tập theo Kỹ năng" +
+                "Thư viện bài mẫu học thuật" thành 1 lưới 4 ô "Khám phá thêm" —
+                giảm chiều cao trang, hạ độ ưu tiên thị giác so với dải tiến độ
+                và bộ đề Cambridge/Practice Plus ở trên. */}
             <section id="quick-skills-section" className="flex flex-col gap-4">
               <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-base font-semibold text-zinc-900">
-                    Luyện tập theo Kỹ năng
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-base font-semibold text-zinc-900 shrink-0">
+                    Khám phá thêm
                   </h2>
                   <span className="text-[11px] font-mono text-zinc-400">
-                    (Bài thi tương tác chấm điểm tự động)
+                    (Luyện kỹ năng tương tác & thư viện bài mẫu tham khảo)
                   </span>
                 </div>
               </div>
 
-              {/* 2 Thẻ lớn cân đối: Reading & Listening */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Reading */}
                 <div
                   onClick={() => gate('/practice/reading')}
@@ -511,24 +520,7 @@ export default function Home() {
                     <span>Luyện tập Listening</span>
                   </div>
                 </div>
-              </div>
-            </section>
 
-            {/* Section 3: Thư viện bài mẫu học thuật (Writing & Speaking Reference Library) */}
-            <section className="flex flex-col gap-4">
-              <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-base font-semibold text-zinc-900">
-                    Thư viện bài mẫu học thuật
-                  </h2>
-                  <span className="text-[11px] font-mono text-zinc-400">
-                    (Tài liệu tham khảo chuyên sâu Band 8.0+)
-                  </span>
-                </div>
-              </div>
-
-              {/* 2 Thẻ thư viện bài mẫu: Writing & Speaking */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Writing Samples */}
                 <div
                   onClick={() => navigate('/writing-samples')}
@@ -600,15 +592,6 @@ export default function Home() {
                 </div>
               </div>
             </section>
-
-          </div>
-
-          {/* ── Cột Widget Kỷ luật & Thống kê (bên phải, sticky) ────────────── */}
-          <aside className="lg:col-span-4 flex flex-col gap-4 lg:sticky lg:top-20">
-            <StreakWidget streak={userStats?.streak ?? 0} isAuthenticated={!!user} />
-            <BandOverviewWidget stats={userStats} isAuthenticated={!!user} />
-            <QuickFullTestWidget books={quickTestBooks} onSelect={handleQuickBookSelect} />
-          </aside>
 
         </div>
       </main>

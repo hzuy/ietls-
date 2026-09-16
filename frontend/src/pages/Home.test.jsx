@@ -94,16 +94,17 @@ describe('Home Page Standardization', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText('Luyện tập theo Kỹ năng')).toBeInTheDocument()
+      expect(screen.getByText('Khám phá thêm')).toBeInTheDocument()
     })
 
-    // Interactive skills
+    // Interactive skills (Đợt 3 — Việc 5: gộp chung 1 section "Khám phá thêm"
+    // với thư viện bài mẫu, không còn heading "Luyện tập theo Kỹ năng" riêng)
     expect(screen.getByText('Reading Practice')).toBeInTheDocument()
     expect(screen.getByText('Listening Practice')).toBeInTheDocument()
     expect(screen.getAllByText('ĐỀ THI TƯƠNG TÁC')).toHaveLength(2)
 
-    // Reference libraries
-    expect(screen.getByText('Thư viện bài mẫu học thuật')).toBeInTheDocument()
+    // Reference libraries (cùng lưới "Khám phá thêm", không còn heading
+    // "Thư viện bài mẫu học thuật" riêng)
     expect(screen.getByText('Writing Samples')).toBeInTheDocument()
     expect(screen.getByText('Speaking Samples')).toBeInTheDocument()
     expect(screen.getAllByText('THƯ VIỆN THAM KHẢO')).toHaveLength(2)
