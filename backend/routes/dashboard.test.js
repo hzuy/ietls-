@@ -142,3 +142,109 @@ describe('Dashboard Router & Optimizations', () => {
     )
   })
 })
+
+// ─── Timezone: ngày lịch Việt Nam (UTC+7), neo tường minh — xem lib/vnDate.js
+// + CLAUDE.md mục "Quy ước timezone". Test này khẳng định các route dùng đúng
+// mốc VN, không còn UTC/local-Node-TZ như trước khi sửa (bug đã xác nhận bằng
+// dữ liệu thật trên postgres-dev: bản ghi VN 00:00 và 06:59 bị bộ lọc "hôm nay"/
+// dateFrom/dateTo cũ bỏ sót).
+describe('Dashboard/Attempts/Analytics — mốc thời gian theo ngày lịch VN', () => {
+  const { vnStartOfDay, vnEndOfDay, vnStartOfToday, vnStartOfMonth } = require('../lib/vnDate')
+  const { clearAll: clearSwrCache } = require('../lib/swrCache')
+  const adminToken = jwt.sign({ userId: 1, email: 'admin@example.com', role: 'admin' }, 'test_secret_key', { expiresIn: '1h' })
+  const teacherToken = jwt.sign({ userId: 2, email: 'teacher@example.com', role: 'teacher' }, 'test_secret_key', { expiresIn: '1h' })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // /admin/dashboard và /admin/analytics đi qua SWR cache (lib/swrCache.js,
+    // TTL 60s) — xoá sạch mỗi test để đảm bảo fetcher LUÔN được gọi lại với
+    // "now" đã fake ở từng test, không trả nhầm data cache "ấm" từ describe khác.
+    clearSwrCache()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('GET /admin/attempts?dateFrom=X&dateTo=X dùng đúng vnStartOfDay/vnEndOfDay (không phải UTC-midnight/local setHours)', async () => {
+    await request(app)
+      .get('/api/admin/attempts?dateFrom=2026-09-16&dateTo=2026-09-16')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .expect(200)
+
+    const call = prismaMock.attempt.findMany.mock.calls.at(-1)[0]
+    expect(call.where.createdAt.gte.toISOString()).toBe(vnStartOfDay('2026-09-16').toISOString())
+    expect(call.where.createdAt.gte.toISOString()).toBe('2026-09-15T17:00:00.000Z')
+    expect(call.where.createdAt.lte.toISOString()).toBe(vnEndOfDay('2026-09-16').toISOString())
+    expect(call.where.createdAt.lte.toISOString()).toBe('2026-09-16T16:59:59.999Z')
+  })
+
+  it('GET /admin/attempts với chỉ dateFrom hoặc chỉ dateTo vẫn dùng đúng mốc VN', async () => {
+    await request(app)
+      .get('/api/admin/attempts?dateFrom=2026-09-16')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .expect(200)
+    let call = prismaMock.attempt.findMany.mock.calls.at(-1)[0]
+    expect(call.where.createdAt).toEqual({ gte: vnStartOfDay('2026-09-16') })
+
+    vi.clearAllMocks()
+    await request(app)
+      .get('/api/admin/attempts?dateTo=2026-09-16')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .expect(200)
+    call = prismaMock.attempt.findMany.mock.calls.at(-1)[0]
+    expect(call.where.createdAt).toEqual({ lte: vnEndOfDay('2026-09-16') })
+  })
+
+  it('GET /admin/dashboard — "Hôm nay"/"Tháng này" dùng vnStartOfToday/vnStartOfMonth, không phải local Date của tiến trình Node', async () => {
+    vi.useFakeTimers()
+    // "now" cố định ngay trong khung giờ 00:00-07:00 VN dễ gây lệch nhất:
+    // UTC 2026-09-16T02:00:00Z = VN 2026-09-16 09:00 (đã qua mốc 07:00 VN).
+    vi.setSystemTime(new Date('2026-09-16T02:00:00.000Z'))
+
+    await request(app)
+      .get('/api/admin/dashboard')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200)
+
+    const attemptsTodayCall = prismaMock.attempt.count.mock.calls.find(
+      c => c[0]?.where?.finishedAt?.gte
+    )
+    expect(attemptsTodayCall).toBeDefined()
+    expect(attemptsTodayCall[0].where.finishedAt.gte.toISOString()).toBe(vnStartOfToday().toISOString())
+    expect(attemptsTodayCall[0].where.finishedAt.gte.toISOString()).toBe('2026-09-15T17:00:00.000Z')
+
+    const usersThisMonthCall = prismaMock.user.count.mock.calls.find(
+      c => c[0]?.where?.createdAt?.gte && !c[0]?.where?.createdAt?.lt
+    )
+    expect(usersThisMonthCall).toBeDefined()
+    expect(usersThisMonthCall[0].where.createdAt.gte.toISOString()).toBe(vnStartOfMonth(new Date()).toISOString())
+    expect(usersThisMonthCall[0].where.createdAt.gte.toISOString()).toBe('2026-08-31T17:00:00.000Z')
+  })
+
+  it('GET /admin/analytics?period=today dùng vnStartOfToday', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-16T02:00:00.000Z')) // VN 2026-09-16 09:00
+
+    await request(app)
+      .get('/api/admin/analytics?period=today')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .expect(200)
+
+    const call = prismaMock.attempt.count.mock.calls.find(c => c[0]?.where?.createdAt?.gte)
+    expect(call).toBeDefined()
+    expect(call[0].where.createdAt.gte.toISOString()).toBe('2026-09-15T17:00:00.000Z')
+  })
+
+  it('GET /admin/analytics?from=X&to=X (custom range) dùng vnStartOfDay/vnEndOfDay', async () => {
+    await request(app)
+      .get('/api/admin/analytics?from=2026-09-16&to=2026-09-16')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .expect(200)
+
+    const call = prismaMock.attempt.count.mock.calls.find(c => c[0]?.where?.createdAt?.gte)
+    expect(call).toBeDefined()
+    expect(call[0].where.createdAt.gte.toISOString()).toBe('2026-09-15T17:00:00.000Z')
+    expect(call[0].where.createdAt.lte.toISOString()).toBe('2026-09-16T16:59:59.999Z')
+  })
+})

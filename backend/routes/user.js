@@ -3,6 +3,7 @@ const router = express.Router()
 const prisma = require('../lib/prisma')
 const authMiddleware = require('../middleware/auth')
 const { roundBand, ieltsOverall } = require('../lib/scoreUtils')
+const { computeStreak } = require('../lib/streak')
 
 // GET /api/user/stats — thống kê luyện thi của user đang đăng nhập
 router.get('/stats', authMiddleware, async (req, res) => {
@@ -42,7 +43,8 @@ router.get('/stats', authMiddleware, async (req, res) => {
     const activeBands = Object.values(bandBySkill).filter(v => v !== null)
     const avgBand = activeBands.length ? ieltsOverall(activeBands) : 0
 
-    // Streak — số ngày liên tiếp có bài hoàn thành (tính từ hôm nay hoặc hôm qua)
+    // Streak — số ngày liên tiếp có bài hoàn thành (tính từ hôm nay hoặc hôm qua
+    // theo NGÀY LỊCH VIỆT NAM, xem lib/streak.js + lib/vnDate.js)
     // Lấy tối đa 366 ngày gần nhất — đủ cho bất kỳ streak thực tế nào
     const finishedDates = await prisma.attempt.findMany({
       where: { userId, finishedAt: { not: null } },
@@ -51,24 +53,7 @@ router.get('/stats', authMiddleware, async (req, res) => {
       take: 366,
     })
 
-    const dateSet = new Set(
-      finishedDates.map(a => a.finishedAt.toISOString().split('T')[0])
-    )
-
-    const toDateStr = d => d.toISOString().split('T')[0]
-    const today = new Date()
-    today.setUTCHours(0, 0, 0, 0)
-    const todayStr = toDateStr(today)
-    const yesterdayStr = toDateStr(new Date(today.getTime() - 86400000))
-
-    let streak = 0
-    if (dateSet.has(todayStr) || dateSet.has(yesterdayStr)) {
-      const cursor = new Date(dateSet.has(todayStr) ? today : today.getTime() - 86400000)
-      while (dateSet.has(toDateStr(cursor))) {
-        streak++
-        cursor.setUTCDate(cursor.getUTCDate() - 1)
-      }
-    }
+    const streak = computeStreak(finishedDates.map(a => a.finishedAt))
 
     res.json({ totalAttempts, avgBand, streak, bandBySkill })
   } catch (error) {

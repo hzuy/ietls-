@@ -8,6 +8,7 @@ const { auditLogsQuerySchema } = require('../../validators/auditLogValidator')
 const { AUDIT_ACTION_LABELS } = require('../../lib/auditActions')
 const { sanitizeMetadata } = require('../../lib/auditLog')
 const { purgeOldAuditLogs } = require('../../lib/auditLogRetention')
+const { vnStartOfDay, vnEndOfDay } = require('../../lib/vnDate')
 
 // AuditLog là log quản trị bất biến (ai làm gì, khi nào) — CHỈ admin được đọc,
 // teacher không có quyền truy cập (khác /admin/attempts vốn mở cho cả teacher).
@@ -56,8 +57,10 @@ router.get('/audit-logs', authMiddleware, adminOnly, validate(auditLogsQuerySche
 
     if (from || to) {
       where.createdAt = {}
-      if (from) where.createdAt.gte = new Date(`${from}T00:00:00.000Z`)
-      if (to) where.createdAt.lte = new Date(`${to}T23:59:59.999Z`)
+      // Ngày lịch Việt Nam, neo tường minh — xem lib/vnDate.js + CLAUDE.md
+      // mục "Quy ước timezone". from/to là chuỗi 'YYYY-MM-DD' từ <input type="date">.
+      if (from) where.createdAt.gte = vnStartOfDay(from)
+      if (to) where.createdAt.lte = vnEndOfDay(to)
     }
 
     if (search) {

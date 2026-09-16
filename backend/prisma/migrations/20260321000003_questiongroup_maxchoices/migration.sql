@@ -1,1 +1,0 @@
-ALTER TABLE "QuestionGroup" ADD COLUMN "maxChoices" INTEGER NOT NULL DEFAULT 2;
