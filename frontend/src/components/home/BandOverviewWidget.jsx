@@ -1,4 +1,5 @@
 import { formatBand } from '../../utils/ielts'
+import StatValue from '../common/StatValue'
 
 function SkillBar({ label, band, colorVar }) {
   const pct = band != null ? Math.min((band / 9) * 100, 100) : 0
@@ -25,12 +26,11 @@ export default function BandOverviewWidget({ stats, isAuthenticated }) {
         Band điểm hiện tại
       </h3>
 
-      <div className="flex items-baseline gap-1.5 mb-4">
-        <span className="text-3xl font-bold font-mono" style={{ color: 'var(--primary)' }}>
-          {isAuthenticated ? formatBand(stats?.avgBand) : '—'}
-        </span>
-        <span className="text-xs text-zinc-500 dark:text-zinc-400">Overall ước tính</span>
-      </div>
+      <StatValue
+        className="mb-4"
+        value={isAuthenticated ? formatBand(stats?.avgBand) : '—'}
+        label="Overall ước tính"
+      />
 
       <div className="flex flex-col gap-3">
         <SkillBar label="Reading" band={isAuthenticated ? stats?.bandBySkill?.reading : null} colorVar="--skill-r-color" />

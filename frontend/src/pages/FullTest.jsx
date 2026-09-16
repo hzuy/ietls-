@@ -5,6 +5,7 @@ import Breadcrumb from '../components/common/Breadcrumb'
 import { FolderArchive } from 'lucide-react'
 import ContentCard from '../components/common/ContentCard'
 import AcademicCover from '../components/common/AcademicCover'
+import Card from '../components/common/Card'
 import { SkeletonCard } from '../components/skeletons'
 import { CONTENT_CARD_CONFIG } from '../components/common/contentCardConfig'
 import { BACKEND_URL, resolveImg } from '../utils/media'
@@ -263,14 +264,14 @@ export default function FullTest() {
 
       <div className="app-container pt-4 pb-16 relative">
         {fetchError ? (
-          <div className="text-center py-20 px-6 bg-white rounded-2xl border border-zinc-200 shadow-xs flex flex-col items-center">
+          <Card className="text-center py-20 px-6 flex flex-col items-center">
             <div className="w-16 h-16 rounded-full bg-zinc-50 border border-zinc-200 flex items-center justify-center mb-6 text-zinc-400">
               <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
             </div>
             <p className="text-lg font-bold text-zinc-900 mb-2">Không thể tải dữ liệu</p>
             <p className="text-zinc-500 mb-6 max-w-sm text-sm">Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
             <button className="btn-primary px-8 py-3 font-bold text-sm" onClick={() => window.location.reload()}>Thử lại</button>
-          </div>
+          </Card>
         ) : loading ? (
           <div className="flex flex-col gap-12">
             {[1, 2].map(i => (

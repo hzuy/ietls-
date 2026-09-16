@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 
+import Card from '../components/common/Card'
 import SampleHeader from '../components/SampleHeader'
 import { getSample } from '../services/sampleService'
 import { sanitizeRichText } from '../utils/sanitizeHtml'
@@ -58,7 +59,7 @@ export default function SampleDetailPage({ skill }) {
           ← Quay lại danh sách
         </button>
 
-        <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-8 md:p-12">
+        <Card className="p-8 md:p-12">
 
           <div style={{ maxWidth: '900px', margin: '0 auto' }}>
 
@@ -110,7 +111,7 @@ export default function SampleDetailPage({ skill }) {
               </div>
             )}
           </div>
-        </div>
+        </Card>
       </div>
 
       <style>{`

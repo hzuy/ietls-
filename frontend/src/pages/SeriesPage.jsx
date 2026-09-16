@@ -4,6 +4,8 @@ import Navbar from '../components/Navbar'
 import Breadcrumb from '../components/common/Breadcrumb'
 import ContentCard from '../components/common/ContentCard'
 import AcademicCover from '../components/common/AcademicCover'
+import Card from '../components/common/Card'
+import PageHeader from '../components/common/PageHeader'
 import { SkeletonCard } from '../components/skeletons'
 import { Headphones, BookOpen, PenTool, Mic, AlertCircle, RefreshCw, FolderArchive } from 'lucide-react'
 import { BACKEND_URL, resolveImg } from '../utils/media'
@@ -98,7 +100,7 @@ export default function SeriesPage({ filterPattern, title }) {
             { label: title }
           ]}
         />
-        <h1 className="text-2xl font-bold mt-3" style={{ color: 'var(--ink)' }}>{title}</h1>
+        <PageHeader title={title} titleClassName="text-2xl font-bold mt-3 text-zinc-900" />
       </div>
 
       <div className="app-container py-6 flex-1">
@@ -109,7 +111,7 @@ export default function SeriesPage({ filterPattern, title }) {
             ))}
           </div>
         ) : error ? (
-          <div className="text-center py-16 px-6 bg-white rounded-2xl border border-zinc-200 shadow-xs flex flex-col items-center">
+          <Card className="text-center py-16 px-6 flex flex-col items-center">
             <div className="w-14 h-14 rounded-2xl bg-error-bg border border-error-border flex items-center justify-center mb-4 text-error shadow-xs">
               <AlertCircle className="w-7 h-7 stroke-[2]" />
             </div>
@@ -124,13 +126,13 @@ export default function SeriesPage({ filterPattern, title }) {
               <RefreshCw className="w-4 h-4" />
               Thử lại
             </button>
-          </div>
+          </Card>
         ) : books.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-2xl border border-zinc-200 flex flex-col items-center">
+          <Card variant="flat" className="text-center py-20 flex flex-col items-center">
             <FolderArchive className="w-12 h-12 text-zinc-300 stroke-[1.5] mb-4" />
             <h3 className="font-bold text-zinc-900 text-base">Không tìm thấy bộ đề nào</h3>
             <p className="text-zinc-500 text-sm mt-1">Hiện chưa có bộ đề nào trong danh mục này</p>
-          </div>
+          </Card>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
             {books.map(book => {

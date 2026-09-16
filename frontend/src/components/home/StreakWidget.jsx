@@ -1,4 +1,5 @@
 import { Flame } from 'lucide-react'
+import StatValue from '../common/StatValue'
 
 const DAY_LABELS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
 
@@ -14,12 +15,7 @@ export default function StreakWidget({ streak = 0, isAuthenticated }) {
         <Flame className="w-4 h-4" style={{ color: 'var(--primary)' }} />
       </div>
 
-      <p className="flex items-baseline gap-1.5">
-        <span className="text-2xl font-bold font-mono" style={{ color: 'var(--primary)' }}>
-          {isAuthenticated ? streak : 0}
-        </span>
-        <span className="text-xs text-zinc-500">ngày luyện tập liên tục</span>
-      </p>
+      <StatValue as="p" size="text-2xl" value={isAuthenticated ? streak : 0} label="ngày luyện tập liên tục" />
 
       <div className="flex items-stretch gap-1.5 mt-3.5">
         {DAY_LABELS.map((label, i) => {

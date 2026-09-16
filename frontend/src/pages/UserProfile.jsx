@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
+import Card from '../components/common/Card'
 import { getMe, updateProfile, changePassword, getUserStats } from '../services/userService'
 import { User, BarChart2, Lock, CheckCircle2, AlertCircle } from 'lucide-react'
 import { formatBand } from '../utils/ielts'
@@ -237,23 +238,23 @@ export default function UserProfile() {
                   ))}
                 </div>
               ) : statsError ? (
-                <div className="text-center p-12 bg-white rounded-2xl border border-zinc-200 shadow-xs flex flex-col items-center">
+                <Card className="text-center p-12 flex flex-col items-center">
                   <div className="w-16 h-16 rounded-full bg-zinc-50 border border-zinc-200 flex items-center justify-center mb-6 text-zinc-400">
                     <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                   </div>
                   <h2 className="text-lg font-bold text-zinc-900 mb-2">Không thể tải dữ liệu</h2>
                   <p className="text-zinc-600 mb-6 max-w-sm" style={{ fontSize: 'var(--fs-sm)' }}>Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
                   <button className="btn-primary px-8 py-3 font-bold" style={{ fontSize: 'var(--fs-sm)' }} onClick={() => window.location.reload()}>Thử lại</button>
-                </div>
+                </Card>
               ) : stats?.totalAttempts === 0 ? (
-                <div className="text-center p-12 bg-white rounded-2xl border border-zinc-200 shadow-xs flex flex-col items-center">
+                <Card className="text-center p-12 flex flex-col items-center">
                   <div className="w-16 h-16 rounded-full bg-zinc-50 border border-zinc-200 flex items-center justify-center mb-6 text-zinc-400">
                     <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                   </div>
                   <h2 className="text-lg font-bold text-zinc-900 mb-2">Bạn chưa có dữ liệu học tập</h2>
                   <p className="text-zinc-600 mb-6 max-w-sm" style={{ fontSize: 'var(--fs-sm)' }}>Hãy bắt đầu luyện tập để xây dựng hồ sơ tiến bộ của mình.</p>
                   <button className="btn-primary px-8 py-3 font-bold" style={{ fontSize: 'var(--fs-sm)' }} onClick={() => navigate('/full-test')}>Bắt đầu luyện tập</button>
-                </div>
+                </Card>
               ) : (
                 <>
                   {/* 3 stat cards */}

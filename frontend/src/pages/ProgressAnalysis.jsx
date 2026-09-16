@@ -8,6 +8,8 @@ import {
   getAIAdvice,
 } from '../services/statsService'
 import Navbar from '../components/Navbar'
+import Card from '../components/common/Card'
+import PageHeader from '../components/common/PageHeader'
 import {
   TrendingUp,
   TrendingDown,
@@ -190,12 +192,11 @@ export default function ProgressAnalysis() {
                 Unified 4-Skills Analytics
               </span>
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold text-zinc-900 tracking-tight">
-              Phân tích Lỗi sai & Lộ trình 4 Kỹ năng
-            </h1>
-            <p className="text-sm text-zinc-500 mt-1">
-              Theo dõi chi tiết tiêu chí IELTS Reading, Listening, Writing và Speaking kèm cố vấn AI cá nhân hóa.
-            </p>
+            <PageHeader
+              title="Phân tích Lỗi sai & Lộ trình 4 Kỹ năng"
+              subtitle="Theo dõi chi tiết tiêu chí IELTS Reading, Listening, Writing và Speaking kèm cố vấn AI cá nhân hóa."
+              titleClassName="text-2xl md:text-3xl font-bold text-zinc-900 tracking-tight"
+            />
           </div>
 
           {/* Dedicated Skill Filter Toolbar (1 Single Row, No Wrap) */}
@@ -279,11 +280,11 @@ export default function ProgressAnalysis() {
           <div className="space-y-8">
             {/* Overview Metric Bar */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-xs">
+              <Card className="p-5">
                 <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Reading/Listening</span>
                 <div className="text-2xl font-black text-zinc-900 mt-1 font-mono">{totalQuestionsAll} câu</div>
                 <span className="text-xs text-zinc-500 mt-1 block">Đã ghi nhận trong log</span>
-              </div>
+              </Card>
               <div className="bg-white p-5 rounded-2xl border border-success-border/80 shadow-xs bg-success-bg/20">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-success-text uppercase tracking-wider">Tỉ lệ đúng R/L</span>
@@ -292,27 +293,27 @@ export default function ProgressAnalysis() {
                 <div className="text-2xl font-black text-success-text mt-1 font-mono">{overallAccuracy}%</div>
                 <span className="text-xs text-success mt-1 font-semibold block">{totalCorrectAll} câu làm đúng</span>
               </div>
-              <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-xs">
+              <Card className="p-5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-zinc-700 uppercase tracking-wider">Bài viết Writing</span>
                   <PenTool className="w-4 h-4 text-zinc-600" />
                 </div>
                 <div className="text-2xl font-black text-zinc-900 mt-1 font-mono">{writingCriteria[0]?.sampleCount || 0} bài</div>
                 <span className="text-xs text-zinc-500 mt-1 font-medium block">Đã được AI chấm điểm</span>
-              </div>
-              <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-xs">
+              </Card>
+              <Card className="p-5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-zinc-700 uppercase tracking-wider">Bài nói Speaking</span>
                   <Mic className="w-4 h-4 text-zinc-600" />
                 </div>
                 <div className="text-2xl font-black text-zinc-900 mt-1 font-mono">{speakingCriteria[0]?.sampleCount || 0} bài</div>
                 <span className="text-xs text-zinc-500 mt-1 font-medium block">Đã được AI chấm điểm</span>
-              </div>
+              </Card>
             </div>
 
             {/* SECTION 1: Error Breakdown (Reading & Listening) */}
             {(skillFilter === 'all' || skillFilter === 'reading' || skillFilter === 'listening') && (
-              <section className="bg-white rounded-2xl p-6 md:p-8 border border-zinc-200 shadow-xs">
+              <Card as="section" className="p-6 md:p-8">
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <h2 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
@@ -387,12 +388,12 @@ export default function ProgressAnalysis() {
                     })}
                   </div>
                 )}
-              </section>
+              </Card>
             )}
 
             {/* SECTION 2: Writing Criteria Analysis */}
             {(skillFilter === 'all' || skillFilter === 'writing') && (
-              <section className="bg-white rounded-2xl p-6 md:p-8 border border-zinc-200 shadow-xs">
+              <Card as="section" className="p-6 md:p-8">
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <h2 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
@@ -450,12 +451,12 @@ export default function ProgressAnalysis() {
                     ))}
                   </div>
                 )}
-              </section>
+              </Card>
             )}
 
             {/* SECTION 3: Speaking Criteria Analysis */}
             {(skillFilter === 'all' || skillFilter === 'speaking') && (
-              <section className="bg-white rounded-2xl p-6 md:p-8 border border-zinc-200 shadow-xs">
+              <Card as="section" className="p-6 md:p-8">
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <h2 className="text-lg font-bold text-zinc-900 flex items-center gap-2">
@@ -513,7 +514,7 @@ export default function ProgressAnalysis() {
                     ))}
                   </div>
                 )}
-              </section>
+              </Card>
             )}
 
             {/* SECTION 4: UNIFIED 4-SKILLS AI ADVISOR */}

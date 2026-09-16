@@ -4,6 +4,7 @@ import Navbar from '../components/Navbar'
 import Breadcrumb from '../components/common/Breadcrumb'
 import ContentCard from '../components/common/ContentCard'
 import AcademicCover from '../components/common/AcademicCover'
+import Card from '../components/common/Card'
 import { CONTENT_CARD_CONFIG, buildSampleChips } from '../components/common/contentCardConfig'
 import { API_BASE, resolveImg } from '../utils/media'
 
@@ -81,7 +82,7 @@ export default function WritingSamplesPage() {
       {/* Body */}
       <div className="app-container pt-4 pb-16 flex gap-8 items-start">
         {/* Sidebar */}
-        <aside className="w-56 shrink-0 bg-white rounded-2xl border border-zinc-200 p-5 sticky top-24 shadow-xs">
+        <Card as="aside" className="w-56 shrink-0 p-5 sticky top-24">
           {/* Task filter */}
           <div className="mb-6">
             <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider ml-1 mb-3">Task</p>
@@ -109,7 +110,7 @@ export default function WritingSamplesPage() {
               </div>
             </div>
           )}
-        </aside>
+        </Card>
 
         {/* Grid */}
         <main className="flex-1 min-w-0">
@@ -148,23 +149,23 @@ export default function WritingSamplesPage() {
               ))}
             </div>
           ) : error ? (
-            <div className="text-center py-16 px-6 bg-white rounded-2xl border border-zinc-200 shadow-xs flex flex-col items-center">
+            <Card className="text-center py-16 px-6 flex flex-col items-center">
               <div className="w-16 h-16 rounded-full bg-zinc-50 border border-zinc-200 flex items-center justify-center mb-6 text-zinc-400">
                 <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
               </div>
               <p className="text-lg font-bold text-zinc-900 mb-2">Không thể tải dữ liệu</p>
               <p className="text-sm text-zinc-500 mb-6 max-w-sm">Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
               <button className="btn-primary px-8 py-3 text-sm font-bold" onClick={() => window.location.reload()}>Thử lại</button>
-            </div>
+            </Card>
           ) : filtered.length === 0 ? (
-            <div className="text-center py-16 px-6 bg-white rounded-2xl border border-zinc-200 shadow-xs flex flex-col items-center">
+            <Card className="text-center py-16 px-6 flex flex-col items-center">
               <div className="w-16 h-16 rounded-full bg-zinc-50 border border-zinc-200 flex items-center justify-center mb-6 text-zinc-400">
                 <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
               </div>
               <p className="text-lg font-bold text-zinc-900 mb-2">Không tìm thấy bài mẫu phù hợp</p>
               <p className="text-sm text-zinc-500 mb-6 max-w-sm">Hãy thử thay đổi từ khóa hoặc lựa chọn dạng bài khác.</p>
               <button className="btn-secondary px-6 py-2.5 text-sm font-bold" onClick={() => setSearchParams(new URLSearchParams())}>Xóa bộ lọc</button>
-            </div>
+            </Card>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {filtered.map((item, i) => (

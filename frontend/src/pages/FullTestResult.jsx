@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getFullTestResult } from '../services/examService'
 import Navbar from '../components/Navbar'
 import Breadcrumb from '../components/common/Breadcrumb'
+import Card from '../components/common/Card'
+import PageHeader from '../components/common/PageHeader'
 import { Headphones, BookOpen, PenTool, Mic, BarChart2, Clock, Sparkles, RotateCcw, ArrowRight, CheckCircle2 } from 'lucide-react'
 import { askAITutor } from '../components/common/AIChatbotDrawer'
 
@@ -122,8 +124,12 @@ export default function FullTestResult() {
           <div className="w-13 h-13 rounded-2xl flex items-center justify-center text-zinc-900 mx-auto mb-3.5 bg-zinc-100 border border-zinc-200 shadow-xs">
             <BarChart2 className="w-6 h-6 stroke-[1.75]" />
           </div>
-          <h1 className="text-2xl font-bold text-zinc-900 m-0 mb-1 tracking-tight">Kết quả Full Test</h1>
-          <p className="text-sm text-zinc-500 m-0">{testLabel}</p>
+          <PageHeader
+            title="Kết quả Full Test"
+            subtitle={testLabel}
+            titleClassName="text-2xl font-bold text-zinc-900 m-0 mb-1 tracking-tight"
+            subtitleClassName="text-sm text-zinc-500 m-0"
+          />
         </div>
       </div>
 
@@ -133,7 +139,7 @@ export default function FullTestResult() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           
           {/* Bento Col 1: Overall Band & Status (lg:col-span-4) */}
-          <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs flex flex-col items-center justify-center text-center">
+          <Card className="p-6 flex flex-col items-center justify-center text-center">
             <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-3">
               Overall Band Score
             </span>
@@ -160,10 +166,10 @@ export default function FullTestResult() {
                 </p>
               </>
             )}
-          </div>
+          </Card>
 
           {/* Bento Col 2: Breakdown per Skill (lg:col-span-5) */}
-          <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
+          <Card className="p-6 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between mb-3.5">
                 <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">
@@ -211,10 +217,10 @@ export default function FullTestResult() {
               <span>Độ hoàn thiện bài thi</span>
               <span className="font-bold text-zinc-800 font-mono">{Math.round((completedCount / 4) * 100)}%</span>
             </div>
-          </div>
+          </Card>
 
           {/* Bento Col 3: Quick Actions (lg:col-span-3) */}
-          <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs flex flex-col justify-center gap-2.5">
+          <Card className="p-6 flex flex-col justify-center gap-2.5">
             <button
               type="button"
               onClick={handleAskAITutor}
@@ -242,7 +248,7 @@ export default function FullTestResult() {
               <RotateCcw className="w-3.5 h-3.5 text-zinc-500" />
               Về trang Full Test
             </button>
-          </div>
+          </Card>
         </div>
 
         {/* ── Per-skill Breakdown Cards ── */}

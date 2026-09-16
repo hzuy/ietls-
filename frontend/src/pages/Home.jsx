@@ -10,6 +10,8 @@ import {
 } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import AcademicCover from '../components/common/AcademicCover'
+import Card from '../components/common/Card'
+import PageHeader from '../components/common/PageHeader'
 import ResumeHeroCard from '../components/home/ResumeHeroCard'
 import StreakWidget from '../components/home/StreakWidget'
 import BandOverviewWidget from '../components/home/BandOverviewWidget'
@@ -311,13 +313,11 @@ export default function Home() {
         <div className="bg-dots" aria-hidden="true" />
         <div className="app-container py-8 md:py-10 relative">
           <div className="max-w-2xl anim-fade-up">
-            <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">
-              Không gian Luyện thi & Khảo thí IELTS
-            </h1>
-
-            <p className="text-sm text-zinc-500 max-w-xl leading-relaxed mt-2">
-              Nền tảng kiểm tra trực tuyến mô phỏng kỳ thi trên máy tính, tích hợp AI phân tích 4 kỹ năng.
-            </p>
+            <PageHeader
+              title="Không gian Luyện thi & Khảo thí IELTS"
+              subtitle="Nền tảng kiểm tra trực tuyến mô phỏng kỳ thi trên máy tính, tích hợp AI phân tích 4 kỹ năng."
+              subtitleClassName="text-sm text-zinc-500 max-w-xl leading-relaxed mt-2"
+            />
 
             <div className="flex flex-wrap items-center gap-3 mt-5">
               <button
@@ -360,7 +360,7 @@ export default function Home() {
                   onDiscard={handleDiscardDraft}
                 />
               ) : (
-                <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <Card className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     <h2 className="text-base font-semibold text-zinc-900">
                       Bắt đầu luyện tập hôm nay
@@ -379,7 +379,7 @@ export default function Home() {
                   >
                     Chọn đề luyện tập
                   </button>
-                </div>
+                </Card>
               )}
             </section>
 
