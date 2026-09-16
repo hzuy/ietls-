@@ -86,7 +86,7 @@ export default function Staff() {
   }
 
   const handleRemoveStaff = () => {
-    if (!confirmRemove) return
+    if (!confirmRemove || removeStaffMutation.isPending) return
     removeStaffMutation.mutate(confirmRemove.id)
   }
 
@@ -200,13 +200,16 @@ export default function Staff() {
           <div className="flex gap-2.5 justify-end">
             <button
               onClick={() => setConfirmRemove(null)}
-              className="h-9 px-5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs sm:text-sm text-zinc-700 dark:text-slate-300 hover:bg-zinc-50 dark:hover:bg-slate-800 font-medium transition-colors cursor-pointer">
+              disabled={removeStaffMutation.isPending}
+              className="h-9 px-5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs sm:text-sm text-zinc-700 dark:text-slate-300 hover:bg-zinc-50 dark:hover:bg-slate-800 font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
               Huỷ
             </button>
             <button
               onClick={handleRemoveStaff}
-              className="h-9 px-5 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer">
-              Xóa
+              disabled={removeStaffMutation.isPending}
+              className="h-9 px-5 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed inline-flex items-center gap-2">
+              {removeStaffMutation.isPending && <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />}
+              {removeStaffMutation.isPending ? 'Đang xóa...' : 'Xóa'}
             </button>
           </div>
         </Modal>
