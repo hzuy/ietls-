@@ -91,7 +91,7 @@ export default function SeriesPage({ filterPattern, title }) {
     <div className="min-h-screen bg-[var(--bg)] dark:bg-zinc-950 flex flex-col">
       <Navbar />
 
-      <div className="app-container pt-5 pb-1">
+      <div className="app-container pt-5 pb-1 anim-fade-up">
         <Breadcrumb
           className="mb-0"
           items={[
@@ -135,12 +135,13 @@ export default function SeriesPage({ filterPattern, title }) {
           </Card>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
-            {books.map(book => {
+            {books.map((book, idx) => {
               const hasTests = book.testCount > 0
               const skills = Array.from(book.skills || [])
               return (
                 <ContentCard
                   key={`${book.seriesId}-${book.bookNumber}`}
+                  className={`anim-fade-up delay-${Math.min(idx + 1, 8)}`}
                   image={book.coverImageUrl ? resolveImg(book.coverImageUrl) : null}
                   imageAlt={book.title}
                   academicCover={

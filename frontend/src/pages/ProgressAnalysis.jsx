@@ -182,7 +182,7 @@ export default function ProgressAnalysis() {
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8 md:py-12">
         {/* Top Header */}
-        <div className="mb-8">
+        <div className="mb-8 anim-fade-up">
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className="p-2 rounded-xl bg-zinc-100 text-zinc-900 border border-zinc-200">

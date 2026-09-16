@@ -122,7 +122,7 @@ export default function FullTestResult() {
 
       {/* Header */}
       <div className="bg-white border-b border-zinc-200">
-        <div className="max-w-3xl mx-auto px-6 py-10 text-center">
+        <div className="max-w-3xl mx-auto px-6 py-10 text-center anim-fade-up">
           <div className="w-13 h-13 rounded-2xl flex items-center justify-center text-zinc-900 mx-auto mb-3.5 bg-zinc-100 border border-zinc-200 shadow-xs">
             <BarChart2 className="w-6 h-6 stroke-[1.75]" />
           </div>
@@ -141,7 +141,7 @@ export default function FullTestResult() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           
           {/* Bento Col 1: Overall Band & Status (lg:col-span-4) */}
-          <Card className="p-6 flex flex-col items-center justify-center text-center">
+          <Card className="p-6 flex flex-col items-center justify-center text-center anim-fade-up delay-1">
             <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-3">
               Overall Band Score
             </span>
@@ -171,7 +171,7 @@ export default function FullTestResult() {
           </Card>
 
           {/* Bento Col 2: Breakdown per Skill (lg:col-span-5) */}
-          <Card className="p-6 flex flex-col justify-between">
+          <Card className="p-6 flex flex-col justify-between anim-fade-up delay-2">
             <div>
               <div className="flex items-center justify-between mb-3.5">
                 <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">
@@ -222,7 +222,7 @@ export default function FullTestResult() {
           </Card>
 
           {/* Bento Col 3: Quick Actions (lg:col-span-3) */}
-          <Card className="p-6 flex flex-col justify-center gap-2.5">
+          <Card className="p-6 flex flex-col justify-center gap-2.5 anim-fade-up delay-3">
             <button
               type="button"
               onClick={handleAskAITutor}
