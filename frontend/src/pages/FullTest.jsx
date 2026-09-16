@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Breadcrumb from '../components/common/Breadcrumb'
 import { FolderArchive } from 'lucide-react'
@@ -65,87 +65,11 @@ function SeriesCard({ item, onClick }) {
 
 
 
-function SeriesRow({ title, count, children }) {
-  const scrollRef = useRef(null)
-  const [showLeft, setShowLeft] = useState(false)
-  const [showRight, setShowRight] = useState(true)
-
-  // Drag-to-scroll refs & state
-  const isDown = useRef(false)
-  const startX = useRef(0)
-  const scrollLeftStart = useRef(0)
-  const dragged = useRef(false)
-  const [isDragging, setIsDragging] = useState(false)
-
-  const checkScroll = () => {
-    if (!scrollRef.current) return
-    const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current
-    setShowLeft(scrollLeft > 10)
-    setShowRight(scrollLeft < scrollWidth - clientWidth - 10)
-  }
-
-  const scroll = (dir) => {
-    if (!scrollRef.current) return
-    const offset = scrollRef.current.clientWidth * 0.8
-    scrollRef.current.scrollBy({ left: dir * offset, behavior: 'smooth' })
-  }
-
-  useEffect(() => {
-    checkScroll()
-    window.addEventListener('resize', checkScroll)
-    return () => window.removeEventListener('resize', checkScroll)
-  }, [children])
-
-
-
-  const handleMouseDown = (e) => {
-    if (e.button !== 0) return // Only left-click
-    
-    // Ignore drag starting if clicked directly on the horizontal scrollbar area
-    const el = scrollRef.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    const clickYRelative = e.clientY - rect.top
-    if (clickYRelative > el.clientHeight) {
-      return
-    }
-
-    isDown.current = true
-    setIsDragging(true)
-    dragged.current = false
-    startX.current = e.pageX - el.offsetLeft
-    scrollLeftStart.current = el.scrollLeft
-  }
-
-  const handleMouseLeave = () => {
-    isDown.current = false
-    setIsDragging(false)
-  }
-
-  const handleMouseUp = () => {
-    isDown.current = false
-    setIsDragging(false)
-  }
-
-  const handleMouseMove = (e) => {
-    if (!isDown.current) return
-    e.preventDefault()
-    const x = e.pageX - scrollRef.current.offsetLeft
-    const walk = (x - startX.current) * 1.5 // drag speed multiplier
-    if (Math.abs(walk) > 5) {
-      dragged.current = true
-    }
-    scrollRef.current.scrollLeft = scrollLeftStart.current - walk
-  }
-
-  const handleClickCapture = (e) => {
-    if (dragged.current) {
-      e.preventDefault()
-      e.stopPropagation()
-      dragged.current = false
-    }
-  }
-
+// Đợt 3 — Việc 4: thay carousel cuộn ngang + kéo chuột (nút mũi tên tròn nổi
+// bóng, cảm giác kệ trưng bày) bằng lưới co giãn tự xuống dòng — trang này
+// (/full-test) vốn đã là trang liệt kê ĐẦY ĐỦ nên không cần cap/"Xem tất cả":
+// ít bộ đề → lưới không tràn; nhiều bộ đề → tự xuống dòng thay vì phải cuộn.
+function SeriesSection({ title, count, children }) {
   return (
     <section className="mb-12">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
@@ -153,42 +77,8 @@ function SeriesRow({ title, count, children }) {
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, background: 'var(--primary-light)', color: 'var(--primary)', padding: '3px 10px', borderRadius: 20, border: '1px solid var(--border)' }}>{count}</span>
       </div>
 
-      <div className="relative group/row">
-        <button
-          aria-label="Cuộn trái"
-          onClick={() => scroll(-1)}
-          style={{ position: 'absolute', left: -20, top: '50%', transform: 'translateY(-50%)', zIndex: 10, width: 40, height: 40, borderRadius: '50%', display: showLeft ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', opacity: 0, transition: 'all 0.2s var(--ease-out-quart)' }}
-          className="group-hover/row:opacity-100 hover:text-zinc-900 hover:border-zinc-300"
-        >
-          <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>
-        </button>
-
-        <div
-          ref={scrollRef}
-          onScroll={checkScroll}
-          onMouseDown={handleMouseDown}
-          onMouseLeave={handleMouseLeave}
-          onMouseUp={handleMouseUp}
-          onMouseMove={handleMouseMove}
-          onClickCapture={handleClickCapture}
-          className={`flex flex-nowrap overflow-x-auto gap-6 pb-4 custom-scrollbar select-none ${
-            isDragging ? 'scroll-auto cursor-grabbing' : 'scroll-smooth cursor-grab'
-          }`}
-          style={{ scrollSnapType: isDragging ? 'none' : 'x proximity' }}
-        >
-          {children}
-          {/* Spacer to avoid last card clipping */}
-          <div className="flex-shrink-0 w-8" style={{ scrollSnapAlign: 'none' }} />
-        </div>
-
-        <button
-          aria-label="Cuộn phải"
-          onClick={() => scroll(1)}
-          style={{ position: 'absolute', right: -20, top: '50%', transform: 'translateY(-50%)', zIndex: 10, width: 40, height: 40, borderRadius: '50%', display: showRight ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', opacity: 0, transition: 'all 0.2s var(--ease-out-quart)' }}
-          className="group-hover/row:opacity-100 hover:text-zinc-900 hover:border-zinc-300"
-        >
-          <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
-        </button>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+        {children}
       </div>
     </section>
   )
@@ -275,9 +165,9 @@ export default function FullTest() {
             {[1, 2].map(i => (
               <div key={i}>
                 <div className="h-7 w-48 bg-zinc-200 animate-pulse rounded-md mb-6" />
-                <div className="flex gap-6 overflow-hidden">
-                  {[1, 2, 3, 4, 5, 6].map(j => (
-                    <SkeletonCard key={j} className="w-[180px] sm:w-[200px] shrink-0" aspect="4/5" />
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                  {[1, 2, 3, 4, 5].map(j => (
+                    <SkeletonCard key={j} aspect="4/5" />
                   ))}
                 </div>
               </div>
@@ -291,43 +181,24 @@ export default function FullTest() {
           </div>
         ) : (
           Object.values(groupedData).map((series) => (
-            <SeriesRow
+            <SeriesSection
               key={series.name}
               title={series.name}
               count={`${series.books.length} cuốn`}
             >
               {series.books.map(book => (
-                <div key={`${book.seriesId}-${book.bookNumber}`} className="flex-shrink-0 shrink-0 w-[180px] sm:w-[200px]" style={{ scrollSnapAlign: 'start' }}>
-                  <SeriesCard
-                    item={book}
-                    onClick={() => navigate(`/full-test/${book.seriesId}?book=${book.bookNumber}`)}
-                  />
-                </div>
+                <SeriesCard
+                  key={`${book.seriesId}-${book.bookNumber}`}
+                  item={book}
+                  onClick={() => navigate(`/full-test/${book.seriesId}?book=${book.bookNumber}`)}
+                />
               ))}
-            </SeriesRow>
+            </SeriesSection>
           ))
         )}
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        /* Custom premium scrollbar for the horizontal list */
-        .custom-scrollbar::-webkit-scrollbar {
-          height: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: var(--border);
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: var(--text);
-        }
-
         /* Card "sắp có bài" — chỉ làm xám ảnh thumb, không ảnh hưởng title/nút */
         .ft-series-card--soon .cc-thumb img { filter: grayscale(0.5); }
       `}} />

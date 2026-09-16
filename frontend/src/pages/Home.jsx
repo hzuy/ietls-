@@ -1,12 +1,10 @@
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   BookOpen,
   Headphones,
   FileText,
   Mic,
-  ChevronLeft,
-  ChevronRight,
 } from 'lucide-react'
 import AcademicCover from '../components/common/AcademicCover'
 import Card from '../components/common/Card'
@@ -48,7 +46,7 @@ function CompactBookCard({ book, onClick }) {
   return (
     <div
       onClick={onClick}
-      className="group flex-shrink-0 w-[145px] sm:w-[160px] cursor-pointer flex flex-col transition-all duration-200"
+      className="group w-full cursor-pointer flex flex-col transition-all duration-200"
     >
       {/* Book Cover */}
       <div className="w-full aspect-[3/4] rounded-xl overflow-hidden border border-zinc-200 bg-zinc-100 shadow-2xs group-hover:shadow-md group-hover:border-zinc-400 transition-all duration-300 relative flex flex-col justify-between">
@@ -91,64 +89,24 @@ function CompactBookCard({ book, onClick }) {
   )
 }
 
-function CompactBookTrack({ books, onBookClick }) {
-  const scrollRef = useRef(null)
-  const [canScrollLeft, setCanScrollLeft] = useState(false)
-  const [canScrollRight, setCanScrollRight] = useState(true)
-
-  const checkScroll = () => {
-    if (!scrollRef.current) return
-    const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current
-    setCanScrollLeft(scrollLeft > 10)
-    setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10)
-  }
-
-  const scroll = (direction) => {
-    if (!scrollRef.current) return
-    scrollRef.current.scrollBy({ left: direction * 360, behavior: 'smooth' })
-  }
-
-  useEffect(() => {
-    checkScroll()
-    window.addEventListener('resize', checkScroll)
-    return () => window.removeEventListener('resize', checkScroll)
-  }, [books])
-
+// Đợt 3 — Việc 4: thay băng chuyền cuộn ngang (nút mũi tên tròn nổi bóng —
+// cảm giác kệ trưng bày) bằng lưới co giãn, giới hạn tối đa `cap` cuốn. Link
+// "Xem trọn bộ Cambridge/Practice Plus" ở header section đã có sẵn phía trên
+// đóng vai trò "Xem tất cả" khi số bộ đề vượt cap — không cần thêm affordance
+// cuộn/xem-thêm nào khác ở đây. Ít sách → lưới tự nhiên không tràn, không cần
+// cap; nhiều sách → chỉ hiện `cap` cuốn đầu, phần còn lại xem ở /cambridge
+// hoặc /practice-plus (SeriesPage, đã dùng cùng dữ liệu, không cap).
+function CompactBookGrid({ books, onBookClick, cap = 6 }) {
+  const visible = books.slice(0, cap)
   return (
-    <div className="relative group/track">
-      {canScrollLeft && (
-        <button
-          onClick={() => scroll(-1)}
-          aria-label="Cuộn sang trái"
-          className="absolute -left-3 top-1/3 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white border border-zinc-200 shadow-md flex items-center justify-center text-zinc-700 hover:bg-zinc-50 transition cursor-pointer"
-        >
-          <ChevronLeft className="w-4 h-4 stroke-[2]" />
-        </button>
-      )}
-
-      <div
-        ref={scrollRef}
-        onScroll={checkScroll}
-        className="flex gap-4 overflow-x-auto pb-3 custom-scrollbar scroll-smooth"
-      >
-        {books.map((book, i) => (
-          <CompactBookCard
-            key={`${book.seriesId}-${book.bookNumber}-${i}`}
-            book={book}
-            onClick={() => onBookClick(book)}
-          />
-        ))}
-      </div>
-
-      {canScrollRight && (
-        <button
-          onClick={() => scroll(1)}
-          aria-label="Cuộn sang phải"
-          className="absolute -right-3 top-1/3 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white border border-zinc-200 shadow-md flex items-center justify-center text-zinc-700 hover:bg-zinc-50 transition cursor-pointer"
-        >
-          <ChevronRight className="w-4 h-4 stroke-[2]" />
-        </button>
-      )}
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+      {visible.map((book, i) => (
+        <CompactBookCard
+          key={`${book.seriesId}-${book.bookNumber}-${i}`}
+          book={book}
+          onClick={() => onBookClick(book)}
+        />
+      ))}
     </div>
   )
 }
@@ -452,9 +410,9 @@ export default function Home() {
               {fullTestsData === 'error' ? (
                 <HomeSectionError onRetry={loadData} />
               ) : fullTestsData === null ? (
-                <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
-                  {[0, 1, 2, 3, 4].map(i => (
-                    <div key={i} className="w-[145px] sm:w-[160px] shrink-0">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  {[0, 1, 2, 3, 4, 5].map(i => (
+                    <div key={i}>
                       <div className="w-full aspect-[3/4] bg-zinc-100 rounded-xl animate-pulse" />
                       <div className="h-3.5 bg-zinc-100 rounded mt-2.5 w-3/4 animate-pulse" />
                       <div className="h-3 bg-zinc-100 rounded mt-1.5 w-1/2 animate-pulse" />
@@ -462,7 +420,7 @@ export default function Home() {
                   ))}
                 </div>
               ) : (
-                <CompactBookTrack
+                <CompactBookGrid
                   books={seriesTab === 'cambridge' ? cambridgeBooks : practicePlusBooks}
                   onBookClick={(book) => navigate(`/full-test/${book.seriesId}?book=${book.bookNumber}`)}
                 />
