@@ -601,8 +601,69 @@ button:disabled {
   opacity: 0.22;
 }
 
+/* Light-dot variant — same pattern for dark backgrounds (Home hero, Đợt 3) */
+.bg-dots-light {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.16) 1px, transparent 1px);
+  background-size: 28px 28px;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.5;
+}
+
 /* Legacy alias */
 .hero-dots { position: absolute; inset: 0; background-image: radial-gradient(circle, rgba(24,24,27,0.08) 1px, transparent 1px); background-size: 24px 24px; pointer-events: none; user-select: none; opacity: 0.35; }
+
+/* ─── Home Hero — nền tối "Quỹ đạo Band Score" (Đợt 3, chỉ Home.jsx) ─────────
+   Gradient TỰ kết thúc đúng bằng var(--bg) ở điểm cuối — không cần lớp overlay
+   fade riêng để nối với section sáng bên dưới, tránh seam cứng. Override lại
+   toàn bộ token --net-* (đã đăng ký ở :root phía trên) chỉ trong phạm vi class
+   này — không đụng gì ở nơi khác vì .hero-net-wrap hiện không được dùng ở đâu
+   ngoài Home.jsx. */
+.home-hero-dark {
+  position: relative;
+  background: linear-gradient(180deg, #1b1033 0%, #120f24 60%, var(--bg) 100%);
+
+  --net-grad-0:      #2a1f4d;
+  --net-grad-50:     #201640;
+  --net-grad-100:    #170f30;
+  --net-core-border: rgba(196,181,253,0.45);
+  --net-core-glow:   rgba(139,92,246,0.55);
+  --net-core-icon:   #f4f4f5;
+  --net-node-bg:     rgba(255,255,255,0.08);
+  --net-node-border: rgba(255,255,255,0.28);
+  --net-node-icon:   #f4f4f5;
+  --net-line-stroke: rgba(255,255,255,0.2);
+  --net-line-dim:    rgba(255,255,255,0.08);
+  --net-dot-fill:    #c4b5fd;
+  --net-dec-fill:    rgba(255,255,255,0.28);
+}
+
+/* h1 { color: var(--ink) } ở khối Typography phía trên là CSS thường (không
+   @layer) nên đè cả utility `text-white` của Tailwind (nằm trong layer) —
+   đúng bẫy đã ghi trong CLAUDE.md ("index.css unlayered global rules silently
+   beat Tailwind v4 utilities"). Selector cụ thể hơn ở đây thắng theo specificity
+   thường, không phải nhờ layer. */
+.home-hero-dark h1 {
+  color: #f4f4f5;
+}
+
+/* Quầng sáng tím phía sau khối quỹ đạo — blur TĨNH (không animate blur, chỉ
+   animate opacity của chính div này) để không tốn hiệu năng compositing. */
+.home-hero-glow {
+  position: absolute;
+  width: clamp(260px, 40vw, 480px);
+  height: clamp(260px, 40vw, 480px);
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(139,92,246,0.35), transparent 70%);
+  filter: blur(30px);
+  pointer-events: none;
+  opacity: 0.6;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .home-hero-glow-pulse { animation: net-glow-pulse 3.5s ease-in-out infinite alternate; }
+}
 
 /* ─── Global Base UI Standardization (Subtle) ─────────────────────────────── */
 
