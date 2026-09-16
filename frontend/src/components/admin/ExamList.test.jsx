@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render as rtlRender, screen, fireEvent } from '@testing-library/react'
+import { render as rtlRender, screen, fireEvent, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import ExamList from './ExamList'
 
@@ -19,6 +19,35 @@ function render(ui) {
     </QueryClientProvider>
   )
 }
+
+describe('ExamList — double-click protection on delete', () => {
+  it('disables the row "Xóa" action while a delete is in flight, so re-opening the confirm modal cannot send a second delete request', async () => {
+    const exams = [{ id: 1, title: 'Cambridge 18 Reading Test 1', skill: 'reading', createdAt: '2026-01-01T00:00:00.000Z' }]
+    let resolveDelete
+    const deletePromise = new Promise((resolve) => { resolveDelete = resolve })
+    const onDelete = vi.fn().mockReturnValue(deletePromise)
+
+    render(<ExamList exams={exams} skill="reading" onDelete={onDelete} onEdit={vi.fn()} onRefresh={vi.fn()} />)
+
+    const deleteBtn = screen.getByRole('button', { name: 'Xóa' })
+    fireEvent.click(deleteBtn)
+    const dialog = await screen.findByRole('dialog')
+    const confirmBtn = within(dialog).getByRole('button', { name: 'Xóa' })
+    fireEvent.click(confirmBtn)
+
+    // Modal closes immediately; the row action must stay disabled (and show progress)
+    // until the delete settles, so a second click cannot re-open the modal and delete again.
+    expect(screen.queryByText('Xác nhận xóa')).not.toBeInTheDocument()
+    const pendingBtn = await screen.findByRole('button', { name: 'Đang xóa...' })
+    expect(pendingBtn).toBeDisabled()
+
+    fireEvent.click(pendingBtn)
+    expect(onDelete).toHaveBeenCalledTimes(1)
+
+    resolveDelete()
+    await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Xóa' })).not.toBeDisabled())
+  })
+})
 
 describe('ExamList — Speaking Part Badge & Validation Count', () => {
   it('hiển thị badge 3/3 màu xanh khi Part 1 có câu hỏi, Part 2 chỉ có Cue Card (0 câu hỏi con), và Part 3 có câu hỏi thảo luận', () => {
