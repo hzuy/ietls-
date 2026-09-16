@@ -137,11 +137,12 @@ export default function Accounts() {
   }
 
   const handleDelete = () => {
-    if (!confirmDelete) return
+    if (!confirmDelete || deleteAccountMutation.isPending) return
     deleteAccountMutation.mutate(confirmDelete.id)
   }
 
   const executeLock = (accId) => {
+    if (lockMutation.isPending) return
     setConfirmLock(null)
     setConfirmUnlock(null)
     setTogglingId(accId)
@@ -333,8 +334,11 @@ export default function Accounts() {
           <h3 className="text-sm font-semibold text-zinc-900 mb-2">Xác nhận xóa</h3>
           <p className="text-xs text-zinc-600 mb-6">Xóa tài khoản <strong>{confirmDelete.name}</strong>? Hành động này không thể hoàn tác.</p>
           <div className="flex gap-2.5 justify-end">
-            <button onClick={() => setConfirmDelete(null)} className="h-9 px-5 rounded-full border border-zinc-200 text-xs sm:text-sm text-zinc-700 hover:bg-zinc-50 font-medium transition-colors cursor-pointer">Huỷ</button>
-            <button onClick={handleDelete} className="h-9 px-5 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer">Xóa</button>
+            <button onClick={() => setConfirmDelete(null)} disabled={deleteAccountMutation.isPending} className="h-9 px-5 rounded-full border border-zinc-200 text-xs sm:text-sm text-zinc-700 hover:bg-zinc-50 font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Huỷ</button>
+            <button onClick={handleDelete} disabled={deleteAccountMutation.isPending} className="h-9 px-5 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed inline-flex items-center gap-2">
+              {deleteAccountMutation.isPending && <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />}
+              {deleteAccountMutation.isPending ? 'Đang xóa...' : 'Xóa'}
+            </button>
           </div>
         </Modal>
       )}
@@ -346,8 +350,11 @@ export default function Accounts() {
             Khoá tài khoản <strong>{confirmLock.name}</strong>? Nhân sự sẽ không thể đăng nhập cho đến khi được mở khoá.
           </p>
           <div className="flex gap-2.5 justify-end">
-            <button onClick={() => setConfirmLock(null)} className="h-9 px-5 rounded-full border border-zinc-200 text-xs sm:text-sm text-zinc-700 hover:bg-zinc-50 font-medium transition-colors cursor-pointer">Huỷ</button>
-            <button onClick={() => executeLock(confirmLock.id, false)} className="h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer">Khoá</button>
+            <button onClick={() => setConfirmLock(null)} disabled={lockMutation.isPending} className="h-9 px-5 rounded-full border border-zinc-200 text-xs sm:text-sm text-zinc-700 hover:bg-zinc-50 font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Huỷ</button>
+            <button onClick={() => executeLock(confirmLock.id, false)} disabled={lockMutation.isPending} className="h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed inline-flex items-center gap-2">
+              {lockMutation.isPending && <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />}
+              {lockMutation.isPending ? 'Đang xử lý...' : 'Khoá'}
+            </button>
           </div>
         </Modal>
       )}
@@ -359,8 +366,11 @@ export default function Accounts() {
             Mở khoá tài khoản <strong>{confirmUnlock.name}</strong>? Nhân sự sẽ có thể đăng nhập trở lại.
           </p>
           <div className="flex gap-2.5 justify-end">
-            <button onClick={() => setConfirmUnlock(null)} className="h-9 px-5 rounded-full border border-zinc-200 text-xs sm:text-sm text-zinc-700 hover:bg-zinc-50 font-medium transition-colors cursor-pointer">Huỷ</button>
-            <button onClick={() => executeLock(confirmUnlock.id, true)} className="h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer">Mở khoá</button>
+            <button onClick={() => setConfirmUnlock(null)} disabled={lockMutation.isPending} className="h-9 px-5 rounded-full border border-zinc-200 text-xs sm:text-sm text-zinc-700 hover:bg-zinc-50 font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Huỷ</button>
+            <button onClick={() => executeLock(confirmUnlock.id, true)} disabled={lockMutation.isPending} className="h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed inline-flex items-center gap-2">
+              {lockMutation.isPending && <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />}
+              {lockMutation.isPending ? 'Đang xử lý...' : 'Mở khoá'}
+            </button>
           </div>
         </Modal>
       )}

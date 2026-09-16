@@ -86,4 +86,54 @@ describe('Accounts page — TanStack Query & Skeleton caching', () => {
 
     expect(screen.getByRole('button', { name: 'Role' })).toHaveTextContent('Admin (Quản lý hệ thống)')
   })
+
+  it('sends only one toggle-lock request and re-disables the row action while it is in flight (modal closes immediately on confirm)', async () => {
+    vi.spyOn(adminService, 'getAdminAccounts').mockResolvedValue(mockAccounts)
+    let resolveToggle
+    const togglePromise = new Promise((resolve) => { resolveToggle = resolve })
+    const toggleSpy = vi.spyOn(adminService, 'toggleUserLock').mockReturnValue(togglePromise)
+
+    renderAccounts()
+    await screen.findByText('Teacher User')
+
+    const lockRowBtn = screen.getByTitle('Khoá tài khoản')
+    fireEvent.click(lockRowBtn)
+    const confirmBtn = await screen.findByRole('button', { name: 'Khoá' })
+
+    fireEvent.click(confirmBtn)
+    await vi.waitFor(() => expect(toggleSpy).toHaveBeenCalledTimes(1))
+
+    // Modal closes immediately; row action must stay disabled until the mutation settles
+    // so a second click (e.g. a fast double-click) cannot start a second toggle.
+    expect(screen.queryByRole('button', { name: 'Khoá' })).not.toBeInTheDocument()
+    expect(lockRowBtn).toBeDisabled()
+    fireEvent.click(lockRowBtn)
+    expect(toggleSpy).toHaveBeenCalledTimes(1)
+
+    resolveToggle({ isLocked: true })
+    await vi.waitFor(() => expect(lockRowBtn).not.toBeDisabled())
+  })
+
+  it('disables the delete confirm button while the delete mutation is pending, so a double-click sends only one delete request', async () => {
+    vi.spyOn(adminService, 'getAdminAccounts').mockResolvedValue(mockAccounts)
+    let resolveDelete
+    const deletePromise = new Promise((resolve) => { resolveDelete = resolve })
+    const deleteSpy = vi.spyOn(adminService, 'deleteAdminAccount').mockReturnValue(deletePromise)
+
+    renderAccounts()
+    await screen.findByText('Teacher User')
+
+    const deleteButtons = screen.getAllByTitle('Xóa tài khoản')
+    fireEvent.click(deleteButtons[deleteButtons.length - 1])
+    const confirmBtn = await screen.findByRole('button', { name: 'Xóa' })
+
+    fireEvent.click(confirmBtn)
+    const pendingBtn = await screen.findByRole('button', { name: /Đang xóa/ })
+    expect(pendingBtn).toBeDisabled()
+
+    fireEvent.click(pendingBtn)
+    expect(deleteSpy).toHaveBeenCalledTimes(1)
+
+    resolveDelete()
+  })
 })
