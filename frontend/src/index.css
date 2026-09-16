@@ -307,18 +307,25 @@ button.chatbot-chip { font-size: 0.875rem; line-height: 1.25rem; }
 .anim-score-pop { animation: scorePop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.7s both; }
 
 /* ─── Page transition (route change) ───────────────────────────────────────── */
-/* "to" KHÔNG khai báo transform (chỉ "from" có) — theo spec CSS Animations, giá trị
-   thiếu ở một keyframe dùng "underlying value" (ở đây là "none"), nên sau khi animation
-   kết thúc phần tử KHÔNG còn transform nào áp dụng. Quan trọng: nếu "to" khai báo lại
-   dù chỉ là translateY(0), computed value vẫn là ma trận identity chứ không phải "none",
-   khiến phần tử vĩnh viễn trở thành containing block cho mọi con cháu position:fixed —
-   modal/backdrop bên trong (Modal.jsx) sẽ bị kẹt trong vùng <main>, hở Sidebar và lệch
-   tâm thay vì phủ toàn viewport (xem StudentDetailModal / Trash / Attempts). */
+/* Việc 3 (audit hộp thoại lệch tâm): comment cũ ở đây cho rằng bỏ "transform" khỏi
+   keyframe "to" là đủ để computed value trở lại "none" sau khi animation kết thúc —
+   ĐÃ KIỂM CHỨNG SAI trên Chromium thực tế: dù "to" không khai báo transform,
+   getComputedStyle(...).transform vẫn trả "matrix(1, 0, 0, 1, 0, 0)" (ma trận đơn vị),
+   không phải chuỗi "none". Theo spec CSS Transforms, containing block mới cho
+   position:fixed được tạo bởi BẤT KỲ giá trị transform nào khác "none" — kể cả ma
+   trận đơn vị — nên phần tử này vẫn vĩnh viễn "bẫy" mọi con cháu position:fixed
+   không đi qua portal (LogoutConfirmModal, AuthModal...), khiến chúng lệch tâm và
+   trôi theo scroll thay vì đứng yên theo viewport. `animation-fill-mode: both` chính
+   là nguyên nhân giữ giá trị này lại sau khi animation đã chạy xong — bỏ "both" (dùng
+   fill-mode mặc định "none") để sau 200ms phần tử không còn chịu ảnh hưởng của
+   animation nữa, transform trở về "none" thật sự (không có rule nào khác set transform
+   cho class này). Modal.jsx dùng createPortal(document.body) nên không bao giờ bị ảnh
+   hưởng bởi bẫy này dù containing block có bị tạo hay không. */
 @keyframes pageEnter {
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; }
 }
-.page-transition-in { animation: pageEnter 200ms ease-out both; }
+.page-transition-in { animation: pageEnter 200ms ease-out; }
 
 /* ─── Top route-loading progress bar ────────────────────────────────────────── */
 .top-progress-bar {
