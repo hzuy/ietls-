@@ -150,7 +150,7 @@ export default function Navbar() {
           </Link>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-1 md:gap-1.5 flex-nowrap whitespace-nowrap shrink-0">
+          <nav className="hidden xl:flex items-center gap-1 xl:gap-1.5 flex-nowrap whitespace-nowrap shrink-0">
             <NavBtn active={location.pathname === '/'} onClick={() => gate('/')}>Tổng quan</NavBtn>
 
             <NavDropdown name="fulltest" isOpen={openDropdown === 'fulltest'} onOpen={openMenu} onClose={scheduleClose}
@@ -225,7 +225,7 @@ export default function Navbar() {
           </nav>
 
           {/* Desktop auth */}
-          <div className="hidden md:flex items-center gap-2 flex-nowrap shrink-0">
+          <div className="hidden xl:flex items-center gap-2 flex-nowrap shrink-0">
               {isLoggedIn ? (
                 <>
                   {/* Bot — progress link */}
@@ -315,7 +315,7 @@ export default function Navbar() {
             </div>
 
             {/* Mobile: hamburger */}
-            <div className="md:hidden flex items-center gap-2 shrink-0">
+            <div className="xl:hidden flex items-center gap-2 shrink-0">
               <button
                 className="flex items-center justify-center rounded-full border transition-colors"
                 style={{ width: 44, height: 44, flexShrink: 0, borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--ink)' }}
@@ -336,7 +336,7 @@ export default function Navbar() {
       {/* ── Mobile drawer overlay ─────────────────────────────────────────────── */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-[100] md:hidden"
+          className="fixed inset-0 z-[100] xl:hidden"
           style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(2px)' }}
           onClick={closeMobile}
           aria-hidden="true"
@@ -345,7 +345,7 @@ export default function Navbar() {
 
       {/* ── Mobile drawer panel ───────────────────────────────────────────────── */}
       <div
-        className="fixed top-0 left-0 bottom-0 z-[101] md:hidden flex flex-col"
+        className="fixed top-0 left-0 bottom-0 z-[101] xl:hidden flex flex-col"
         style={{
           width: 'min(320px, 85vw)',
           transform: mobileOpen ? 'translateX(0)' : 'translateX(-100%)',
