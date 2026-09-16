@@ -7,20 +7,35 @@ import Card from '../components/common/Card'
 import { CONTENT_CARD_CONFIG, buildSampleChips } from '../components/common/contentCardConfig'
 import { API_BASE, resolveImg } from '../utils/media'
 
-const TASK_OPTIONS = [
-  { value: 'task1', label: 'Task 1' },
-  { value: 'task2', label: 'Task 2' },
-]
-
-const TASK_LABELS = { task1: 'Task 1', task2: 'Task 2' }
+// Việc 2 (Đợt 3): WritingSamplesPage.jsx và SpeakingSamplesPage.jsx trước đây
+// là 2 file gần như copy-paste nhau (~88% giống hệt) — gộp lại đây, tham số
+// hoá phần khác biệt qua `skill`. Options/label theo level (Task 1/Part 1...)
+// lấy chung từ CONTENT_CARD_CONFIG (contentCardConfig.js) thay vì khai riêng
+// từng trang — nhân tiện thống nhất luôn cách suy ra subtitle AcademicCover
+// bằng lookup map an toàn (Writing trước đây dùng ternary cứng chỉ đúng với
+// 2 giá trị level, khác Speaking đã dùng map).
+const PAGE_META = {
+  writing: {
+    title: 'Bài mẫu Writing | IELTS Pro',
+    breadcrumbLabel: 'Writing Samples',
+    paramKey: 'task',
+    groupLabel: 'Task',
+  },
+  speaking: {
+    title: 'Bài mẫu Speaking | IELTS Pro',
+    breadcrumbLabel: 'Speaking Samples',
+    paramKey: 'part',
+    groupLabel: 'Part',
+  },
+}
 
 function FilterBtn({ active, onClick, children }) {
   return (
     <button
       onClick={onClick}
       className={`block w-full text-left px-3.5 py-2 rounded-full border-none cursor-pointer text-[13px] font-medium transition-all duration-200 ${
-        active 
-          ? 'bg-zinc-100 text-zinc-900 font-semibold' 
+        active
+          ? 'bg-zinc-100 text-zinc-900 font-semibold'
           : 'bg-transparent text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
       }`}
     >
@@ -29,26 +44,36 @@ function FilterBtn({ active, onClick, children }) {
   )
 }
 
-export default function WritingSamplesPage() {
+export default function SamplesPage({ skill }) {
+  const meta = PAGE_META[skill]
+  const cfg = CONTENT_CARD_CONFIG[skill]
+  const levelOptions = useMemo(
+    () => Object.entries(cfg.levelLabels).map(([value, label]) => ({ value, label })),
+    [cfg]
+  )
+
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [samples, setSamples] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
-  const selectedTask = searchParams.get('task') || ''
+  const selectedLevel = searchParams.get(meta.paramKey) || ''
   const selectedType = searchParams.get('type') || ''
 
   useEffect(() => {
-    document.title = 'Bài mẫu Writing | IELTS Pro'
-    fetch(API_BASE + '/samples/writing?limit=0')
+    document.title = meta.title
+    setSamples([])
+    setLoading(true)
+    setError(false)
+    fetch(API_BASE + `/samples/${skill}?limit=0`)
       .then(r => {
         if (!r.ok) throw new Error('API Error')
         return r.json()
       })
       .then(data => { setSamples(data); setLoading(false) })
       .catch(() => { setError(true); setLoading(false) })
-  }, [])
+  }, [skill, meta.title])
 
   const examTypes = useMemo(() => {
     const set = new Set(samples.map(s => s.examType).filter(Boolean))
@@ -57,11 +82,11 @@ export default function WritingSamplesPage() {
 
   const filtered = useMemo(() => {
     return samples.filter(s => {
-      if (selectedTask && s.level !== selectedTask) return false
+      if (selectedLevel && s.level !== selectedLevel) return false
       if (selectedType && s.examType !== selectedType) return false
       return true
     })
-  }, [samples, selectedTask, selectedType])
+  }, [samples, selectedLevel, selectedType])
 
   const setFilter = (key, value) => {
     const next = new URLSearchParams(searchParams)
@@ -74,20 +99,20 @@ export default function WritingSamplesPage() {
     <div className="min-h-screen bg-[var(--bg)]">
 
       <div className="app-container pt-4 pb-0">
-        <Breadcrumb items={[{ label: 'Trang chủ', to: '/' }, { label: 'Writing Samples' }]} />
+        <Breadcrumb items={[{ label: 'Trang chủ', to: '/' }, { label: meta.breadcrumbLabel }]} />
       </div>
 
       {/* Body */}
       <div className="app-container pt-4 pb-16 flex gap-8 items-start">
         {/* Sidebar */}
         <Card as="aside" className="w-56 shrink-0 p-5 sticky top-24">
-          {/* Task filter */}
+          {/* Level filter (Task/Part) */}
           <div className="mb-6">
-            <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider ml-1 mb-3">Task</p>
+            <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider ml-1 mb-3">{meta.groupLabel}</p>
             <div className="flex flex-col gap-1">
-              <FilterBtn active={!selectedTask} onClick={() => setFilter('task', '')}>Tất cả</FilterBtn>
-              {TASK_OPTIONS.map(opt => (
-                <FilterBtn key={opt.value} active={selectedTask === opt.value} onClick={() => setFilter('task', selectedTask === opt.value ? '' : opt.value)}>
+              <FilterBtn active={!selectedLevel} onClick={() => setFilter(meta.paramKey, '')}>Tất cả</FilterBtn>
+              {levelOptions.map(opt => (
+                <FilterBtn key={opt.value} active={selectedLevel === opt.value} onClick={() => setFilter(meta.paramKey, selectedLevel === opt.value ? '' : opt.value)}>
                   {opt.label}
                 </FilterBtn>
               ))}
@@ -116,11 +141,11 @@ export default function WritingSamplesPage() {
             <span className="text-[14px] text-zinc-600 mr-2 flex items-center">
               {loading ? <div className="h-4 w-20 bg-zinc-200 animate-pulse rounded" /> : `${filtered.length} bài mẫu`}
             </span>
-            {selectedTask && (
+            {selectedLevel && (
               <span
                 className="text-[12px] font-semibold px-3 py-1 rounded-full bg-zinc-100 text-zinc-900 border border-zinc-200 cursor-pointer hover:bg-zinc-200 transition-colors"
-                onClick={() => setFilter('task', '')}
-              >{TASK_LABELS[selectedTask]} ×</span>
+                onClick={() => setFilter(meta.paramKey, '')}
+              >{cfg.levelLabels[selectedLevel] || cfg.levelFallback} ×</span>
             )}
             {selectedType && (
               <span
@@ -175,15 +200,15 @@ export default function WritingSamplesPage() {
                     academicCover={
                       <AcademicCover
                         title={item.title}
-                        subtitle={item.level === 'task1' ? 'Task 1' : 'Task 2'}
-                        skill="writing"
+                        subtitle={cfg.levelLabels[item.level] || cfg.levelFallback}
+                        skill={skill}
                       />
                     }
                     thumbAspect="16/9"
                     title={item.title}
-                    meta={{ type: 'chips', chips: buildSampleChips('writing', item) }}
+                    meta={{ type: 'chips', chips: buildSampleChips(skill, item) }}
                     hoverStyle="subtle"
-                    onClick={() => navigate(`/samples/writing/${item.id}`)}
+                    onClick={() => navigate(`/samples/${skill}/${item.id}`)}
                   />
                 </div>
               ))}

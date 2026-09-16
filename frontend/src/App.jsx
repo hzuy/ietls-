@@ -36,8 +36,7 @@ const FullTestResult    = lazy(() => import('./pages/FullTestResult'))
 const PracticeExamPage  = lazy(() => import('./pages/PracticeExamPage'))
 const PracticeList      = lazy(() => import('./pages/PracticeList'))
 const SampleDetailPage  = lazy(() => import('./pages/SampleDetailPage'))
-const WritingSamplesPage  = lazy(() => import('./pages/WritingSamplesPage'))
-const SpeakingSamplesPage = lazy(() => import('./pages/SpeakingSamplesPage'))
+const SamplesPage       = lazy(() => import('./pages/SamplesPage'))
 const UserProfile       = lazy(() => import('./pages/UserProfile'))
 const ProgressAnalysis  = lazy(() => import('./pages/ProgressAnalysis'))
 const NotFound          = lazy(() => import('./pages/NotFound'))
@@ -176,8 +175,8 @@ export default function App() {
                     <Route path="/practice-plus" element={<PrivateRoute><SeriesPage filterPattern="Practice" title="IELTS Practice Test Plus" description="Dòng sách luyện đề chuyên sâu với độ khó cao" /></PrivateRoute>} />
                     <Route path="/practice/reading" element={<PrivateRoute><PracticeList skill="reading" /></PrivateRoute>} />
                     <Route path="/practice/listening" element={<PrivateRoute><PracticeList skill="listening" /></PrivateRoute>} />
-                    <Route path="/writing-samples" element={<WritingSamplesPage />} />
-                    <Route path="/speaking-samples" element={<SpeakingSamplesPage />} />
+                    <Route path="/writing-samples" element={<SamplesPage skill="writing" />} />
+                    <Route path="/speaking-samples" element={<SamplesPage skill="speaking" />} />
                     <Route path="/samples/writing/:id" element={<SampleDetailPage skill="writing" />} />
                     <Route path="/samples/speaking/:id" element={<SampleDetailPage skill="speaking" />} />
                     <Route path="/full-test/result" element={<PrivateRoute><FullTestResult /></PrivateRoute>} />
