@@ -6,6 +6,7 @@ const groqSdk = require('groq-sdk')
 const Groq = groqSdk.Groq || groqSdk.default || groqSdk
 const { getGroqModel } = require('../lib/groqClient')
 const { roundBand, ieltsOverall } = require('../lib/scoreUtils')
+const { computeStreak } = require('../lib/streak')
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Rate Limiter: chatbotRateLimiter (Max 20 requests per user per hour)
@@ -80,23 +81,8 @@ async function buildUserContext(userId, userMessage) {
   const activeBands = Object.values(bandBySkill).filter(v => v !== null)
   const avgBand = activeBands.length ? ieltsOverall(activeBands) : 0
 
-  // Streak calculation
-  const finishedDates = attempts.map(a => a.finishedAt.toISOString().split('T')[0])
-  const dateSet = new Set(finishedDates)
-  const toDateStr = d => d.toISOString().split('T')[0]
-  const today = new Date()
-  today.setUTCHours(0, 0, 0, 0)
-  const todayStr = toDateStr(today)
-  const yesterdayStr = toDateStr(new Date(today.getTime() - 86400000))
-
-  let streak = 0
-  if (dateSet.has(todayStr) || dateSet.has(yesterdayStr)) {
-    const cursor = new Date(dateSet.has(todayStr) ? today : today.getTime() - 86400000)
-    while (dateSet.has(toDateStr(cursor))) {
-      streak++
-      cursor.setUTCDate(cursor.getUTCDate() - 1)
-    }
-  }
+  // Streak calculation — theo NGÀY LỊCH VIỆT NAM, xem lib/streak.js + lib/vnDate.js
+  const streak = computeStreak(attempts.map(a => a.finishedAt))
 
   const contextData = {
     id: user.id,
