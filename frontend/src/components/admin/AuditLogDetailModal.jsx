@@ -13,6 +13,7 @@ export const ENTITY_TYPE_LABEL = {
   Trash: 'Thùng rác',
   ExamSeries: 'Bộ đề',
   BookCover: 'Cuốn sách',
+  AuditLog: 'Nhật ký',
 }
 
 const ROLE_LABEL = { admin: 'Admin', teacher: 'Teacher', user: 'Học viên' }

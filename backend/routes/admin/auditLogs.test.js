@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest'
 import request from 'supertest'
 import jwt from 'jsonwebtoken'
 
@@ -19,6 +19,24 @@ if (!IS_DEV_DB) {
 const prisma = require('../../lib/prisma')
 const app = require('../../server')
 const { AUDIT_ACTIONS, AUDIT_ACTION_LABELS } = require('../../lib/auditActions')
+const { AUDIT_LOG_RETENTION_DAYS, LAST_PURGE_SETTING_KEY } = require('../../lib/auditLogRetention')
+
+async function pollFor(check, { timeoutMs = 3000, intervalMs = 100 } = {}) {
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    const result = await check()
+    if (result) return result
+    await new Promise(r => setTimeout(r, intervalMs))
+  }
+  return null
+}
+
+// Chờ 1 khoảng ngắn KHÔNG poll điều kiện gì — dùng khi cần xác nhận một việc
+// KHÔNG xảy ra (vd "không sinh log mới") sau khi tác vụ fire-and-forget đã có
+// đủ thời gian chạy xong.
+async function settle(ms = 800) {
+  await new Promise(r => setTimeout(r, ms))
+}
 
 const MARKER = `[AUDIT-TEST-auditLogs-${Date.now()}]`
 let uniqueCounter = 0
@@ -364,6 +382,131 @@ describeIntegration('routes/admin/auditLogs.js (postgres-dev integration)', () =
       ]))
       // Actor đã bị hard-delete không còn actorUserId nên không xuất hiện trong dropdown lọc theo actor
       expect(res.body.actors.some(a => a.email === actorDeleted.email)).toBe(false)
+    })
+  })
+
+  describe('auto-purge retention (lib/auditLogRetention.js kích hoạt qua GET /audit-logs)', () => {
+    const RETENTION_MS = AUDIT_LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000
+
+    async function latestAutoPurgeId() {
+      const row = await prisma.auditLog.findFirst({
+        where: { action: AUDIT_ACTIONS.AUDIT_LOG_AUTO_PURGE },
+        orderBy: { id: 'desc' },
+      })
+      return row?.id ?? 0
+    }
+
+    beforeEach(async () => {
+      // Mỗi test bắt đầu từ trạng thái "chưa từng dọn" — không phụ thuộc Setting
+      // do các request GET /audit-logs ở describe khác để lại.
+      await prisma.setting.deleteMany({ where: { key: LAST_PURGE_SETTING_KEY } })
+    })
+
+    afterEach(async () => {
+      await prisma.setting.deleteMany({ where: { key: LAST_PURGE_SETTING_KEY } })
+      await prisma.auditLog.deleteMany({ where: { entityLabel: { startsWith: MARKER } } })
+    })
+
+    it('xóa đúng bản ghi AuditLog quá hạn lưu giữ, giữ nguyên bản ghi còn trong hạn, và tự ghi log auditlog.auto_purge', async () => {
+      const expiredAt = new Date(Date.now() - RETENTION_MS - 24 * 60 * 60 * 1000) // hết hạn 1 ngày
+      const freshAt = new Date(Date.now() - 24 * 60 * 60 * 1000) // mới 1 ngày, còn trong hạn
+
+      const expiredLog = await prisma.auditLog.create({
+        data: {
+          actorType: 'user', action: AUDIT_ACTIONS.EXAM_CREATE, entityType: 'Exam',
+          entityLabel: label('retention-expired'), createdAt: expiredAt,
+        }
+      })
+      const freshLog = await prisma.auditLog.create({
+        data: {
+          actorType: 'user', action: AUDIT_ACTIONS.EXAM_CREATE, entityType: 'Exam',
+          entityLabel: label('retention-fresh'), createdAt: freshAt,
+        }
+      })
+      const baselineId = await latestAutoPurgeId()
+
+      try {
+        await request(app)
+          .get('/api/admin/audit-logs')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(200)
+
+        // Route không await purgeOldAuditLogs (fire-and-forget) — chờ tới khi
+        // bản ghi hết hạn thực sự biến mất rồi mới kiểm tra audit log tương ứng.
+        const purged = await pollFor(async () => (await prisma.auditLog.findUnique({ where: { id: expiredLog.id } })) === null)
+        expect(purged).not.toBeNull()
+
+        const stillFresh = await prisma.auditLog.findUnique({ where: { id: freshLog.id } })
+        expect(stillFresh).not.toBeNull()
+
+        const purgeLog = await pollFor(() => prisma.auditLog.findFirst({
+          where: { action: AUDIT_ACTIONS.AUDIT_LOG_AUTO_PURGE, id: { gt: baselineId } },
+          orderBy: { id: 'desc' },
+        }))
+        expect(purgeLog).toBeTruthy()
+        expect(purgeLog.actorType).toBe('system')
+        expect(purgeLog.actorUserId).toBeNull()
+        expect(purgeLog.entityType).toBe('AuditLog')
+        expect(purgeLog.metadata.deletedCount).toBeGreaterThanOrEqual(1)
+        expect(typeof purgeLog.metadata.cutoff).toBe('string')
+
+        await prisma.auditLog.deleteMany({ where: { id: purgeLog.id } })
+      } finally {
+        await prisma.auditLog.deleteMany({ where: { id: { in: [expiredLog.id, freshLog.id] } } })
+      }
+    })
+
+    it('chống chạy trùng: khi vừa dọn gần đây (Setting còn "tươi"), lần gọi kế tiếp KHÔNG dọn tiếp dù có bản ghi hết hạn', async () => {
+      await prisma.setting.create({ data: { key: LAST_PURGE_SETTING_KEY, value: new Date().toISOString() } })
+
+      const expiredAt = new Date(Date.now() - RETENTION_MS - 24 * 60 * 60 * 1000)
+      const expiredLog = await prisma.auditLog.create({
+        data: {
+          actorType: 'user', action: AUDIT_ACTIONS.EXAM_CREATE, entityType: 'Exam',
+          entityLabel: label('retention-blocked'), createdAt: expiredAt,
+        }
+      })
+      const baselineId = await latestAutoPurgeId()
+
+      try {
+        await request(app)
+          .get('/api/admin/audit-logs')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(200)
+
+        await settle()
+
+        const stillThere = await prisma.auditLog.findUnique({ where: { id: expiredLog.id } })
+        expect(stillThere).not.toBeNull() // claim bị chặn → không dọn gì cả
+
+        const newPurgeLog = await prisma.auditLog.findFirst({
+          where: { action: AUDIT_ACTIONS.AUDIT_LOG_AUTO_PURGE, id: { gt: baselineId } },
+        })
+        expect(newPurgeLog).toBeNull()
+      } finally {
+        await prisma.auditLog.deleteMany({ where: { id: expiredLog.id } })
+      }
+    })
+
+    it('không có gì để dọn thì không sinh audit log rác', async () => {
+      // Quét trước mọi bản ghi (nếu có) đã quá hạn lưu giữ trên DB dev, đảm bảo
+      // "không có gì để dọn" là đúng thực tế trước khi assert.
+      const cutoff = new Date(Date.now() - RETENTION_MS)
+      await prisma.auditLog.deleteMany({ where: { createdAt: { lt: cutoff } } })
+
+      const baselineId = await latestAutoPurgeId()
+
+      await request(app)
+        .get('/api/admin/audit-logs')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200)
+
+      await settle()
+
+      const newPurgeLog = await prisma.auditLog.findFirst({
+        where: { action: AUDIT_ACTIONS.AUDIT_LOG_AUTO_PURGE, id: { gt: baselineId } },
+      })
+      expect(newPurgeLog).toBeNull()
     })
   })
 })

@@ -41,6 +41,8 @@ const AUDIT_ACTIONS = Object.freeze({
   TRASH_PURGE_ALL: 'trash.purge_all',
   TRASH_AUTO_PURGE: 'trash.auto_purge',
 
+  AUDIT_LOG_AUTO_PURGE: 'auditlog.auto_purge',
+
   SETTING_UPDATE: 'setting.update',
 })
 
@@ -85,6 +87,8 @@ const AUDIT_ACTION_LABELS = Object.freeze({
   [AUDIT_ACTIONS.TRASH_PURGE_ONE]: 'Xóa vĩnh viễn 1 mục',
   [AUDIT_ACTIONS.TRASH_PURGE_ALL]: 'Xóa vĩnh viễn toàn bộ thùng rác',
   [AUDIT_ACTIONS.TRASH_AUTO_PURGE]: 'Tự động xóa vĩnh viễn (hệ thống)',
+
+  [AUDIT_ACTIONS.AUDIT_LOG_AUTO_PURGE]: 'Tự động dọn nhật ký cũ (hệ thống)',
 
   [AUDIT_ACTIONS.SETTING_UPDATE]: 'Sửa cài đặt hệ thống',
 })

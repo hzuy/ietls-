@@ -7,6 +7,7 @@ const { adminOnly } = require('../../lib/roles')
 const { auditLogsQuerySchema } = require('../../validators/auditLogValidator')
 const { AUDIT_ACTION_LABELS } = require('../../lib/auditActions')
 const { sanitizeMetadata } = require('../../lib/auditLog')
+const { purgeOldAuditLogs } = require('../../lib/auditLogRetention')
 
 // AuditLog là log quản trị bất biến (ai làm gì, khi nào) — CHỈ admin được đọc,
 // teacher không có quyền truy cập (khác /admin/attempts vốn mở cho cả teacher).
@@ -39,6 +40,9 @@ function formatLog(log) {
 
 // ─── LIST ────────────────────────────────────────────────────────────────────
 router.get('/audit-logs', authMiddleware, adminOnly, validate(auditLogsQuerySchema, 'query'), async (req, res) => {
+  // Dọn log quá hạn lưu giữ — fire-and-forget, KHÔNG await (xem lib/auditLogRetention.js),
+  // không được làm chậm request đọc log này.
+  purgeOldAuditLogs()
   try {
     // req.validatedQuery — xem middleware/validate.js (Express 5: req.query getter-only)
     const { actorUserId, action, entityType, entityId, from, to, search, page, limit } = req.validatedQuery

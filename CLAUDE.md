@@ -137,6 +137,11 @@ Không tái sinh ID nữa. `routes/admin/exams/core.js` + `reading.js`/`listenin
 ### Auto-renumber câu hỏi token-based
 `recalcAllGroupNumbers` / `recalcGroups` (`utils/practiceConfig.js`) quét token `[Q:n]` trong `noteSections` theo thứ tự xuất hiện, rewrite một lượt qua regex replacer (chống va chạm số), rồi cập nhật `Question.number` tương ứng — giữ nguyên `id`. Phải luôn khớp với khoảng `[qNumberStart, qNumberEnd]` mà backend dùng khi chấm và dựng breakdown.
 
+### Retention — tự động dọn dữ liệu cũ (không phải cron thật)
+Cả hai cơ chế dưới đây dùng chung 1 pattern: **kích hoạt theo request** (không phải job lập lịch độc lập — dự án chưa có scheduler nào), fire-and-forget (route không `await`, không làm chậm response), tự `try/catch` (lỗi dọn dẹp không được làm hỏng request), và chỉ ghi `AuditLog` khi thực sự xóa được gì.
+- **Trash** (`routes/admin/trash.js`, IIFE trong `GET /admin/trash`): hard-delete item soft-delete quá **30 ngày**. Không có cơ chế chống chạy trùng — chấp nhận được vì `deleteMany` trên tập rỗng vốn rẻ.
+- **AuditLog** (`lib/auditLogRetention.js`, gọi từ `GET /admin/audit-logs`): xóa bản ghi `AuditLog.createdAt` quá **365 ngày** (`AUDIT_LOG_RETENTION_DAYS` — đổi thời hạn thì sửa đúng hằng số này, không rải số cứng nơi khác). Khác Trash, có **chống chạy trùng**: lần dọn gần nhất lưu ở bảng `Setting` (key `audit_log_last_purge_at`, value là ISO timestamp), chỉ chạy lại sau tối thiểu **6 giờ** (`AUDIT_LOG_PURGE_MIN_INTERVAL_MS`) — giành quyền chạy bằng compare-and-swap trên `Setting.key` (unique) nên nhiều admin cùng mở trang Nhật ký hoạt động gần như đồng thời cũng chỉ 1 request thắng claim. Log việc dọn dùng action `auditlog.auto_purge`, `actorType: 'system'`, metadata `{ deletedCount, cutoff }`. AuditLog vẫn bất biến với người dùng — không có endpoint xóa thủ công qua UI.
+
 ## Environment variables
 
 **Backend** (`backend/.env` — bị chặn ghi/sửa bởi settings.json):
