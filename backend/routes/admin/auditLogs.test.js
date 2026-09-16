@@ -257,7 +257,7 @@ describeIntegration('routes/admin/auditLogs.js (postgres-dev integration)', () =
       ]))
     })
 
-    it('lọc theo khoảng from/to (UTC-anchored) chỉ lấy log trong khoảng', async () => {
+    it('lọc theo khoảng from/to (ngày lịch Việt Nam, xem lib/vnDate.js) chỉ lấy log trong khoảng', async () => {
       const res = await request(app)
         .get('/api/admin/audit-logs')
         .query({ from: '2026-01-10', to: '2026-01-31', search: MARKER })
@@ -382,6 +382,77 @@ describeIntegration('routes/admin/auditLogs.js (postgres-dev integration)', () =
       ]))
       // Actor đã bị hard-delete không còn actorUserId nên không xuất hiện trong dropdown lọc theo actor
       expect(res.body.actors.some(a => a.email === actorDeleted.email)).toBe(false)
+    })
+  })
+
+  describe('biên múi giờ Việt Nam (lib/vnDate.js) — dữ liệu thật, không mock prisma', () => {
+    let actorB
+    let logAt0000, logAt0659, logAt0701, logAt2359
+
+    beforeAll(async () => {
+      actorB = await createActor('teacher', 'vn-boundary-actor')
+
+      // 4 mốc biên cho CÙNG 1 ngày lịch VN 2026-09-16 — xem lib/vnDate.test.js
+      // cho cùng bộ mốc này ở tầng unit. Trước khi sửa (UTC-anchored), bộ lọc
+      // from=to=2026-09-16 bỏ sót 2 bản ghi 00:00 và 06:59 (đã xác nhận thật
+      // trên postgres-dev trong phiên khảo sát).
+      logAt0000 = await prisma.auditLog.create({
+        data: {
+          actorType: 'user', actorUserId: actorB.id, actorEmail: actorB.email, actorRole: actorB.role,
+          action: AUDIT_ACTIONS.EXAM_CREATE, entityType: 'Exam', entityId: 9101,
+          entityLabel: label('vn-boundary-0000'), createdAt: new Date('2026-09-15T17:00:00.000Z'), // VN 00:00
+        }
+      })
+      logAt0659 = await prisma.auditLog.create({
+        data: {
+          actorType: 'user', actorUserId: actorB.id, actorEmail: actorB.email, actorRole: actorB.role,
+          action: AUDIT_ACTIONS.EXAM_CREATE, entityType: 'Exam', entityId: 9102,
+          entityLabel: label('vn-boundary-0659'), createdAt: new Date('2026-09-15T23:59:00.000Z'), // VN 06:59
+        }
+      })
+      logAt0701 = await prisma.auditLog.create({
+        data: {
+          actorType: 'user', actorUserId: actorB.id, actorEmail: actorB.email, actorRole: actorB.role,
+          action: AUDIT_ACTIONS.EXAM_CREATE, entityType: 'Exam', entityId: 9103,
+          entityLabel: label('vn-boundary-0701'), createdAt: new Date('2026-09-16T00:01:00.000Z'), // VN 07:01
+        }
+      })
+      logAt2359 = await prisma.auditLog.create({
+        data: {
+          actorType: 'user', actorUserId: actorB.id, actorEmail: actorB.email, actorRole: actorB.role,
+          action: AUDIT_ACTIONS.EXAM_CREATE, entityType: 'Exam', entityId: 9104,
+          entityLabel: label('vn-boundary-2359'), createdAt: new Date('2026-09-16T16:59:00.000Z'), // VN 23:59
+        }
+      })
+    })
+
+    afterAll(async () => {
+      await prisma.auditLog.deleteMany({ where: { entityLabel: { startsWith: MARKER } } })
+      await prisma.user.deleteMany({ where: { id: actorB.id } })
+    })
+
+    it('from=to=2026-09-16 trả đủ CẢ 4 bản ghi biên (00:00, 06:59, 07:01, 23:59 giờ VN)', async () => {
+      const res = await request(app)
+        .get('/api/admin/audit-logs')
+        .query({ from: '2026-09-16', to: '2026-09-16', search: MARKER, limit: 100 })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200)
+
+      const ids = res.body.logs.map(l => l.id)
+      expect(ids).toEqual(expect.arrayContaining([
+        logAt0000.id, logAt0659.id, logAt0701.id, logAt2359.id,
+      ]))
+      expect(ids).toHaveLength(4)
+    })
+
+    it('from=to=2026-09-15 (ngày trước đó) KHÔNG lẫn bản ghi VN 00:00/06:59 của 16/09', async () => {
+      const res = await request(app)
+        .get('/api/admin/audit-logs')
+        .query({ from: '2026-09-15', to: '2026-09-15', search: MARKER, limit: 100 })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200)
+
+      expect(res.body.logs.map(l => l.id)).toEqual([])
     })
   })
 

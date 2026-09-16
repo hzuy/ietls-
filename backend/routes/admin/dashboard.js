@@ -8,6 +8,7 @@ const validate = require('../../middleware/validate')
 const { teacherOrAdmin, teacherOnly } = require('../../lib/roles')
 const { attemptsQuerySchema, analyticsQuerySchema } = require('../../validators/submissionValidator')
 const { roundBand } = require('../../lib/scoreUtils')
+const { vnStartOfDay, vnEndOfDay, vnStartOfToday, vnStartOfMonth } = require('../../lib/vnDate')
 
 // SWR cache + stampede protection — nay dùng chung ở lib/swrCache.js
 // (dashboard overview giữ TTL mặc định 60s).
@@ -159,9 +160,12 @@ async function getAttemptsByDayInRange(since, until) {
 // ─── DASHBOARD FETCHER ───────────────────────────────────────────────────────
 async function fetchDashboardOverviewData() {
   const now = new Date()
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  // Ngày lịch Việt Nam (UTC+7), neo tường minh — xem lib/vnDate.js + CLAUDE.md
+  // mục "Quy ước timezone". thirtyDaysAgo là duration lookback (không phải
+  // ranh giới ngày lịch) nên giữ nguyên cách tính cũ.
+  const startOfToday = vnStartOfToday()
+  const startOfThisMonth = vnStartOfMonth(now)
+  const startOfLastMonth = vnStartOfMonth(now, 1)
   const thirtyDaysAgo = new Date(now)
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29)
 
@@ -303,12 +307,10 @@ router.get('/attempts', authMiddleware, teacherOnly, validate(attemptsQuerySchem
 
     if (dateFrom || dateTo) {
       where.createdAt = {}
-      if (dateFrom) where.createdAt.gte = new Date(dateFrom)
-      if (dateTo) {
-        const to = new Date(dateTo)
-        to.setHours(23, 59, 59, 999)
-        where.createdAt.lte = to
-      }
+      // Ngày lịch Việt Nam, neo tường minh — xem lib/vnDate.js. dateFrom/dateTo
+      // là chuỗi 'YYYY-MM-DD' thô từ <input type="date">, không phải instant.
+      if (dateFrom) where.createdAt.gte = vnStartOfDay(dateFrom)
+      if (dateTo) where.createdAt.lte = vnEndOfDay(dateTo)
     }
 
     const orderBy = sortBy === 'score'
@@ -437,20 +439,18 @@ router.post('/attempts/export', authMiddleware, teacherOnly, async (req, res) =>
 
 // ─── ANALYTICS FETCHER ───────────────────────────────────────────────────────
 // Hai chế độ, loại trừ nhau:
-// - preset ('today'|'week'|'month'|'all'): hành vi giữ NGUYÊN như trước — since
-//   tính ngược từ hôm nay, không có upper bound (until=null, ngầm định "đến hiện
-//   tại"). 'today' dùng cùng quy ước UTC-anchored calendar day với custom range
-//   bên dưới: since = 00:00 UTC của ngày hôm nay (không lệch múi giờ máy chạy Node).
-// - custom (from+to cùng có mặt): since/until là 00:00 ngày `from` và 23:59:59.999
-//   ngày `to` — bounded cả hai đầu, không neo vào "hôm nay". Giờ UTC tường minh
-//   (suffix Z), khớp với getAttemptsByDayInRange (gắn nhãn ngày bằng
-//   toISOString(), luôn UTC) và với session timezone UTC của Postgres (đã xác
-//   minh bằng current_setting('TIMEZONE')) — nếu parse theo giờ local của máy
-//   chạy Node (UTC+7), "since" sẽ lệch múi giờ khỏi TO_CHAR(...) phía SQL,
-//   khiến ngày đầu tiên của khoảng 1 ngày bị gắn nhãn lùi lại một ngày. Cách
-//   parse này cũng khớp với dateFrom/dateTo của route /attempts — chuỗi
-//   "YYYY-MM-DD" không giờ, theo spec ECMA-262 `new Date(dateOnlyString)`
-//   vốn đã parse theo UTC.
+// - preset ('today'|'week'|'month'|'all'): since tính ngược từ hôm nay, không
+//   có upper bound (until=null, ngầm định "đến hiện tại"). 'today' dùng mốc
+//   đầu ngày theo NGÀY LỊCH VIỆT NAM (lib/vnDate.js), neo tường minh UTC+7 —
+//   xem CLAUDE.md mục "Quy ước timezone".
+// - custom (from+to cùng có mặt): since/until là 00:00 và 23:59:59.999 giờ VN
+//   của ngày `from`/`to` — bounded cả hai đầu, không neo vào "hôm nay".
+// LƯU Ý (pre-existing, ngoài phạm vi lần sửa này): getAttemptsByDay/
+// getAttemptsByDayInRange bên dưới vẫn gắn nhãn ngày cho biểu đồ theo
+// toISOString() UTC (khớp session TZ=UTC của Postgres qua TO_CHAR) — since/
+// until nay neo giờ VN nên gần rìa khoảng, nhãn ngày trên biểu đồ attemptsByDay
+// có thể lệch so với tổng totalAttempts đã tính đúng theo giờ VN. Chưa sửa ở
+// đây vì không thuộc 1 trong 6 vị trí được yêu cầu sửa lần này.
 async function fetchAnalyticsData({ period = 'today', from, to } = {}) {
   const isCustom = Boolean(from && to)
 
@@ -458,13 +458,13 @@ async function fetchAnalyticsData({ period = 'today', from, to } = {}) {
   if (isCustom) {
     isAll = false
     days = null
-    since = new Date(`${from}T00:00:00.000Z`)
-    until = new Date(`${to}T23:59:59.999Z`)
+    since = vnStartOfDay(from)
+    until = vnEndOfDay(to)
     if (since > until) { const t = since; since = until; until = t } // defensive swap — from/to đã đảo ngược
   } else if (period === 'today') {
     isAll = false
     days = 1
-    since = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`)
+    since = vnStartOfToday()
     until = null
   } else {
     isAll = period === 'all'
