@@ -135,7 +135,7 @@ export default function FullTestResult() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           
           {/* Bento Col 1: Overall Band & Status (lg:col-span-4) */}
-          <Card className="p-6 flex flex-col items-center justify-center text-center anim-fade-up delay-1">
+          <Card className="lg:col-span-4 p-6 flex flex-col items-center justify-center text-center anim-fade-up delay-1">
             <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-3">
               Overall Band Score
             </span>
@@ -146,7 +146,7 @@ export default function FullTestResult() {
                     {countedOverallBand}
                   </span>
                 </div>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-success-bg text-success-text border border-success-border text-xs font-semibold">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-success-bg text-success-text border border-success-border text-xs font-semibold anim-score-pop">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   Đủ 4 kỹ năng
                 </div>
@@ -165,7 +165,7 @@ export default function FullTestResult() {
           </Card>
 
           {/* Bento Col 2: Breakdown per Skill (lg:col-span-5) */}
-          <Card className="p-6 flex flex-col justify-between anim-fade-up delay-2">
+          <Card className="lg:col-span-5 p-6 flex flex-col justify-between anim-fade-up delay-2">
             <div>
               <div className="flex items-center justify-between mb-3.5">
                 <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">
@@ -216,7 +216,7 @@ export default function FullTestResult() {
           </Card>
 
           {/* Bento Col 3: Quick Actions (lg:col-span-3) */}
-          <Card className="p-6 flex flex-col justify-center gap-2.5 anim-fade-up delay-3">
+          <Card className="lg:col-span-3 p-6 flex flex-col justify-center gap-2.5 anim-fade-up delay-3">
             <button
               type="button"
               onClick={handleAskAITutor}

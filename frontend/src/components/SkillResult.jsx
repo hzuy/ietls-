@@ -351,7 +351,7 @@ function ScoreRing({ score, maxScore, isPractice, correct, totalQuestions, bandS
         background: 'var(--primary)', color: '#fff',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         zIndex: 10,
-      }}>
+      }} className="anim-score-pop">
         <Check className="w-3 h-3 text-white stroke-[2.5]" />
       </div>
     </div>
@@ -494,7 +494,7 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
       <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-16">
 
         {/* ── Score Card Hero Section ── */}
-        <div className="w-full max-w-4xl mx-auto bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs mb-8">
+        <div className="w-full max-w-4xl mx-auto bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs mb-8 anim-fade-up">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
             {/* Cột 1: Vòng tròn Band Score lớn & thông tin điểm */}
             <div className="flex items-center justify-center gap-4">

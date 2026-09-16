@@ -296,6 +296,16 @@ button.chatbot-chip { font-size: 0.875rem; line-height: 1.25rem; }
 .anim-fade-up { animation: fadeUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .anim-fade-in { animation: fadeIn 0.4s ease both; }
 
+/* Khoảnh khắc biết điểm (Đợt 4) — "dấu tích" pop ngắn, không lặp, chỉ transform+opacity,
+   trễ 0.7s để rơi đúng lúc số liệu đếm dần (useCountUp, ~0.9s) vừa dừng lại. CHỈ dùng ở
+   trang kết quả (SkillResult/FullTestResult), không dùng trong luồng làm bài thi. */
+@keyframes scorePop {
+  0%   { opacity: 0; transform: scale(0.75); }
+  60%  { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.anim-score-pop { animation: scorePop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.7s both; }
+
 /* ─── Page transition (route change) ───────────────────────────────────────── */
 /* "to" KHÔNG khai báo transform (chỉ "from" có) — theo spec CSS Animations, giá trị
    thiếu ở một keyframe dùng "underlying value" (ở đây là "none"), nên sau khi animation
@@ -334,6 +344,7 @@ button.chatbot-chip { font-size: 0.875rem; line-height: 1.25rem; }
 @media (prefers-reduced-motion: reduce) {
   .anim-fade-up,
   .anim-fade-in,
+  .anim-score-pop,
   .page-transition-in {
     animation: none;
   }
