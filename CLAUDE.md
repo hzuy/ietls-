@@ -199,6 +199,21 @@ VITE_GOOGLE_CLIENT_ID=...
 
 Xem `DEPLOY.md` cho quy trình đầy đủ. Tóm tắt: backend chạy Docker trên `lab46`, bind `127.0.0.1:5001`, Nginx reverse-proxy `/api` + `/uploads`; frontend **build ở local** (server không có Node) rồi copy sang `/var/www/hzuy` — sau khi copy **bắt buộc** `sudo restorecon -Rv` thư mục dist, nếu không SELinux trả 403. Domain qua Cloudflare proxy nên không SSH được qua `hzuy.net`, phải SSH thẳng `lab46`.
 
+## Redesign giao diện người dùng (4 đợt)
+
+Đang thiết kế lại giao diện phía người dùng theo hướng "nền ấm áp học thuật": năng lượng/chuyển động chỉ dành cho trang chủ, kết quả và tiến độ; vùng làm bài thi (4 màn hình `ReadingExam.jsx`/`ListeningExam.jsx`/`WritingExam.jsx`/`SpeakingExam.jsx` + toàn bộ component render câu hỏi dùng chung với chúng, kể cả `PracticeExamPage.jsx`) giữ nguyên tối giản tuyệt đối, không chạm tới. Giao diện admin cũng không đụng.
+
+**Bảng màu đã chọn** (khai báo trong `frontend/src/index.css`, đăng ký lại vào `@theme` thành Tailwind utility `bg-*`/`text-*`/`border-*`):
+- Màu nhấn thương hiệu: tím `#5b21b6` (hover `#4c1d95`, nền nhạt `#ede9fe`) — **chỉ** dùng cho hành động chính, thanh tiến độ, khu vực điểm số, chuỗi ngày luyện tập. Không lan ra toàn bộ giao diện.
+- Nền ấm chung: `#fdfbf5` thay trắng thuần (`--bg`); card vẫn nền trắng (`--surface`) để nổi trên nền ấm.
+- 4 màu kỹ năng — dùng cho chip nhãn/biểu đồ/viền thẻ: Reading `#2563eb` (blue), Listening `#0e7490` (cyan đậm — cố tình lệch tông so với màu nhấn để không trùng), Writing `#c2410c` (orange), Speaking `#be185d` (pink). Mỗi màu có bộ 3 token `--skill-*-color/-bg/-border`.
+- Token ngữ nghĩa `--success`/`--error`/`--warning`/`--info` đều có đủ biến thể `-bg/-border/-text` — nguồn duy nhất cho đúng/sai/cảnh báo/thông tin trên toàn app, thay cho việc trước đây mỗi trang tự chọn green/emerald, red/rose/slate khác nhau.
+- Giao diện admin **giữ nguyên zinc đơn sắc**: `.admin-scope` tự khai báo lại `--primary`/`--color-primary` về zinc trong `index.css`, không bị ảnh hưởng khi đổi token toàn app.
+
+**Tiến độ theo đợt:**
+- ✅ **Đợt 1** (2 pha): khảo sát + áp bảng màu token, gộp màu ngữ nghĩa/trung tính, áp màu nhấn/màu kỹ năng đúng phạm vi, sửa vài lệch nhỏ (thẻ h1 thiếu ở `PracticeList.jsx`/`SeriesPage.jsx`, bo góc skeleton lệch ở `ProgressAnalysis.jsx`), giảm giọng thương mại điện tử ("Sắp có bài" ribbon → tag "Đang cập nhật", "Gợi ý cho bạn" → "Đề thi liên quan" ở `FullTestDetail.jsx`). Commit tách theo nhóm việc trên `main`, chưa deploy.
+- ⏳ **Đợt 2, 3, 4**: chưa bắt đầu — chi tiết phạm vi từng đợt chưa ghi lại ở đây, hỏi lại nếu tiếp tục.
+
 ## Project status
 
 ### Ổn định
