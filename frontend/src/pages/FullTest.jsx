@@ -38,7 +38,7 @@ function SeriesCard({ item, onClick }) {
         titleClamp={2}
         meta={{ type: 'count', text: hasTests ? `${item.testCount} bài test` : 'Đang cập nhật' }}
         action={hasTests
-          ? { label: 'Chi tiết đề thi', decorative: true }
+          ? { label: 'Chi tiết đề thi' }
           : { label: 'Chi tiết đề thi', disabled: true, disabledLabel: 'Đang cập nhật' }}
         onClick={hasTests ? onClick : undefined}
       />

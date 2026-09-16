@@ -199,7 +199,6 @@ export default function SeriesPage({ filterPattern, title }) {
                     label: 'Chi tiết bộ đề',
                     disabled: !hasTests,
                     disabledLabel: 'Đang cập nhật',
-                    decorative: true,
                   }}
                   hoverStyle="showcase"
                   onClick={hasTests ? () => navigate(`/full-test/${book.seriesId}?book=${book.bookNumber}`) : undefined}

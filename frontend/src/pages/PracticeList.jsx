@@ -77,7 +77,7 @@ export default function PracticeList({ skill: skillKey }) {
         title={item.title}
         titleClamp={2}
         meta={item.questionCount > 0 ? { type: 'count', text: `${item.questionCount} câu hỏi` } : undefined}
-        action={{ label: 'Làm bài', decorative: true }}
+        action={{ label: 'Làm bài' }}
         hoverStyle="subtle"
         onClick={() => navigate(`/practice/${skill}/${item.id}`)}
       />

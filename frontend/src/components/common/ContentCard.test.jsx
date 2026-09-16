@@ -79,66 +79,58 @@ describe('ContentCard — meta (3 dạng)', () => {
   })
 })
 
-describe('ContentCard — action (3 dạng)', () => {
-  it('{ label, onClick } → nút thật, click gọi onClick và KHÔNG bubble lên card', () => {
+describe('ContentCard — action (affordance nhỏ, không còn nút CTA giả)', () => {
+  it('action khả dụng (không disabled) → chỉ mũi tên nhỏ, KHÔNG render <button>, click card vẫn gọi onClick', () => {
     const onCardClick = vi.fn()
-    const onAction = vi.fn()
-    render(<ContentCard {...base} onClick={onCardClick} action={{ label: 'Làm bài', onClick: onAction }} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Làm bài' }))
-    expect(onAction).toHaveBeenCalledTimes(1)
-    expect(onCardClick).not.toHaveBeenCalled()
-  })
-
-  it('{ decorative:true } → pointer-events none, click xuyên xuống onClick của card', () => {
-    const onCardClick = vi.fn()
-    render(<ContentCard {...base} onClick={onCardClick} action={{ label: 'Làm bài →', decorative: true }} />)
-    const btn = screen.getByRole('button', { name: 'Làm bài →' })
-    expect(btn.style.pointerEvents).toBe('none')
+    const { container } = render(<ContentCard {...base} onClick={onCardClick} action={{ label: 'Làm bài' }} />)
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect(container.querySelector('svg')).toBeInTheDocument()
     fireEvent.click(screen.getByText(base.title))
     expect(onCardClick).toHaveBeenCalledTimes(1)
   })
 
-  it('{ disabled, disabledLabel } → nút disabled + hiển thị disabledLabel', () => {
-    render(<ContentCard {...base} action={{ label: 'Làm bài ngay →', disabled: true, disabledLabel: 'Đang cập nhật' }} />)
-    const btn = screen.getByRole('button')
-    expect(btn).toBeDisabled()
-    expect(btn).toHaveTextContent('Đang cập nhật')
+  it('{ disabled, disabledLabel } → pill nhãn trung tính thay mũi tên, không phải <button>', () => {
+    render(<ContentCard {...base} action={{ label: 'Làm bài ngay', disabled: true, disabledLabel: 'Đang cập nhật' }} />)
+    expect(screen.getByText('Đang cập nhật')).toBeInTheDocument()
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
-  it('{ decorative:true } → LUÔN tone đặc (primary / #fff), bất kể hoverStyle / hovered', () => {
-    const { unmount } = render(<ContentCard {...base} hoverStyle="subtle" action={{ label: 'Làm bài →', decorative: true }} />)
-    let btn = screen.getByRole('button', { name: 'Làm bài →' })
-    expect(btn.style.background).toBe('var(--primary)')
-    expect(btn.style.color).toBe('rgb(255, 255, 255)')
-    unmount()
-
-    render(<ContentCard {...base} hoverStyle="showcase" action={{ label: 'Làm bài →', decorative: true }} />)
-    btn = screen.getByRole('button', { name: 'Làm bài →' }) // showcase nhưng chưa hover
-    expect(btn.style.background).toBe('var(--primary)')
+  it('{ disabled:true } không có disabledLabel → fallback dùng label', () => {
+    render(<ContentCard {...base} action={{ label: 'Chi tiết', disabled: true }} />)
+    expect(screen.getByText('Chi tiết')).toBeInTheDocument()
   })
 
-  it('{ onClick } (không decorative) → mềm lúc nghỉ, đặc khi hover showcase', () => {
-    const { container } = render(<ContentCard {...base} hoverStyle="showcase" action={{ label: 'X', onClick: () => {} }} />)
-    const btn = screen.getByRole('button', { name: 'X' })
-    expect(btn.style.background).toBe('var(--primary-light)')
+  it('mũi tên đổi màu đặc khi hover showcase (card có onClick — clickable)', () => {
+    const { container } = render(<ContentCard {...base} onClick={() => {}} hoverStyle="showcase" action={{ label: 'X' }} />)
+    const arrowWrap = container.querySelector('.cc-thumb ~ div span[aria-hidden="true"]') || container.querySelector('span[aria-hidden="true"]')
+    expect(arrowWrap.style.background).toBe('var(--primary-light)')
     fireEvent.mouseEnter(container.firstChild)
-    expect(btn.style.background).toBe('var(--primary)')
+    expect(arrowWrap.style.background).toBe('var(--primary)')
   })
 
-  it('không có meta + có action → nút đẩy xuống đáy (marginTop auto)', () => {
-    render(<ContentCard {...base} action={{ label: 'Go', decorative: true }} />)
-    expect(screen.getByRole('button').style.marginTop).toBe('auto')
+  it('card KHÔNG có onClick (không clickable) → showcase KHÔNG lift/đổi border khi hover, dù có action', () => {
+    const { container } = render(<ContentCard {...base} hoverStyle="showcase" action={{ label: 'Chi tiết', disabled: true, disabledLabel: 'Đang cập nhật' }} />)
+    const root = container.firstChild
+    expect(root.style.cursor).toBe('default')
+    fireEvent.mouseEnter(root)
+    expect(root.style.transform).toContain('translateY(0)')
+    expect(root.style.border).toBe(root.style.border) // giữ nguyên restBorder
   })
 
-  it('có meta + có action → nút cách meta 12px', () => {
-    render(<ContentCard {...base} meta={{ type: 'count', text: '5 câu' }} action={{ label: 'Go', decorative: true }} />)
-    expect(screen.getByRole('button').style.marginTop).toBe('12px')
+  it('hàng đáy (meta + affordance) luôn marginTop auto, có/không meta đều vậy', () => {
+    const { container: withoutMeta } = render(<ContentCard {...base} action={{ label: 'Go' }} />)
+    const rowNoMeta = withoutMeta.querySelector('div[style*="justify-content: space-between"]')
+    expect(rowNoMeta.style.marginTop).toBe('auto')
+
+    const { container: withMeta } = render(<ContentCard {...base} meta={{ type: 'count', text: '5 câu' }} action={{ label: 'Go' }} />)
+    const rowWithMeta = withMeta.querySelector('div[style*="justify-content: space-between"]')
+    expect(rowWithMeta.style.marginTop).toBe('auto')
   })
 })
 
 describe('ContentCard — hoverStyle', () => {
-  it("showcase: mouseEnter → transform lift + accent bar hiện", () => {
-    const { container } = render(<ContentCard {...base} hoverStyle="showcase" accentBar />)
+  it("showcase (clickable): mouseEnter → transform lift + accent bar hiện", () => {
+    const { container } = render(<ContentCard {...base} onClick={() => {}} hoverStyle="showcase" accentBar />)
     const root = container.firstChild
     const bar = container.querySelector('.cc-accent-bar')
 
@@ -154,16 +146,23 @@ describe('ContentCard — hoverStyle', () => {
     expect(root.style.transform).toContain('translateY(0)')
   })
 
-  it("showcase KHÔNG action: hover đổi màu tiêu đề sang #18181b", () => {
-    render(<ContentCard {...base} hoverStyle="showcase" />)
+  it("showcase (clickable) KHÔNG action: hover đổi màu tiêu đề sang #18181b", () => {
+    render(<ContentCard {...base} onClick={() => {}} hoverStyle="showcase" />)
     const p = screen.getByText(base.title)
     expect(p.style.color).toBe('var(--ink-soft)')
     fireEvent.mouseEnter(p.closest('.card-base'))
     expect(p.style.color).toBe('rgb(24, 24, 27)')
   })
 
-  it("showcase CÓ action: hover KHÔNG đổi màu tiêu đề (feedback ở nút/accent bar)", () => {
-    render(<ContentCard {...base} hoverStyle="showcase" action={{ label: 'X', onClick: () => {} }} />)
+  it("showcase (clickable) CÓ action: hover KHÔNG đổi màu tiêu đề (feedback ở mũi tên/accent bar)", () => {
+    render(<ContentCard {...base} onClick={() => {}} hoverStyle="showcase" action={{ label: 'X' }} />)
+    const p = screen.getByText(base.title)
+    fireEvent.mouseEnter(p.closest('.card-base'))
+    expect(p.style.color).toBe('var(--ink-soft)')
+  })
+
+  it("showcase KHÔNG clickable (không onClick): hover KHÔNG đổi màu tiêu đề dù không action", () => {
+    render(<ContentCard {...base} hoverStyle="showcase" />)
     const p = screen.getByText(base.title)
     fireEvent.mouseEnter(p.closest('.card-base'))
     expect(p.style.color).toBe('var(--ink-soft)')

@@ -7,8 +7,8 @@ import AcademicCover from './AcademicCover'
  * (Full Test carousel, Reading/Listening Practice, Writing/Speaking Samples).
  * Hợp nhất 5 biến thể card từng trùng lặp (Giai đoạn B — Phương án A).
  *
- * KHÔNG chứa logic auth-gate. Card chỉ gọi `onClick` / `action.onClick` được
- * truyền vào — parent tự bọc requireAuth() nếu cần.
+ * KHÔNG chứa logic auth-gate. Card chỉ gọi `onClick` được truyền vào — parent
+ * tự bọc requireAuth() nếu cần.
  *
  * Props:
  *  - image        : URL ảnh ĐÃ resolve (string) hoặc null/undefined.
@@ -23,15 +23,20 @@ import AcademicCover from './AcademicCover'
  *  - meta         : ReactNode  HOẶC  { type:'count', text }  HOẶC
  *                   { type:'chips', chips:[{ label, tone }] }.
  *                   tone ∈ CHIP_TONES (writing|speaking|reading|listening|neutral).
- *  - action       : bỏ trống  |  { label, onClick }  (nút thật)
- *                              |  { label, decorative:true }  (nút trang trí,
- *                                 click xuyên xuống card)
- *                              |  { label, disabled, disabledLabel }.
- *  - accentBar    : true → dải màu primary dưới ảnh, hiện khi hover (chỉ showcase).
+ *  - action       : bỏ trống (không hiện affordance nào) | { disabled, disabledLabel }.
+ *                   Đợt 3 — Việc 3: bỏ hẳn nút CTA giả chiếm hết chiều ngang.
+ *                   Khi truyền `action` và card khả dụng (`disabled` không true),
+ *                   chỉ hiện một mũi tên nhỏ góc dưới-phải — chỉ dấu "cả card bấm
+ *                   được", không phải nút riêng, không có onClick của riêng nó.
+ *                   Khi `disabled:true`, hiện pill nhãn trung tính (`disabledLabel`
+ *                   hoặc `label`) thay mũi tên; card cũng mất hover-lift/cursor
+ *                   pointer (xem `clickable` bên dưới — card "trang trí" không còn
+ *                   giả vờ bấm được nữa).
+ *  - accentBar    : true → dải màu primary dưới ảnh, hiện khi hover (chỉ showcase, chỉ khi clickable).
  *  - hoverStyle   : 'showcase' (JS state: lift + scale + shadow xanh + zoom ảnh)
  *                 | 'subtle'   (CSS thuần qua .card-base:hover). Mặc định 'subtle'.
- *  - onClick      : click cả card. Bỏ trống → card không clickable (case V2 —
- *                   chỉ nút action mới bắt click).
+ *  - onClick      : click cả card. Bỏ trống → card không clickable — showcase cũng
+ *                   không lift/đổi border/shadow khi hover (tránh giả vờ tương tác được).
  *  - className    : lớp bổ sung từ parent (animClass, width utilities…).
  */
 
@@ -65,26 +70,31 @@ function Chip({ label, tone }) {
   )
 }
 
-function Meta({ meta, countColor }) {
+// `pushBottom` mặc định true (Meta tự đẩy xuống đáy khi đứng một mình, không
+// có `action` đi kèm). Khi dùng trong hàng chung với CardAffordance, wrapper
+// ngoài đã tự marginTop:auto nên Meta không cần tự đẩy nữa (tránh 2 auto-margin
+// cạnh nhau).
+function Meta({ meta, countColor, pushBottom = true }) {
   if (meta == null) return null
+  const topStyle = pushBottom ? { marginTop: 'auto' } : null
 
   if (isValidElement(meta) || typeof meta === 'string' || typeof meta === 'number') {
-    return <div style={{ marginTop: 'auto' }}>{meta}</div>
+    return <div style={topStyle}>{meta}</div>
   }
 
   if (meta.type === 'count') {
     return (
       <div style={{
         fontFamily: 'var(--font-mono)', display: 'flex', gap: 12,
-        fontSize: 12, color: countColor, marginTop: 'auto',
-        transition: 'color 0.3s ease',
+        fontSize: 12, color: countColor, transition: 'color 0.3s ease',
+        ...topStyle,
       }}>{meta.text}</div>
     )
   }
 
   if (meta.type === 'chips') {
     return (
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 'auto' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, ...topStyle }}>
         {meta.chips.map((c, i) => <Chip key={i} label={c.label} tone={c.tone} />)}
       </div>
     )
@@ -93,37 +103,39 @@ function Meta({ meta, countColor }) {
   return null
 }
 
-function ActionButton({ action, showcase, hovered, topGap }) {
+// Chỉ dấu nhỏ thay cho nút CTA giả: mũi tên (khả dụng) hoặc pill trung tính
+// (đang cập nhật/disabled). Không có onClick riêng — cả card mới là vùng bấm.
+function CardAffordance({ action, activeHover }) {
   const disabled = action.disabled === true
-  const decorative = action.decorative === true
-  const label = disabled ? (action.disabledLabel ?? action.label) : action.label
 
-  // decorative → luôn tone đặc (CTA chính của trang, không có hover-state để dựa vào).
-  // action thật → mềm lúc nghỉ, đặc khi hover (chỉ showcase). disabled → xám.
-  let tone
   if (disabled) {
-    tone = { background: 'var(--border)', color: 'var(--subtle)', cursor: 'not-allowed' }
-  } else if (decorative || (showcase && hovered)) {
-    tone = { background: 'var(--primary)', color: '#fff', cursor: 'pointer' }
-  } else {
-    tone = { background: 'var(--primary-light)', color: 'var(--primary)', cursor: 'pointer' }
+    const label = action.disabledLabel ?? action.label
+    return (
+      <span
+        style={{
+          fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20,
+          background: 'var(--surface-raised)', color: 'var(--subtle)',
+          border: '1px solid var(--border)', whiteSpace: 'nowrap', flexShrink: 0,
+        }}
+      >{label}</span>
+    )
   }
 
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={decorative || disabled ? undefined : (e) => { e.stopPropagation(); action.onClick?.(e) }}
-      className="w-full h-9 rounded-full px-4 text-sm font-medium tracking-normal inline-flex items-center justify-center leading-none transition-colors select-none"
+    <span
+      aria-hidden="true"
       style={{
-        marginTop: topGap,
-        border: 'none',
-        ...tone,
-        ...(decorative ? { pointerEvents: 'none' } : null),
+        width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: activeHover ? 'var(--primary)' : 'var(--primary-light)',
+        color: activeHover ? '#fff' : 'var(--primary)',
+        transition: 'background 0.3s ease, color 0.3s ease',
       }}
     >
-      {label}
-    </button>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M5 12h14M13 6l6 6-6 6" />
+      </svg>
+    </span>
   )
 }
 
@@ -144,11 +156,15 @@ export default function ContentCard({
   className = '',
 }) {
   const isShowcase = hoverStyle === 'showcase'
+  const clickable = typeof onClick === 'function'
   const [hovered, setHovered] = useState(false)
+  // Chỉ áp hiệu ứng hover thật khi card thật sự bấm được — card "trang trí"
+  // (không có onClick, vd đang cập nhật) không được giả vờ lift/đổi màu.
+  const activeHover = isShowcase && clickable && hovered
 
   // V1 (không action, click cả card) → tiêu đề + meta đổi màu khi hover.
-  // V2 (có nút action) → tiêu đề tĩnh, feedback nằm ở accent bar + nút.
-  const inkShift = isShowcase && hovered && !action
+  // V2 (có action) → tiêu đề tĩnh, feedback nằm ở accent bar + mũi tên/pill.
+  const inkShift = activeHover && !action
 
   const isPx = typeof thumbAspect === 'string' && thumbAspect.endsWith('px')
   const thumbBox = {
@@ -159,13 +175,13 @@ export default function ContentCard({
 
   const rootStyle = isShowcase
     ? {
-        cursor: 'pointer', overflow: 'hidden', background: '#ffffff', borderRadius: '1rem',
-        border: hovered ? SHOWCASE.hoverBorder : SHOWCASE.restBorder,
+        cursor: clickable ? 'pointer' : 'default', overflow: 'hidden', background: '#ffffff', borderRadius: '1rem',
+        border: activeHover ? SHOWCASE.hoverBorder : SHOWCASE.restBorder,
         transition: SHOWCASE.transition,
-        transform: hovered ? 'translateY(-8px) scale(1.02)' : 'translateY(0) scale(1)',
-        boxShadow: hovered ? SHOWCASE.hoverShadow : SHOWCASE.restShadow,
+        transform: activeHover ? 'translateY(-8px) scale(1.02)' : 'translateY(0) scale(1)',
+        boxShadow: activeHover ? SHOWCASE.hoverShadow : SHOWCASE.restShadow,
       }
-    : { cursor: onClick ? 'pointer' : 'default' }
+    : { cursor: clickable ? 'pointer' : 'default' }
 
   const titleStyle = {
     fontWeight: 700, fontSize: 'var(--fs-sm)',
@@ -204,7 +220,7 @@ export default function ContentCard({
               imageRendering: '-webkit-optimize-contrast',
               backfaceVisibility: 'hidden',
               transition: isShowcase ? 'transform 0.45s cubic-bezier(0.16, 1, 0.3, 1)' : undefined,
-              transform: isShowcase && hovered ? 'scale(1.06) translateZ(0)' : 'scale(1) translateZ(0)',
+              transform: activeHover ? 'scale(1.06) translateZ(0)' : 'scale(1) translateZ(0)',
             }}
           />
         ) : placeholder ? (
@@ -228,7 +244,7 @@ export default function ContentCard({
           <div className="cc-accent-bar" style={{
             position: 'absolute', bottom: 0, left: 0, right: 0, height: 3,
             background: 'var(--primary)',
-            opacity: hovered ? 1 : 0, transition: 'opacity 0.3s ease',
+            opacity: activeHover ? 1 : 0, transition: 'opacity 0.3s ease',
           }} />
         )}
       </div>
@@ -236,14 +252,13 @@ export default function ContentCard({
       {/* Body */}
       <div style={{ padding: '14px 16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
         <p style={titleStyle}>{title}</p>
-        <Meta meta={meta} countColor={inkShift ? SHOWCASE.hoverInk : 'var(--muted)'} />
-        {action && (
-          <ActionButton
-            action={action}
-            showcase={isShowcase}
-            hovered={hovered}
-            topGap={meta == null ? 'auto' : 12}
-          />
+        {action ? (
+          <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <Meta meta={meta} countColor={inkShift ? SHOWCASE.hoverInk : 'var(--muted)'} pushBottom={false} />
+            <CardAffordance action={action} activeHover={activeHover} />
+          </div>
+        ) : (
+          <Meta meta={meta} countColor={inkShift ? SHOWCASE.hoverInk : 'var(--muted)'} />
         )}
       </div>
     </div>
