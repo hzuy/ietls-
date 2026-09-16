@@ -62,6 +62,15 @@ npm run db:dev:studio                    # Prisma Studio trỏ DB dev
 npm run db:dev:seed -- --cleanup         # xoá dữ liệu seed (giữ schema)
 ```
 
+**Tạo file `backend/docker-dev.env` (bắt buộc, không có sẵn khi mới clone repo — gitignored):** đây là điều kiện tiên quyết cho toàn bộ lệnh `db:dev:*`/`test:dev-db` ở trên. Tạo file `backend/docker-dev.env` với đúng nội dung sau (khớp credentials mặc định của service `postgres-dev` trong `docker-compose.yml` — chỉ đổi nếu bạn tự set `POSTGRES_DEV_USER`/`POSTGRES_DEV_PASSWORD`/`POSTGRES_DEV_DB` khác mặc định):
+
+```env
+DATABASE_URL="postgresql://ielts_dev:ielts_dev_local_only@127.0.0.1:5433/ielts_app_dev"
+DIRECT_URL="postgresql://ielts_dev:ielts_dev_local_only@127.0.0.1:5433/ielts_app_dev"
+```
+
+Thiếu file này hoặc `DATABASE_URL` bên trong không trỏ đúng `127.0.0.1:5433`, `backend/scripts/with-dev-db.js` sẽ báo lỗi rõ ràng và dừng ngay (không chạy lệnh thật) — không cần đoán.
+
 Cách hoạt động: `backend/docker-dev.env` (gitignored, không phải `.env`/`.env.*` nên không bị chặn ghi/sửa) chứa `DATABASE_URL`/`DIRECT_URL` trỏ `127.0.0.1:5433` (service `postgres-dev`, cổng riêng khác `5432` mặc định để không đụng Postgres cài sẵn trên máy). `backend/scripts/with-dev-db.js` nạp file này (override) rồi mới spawn lệnh thật (`npx prisma ...`, `vitest run`) — nên các script `db:dev:*`/`test:dev-db` trong `package.json` không bao giờ đụng `backend/.env`. Muốn chạy lệnh khác với DB dev: `node scripts/with-dev-db.js -- <lệnh>`.
 
 **Vì sao `db push` chứ không phải `migrate deploy`:** lịch sử migration hiện có một chỗ mâu thuẫn đã xác nhận — migration `20260320030649_rebuild_full_ielts` `DROP TABLE "Exam"`, nhưng bảng `Exam` chưa từng được tạo lại ở migration nào sau đó dù `schema.prisma` hiện tại vẫn có `model Exam` (bảng chỉ tồn tại trên DB thật vì đã bị chỉnh tay ngoài lịch sử migration tại một thời điểm nào đó, không rõ khi nào). Replay `migrate deploy` từ đầu lên DB trắng dừng đúng ở migration kế tiếp, `20260321000000_remove_level_from_exam` (`ALTER TABLE "Exam" DROP COLUMN "level"`), với lỗi Prisma `P3018` / Postgres `42P01`: `relation "Exam" does not exist`. **Không tự sửa/xóa/sắp xếp lại migration để vá chỗ này** — dọn lịch sử migration là việc riêng, cần bàn trước. `db push` là phương án tạm: đồng bộ thẳng từ `schema.prisma` hiện tại (bỏ qua lịch sử migration), đủ dùng để có DB dev đúng schema hiện hành, nhưng KHÔNG ghi vào bảng `_prisma_migrations` — vì vậy đừng chạy `migrate dev`/`migrate deploy` trên DB dev này sau đó mà không `db push` lại trước, sẽ báo lệch schema.
