@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import Navbar from '../components/Navbar'
 import Breadcrumb from '../components/common/Breadcrumb'
 import ContentCard from '../components/common/ContentCard'
 import AcademicCover from '../components/common/AcademicCover'
@@ -73,7 +72,6 @@ export default function WritingSamplesPage() {
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
-      <Navbar />
 
       <div className="app-container pt-4 pb-0">
         <Breadcrumb items={[{ label: 'Trang chủ', to: '/' }, { label: 'Writing Samples' }]} />

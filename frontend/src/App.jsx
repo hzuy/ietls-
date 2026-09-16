@@ -10,6 +10,7 @@ import { FormDirtyProvider } from './context/FormDirtyContext'
 import Footer from './components/Footer'
 import ErrorBoundary from './components/ErrorBoundary'
 import AdminLayout from './components/AdminLayout'
+import UserLayout from './components/UserLayout'
 import AIChatbotDrawer from './components/common/AIChatbotDrawer'
 import TopProgressBar from './components/common/TopProgressBar'
 import ScrollToTop from './components/common/ScrollToTop'
@@ -150,7 +151,6 @@ export default function App() {
                   <Route path="/login" element={<Navigate to="/" replace state={{ authModal: 'login' }} />} />
                   <Route path="/register" element={<Navigate to="/" replace state={{ authModal: 'register' }} />} />
                   <Route path="/change-password" element={<ChangePassword />} />
-                  <Route path="/" element={<Home />} />
                   <Route path="/reading" element={<Navigate to="/practice/reading" replace />} />
                   <Route path="/reading/:id/result" element={<PrivateRoute><SkillResultPage skillType="reading" /></PrivateRoute>} />
                   <Route path="/reading/:id" element={<PrivateRoute><ReadingExam /></PrivateRoute>} />
@@ -161,21 +161,31 @@ export default function App() {
                   <Route path="/writing/:id" element={<PrivateRoute><WritingExam /></PrivateRoute>} />
                   <Route path="/speaking" element={<Navigate to="/speaking-samples" replace />} />
                   <Route path="/speaking/:id" element={<PrivateRoute><SpeakingExam /></PrivateRoute>} />
-                  <Route path="/full-test" element={<PrivateRoute><FullTest /></PrivateRoute>} />
-                  <Route path="/full-test/:id" element={<FullTestDetail />} />
-                  <Route path="/cambridge" element={<PrivateRoute><SeriesPage filterPattern="Cambridge" title="IELTS Cambridge Academic" description="Trọn bộ đề thi IELTS từ NXB Cambridge (cuốn 10 - 20)" /></PrivateRoute>} />
-                  <Route path="/practice-plus" element={<PrivateRoute><SeriesPage filterPattern="Practice" title="IELTS Practice Test Plus" description="Dòng sách luyện đề chuyên sâu với độ khó cao" /></PrivateRoute>} />
-                  <Route path="/practice/reading" element={<PrivateRoute><PracticeList skill="reading" /></PrivateRoute>} />
+                  {/* Màn hình làm bài luyện tập lẻ — giữ nguyên tối giản, KHÔNG bọc UserLayout/Navbar
+                      (PracticeExamPage tự quyết định khi nào hiện Navbar, chỉ ở loading/not-found). */}
                   <Route path="/practice/reading/:id" element={<PrivateRoute><PracticeExamPage skill="reading" /></PrivateRoute>} />
-                  <Route path="/practice/listening" element={<PrivateRoute><PracticeList skill="listening" /></PrivateRoute>} />
                   <Route path="/practice/listening/:id" element={<PrivateRoute><PracticeExamPage skill="listening" /></PrivateRoute>} />
-                  <Route path="/writing-samples" element={<WritingSamplesPage />} />
-                  <Route path="/speaking-samples" element={<SpeakingSamplesPage />} />
-                  <Route path="/samples/writing/:id" element={<SampleDetailPage skill="writing" />} />
-                  <Route path="/samples/speaking/:id" element={<SampleDetailPage skill="speaking" />} />
-                  <Route path="/full-test/result" element={<PrivateRoute><FullTestResult /></PrivateRoute>} />
-                  <Route path="/profile" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
-                  <Route path="/progress" element={<PrivateRoute><ProgressAnalysis /></PrivateRoute>} />
+
+                  {/* Layout mỏng cho khu vực người dùng — chỉ render Navbar 1 lần rồi
+                      <Outlet/>, không đụng wrapper/padding riêng của từng trang con. */}
+                  <Route element={<UserLayout />}>
+                    <Route path="/" element={<Home />} />
+                    <Route path="/full-test" element={<PrivateRoute><FullTest /></PrivateRoute>} />
+                    <Route path="/full-test/:id" element={<FullTestDetail />} />
+                    <Route path="/cambridge" element={<PrivateRoute><SeriesPage filterPattern="Cambridge" title="IELTS Cambridge Academic" description="Trọn bộ đề thi IELTS từ NXB Cambridge (cuốn 10 - 20)" /></PrivateRoute>} />
+                    <Route path="/practice-plus" element={<PrivateRoute><SeriesPage filterPattern="Practice" title="IELTS Practice Test Plus" description="Dòng sách luyện đề chuyên sâu với độ khó cao" /></PrivateRoute>} />
+                    <Route path="/practice/reading" element={<PrivateRoute><PracticeList skill="reading" /></PrivateRoute>} />
+                    <Route path="/practice/listening" element={<PrivateRoute><PracticeList skill="listening" /></PrivateRoute>} />
+                    <Route path="/writing-samples" element={<WritingSamplesPage />} />
+                    <Route path="/speaking-samples" element={<SpeakingSamplesPage />} />
+                    <Route path="/samples/writing/:id" element={<SampleDetailPage skill="writing" />} />
+                    <Route path="/samples/speaking/:id" element={<SampleDetailPage skill="speaking" />} />
+                    <Route path="/full-test/result" element={<PrivateRoute><FullTestResult /></PrivateRoute>} />
+                    <Route path="/profile" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
+                    <Route path="/progress" element={<PrivateRoute><ProgressAnalysis /></PrivateRoute>} />
+                    {/* 404 Route */}
+                    <Route path="*" element={<NotFound />} />
+                  </Route>
 
                   {/* Admin routes — 1 route cha dùng <Outlet/> (AdminLayout không unmount/remount
                       giữa các mục nữa). Quyền hạn (AdminRoute vs StaffRoute) KHÔNG đồng nhất giữa
@@ -199,9 +209,6 @@ export default function App() {
                     <Route path="speaking-samples"   element={<StaffRoute><SampleManager kind="speaking" /></StaffRoute>} />
                     <Route path="trash"              element={<StaffRoute><Trash /></StaffRoute>} />
                   </Route>
-
-                  {/* 404 Route */}
-                  <Route path="*" element={<NotFound />} />
                 </Routes>
                 </PageTransition>
               </Suspense>

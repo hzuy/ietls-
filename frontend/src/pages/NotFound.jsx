@@ -1,12 +1,10 @@
 import { useNavigate } from 'react-router-dom'
-import Navbar from '../components/Navbar'
 
 export default function NotFound() {
   const navigate = useNavigate()
 
   return (
     <div className="min-h-screen bg-[var(--bg)] flex flex-col">
-      <Navbar />
       <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
         <h1 className="text-[120px] font-extrabold text-zinc-900 leading-none mb-4 tracking-tighter" style={{ fontFamily: 'var(--font-mono)' }}>
           404

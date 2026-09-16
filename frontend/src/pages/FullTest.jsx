@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Navbar from '../components/Navbar'
 import Breadcrumb from '../components/common/Breadcrumb'
 import { FolderArchive } from 'lucide-react'
 import ContentCard from '../components/common/ContentCard'
@@ -256,7 +255,6 @@ export default function FullTest() {
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
-      <Navbar />
 
       <div className="app-container pt-4 pb-0">
         <Breadcrumb items={[{ label: 'Trang chủ', to: '/' }, { label: 'Phòng thi chuẩn hóa' }]} />

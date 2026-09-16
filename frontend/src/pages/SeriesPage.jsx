@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Navbar from '../components/Navbar'
 import Breadcrumb from '../components/common/Breadcrumb'
 import ContentCard from '../components/common/ContentCard'
 import AcademicCover from '../components/common/AcademicCover'
@@ -89,7 +88,6 @@ export default function SeriesPage({ filterPattern, title }) {
 
   return (
     <div className="min-h-screen bg-[var(--bg)] dark:bg-zinc-950 flex flex-col">
-      <Navbar />
 
       <div className="app-container pt-5 pb-1 anim-fade-up">
         <Breadcrumb

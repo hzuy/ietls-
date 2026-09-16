@@ -7,7 +7,6 @@ import {
   getSpeakingCriteria,
   getAIAdvice,
 } from '../services/statsService'
-import Navbar from '../components/Navbar'
 import Card from '../components/common/Card'
 import PageHeader from '../components/common/PageHeader'
 import {
@@ -178,7 +177,6 @@ export default function ProgressAnalysis() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg)] text-zinc-900 font-sans">
-      <Navbar />
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8 md:py-12">
         {/* Top Header */}

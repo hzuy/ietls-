@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getFullTestResult } from '../services/examService'
-import Navbar from '../components/Navbar'
 import Breadcrumb from '../components/common/Breadcrumb'
 import Card from '../components/common/Card'
 import PageHeader from '../components/common/PageHeader'
@@ -39,7 +38,6 @@ export default function FullTestResult() {
 
   if (loading) return (
     <div className="min-h-screen bg-[var(--bg)]">
-      <Navbar />
       <div className="bg-white border-b border-zinc-200">
         <div className="max-w-2xl mx-auto px-6 py-12 flex flex-col items-center">
           <div className="w-14 h-14 rounded-xl bg-zinc-200 animate-pulse mb-4" />
@@ -69,7 +67,6 @@ export default function FullTestResult() {
 
   if (error) return (
     <div className="min-h-screen bg-[var(--bg)]">
-      <Navbar />
       <div className="app-container flex flex-col items-center justify-center py-32">
         <div className="text-center p-10 bg-white rounded-2xl border border-zinc-200 shadow-xs flex flex-col items-center max-w-md w-full">
           <div className="w-14 h-14 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center mb-6 text-zinc-500">
@@ -85,7 +82,6 @@ export default function FullTestResult() {
 
   if (!data) return (
     <div className="min-h-screen bg-[var(--bg)]">
-      <Navbar />
       <div className="app-container flex flex-col items-center justify-center py-32">
         <div className="text-center p-10 bg-white rounded-2xl border border-zinc-200 shadow-xs flex flex-col items-center max-w-md w-full">
           <div className="w-14 h-14 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center mb-6 text-zinc-500">
@@ -112,8 +108,6 @@ export default function FullTestResult() {
 
   return (
     <div className="min-h-screen bg-[var(--bg)] font-sans text-zinc-900">
-      <Navbar />
-
       <div className="bg-zinc-50/50 border-b border-zinc-200 pt-6 pb-2">
         <div className="app-container">
           <Breadcrumb items={[{ label: 'Trang chủ', to: '/' }, { label: 'Full Test', to: '/full-test' }, { label: 'Kết quả bài thi' }]} />

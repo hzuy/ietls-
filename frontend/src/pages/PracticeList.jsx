@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Navbar from '../components/Navbar'
 import Breadcrumb from '../components/common/Breadcrumb'
 import ContentCard from '../components/common/ContentCard'
 import Card from '../components/common/Card'
@@ -87,7 +86,6 @@ export default function PracticeList({ skill: skillKey }) {
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
-      <Navbar />
 
       {/* Breadcrumb */}
       <div className="app-container pt-4 pb-0">

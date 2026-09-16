@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { AlertCircle, RefreshCw, FileQuestion } from 'lucide-react'
-import Navbar from '../components/Navbar'
 
 import Card from '../components/common/Card'
 import { SkeletonText } from '../components/skeletons'
@@ -33,7 +32,6 @@ export default function SampleDetailPage({ skill }) {
 
   if (loading) return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
-      <Navbar />
       <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '32px 24px' }}>
         <Card className="p-8 md:p-12">
           <SkeletonText lines={8} />
@@ -44,7 +42,6 @@ export default function SampleDetailPage({ skill }) {
 
   if (error) return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
-      <Navbar />
       <Card className="max-w-md mx-auto mt-16 text-center py-12 px-6 flex flex-col items-center">
         <AlertCircle className="w-10 h-10 text-zinc-400 mb-3 stroke-[1.75]" />
         <p style={{ color: 'var(--ink)', fontWeight: 700, fontSize: 16 }}>Không thể tải bài mẫu</p>
@@ -62,7 +59,6 @@ export default function SampleDetailPage({ skill }) {
 
   if (!sample) return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
-      <Navbar />
       <Card variant="flat" className="max-w-md mx-auto mt-16 text-center py-12 px-6 flex flex-col items-center">
         <FileQuestion className="w-12 h-12 text-zinc-300 stroke-[1.5] mb-4" />
         <h3 className="font-bold text-zinc-900 text-base">Không tìm thấy bài mẫu</h3>
@@ -77,7 +73,6 @@ export default function SampleDetailPage({ skill }) {
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
-      <Navbar />
       <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '32px 24px' }}>
         {/* Back */}
         <button

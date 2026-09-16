@@ -8,7 +8,6 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
-import Navbar from '../components/Navbar'
 import AcademicCover from '../components/common/AcademicCover'
 import Card from '../components/common/Card'
 import PageHeader from '../components/common/PageHeader'
@@ -307,8 +306,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[var(--bg)] flex flex-col">
-      <Navbar />
-
       {/* ── 1. Hero Section — nền tối "Quỹ đạo Band Score" (Đợt 3) ─────────── */}
       <section className="relative overflow-hidden home-hero-dark">
         <div className="bg-dots-light" aria-hidden="true" />

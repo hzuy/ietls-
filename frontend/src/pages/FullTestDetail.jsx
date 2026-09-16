@@ -1,6 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'
-import Navbar from '../components/Navbar'
 import Breadcrumb from '../components/common/Breadcrumb'
 
 import { useAuth } from '../context/AuthContext'
@@ -132,13 +131,13 @@ export default function FullTestDetail() {
   }
 
   if (!bookNumber) return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}><Navbar />
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
       <div className="max-w-6xl mx-auto px-6 py-16 text-center" style={{ color: 'var(--muted)' }}>Vui lòng chọn một cuốn sách cụ thể.</div>
     </div>
   )
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}><Navbar />
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
       <div className="app-container py-6">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-6 items-start">
           <div>
@@ -155,7 +154,7 @@ export default function FullTestDetail() {
   )
 
   if (fetchError) return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}><Navbar />
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
       <Card className="max-w-md mx-auto mt-16 text-center py-12 px-6 flex flex-col items-center">
         <AlertCircle className="w-10 h-10 text-zinc-400 mb-3 stroke-[1.75]" />
         <p style={{ color: 'var(--ink)', fontWeight: 700, fontSize: 16 }}>Không thể tải dữ liệu</p>
@@ -172,7 +171,7 @@ export default function FullTestDetail() {
   )
 
   if (!bookData || bookData.empty) return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}><Navbar />
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
       <Card variant="flat" className="max-w-md mx-auto mt-16 text-center py-12 px-6 flex flex-col items-center">
         <FolderArchive className="w-12 h-12 text-zinc-300 stroke-[1.5] mb-4" />
         <h3 className="font-bold text-zinc-900 text-base">Chưa có bài test nào</h3>
@@ -185,8 +184,6 @@ export default function FullTestDetail() {
 
   return (
     <div className="min-h-screen bg-[var(--bg)] dark:bg-zinc-950 flex flex-col">
-      <Navbar />
-
       <div className="app-container pt-4 pb-0">
         <Breadcrumb
           items={[

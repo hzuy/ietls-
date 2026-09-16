@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import Navbar from '../components/Navbar'
 import Card from '../components/common/Card'
 import { getMe, updateProfile, changePassword, getUserStats } from '../services/userService'
 import { User, BarChart2, Lock, CheckCircle2, AlertCircle } from 'lucide-react'
@@ -122,7 +121,6 @@ export default function UserProfile() {
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
-      <Navbar />
 
       <div className="app-container pt-6 pb-16 flex flex-col md:flex-row gap-8 items-start anim-fade-up">
 
