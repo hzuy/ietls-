@@ -20,25 +20,68 @@
   --font-display: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+
+  /* Đăng ký token màu ngữ nghĩa/thương hiệu/kỹ năng thành Tailwind utility
+     (bg-, text-, border-) — tham chiếu ngược lại giá trị thật khai báo trong
+     :root ở dưới nên chỉ một nguồn sự thật, không lặp giá trị hex ở hai chỗ. */
+  --color-primary:        var(--primary);
+  --color-primary-hover:  var(--primary-hover);
+  --color-primary-light:  var(--primary-light);
+
+  --color-success:        var(--success);
+  --color-success-bg:     var(--success-bg);
+  --color-success-border: var(--success-border);
+  --color-success-text:   var(--success-text);
+
+  --color-error:          var(--error);
+  --color-error-bg:       var(--error-bg);
+  --color-error-border:   var(--error-border);
+  --color-error-text:     var(--error-text);
+
+  --color-warning:        var(--warning);
+  --color-warning-bg:     var(--warning-bg);
+  --color-warning-border: var(--warning-border);
+  --color-warning-text:   var(--warning-text);
+
+  --color-info:           var(--info);
+  --color-info-bg:        var(--info-bg);
+  --color-info-border:    var(--info-border);
+  --color-info-text:      var(--info-text);
+
+  --color-skill-reading:    var(--skill-r-color);
+  --color-skill-reading-bg: var(--skill-r-bg);
+  --color-skill-reading-border: var(--skill-r-border);
+
+  --color-skill-listening:    var(--skill-l-color);
+  --color-skill-listening-bg: var(--skill-l-bg);
+  --color-skill-listening-border: var(--skill-l-border);
+
+  --color-skill-writing:    var(--skill-w-color);
+  --color-skill-writing-bg: var(--skill-w-bg);
+  --color-skill-writing-border: var(--skill-w-border);
+
+  --color-skill-speaking:    var(--skill-s-color);
+  --color-skill-speaking-bg: var(--skill-s-bg);
+  --color-skill-speaking-border: var(--skill-s-border);
 }
 
 /* ─── Google Fonts ──────────────────────────────────────────────────────────── */
 /* ─── Design Tokens ─────────────────────────────────────────────────────────── */
 :root {
-  /* Brand - Zinc Monochrome */
-  --primary:        #18181b;   /* Zinc 900 */
-  --primary-hover:  #09090b;   /* Zinc 950 / Black */
-  --primary-light:  #f4f4f5;   /* Zinc 100 */
+  /* Brand — Warm Academic (Đợt 1: bảng màu chính thức toàn app) */
+  --primary:        #5b21b6;   /* Violet 800 */
+  --primary-hover:  #4c1d95;   /* Violet 900 */
+  --primary-light:  #ede9fe;   /* Violet 100 */
 
   /* Palette — Deep Ink */
   --ink:            #18181b;   /* Zinc 900 heading */
   --ink-soft:       #27272a;   /* Zinc 800 text */
 
   /* Surfaces */
-  --bg:             #ffffff;   /* Clean white background */
+  --bg:             #fdfbf5;   /* Warm academic background (thay cho trắng thuần) */
   --surface:        #ffffff;
   --surface-raised: #f4f4f5;   /* Zinc 100 */
-  --surface-alt:    #fafafa;   /* Zinc 50 */
+  --surface-alt:    #fafaf7;   /* Warm-tinted zinc 50 */
 
   /* Text */
   --text:           #3f3f46;   /* Zinc 700 body text */
@@ -50,32 +93,43 @@
   --border-soft:    #f4f4f5;   /* Zinc 100 border */
 
   /* Skill palette — Reading */
-  --skill-r-color:  #18181b;
-  --skill-r-bg:     #f4f4f5;
-  --skill-r-border: #e4e4e7;
+  --skill-r-color:  #2563eb;   /* Blue 600 */
+  --skill-r-bg:     #eff6ff;   /* Blue 50 */
+  --skill-r-border: #bfdbfe;   /* Blue 200 */
 
-  /* Skill palette — Listening */
-  --skill-l-color:  #27272a;
-  --skill-l-bg:     #f4f4f5;
-  --skill-l-border: #e4e4e7;
+  /* Skill palette — Listening (cyan đậm — tránh trùng tông với màu nhấn thương hiệu) */
+  --skill-l-color:  #0e7490;   /* Cyan 700 */
+  --skill-l-bg:     #ecfeff;   /* Cyan 50 */
+  --skill-l-border: #a5f3fc;   /* Cyan 200 */
 
   /* Skill palette — Writing */
-  --skill-w-color:  #18181b;
-  --skill-w-bg:     #f4f4f5;
-  --skill-w-border: #e4e4e7;
+  --skill-w-color:  #c2410c;   /* Orange 700 */
+  --skill-w-bg:     #fff7ed;   /* Orange 50 */
+  --skill-w-border: #fed7aa;   /* Orange 200 */
 
   /* Skill palette — Speaking */
-  --skill-s-color:  #27272a;
-  --skill-s-bg:     #f4f4f5;
-  --skill-s-border: #e4e4e7;
+  --skill-s-color:  #be185d;   /* Pink 700 */
+  --skill-s-bg:     #fdf2f8;   /* Pink 50 */
+  --skill-s-border: #fbcfe8;   /* Pink 200 */
 
-  /* Semantic status tokens */
-  --success:     #16a34a;   /* Green 600 */
-  --success-bg:  #dcfce7;   /* Green 100 */
-  --error:       #dc2626;   /* Red 600 */
-  --error-bg:    #fee2e2;   /* Red 100 */
-  --warning:     #d97706;   /* Amber 600 */
-  --warning-bg:  #fef3c7;   /* Amber 100 */
+  /* Semantic status tokens — nguồn duy nhất cho đúng/sai/cảnh báo/thông tin,
+     thay hết các chỗ viết cứng green/emerald, red/rose, amber rải rác từng trang */
+  --success:        #16a34a;   /* Green 600 */
+  --success-bg:      #ecfdf3;   /* Green 50 */
+  --success-border:  #bbf7d0;   /* Green 200 */
+  --success-text:    #14532d;   /* Green 900 — chữ trên nền success-bg */
+  --error:           #dc2626;   /* Red 600 */
+  --error-bg:        #fef2f2;   /* Red 50 */
+  --error-border:    #fecaca;   /* Red 200 */
+  --error-text:      #7f1d1d;   /* Red 900 — chữ trên nền error-bg */
+  --warning:         #d97706;   /* Amber 600 */
+  --warning-bg:      #fffbeb;   /* Amber 50 */
+  --warning-border:  #fde68a;   /* Amber 200 */
+  --warning-text:    #78350f;   /* Amber 900 — chữ trên nền warning-bg */
+  --info:            #4f46e5;   /* Indigo 600 */
+  --info-bg:         #eef2ff;   /* Indigo 50 */
+  --info-border:     #c7d2fe;   /* Indigo 200 */
+  --info-text:       #312e81;   /* Indigo 900 — chữ trên nền info-bg */
 
   /* Typography scale — clamp(min, fluid, max), rem only */
   --fs-xs:   clamp(0.625rem, 0.5rem + 0.3vw, 0.75rem);    /* 10→12px */
@@ -668,6 +722,22 @@ input:focus, textarea:focus, select:focus {
 }
 
 /* ─── Admin Isolation: strictly Neutral Zinc, never tint links, tabs, buttons or inputs blue ── */
+/* Đợt 1 đổi --primary sang tím thương hiệu cho giao diện người dùng, nhưng admin phải giữ
+   nguyên zinc đơn sắc (yêu cầu rõ ràng: không đụng giao diện admin). .btn-primary, badge active
+   nav, input focus ring... trong toàn app đều đọc var(--primary) trực tiếp, nên khai báo lại
+   token ngay trong phạm vi .admin-scope là cách chặn triệt để mà không phải sửa từng component. */
+.admin-scope {
+  --primary:       #18181b;   /* Zinc 900 */
+  --primary-hover: #09090b;   /* Zinc 950 / Black */
+  --primary-light: #f4f4f5;   /* Zinc 100 */
+  /* Tailwind sinh utility bg-primary/text-primary/border-primary từ --color-primary
+     (khai báo trong @theme) — override luôn để phòng trường hợp có chỗ dùng class đó
+     thay vì var(--primary) trực tiếp. */
+  --color-primary:       #18181b;
+  --color-primary-hover: #09090b;
+  --color-primary-light: #f4f4f5;
+}
+
 .admin-scope a:hover,
 .admin-scope button:hover,
 .admin-main a:hover,
