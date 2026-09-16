@@ -5,6 +5,16 @@ node_modules/
 # Environment variables
 .env
 **/.env
+backend/docker-dev.env
+# Bắt luôn file env đặt tên tự do (không chỉ bắt đầu bằng ".env", vd docker-dev.env,
+# hay dạng ".env.<gì đó>") — chặn credentials lọt vào git kể cả khi ai đó đặt tên
+# file env khác quy ước ".env"/".env.local" thông thường.
+**/*.env
+**/.env.*
+# Loại trừ: các file .env.example / frontend/.env.production đã track sẵn trong repo,
+# chỉ chứa placeholder hoặc giá trị build-time công khai (VITE_*), không phải secret thật.
+!**/.env.example
+!frontend/.env.production
 
 # Build output
 frontend/dist/

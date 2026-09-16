@@ -13,6 +13,7 @@ import {
 import InlinePreviewPanel from '../common/InlinePreviewPanel'
 import Select from './Select'
 import ExamList from './ExamList'
+import ExamAuditHistory from './ExamAuditHistory'
 import AdminGroupPreview from '../practice/AdminGroupPreview'
 import ReadingGroupEditor from './editors/ReadingGroupEditor'
 import { Eye, ChevronDown } from 'lucide-react'
@@ -279,7 +280,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   const formRef = useRef(null)
   const previewRef = useRef(null)
 
-  const showToast = (msg) => { showAlert(msg); setToast(msg); setTimeout(() => setToast(''), 3000) }
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
   // Scroll the preview panel into view once it has rendered (not when hidden).
   useEffect(() => {
@@ -514,6 +515,8 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         showToast('✅ Cập nhật đề thành công!')
         queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
         queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
+        // Log audit vừa ghi ở backend — invalidate để khối "Lịch sử thay đổi" hiện ngay, không đợi hết staleTime.
+        queryClient.invalidateQueries({ queryKey: ['admin', 'auditLogs', 'exam', editingId] })
         onRefresh()
       } else {
         await api.post('/admin/exams/reading', payload)
@@ -779,6 +782,12 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
           >
             <ReadingFormPreview form={form} showAnswers={showAnswers} />
           </InlinePreviewPanel>
+        </div>
+      )}
+
+      {editingId && (
+        <div className="mb-6">
+          <ExamAuditHistory examId={editingId} />
         </div>
       )}
 

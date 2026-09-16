@@ -18,6 +18,7 @@ model User {
   isLocked              Boolean  @default(false)
   requirePasswordChange Boolean  @default(false)
   createdAt             DateTime @default(now())
+  deletedAt             DateTime? // soft-delete — DELETE /admin/users/:id (khác staff.delete ở /admin/accounts/:id, vốn hard-delete)
 
   attempts              Attempt[]
   writingAnswers        WritingAnswer[]
@@ -477,7 +478,7 @@ model AuditLog {
   // Hành động — action là chuỗi "đối_tượng.thao_tác" định nghĩa tập trung ở
   // backend/lib/auditActions.js, không viết tự do ở route.
   action      String
-  entityType  String // Exam | PracticeExam | User | ExamSeries | BookCover | WritingSample | SpeakingSample | Setting
+  entityType  String // Exam | PracticeExam | User | ExamSeries | BookCover | WritingSample | SpeakingSample | Setting | Trash (thao tác gộp nhiều loại, vd trash.purge_all/trash.auto_purge — chi tiết theo loại nằm trong metadata)
   entityId    Int?
   entityLabel String? // nhãn người đọc được, snapshot tại thời điểm ghi (vd tên đề thi) — vẫn đọc được sau khi entity bị xóa vĩnh viễn
   metadata    Json?

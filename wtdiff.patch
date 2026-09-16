@@ -1,0 +1,1206 @@
+diff --git a/.gitignore b/.gitignore
+index a12eaf5..a4d7f04 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -5,6 +5,16 @@ node_modules/
+ # Environment variables
+ .env
+ **/.env
++backend/docker-dev.env
++# Bắt luôn file env đặt tên tự do (không chỉ bắt đầu bằng ".env", vd docker-dev.env,
++# hay dạng ".env.<gì đó>") — chặn credentials lọt vào git kể cả khi ai đó đặt tên
++# file env khác quy ước ".env"/".env.local" thông thường.
++**/*.env
++**/.env.*
++# Loại trừ: các file .env.example / frontend/.env.production đã track sẵn trong repo,
++# chỉ chứa placeholder hoặc giá trị build-time công khai (VITE_*), không phải secret thật.
++!**/.env.example
++!frontend/.env.production
+ 
+ # Build output
+ frontend/dist/
+diff --git a/CLAUDE.md b/CLAUDE.md
+index e9890c6..23619fe 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -46,13 +46,36 @@ npx prisma generate
+ npx prisma studio
+ node prisma/seed-demo-data.js      # KHÔNG có `prisma db seed` — package.json không khai báo seed
+ ```
+-⚠️ `DATABASE_URL` ở local **trỏ chung một Supabase DB với production**. Migration chạy ở local là chạy thẳng vào DB prod. Kiểm tra kỹ trước khi `migrate dev` / `migrate deploy`. `npx prisma migrate reset` bị chặn trong `.claude/settings.json` — đúng như vậy, đừng tìm cách lách.
++⚠️ `backend/.env` (dùng bởi các lệnh trên, và bởi `npm run dev`/`npm start`/`npm test` mặc định) **vẫn trỏ chung một Supabase DB với production** — điều này KHÔNG đổi. Migration/seed chạy bằng các lệnh trên là chạy thẳng vào DB prod. Kiểm tra kỹ trước khi `migrate dev` / `migrate deploy` / chạy `seed-demo-data.js`. `npx prisma migrate reset` bị chặn trong `.claude/settings.json` — đúng như vậy, đừng tìm cách lách.
++
++#### DB dev/test local (postgres-dev, khuyến nghị cho test tích hợp)
++
++Để không phải chạm DB production khi viết/chạy test tích hợp (đặc biệt route đụng dữ liệu tài khoản thật hoặc thao tác xóa — vd `users`, `trash`), có sẵn 1 Postgres riêng chạy qua Docker, hoàn toàn tách khỏi Supabase:
++
++```bash
++docker compose up -d postgres-dev        # lần đầu: pull image + tạo volume postgres_dev_data
++cd backend
++npm run db:dev:push                      # đồng bộ schema.prisma → DB dev (xem lý do dùng db push, không phải migrate deploy, bên dưới)
++npm run db:dev:seed                      # seed vài tài khoản user/teacher/admin + 2 đề thi giả + vài lượt thi
++npm run test:dev-db                      # chạy toàn bộ test suite trỏ vào DB dev (đã xác nhận pass 277/277)
++npm run db:dev:studio                    # Prisma Studio trỏ DB dev
++npm run db:dev:seed -- --cleanup         # xoá dữ liệu seed (giữ schema)
++```
++
++Cách hoạt động: `backend/docker-dev.env` (gitignored, không phải `.env`/`.env.*` nên không bị chặn ghi/sửa) chứa `DATABASE_URL`/`DIRECT_URL` trỏ `127.0.0.1:5433` (service `postgres-dev`, cổng riêng khác `5432` mặc định để không đụng Postgres cài sẵn trên máy). `backend/scripts/with-dev-db.js` nạp file này (override) rồi mới spawn lệnh thật (`npx prisma ...`, `vitest run`) — nên các script `db:dev:*`/`test:dev-db` trong `package.json` không bao giờ đụng `backend/.env`. Muốn chạy lệnh khác với DB dev: `node scripts/with-dev-db.js -- <lệnh>`.
++
++**Vì sao `db push` chứ không phải `migrate deploy`:** lịch sử migration hiện có một chỗ mâu thuẫn đã xác nhận — migration `20260320030649_rebuild_full_ielts` `DROP TABLE "Exam"`, nhưng bảng `Exam` chưa từng được tạo lại ở migration nào sau đó dù `schema.prisma` hiện tại vẫn có `model Exam` (bảng chỉ tồn tại trên DB thật vì đã bị chỉnh tay ngoài lịch sử migration tại một thời điểm nào đó, không rõ khi nào). Replay `migrate deploy` từ đầu lên DB trắng dừng đúng ở migration kế tiếp, `20260321000000_remove_level_from_exam` (`ALTER TABLE "Exam" DROP COLUMN "level"`), với lỗi Prisma `P3018` / Postgres `42P01`: `relation "Exam" does not exist`. **Không tự sửa/xóa/sắp xếp lại migration để vá chỗ này** — dọn lịch sử migration là việc riêng, cần bàn trước. `db push` là phương án tạm: đồng bộ thẳng từ `schema.prisma` hiện tại (bỏ qua lịch sử migration), đủ dùng để có DB dev đúng schema hiện hành, nhưng KHÔNG ghi vào bảng `_prisma_migrations` — vì vậy đừng chạy `migrate dev`/`migrate deploy` trên DB dev này sau đó mà không `db push` lại trước, sẽ báo lệch schema.
++
++**Seed data** (`backend/prisma/seed-dev.js`) hoàn toàn giả, tự chặn nếu `DATABASE_URL` không trỏ `127.0.0.1:5433` (không thể lỡ chạy lên DB khác kể cả prod). Tài khoản: `dev-admin@example.test` / `dev-teacher@example.test` / `dev-user@example.test`, mật khẩu `Password123!`. Idempotent — chạy lại không tạo trùng.
++
++Test suite hiện tại (277 test backend) đều mock `lib/prisma` ở tầng route/lib — không có test nào thật sự đọc/ghi DB, nên `npm test` thường (không qua `postgres-dev`) vẫn an toàn với DB hiện tại. `postgres-dev` có giá trị chính cho: test tích hợp thật sẽ viết trong tương lai (audit log trên `users`/`trash`), và cho việc chạy `npx prisma migrate dev`/thử migration mới mà không đụng DB thật.
+ 
+ ### Docker
+ ```bash
+ docker compose up -d --build backend   # CHỈ service backend
++docker compose up -d postgres-dev      # DB dev/test local — xem mục "DB dev/test local" ở trên
+ ```
+-`docker-compose.yml` còn service `postgres-prod` **chưa active** (chuẩn bị cho migration khỏi Supabase, xem `docs/deploy/self-hosted-postgres-migration.md`). Đừng `docker compose up` trần — sẽ dựng thêm Postgres rỗng ngoài ý muốn.
++`docker-compose.yml` có 3 service: `backend`, `postgres-dev` (DB dev/test local, xem mục Database ở trên), và `postgres-prod` **chưa active** (chuẩn bị cho migration khỏi Supabase, xem `docs/deploy/self-hosted-postgres-migration.md` — mục đích khác hẳn `postgres-dev`, đừng nhầm hai service này). Đừng `docker compose up` trần — sẽ dựng thêm cả `postgres-prod` rỗng ngoài ý muốn.
+ 
+ ## Architecture
+ 
+diff --git a/backend/.gitignore b/backend/.gitignore
+index 5863c22..9f62ec0 100644
+--- a/backend/.gitignore
++++ b/backend/.gitignore
+@@ -1,6 +1,5 @@
+ node_modules
+ # Keep environment variables out of version control
+ .env
+-.env.demo
+ 
+ /generated/prisma
+diff --git a/backend/package.json b/backend/package.json
+index 462a134..32a6920 100644
+--- a/backend/package.json
++++ b/backend/package.json
+@@ -10,7 +10,12 @@
+     "test": "vitest run",
+     "test:watch": "vitest",
+     "test:coverage": "vitest run --coverage",
+-    "seed:analytics": "node prisma/seed_demo_analytics.js"
++    "seed:analytics": "node prisma/seed_demo_analytics.js",
++    "test:dev-db": "node scripts/with-dev-db.js -- npx vitest run",
++    "db:dev:migrate-deploy": "node scripts/with-dev-db.js -- npx prisma migrate deploy",
++    "db:dev:push": "node scripts/with-dev-db.js -- npx prisma db push",
++    "db:dev:seed": "node scripts/with-dev-db.js -- node prisma/seed-dev.js",
++    "db:dev:studio": "node scripts/with-dev-db.js -- npx prisma studio"
+   },
+   "keywords": [],
+   "author": "",
+diff --git a/backend/prisma/schema.prisma b/backend/prisma/schema.prisma
+index 3af9ca6..0df0b7e 100644
+--- a/backend/prisma/schema.prisma
++++ b/backend/prisma/schema.prisma
+@@ -18,6 +18,7 @@ model User {
+   isLocked              Boolean  @default(false)
+   requirePasswordChange Boolean  @default(false)
+   createdAt             DateTime @default(now())
++  deletedAt             DateTime? // soft-delete — DELETE /admin/users/:id (khác staff.delete ở /admin/accounts/:id, vốn hard-delete)
+ 
+   attempts              Attempt[]
+   writingAnswers        WritingAnswer[]
+@@ -477,7 +478,7 @@ model AuditLog {
+   // Hành động — action là chuỗi "đối_tượng.thao_tác" định nghĩa tập trung ở
+   // backend/lib/auditActions.js, không viết tự do ở route.
+   action      String
+-  entityType  String // Exam | PracticeExam | User | ExamSeries | BookCover | WritingSample | SpeakingSample | Setting
++  entityType  String // Exam | PracticeExam | User | ExamSeries | BookCover | WritingSample | SpeakingSample | Setting | Trash (thao tác gộp nhiều loại, vd trash.purge_all/trash.auto_purge — chi tiết theo loại nằm trong metadata)
+   entityId    Int?
+   entityLabel String? // nhãn người đọc được, snapshot tại thời điểm ghi (vd tên đề thi) — vẫn đọc được sau khi entity bị xóa vĩnh viễn
+   metadata    Json?
+diff --git a/backend/routes/admin.js b/backend/routes/admin.js
+index cc984c1..8997c1e 100644
+--- a/backend/routes/admin.js
++++ b/backend/routes/admin.js
+@@ -11,5 +11,6 @@ router.use('/', require('./admin/exams/speaking'))
+ router.use('/', require('./admin/dashboard'))
+ router.use('/', require('./admin/users'))
+ router.use('/', require('./admin/trash'))
++router.use('/', require('./admin/auditLogs'))
+ 
+ module.exports = router
+diff --git a/backend/routes/admin/dashboard.js b/backend/routes/admin/dashboard.js
+index 7b847f1..846e731 100644
+--- a/backend/routes/admin/dashboard.js
++++ b/backend/routes/admin/dashboard.js
+@@ -176,16 +176,16 @@ async function fetchDashboardOverviewData() {
+     skillDist,
+     recent,
+   ] = await Promise.all([
+-    prisma.user.count({ where: { role: 'user' } }),
+-    prisma.user.count({ where: { role: 'user', createdAt: { gte: startOfThisMonth } } }),
+-    prisma.user.count({ where: { role: 'user', createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
++    prisma.user.count({ where: { role: 'user', deletedAt: null } }),
++    prisma.user.count({ where: { role: 'user', deletedAt: null, createdAt: { gte: startOfThisMonth } } }),
++    prisma.user.count({ where: { role: 'user', deletedAt: null, createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
+     prisma.attempt.count({ where: { finishedAt: { gte: startOfToday } } }),
+     prisma.attempt.aggregate({ where: { score: { not: null } }, _avg: { score: true } }),
+     prisma.exam.count(),
+     getRegistrationsByDay(thirtyDaysAgo, 30, now),
+     Promise.all([
+       prisma.exam.findMany({ take: 3, orderBy: { createdAt: 'desc' }, select: { title: true, createdAt: true } }),
+-      prisma.attempt.findMany({ take: 2, orderBy: { createdAt: 'desc' }, include: { user: { select: { name: true } } } }),
++      prisma.attempt.findMany({ take: 2, orderBy: { createdAt: 'desc' }, include: { user: { select: { name: true, deletedAt: true } } } }),
+     ]),
+     prisma.attempt.count({ where: { finishedAt: { gte: startOfToday }, exam: { skill: { in: ['writing', 'speaking'] } } } }),
+     getAttemptsByDay(thirtyDaysAgo, 30, now),
+@@ -196,7 +196,7 @@ async function fetchDashboardOverviewData() {
+       orderBy: { createdAt: 'desc' },
+       where: { finishedAt: { not: null } },
+       include: {
+-        user: { select: { id: true, name: true, email: true } },
++        user: { select: { id: true, name: true, email: true, deletedAt: true } },
+         exam: { select: { id: true, title: true, skill: true } },
+       },
+     }),
+@@ -218,7 +218,7 @@ async function fetchDashboardOverviewData() {
+     })),
+     ...latestAttempts.map(a => ({
+       time: a.createdAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+-      user: a.user?.name || 'Ẩn danh',
++      user: a.user ? `${a.user.name}${a.user.deletedAt ? ' (đã xóa)' : ''}` : 'Ẩn danh',
+       action: `Hoàn thành bài thi ${a.examId}`,
+       status: 'Thành công',
+     })),
+@@ -321,7 +321,7 @@ router.get('/attempts', authMiddleware, teacherOnly, validate(attemptsQuerySchem
+         skip, take: limit,
+         orderBy,
+         include: {
+-          user: { select: { id: true, name: true, email: true } },
++          user: { select: { id: true, name: true, email: true, deletedAt: true } },
+           exam: { select: { id: true, title: true, skill: true } }
+         }
+       }),
+@@ -393,14 +393,14 @@ router.post('/attempts/export', authMiddleware, teacherOnly, async (req, res) =>
+         take: BATCH_SIZE,
+         orderBy: { createdAt: 'desc' },
+         include: {
+-          user: { select: { id: true, name: true, email: true } },
++          user: { select: { id: true, name: true, email: true, deletedAt: true } },
+           exam: { select: { id: true, title: true, skill: true } }
+         }
+       })
+ 
+       for (const a of batch) {
+         const row = worksheet.addRow([
+-          a.user?.name || '',
++          a.user ? `${a.user.name}${a.user.deletedAt ? ' (đã xóa)' : ''}` : '',
+           a.user?.email || '',
+           SKILL_LABEL[a.exam?.skill] || a.exam?.skill || '',
+           a.exam?.title || '',
+@@ -485,8 +485,8 @@ async function fetchAnalyticsData({ period = 'today', from, to } = {}) {
+     bandDistribution,
+   ] = await Promise.all([
+     prisma.attempt.count({ where: { finishedAt: { not: null }, ...dateWhere } }),
+-    prisma.user.count({ where: { role: 'user', ...dateWhere } }),
+-    prisma.user.count({ where: { role: 'user' } }), // total across all time — not period-filtered
++    prisma.user.count({ where: { role: 'user', deletedAt: null, ...dateWhere } }),
++    prisma.user.count({ where: { role: 'user', deletedAt: null } }), // total across all time — not period-filtered
+     prisma.attempt.aggregate({ where: { score: { not: null }, ...dateWhere }, _avg: { score: true } }),
+     prisma.attempt.groupBy({
+       by: ['examId'],
+@@ -537,7 +537,7 @@ async function fetchAnalyticsData({ period = 'today', from, to } = {}) {
+   const topUserIds = topUsers.map(u => u.userId)
+   const topUserInfo = await prisma.user.findMany({
+     where: { id: { in: topUserIds } },
+-    select: { id: true, name: true, email: true }
++    select: { id: true, name: true, email: true, deletedAt: true }
+   })
+   const userMap = Object.fromEntries(topUserInfo.map(u => [u.id, u]))
+   const topUsersResult = topUsers.map(u => ({
+diff --git a/backend/routes/admin/trash.js b/backend/routes/admin/trash.js
+index 37d46fd..add95ed 100644
+--- a/backend/routes/admin/trash.js
++++ b/backend/routes/admin/trash.js
+@@ -5,6 +5,8 @@ const authMiddleware = require('../../middleware/auth')
+ const { teacherOrAdmin } = require('../../lib/roles')
+ const { invalidate } = require('../../lib/swrCache')
+ const { invalidateExamCaches } = require('../../utils/cache')
++const { logAuditEvent } = require('../../lib/auditLog')
++const { AUDIT_ACTIONS } = require('../../lib/auditActions')
+ 
+ // Khôi phục / xoá vĩnh viễn có thể đụng tới practice, sample lẫn exam/series →
+ // dọn hết cache list công khai cho chắc (thao tác này hiếm).
+@@ -85,7 +87,7 @@ router.get('/trash', authMiddleware, teacherOrAdmin, async (req, res) => {
+     // BUG-28: Auto-purge items older than 30 days — fire-and-forget, do NOT await
+     ;(async () => {
+       try {
+-        await Promise.all([
++        const [practices, writings, speakings, examSeriesDeleted, books] = await Promise.all([
+           prisma.practiceExam.deleteMany({ where: expiredWhere }),
+           prisma.writingSample.deleteMany({ where: expiredWhere }),
+           prisma.speakingSample.deleteMany({ where: expiredWhere }),
+@@ -94,6 +96,24 @@ router.get('/trash', authMiddleware, teacherOrAdmin, async (req, res) => {
+         ])
+         const expiredExams = await prisma.exam.findMany({ where: expiredWhere, select: { id: true } })
+         await hardDeleteExams(expiredExams.map(e => e.id))
++
++        const counts = {
++          practiceExam: practices.count,
++          writingSample: writings.count,
++          speakingSample: speakings.count,
++          examSeries: examSeriesDeleted.count,
++          bookCover: books.count,
++          exam: expiredExams.length,
++        }
++        // Chỉ ghi log khi thực sự dọn được gì — tránh mỗi lần admin mở trang Trash
++        // (kể cả không có gì hết hạn) đều tạo 1 bản ghi audit rỗng.
++        if (Object.values(counts).some(n => n > 0)) {
++          await logAuditEvent(null, {
++            action: AUDIT_ACTIONS.TRASH_AUTO_PURGE,
++            entityType: 'Trash',
++            metadata: counts
++          })
++        }
+       } catch (e) {
+         console.error(`[${new Date().toISOString()}] [Trash] Tác vụ "Auto-delete trash sau 30 ngày" bị lỗi:`, e.message || e)
+       }
+@@ -169,24 +189,41 @@ router.post('/trash/:type/:id/restore', authMiddleware, teacherOrAdmin, async (r
+   const { type, id } = req.params
+   const numId = parseInt(id)
+   try {
++    let entityType = null
++    let entityLabel = null
++    const metadata = { type }
+     if (type === 'reading_practice' || type === 'listening_practice') {
+-      await prisma.practiceExam.update({ where: { id: numId }, data: { deletedAt: null } })
++      const updated = await prisma.practiceExam.update({ where: { id: numId }, data: { deletedAt: null }, select: { title: true } })
++      entityType = 'PracticeExam'
++      entityLabel = updated.title
+     } else if (type === 'writing_sample') {
+-      await prisma.writingSample.update({ where: { id: numId }, data: { deletedAt: null } })
++      const updated = await prisma.writingSample.update({ where: { id: numId }, data: { deletedAt: null }, select: { title: true } })
++      entityType = 'WritingSample'
++      entityLabel = updated.title
+     } else if (type === 'speaking_sample') {
+-      await prisma.speakingSample.update({ where: { id: numId }, data: { deletedAt: null } })
++      const updated = await prisma.speakingSample.update({ where: { id: numId }, data: { deletedAt: null }, select: { title: true } })
++      entityType = 'SpeakingSample'
++      entityLabel = updated.title
+     } else if (EXAM_SKILL_TYPES.includes(type)) {
+-      await prisma.exam.update({ where: { id: numId }, data: { deletedAt: null } })
++      const updated = await prisma.exam.update({ where: { id: numId }, data: { deletedAt: null }, select: { title: true } })
++      entityType = 'Exam'
++      entityLabel = updated.title
+     } else if (type === 'exam_series') {
+-      await prisma.examSeries.update({ where: { id: numId }, data: { deletedAt: null } })
++      const updated = await prisma.examSeries.update({ where: { id: numId }, data: { deletedAt: null }, select: { name: true } })
++      entityType = 'ExamSeries'
++      entityLabel = updated.name
+     } else if (type === 'book') {
+       // Restore the BookCover + only the exams that were soft-deleted *together with it*
+       // (deleteBook stamps the cover and its exams with the same timestamp). Exams that
+       // had been deleted independently earlier keep an older deletedAt and must stay in
+       // the trash.
+-      const book = await prisma.bookCover.findUnique({ where: { id: numId }, select: { seriesId: true, bookNumber: true, deletedAt: true } })
++      const book = await prisma.bookCover.findUnique({
++        where: { id: numId },
++        select: { seriesId: true, bookNumber: true, deletedAt: true, series: { select: { name: true } } }
++      })
++      entityType = 'BookCover'
+       if (book) {
+-        await Promise.all([
++        const [, examsResult] = await Promise.all([
+           prisma.bookCover.update({ where: { id: numId }, data: { deletedAt: null } }),
+           prisma.exam.updateMany({
+             where: {
+@@ -197,11 +234,20 @@ router.post('/trash/:type/:id/restore', authMiddleware, teacherOrAdmin, async (r
+             data: { deletedAt: null },
+           }),
+         ])
++        entityLabel = `Cuốn ${book.bookNumber} — ${book.series?.name || 'Bộ đề'}`
++        metadata.restoredExamsCount = examsResult.count
+       }
+     } else {
+       return res.status(400).json({ message: 'Loại không hợp lệ' })
+     }
+     invalidatePublicLists()
++    await logAuditEvent(req, {
++      action: AUDIT_ACTIONS.TRASH_RESTORE,
++      entityType,
++      entityId: numId,
++      entityLabel,
++      metadata
++    })
+     res.json({ message: 'Đã khôi phục' })
+   } catch (err) {
+     res.status(500).json({ message: 'Lỗi khôi phục', error: err.message })
+@@ -211,7 +257,7 @@ router.post('/trash/:type/:id/restore', authMiddleware, teacherOrAdmin, async (r
+ router.delete('/trash/purge', authMiddleware, teacherOrAdmin, async (req, res) => {
+   try {
+     const where = { deletedAt: { not: null } }
+-    await Promise.all([
++    const [practices, writings, speakings, examSeriesDeleted, books] = await Promise.all([
+       prisma.practiceExam.deleteMany({ where }),
+       prisma.writingSample.deleteMany({ where }),
+       prisma.speakingSample.deleteMany({ where }),
+@@ -221,6 +267,19 @@ router.delete('/trash/purge', authMiddleware, teacherOrAdmin, async (req, res) =
+     const allExams = await prisma.exam.findMany({ where, select: { id: true } })
+     await hardDeleteExams(allExams.map(e => e.id))
+     invalidatePublicLists()
++    await logAuditEvent(req, {
++      action: AUDIT_ACTIONS.TRASH_PURGE_ALL,
++      entityType: 'Trash',
++      entityId: null,
++      metadata: {
++        practiceExam: practices.count,
++        writingSample: writings.count,
++        speakingSample: speakings.count,
++        examSeries: examSeriesDeleted.count,
++        bookCover: books.count,
++        exam: allExams.length,
++      }
++    })
+     res.json({ message: 'Đã dọn sạch thùng rác' })
+   } catch (err) {
+     res.status(500).json({ message: 'Lỗi dọn rác', error: err.message })
+@@ -231,13 +290,27 @@ router.delete('/trash/:type/:id/permanent', authMiddleware, teacherOrAdmin, asyn
+   const { type, id } = req.params
+   const numId = parseInt(id)
+   try {
++    let entityType = null
++    let entityLabel = null
+     if (type === 'reading_practice' || type === 'listening_practice') {
++      const existing = await prisma.practiceExam.findUnique({ where: { id: numId }, select: { title: true } })
++      entityType = 'PracticeExam'
++      entityLabel = existing?.title ?? null
+       await prisma.practiceExam.delete({ where: { id: numId } })
+     } else if (type === 'writing_sample') {
++      const existing = await prisma.writingSample.findUnique({ where: { id: numId }, select: { title: true } })
++      entityType = 'WritingSample'
++      entityLabel = existing?.title ?? null
+       await prisma.writingSample.delete({ where: { id: numId } })
+     } else if (type === 'speaking_sample') {
++      const existing = await prisma.speakingSample.findUnique({ where: { id: numId }, select: { title: true } })
++      entityType = 'SpeakingSample'
++      entityLabel = existing?.title ?? null
+       await prisma.speakingSample.delete({ where: { id: numId } })
+     } else if (EXAM_SKILL_TYPES.includes(type)) {
++      const existing = await prisma.exam.findUnique({ where: { id: numId }, select: { title: true } })
++      entityType = 'Exam'
++      entityLabel = existing?.title ?? null
+       await hardDeleteExams([numId])
+     } else if (type === 'exam_series') {
+       // A trashed series can still own LIVE books/exams — soft-deleting a series
+@@ -254,10 +327,18 @@ router.delete('/trash/:type/:id/permanent', authMiddleware, teacherOrAdmin, asyn
+           message: `Bộ đề còn ${liveTotal} đề/cuốn đang hoạt động — vui lòng xóa các mục con trước khi xóa vĩnh viễn bộ đề này.`,
+         })
+       }
++      const existing = await prisma.examSeries.findUnique({ where: { id: numId }, select: { name: true } })
++      entityType = 'ExamSeries'
++      entityLabel = existing?.name ?? null
+       await prisma.examSeries.delete({ where: { id: numId } })
+     } else if (type === 'book') {
+-      const book = await prisma.bookCover.findUnique({ where: { id: numId }, select: { seriesId: true, bookNumber: true } })
++      const book = await prisma.bookCover.findUnique({
++        where: { id: numId },
++        select: { seriesId: true, bookNumber: true, series: { select: { name: true } } }
++      })
++      entityType = 'BookCover'
+       if (book) {
++        entityLabel = `Cuốn ${book.bookNumber} — ${book.series?.name || 'Bộ đề'}`
+         const bookExams = await prisma.exam.findMany({ where: { seriesId: book.seriesId, bookNumber: book.bookNumber }, select: { id: true } })
+         await hardDeleteExams(bookExams.map(e => e.id))
+         await prisma.bookCover.delete({ where: { id: numId } })
+@@ -266,6 +347,12 @@ router.delete('/trash/:type/:id/permanent', authMiddleware, teacherOrAdmin, asyn
+       return res.status(400).json({ message: 'Loại không hợp lệ' })
+     }
+     invalidatePublicLists()
++    await logAuditEvent(req, {
++      action: AUDIT_ACTIONS.TRASH_PURGE_ONE,
++      entityType,
++      entityId: numId,
++      entityLabel
++    })
+     res.json({ message: 'Đã xóa vĩnh viễn' })
+   } catch (err) {
+     res.status(500).json({ message: 'Lỗi xóa vĩnh viễn', error: err.message })
+diff --git a/backend/routes/admin/users.js b/backend/routes/admin/users.js
+index 7123ddc..097d2e0 100644
+--- a/backend/routes/admin/users.js
++++ b/backend/routes/admin/users.js
+@@ -13,16 +13,26 @@ const {
+   userIdSchema,
+   updateSettingsSchema,
+ } = require('../../validators/authValidator')
++const { logAuditEvent } = require('../../lib/auditLog')
++const { AUDIT_ACTIONS } = require('../../lib/auditActions')
+ 
+ // ─── MAKE ADMIN ──────────────────────────────────────────────────────────────
+ router.post('/make-admin', authMiddleware, adminOnly, validate(userIdSchema), async (req, res) => {
+   try {
+     const targetId = req.body.userId
++    const before = await prisma.user.findUnique({ where: { id: targetId }, select: { role: true } })
+     const user = await prisma.user.update({
+       where: { id: targetId },
+       data: { role: 'admin' },
+       select: { id: true, name: true, email: true, role: true }
+     })
++    await logAuditEvent(req, {
++      action: AUDIT_ACTIONS.USER_ROLE_CHANGE,
++      entityType: 'User',
++      entityId: user.id,
++      entityLabel: user.email,
++      metadata: { from: before?.role ?? null, to: user.role }
++    })
+     res.json({ message: 'Đã nâng quyền admin!', user })
+   } catch (error) {
+     res.status(500).json({ message: 'Lỗi server', error: error.message })
+@@ -34,7 +44,7 @@ router.get('/users', authMiddleware, adminOnly, async (req, res) => {
+   try {
+     const { search = '', page = 1, limit = 20, status = '', sort = 'newest' } = req.query
+     const skip = (parseInt(page) - 1) * parseInt(limit)
+-    const baseWhere = { role: 'user' }
++    const baseWhere = { role: 'user', deletedAt: null }
+ 
+     // Apply status filter
+     if (status === 'active') baseWhere.isLocked = false
+@@ -64,8 +74,8 @@ router.get('/users', authMiddleware, adminOnly, async (req, res) => {
+         }
+       }),
+       prisma.user.count({ where }),
+-      prisma.user.count({ where: { role: 'user', isLocked: false } }),
+-      prisma.user.count({ where: { role: 'user', isLocked: true } }),
++      prisma.user.count({ where: { role: 'user', isLocked: false, deletedAt: null } }),
++      prisma.user.count({ where: { role: 'user', isLocked: true, deletedAt: null } }),
+     ])
+ 
+     const userIds = users.map(u => u.id)
+@@ -113,7 +123,7 @@ router.get('/users/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
+     const id = parseInt(req.params.id)
+     const user = await prisma.user.findUnique({
+       where: { id },
+-      select: { id: true, name: true, email: true, role: true, isLocked: true, createdAt: true }
++      select: { id: true, name: true, email: true, role: true, isLocked: true, createdAt: true, deletedAt: true }
+     })
+     if (!user) return res.status(404).json({ message: 'Không tìm thấy user' })
+ 
+@@ -156,9 +166,15 @@ router.get('/users/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
+ router.put('/users/:id/toggle-lock', authMiddleware, adminOnly, async (req, res) => {
+   try {
+     const id = parseInt(req.params.id)
+-    const user = await prisma.user.findUnique({ where: { id }, select: { isLocked: true } })
++    const user = await prisma.user.findUnique({ where: { id }, select: { isLocked: true, email: true } })
+     if (!user) return res.status(404).json({ message: 'Không tìm thấy user' })
+     const updated = await prisma.user.update({ where: { id }, data: { isLocked: !user.isLocked } })
++    await logAuditEvent(req, {
++      action: updated.isLocked ? AUDIT_ACTIONS.USER_LOCK : AUDIT_ACTIONS.USER_UNLOCK,
++      entityType: 'User',
++      entityId: id,
++      entityLabel: user.email
++    })
+     res.json({ isLocked: updated.isLocked })
+   } catch (error) {
+     res.status(500).json({ message: 'Lỗi server', error: error.message })
+@@ -169,7 +185,14 @@ router.delete('/users/:id', authMiddleware, adminOnly, async (req, res) => {
+   try {
+     const id = parseInt(req.params.id)
+     if (id === req.user.userId) return res.status(400).json({ message: 'Không thể xóa tài khoản đang dùng' })
++    const existing = await prisma.user.findUnique({ where: { id }, select: { email: true } })
+     await prisma.user.update({ where: { id }, data: { deletedAt: new Date(), isLocked: true } })
++    await logAuditEvent(req, {
++      action: AUDIT_ACTIONS.USER_DELETE,
++      entityType: 'User',
++      entityId: id,
++      entityLabel: existing?.email ?? null
++    })
+     res.json({ message: 'Đã xóa user (soft delete)' })
+   } catch (error) {
+     res.status(500).json({ message: 'Lỗi server', error: error.message })
+@@ -215,7 +238,7 @@ router.get('/accounts', authMiddleware, teacherOrAdmin, async (req, res) => {
+       return res.json(account ? [account] : [])
+     }
+     const accounts = await prisma.user.findMany({
+-      where: { role: { in: ['admin', 'teacher'] } },
++      where: { role: { in: ['admin', 'teacher'] }, deletedAt: null },
+       orderBy: { createdAt: 'desc' },
+       select: { id: true, name: true, email: true, role: true, isLocked: true, createdAt: true }
+     })
+@@ -235,6 +258,12 @@ router.post('/accounts', authMiddleware, adminOnly, validate(createAccountSchema
+       data: { name, email, password: hashed, role },
+       select: { id: true, name: true, email: true, role: true, isLocked: true, createdAt: true }
+     })
++    await logAuditEvent(req, {
++      action: AUDIT_ACTIONS.STAFF_CREATE,
++      entityType: 'User',
++      entityId: user.id,
++      entityLabel: user.email
++    })
+     res.status(201).json(user)
+   } catch (error) {
+     res.status(500).json({ message: 'Lỗi server', error: error.message })
+@@ -265,6 +294,16 @@ router.put('/accounts/:id', authMiddleware, teacherOrAdmin, validate(updateAccou
+       data,
+       select: { id: true, name: true, email: true, role: true, isLocked: true, createdAt: true }
+     })
++    const changedFields = {}
++    if (data.role !== undefined) changedFields.role = data.role
++    if (data.isLocked !== undefined) changedFields.isLocked = data.isLocked
++    await logAuditEvent(req, {
++      action: AUDIT_ACTIONS.STAFF_UPDATE,
++      entityType: 'User',
++      entityId: user.id,
++      entityLabel: user.email,
++      metadata: Object.keys(changedFields).length ? changedFields : null
++    })
+     res.json(user)
+   } catch (error) {
+     res.status(500).json({ message: 'Lỗi server', error: error.message })
+@@ -275,7 +314,14 @@ router.delete('/accounts/:id', authMiddleware, adminOnly, async (req, res) => {
+   try {
+     const id = parseInt(req.params.id)
+     if (id === req.user.userId) return res.status(400).json({ message: 'Không thể xóa tài khoản đang dùng' })
++    const existing = await prisma.user.findUnique({ where: { id }, select: { email: true } })
+     await prisma.user.delete({ where: { id } })
++    await logAuditEvent(req, {
++      action: AUDIT_ACTIONS.STAFF_DELETE,
++      entityType: 'User',
++      entityId: id,
++      entityLabel: existing?.email ?? null
++    })
+     res.json({ message: 'Đã xóa tài khoản' })
+   } catch (error) {
+     res.status(500).json({ message: 'Lỗi server', error: error.message })
+@@ -314,6 +360,11 @@ router.put('/settings', authMiddleware, adminOnly, validate(updateSettingsSchema
+         create: { key, value: String(value) }
+       })
+     ))
++    await logAuditEvent(req, {
++      action: AUDIT_ACTIONS.SETTING_UPDATE,
++      entityType: 'Setting',
++      metadata: { keys: entries.map(([key]) => key) }
++    })
+     res.json({ message: 'Đã lưu cài đặt' })
+   } catch (error) {
+     res.status(500).json({ message: 'Lỗi server', error: error.message })
+@@ -324,7 +375,7 @@ router.put('/settings', authMiddleware, adminOnly, validate(updateSettingsSchema
+ router.get('/staff', authMiddleware, adminOnly, async (req, res) => {
+   try {
+     const staff = await prisma.user.findMany({
+-      where: { role: { in: ['admin', 'teacher'] } },
++      where: { role: { in: ['admin', 'teacher'] }, deletedAt: null },
+       orderBy: { createdAt: 'desc' },
+       select: { id: true, name: true, email: true, role: true, isLocked: true, createdAt: true }
+     })
+@@ -337,11 +388,19 @@ router.get('/staff', authMiddleware, adminOnly, async (req, res) => {
+ router.post('/make-teacher', authMiddleware, adminOnly, validate(userIdSchema), async (req, res) => {
+   try {
+     const { userId } = req.body
++    const before = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } })
+     const user = await prisma.user.update({
+       where: { id: userId },
+       data: { role: 'teacher' },
+       select: { id: true, name: true, email: true, role: true }
+     })
++    await logAuditEvent(req, {
++      action: AUDIT_ACTIONS.USER_ROLE_CHANGE,
++      entityType: 'User',
++      entityId: user.id,
++      entityLabel: user.email,
++      metadata: { from: before?.role ?? null, to: user.role }
++    })
+     res.json({ message: 'Đã nâng quyền teacher!', user })
+   } catch (error) {
+     res.status(500).json({ message: 'Lỗi server', error: error.message })
+@@ -352,11 +411,19 @@ router.post('/remove-staff', authMiddleware, adminOnly, validate(userIdSchema),
+   try {
+     const { userId } = req.body
+     if (userId === req.user.userId) return res.status(400).json({ message: 'Không thể tự xóa quyền của mình' })
++    const before = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } })
+     const user = await prisma.user.update({
+       where: { id: userId },
+       data: { role: 'user' },
+       select: { id: true, name: true, email: true, role: true }
+     })
++    await logAuditEvent(req, {
++      action: AUDIT_ACTIONS.USER_ROLE_CHANGE,
++      entityType: 'User',
++      entityId: user.id,
++      entityLabel: user.email,
++      metadata: { from: before?.role ?? null, to: user.role }
++    })
+     res.json({ message: 'Đã xóa quyền staff', user })
+   } catch (error) {
+     res.status(500).json({ message: 'Lỗi server', error: error.message })
+@@ -367,7 +434,7 @@ router.post('/remove-staff', authMiddleware, adminOnly, validate(userIdSchema),
+ router.post('/users/:id/reset-password', authMiddleware, adminOnly, async (req, res) => {
+   try {
+     const id = parseInt(req.params.id)
+-    const user = await prisma.user.findUnique({ where: { id }, select: { id: true } })
++    const user = await prisma.user.findUnique({ where: { id }, select: { id: true, email: true } })
+     if (!user) return res.status(404).json({ message: 'Không tìm thấy user' })
+ 
+     // Generate 8-char password: uppercase + lowercase + digits (no ambiguous chars)
+@@ -378,6 +445,13 @@ router.post('/users/:id/reset-password', authMiddleware, adminOnly, async (req,
+     const hashed = await bcrypt.hash(pwd, 10)
+     await prisma.user.update({ where: { id }, data: { password: hashed } })
+ 
++    await logAuditEvent(req, {
++      action: AUDIT_ACTIONS.USER_PASSWORD_RESET,
++      entityType: 'User',
++      entityId: id,
++      entityLabel: user.email
++    })
++
+     // Return plaintext ONCE — never log it
+     res.json({ newPassword: pwd })
+   } catch (error) {
+diff --git a/backend/routes/auth.js b/backend/routes/auth.js
+index 2551529..56a4dca 100644
+--- a/backend/routes/auth.js
++++ b/backend/routes/auth.js
+@@ -72,6 +72,11 @@ router.post('/google', validate(googleAuthSchema), async (req, res) => {
+       // Chưa từng đăng nhập Google — tìm theo email để auto-link vào tài khoản local đã có
+       const existingByEmail = await prisma.user.findUnique({ where: { email } })
+       if (existingByEmail) {
++        // Tài khoản đã soft-delete vẫn giữ email (unique) — không auto-link/tạo lại,
++        // nếu không prisma.user.create bên dưới sẽ crash do trùng email.
++        if (existingByEmail.deletedAt) {
++          return res.status(403).json({ message: 'Tài khoản đã bị xóa. Vui lòng liên hệ quản trị viên.' })
++        }
+         user = await prisma.user.update({
+           where: { id: existingByEmail.id },
+           data: { googleId },
+@@ -81,6 +86,8 @@ router.post('/google', validate(googleAuthSchema), async (req, res) => {
+           data: { email, name: name || email.split('@')[0], googleId, password: null },
+         })
+       }
++    } else if (user.deletedAt) {
++      return res.status(403).json({ message: 'Tài khoản đã bị xóa. Vui lòng liên hệ quản trị viên.' })
+     }
+ 
+     if (user.isLocked) {
+@@ -109,7 +116,7 @@ router.post('/login', validate(loginSchema), async (req, res) => {
+     const { email, password } = req.body
+ 
+     const user = await prisma.user.findUnique({ where: { email } })
+-    if (!user) {
++    if (!user || user.deletedAt) {
+       return res.status(400).json({ message: 'Email hoặc mật khẩu sai' })
+     }
+ 
+diff --git a/backend/routes/practice.js b/backend/routes/practice.js
+index 41e0174..c282816 100644
+--- a/backend/routes/practice.js
++++ b/backend/routes/practice.js
+@@ -9,6 +9,8 @@ const { invalidate } = require('../lib/swrCache')
+ const { getQuestionCount, getPracticeListCached } = require('../lib/publicContent')
+ const { createPracticeSchema, updatePracticeSchema } = require('../validators/contentValidator')
+ const { uploadAudio, uploadOptimizedCover } = require('../services/storageService')
++const { logAuditEvent } = require('../lib/auditLog')
++const { AUDIT_ACTIONS } = require('../lib/auditActions')
+ 
+ const router = express.Router()
+ 
+@@ -188,6 +190,15 @@ router.post('/admin/:skill', authMiddleware, teacherOrAdmin, validate(createPrac
+     })
+ 
+     invalidate('practice:')
++
++    await logAuditEvent(req, {
++      action: AUDIT_ACTIONS.PRACTICE_CREATE,
++      entityType: 'PracticeExam',
++      entityId: exam.id,
++      entityLabel: exam.title,
++      metadata: { skill, questionCount: (questions || []).length }
++    })
++
+     res.status(201).json(exam)
+   } catch (error) {
+     console.error("CREATE PRACTICE ERROR:", error)
+@@ -197,11 +208,13 @@ router.post('/admin/:skill', authMiddleware, teacherOrAdmin, validate(createPrac
+ 
+ // ─── ADMIN: update (FIXED) ────────────────────────────────────────────────────
+ router.put('/admin/:skill/:id', authMiddleware, teacherOrAdmin, validate(updatePracticeSchema), async (req, res) => {
+-  const { id } = req.params
++  const { id, skill } = req.params
+   const { title, level, thumbnailUrl, audioUrl, passage, questions } = req.body
+ 
+   try {
+-    await prisma.$transaction(async (tx) => {
++    // Trả về bản ghi sau khi update (kèm questions) để dùng cho audit log bên
++    // dưới — không đổi response cho client, vẫn chỉ res.json({ ok: true }).
++    const updatedExam = await prisma.$transaction(async (tx) => {
+       const updateData = { isNormalized: true }
+       if (title !== undefined) updateData.title = title.trim()
+       if (level !== undefined) updateData.level = level
+@@ -210,7 +223,7 @@ router.put('/admin/:skill/:id', authMiddleware, teacherOrAdmin, validate(updateP
+       if (audioUrl !== undefined) updateData.audioUrl = audioUrl
+ 
+       // ✅ Update main record and manage relation
+-      await tx.practiceExam.update({
++      return tx.practiceExam.update({
+         where: { id: parseInt(id) },
+         data: {
+           ...updateData,
+@@ -224,11 +237,23 @@ router.put('/admin/:skill/:id', authMiddleware, teacherOrAdmin, validate(updateP
+               type: q.type || 'group'
+             }))
+           } : undefined
+-        }
++        },
++        include: { questions: true }
+       })
+     })
+ 
+     invalidate('practice:')
++
++    // Route xóa hết question rồi tạo lại (không diff) — chỉ log tổng số question
++    // sau khi cập nhật, không cố tạo bộ đếm created/updated/pruned như route Exam.
++    await logAuditEvent(req, {
++      action: AUDIT_ACTIONS.PRACTICE_UPDATE,
++      entityType: 'PracticeExam',
++      entityId: parseInt(id),
++      entityLabel: updatedExam.title,
++      metadata: { skill, questionCount: updatedExam.questions.length }
++    })
++
+     res.json({ ok: true })
+   } catch (error) {
+     console.error("UPDATE PRACTICE ERROR:", error)
+@@ -244,6 +269,14 @@ router.post('/admin/:skill/upload-thumbnail', authMiddleware, teacherOrAdmin, th
+   if (!req.file) return res.status(400).json({ message: 'Không có file' })
+   try {
+     const { url } = await uploadOptimizedCover(req.file, { dir: thumbDir, urlPrefix: '/uploads/thumbnails', folder: 'thumbnails' })
++    // Chưa gắn vào record nào (upload trước khi tạo mới) → entityId null. Không
++    // log URL (có thể chứa query/token) — chỉ ghi loại tài nguyên.
++    await logAuditEvent(req, {
++      action: AUDIT_ACTIONS.PRACTICE_UPDATE,
++      entityType: 'PracticeExam',
++      entityId: null,
++      metadata: { resource: 'thumbnail' }
++    })
+     res.json({ url })
+   } catch (err) { res.status(500).json({ message: 'Lỗi upload', error: err.message }) }
+ })
+@@ -252,6 +285,12 @@ router.post('/admin/listening/upload-audio', authMiddleware, teacherOrAdmin, aud
+   if (!req.file) return res.status(400).json({ message: 'Không có file' })
+   try {
+     const { url } = await uploadAudio(req.file, { subdir: 'audio', folder: 'audio' })
++    await logAuditEvent(req, {
++      action: AUDIT_ACTIONS.PRACTICE_UPDATE,
++      entityType: 'PracticeExam',
++      entityId: null,
++      metadata: { resource: 'audio' }
++    })
+     res.json({ url })
+   } catch (err) { res.status(500).json({ message: 'Lỗi upload audio', error: err.message }) }
+ })
+@@ -267,6 +306,12 @@ router.post('/admin/:skill/:id/thumbnail', authMiddleware, teacherOrAdmin, thumb
+       select: { id: true, thumbnailUrl: true }
+     })
+     invalidate('practice:')
++    await logAuditEvent(req, {
++      action: AUDIT_ACTIONS.PRACTICE_UPDATE,
++      entityType: 'PracticeExam',
++      entityId: exam.id,
++      metadata: { resource: 'thumbnail' }
++    })
+     res.json(exam)
+   } catch (err) { res.status(500).json({ message: 'Lỗi upload', error: err.message }) }
+ })
+@@ -282,6 +327,12 @@ router.post('/admin/listening/:id/audio', authMiddleware, teacherOrAdmin, audioU
+       select: { id: true, audioUrl: true }
+     })
+     invalidate('practice:')
++    await logAuditEvent(req, {
++      action: AUDIT_ACTIONS.PRACTICE_UPDATE,
++      entityType: 'PracticeExam',
++      entityId: exam.id,
++      metadata: { resource: 'audio' }
++    })
+     res.json(exam)
+   } catch (err) { res.status(500).json({ message: 'Lỗi upload audio', error: err.message }) }
+ })
+@@ -289,11 +340,20 @@ router.post('/admin/listening/:id/audio', authMiddleware, teacherOrAdmin, audioU
+ // ─── ADMIN: delete (soft) ─────────────────────────────────────────────────────
+ router.delete('/admin/:skill/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
+   try {
++    const id = parseInt(req.params.id)
++    // Đọc tiêu đề trước khi soft-delete để entityLabel vẫn đọc được sau này.
++    const existing = await prisma.practiceExam.findUnique({ where: { id }, select: { title: true } })
+     await prisma.practiceExam.update({
+-      where: { id: parseInt(req.params.id) },
++      where: { id },
+       data: { deletedAt: new Date() }
+     })
+     invalidate('practice:')
++    await logAuditEvent(req, {
++      action: AUDIT_ACTIONS.PRACTICE_DELETE,
++      entityType: 'PracticeExam',
++      entityId: id,
++      entityLabel: existing?.title ?? null
++    })
+     res.json({ message: 'Đã xóa' })
+   } catch (err) { res.status(500).json({ message: 'Lỗi xóa', error: err.message }) }
+ })
+diff --git a/backend/routes/samples.js b/backend/routes/samples.js
+index 2cc72c2..5630f13 100644
+--- a/backend/routes/samples.js
++++ b/backend/routes/samples.js
+@@ -10,6 +10,8 @@ const { getSampleListCached } = require('../lib/publicContent')
+ const { uploadOptimizedCover } = require('../services/storageService')
+ const { createSampleSchema, updateSampleSchema } = require('../validators/contentValidator')
+ const { sanitizeRichText } = require('../lib/sanitizeHtml')
++const { logAuditEvent } = require('../lib/auditLog')
++const { AUDIT_ACTIONS } = require('../lib/auditActions')
+ 
+ const router = express.Router()
+ 
+@@ -138,6 +140,12 @@ router.post('/admin/writing', authMiddleware, teacherOrAdmin, validate(createSam
+       data: { title: title.trim(), level: level || null, examType: examType || null, content: sanitizeRichText(content) || null, thumbnailUrl: thumbnailUrl || null, tags: tags ? JSON.stringify(tags) : null }
+     })
+     invalidate('samples:')
++    await logAuditEvent(req, {
++      action: AUDIT_ACTIONS.SAMPLE_CREATE,
++      entityType: 'WritingSample',
++      entityId: s.id,
++      entityLabel: s.title
++    })
+     res.status(201).json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
+   } catch (err) {
+     res.status(500).json({ message: 'Lỗi tạo', error: err.message })
+@@ -151,6 +159,12 @@ router.post('/admin/speaking', authMiddleware, teacherOrAdmin, validate(createSa
+       data: { title: title.trim(), level: level || null, examType: examType || null, content: sanitizeRichText(content) || null, thumbnailUrl: thumbnailUrl || null, tags: tags ? JSON.stringify(tags) : null }
+     })
+     invalidate('samples:')
++    await logAuditEvent(req, {
++      action: AUDIT_ACTIONS.SAMPLE_CREATE,
++      entityType: 'SpeakingSample',
++      entityId: s.id,
++      entityLabel: s.title
++    })
+     res.status(201).json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
+   } catch (err) {
+     res.status(500).json({ message: 'Lỗi tạo', error: err.message })
+@@ -170,6 +184,12 @@ router.put('/admin/writing/:id', authMiddleware, teacherOrAdmin, validate(update
+     if (tags !== undefined) data.tags = JSON.stringify(tags)
+     const s = await prisma.writingSample.update({ where: { id: parseInt(req.params.id) }, data })
+     invalidate('samples:')
++    await logAuditEvent(req, {
++      action: AUDIT_ACTIONS.SAMPLE_UPDATE,
++      entityType: 'WritingSample',
++      entityId: s.id,
++      entityLabel: s.title
++    })
+     res.json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
+   } catch (err) {
+     res.status(500).json({ message: 'Lỗi cập nhật', error: err.message })
+@@ -188,6 +208,12 @@ router.put('/admin/speaking/:id', authMiddleware, teacherOrAdmin, validate(updat
+     if (tags !== undefined) data.tags = JSON.stringify(tags)
+     const s = await prisma.speakingSample.update({ where: { id: parseInt(req.params.id) }, data })
+     invalidate('samples:')
++    await logAuditEvent(req, {
++      action: AUDIT_ACTIONS.SAMPLE_UPDATE,
++      entityType: 'SpeakingSample',
++      entityId: s.id,
++      entityLabel: s.title
++    })
+     res.json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
+   } catch (err) {
+     res.status(500).json({ message: 'Lỗi cập nhật', error: err.message })
+@@ -218,6 +244,12 @@ router.post('/admin/writing/:id/thumbnail', authMiddleware, teacherOrAdmin,
+         where: { id: parseInt(req.params.id) }, data: { thumbnailUrl }, select: { id: true, thumbnailUrl: true }
+       })
+       invalidate('samples:')
++      await logAuditEvent(req, {
++        action: AUDIT_ACTIONS.SAMPLE_UPDATE,
++        entityType: 'WritingSample',
++        entityId: s.id,
++        metadata: { resource: 'thumbnail' }
++      })
+       res.json(s)
+     } catch (err) { res.status(500).json({ message: 'Lỗi upload', error: err.message }) }
+   }
+@@ -232,6 +264,12 @@ router.post('/admin/speaking/:id/thumbnail', authMiddleware, teacherOrAdmin,
+         where: { id: parseInt(req.params.id) }, data: { thumbnailUrl }, select: { id: true, thumbnailUrl: true }
+       })
+       invalidate('samples:')
++      await logAuditEvent(req, {
++        action: AUDIT_ACTIONS.SAMPLE_UPDATE,
++        entityType: 'SpeakingSample',
++        entityId: s.id,
++        metadata: { resource: 'thumbnail' }
++      })
+       res.json(s)
+     } catch (err) { res.status(500).json({ message: 'Lỗi upload', error: err.message }) }
+   }
+@@ -240,16 +278,33 @@ router.post('/admin/speaking/:id/thumbnail', authMiddleware, teacherOrAdmin,
+ // ─── ADMIN: delete (soft) ─────────────────────────────────────────────────────
+ router.delete('/admin/writing/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
+   try {
+-    await prisma.writingSample.update({ where: { id: parseInt(req.params.id) }, data: { deletedAt: new Date() } })
++    const id = parseInt(req.params.id)
++    // Đọc tiêu đề trước khi soft-delete để entityLabel vẫn đọc được sau này.
++    const existing = await prisma.writingSample.findUnique({ where: { id }, select: { title: true } })
++    await prisma.writingSample.update({ where: { id }, data: { deletedAt: new Date() } })
+     invalidate('samples:')
++    await logAuditEvent(req, {
++      action: AUDIT_ACTIONS.SAMPLE_DELETE,
++      entityType: 'WritingSample',
++      entityId: id,
++      entityLabel: existing?.title ?? null
++    })
+     res.json({ message: 'Đã xóa' })
+   } catch (err) { res.status(500).json({ message: 'Lỗi xóa', error: err.message }) }
+ })
+ 
+ router.delete('/admin/speaking/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
+   try {
+-    await prisma.speakingSample.update({ where: { id: parseInt(req.params.id) }, data: { deletedAt: new Date() } })
++    const id = parseInt(req.params.id)
++    const existing = await prisma.speakingSample.findUnique({ where: { id }, select: { title: true } })
++    await prisma.speakingSample.update({ where: { id }, data: { deletedAt: new Date() } })
+     invalidate('samples:')
++    await logAuditEvent(req, {
++      action: AUDIT_ACTIONS.SAMPLE_DELETE,
++      entityType: 'SpeakingSample',
++      entityId: id,
++      entityLabel: existing?.title ?? null
++    })
+     res.json({ message: 'Đã xóa' })
+   } catch (err) { res.status(500).json({ message: 'Lỗi xóa', error: err.message }) }
+ })
+diff --git a/docker-compose.yml b/docker-compose.yml
+index 4f489ce..d5d44ae 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -62,5 +62,33 @@ services:
+       timeout: 5s
+       retries: 5
+ 
++  # ── postgres-dev — DB dev/test local, KHÔNG liên quan đến postgres-prod ────
++  # Mục đích khác hẳn postgres-prod (chuẩn bị cutover production): đây chỉ để
++  # chạy test tích hợp + làm việc hàng ngày trên máy dev mà không đụng Supabase
++  # prod dùng chung hiện tại. Dữ liệu là giả, sinh bởi prisma/seed-dev.js —
++  # không bao giờ chứa dữ liệu thật copy từ Supabase.
++  postgres-dev:
++    image: postgres:17
++    container_name: ielts-app-postgres-dev
++    restart: unless-stopped
++    ports:
++      # Bind 127.0.0.1 — chỉ máy dev truy cập được. Cổng 5433 (khác 5432 mặc
++      # định) để không đụng Postgres cài sẵn trên máy dev nếu có.
++      - "127.0.0.1:5433:5432"
++    environment:
++      # Default sẵn — không cần file .env riêng để chạy `docker compose up`,
++      # vì đây là mật khẩu dev cục bộ, không có giá trị nhạy cảm thật.
++      POSTGRES_USER: ${POSTGRES_DEV_USER:-ielts_dev}
++      POSTGRES_PASSWORD: ${POSTGRES_DEV_PASSWORD:-ielts_dev_local_only}
++      POSTGRES_DB: ${POSTGRES_DEV_DB:-ielts_app_dev}
++    volumes:
++      - postgres_dev_data:/var/lib/postgresql/data
++    healthcheck:
++      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_DEV_USER:-ielts_dev} -d ${POSTGRES_DEV_DB:-ielts_app_dev}"]
++      interval: 10s
++      timeout: 5s
++      retries: 5
++
+ volumes:
+   postgres_prod_data:
++  postgres_dev_data:
+diff --git a/frontend/src/App.jsx b/frontend/src/App.jsx
+index 90ff391..0bdb84b 100644
+--- a/frontend/src/App.jsx
++++ b/frontend/src/App.jsx
+@@ -46,6 +46,7 @@ const Dashboard         = lazy(() => import('./pages/admin/Dashboard'))
+ const Users             = lazy(() => import('./pages/admin/Users'))
+ const UserDetail        = lazy(() => import('./pages/admin/UserDetail'))
+ const Attempts          = lazy(() => import('./pages/admin/Attempts'))
++const AuditLogs         = lazy(() => import('./pages/admin/AuditLogs'))
+ const Analytics         = lazy(() => import('./pages/admin/Analytics'))
+ const Accounts          = lazy(() => import('./pages/admin/Accounts'))
+ const Staff             = lazy(() => import('./pages/admin/Staff'))
+@@ -80,7 +81,7 @@ function PrivateRoute({ children }) {
+ }
+ 
+ // Chỉ admin
+-function AdminRoute({ children }) {
++export function AdminRoute({ children }) {
+   const { role } = useAuth()
+   const token = localStorage.getItem('token')
+   if (!token) return <Navigate to="/" replace state={{ authModal: 'login' }} />
+@@ -184,6 +185,7 @@ export default function App() {
+                     <Route index                    element={<StaffRoute><Analytics /></StaffRoute>} />
+                     <Route path="exams/*"           element={<StaffRoute><Admin /></StaffRoute>} />
+                     <Route path="attempts"          element={<StaffRoute><Attempts /></StaffRoute>} />
++                    <Route path="audit-logs"        element={<AdminRoute><AuditLogs /></AdminRoute>} />
+                     <Route path="analytics"         element={<Navigate to="/admin" replace />} />
+                     <Route path="accounts"          element={<AdminRoute><Accounts /></AdminRoute>} />
+                     <Route path="users"             element={<AdminRoute><Users /></AdminRoute>} />
+diff --git a/frontend/src/components/AdminLayout.jsx b/frontend/src/components/AdminLayout.jsx
+index e02ff07..97ed332 100644
+--- a/frontend/src/components/AdminLayout.jsx
++++ b/frontend/src/components/AdminLayout.jsx
+@@ -16,6 +16,7 @@ import {
+   PenTool,
+   Mic,
+   History,
++  ScrollText,
+   Trash2,
+   Settings,
+   LogOut,
+@@ -35,6 +36,7 @@ const NAV_ALL = [
+   { to: '/admin/writing-samples',    label: 'Writing Samples',   icon: PenTool,    roles: ['teacher'] },
+   { to: '/admin/speaking-samples',   label: 'Speaking Samples',  icon: Mic,        roles: ['teacher'] },
+   { to: '/admin/attempts',           label: 'Lịch sử thi',       icon: History,    roles: ['admin', 'teacher'] },
++  { to: '/admin/audit-logs',         label: 'Nhật ký hoạt động', icon: ScrollText, roles: ['admin'] },
+   { to: '/admin/trash',              label: 'Đã xóa',             icon: Trash2,     roles: ['admin', 'teacher'], trash: true },
+   // Both
+   { to: '/admin/profile',   label: 'Cài đặt',           icon: Settings,    roles: ['admin', 'teacher'] },
+diff --git a/frontend/src/components/admin/ListeningTab.jsx b/frontend/src/components/admin/ListeningTab.jsx
+index 559635b..4dcc2f0 100644
+--- a/frontend/src/components/admin/ListeningTab.jsx
++++ b/frontend/src/components/admin/ListeningTab.jsx
+@@ -14,6 +14,7 @@ import {
+ } from './adminConstants'
+ import Select from './Select'
+ import ExamList from './ExamList'
++import ExamAuditHistory from './ExamAuditHistory'
+ import DiagramLabelEditor from '../practice/DiagramLabelEditor'
+ import SummaryCompletionEditor from '../practice/SummaryCompletionEditor'
+ import InlinePreviewPanel from '../common/InlinePreviewPanel'
+@@ -454,6 +455,8 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
+         showToast('✅ Cập nhật đề thành công!')
+         queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
+         queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
++        // Log audit vừa ghi ở backend — invalidate để khối "Lịch sử thay đổi" hiện ngay, không đợi hết staleTime.
++        queryClient.invalidateQueries({ queryKey: ['admin', 'auditLogs', 'exam', editingId] })
+         onRefresh()
+       } else {
+         await api.post('/admin/exams/listening', payload)
+@@ -775,6 +778,12 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
+         </div>
+       )}
+ 
++      {editingId && (
++        <div className="mb-6">
++          <ExamAuditHistory examId={editingId} />
++        </div>
++      )}
++
+       <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-xs">
+         <h3 className="text-base font-semibold text-zinc-900 mb-4">Danh sách đề Listening</h3>
+         <ExamList exams={exams} skill="listening" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} error={loadError} />
+diff --git a/frontend/src/components/admin/ReadingTab.jsx b/frontend/src/components/admin/ReadingTab.jsx
+index c36266c..b6b4126 100644
+--- a/frontend/src/components/admin/ReadingTab.jsx
++++ b/frontend/src/components/admin/ReadingTab.jsx
+@@ -13,6 +13,7 @@ import {
+ import InlinePreviewPanel from '../common/InlinePreviewPanel'
+ import Select from './Select'
+ import ExamList from './ExamList'
++import ExamAuditHistory from './ExamAuditHistory'
+ import AdminGroupPreview from '../practice/AdminGroupPreview'
+ import ReadingGroupEditor from './editors/ReadingGroupEditor'
+ import { Eye, ChevronDown } from 'lucide-react'
+@@ -514,6 +515,8 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
+         showToast('✅ Cập nhật đề thành công!')
+         queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
+         queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
++        // Log audit vừa ghi ở backend — invalidate để khối "Lịch sử thay đổi" hiện ngay, không đợi hết staleTime.
++        queryClient.invalidateQueries({ queryKey: ['admin', 'auditLogs', 'exam', editingId] })
+         onRefresh()
+       } else {
+         await api.post('/admin/exams/reading', payload)
+@@ -782,6 +785,12 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
+         </div>
+       )}
+ 
++      {editingId && (
++        <div className="mb-6">
++          <ExamAuditHistory examId={editingId} />
++        </div>
++      )}
++
+       <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-xs">
+         <h3 className="text-base font-semibold text-zinc-900 mb-4">Danh sách đề Reading</h3>
+         <ExamList exams={exams} skill="reading" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} error={loadError} />
+diff --git a/frontend/src/components/admin/SpeakingTab.jsx b/frontend/src/components/admin/SpeakingTab.jsx
+index 94174b3..0fa5764 100644
+--- a/frontend/src/components/admin/SpeakingTab.jsx
++++ b/frontend/src/components/admin/SpeakingTab.jsx
+@@ -6,6 +6,7 @@ import { notifyTrashChanged } from '../../services/adminService'
+ import { emptySpeakingForm, inputCls, labelCls, btnPrimary, btnSecondary, useExamSeriesList, useSeriesBooks } from './adminConstants'
+ import Select from './Select'
+ import ExamList from './ExamList'
++import ExamAuditHistory from './ExamAuditHistory'
+ import InlinePreviewPanel from '../common/InlinePreviewPanel'
+ // SpeakingFormPreview is defined in ReadingTab.jsx alongside the other form
+ // previews and re-exported; extracting the previews into a shared module is
+@@ -249,6 +250,8 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
+         showToast('✅ Cập nhật đề thành công!')
+         queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
+         queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
++        // Log audit vừa ghi ở backend — invalidate để khối "Lịch sử thay đổi" hiện ngay, không đợi hết staleTime.
++        queryClient.invalidateQueries({ queryKey: ['admin', 'auditLogs', 'exam', editingId] })
+         onRefresh()
+       } else {
+         await api.post('/admin/exams/speaking', speakingPayload)
+@@ -538,6 +541,12 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
+         </div>
+       )}
+ 
++      {editingId && (
++        <div className="mb-6">
++          <ExamAuditHistory examId={editingId} />
++        </div>
++      )}
++
+       <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-xs">
+         <h3 className="text-base font-semibold text-zinc-900 mb-4">Danh sách đề Speaking</h3>
+         <ExamList exams={exams} skill="speaking" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} error={loadError} />
+diff --git a/frontend/src/components/admin/WritingTab.jsx b/frontend/src/components/admin/WritingTab.jsx
+index 6c09d30..153ebe9 100644
+--- a/frontend/src/components/admin/WritingTab.jsx
++++ b/frontend/src/components/admin/WritingTab.jsx
+@@ -6,6 +6,7 @@ import { notifyTrashChanged } from '../../services/adminService'
+ import { emptyWritingForm, inputCls, labelCls, btnPrimary, btnSecondary, toImgSrc, useExamSeriesList, useSeriesBooks } from './adminConstants'
+ import Select from './Select'
+ import ExamList from './ExamList'
++import ExamAuditHistory from './ExamAuditHistory'
+ import InlinePreviewPanel from '../common/InlinePreviewPanel'
+ import { Upload, Trash2, Eye } from 'lucide-react'
+ 
+@@ -260,6 +261,8 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
+         showToast('✅ Cập nhật đề thành công!')
+         queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
+         queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
++        // Log audit vừa ghi ở backend — invalidate để khối "Lịch sử thay đổi" hiện ngay, không đợi hết staleTime.
++        queryClient.invalidateQueries({ queryKey: ['admin', 'auditLogs', 'exam', editingId] })
+         onRefresh()
+       } else {
+         await api.post('/admin/exams/writing', payload)
+@@ -474,6 +477,12 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
+         </div>
+       )}
+ 
++      {editingId && (
++        <div className="mb-6">
++          <ExamAuditHistory examId={editingId} />
++        </div>
++      )}
++
+       <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-xs">
+         <h3 className="text-base font-semibold text-zinc-900 mb-4">Danh sách đề Writing</h3>
+         <ExamList exams={exams} skill="writing" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} error={loadError} />
+diff --git a/frontend/src/services/adminService.js b/frontend/src/services/adminService.js
+index 6845e93..2a6e436 100644
+--- a/frontend/src/services/adminService.js
++++ b/frontend/src/services/adminService.js
+@@ -66,6 +66,11 @@ export const getAdminAttemptsExport = (body) => api.post('/admin/attempts/export
+ export const getAdminExamSeriesForFilter = () => api.get('/admin/exam-series').then(r => r.data)
+ 
+ 
++// ─── Audit Logs ─────────────────────────────────────────────────────────────
++export const getAdminAuditLogs = (params) => api.get('/admin/audit-logs', { params }).then(r => r.data)
++export const getAdminAuditLogFilters = () => api.get('/admin/audit-logs/filters').then(r => r.data)
++
++
+ // ─── Trash ────────────────────────────────────────────────────────────────────
+ export const getAdminTrash = (page = 1, limit = 50) => api.get('/admin/trash', { params: { page, limit } }).then(r => r.data.items)
+ export const restoreTrashItem = (type, id) => api.post(`/admin/trash/${type}/${id}/restore`).then(r => r.data)

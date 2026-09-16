@@ -10,7 +10,12 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "seed:analytics": "node prisma/seed_demo_analytics.js"
+    "seed:analytics": "node prisma/seed_demo_analytics.js",
+    "test:dev-db": "node scripts/with-dev-db.js -- npx vitest run",
+    "db:dev:migrate-deploy": "node scripts/with-dev-db.js -- npx prisma migrate deploy",
+    "db:dev:push": "node scripts/with-dev-db.js -- npx prisma db push",
+    "db:dev:seed": "node scripts/with-dev-db.js -- node prisma/seed-dev.js",
+    "db:dev:studio": "node scripts/with-dev-db.js -- npx prisma studio"
   },
   "keywords": [],
   "author": "",

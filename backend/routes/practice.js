@@ -9,6 +9,8 @@ const { invalidate } = require('../lib/swrCache')
 const { getQuestionCount, getPracticeListCached } = require('../lib/publicContent')
 const { createPracticeSchema, updatePracticeSchema } = require('../validators/contentValidator')
 const { uploadAudio, uploadOptimizedCover } = require('../services/storageService')
+const { logAuditEvent } = require('../lib/auditLog')
+const { AUDIT_ACTIONS } = require('../lib/auditActions')
 
 const router = express.Router()
 
@@ -188,6 +190,15 @@ router.post('/admin/:skill', authMiddleware, teacherOrAdmin, validate(createPrac
     })
 
     invalidate('practice:')
+
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.PRACTICE_CREATE,
+      entityType: 'PracticeExam',
+      entityId: exam.id,
+      entityLabel: exam.title,
+      metadata: { skill, questionCount: (questions || []).length }
+    })
+
     res.status(201).json(exam)
   } catch (error) {
     console.error("CREATE PRACTICE ERROR:", error)
@@ -197,11 +208,13 @@ router.post('/admin/:skill', authMiddleware, teacherOrAdmin, validate(createPrac
 
 // ─── ADMIN: update (FIXED) ────────────────────────────────────────────────────
 router.put('/admin/:skill/:id', authMiddleware, teacherOrAdmin, validate(updatePracticeSchema), async (req, res) => {
-  const { id } = req.params
+  const { id, skill } = req.params
   const { title, level, thumbnailUrl, audioUrl, passage, questions } = req.body
 
   try {
-    await prisma.$transaction(async (tx) => {
+    // Trả về bản ghi sau khi update (kèm questions) để dùng cho audit log bên
+    // dưới — không đổi response cho client, vẫn chỉ res.json({ ok: true }).
+    const updatedExam = await prisma.$transaction(async (tx) => {
       const updateData = { isNormalized: true }
       if (title !== undefined) updateData.title = title.trim()
       if (level !== undefined) updateData.level = level
@@ -210,7 +223,7 @@ router.put('/admin/:skill/:id', authMiddleware, teacherOrAdmin, validate(updateP
       if (audioUrl !== undefined) updateData.audioUrl = audioUrl
 
       // ✅ Update main record and manage relation
-      await tx.practiceExam.update({
+      return tx.practiceExam.update({
         where: { id: parseInt(id) },
         data: {
           ...updateData,
@@ -224,11 +237,23 @@ router.put('/admin/:skill/:id', authMiddleware, teacherOrAdmin, validate(updateP
               type: q.type || 'group'
             }))
           } : undefined
-        }
+        },
+        include: { questions: true }
       })
     })
 
     invalidate('practice:')
+
+    // Route xóa hết question rồi tạo lại (không diff) — chỉ log tổng số question
+    // sau khi cập nhật, không cố tạo bộ đếm created/updated/pruned như route Exam.
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.PRACTICE_UPDATE,
+      entityType: 'PracticeExam',
+      entityId: parseInt(id),
+      entityLabel: updatedExam.title,
+      metadata: { skill, questionCount: updatedExam.questions.length }
+    })
+
     res.json({ ok: true })
   } catch (error) {
     console.error("UPDATE PRACTICE ERROR:", error)
@@ -244,6 +269,14 @@ router.post('/admin/:skill/upload-thumbnail', authMiddleware, teacherOrAdmin, th
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
   try {
     const { url } = await uploadOptimizedCover(req.file, { dir: thumbDir, urlPrefix: '/uploads/thumbnails', folder: 'thumbnails' })
+    // Chưa gắn vào record nào (upload trước khi tạo mới) → entityId null. Không
+    // log URL (có thể chứa query/token) — chỉ ghi loại tài nguyên.
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.PRACTICE_UPDATE,
+      entityType: 'PracticeExam',
+      entityId: null,
+      metadata: { resource: 'thumbnail' }
+    })
     res.json({ url })
   } catch (err) { res.status(500).json({ message: 'Lỗi upload', error: err.message }) }
 })
@@ -252,6 +285,12 @@ router.post('/admin/listening/upload-audio', authMiddleware, teacherOrAdmin, aud
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
   try {
     const { url } = await uploadAudio(req.file, { subdir: 'audio', folder: 'audio' })
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.PRACTICE_UPDATE,
+      entityType: 'PracticeExam',
+      entityId: null,
+      metadata: { resource: 'audio' }
+    })
     res.json({ url })
   } catch (err) { res.status(500).json({ message: 'Lỗi upload audio', error: err.message }) }
 })
@@ -267,6 +306,12 @@ router.post('/admin/:skill/:id/thumbnail', authMiddleware, teacherOrAdmin, thumb
       select: { id: true, thumbnailUrl: true }
     })
     invalidate('practice:')
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.PRACTICE_UPDATE,
+      entityType: 'PracticeExam',
+      entityId: exam.id,
+      metadata: { resource: 'thumbnail' }
+    })
     res.json(exam)
   } catch (err) { res.status(500).json({ message: 'Lỗi upload', error: err.message }) }
 })
@@ -282,6 +327,12 @@ router.post('/admin/listening/:id/audio', authMiddleware, teacherOrAdmin, audioU
       select: { id: true, audioUrl: true }
     })
     invalidate('practice:')
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.PRACTICE_UPDATE,
+      entityType: 'PracticeExam',
+      entityId: exam.id,
+      metadata: { resource: 'audio' }
+    })
     res.json(exam)
   } catch (err) { res.status(500).json({ message: 'Lỗi upload audio', error: err.message }) }
 })
@@ -289,11 +340,20 @@ router.post('/admin/listening/:id/audio', authMiddleware, teacherOrAdmin, audioU
 // ─── ADMIN: delete (soft) ─────────────────────────────────────────────────────
 router.delete('/admin/:skill/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
   try {
+    const id = parseInt(req.params.id)
+    // Đọc tiêu đề trước khi soft-delete để entityLabel vẫn đọc được sau này.
+    const existing = await prisma.practiceExam.findUnique({ where: { id }, select: { title: true } })
     await prisma.practiceExam.update({
-      where: { id: parseInt(req.params.id) },
+      where: { id },
       data: { deletedAt: new Date() }
     })
     invalidate('practice:')
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.PRACTICE_DELETE,
+      entityType: 'PracticeExam',
+      entityId: id,
+      entityLabel: existing?.title ?? null
+    })
     res.json({ message: 'Đã xóa' })
   } catch (err) { res.status(500).json({ message: 'Lỗi xóa', error: err.message }) }
 })

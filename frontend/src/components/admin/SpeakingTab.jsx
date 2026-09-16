@@ -6,6 +6,7 @@ import { notifyTrashChanged } from '../../services/adminService'
 import { emptySpeakingForm, inputCls, labelCls, btnPrimary, btnSecondary, useExamSeriesList, useSeriesBooks } from './adminConstants'
 import Select from './Select'
 import ExamList from './ExamList'
+import ExamAuditHistory from './ExamAuditHistory'
 import InlinePreviewPanel from '../common/InlinePreviewPanel'
 // SpeakingFormPreview is defined in ReadingTab.jsx alongside the other form
 // previews and re-exported; extracting the previews into a shared module is
@@ -33,7 +34,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
   const formRef = useRef(null)
   const previewRef = useRef(null)
 
-  const showToast = (msg) => { showAlert(msg); setToast(msg); setTimeout(() => setToast(''), 3000) }
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
   // Scroll the preview panel into view once it has rendered.
   useEffect(() => {
@@ -249,6 +250,8 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
         showToast('✅ Cập nhật đề thành công!')
         queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
         queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
+        // Log audit vừa ghi ở backend — invalidate để khối "Lịch sử thay đổi" hiện ngay, không đợi hết staleTime.
+        queryClient.invalidateQueries({ queryKey: ['admin', 'auditLogs', 'exam', editingId] })
         onRefresh()
       } else {
         await api.post('/admin/exams/speaking', speakingPayload)
@@ -535,6 +538,12 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
           >
             <SpeakingFormPreview form={form} />
           </InlinePreviewPanel>
+        </div>
+      )}
+
+      {editingId && (
+        <div className="mb-6">
+          <ExamAuditHistory examId={editingId} />
         </div>
       )}
 

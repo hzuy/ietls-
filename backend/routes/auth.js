@@ -72,6 +72,11 @@ router.post('/google', validate(googleAuthSchema), async (req, res) => {
       // Chưa từng đăng nhập Google — tìm theo email để auto-link vào tài khoản local đã có
       const existingByEmail = await prisma.user.findUnique({ where: { email } })
       if (existingByEmail) {
+        // Tài khoản đã soft-delete vẫn giữ email (unique) — không auto-link/tạo lại,
+        // nếu không prisma.user.create bên dưới sẽ crash do trùng email.
+        if (existingByEmail.deletedAt) {
+          return res.status(403).json({ message: 'Tài khoản đã bị xóa. Vui lòng liên hệ quản trị viên.' })
+        }
         user = await prisma.user.update({
           where: { id: existingByEmail.id },
           data: { googleId },
@@ -81,6 +86,8 @@ router.post('/google', validate(googleAuthSchema), async (req, res) => {
           data: { email, name: name || email.split('@')[0], googleId, password: null },
         })
       }
+    } else if (user.deletedAt) {
+      return res.status(403).json({ message: 'Tài khoản đã bị xóa. Vui lòng liên hệ quản trị viên.' })
     }
 
     if (user.isLocked) {
@@ -109,7 +116,7 @@ router.post('/login', validate(loginSchema), async (req, res) => {
     const { email, password } = req.body
 
     const user = await prisma.user.findUnique({ where: { email } })
-    if (!user) {
+    if (!user || user.deletedAt) {
       return res.status(400).json({ message: 'Email hoặc mật khẩu sai' })
     }
 

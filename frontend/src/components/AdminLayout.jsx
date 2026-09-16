@@ -16,6 +16,7 @@ import {
   PenTool,
   Mic,
   History,
+  ScrollText,
   Trash2,
   Settings,
   LogOut,
@@ -35,6 +36,7 @@ const NAV_ALL = [
   { to: '/admin/writing-samples',    label: 'Writing Samples',   icon: PenTool,    roles: ['teacher'] },
   { to: '/admin/speaking-samples',   label: 'Speaking Samples',  icon: Mic,        roles: ['teacher'] },
   { to: '/admin/attempts',           label: 'Lịch sử thi',       icon: History,    roles: ['admin', 'teacher'] },
+  { to: '/admin/audit-logs',         label: 'Nhật ký hoạt động', icon: ScrollText, roles: ['admin'] },
   { to: '/admin/trash',              label: 'Đã xóa',             icon: Trash2,     roles: ['admin', 'teacher'], trash: true },
   // Both
   { to: '/admin/profile',   label: 'Cài đặt',           icon: Settings,    roles: ['admin', 'teacher'] },

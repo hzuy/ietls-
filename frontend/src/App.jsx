@@ -46,6 +46,7 @@ const Dashboard         = lazy(() => import('./pages/admin/Dashboard'))
 const Users             = lazy(() => import('./pages/admin/Users'))
 const UserDetail        = lazy(() => import('./pages/admin/UserDetail'))
 const Attempts          = lazy(() => import('./pages/admin/Attempts'))
+const AuditLogs         = lazy(() => import('./pages/admin/AuditLogs'))
 const Analytics         = lazy(() => import('./pages/admin/Analytics'))
 const Accounts          = lazy(() => import('./pages/admin/Accounts'))
 const Staff             = lazy(() => import('./pages/admin/Staff'))
@@ -80,7 +81,7 @@ function PrivateRoute({ children }) {
 }
 
 // Chỉ admin
-function AdminRoute({ children }) {
+export function AdminRoute({ children }) {
   const { role } = useAuth()
   const token = localStorage.getItem('token')
   if (!token) return <Navigate to="/" replace state={{ authModal: 'login' }} />
@@ -184,6 +185,7 @@ export default function App() {
                     <Route index                    element={<StaffRoute><Analytics /></StaffRoute>} />
                     <Route path="exams/*"           element={<StaffRoute><Admin /></StaffRoute>} />
                     <Route path="attempts"          element={<StaffRoute><Attempts /></StaffRoute>} />
+                    <Route path="audit-logs"        element={<AdminRoute><AuditLogs /></AdminRoute>} />
                     <Route path="analytics"         element={<Navigate to="/admin" replace />} />
                     <Route path="accounts"          element={<AdminRoute><Accounts /></AdminRoute>} />
                     <Route path="users"             element={<AdminRoute><Users /></AdminRoute>} />

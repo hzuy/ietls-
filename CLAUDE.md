@@ -46,13 +46,36 @@ npx prisma generate
 npx prisma studio
 node prisma/seed-demo-data.js      # KHÔNG có `prisma db seed` — package.json không khai báo seed
 ```
-⚠️ `DATABASE_URL` ở local **trỏ chung một Supabase DB với production**. Migration chạy ở local là chạy thẳng vào DB prod. Kiểm tra kỹ trước khi `migrate dev` / `migrate deploy`. `npx prisma migrate reset` bị chặn trong `.claude/settings.json` — đúng như vậy, đừng tìm cách lách.
+⚠️ `backend/.env` (dùng bởi các lệnh trên, và bởi `npm run dev`/`npm start`/`npm test` mặc định) **vẫn trỏ chung một Supabase DB với production** — điều này KHÔNG đổi. Migration/seed chạy bằng các lệnh trên là chạy thẳng vào DB prod. Kiểm tra kỹ trước khi `migrate dev` / `migrate deploy` / chạy `seed-demo-data.js`. `npx prisma migrate reset` bị chặn trong `.claude/settings.json` — đúng như vậy, đừng tìm cách lách.
+
+#### DB dev/test local (postgres-dev, khuyến nghị cho test tích hợp)
+
+Để không phải chạm DB production khi viết/chạy test tích hợp (đặc biệt route đụng dữ liệu tài khoản thật hoặc thao tác xóa — vd `users`, `trash`), có sẵn 1 Postgres riêng chạy qua Docker, hoàn toàn tách khỏi Supabase:
+
+```bash
+docker compose up -d postgres-dev        # lần đầu: pull image + tạo volume postgres_dev_data
+cd backend
+npm run db:dev:push                      # đồng bộ schema.prisma → DB dev (xem lý do dùng db push, không phải migrate deploy, bên dưới)
+npm run db:dev:seed                      # seed vài tài khoản user/teacher/admin + 2 đề thi giả + vài lượt thi
+npm run test:dev-db                      # chạy toàn bộ test suite trỏ vào DB dev (đã xác nhận pass 277/277)
+npm run db:dev:studio                    # Prisma Studio trỏ DB dev
+npm run db:dev:seed -- --cleanup         # xoá dữ liệu seed (giữ schema)
+```
+
+Cách hoạt động: `backend/docker-dev.env` (gitignored, không phải `.env`/`.env.*` nên không bị chặn ghi/sửa) chứa `DATABASE_URL`/`DIRECT_URL` trỏ `127.0.0.1:5433` (service `postgres-dev`, cổng riêng khác `5432` mặc định để không đụng Postgres cài sẵn trên máy). `backend/scripts/with-dev-db.js` nạp file này (override) rồi mới spawn lệnh thật (`npx prisma ...`, `vitest run`) — nên các script `db:dev:*`/`test:dev-db` trong `package.json` không bao giờ đụng `backend/.env`. Muốn chạy lệnh khác với DB dev: `node scripts/with-dev-db.js -- <lệnh>`.
+
+**Vì sao `db push` chứ không phải `migrate deploy`:** lịch sử migration hiện có một chỗ mâu thuẫn đã xác nhận — migration `20260320030649_rebuild_full_ielts` `DROP TABLE "Exam"`, nhưng bảng `Exam` chưa từng được tạo lại ở migration nào sau đó dù `schema.prisma` hiện tại vẫn có `model Exam` (bảng chỉ tồn tại trên DB thật vì đã bị chỉnh tay ngoài lịch sử migration tại một thời điểm nào đó, không rõ khi nào). Replay `migrate deploy` từ đầu lên DB trắng dừng đúng ở migration kế tiếp, `20260321000000_remove_level_from_exam` (`ALTER TABLE "Exam" DROP COLUMN "level"`), với lỗi Prisma `P3018` / Postgres `42P01`: `relation "Exam" does not exist`. **Không tự sửa/xóa/sắp xếp lại migration để vá chỗ này** — dọn lịch sử migration là việc riêng, cần bàn trước. `db push` là phương án tạm: đồng bộ thẳng từ `schema.prisma` hiện tại (bỏ qua lịch sử migration), đủ dùng để có DB dev đúng schema hiện hành, nhưng KHÔNG ghi vào bảng `_prisma_migrations` — vì vậy đừng chạy `migrate dev`/`migrate deploy` trên DB dev này sau đó mà không `db push` lại trước, sẽ báo lệch schema.
+
+**Seed data** (`backend/prisma/seed-dev.js`) hoàn toàn giả, tự chặn nếu `DATABASE_URL` không trỏ `127.0.0.1:5433` (không thể lỡ chạy lên DB khác kể cả prod). Tài khoản: `dev-admin@example.test` / `dev-teacher@example.test` / `dev-user@example.test`, mật khẩu `Password123!`. Idempotent — chạy lại không tạo trùng.
+
+Test suite hiện tại (277 test backend) đều mock `lib/prisma` ở tầng route/lib — không có test nào thật sự đọc/ghi DB, nên `npm test` thường (không qua `postgres-dev`) vẫn an toàn với DB hiện tại. `postgres-dev` có giá trị chính cho: test tích hợp thật sẽ viết trong tương lai (audit log trên `users`/`trash`), và cho việc chạy `npx prisma migrate dev`/thử migration mới mà không đụng DB thật.
 
 ### Docker
 ```bash
 docker compose up -d --build backend   # CHỈ service backend
+docker compose up -d postgres-dev      # DB dev/test local — xem mục "DB dev/test local" ở trên
 ```
-`docker-compose.yml` còn service `postgres-prod` **chưa active** (chuẩn bị cho migration khỏi Supabase, xem `docs/deploy/self-hosted-postgres-migration.md`). Đừng `docker compose up` trần — sẽ dựng thêm Postgres rỗng ngoài ý muốn.
+`docker-compose.yml` có 3 service: `backend`, `postgres-dev` (DB dev/test local, xem mục Database ở trên), và `postgres-prod` **chưa active** (chuẩn bị cho migration khỏi Supabase, xem `docs/deploy/self-hosted-postgres-migration.md` — mục đích khác hẳn `postgres-dev`, đừng nhầm hai service này). Đừng `docker compose up` trần — sẽ dựng thêm cả `postgres-prod` rỗng ngoài ý muốn.
 
 ## Architecture
 

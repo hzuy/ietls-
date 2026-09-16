@@ -13,15 +13,25 @@ const {
   userIdSchema,
   updateSettingsSchema,
 } = require('../../validators/authValidator')
+const { logAuditEvent } = require('../../lib/auditLog')
+const { AUDIT_ACTIONS } = require('../../lib/auditActions')
 
 // ─── MAKE ADMIN ──────────────────────────────────────────────────────────────
 router.post('/make-admin', authMiddleware, adminOnly, validate(userIdSchema), async (req, res) => {
   try {
     const targetId = req.body.userId
+    const before = await prisma.user.findUnique({ where: { id: targetId }, select: { role: true } })
     const user = await prisma.user.update({
       where: { id: targetId },
       data: { role: 'admin' },
       select: { id: true, name: true, email: true, role: true }
+    })
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.USER_ROLE_CHANGE,
+      entityType: 'User',
+      entityId: user.id,
+      entityLabel: user.email,
+      metadata: { from: before?.role ?? null, to: user.role }
     })
     res.json({ message: 'Đã nâng quyền admin!', user })
   } catch (error) {
@@ -34,7 +44,7 @@ router.get('/users', authMiddleware, adminOnly, async (req, res) => {
   try {
     const { search = '', page = 1, limit = 20, status = '', sort = 'newest' } = req.query
     const skip = (parseInt(page) - 1) * parseInt(limit)
-    const baseWhere = { role: 'user' }
+    const baseWhere = { role: 'user', deletedAt: null }
 
     // Apply status filter
     if (status === 'active') baseWhere.isLocked = false
@@ -64,8 +74,8 @@ router.get('/users', authMiddleware, adminOnly, async (req, res) => {
         }
       }),
       prisma.user.count({ where }),
-      prisma.user.count({ where: { role: 'user', isLocked: false } }),
-      prisma.user.count({ where: { role: 'user', isLocked: true } }),
+      prisma.user.count({ where: { role: 'user', isLocked: false, deletedAt: null } }),
+      prisma.user.count({ where: { role: 'user', isLocked: true, deletedAt: null } }),
     ])
 
     const userIds = users.map(u => u.id)
@@ -113,7 +123,7 @@ router.get('/users/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
     const id = parseInt(req.params.id)
     const user = await prisma.user.findUnique({
       where: { id },
-      select: { id: true, name: true, email: true, role: true, isLocked: true, createdAt: true }
+      select: { id: true, name: true, email: true, role: true, isLocked: true, createdAt: true, deletedAt: true }
     })
     if (!user) return res.status(404).json({ message: 'Không tìm thấy user' })
 
@@ -156,9 +166,15 @@ router.get('/users/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
 router.put('/users/:id/toggle-lock', authMiddleware, adminOnly, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
-    const user = await prisma.user.findUnique({ where: { id }, select: { isLocked: true } })
+    const user = await prisma.user.findUnique({ where: { id }, select: { isLocked: true, email: true } })
     if (!user) return res.status(404).json({ message: 'Không tìm thấy user' })
     const updated = await prisma.user.update({ where: { id }, data: { isLocked: !user.isLocked } })
+    await logAuditEvent(req, {
+      action: updated.isLocked ? AUDIT_ACTIONS.USER_LOCK : AUDIT_ACTIONS.USER_UNLOCK,
+      entityType: 'User',
+      entityId: id,
+      entityLabel: user.email
+    })
     res.json({ isLocked: updated.isLocked })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
@@ -169,7 +185,14 @@ router.delete('/users/:id', authMiddleware, adminOnly, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
     if (id === req.user.userId) return res.status(400).json({ message: 'Không thể xóa tài khoản đang dùng' })
+    const existing = await prisma.user.findUnique({ where: { id }, select: { email: true } })
     await prisma.user.update({ where: { id }, data: { deletedAt: new Date(), isLocked: true } })
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.USER_DELETE,
+      entityType: 'User',
+      entityId: id,
+      entityLabel: existing?.email ?? null
+    })
     res.json({ message: 'Đã xóa user (soft delete)' })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
@@ -215,7 +238,7 @@ router.get('/accounts', authMiddleware, teacherOrAdmin, async (req, res) => {
       return res.json(account ? [account] : [])
     }
     const accounts = await prisma.user.findMany({
-      where: { role: { in: ['admin', 'teacher'] } },
+      where: { role: { in: ['admin', 'teacher'] }, deletedAt: null },
       orderBy: { createdAt: 'desc' },
       select: { id: true, name: true, email: true, role: true, isLocked: true, createdAt: true }
     })
@@ -234,6 +257,12 @@ router.post('/accounts', authMiddleware, adminOnly, validate(createAccountSchema
     const user = await prisma.user.create({
       data: { name, email, password: hashed, role },
       select: { id: true, name: true, email: true, role: true, isLocked: true, createdAt: true }
+    })
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.STAFF_CREATE,
+      entityType: 'User',
+      entityId: user.id,
+      entityLabel: user.email
     })
     res.status(201).json(user)
   } catch (error) {
@@ -265,6 +294,16 @@ router.put('/accounts/:id', authMiddleware, teacherOrAdmin, validate(updateAccou
       data,
       select: { id: true, name: true, email: true, role: true, isLocked: true, createdAt: true }
     })
+    const changedFields = {}
+    if (data.role !== undefined) changedFields.role = data.role
+    if (data.isLocked !== undefined) changedFields.isLocked = data.isLocked
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.STAFF_UPDATE,
+      entityType: 'User',
+      entityId: user.id,
+      entityLabel: user.email,
+      metadata: Object.keys(changedFields).length ? changedFields : null
+    })
     res.json(user)
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
@@ -275,7 +314,14 @@ router.delete('/accounts/:id', authMiddleware, adminOnly, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
     if (id === req.user.userId) return res.status(400).json({ message: 'Không thể xóa tài khoản đang dùng' })
+    const existing = await prisma.user.findUnique({ where: { id }, select: { email: true } })
     await prisma.user.delete({ where: { id } })
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.STAFF_DELETE,
+      entityType: 'User',
+      entityId: id,
+      entityLabel: existing?.email ?? null
+    })
     res.json({ message: 'Đã xóa tài khoản' })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
@@ -314,6 +360,11 @@ router.put('/settings', authMiddleware, adminOnly, validate(updateSettingsSchema
         create: { key, value: String(value) }
       })
     ))
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.SETTING_UPDATE,
+      entityType: 'Setting',
+      metadata: { keys: entries.map(([key]) => key) }
+    })
     res.json({ message: 'Đã lưu cài đặt' })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
@@ -324,7 +375,7 @@ router.put('/settings', authMiddleware, adminOnly, validate(updateSettingsSchema
 router.get('/staff', authMiddleware, adminOnly, async (req, res) => {
   try {
     const staff = await prisma.user.findMany({
-      where: { role: { in: ['admin', 'teacher'] } },
+      where: { role: { in: ['admin', 'teacher'] }, deletedAt: null },
       orderBy: { createdAt: 'desc' },
       select: { id: true, name: true, email: true, role: true, isLocked: true, createdAt: true }
     })
@@ -337,10 +388,18 @@ router.get('/staff', authMiddleware, adminOnly, async (req, res) => {
 router.post('/make-teacher', authMiddleware, adminOnly, validate(userIdSchema), async (req, res) => {
   try {
     const { userId } = req.body
+    const before = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } })
     const user = await prisma.user.update({
       where: { id: userId },
       data: { role: 'teacher' },
       select: { id: true, name: true, email: true, role: true }
+    })
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.USER_ROLE_CHANGE,
+      entityType: 'User',
+      entityId: user.id,
+      entityLabel: user.email,
+      metadata: { from: before?.role ?? null, to: user.role }
     })
     res.json({ message: 'Đã nâng quyền teacher!', user })
   } catch (error) {
@@ -352,10 +411,18 @@ router.post('/remove-staff', authMiddleware, adminOnly, validate(userIdSchema), 
   try {
     const { userId } = req.body
     if (userId === req.user.userId) return res.status(400).json({ message: 'Không thể tự xóa quyền của mình' })
+    const before = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } })
     const user = await prisma.user.update({
       where: { id: userId },
       data: { role: 'user' },
       select: { id: true, name: true, email: true, role: true }
+    })
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.USER_ROLE_CHANGE,
+      entityType: 'User',
+      entityId: user.id,
+      entityLabel: user.email,
+      metadata: { from: before?.role ?? null, to: user.role }
     })
     res.json({ message: 'Đã xóa quyền staff', user })
   } catch (error) {
@@ -367,7 +434,7 @@ router.post('/remove-staff', authMiddleware, adminOnly, validate(userIdSchema), 
 router.post('/users/:id/reset-password', authMiddleware, adminOnly, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
-    const user = await prisma.user.findUnique({ where: { id }, select: { id: true } })
+    const user = await prisma.user.findUnique({ where: { id }, select: { id: true, email: true } })
     if (!user) return res.status(404).json({ message: 'Không tìm thấy user' })
 
     // Generate 8-char password: uppercase + lowercase + digits (no ambiguous chars)
@@ -377,6 +444,13 @@ router.post('/users/:id/reset-password', authMiddleware, adminOnly, async (req, 
 
     const hashed = await bcrypt.hash(pwd, 10)
     await prisma.user.update({ where: { id }, data: { password: hashed } })
+
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.USER_PASSWORD_RESET,
+      entityType: 'User',
+      entityId: id,
+      entityLabel: user.email
+    })
 
     // Return plaintext ONCE — never log it
     res.json({ newPassword: pwd })

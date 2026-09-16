@@ -66,6 +66,11 @@ export const getAdminAttemptsExport = (body) => api.post('/admin/attempts/export
 export const getAdminExamSeriesForFilter = () => api.get('/admin/exam-series').then(r => r.data)
 
 
+// ─── Audit Logs ─────────────────────────────────────────────────────────────
+export const getAdminAuditLogs = (params) => api.get('/admin/audit-logs', { params }).then(r => r.data)
+export const getAdminAuditLogFilters = () => api.get('/admin/audit-logs/filters').then(r => r.data)
+
+
 // ─── Trash ────────────────────────────────────────────────────────────────────
 export const getAdminTrash = (page = 1, limit = 50) => api.get('/admin/trash', { params: { page, limit } }).then(r => r.data.items)
 export const restoreTrashItem = (type, id) => api.post(`/admin/trash/${type}/${id}/restore`).then(r => r.data)

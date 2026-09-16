@@ -10,6 +10,8 @@ const { getSampleListCached } = require('../lib/publicContent')
 const { uploadOptimizedCover } = require('../services/storageService')
 const { createSampleSchema, updateSampleSchema } = require('../validators/contentValidator')
 const { sanitizeRichText } = require('../lib/sanitizeHtml')
+const { logAuditEvent } = require('../lib/auditLog')
+const { AUDIT_ACTIONS } = require('../lib/auditActions')
 
 const router = express.Router()
 
@@ -138,6 +140,12 @@ router.post('/admin/writing', authMiddleware, teacherOrAdmin, validate(createSam
       data: { title: title.trim(), level: level || null, examType: examType || null, content: sanitizeRichText(content) || null, thumbnailUrl: thumbnailUrl || null, tags: tags ? JSON.stringify(tags) : null }
     })
     invalidate('samples:')
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.SAMPLE_CREATE,
+      entityType: 'WritingSample',
+      entityId: s.id,
+      entityLabel: s.title
+    })
     res.status(201).json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
   } catch (err) {
     res.status(500).json({ message: 'Lỗi tạo', error: err.message })
@@ -151,6 +159,12 @@ router.post('/admin/speaking', authMiddleware, teacherOrAdmin, validate(createSa
       data: { title: title.trim(), level: level || null, examType: examType || null, content: sanitizeRichText(content) || null, thumbnailUrl: thumbnailUrl || null, tags: tags ? JSON.stringify(tags) : null }
     })
     invalidate('samples:')
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.SAMPLE_CREATE,
+      entityType: 'SpeakingSample',
+      entityId: s.id,
+      entityLabel: s.title
+    })
     res.status(201).json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
   } catch (err) {
     res.status(500).json({ message: 'Lỗi tạo', error: err.message })
@@ -170,6 +184,12 @@ router.put('/admin/writing/:id', authMiddleware, teacherOrAdmin, validate(update
     if (tags !== undefined) data.tags = JSON.stringify(tags)
     const s = await prisma.writingSample.update({ where: { id: parseInt(req.params.id) }, data })
     invalidate('samples:')
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.SAMPLE_UPDATE,
+      entityType: 'WritingSample',
+      entityId: s.id,
+      entityLabel: s.title
+    })
     res.json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
   } catch (err) {
     res.status(500).json({ message: 'Lỗi cập nhật', error: err.message })
@@ -188,6 +208,12 @@ router.put('/admin/speaking/:id', authMiddleware, teacherOrAdmin, validate(updat
     if (tags !== undefined) data.tags = JSON.stringify(tags)
     const s = await prisma.speakingSample.update({ where: { id: parseInt(req.params.id) }, data })
     invalidate('samples:')
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.SAMPLE_UPDATE,
+      entityType: 'SpeakingSample',
+      entityId: s.id,
+      entityLabel: s.title
+    })
     res.json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
   } catch (err) {
     res.status(500).json({ message: 'Lỗi cập nhật', error: err.message })
@@ -218,6 +244,12 @@ router.post('/admin/writing/:id/thumbnail', authMiddleware, teacherOrAdmin,
         where: { id: parseInt(req.params.id) }, data: { thumbnailUrl }, select: { id: true, thumbnailUrl: true }
       })
       invalidate('samples:')
+      await logAuditEvent(req, {
+        action: AUDIT_ACTIONS.SAMPLE_UPDATE,
+        entityType: 'WritingSample',
+        entityId: s.id,
+        metadata: { resource: 'thumbnail' }
+      })
       res.json(s)
     } catch (err) { res.status(500).json({ message: 'Lỗi upload', error: err.message }) }
   }
@@ -232,6 +264,12 @@ router.post('/admin/speaking/:id/thumbnail', authMiddleware, teacherOrAdmin,
         where: { id: parseInt(req.params.id) }, data: { thumbnailUrl }, select: { id: true, thumbnailUrl: true }
       })
       invalidate('samples:')
+      await logAuditEvent(req, {
+        action: AUDIT_ACTIONS.SAMPLE_UPDATE,
+        entityType: 'SpeakingSample',
+        entityId: s.id,
+        metadata: { resource: 'thumbnail' }
+      })
       res.json(s)
     } catch (err) { res.status(500).json({ message: 'Lỗi upload', error: err.message }) }
   }
@@ -240,16 +278,33 @@ router.post('/admin/speaking/:id/thumbnail', authMiddleware, teacherOrAdmin,
 // ─── ADMIN: delete (soft) ─────────────────────────────────────────────────────
 router.delete('/admin/writing/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
   try {
-    await prisma.writingSample.update({ where: { id: parseInt(req.params.id) }, data: { deletedAt: new Date() } })
+    const id = parseInt(req.params.id)
+    // Đọc tiêu đề trước khi soft-delete để entityLabel vẫn đọc được sau này.
+    const existing = await prisma.writingSample.findUnique({ where: { id }, select: { title: true } })
+    await prisma.writingSample.update({ where: { id }, data: { deletedAt: new Date() } })
     invalidate('samples:')
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.SAMPLE_DELETE,
+      entityType: 'WritingSample',
+      entityId: id,
+      entityLabel: existing?.title ?? null
+    })
     res.json({ message: 'Đã xóa' })
   } catch (err) { res.status(500).json({ message: 'Lỗi xóa', error: err.message }) }
 })
 
 router.delete('/admin/speaking/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
   try {
-    await prisma.speakingSample.update({ where: { id: parseInt(req.params.id) }, data: { deletedAt: new Date() } })
+    const id = parseInt(req.params.id)
+    const existing = await prisma.speakingSample.findUnique({ where: { id }, select: { title: true } })
+    await prisma.speakingSample.update({ where: { id }, data: { deletedAt: new Date() } })
     invalidate('samples:')
+    await logAuditEvent(req, {
+      action: AUDIT_ACTIONS.SAMPLE_DELETE,
+      entityType: 'SpeakingSample',
+      entityId: id,
+      entityLabel: existing?.title ?? null
+    })
     res.json({ message: 'Đã xóa' })
   } catch (err) { res.status(500).json({ message: 'Lỗi xóa', error: err.message }) }
 })

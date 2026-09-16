@@ -11,5 +11,6 @@ router.use('/', require('./admin/exams/speaking'))
 router.use('/', require('./admin/dashboard'))
 router.use('/', require('./admin/users'))
 router.use('/', require('./admin/trash'))
+router.use('/', require('./admin/auditLogs'))
 
 module.exports = router

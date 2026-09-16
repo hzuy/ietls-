@@ -62,5 +62,33 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── postgres-dev — DB dev/test local, KHÔNG liên quan đến postgres-prod ────
+  # Mục đích khác hẳn postgres-prod (chuẩn bị cutover production): đây chỉ để
+  # chạy test tích hợp + làm việc hàng ngày trên máy dev mà không đụng Supabase
+  # prod dùng chung hiện tại. Dữ liệu là giả, sinh bởi prisma/seed-dev.js —
+  # không bao giờ chứa dữ liệu thật copy từ Supabase.
+  postgres-dev:
+    image: postgres:17
+    container_name: ielts-app-postgres-dev
+    restart: unless-stopped
+    ports:
+      # Bind 127.0.0.1 — chỉ máy dev truy cập được. Cổng 5433 (khác 5432 mặc
+      # định) để không đụng Postgres cài sẵn trên máy dev nếu có.
+      - "127.0.0.1:5433:5432"
+    environment:
+      # Default sẵn — không cần file .env riêng để chạy `docker compose up`,
+      # vì đây là mật khẩu dev cục bộ, không có giá trị nhạy cảm thật.
+      POSTGRES_USER: ${POSTGRES_DEV_USER:-ielts_dev}
+      POSTGRES_PASSWORD: ${POSTGRES_DEV_PASSWORD:-ielts_dev_local_only}
+      POSTGRES_DB: ${POSTGRES_DEV_DB:-ielts_app_dev}
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_DEV_USER:-ielts_dev} -d ${POSTGRES_DEV_DB:-ielts_app_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres_prod_data:
+  postgres_dev_data:

@@ -22,7 +22,7 @@ function CambridgeTab({ initialSeriesList = [], onExamsChanged }) {
   const [editName, setEditName] = useState('')
   const [toast, setToast] = useState('')
 
-  const showToast = (msg) => { showAlert(msg); setToast(msg); setTimeout(() => setToast(''), 3500) }
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3500) }
 
   const fetchSeries = (silent = false) => {
     if (!silent && !cachedSeriesList && seriesList.length === 0) {

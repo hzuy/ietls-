@@ -176,16 +176,16 @@ async function fetchDashboardOverviewData() {
     skillDist,
     recent,
   ] = await Promise.all([
-    prisma.user.count({ where: { role: 'user' } }),
-    prisma.user.count({ where: { role: 'user', createdAt: { gte: startOfThisMonth } } }),
-    prisma.user.count({ where: { role: 'user', createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
+    prisma.user.count({ where: { role: 'user', deletedAt: null } }),
+    prisma.user.count({ where: { role: 'user', deletedAt: null, createdAt: { gte: startOfThisMonth } } }),
+    prisma.user.count({ where: { role: 'user', deletedAt: null, createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
     prisma.attempt.count({ where: { finishedAt: { gte: startOfToday } } }),
     prisma.attempt.aggregate({ where: { score: { not: null } }, _avg: { score: true } }),
     prisma.exam.count(),
     getRegistrationsByDay(thirtyDaysAgo, 30, now),
     Promise.all([
       prisma.exam.findMany({ take: 3, orderBy: { createdAt: 'desc' }, select: { title: true, createdAt: true } }),
-      prisma.attempt.findMany({ take: 2, orderBy: { createdAt: 'desc' }, include: { user: { select: { name: true } } } }),
+      prisma.attempt.findMany({ take: 2, orderBy: { createdAt: 'desc' }, include: { user: { select: { name: true, deletedAt: true } } } }),
     ]),
     prisma.attempt.count({ where: { finishedAt: { gte: startOfToday }, exam: { skill: { in: ['writing', 'speaking'] } } } }),
     getAttemptsByDay(thirtyDaysAgo, 30, now),
@@ -196,7 +196,7 @@ async function fetchDashboardOverviewData() {
       orderBy: { createdAt: 'desc' },
       where: { finishedAt: { not: null } },
       include: {
-        user: { select: { id: true, name: true, email: true } },
+        user: { select: { id: true, name: true, email: true, deletedAt: true } },
         exam: { select: { id: true, title: true, skill: true } },
       },
     }),
@@ -218,7 +218,7 @@ async function fetchDashboardOverviewData() {
     })),
     ...latestAttempts.map(a => ({
       time: a.createdAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-      user: a.user?.name || 'Ẩn danh',
+      user: a.user ? `${a.user.name}${a.user.deletedAt ? ' (đã xóa)' : ''}` : 'Ẩn danh',
       action: `Hoàn thành bài thi ${a.examId}`,
       status: 'Thành công',
     })),
@@ -321,7 +321,7 @@ router.get('/attempts', authMiddleware, teacherOnly, validate(attemptsQuerySchem
         skip, take: limit,
         orderBy,
         include: {
-          user: { select: { id: true, name: true, email: true } },
+          user: { select: { id: true, name: true, email: true, deletedAt: true } },
           exam: { select: { id: true, title: true, skill: true } }
         }
       }),
@@ -393,14 +393,14 @@ router.post('/attempts/export', authMiddleware, teacherOnly, async (req, res) =>
         take: BATCH_SIZE,
         orderBy: { createdAt: 'desc' },
         include: {
-          user: { select: { id: true, name: true, email: true } },
+          user: { select: { id: true, name: true, email: true, deletedAt: true } },
           exam: { select: { id: true, title: true, skill: true } }
         }
       })
 
       for (const a of batch) {
         const row = worksheet.addRow([
-          a.user?.name || '',
+          a.user ? `${a.user.name}${a.user.deletedAt ? ' (đã xóa)' : ''}` : '',
           a.user?.email || '',
           SKILL_LABEL[a.exam?.skill] || a.exam?.skill || '',
           a.exam?.title || '',
@@ -485,8 +485,8 @@ async function fetchAnalyticsData({ period = 'today', from, to } = {}) {
     bandDistribution,
   ] = await Promise.all([
     prisma.attempt.count({ where: { finishedAt: { not: null }, ...dateWhere } }),
-    prisma.user.count({ where: { role: 'user', ...dateWhere } }),
-    prisma.user.count({ where: { role: 'user' } }), // total across all time — not period-filtered
+    prisma.user.count({ where: { role: 'user', deletedAt: null, ...dateWhere } }),
+    prisma.user.count({ where: { role: 'user', deletedAt: null } }), // total across all time — not period-filtered
     prisma.attempt.aggregate({ where: { score: { not: null }, ...dateWhere }, _avg: { score: true } }),
     prisma.attempt.groupBy({
       by: ['examId'],
@@ -537,7 +537,7 @@ async function fetchAnalyticsData({ period = 'today', from, to } = {}) {
   const topUserIds = topUsers.map(u => u.userId)
   const topUserInfo = await prisma.user.findMany({
     where: { id: { in: topUserIds } },
-    select: { id: true, name: true, email: true }
+    select: { id: true, name: true, email: true, deletedAt: true }
   })
   const userMap = Object.fromEntries(topUserInfo.map(u => [u.id, u]))
   const topUsersResult = topUsers.map(u => ({
