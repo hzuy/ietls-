@@ -84,12 +84,13 @@ export default function PracticeList({ skill: skillKey }) {
   )
 
   return (
-    <div className="min-h-screen bg-zinc-50/50">
+    <div className="min-h-screen bg-[var(--bg)]">
       <Navbar />
 
       {/* Breadcrumb */}
       <div className="app-container pt-4 pb-0">
         <Breadcrumb items={[{ label: 'Trang chủ', to: '/' }, { label: 'Practice' }, { label: meta?.label || 'Reading' }]} />
+        <h1 className="text-2xl font-bold mt-3" style={{ color: 'var(--ink)' }}>{meta?.label || 'Reading Practice'}</h1>
       </div>
 
       {/* Content */}

@@ -153,7 +153,7 @@ export default function FullTestDetail() {
   const title = `${bookData.seriesName} ${bookData.bookNumber}`
 
   return (
-    <div className="min-h-screen bg-zinc-50/50 dark:bg-zinc-950 flex flex-col">
+    <div className="min-h-screen bg-[var(--bg)] dark:bg-zinc-950 flex flex-col">
       <Navbar />
 
       <div className="app-container pt-4 pb-0">
@@ -237,7 +237,7 @@ export default function FullTestDetail() {
                           const dk = `${test.testNumber}-${s}`
                           if (!draftInfo[dk]?.hasDraft) return null
                           return (
-                            <span key={s} style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600, background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 9999, padding: '2px 10px' }}>
+                            <span key={s} style={{ fontSize: 11, color: 'var(--warning-text)', fontWeight: 600, background: 'var(--warning-bg)', border: '1px solid var(--warning-border)', borderRadius: 9999, padding: '2px 10px' }}>
                               ● {SKILL_META[s].label} đang làm dở
                             </span>
                           )
@@ -246,7 +246,10 @@ export default function FullTestDetail() {
                     )}
                     <button
                       onClick={() => handleStart(test)}
-                      className="btn-hover-default mt-2 w-full h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-sm font-medium tracking-normal shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none select-none"
+                      className="btn-hover-default mt-2 w-full h-9 px-5 rounded-full text-white text-sm font-medium tracking-normal shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none select-none"
+                      style={{ background: 'var(--primary)' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
                     >
                       Bắt đầu
                     </button>
@@ -260,7 +263,7 @@ export default function FullTestDetail() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* Suggestions */}
             <div style={{ background: 'var(--surface)', borderRadius: '1rem', border: '1px solid var(--border)', padding: 18, boxShadow: 'var(--shadow-xs)' }}>
-              <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', margin: '0 0 14px' }}>Gợi ý cho bạn</h3>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', margin: '0 0 14px' }}>Đề thi liên quan</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {suggestions.map(book => (
                   <div
@@ -322,7 +325,7 @@ export default function FullTestDetail() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontSize: 14, fontWeight: 700, color: exam ? `var(${m.colorVar})` : 'var(--subtle)' }}>{m.label}</span>
                         {hasDraft && (
-                          <span style={{ fontSize: 11, fontWeight: 600, color: '#f59e0b' }}>● Đang làm dở</span>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--warning)' }}>● Đang làm dở</span>
                         )}
                       </div>
                       <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>{m.desc}</p>
@@ -336,7 +339,10 @@ export default function FullTestDetail() {
                       ) : (
                         <button
                           onClick={() => navigate(`${m.path}/${exam.id}`)}
-                          className="min-w-[88px] h-8 px-4 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-medium inline-flex items-center justify-center leading-none select-none shrink-0 whitespace-nowrap transition-colors shadow-xs cursor-pointer"
+                          className="min-w-[88px] h-8 px-4 rounded-full text-white text-xs font-medium inline-flex items-center justify-center leading-none select-none shrink-0 whitespace-nowrap transition-colors shadow-xs cursor-pointer"
+                          style={{ background: 'var(--primary)' }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
                         >Làm bài</button>
                       )
                     )}

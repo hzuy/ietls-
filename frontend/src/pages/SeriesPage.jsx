@@ -86,7 +86,7 @@ export default function SeriesPage({ filterPattern, title }) {
 
 
   return (
-    <div className="min-h-screen bg-zinc-50/50 dark:bg-zinc-950 flex flex-col">
+    <div className="min-h-screen bg-[var(--bg)] dark:bg-zinc-950 flex flex-col">
       <Navbar />
 
       <div className="app-container pt-5 pb-1">
@@ -98,6 +98,7 @@ export default function SeriesPage({ filterPattern, title }) {
             { label: title }
           ]}
         />
+        <h1 className="text-2xl font-bold mt-3" style={{ color: 'var(--ink)' }}>{title}</h1>
       </div>
 
       <div className="app-container py-6 flex-1">
@@ -109,7 +110,7 @@ export default function SeriesPage({ filterPattern, title }) {
           </div>
         ) : error ? (
           <div className="text-center py-16 px-6 bg-white rounded-2xl border border-zinc-200 shadow-xs flex flex-col items-center">
-            <div className="w-14 h-14 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center mb-4 text-rose-500 shadow-xs">
+            <div className="w-14 h-14 rounded-2xl bg-error-bg border border-error-border flex items-center justify-center mb-4 text-error shadow-xs">
               <AlertCircle className="w-7 h-7 stroke-[2]" />
             </div>
             <h3 className="text-lg font-bold text-zinc-900 mb-2">Không thể tải danh sách bộ đề</h3>
@@ -153,9 +154,20 @@ export default function SeriesPage({ filterPattern, title }) {
                   thumbOverlay={
                     <>
                       {!hasTests && (
-                        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5 }}>
-                          <span style={{ background: 'white', color: '#18181b', padding: '4px 12px', borderRadius: 9999, fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Sắp có bài</span>
-                        </div>
+                        <>
+                          <div style={{ position: 'absolute', inset: 0, background: 'rgba(253,251,245,0.55)', zIndex: 5 }} />
+                          <span
+                            style={{
+                              position: 'absolute', top: 10, left: 10, zIndex: 6,
+                              background: 'var(--surface)', color: 'var(--muted)',
+                              padding: '4px 10px', borderRadius: 9999,
+                              fontSize: 11, fontWeight: 600,
+                              border: '1px solid var(--border)',
+                            }}
+                          >
+                            Đang cập nhật
+                          </span>
+                        </>
                       )}
                       {skills.length > 0 && (
                         <div style={{ position: 'absolute', bottom: 10, left: 10, display: 'flex', gap: 6, flexWrap: 'wrap', zIndex: 10 }}>

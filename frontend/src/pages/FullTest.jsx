@@ -29,14 +29,14 @@ function SeriesCard({ item, onClick }) {
             title={item.title}
             seriesName={item.seriesName}
             volume={item.bookNumber}
-            subtitle={hasTests ? `${item.testCount} bài test` : 'Sắp có bài'}
+            subtitle={hasTests ? `${item.testCount} bài test` : 'Đang cập nhật'}
             skill="fullTest"
           />
         }
         thumbAspect="4/5"
         title={item.title}
         titleClamp={2}
-        meta={{ type: 'count', text: hasTests ? `${item.testCount} bài test` : 'Chưa có bài' }}
+        meta={{ type: 'count', text: hasTests ? `${item.testCount} bài test` : 'Đang cập nhật' }}
         action={hasTests
           ? { label: 'Chi tiết đề thi', decorative: true }
           : { label: 'Chi tiết đề thi', disabled: true, disabledLabel: 'Đang cập nhật' }}
@@ -45,18 +45,18 @@ function SeriesCard({ item, onClick }) {
 
       {!hasTests && (
         <div
-          className="bg-black/40"
           style={{
             position: 'absolute', top: 0, left: 0, right: 0, aspectRatio: '4 / 5',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
             borderTopLeftRadius: '1rem', borderTopRightRadius: '1rem', overflow: 'hidden',
+            background: 'rgba(253,251,245,0.55)',
           }}
         >
           <span style={{
-            background: 'rgba(255,255,255,0.92)', color: 'var(--ink-soft)',
-            fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 9999,
-            textTransform: 'uppercase',
-          }}>Sắp có bài</span>
+            position: 'absolute', top: 10, left: 10,
+            background: 'var(--surface)', color: 'var(--muted)',
+            fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 9999,
+            border: '1px solid var(--border)',
+          }}>Đang cập nhật</span>
         </div>
       )}
     </div>
@@ -254,7 +254,7 @@ export default function FullTest() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-zinc-50/50">
+    <div className="min-h-screen bg-[var(--bg)]">
       <Navbar />
 
       <div className="app-container pt-4 pb-0">
