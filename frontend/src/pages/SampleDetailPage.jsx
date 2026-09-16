@@ -34,7 +34,7 @@ export default function SampleDetailPage({ skill }) {
   // Dữ liệu tags cũ vẫn còn trong DB, chỉ không render.
 
   return (
-    <div className="min-h-screen bg-zinc-50/50">
+    <div className="min-h-screen bg-[var(--bg)]">
       <Navbar />
       <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '32px 24px' }}>
         {/* Back */}

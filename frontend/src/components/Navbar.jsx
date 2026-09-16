@@ -128,9 +128,9 @@ export default function Navbar() {
     <>
       {/* Announcement banner */}
       {announcement && !announcementDismissed && (
-        <div style={{ background: 'var(--warning-bg)', borderBottom: '1px solid #fde68a', padding: '8px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-          <span style={{ fontSize: 'var(--fs-sm)', color: '#92400e', lineHeight: 1.5, textAlign: 'center' }}>{announcement}</span>
-          <button onClick={() => setAnnouncementDismissed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#92400e', fontSize: 16, padding: '0 4px', lineHeight: 1, opacity: 0.7, minHeight: 44, minWidth: 44 }} aria-label="Đóng thông báo">
+        <div style={{ background: 'var(--warning-bg)', borderBottom: '1px solid var(--warning-border)', padding: '8px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+          <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--warning-text)', lineHeight: 1.5, textAlign: 'center' }}>{announcement}</span>
+          <button onClick={() => setAnnouncementDismissed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--warning-text)', fontSize: 16, padding: '0 4px', lineHeight: 1, opacity: 0.7, minHeight: 44, minWidth: 44 }} aria-label="Đóng thông báo">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
           </button>
         </div>
@@ -252,7 +252,7 @@ export default function Navbar() {
                         color: '#fff', fontSize: 13, fontWeight: 700,
                         cursor: 'pointer', flexShrink: 0, padding: 0,
                         outline: 'none',
-                        boxShadow: userMenuOpen ? '0 0 0 2px #e4e4e7' : 'none',
+                        boxShadow: userMenuOpen ? '0 0 0 2px var(--border)' : 'none',
                         transition: 'box-shadow 0.2s ease',
                       }}
                     >
@@ -296,7 +296,7 @@ export default function Navbar() {
                             color: 'var(--error)', fontSize: 'var(--fs-sm)', fontWeight: 500,
                             transition: 'background 0.15s ease', textAlign: 'left', whiteSpace: 'nowrap',
                           }}
-                          onMouseEnter={e => e.currentTarget.style.background = '#FEF2F2'}
+                          onMouseEnter={e => e.currentTarget.style.background = 'var(--error-bg)'}
                           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                         >
                           <LogOut size={15} strokeWidth={1.8} style={{ flexShrink: 0 }} />
@@ -431,7 +431,7 @@ export default function Navbar() {
               <MobileNavLink to="/progress" active={location.pathname === '/progress'} onClick={closeMobile}>Phân tích lỗi sai</MobileNavLink>
               <button
                 onClick={() => { closeMobile(); setShowLogoutConfirm(true) }}
-                className="flex items-center w-full px-4 py-3 rounded-full text-red-500 hover:bg-red-50 transition-colors"
+                className="flex items-center w-full px-4 py-3 rounded-full text-error hover:bg-error-bg transition-colors"
                 style={{ fontSize: 'var(--fs-base)', minHeight: 44, border: 'none', background: 'transparent', cursor: 'pointer' }}
               >
                 Đăng xuất

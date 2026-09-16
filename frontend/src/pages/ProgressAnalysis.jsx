@@ -68,7 +68,7 @@ function formatCriterionName(key) {
 function renderTrendBadge(trend) {
   if (trend === 'up') {
     return (
-      <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+      <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-success-bg text-success-text border border-success-border">
         <TrendingUp className="w-3.5 h-3.5" />
         Đang tăng
       </span>
@@ -76,7 +76,7 @@ function renderTrendBadge(trend) {
   }
   if (trend === 'down') {
     return (
-      <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
+      <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-error-bg text-error-text border border-error-border">
         <TrendingDown className="w-3.5 h-3.5" />
         Đang giảm
       </span>
@@ -84,7 +84,7 @@ function renderTrendBadge(trend) {
   }
   if (trend === 'stable') {
     return (
-      <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+      <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-zinc-100 text-zinc-700 border border-zinc-200">
         <Minus className="w-3.5 h-3.5" />
         Ổn định
       </span>
@@ -175,7 +175,7 @@ export default function ProgressAnalysis() {
   const overallAccuracy = totalQuestionsAll > 0 ? ((totalCorrectAll / totalQuestionsAll) * 100).toFixed(1) : 0
 
   return (
-    <div className="min-h-screen flex flex-col bg-zinc-50/50 text-zinc-900 font-sans">
+    <div className="min-h-screen flex flex-col bg-[var(--bg)] text-zinc-900 font-sans">
       <Navbar />
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8 md:py-12">
@@ -262,15 +262,15 @@ export default function ProgressAnalysis() {
         {/* Global Loading State */}
         {loadingStats ? (
           <div className="space-y-6">
-            <div className="h-32 bg-white rounded-3xl p-6 border border-slate-200 animate-pulse" />
-            <div className="h-64 bg-white rounded-3xl p-6 border border-slate-200 animate-pulse" />
+            <div className="h-32 bg-white rounded-2xl p-6 border border-zinc-200 animate-pulse" />
+            <div className="h-64 bg-white rounded-2xl p-6 border border-zinc-200 animate-pulse" />
           </div>
         ) : statsError ? (
-          <div className="p-6 bg-rose-50 border border-rose-200 rounded-3xl text-rose-700 text-sm font-medium flex items-center justify-between">
+          <div className="p-6 bg-error-bg border border-error-border rounded-2xl text-error-text text-sm font-medium flex items-center justify-between">
             <span>{statsError}</span>
             <button
               onClick={() => setSkillFilter(s => s)}
-              className="px-5 h-9 bg-rose-600 text-white text-xs font-bold rounded-full hover:bg-rose-700 transition"
+              className="px-5 h-9 bg-error text-white text-xs font-bold rounded-full hover:opacity-90 transition"
             >
               Thử lại
             </button>
@@ -284,13 +284,13 @@ export default function ProgressAnalysis() {
                 <div className="text-2xl font-black text-zinc-900 mt-1 font-mono">{totalQuestionsAll} câu</div>
                 <span className="text-xs text-zinc-500 mt-1 block">Đã ghi nhận trong log</span>
               </div>
-              <div className="bg-white p-5 rounded-2xl border border-emerald-200/80 shadow-xs bg-emerald-50/20">
+              <div className="bg-white p-5 rounded-2xl border border-success-border/80 shadow-xs bg-success-bg/20">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Tỉ lệ đúng R/L</span>
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span className="text-xs font-bold text-success-text uppercase tracking-wider">Tỉ lệ đúng R/L</span>
+                  <CheckCircle2 className="w-4 h-4 text-success" />
                 </div>
-                <div className="text-2xl font-black text-emerald-700 mt-1 font-mono">{overallAccuracy}%</div>
-                <span className="text-xs text-emerald-600 mt-1 font-semibold block">{totalCorrectAll} câu làm đúng</span>
+                <div className="text-2xl font-black text-success-text mt-1 font-mono">{overallAccuracy}%</div>
+                <span className="text-xs text-success mt-1 font-semibold block">{totalCorrectAll} câu làm đúng</span>
               </div>
               <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-xs">
                 <div className="flex items-center justify-between">
@@ -324,7 +324,7 @@ export default function ProgressAnalysis() {
                         : 'Thống kê Reading & Listening theo dạng bài'}
                     </h2>
                     <p className="text-xs text-zinc-500 mt-1">
-                      Sắp xếp ưu tiên các dạng bài có tỉ lệ lỗi cao lên trước. Phân biệt câu <strong className="text-rose-600 font-semibold">Làm sai</strong> và câu <strong className="text-amber-600 font-semibold">Chưa kịp làm (Bỏ qua)</strong>.
+                      Sắp xếp ưu tiên các dạng bài có tỉ lệ lỗi cao lên trước. Phân biệt câu <strong className="text-error font-semibold">Làm sai</strong> và câu <strong className="text-amber-600 font-semibold">Chưa kịp làm (Bỏ qua)</strong>.
                     </p>
                   </div>
                 </div>
@@ -365,21 +365,21 @@ export default function ProgressAnalysis() {
 
                             <div className="flex items-center gap-3 text-xs font-semibold">
                               <span className="text-zinc-500">Tổng: <strong>{item.total}</strong> câu</span>
-                              <span className="text-rose-600 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full">
+                              <span className="text-error bg-error-bg border border-error-border px-2.5 py-0.5 rounded-full">
                                 Tỉ lệ lỗi: <strong>{(item.errorRate * 100).toFixed(1)}%</strong>
                               </span>
                             </div>
                           </div>
 
                           <div className="w-full h-2.5 bg-zinc-200 rounded-full overflow-hidden flex mb-2">
-                            {correctPct > 0 && <div style={{ width: `${correctPct}%` }} className="bg-emerald-500" />}
-                            {wrongPct > 0 && <div style={{ width: `${wrongPct}%` }} className="bg-rose-500" />}
+                            {correctPct > 0 && <div style={{ width: `${correctPct}%` }} className="bg-success" />}
+                            {wrongPct > 0 && <div style={{ width: `${wrongPct}%` }} className="bg-error" />}
                             {skippedPct > 0 && <div style={{ width: `${skippedPct}%` }} className="bg-amber-400" />}
                           </div>
 
                           <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-600 font-medium">
-                            <span>Đúng: <strong className="text-emerald-700">{item.correct}</strong></span>
-                            <span>Làm sai: <strong className="text-rose-700">{item.wrong}</strong></span>
+                            <span>Đúng: <strong className="text-success-text">{item.correct}</strong></span>
+                            <span>Làm sai: <strong className="text-error-text">{item.wrong}</strong></span>
                             <span>Bỏ qua: <strong className="text-amber-700">{item.skipped}</strong></span>
                           </div>
                         </div>

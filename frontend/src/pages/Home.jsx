@@ -303,7 +303,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50/50 flex flex-col">
+    <div className="min-h-screen bg-[var(--bg)] flex flex-col">
       <Navbar />
 
       {/* ── 1. Tinh gọn triệt để khối Hero Section ────────────────────────── */}
@@ -322,7 +322,10 @@ export default function Home() {
             <div className="flex flex-wrap items-center gap-3 mt-5">
               <button
                 onClick={() => gate('/cambridge')}
-                className="h-9 px-5 bg-zinc-900 hover:bg-black text-white text-sm font-medium rounded-full shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
+                className="h-9 px-5 text-white text-sm font-medium rounded-full shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
+                style={{ background: 'var(--primary)' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
               >
                 Vào phòng thi Cambridge
               </button>
@@ -369,7 +372,10 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => gate('/cambridge')}
-                    className="h-9 px-5 bg-zinc-900 hover:bg-black text-white text-sm font-medium rounded-full shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none shrink-0"
+                    className="h-9 px-5 text-white text-sm font-medium rounded-full shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none shrink-0"
+                    style={{ background: 'var(--primary)' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
                   >
                     Chọn đề luyện tập
                   </button>

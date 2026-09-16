@@ -94,7 +94,7 @@ export default function ResumeHeroCard({ draft, onResume, onDiscard }) {
       <div className="flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-zinc-100 text-zinc-700 font-mono text-[11px] font-semibold tracking-wider uppercase">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
             TIẾP TỤC BÀI LÀM
           </span>
           <span className="inline-flex items-center gap-1 text-xs text-zinc-500 font-medium">
@@ -133,8 +133,8 @@ export default function ResumeHeroCard({ draft, onResume, onDiscard }) {
         </div>
         <div className="h-2 w-full bg-zinc-100 rounded-full overflow-hidden">
           <div
-            className="h-full bg-zinc-900 rounded-full transition-all duration-500"
-            style={{ width: `${details.percentage}%` }}
+            className="h-full rounded-full transition-all duration-500"
+            style={{ width: `${details.percentage}%`, background: 'var(--primary)' }}
           />
         </div>
       </div>
@@ -144,7 +144,10 @@ export default function ResumeHeroCard({ draft, onResume, onDiscard }) {
         <button
           type="button"
           onClick={() => onResume(draft)}
-          className="bg-zinc-900 hover:bg-zinc-800 text-white text-sm font-medium h-9 px-5 rounded-full transition-colors inline-flex items-center justify-center leading-none gap-2 cursor-pointer shadow-xs"
+          className="text-white text-sm font-medium h-9 px-5 rounded-full transition-colors inline-flex items-center justify-center leading-none gap-2 cursor-pointer shadow-xs"
+          style={{ background: 'var(--primary)' }}
+          onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
         >
           <Play className="w-3.5 h-3.5 fill-current" />
           <span>Tiếp tục làm bài</span>

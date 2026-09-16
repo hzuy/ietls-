@@ -7,10 +7,10 @@ import { Headphones, BookOpen, PenTool, Mic, BarChart2, Clock, Sparkles, RotateC
 import { askAITutor } from '../components/common/AIChatbotDrawer'
 
 const SKILL_META = {
-  listening: { label: 'Listening', Icon: Headphones },
-  reading:   { label: 'Reading',   Icon: BookOpen },
-  writing:   { label: 'Writing',   Icon: PenTool },
-  speaking:  { label: 'Speaking',  Icon: Mic },
+  listening: { label: 'Listening', Icon: Headphones, colorVar: '--skill-l-color', bgVar: '--skill-l-bg', borderVar: '--skill-l-border' },
+  reading:   { label: 'Reading',   Icon: BookOpen,   colorVar: '--skill-r-color', bgVar: '--skill-r-bg', borderVar: '--skill-r-border' },
+  writing:   { label: 'Writing',   Icon: PenTool,    colorVar: '--skill-w-color', bgVar: '--skill-w-bg', borderVar: '--skill-w-border' },
+  speaking:  { label: 'Speaking',  Icon: Mic,        colorVar: '--skill-s-color', bgVar: '--skill-s-bg', borderVar: '--skill-s-border' },
 }
 const SKILL_ORDER = ['listening', 'reading', 'writing', 'speaking']
 
@@ -34,7 +34,7 @@ export default function FullTestResult() {
   }, [seriesId, bookNumber, testNumber])
 
   if (loading) return (
-    <div className="min-h-screen bg-zinc-50/50">
+    <div className="min-h-screen bg-[var(--bg)]">
       <Navbar />
       <div className="bg-white border-b border-zinc-200">
         <div className="max-w-2xl mx-auto px-6 py-12 flex flex-col items-center">
@@ -64,7 +64,7 @@ export default function FullTestResult() {
   )
 
   if (error) return (
-    <div className="min-h-screen bg-zinc-50/50">
+    <div className="min-h-screen bg-[var(--bg)]">
       <Navbar />
       <div className="app-container flex flex-col items-center justify-center py-32">
         <div className="text-center p-10 bg-white rounded-2xl border border-zinc-200 shadow-xs flex flex-col items-center max-w-md w-full">
@@ -80,7 +80,7 @@ export default function FullTestResult() {
   )
 
   if (!data) return (
-    <div className="min-h-screen bg-zinc-50/50">
+    <div className="min-h-screen bg-[var(--bg)]">
       <Navbar />
       <div className="app-container flex flex-col items-center justify-center py-32">
         <div className="text-center p-10 bg-white rounded-2xl border border-zinc-200 shadow-xs flex flex-col items-center max-w-md w-full">
@@ -107,7 +107,7 @@ export default function FullTestResult() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50/50 font-sans text-zinc-900">
+    <div className="min-h-screen bg-[var(--bg)] font-sans text-zinc-900">
       <Navbar />
 
       <div className="bg-zinc-50/50 border-b border-zinc-200 pt-6 pb-2">
@@ -139,12 +139,12 @@ export default function FullTestResult() {
             </span>
             {data.isComplete ? (
               <>
-                <div className="w-24 h-24 rounded-full border-4 border-zinc-900 flex items-center justify-center mb-3">
+                <div className="w-24 h-24 rounded-full flex items-center justify-center mb-3" style={{ border: '4px solid var(--primary)' }}>
                   <span className="text-4xl font-extrabold font-mono text-zinc-900">
                     {data.overallBand}
                   </span>
                 </div>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-success-bg text-success-text border border-success-border text-xs font-semibold">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   Đủ 4 kỹ năng
                 </div>
@@ -182,7 +182,10 @@ export default function FullTestResult() {
                   return (
                     <div key={skill} className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-700 shrink-0">
+                        <div
+                          className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                          style={{ background: `var(${m.bgVar})`, color: `var(${m.colorVar})` }}
+                        >
                           <m.Icon className="w-3.5 h-3.5 stroke-[1.75]" />
                         </div>
                         <span className="font-semibold text-zinc-800">{m.label}</span>
@@ -215,7 +218,10 @@ export default function FullTestResult() {
             <button
               type="button"
               onClick={handleAskAITutor}
-              className="w-full h-9 px-4 rounded-full text-xs sm:text-sm font-medium bg-zinc-900 hover:bg-zinc-800 text-white transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+              className="w-full h-9 px-4 rounded-full text-xs sm:text-sm font-medium text-white transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+              style={{ background: 'var(--primary)' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-300" />
               Hỏi AI Tutor lộ trình
@@ -253,11 +259,15 @@ export default function FullTestResult() {
               return (
                 <div
                   key={skill}
-                  className={`border border-zinc-200 rounded-2xl p-5 flex flex-col justify-between shadow-xs transition-all ${!done ? 'opacity-70 bg-zinc-50/80 border-dashed' : 'bg-white hover:border-zinc-300'}`}
+                  className={`border rounded-2xl p-5 flex flex-col justify-between shadow-xs transition-all ${!done ? 'opacity-70 bg-zinc-50/80 border-dashed border-zinc-200' : 'bg-white'}`}
+                  style={done ? { borderColor: `var(${m.borderVar})` } : undefined}
                 >
                   <div>
                     <div className="flex items-center justify-between mb-4">
-                      <div className="w-9 h-9 rounded-xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-700">
+                      <div
+                        className="w-9 h-9 rounded-xl border flex items-center justify-center"
+                        style={{ background: `var(${m.bgVar})`, borderColor: `var(${m.borderVar})`, color: `var(${m.colorVar})` }}
+                      >
                         <m.Icon className="w-4.5 h-4.5 stroke-[1.75]" />
                       </div>
                       <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">

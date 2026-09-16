@@ -15,13 +15,13 @@ import QuestionTypeBreakdown from './exam/QuestionTypeBreakdown'
 const STATUS_COLORS = {
   correct: { bg: 'var(--success)', text: '#fff' },
   wrong:   { bg: 'var(--error)',   text: '#fff' },
-  missed:  { bg: '#6b7280',        text: '#fff' },
+  missed:  { bg: 'var(--muted)',   text: '#fff' },
 }
 
 const BADGE_COLORS = {
-  green: { bg: 'var(--success-bg)', text: 'var(--success)' },
-  red:   { bg: 'var(--error-bg)',   text: 'var(--error)' },
-  gray:  { bg: '#f3f4f6',           text: '#6b7280' },
+  green: { bg: 'var(--success-bg)',     text: 'var(--success)' },
+  red:   { bg: 'var(--error-bg)',       text: 'var(--error)' },
+  gray:  { bg: 'var(--surface-raised)', text: 'var(--muted)' },
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -145,7 +145,7 @@ const MissedLabel = () => (
   <span style={{
     fontSize: '14px',
     fontWeight: 500,
-    color: '#9ca3af',
+    color: 'var(--subtle)',
     flexShrink: 0,
   }}>
     Missed
@@ -170,14 +170,14 @@ function AnswerRow({ q, onAskAI }) {
                 {skipped ? (
                   <MissedLabel />
                 ) : rowStatus === 'wrong' ? (
-                  <span className="text-red-600 line-through text-xs sm:text-sm font-medium break-words min-w-0 flex-1 leading-normal">
+                  <span className="text-error line-through text-xs sm:text-sm font-medium break-words min-w-0 flex-1 leading-normal">
                     {rowUserAns}
                   </span>
                 ) : (
                   <span className="text-zinc-400 text-xs sm:text-sm font-medium">Đúng</span>
                 )}
                 <span className="text-zinc-300">|</span>
-                <span className="text-emerald-600 font-semibold text-xs sm:text-sm break-words min-w-0 flex-1 leading-normal">
+                <span className="text-success font-semibold text-xs sm:text-sm break-words min-w-0 flex-1 leading-normal">
                   {q.answers[i]}
                 </span>
               </div>
@@ -211,14 +211,14 @@ function AnswerRow({ q, onAskAI }) {
         {skipped ? (
           <MissedLabel />
         ) : effectiveStatus === 'wrong' ? (
-          <span className="text-red-600 line-through text-xs sm:text-sm font-medium break-words min-w-0 flex-1 leading-normal">
+          <span className="text-error line-through text-xs sm:text-sm font-medium break-words min-w-0 flex-1 leading-normal">
             {q.userAnswer}
           </span>
         ) : (
           <span className="text-zinc-400 text-xs sm:text-sm font-medium">Đúng</span>
         )}
         <span className="text-zinc-300">|</span>
-        <span className="text-emerald-600 font-semibold text-xs sm:text-sm break-words min-w-0 flex-1 leading-normal">
+        <span className="text-success font-semibold text-xs sm:text-sm break-words min-w-0 flex-1 leading-normal">
           {q.correctAnswer}
         </span>
       </div>
@@ -264,7 +264,7 @@ function SectionBlock({ section, skillType, filterStatus = 'all', onAskAI }) {
     <div>
       <p style={{
         fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
-        textTransform: 'uppercase', color: '#9ca3af',
+        textTransform: 'uppercase', color: 'var(--subtle)',
         margin: '16px 0 8px',
       }}>
         {label}
@@ -307,7 +307,7 @@ function ScoreRing({ score, maxScore, isPractice, correct, totalQuestions, bandS
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke="#e4e4e7"
+          stroke="var(--border)"
           strokeWidth={strokeWidth}
           fill="none"
         />
@@ -315,7 +315,7 @@ function ScoreRing({ score, maxScore, isPractice, correct, totalQuestions, bandS
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke="#18181b"
+          stroke="var(--primary)"
           strokeWidth={strokeWidth}
           fill="none"
           strokeLinecap="round"
@@ -342,7 +342,7 @@ function ScoreRing({ score, maxScore, isPractice, correct, totalQuestions, bandS
       <div style={{
         position: 'absolute', top: -4, right: -4,
         width: 22, height: 22, borderRadius: '50%',
-        background: '#18181b', color: '#fff',
+        background: 'var(--primary)', color: '#fff',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         zIndex: 10,
       }}>
@@ -423,7 +423,7 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
   const skillLabel = skillType === 'reading' ? 'Reading' : 'Listening'
 
   if (loading) return (
-    <div className="min-h-screen bg-zinc-50/50">
+    <div className="min-h-screen bg-[var(--bg)]">
       <div style={{ maxWidth: 780, margin: '0 auto', padding: '80px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
         {[1, 2, 3].map(i => (
           <div key={i} className="bg-white border border-zinc-200 rounded-2xl animate-pulse" style={{
@@ -435,7 +435,7 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
   )
 
   if (error) return (
-    <div className="min-h-screen bg-zinc-50/50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center p-4">
       <div className="bg-white border border-zinc-200 rounded-2xl p-8 text-center max-w-sm w-full shadow-xs">
         <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto mb-3 text-amber-600">
           <AlertCircle className="w-6 h-6 stroke-[2]" />
@@ -460,7 +460,7 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50/50 font-sans text-zinc-900">
+    <div className="min-h-screen bg-[var(--bg)] font-sans text-zinc-900">
 
       {/* ── Sticky Header ── */}
       <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 py-3 flex items-center">
@@ -521,19 +521,19 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
               <div className="h-2 w-full bg-zinc-100 rounded-full overflow-hidden flex">
                 {totalQuestions > 0 && (
                   <>
-                    <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${(correct / totalQuestions) * 100}%` }} />
-                    <div className="h-full bg-red-500 transition-all duration-500" style={{ width: `${(wrong / totalQuestions) * 100}%` }} />
+                    <div className="h-full bg-success transition-all duration-500" style={{ width: `${(correct / totalQuestions) * 100}%` }} />
+                    <div className="h-full bg-error transition-all duration-500" style={{ width: `${(wrong / totalQuestions) * 100}%` }} />
                     <div className="h-full bg-zinc-400 transition-all duration-500" style={{ width: `${(missed / totalQuestions) * 100}%` }} />
                   </>
                 )}
               </div>
               <div className="flex items-center justify-between w-full text-xs text-zinc-600 pt-1">
                 <span className="flex items-center gap-1.5 font-medium">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                  <span className="w-2 h-2 rounded-full bg-success shrink-0" />
                   Đúng: <strong className="text-zinc-900 font-bold font-mono">{correct}</strong>
                 </span>
                 <span className="flex items-center gap-1.5 font-medium">
-                  <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                  <span className="w-2 h-2 rounded-full bg-error shrink-0" />
                   Sai: <strong className="text-zinc-900 font-bold font-mono">{wrong}</strong>
                 </span>
                 <span className="flex items-center gap-1.5 font-medium">
@@ -548,7 +548,10 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
               <button
                 type="button"
                 onClick={handleRetry}
-                className="h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer shadow-xs"
+                className="h-9 px-5 rounded-full text-white text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer shadow-xs"
+                style={{ background: 'var(--primary)' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Làm lại đề này</span>
@@ -613,7 +616,7 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
                 <SectionBlock key={s.number} section={s} skillType={skillType} filterStatus={filterStatus} onAskAI={handleAskAI} />
               ))
             ) : (
-              <p style={{ color: '#6b7280', fontSize: 14, margin: 0 }}>Không có dữ liệu chi tiết cho bài thi này.</p>
+              <p style={{ color: 'var(--muted)', fontSize: 14, margin: 0 }}>Không có dữ liệu chi tiết cho bài thi này.</p>
             )}
           </div>
         </div>

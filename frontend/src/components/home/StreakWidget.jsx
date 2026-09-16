@@ -11,11 +11,11 @@ export default function StreakWidget({ streak = 0, isAuthenticated }) {
         <h3 className="text-sm font-semibold text-zinc-900">
           Chuỗi ngày luyện tập
         </h3>
-        <Flame className="w-4 h-4 text-zinc-400" />
+        <Flame className="w-4 h-4" style={{ color: 'var(--primary)' }} />
       </div>
 
       <p className="flex items-baseline gap-1.5">
-        <span className="text-2xl font-bold text-zinc-900 font-mono">
+        <span className="text-2xl font-bold font-mono" style={{ color: 'var(--primary)' }}>
           {isAuthenticated ? streak : 0}
         </span>
         <span className="text-xs text-zinc-500">ngày luyện tập liên tục</span>
@@ -27,11 +27,8 @@ export default function StreakWidget({ streak = 0, isAuthenticated }) {
           return (
             <div key={label} className="flex flex-col items-center gap-1 flex-1">
               <div
-                className={`w-full aspect-square rounded-full ${
-                  filled
-                    ? 'bg-zinc-900'
-                    : 'border border-zinc-200'
-                }`}
+                className={`w-full aspect-square rounded-full ${filled ? '' : 'border border-zinc-200'}`}
+                style={filled ? { background: 'var(--primary)' } : undefined}
               />
               <span className="text-[9px] font-mono text-zinc-400">{label}</span>
             </div>

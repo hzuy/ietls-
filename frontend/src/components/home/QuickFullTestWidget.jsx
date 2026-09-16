@@ -16,7 +16,10 @@ export default function QuickFullTestWidget({ books, onSelect }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="w-full h-9 px-4 bg-zinc-900 hover:bg-black text-white text-sm font-medium rounded-full shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
+        className="w-full h-9 px-4 text-white text-sm font-medium rounded-full shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
+        style={{ background: 'var(--primary)' }}
+        onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
+        onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
       >
         Vào thi thử Full Test
       </button>

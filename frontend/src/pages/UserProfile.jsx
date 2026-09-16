@@ -29,12 +29,12 @@ function Alert({ msg }) {
       role="alert"
       className={`mt-4 px-5 py-3 rounded-full font-medium border flex items-center gap-2.5 ${
         isSuccess
-          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-          : 'bg-rose-50 text-rose-800 border-rose-200'
+          ? 'bg-success-bg text-success-text border-success-border'
+          : 'bg-error-bg text-error-text border-error-border'
       }`}
       style={{ fontSize: 'var(--fs-sm)' }}
     >
-      <Icon className={`w-4 h-4 shrink-0 stroke-[2] ${isSuccess ? 'text-emerald-600' : 'text-rose-600'}`} />
+      <Icon className={`w-4 h-4 shrink-0 stroke-[2] ${isSuccess ? 'text-success' : 'text-error'}`} />
       <span>{msg.text}</span>
     </div>
   )
@@ -120,7 +120,7 @@ export default function UserProfile() {
   const avatarLetter = (user?.name || 'U').charAt(0).toUpperCase()
 
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <div className="min-h-screen bg-[var(--bg)]">
       <Navbar />
 
       <div className="app-container pt-6 pb-16 flex flex-col md:flex-row gap-8 items-start">
@@ -130,7 +130,7 @@ export default function UserProfile() {
 
           {/* User card */}
           <div className="card-base p-6 text-center">
-            <div className="w-16 h-16 rounded-full bg-zinc-900 text-white flex items-center justify-center text-[26px] font-bold mx-auto mb-4">
+            <div className="w-16 h-16 rounded-full bg-zinc-900 text-white flex items-center justify-center text-2xl font-bold mx-auto mb-4">
               {avatarLetter}
             </div>
             <div className="font-bold text-zinc-900 mb-1" style={{ fontSize: 'var(--fs-base)' }}>
@@ -172,7 +172,7 @@ export default function UserProfile() {
           {/* Tab: Thông tin cá nhân */}
           {activeTab === 'info' && (
             <div className="card-base p-8">
-              <h2 className="text-[20px] font-bold text-zinc-900 m-0 mb-6">
+              <h2 className="text-xl font-bold text-zinc-900 m-0 mb-6">
                 Thông tin cơ bản
               </h2>
               <form onSubmit={handleSaveInfo}>
@@ -241,7 +241,7 @@ export default function UserProfile() {
                   <div className="w-16 h-16 rounded-full bg-zinc-50 border border-zinc-200 flex items-center justify-center mb-6 text-zinc-400">
                     <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                   </div>
-                  <h2 className="text-[18px] font-bold text-zinc-900 mb-2">Không thể tải dữ liệu</h2>
+                  <h2 className="text-lg font-bold text-zinc-900 mb-2">Không thể tải dữ liệu</h2>
                   <p className="text-zinc-600 mb-6 max-w-sm" style={{ fontSize: 'var(--fs-sm)' }}>Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
                   <button className="btn-primary px-8 py-3 font-bold" style={{ fontSize: 'var(--fs-sm)' }} onClick={() => window.location.reload()}>Thử lại</button>
                 </div>
@@ -250,7 +250,7 @@ export default function UserProfile() {
                   <div className="w-16 h-16 rounded-full bg-zinc-50 border border-zinc-200 flex items-center justify-center mb-6 text-zinc-400">
                     <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                   </div>
-                  <h2 className="text-[18px] font-bold text-zinc-900 mb-2">Bạn chưa có dữ liệu học tập</h2>
+                  <h2 className="text-lg font-bold text-zinc-900 mb-2">Bạn chưa có dữ liệu học tập</h2>
                   <p className="text-zinc-600 mb-6 max-w-sm" style={{ fontSize: 'var(--fs-sm)' }}>Hãy bắt đầu luyện tập để xây dựng hồ sơ tiến bộ của mình.</p>
                   <button className="btn-primary px-8 py-3 font-bold" style={{ fontSize: 'var(--fs-sm)' }} onClick={() => navigate('/full-test')}>Bắt đầu luyện tập</button>
                 </div>
@@ -259,12 +259,15 @@ export default function UserProfile() {
                   {/* 3 stat cards */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {[
-                      { label: 'Bài đã làm', value: stats?.totalAttempts ?? 0, suffix: ' bài' },
-                      { label: 'Band trung bình', value: stats?.avgBand ? formatBand(stats.avgBand) : '0.0', suffix: '' },
-                      { label: 'Streak', value: stats?.streak ?? 0, suffix: ' ngày' },
-                    ].map(({ label, value, suffix }) => (
+                      { label: 'Bài đã làm', value: stats?.totalAttempts ?? 0, suffix: ' bài', accent: false },
+                      { label: 'Band trung bình', value: stats?.avgBand ? formatBand(stats.avgBand) : '0.0', suffix: '', accent: true },
+                      { label: 'Streak', value: stats?.streak ?? 0, suffix: ' ngày', accent: true },
+                    ].map(({ label, value, suffix, accent }) => (
                       <div key={label} className="card-base p-6 text-center">
-                        <div className="text-[32px] font-bold text-zinc-900 leading-tight" style={{ fontFamily: 'var(--font-mono)' }}>
+                        <div
+                          className="text-3xl font-bold leading-tight"
+                          style={{ fontFamily: 'var(--font-mono)', color: accent ? 'var(--primary)' : 'var(--ink)' }}
+                        >
                           {value}{suffix}
                         </div>
                         <div className="font-medium text-zinc-500 mt-1" style={{ fontSize: 'var(--fs-sm)' }}>{label}</div>
@@ -274,7 +277,7 @@ export default function UserProfile() {
 
                   {/* Band by skill */}
                   <div className="card-base p-8">
-                    <h3 className="text-[20px] font-bold text-zinc-900 m-0 mb-6">
+                    <h3 className="text-xl font-bold text-zinc-900 m-0 mb-6">
                       Band trung bình theo kỹ năng
                     </h3>
                     {SKILLS.map(({ key, label }) => {
@@ -291,8 +294,8 @@ export default function UserProfile() {
                           </div>
                           <div className="h-2 rounded-full bg-zinc-100 overflow-hidden">
                             <div
-                              className="h-full rounded-full bg-zinc-900 transition-all duration-700 ease-out"
-                              style={{ width: `${pct}%` }}
+                              className="h-full rounded-full transition-all duration-700 ease-out"
+                              style={{ width: `${pct}%`, background: 'var(--primary)' }}
                             />
                           </div>
                         </div>
@@ -312,7 +315,7 @@ export default function UserProfile() {
           {/* Tab: Đổi mật khẩu */}
           {activeTab === 'password' && (
             <div className="card-base p-8">
-              <h2 className="text-[20px] font-bold text-zinc-900 m-0 mb-6">
+              <h2 className="text-xl font-bold text-zinc-900 m-0 mb-6">
                 Đổi mật khẩu
               </h2>
               <form onSubmit={handleChangePassword}>
