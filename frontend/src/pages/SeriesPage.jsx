@@ -126,7 +126,7 @@ export default function SeriesPage({ filterPattern, title }) {
             </button>
           </Card>
         ) : books.length === 0 ? (
-          <Card variant="flat" className="text-center py-20 flex flex-col items-center">
+          <Card className="text-center py-20 flex flex-col items-center">
             <FolderArchive className="w-12 h-12 text-zinc-300 stroke-[1.5] mb-4" />
             <h3 className="font-bold text-zinc-900 text-base">Không tìm thấy bộ đề nào</h3>
             <p className="text-zinc-500 text-sm mt-1">Hiện chưa có bộ đề nào trong danh mục này</p>
