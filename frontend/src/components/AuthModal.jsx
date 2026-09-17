@@ -4,6 +4,8 @@ import { GoogleLogin } from '@react-oauth/google'
 import { login, register, googleAuth } from '../services/userService'
 import { showAlert } from '../utils/alertUtils'
 import { AlertCircle } from 'lucide-react'
+import PillButton from './common/PillButton'
+import PillInput from './common/PillInput'
 
 export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
   const navigate = useNavigate()
@@ -103,14 +105,16 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
 
-  // Đồng bộ với chuẩn admin (Profile.jsx): bo góc "vừa" (--radius-lg, không dùng rounded-full),
-  // viền 1px var(--border), input/nút cùng chiều cao (h-12) — xem AGENTS.md Việc 1.
-  const inputStyle = { border: '1px solid var(--border)', color: 'var(--text)' }
-  const inputCls   = 'w-full h-12 rounded-lg px-4 text-sm outline-none transition-all duration-300 focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900'
-  const buttonStyle = { backgroundColor: 'var(--primary)', color: '#fff' }
-  const buttonCls   = 'w-full h-12 rounded-lg text-sm font-bold mt-2 transition hover:brightness-95 active:brightness-90 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2'
+  // Bo góc pill (bản sắc riêng phía người dùng), kích thước/cỡ chữ theo chuẩn
+  // gọn của admin (h-9) — xem CLAUDE.md "Redesign giao diện người dùng".
+  // Input/nút dùng PillInput/PillButton dùng chung; label/tiêu đề style riêng
+  // vì không có component chung cho chúng.
+  const labelCls = 'block text-xs font-semibold mb-1.5'
 
-  // Khối "hoặc" + nút Google — dùng chung cho cả 2 tab, chỉ đổi text nút theo ngữ cảnh
+  // Khối "hoặc" + nút Google — dùng chung cho cả 2 tab, chỉ đổi text nút theo ngữ cảnh.
+  // shape="pill" là prop có sẵn của @react-oauth/google (Google tự render pill
+  // trong iframe riêng) — không dùng CSS/wrapper để ép hình, vì nội dung iframe
+  // nằm ngoài tầm với của CSS trang chủ.
   const googleSection = (
     <>
       {googleError && (
@@ -129,7 +133,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
           onSuccess={handleGoogleSuccess}
           onError={() => setGoogleError('Đăng nhập Google thất bại')}
           text={tab === 'register' ? 'signup_with' : 'signin_with'}
-          shape="rectangular"
+          shape="pill"
           width="320"
         />
       </div>
@@ -143,7 +147,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="w-full max-w-md rounded-2xl p-8 relative"
+        className="w-full max-w-md rounded-2xl p-6 relative"
         style={{ backgroundColor: 'var(--surface)', boxShadow: 'var(--shadow-lg)', border: '1px solid var(--border)' }}
       >
         {/* Nút X */}
@@ -193,8 +197,8 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
         {/* LOGIN */}
         {tab === 'login' && (
           <>
-            <h2 className="text-xl font-extrabold mb-1" style={{ color: 'var(--ink)' }}>Đăng nhập</h2>
-            <p className="text-sm mb-5" style={{ color: 'var(--muted)' }}>Chào mừng bạn quay lại!</p>
+            <h2 className="mb-1" style={{ color: 'var(--ink)', fontSize: '0.875rem', fontWeight: 600 }}>Đăng nhập</h2>
+            <p className="text-xs mb-5" style={{ color: 'var(--muted)' }}>Chào mừng bạn quay lại!</p>
 
             {loginError && (
               <div role="alert" className="p-3 rounded-2xl mb-4 text-xs font-medium bg-error-bg border border-error-border text-error-text flex items-center gap-2">
@@ -205,12 +209,10 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
 
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label htmlFor="login-email" className="block text-sm font-bold mb-1.5" style={{ color: 'var(--text)' }}>Email</label>
-                <input
+                <label htmlFor="login-email" className={labelCls} style={{ color: 'var(--text)' }}>Email</label>
+                <PillInput
                   id="login-email"
                   type="email"
-                  className={inputCls}
-                  style={inputStyle}
                   placeholder="example@gmail.com"
                   value={loginForm.email}
                   onChange={e => setLoginForm({ ...loginForm, email: e.target.value })}
@@ -219,26 +221,24 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
                 />
               </div>
               <div>
-                <label htmlFor="login-password" className="block text-sm font-bold mb-1.5" style={{ color: 'var(--text)' }}>Mật khẩu</label>
-                <input
+                <label htmlFor="login-password" className={labelCls} style={{ color: 'var(--text)' }}>Mật khẩu</label>
+                <PillInput
                   id="login-password"
                   type="password"
-                  className={inputCls}
-                  style={inputStyle}
                   placeholder="••••••••"
                   value={loginForm.password}
                   onChange={e => setLoginForm({ ...loginForm, password: e.target.value })}
                   required
                 />
               </div>
-              <button type="submit" disabled={loginLoading} className={buttonCls} style={buttonStyle}>
+              <PillButton type="submit" disabled={loginLoading} fullWidth className="mt-2">
                 {loginLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
-              </button>
+              </PillButton>
             </form>
 
             {googleSection}
 
-            <p className="text-center text-sm mt-5" style={{ color: 'var(--muted)' }}>
+            <p className="text-center text-xs mt-5" style={{ color: 'var(--muted)' }}>
               Chưa có tài khoản?{' '}
               <button onClick={() => onTabChange('register')} className="font-bold" style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}>
                 Đăng ký ngay
@@ -250,7 +250,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
         {/* REGISTER */}
         {tab === 'register' && (
           <>
-            <h2 className="text-xl font-extrabold mb-1" style={{ color: 'var(--ink)' }}>Tạo tài khoản học viên</h2>
+            <h2 className="mb-1" style={{ color: 'var(--ink)', fontSize: '0.875rem', fontWeight: 600 }}>Tạo tài khoản học viên</h2>
             <p className="text-xs mb-5 text-zinc-500">Lưu trữ kết quả thi và theo dõi lộ trình nâng band điểm</p>
 
             {regError && (
@@ -262,12 +262,10 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
 
             <form onSubmit={handleRegister} className="space-y-4">
               <div>
-                <label htmlFor="reg-name" className="block text-sm font-bold mb-1.5" style={{ color: 'var(--text)' }}>Họ và tên</label>
-                <input
+                <label htmlFor="reg-name" className={labelCls} style={{ color: 'var(--text)' }}>Họ và tên</label>
+                <PillInput
                   id="reg-name"
                   type="text"
-                  className={inputCls}
-                  style={inputStyle}
                   placeholder="Nguyễn Văn A"
                   value={regForm.name}
                   onChange={e => setRegForm({ ...regForm, name: e.target.value })}
@@ -276,12 +274,10 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
                 />
               </div>
               <div>
-                <label htmlFor="reg-email" className="block text-sm font-bold mb-1.5" style={{ color: 'var(--text)' }}>Email</label>
-                <input
+                <label htmlFor="reg-email" className={labelCls} style={{ color: 'var(--text)' }}>Email</label>
+                <PillInput
                   id="reg-email"
                   type="email"
-                  className={inputCls}
-                  style={inputStyle}
                   placeholder="example@gmail.com"
                   value={regForm.email}
                   onChange={e => setRegForm({ ...regForm, email: e.target.value })}
@@ -289,26 +285,24 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
                 />
               </div>
               <div>
-                <label htmlFor="reg-password" className="block text-sm font-bold mb-1.5" style={{ color: 'var(--text)' }}>Mật khẩu</label>
-                <input
+                <label htmlFor="reg-password" className={labelCls} style={{ color: 'var(--text)' }}>Mật khẩu</label>
+                <PillInput
                   id="reg-password"
                   type="password"
-                  className={inputCls}
-                  style={inputStyle}
                   placeholder="Tối thiểu 8 ký tự"
                   value={regForm.password}
                   onChange={e => setRegForm({ ...regForm, password: e.target.value })}
                   required
                 />
               </div>
-              <button type="submit" disabled={regLoading} className={buttonCls} style={buttonStyle}>
+              <PillButton type="submit" disabled={regLoading} fullWidth className="mt-2">
                 {regLoading ? 'Đang tạo tài khoản...' : 'Đăng ký miễn phí'}
-              </button>
+              </PillButton>
             </form>
 
             {googleSection}
 
-            <p className="text-center text-sm mt-5" style={{ color: 'var(--muted)' }}>
+            <p className="text-center text-xs mt-5" style={{ color: 'var(--muted)' }}>
               Đã có tài khoản?{' '}
               <button onClick={() => onTabChange('login')} className="font-bold" style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}>
                 Đăng nhập
