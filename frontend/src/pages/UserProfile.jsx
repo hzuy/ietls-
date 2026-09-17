@@ -185,7 +185,7 @@ export default function UserProfile() {
                       value={name}
                       onChange={e => setName(e.target.value)}
                       required
-                      className="w-full px-5 py-2.5 rounded-full border border-zinc-200 text-zinc-900 outline-none transition-all focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900 bg-white text-sm"
+                      className="w-full h-12 px-4 rounded-lg border border-zinc-200 text-zinc-900 outline-none transition-all focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900 bg-white text-sm"
                     />
                   </div>
                   <div>
@@ -196,7 +196,7 @@ export default function UserProfile() {
                       id="up-email"
                       value={user?.email || ''}
                       disabled
-                      className="w-full px-5 py-2.5 rounded-full border border-zinc-200 text-zinc-500 bg-zinc-50 cursor-not-allowed text-sm"
+                      className="w-full h-12 px-4 rounded-lg border border-zinc-200 text-zinc-500 bg-zinc-50 cursor-not-allowed text-sm"
                     />
                   </div>
                   <div>
@@ -207,15 +207,15 @@ export default function UserProfile() {
                       id="up-join"
                       value={joinDate}
                       disabled
-                      className="w-full px-5 py-2.5 rounded-full border border-zinc-200 text-zinc-500 bg-zinc-50 cursor-not-allowed text-sm"
+                      className="w-full h-12 px-4 rounded-lg border border-zinc-200 text-zinc-500 bg-zinc-50 cursor-not-allowed text-sm"
                     />
                   </div>
                 </div>
                 <Alert msg={infoMsg} />
                 <button
                   type="submit"
-                  className="btn-primary mt-6 px-6 py-2.5 font-bold"
-                  style={{ fontSize: 'var(--fs-sm)' }}
+                  className="h-12 px-6 rounded-lg font-bold mt-6 transition hover:brightness-95 active:brightness-90"
+                  style={{ fontSize: 'var(--fs-sm)', backgroundColor: 'var(--primary)', color: '#fff' }}
                 >
                   Lưu thay đổi
                 </button>
@@ -334,7 +334,7 @@ export default function UserProfile() {
                         value={value}
                         onChange={e => set(e.target.value)}
                         required
-                        className="w-full px-5 py-2.5 rounded-full border border-zinc-200 text-zinc-900 outline-none transition-all focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900 bg-white text-sm"
+                        className="w-full h-12 px-4 rounded-lg border border-zinc-200 text-zinc-900 outline-none transition-all focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900 bg-white text-sm"
                       />
                     </div>
                   ))}
@@ -342,8 +342,8 @@ export default function UserProfile() {
                 <Alert msg={pwdMsg} />
                 <button
                   type="submit"
-                  className="btn-primary mt-6 px-6 py-2.5 font-bold"
-                  style={{ fontSize: 'var(--fs-sm)' }}
+                  className="h-12 px-6 rounded-lg font-bold mt-6 transition hover:brightness-95 active:brightness-90"
+                  style={{ fontSize: 'var(--fs-sm)', backgroundColor: 'var(--primary)', color: '#fff' }}
                 >
                   Đổi mật khẩu
                 </button>
