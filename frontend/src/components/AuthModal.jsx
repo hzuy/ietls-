@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { GoogleLogin } from '@react-oauth/google'
 import { login, register, googleAuth } from '../services/userService'
@@ -22,6 +22,19 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
 
   // Google Sign-In state (dùng chung cho cả 2 tab)
   const [googleError, setGoogleError] = useState('')
+
+  // Đo width của modal content để truyền vào GoogleLogin.width (responsive)
+  const modalBodyRef = useRef(null)
+  const [googleBtnWidth, setGoogleBtnWidth] = useState(360)
+  useEffect(() => {
+    const el = modalBodyRef.current
+    if (!el) return
+    const observer = new ResizeObserver(([entry]) => {
+      setGoogleBtnWidth(Math.min(400, Math.max(280, Math.floor(entry.contentRect.width))))
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   // Xử lý y hệt handleLogin/handleRegister: lưu token/user, theo dõi requirePasswordChange, gọi onSuccess
   const handleGoogleSuccess = async (credentialResponse) => {
@@ -128,13 +141,17 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
         <span className="text-xs font-medium" style={{ color: 'var(--subtle)' }}>hoặc</span>
         <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
       </div>
-      <div className="flex justify-center">
+      {/* width truyền từ googleBtnWidth (đo ResizeObserver trên modal container):
+           nút Google sẽ co giãn theo chiều rộng thực của hộp thoại (max 400px)
+           thay vì cố định 320px. GoogleLogin render trong iframe sandbox riêng
+           nên chỉ có thể đồng bộ chiều rộng qua prop width, không qua CSS. */}
+      <div className="flex justify-center overflow-hidden">
         <GoogleLogin
           onSuccess={handleGoogleSuccess}
           onError={() => setGoogleError('Đăng nhập Google thất bại')}
           text={tab === 'register' ? 'signup_with' : 'signin_with'}
           shape="pill"
-          width="320"
+          width={String(googleBtnWidth)}
         />
       </div>
     </>
@@ -147,6 +164,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
     >
       <div
         onClick={e => e.stopPropagation()}
+        ref={modalBodyRef}
         className="w-full max-w-md rounded-2xl p-6 relative"
         style={{ backgroundColor: 'var(--surface)', boxShadow: 'var(--shadow-lg)', border: '1px solid var(--border)' }}
       >
@@ -176,7 +194,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
         </div>
 
         {/* Tabs */}
-        <div className="flex mb-6" style={{ borderBottom: '1px solid var(--border)' }}>
+        <div className="flex mb-4" style={{ borderBottom: '1px solid var(--border)' }}>
           {['login', 'register'].map(t => (
             <button
               key={t}
@@ -197,9 +215,6 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
         {/* LOGIN */}
         {tab === 'login' && (
           <>
-            <h2 className="mb-1" style={{ color: 'var(--ink)', fontSize: '0.875rem', fontWeight: 600 }}>Đăng nhập</h2>
-            <p className="text-xs mb-5" style={{ color: 'var(--muted)' }}>Chào mừng bạn quay lại!</p>
-
             {loginError && (
               <div role="alert" className="p-3 rounded-2xl mb-4 text-xs font-medium bg-error-bg border border-error-border text-error-text flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-error shrink-0" />
@@ -250,9 +265,6 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
         {/* REGISTER */}
         {tab === 'register' && (
           <>
-            <h2 className="mb-1" style={{ color: 'var(--ink)', fontSize: '0.875rem', fontWeight: 600 }}>Tạo tài khoản học viên</h2>
-            <p className="text-xs mb-5 text-zinc-500">Lưu trữ kết quả thi và theo dõi lộ trình nâng band điểm</p>
-
             {regError && (
               <div role="alert" className="p-3 rounded-2xl mb-4 text-xs font-medium bg-error-bg border border-error-border text-error-text flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-error shrink-0" />
@@ -296,7 +308,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
                 />
               </div>
               <PillButton type="submit" disabled={regLoading} fullWidth className="mt-2">
-                {regLoading ? 'Đang tạo tài khoản...' : 'Đăng ký miễn phí'}
+                {regLoading ? 'Đang tạo tài khoản...' : 'Đăng ký'}
               </PillButton>
             </form>
 

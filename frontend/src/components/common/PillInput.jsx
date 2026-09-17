@@ -4,12 +4,17 @@
 // input/textarea/select/button trong index.css) thay vì thu nhỏ theo admin:
 // input <16px khiến iOS Safari tự động zoom khi focus — admin không bị ảnh
 // hưởng vì admin desktop-only, phía người dùng thì có traffic mobile thật.
+//
+// placeholder:text-sm: thu nhỏ chữ gợi ý xuống ~14px cho hài hòa với các text
+// khác trong hộp thoại. Rule `input { font-size: --fs-base }` trong index.css
+// không áp dụng cho ::placeholder pseudo-element nên class này không bị override,
+// và font-size của input vẫn giữ nguyên ≥16px (iOS Safari zoom-safe).
 export default function PillInput({ className = '', ...props }) {
   return (
     <input
       className={[
         'w-full h-9 px-4 rounded-full border border-zinc-200 bg-white text-zinc-900',
-        'outline-none transition-all placeholder:text-zinc-400',
+        'outline-none transition-all placeholder:text-zinc-400 placeholder:text-sm',
         'focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10',
         'disabled:bg-zinc-50 disabled:text-zinc-500 disabled:cursor-not-allowed',
         className,
