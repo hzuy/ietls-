@@ -34,6 +34,11 @@ backend/node_modules/.prisma/
 backend/scripts/pg-migrate/dumps/
 *.dump
 
+# Python bytecode cache (sinh ra khi chạy script .py trong .claude/skills/)
+__pycache__/
+*.pyc
+*.pyo
+
 # OS
 .DS_Store
 Thumbs.db
