@@ -4,6 +4,7 @@ import { getExams } from '../../services/examService'
 import { formatBand } from '../../utils/ielts'
 import useDebounce from '../../hooks/useDebounce'
 import { SkeletonTable } from '../skeletons'
+import FetchingDim from './FetchingDim'
 import { Star } from 'lucide-react'
 import Modal from '../common/Modal'
 import Select from './Select'
@@ -37,7 +38,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
   }, [debouncedSearch, filterSeries, filterStatus, sortBy, skill])
 
   // TanStack Query: Quản lý cache và nạp đề thi theo kỹ năng
-  const { data: examsData, isPending: queryLoading, isError: queryError, refetch } = useQuery({
+  const { data: examsData, isPending: queryLoading, isFetching: queryFetching, isError: queryError, refetch } = useQuery({
     queryKey: ['admin', 'exams', skill, { page, search: debouncedSearch, status: filterStatus, seriesId: filterSeries, sortBy: sort.sortBy, sortOrder: sort.sortOrder }],
     queryFn: () => getExams({
       skill,
@@ -66,6 +67,9 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
 
   const isCurrentLoading = (queryLoading && !activeData) || (loading && !exams?.length)
   const isCurrentError = queryError || error
+  // Refetch nền (đổi filter/trang/sort) khi ĐÃ có dữ liệu cũ để giữ hiển thị —
+  // khác isCurrentLoading (chỉ true khi chưa có gì, mới cần thay bằng skeleton).
+  const isRefetching = (queryFetching && !!activeData) || (loading && !!exams?.length)
 
   // Gọi API với bộ lọc hiện tại (hỗ trợ component cha truyền fetchExams)
   const runFetch = (overrides = {}) => {
@@ -305,7 +309,8 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
           {hasActiveFilter ? 'Không tìm thấy đề nào khớp với bộ lọc.' : 'Chưa có đề nào. Tạo đề đầu tiên!'}
         </div>
       ) : (
-        <div className={`space-y-2 transition-opacity ${isCurrentLoading && filtered.length === 0 ? 'opacity-60 pointer-events-none' : ''}`}>
+        <FetchingDim isFetching={isRefetching}>
+        <div className="space-y-2">
           {filtered.map(exam => {
             const isEditing = exam.id === editingId
             const isLoading = exam.id === loadingId
@@ -381,6 +386,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
             )
           })}
         </div>
+        </FetchingDim>
       )}
 
       {/* Footer / Pagination Controls */}

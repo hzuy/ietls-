@@ -103,8 +103,12 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
 
+  // Đồng bộ với chuẩn admin (Profile.jsx): bo góc "vừa" (--radius-lg, không dùng rounded-full),
+  // viền 1px var(--border), input/nút cùng chiều cao (h-12) — xem AGENTS.md Việc 1.
   const inputStyle = { border: '1px solid var(--border)', color: 'var(--text)' }
-  const inputCls   = 'w-full rounded-full px-5 py-3 text-sm outline-none transition-all duration-300 focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900'
+  const inputCls   = 'w-full h-12 rounded-lg px-4 text-sm outline-none transition-all duration-300 focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900'
+  const buttonStyle = { backgroundColor: 'var(--primary)', color: '#fff' }
+  const buttonCls   = 'w-full h-12 rounded-lg text-sm font-bold mt-2 transition hover:brightness-95 active:brightness-90 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2'
 
   // Khối "hoặc" + nút Google — dùng chung cho cả 2 tab, chỉ đổi text nút theo ngữ cảnh
   const googleSection = (
@@ -125,7 +129,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
           onSuccess={handleGoogleSuccess}
           onError={() => setGoogleError('Đăng nhập Google thất bại')}
           text={tab === 'register' ? 'signup_with' : 'signin_with'}
-          shape="pill"
+          shape="rectangular"
           width="320"
         />
       </div>
@@ -227,11 +231,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
                   required
                 />
               </div>
-              <button
-                type="submit"
-                disabled={loginLoading}
-                className="w-full py-3 rounded-full text-sm font-bold btn-primary mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
-              >
+              <button type="submit" disabled={loginLoading} className={buttonCls} style={buttonStyle}>
                 {loginLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
               </button>
             </form>
@@ -301,11 +301,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
                   required
                 />
               </div>
-              <button
-                type="submit"
-                disabled={regLoading}
-                className="w-full py-3 rounded-full text-sm font-bold btn-primary mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
-              >
+              <button type="submit" disabled={regLoading} className={buttonCls} style={buttonStyle}>
                 {regLoading ? 'Đang tạo tài khoản...' : 'Đăng ký miễn phí'}
               </button>
             </form>

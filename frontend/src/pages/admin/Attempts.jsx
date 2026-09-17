@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { getAdminAttempts, getAdminAttemptsExport, getAdminExamSeriesForFilter } from '../../services/adminService'
 import { useToast } from '../../context/ToastContext'
 import { SkeletonTable } from '../../components/skeletons'
+import FetchingDim from '../../components/admin/FetchingDim'
 import { ADMIN_SKILL_COLORS, SKILL_LABEL } from '../../utils/adminSkillColors'
 import Modal from '../../components/common/Modal'
 import Select from '../../components/admin/Select'
@@ -165,6 +166,7 @@ export default function Attempts() {
   const {
     data = {},
     isLoading: loading,
+    isFetching,
   } = useQuery({
     queryKey: ['admin', 'attempts', {
       page, limit: 20, search: debouncedSearch, skill, seriesId,
@@ -448,6 +450,7 @@ export default function Attempts() {
         {loading ? (
           <SkeletonTable rows={8} cols={7} />
         ) : (
+        <FetchingDim isFetching={isFetching}>
         <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden w-full flex-1 shadow-xs">
           {attempts.length === 0 ? (
             <p className="text-center text-zinc-400 py-16 text-xs font-medium">Không có lượt thi nào khớp bộ lọc</p>
@@ -542,6 +545,7 @@ export default function Attempts() {
             </div>
           )}
         </div>
+        </FetchingDim>
         )}
       </div>
 

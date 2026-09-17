@@ -72,7 +72,7 @@ export default function ChangePassword() {
             <input
               id="cp-old"
               type="password"
-              className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900"
+              className="w-full h-12 rounded-lg px-4 text-sm outline-none transition-all focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900"
               style={{ border: '1px solid var(--border)', color: 'var(--text)' }}
               placeholder="••••••••"
               value={form.oldPassword}
@@ -86,7 +86,7 @@ export default function ChangePassword() {
             <input
               id="cp-new"
               type="password"
-              className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900"
+              className="w-full h-12 rounded-lg px-4 text-sm outline-none transition-all focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900"
               style={{ border: '1px solid var(--border)', color: 'var(--text)' }}
               placeholder="Tối thiểu 8 ký tự"
               value={form.newPassword}
@@ -100,7 +100,7 @@ export default function ChangePassword() {
             <input
               id="cp-confirm"
               type="password"
-              className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900"
+              className="w-full h-12 rounded-lg px-4 text-sm outline-none transition-all focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900"
               style={{ border: '1px solid var(--border)', color: 'var(--text)' }}
               placeholder="Nhập lại mật khẩu mới"
               value={form.confirm}
@@ -112,7 +112,8 @@ export default function ChangePassword() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-xl text-sm font-bold btn-primary mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full h-12 rounded-lg text-sm font-bold mt-2 transition hover:brightness-95 active:brightness-90 disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{ backgroundColor: 'var(--primary)', color: '#fff' }}
           >
             {loading ? 'Đang lưu...' : 'Xác nhận đổi mật khẩu'}
           </button>
