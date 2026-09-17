@@ -5,6 +5,7 @@ import { FolderArchive } from 'lucide-react'
 import ContentCard from '../components/common/ContentCard'
 import AcademicCover from '../components/common/AcademicCover'
 import Card from '../components/common/Card'
+import PillButton from '../components/common/PillButton'
 import { SkeletonCard } from '../components/skeletons'
 import { CONTENT_CARD_CONFIG } from '../components/common/contentCardConfig'
 import { BACKEND_URL, resolveImg } from '../utils/media'
@@ -158,7 +159,7 @@ export default function FullTest() {
             </div>
             <p className="text-lg font-bold text-zinc-900 mb-2">Không thể tải dữ liệu</p>
             <p className="text-zinc-500 mb-6 max-w-sm text-sm">Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
-            <button className="btn-primary px-8 py-3 font-bold text-sm" onClick={() => window.location.reload()}>Thử lại</button>
+            <PillButton onClick={() => window.location.reload()}>Thử lại</PillButton>
           </Card>
         ) : loading ? (
           <div className="flex flex-col gap-12">

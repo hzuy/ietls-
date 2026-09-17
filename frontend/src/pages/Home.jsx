@@ -9,6 +9,7 @@ import {
 import AcademicCover from '../components/common/AcademicCover'
 import Card from '../components/common/Card'
 import PageHeader from '../components/common/PageHeader'
+import PillButton from '../components/common/PillButton'
 import ResumeHeroCard from '../components/home/ResumeHeroCard'
 import StreakWidget from '../components/home/StreakWidget'
 import BandOverviewWidget from '../components/home/BandOverviewWidget'
@@ -29,12 +30,9 @@ function HomeSectionError({ onRetry }) {
       <p className="mb-3 text-[11px] text-zinc-500">
         Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.
       </p>
-      <button
-        onClick={onRetry || (() => window.location.reload())}
-        className="h-9 px-5 text-xs font-medium rounded-full bg-zinc-900 text-white cursor-pointer inline-flex items-center justify-center leading-none"
-      >
+      <PillButton onClick={onRetry || (() => window.location.reload())}>
         Thử lại
-      </button>
+      </PillButton>
     </div>
   )
 }

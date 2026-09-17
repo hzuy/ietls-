@@ -1,5 +1,6 @@
 import React from 'react'
 import { Clock, Play, Trash2, BookOpen, Headphones, PenTool, Mic } from 'lucide-react'
+import PillButton from '../common/PillButton'
 
 const SKILL_ICONS = {
   reading: BookOpen,
@@ -141,26 +142,15 @@ export default function ResumeHeroCard({ draft, onResume, onDiscard }) {
 
       {/* Actions footer */}
       <div className="flex flex-wrap items-center gap-3 mt-5 pt-4 border-t border-zinc-100">
-        <button
-          type="button"
-          onClick={() => onResume(draft)}
-          className="text-white text-sm font-medium h-9 px-5 rounded-full transition-colors inline-flex items-center justify-center leading-none gap-2 cursor-pointer shadow-xs"
-          style={{ background: 'var(--primary)' }}
-          onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
-        >
+        <PillButton type="button" onClick={() => onResume(draft)}>
           <Play className="w-3.5 h-3.5 fill-current" />
           <span>Tiếp tục làm bài</span>
-        </button>
+        </PillButton>
 
-        <button
-          type="button"
-          onClick={() => onDiscard(draft)}
-          className="bg-transparent hover:bg-zinc-100 text-zinc-600 text-sm font-medium h-9 px-4 rounded-full transition-colors inline-flex items-center justify-center leading-none gap-1.5 cursor-pointer"
-        >
+        <PillButton type="button" variant="ghost" onClick={() => onDiscard(draft)}>
           <Trash2 className="w-3.5 h-3.5" />
           <span>Bỏ qua / Hủy bài nháp</span>
-        </button>
+        </PillButton>
       </div>
     </div>
   )

@@ -5,6 +5,7 @@ import ContentCard from '../components/common/ContentCard'
 import AcademicCover from '../components/common/AcademicCover'
 import Card from '../components/common/Card'
 import PageHeader from '../components/common/PageHeader'
+import PillButton from '../components/common/PillButton'
 import { SkeletonCard } from '../components/skeletons'
 import { Headphones, BookOpen, PenTool, Mic, AlertCircle, RefreshCw, FolderArchive } from 'lucide-react'
 import { BACKEND_URL, resolveImg } from '../utils/media'
@@ -117,13 +118,10 @@ export default function SeriesPage({ filterPattern, title }) {
             <p className="text-zinc-500 text-sm mb-6 max-w-md leading-relaxed">
               Đã xảy ra lỗi khi kết nối tới máy chủ. Vui lòng kiểm tra lại mạng hoặc thử lại.
             </p>
-            <button
-              onClick={fetchBooks}
-              className="btn-primary flex items-center justify-center gap-2 px-6 h-9 rounded-full font-semibold text-sm cursor-pointer"
-            >
+            <PillButton onClick={fetchBooks}>
               <RefreshCw className="w-4 h-4" />
               Thử lại
-            </button>
+            </PillButton>
           </Card>
         ) : books.length === 0 ? (
           <Card className="text-center py-20 flex flex-col items-center">

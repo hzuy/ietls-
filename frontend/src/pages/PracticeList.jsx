@@ -4,6 +4,7 @@ import Breadcrumb from '../components/common/Breadcrumb'
 import ContentCard from '../components/common/ContentCard'
 import Card from '../components/common/Card'
 import PageHeader from '../components/common/PageHeader'
+import PillButton from '../components/common/PillButton'
 import AcademicCover from '../components/common/AcademicCover'
 import { SkeletonCard } from '../components/skeletons'
 import { CONTENT_CARD_CONFIG } from '../components/common/contentCardConfig'
@@ -106,7 +107,7 @@ export default function PracticeList({ skill: skillKey }) {
             </div>
             <p className="text-lg font-bold text-zinc-900 mb-2">Không thể tải dữ liệu</p>
             <p className="text-zinc-500 mb-6 max-w-sm text-sm">Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
-            <button className="btn-primary px-8 py-3 font-bold text-sm" onClick={() => window.location.reload()}>Thử lại</button>
+            <PillButton onClick={() => window.location.reload()}>Thử lại</PillButton>
           </Card>
         ) : exams.length === 0 ? (
           <Card className="text-center py-20 px-6 flex flex-col items-center">
@@ -115,7 +116,7 @@ export default function PracticeList({ skill: skillKey }) {
             </div>
             <p className="text-lg font-bold text-zinc-900 mb-2">Không tìm thấy bài luyện tập</p>
             <p className="text-zinc-500 mb-6 max-w-sm text-sm">Hãy thử lựa chọn cấp độ hoặc kỹ năng khác.</p>
-            <button className="btn-primary px-6 py-2.5 font-bold text-sm" onClick={() => navigate('/')}>Về trang chủ</button>
+            <PillButton onClick={() => navigate('/')}>Về trang chủ</PillButton>
           </Card>
         ) : (
           <>

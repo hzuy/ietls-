@@ -4,6 +4,7 @@ import { getFullTestResult } from '../services/examService'
 import Breadcrumb from '../components/common/Breadcrumb'
 import Card from '../components/common/Card'
 import PageHeader from '../components/common/PageHeader'
+import PillButton from '../components/common/PillButton'
 import useCountUp from '../hooks/useCountUp'
 import { Headphones, BookOpen, PenTool, Mic, BarChart2, Clock, Sparkles, RotateCcw, ArrowRight, CheckCircle2 } from 'lucide-react'
 import { askAITutor } from '../components/common/AIChatbotDrawer'
@@ -74,7 +75,7 @@ export default function FullTestResult() {
           </div>
           <h2 className="text-xl font-bold text-zinc-900 mb-2">Không thể kết nối</h2>
           <p className="text-sm text-zinc-600 mb-6 max-w-sm">Đã xảy ra sự cố khi tải dữ liệu bài thi. Vui lòng thử lại.</p>
-          <button className="btn-primary w-full py-2.5 text-sm font-medium" onClick={() => navigate('/full-test')}>Quay lại Full Test</button>
+          <PillButton fullWidth onClick={() => navigate('/full-test')}>Quay lại Full Test</PillButton>
         </div>
       </div>
     </div>
@@ -89,7 +90,7 @@ export default function FullTestResult() {
           </div>
           <h2 className="text-xl font-bold text-zinc-900 mb-2">Không tìm thấy kết quả bài thi</h2>
           <p className="text-sm text-zinc-600 mb-6 max-w-sm">Kết quả có thể đã bị xóa hoặc chưa được tạo.</p>
-          <button className="btn-primary w-full h-9 rounded-full px-5 text-sm font-medium" onClick={() => navigate('/full-test')}>Quay lại Full Test</button>
+          <PillButton fullWidth onClick={() => navigate('/full-test')}>Quay lại Full Test</PillButton>
         </div>
       </div>
     </div>
