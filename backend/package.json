@@ -15,7 +15,8 @@
     "db:dev:migrate-deploy": "node scripts/with-dev-db.js -- npx prisma migrate deploy",
     "db:dev:push": "node scripts/with-dev-db.js -- npx prisma db push",
     "db:dev:seed": "node scripts/with-dev-db.js -- node prisma/seed-dev.js",
-    "db:dev:studio": "node scripts/with-dev-db.js -- npx prisma studio"
+    "db:dev:studio": "node scripts/with-dev-db.js -- npx prisma studio",
+    "kill-ports": "node ../scripts/kill-dev-ports.js"
   },
   "keywords": [],
   "author": "",
