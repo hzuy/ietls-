@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { changePassword } from '../services/userService'
 import { showAlert } from '../utils/alertUtils'
+import PillButton from '../components/common/PillButton'
+import PillInput from '../components/common/PillInput'
 
 export default function ChangePassword() {
   const [form, setForm] = useState({ oldPassword: '', newPassword: '', confirm: '' })
@@ -42,7 +44,7 @@ export default function ChangePassword() {
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
       <div
-        className="w-full max-w-md rounded-2xl p-8"
+        className="w-full max-w-md rounded-2xl p-6"
         style={{ backgroundColor: 'var(--surface)', boxShadow: 'var(--shadow-lg)', border: '1px solid var(--border)' }}
       >
         <div className="flex items-center gap-2 mb-8">
@@ -68,12 +70,10 @@ export default function ChangePassword() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="cp-old" className="block text-sm font-bold mb-1.5" style={{ color: 'var(--text)' }}>Mật khẩu hiện tại</label>
-            <input
+            <label htmlFor="cp-old" className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Mật khẩu hiện tại</label>
+            <PillInput
               id="cp-old"
               type="password"
-              className="w-full h-12 rounded-lg px-4 text-sm outline-none transition-all focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900"
-              style={{ border: '1px solid var(--border)', color: 'var(--text)' }}
               placeholder="••••••••"
               value={form.oldPassword}
               onChange={e => setForm({ ...form, oldPassword: e.target.value })}
@@ -82,12 +82,10 @@ export default function ChangePassword() {
             />
           </div>
           <div>
-            <label htmlFor="cp-new" className="block text-sm font-bold mb-1.5" style={{ color: 'var(--text)' }}>Mật khẩu mới</label>
-            <input
+            <label htmlFor="cp-new" className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Mật khẩu mới</label>
+            <PillInput
               id="cp-new"
               type="password"
-              className="w-full h-12 rounded-lg px-4 text-sm outline-none transition-all focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900"
-              style={{ border: '1px solid var(--border)', color: 'var(--text)' }}
               placeholder="Tối thiểu 8 ký tự"
               value={form.newPassword}
               onChange={e => setForm({ ...form, newPassword: e.target.value })}
@@ -96,12 +94,10 @@ export default function ChangePassword() {
             />
           </div>
           <div>
-            <label htmlFor="cp-confirm" className="block text-sm font-bold mb-1.5" style={{ color: 'var(--text)' }}>Xác nhận mật khẩu mới</label>
-            <input
+            <label htmlFor="cp-confirm" className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Xác nhận mật khẩu mới</label>
+            <PillInput
               id="cp-confirm"
               type="password"
-              className="w-full h-12 rounded-lg px-4 text-sm outline-none transition-all focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900"
-              style={{ border: '1px solid var(--border)', color: 'var(--text)' }}
               placeholder="Nhập lại mật khẩu mới"
               value={form.confirm}
               onChange={e => setForm({ ...form, confirm: e.target.value })}
@@ -109,14 +105,9 @@ export default function ChangePassword() {
               autoComplete="new-password"
             />
           </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full h-12 rounded-lg text-sm font-bold mt-2 transition hover:brightness-95 active:brightness-90 disabled:opacity-60 disabled:cursor-not-allowed"
-            style={{ backgroundColor: 'var(--primary)', color: '#fff' }}
-          >
+          <PillButton type="submit" disabled={loading} fullWidth className="mt-2">
             {loading ? 'Đang lưu...' : 'Xác nhận đổi mật khẩu'}
-          </button>
+          </PillButton>
         </form>
       </div>
     </div>
