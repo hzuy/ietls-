@@ -78,7 +78,14 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3001
 if (require.main === module) {
-  app.listen(PORT, () => console.log(`Server chạy tại http://localhost:${PORT}`))
+  const server = app.listen(PORT, () => console.log(`Server chạy tại http://localhost:${PORT}`))
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`\nCổng ${PORT} đang bị chiếm bởi tiến trình khác — dừng tiến trình đó rồi chạy lại (xem "npm run kill-ports").\n`)
+      process.exit(1)
+    }
+    throw err
+  })
 }
 
 module.exports = app
