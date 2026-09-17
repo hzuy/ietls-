@@ -163,19 +163,19 @@ export default function Accounts() {
 
         {/* Form Modal */}
         {showForm && (
-          <Modal onClose={() => setShowForm(false)} title={editingId ? 'Sửa tài khoản' : 'Tạo tài khoản mới'} size="lg" className="p-6">
+          <Modal onClose={() => setShowForm(false)} title={editingId ? 'Sửa tài khoản' : 'Tạo tài khoản mới'} size="lg" className="p-6 admin-modal-form">
             <h2 className="text-base font-semibold text-zinc-900 mb-4">{editingId ? 'Sửa tài khoản' : 'Tạo tài khoản mới'}</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Họ tên</label>
                   <input value={form.name} onChange={e => setForm({...form, name: e.target.value})} required
-                    className="w-full px-3 py-2 text-xs border border-zinc-200 rounded-xl focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 bg-white text-zinc-900 placeholder:text-zinc-400 transition shadow-2xs" />
+                    className="w-full h-9 px-3 text-xs border border-zinc-200 rounded-md focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 bg-white text-zinc-900 placeholder:text-zinc-400 transition shadow-2xs" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Email</label>
                   <input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} required disabled={!!editingId}
-                    className="w-full px-3 py-2 text-xs border border-zinc-200 rounded-xl focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 disabled:bg-zinc-50 transition shadow-2xs text-zinc-900 placeholder:text-zinc-400" />
+                    className="w-full h-9 px-3 text-xs border border-zinc-200 rounded-md focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 disabled:bg-zinc-50 bg-white transition shadow-2xs text-zinc-900 placeholder:text-zinc-400" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-zinc-700 mb-1.5 block">
@@ -187,7 +187,7 @@ export default function Accounts() {
                       value={form.password}
                       onChange={e => setForm({ ...form, password: e.target.value })}
                       placeholder={editingId ? 'Mật khẩu mới' : 'Mật khẩu'}
-                      className="w-full pl-3 pr-10 py-2 text-xs border border-zinc-200 rounded-xl focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 bg-white text-zinc-900 placeholder:text-zinc-400 transition shadow-2xs"
+                      className="w-full h-9 pl-3 pr-10 text-xs border border-zinc-200 rounded-md focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 bg-white text-zinc-900 placeholder:text-zinc-400 transition shadow-2xs"
                     />
                     <button
                       type="button"

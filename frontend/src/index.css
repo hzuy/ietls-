@@ -269,6 +269,14 @@ aside nav a, aside nav button { font-family: inherit; }
    section titles / meta text use <span>/<h*> and are unaffected. */
 .admin-main :is(input, textarea, select, button, [role="button"]) { font-size: var(--fs-sm); }
 
+/* Modal.jsx portals its content to document.body (see that component's own
+   comment) — so it sits OUTSIDE .admin-main in the DOM and escapes the rule
+   above entirely, silently falling back to the ~17px meant for user-facing
+   dialogs. Admin dialogs whose content is a real form (not just confirm
+   buttons) opt in with this class on <Modal className="..."> to get the same
+   --fs-sm pull-back as the rest of the admin panel. */
+.admin-modal-form :is(input, textarea, select, button, [role="button"]) { font-size: var(--fs-sm); }
+
 /* ─── AI Tutor chatbot ───────────────────────────────────────────────────────── */
 /* Same footgun as above: the unlayered `button { font-size: var(--fs-base) }`
    silently beat `text-xs` on the suggestion chip buttons, making them render
