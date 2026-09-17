@@ -30,6 +30,17 @@ npm run test:watch
 npm run test:coverage
 ```
 
+### Cổng dev cố định — backend 3001, frontend 5173
+
+Cả hai đều **cố định**, không tự nhảy cổng khi bận: backend ném lỗi rõ ràng và thoát (`EADDRINUSE` bắt ở `server.js`) thay vì đổi cổng; frontend đặt `server.strictPort: true` trong `vite.config.js` nên Vite báo lỗi và thoát thay vì tự nhảy sang 5174/5175... Nếu gặp lỗi "cổng đang bị chiếm", nghĩa là còn tiến trình dev cũ chưa tắt — đừng đổi cổng, hãy dọn tiến trình cũ.
+
+```bash
+cd backend  && npm run kill-ports   # (hoặc) cd frontend && npm run kill-ports
+```
+Script `scripts/kill-dev-ports.js` (chạy qua npm ở cả hai thư mục) chỉ dò `netstat -ano` và tắt đúng PID đang LISTEN ở cổng 3001/5173 — không đụng tiến trình node khác trên máy.
+
+**Luôn dừng dev server bằng Ctrl+C trong terminal đang chạy nó**, không đóng thẳng cửa sổ terminal — trên Windows, đóng cửa sổ có thể để lại tiến trình `node`/`nodemon`/`vite` mồ côi vẫn giữ cổng, khiến lần chạy sau phải nhảy cổng hoặc báo lỗi bận cổng dù "không thấy gì đang chạy". Gặp tình huống đó thì chạy `kill-ports` ở trên trước khi `npm run dev` lại.
+
 ### Chạy 1 test file
 ```bash
 cd backend  && npx vitest run routes/reading.test.js
