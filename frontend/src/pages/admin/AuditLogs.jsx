@@ -10,6 +10,36 @@ import { AuditLogDetailModal, ENTITY_TYPE_LABEL, fmtDateTime } from '../../compo
 
 import { Search, RotateCcw, Eye, ChevronLeft, ChevronRight, ScrollText, Bot, UserX, X } from 'lucide-react'
 
+// Nhóm hiển thị cho Select "Loại hành động" — thuần trình bày UI, suy ra từ tiền
+// tố trước dấu chấm của action.value (vd "exam.create" → nhóm "Đề thi"). Không
+// đổi danh sách hành động thực tế (actionOptions vẫn nguyên từ API), chỉ tổ chức
+// lại cách hiển thị cho dễ tìm giữa hơn 30 mục. Khớp AUDIT_ACTIONS ở
+// backend/lib/auditActions.js.
+const ACTION_GROUP_LABEL = {
+  exam: 'Đề thi',
+  series: 'Bộ đề',
+  book: 'Cuốn sách',
+  practice: 'Đề luyện tập',
+  sample: 'Bài mẫu',
+  user: 'Người dùng',
+  staff: 'Nhân sự',
+  trash: 'Thùng rác',
+  setting: 'Cài đặt',
+  auditlog: 'Hệ thống',
+}
+const ACTION_GROUP_ORDER = Object.keys(ACTION_GROUP_LABEL)
+
+function groupActionOptions(actionOptions) {
+  const byPrefix = {}
+  for (const opt of actionOptions) {
+    const prefix = opt.value.split('.')[0]
+    ;(byPrefix[prefix] ||= []).push(opt)
+  }
+  return ACTION_GROUP_ORDER
+    .filter(prefix => byPrefix[prefix]?.length)
+    .map(prefix => ({ group: ACTION_GROUP_LABEL[prefix], options: byPrefix[prefix] }))
+}
+
 function ActorCell({ log }) {
   if (log.actorType === 'system') {
     return (
@@ -187,21 +217,7 @@ export default function AuditLogs() {
                 onChange={v => { setAction(v); setPage(1) }}
                 options={[
                   { value: '', label: 'Tất cả hành động' },
-                  ...actionOptions.map(a => ({ value: a.value, label: a.label })),
-                ]}
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Nhóm đối tượng</label>
-              <Select
-                buttonClassName="bg-zinc-50"
-                ariaLabel="Nhóm đối tượng"
-                value={entityType}
-                onChange={v => { setEntityType(v); setPage(1) }}
-                options={[
-                  { value: '', label: 'Tất cả nhóm đối tượng' },
-                  ...entityTypes.map(t => ({ value: t, label: ENTITY_TYPE_LABEL[t] || t })),
+                  ...groupActionOptions(actionOptions),
                 ]}
               />
             </div>
@@ -228,6 +244,20 @@ export default function AuditLogs() {
                   className="grouped-field flex-1 min-w-0 h-full px-2.5 text-xs bg-transparent cursor-pointer text-zinc-900 focus:outline-none [color-scheme:light] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-datetime-edit-month-field]:bg-transparent [&::-webkit-datetime-edit-day-field]:bg-transparent [&::-webkit-datetime-edit-year-field]:bg-transparent [&::-webkit-datetime-edit-month-field]:text-zinc-900 [&::-webkit-datetime-edit-day-field]:text-zinc-900 [&::-webkit-datetime-edit-year-field]:text-zinc-900"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Nhóm đối tượng</label>
+              <Select
+                buttonClassName="bg-zinc-50"
+                ariaLabel="Nhóm đối tượng"
+                value={entityType}
+                onChange={v => { setEntityType(v); setPage(1) }}
+                options={[
+                  { value: '', label: 'Tất cả nhóm đối tượng' },
+                  ...entityTypes.map(t => ({ value: t, label: ENTITY_TYPE_LABEL[t] || t })),
+                ]}
+              />
             </div>
 
             <div>
