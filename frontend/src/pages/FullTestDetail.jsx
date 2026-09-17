@@ -9,6 +9,7 @@ import { BACKEND_URL, resolveImg, handleImgError } from '../utils/media'
 import Modal from '../components/common/Modal'
 import AcademicCover from '../components/common/AcademicCover'
 import Card from '../components/common/Card'
+import PillButton from '../components/common/PillButton'
 import { SkeletonCard } from '../components/skeletons'
 
 const SKILL_META = {
@@ -178,13 +179,10 @@ export default function FullTestDetail() {
         <AlertCircle className="w-10 h-10 text-zinc-400 mb-3 stroke-[1.75]" />
         <p style={{ color: 'var(--ink)', fontWeight: 700, fontSize: 16 }}>Không thể tải dữ liệu</p>
         <p className="mb-5" style={{ color: 'var(--muted)', fontSize: 14 }}>Vui lòng kiểm tra kết nối và thử lại.</p>
-        <button
-          onClick={fetchBookData}
-          className="btn-primary flex items-center justify-center gap-2 px-6 h-9 rounded-full font-semibold text-sm cursor-pointer"
-        >
+        <PillButton onClick={fetchBookData}>
           <RefreshCw className="w-4 h-4" />
           Thử lại
-        </button>
+        </PillButton>
       </Card>
     </div>
   )
@@ -348,7 +346,7 @@ export default function FullTestDetail() {
         >
           <div className="p-6">
             <div className="flex items-center justify-between mb-5">
-              <h3 style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>{`Test ${modal.testNumber}`} — Chọn kỹ năng</h3>
+              <h3 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--ink)', margin: 0 }}>{`Test ${modal.testNumber}`} — Chọn kỹ năng</h3>
               <button
                 type="button"
                 onClick={() => setModal(null)}
@@ -381,12 +379,12 @@ export default function FullTestDetail() {
                       hasDraft ? (
                         <button
                           onClick={() => navigate(`${m.path}/${exam.id}?resume=true`)}
-                          className="w-[100px] h-8 px-4 rounded-full bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium inline-flex items-center justify-center leading-none select-none shrink-0 whitespace-nowrap transition-colors shadow-xs cursor-pointer"
+                          className="w-[100px] h-9 px-4 rounded-full bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium inline-flex items-center justify-center leading-none select-none shrink-0 whitespace-nowrap transition-colors shadow-xs cursor-pointer"
                         >Tiếp tục</button>
                       ) : (
                         <button
                           onClick={() => navigate(`${m.path}/${exam.id}`)}
-                          className="w-[100px] h-8 px-4 rounded-full text-white text-xs font-medium inline-flex items-center justify-center leading-none select-none shrink-0 whitespace-nowrap transition-colors shadow-xs cursor-pointer"
+                          className="w-[100px] h-9 px-4 rounded-full text-white text-xs font-medium inline-flex items-center justify-center leading-none select-none shrink-0 whitespace-nowrap transition-colors shadow-xs cursor-pointer"
                           style={{ background: 'var(--primary)' }}
                           onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
                           onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
