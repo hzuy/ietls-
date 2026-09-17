@@ -795,6 +795,20 @@ input:focus, textarea:focus, select:focus {
 }
 .animate-dialog-in { animation: dialogIn 150ms ease-out both; }
 
+/* 8c. Headless UI portal (admin/Select.jsx dùng Listbox anchor="bottom start") — component tự
+   portal panel option ra #headlessui-portal-root, 1 div dùng chung cuối <body>. Div này mặc định
+   position:static/z-index:auto nên KHÔNG tạo stacking context riêng: theo thứ tự vẽ CSS, nó luôn
+   bị vẽ dưới bất kỳ phần tử anh em nào của <body> có position:fixed + z-index dương (ví dụ overlay
+   Modal.jsx, z-50), bất kể portal-root nằm sau trong DOM. Hệ quả: mở Select bên trong Modal (vd
+   Role select ở Accounts.jsx) thì panel option render đúng vị trí, đúng opacity nhưng bị Modal vẽ
+   đè lên — người dùng không thấy, click cũng rơi vào Modal chứ không tới được option. Ép
+   position:relative + z-index cao hơn Modal (z-50) để portal-root tự tạo stacking context riêng,
+   luôn nổi trên mọi Modal — sửa 1 lần cho mọi tổ hợp Select-trong-Modal, không riêng Accounts.jsx. */
+#headlessui-portal-root {
+  position: relative;
+  z-index: 60;
+}
+
 /* 9. Utility: hide scrollbar while preserving scroll functionality */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
