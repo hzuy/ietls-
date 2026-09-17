@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getAdminUsers, toggleUserLock, deleteAdminUser } from '../../services/adminService'
 import { useToast } from '../../context/ToastContext'
 import { SkeletonTable } from '../../components/skeletons'
+import FetchingDim from '../../components/admin/FetchingDim'
 import { Pencil, Lock, Unlock, Trash2, SearchX } from 'lucide-react'
 import Modal from '../../components/common/Modal'
 import Select from '../../components/admin/Select'
@@ -47,6 +48,7 @@ export default function Users() {
   const {
     data,
     isPending,
+    isFetching,
   } = useQuery({
     queryKey: ['admin', 'users', { search: debouncedSearch, page, limit: 10, status: statusFilter, sort: sortBy }],
     queryFn: async () => {
@@ -189,6 +191,7 @@ export default function Users() {
         </div>
 
         {/* ── Table ──────────────────────────────────────── */}
+        <FetchingDim isFetching={isFetching}>
         <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-xs">
           {isPending && !data ? (
             <SkeletonTable rows={8} cols={6} />
@@ -333,6 +336,7 @@ export default function Users() {
             </div>
           )}
         </div>
+        </FetchingDim>
       </div>
 
       {/* ── Lock confirmation modal ────────────────────── */}

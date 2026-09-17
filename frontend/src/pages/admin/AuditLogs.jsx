@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getAdminAuditLogs, getAdminAuditLogFilters } from '../../services/adminService'
 import { SkeletonTable } from '../../components/skeletons'
+import FetchingDim from '../../components/admin/FetchingDim'
 import Select from '../../components/admin/Select'
 import { useDebounce } from '../../hooks/useDebounce'
 import { AuditLogDetailModal, ENTITY_TYPE_LABEL, fmtDateTime } from '../../components/admin/AuditLogDetailModal'
@@ -80,6 +81,7 @@ export default function AuditLogs() {
   const {
     data = {},
     isLoading: loading,
+    isFetching,
   } = useQuery({
     queryKey: ['admin', 'auditLogs', { page, limit: 20, search: debouncedSearch, actorUserId, action, entityType, entityId, dateFrom, dateTo }],
     queryFn: () => {
@@ -244,7 +246,9 @@ export default function AuditLogs() {
         {/* Data Table Card */}
         {loading ? (
           <SkeletonTable rows={8} cols={5} />
-        ) : logs.length === 0 ? (
+        ) : (
+          <FetchingDim isFetching={isFetching}>
+          {logs.length === 0 ? (
           hasActiveFilters ? (
             <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden w-full flex-1 shadow-xs">
               <p className="text-center text-zinc-400 py-16 text-xs font-medium">Không có nhật ký nào khớp bộ lọc</p>
@@ -331,6 +335,8 @@ export default function AuditLogs() {
               </div>
             )}
           </div>
+          )}
+          </FetchingDim>
         )}
       </div>
 
