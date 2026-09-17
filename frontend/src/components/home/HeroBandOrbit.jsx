@@ -1,12 +1,13 @@
 import { BookOpen, Headphones, FileText, Mic } from 'lucide-react'
 
-// Khối hình ảnh chủ đạo cho hero tối trang chủ: lõi trung tâm + 4 vệ tinh
+// Khối hình ảnh chủ đạo cho hero trang chủ: lõi trung tâm + 4 vệ tinh
 // icon kỹ năng bay quỹ đạo TRÒN quanh (Việc 2 — trước đây quỹ đạo hình vuông,
 // đổi để chuyển động mượt hơn). Tái dùng hạ tầng orbit/breathe/reduced-motion
 // đã có sẵn trong index.css (từng phục vụ bản hero "AI Neural Network" cũ,
 // hiện không còn nơi nào dùng) — chỉ đổi nội dung lõi + màu sắc, không viết
 // animation mới. Toàn bộ animation chỉ dùng transform/opacity và tự tắt khi
-// bật prefers-reduced-motion (xem .hero-net-wrap ở index.css).
+// bật prefers-reduced-motion (xem .hero-net-wrap ở index.css). Token màu
+// --net-* do Home.jsx (.home-hero-light) quyết định theo nền sáng hiện tại.
 //
 // 4 vệ tinh vốn đã nằm cách đều tâm (200,200) một khoảng ORBIT_R (là đường
 // chéo nửa của hình vuông cũ) — quỹ đạo tròn đi qua đúng 4 vị trí này mà
@@ -32,8 +33,8 @@ export default function HeroBandOrbit() {
             <stop offset="50%" style={{ stopColor: 'var(--net-grad-50)' }} />
             <stop offset="100%" style={{ stopColor: 'var(--net-grad-100)' }} />
           </radialGradient>
-          <filter id="net-glow-f" x="-100%" y="-100%" width="300%" height="300%">
-            <feGaussianBlur stdDeviation="10" />
+          <filter id="net-shadow-f" x="-60%" y="-60%" width="220%" height="220%">
+            <feDropShadow dx="0" dy="3" stdDeviation="3" floodColor="var(--net-core-border)" floodOpacity="0.5" />
           </filter>
           <filter id="net-dot-f" x="-200%" y="-200%" width="500%" height="500%">
             <feGaussianBlur stdDeviation="2" result="blur" />
@@ -78,7 +79,9 @@ export default function HeroBandOrbit() {
 
           {SATELLITES.map(({ Icon, x, y, color, label }) => (
             <g key={label}>
-              <circle cx={x} cy={y} r="26" fill="var(--net-node-bg)" stroke="var(--net-node-border)" strokeWidth="1.5" />
+              {/* Viền node theo đúng màu kỹ năng của icon bên trong — thay cho
+                  viền trung tính đồng nhất, để rõ nét trên nền sáng (Phương án A). */}
+              <circle cx={x} cy={y} r="26" fill="var(--net-node-bg)" stroke={color} strokeWidth="2" />
               <g className="net-icon-counter">
                 <Icon x={x - 12} y={y - 12} width={24} height={24} stroke={color} strokeWidth={2} />
               </g>
@@ -87,12 +90,13 @@ export default function HeroBandOrbit() {
         </g>
 
         {/* Lõi tĩnh — luôn ở tâm (200,200), không theo quỹ đạo. Để trống có chủ
-            đích (Việc 2): bỏ số điểm, giữ nguyên quả cầu gradient + quầng sáng
-            làm điểm neo thị giác cho 4 nan quỹ đạo hội tụ vào — không cần
-            thêm yếu tố thay thế, tránh trùng lặp với "Band điểm hiện tại"
-            (BandOverviewWidget) hiển thị ngay bên dưới hero. */}
-        <g className="net-core-breathe">
-          <circle cx="200" cy="200" r="58" fill="var(--net-core-glow)" className="net-glow-halo" filter="url(#net-glow-f)" opacity="0.5" />
+            đích (Việc 2): bỏ số điểm, giữ nguyên quả cầu gradient làm điểm neo
+            thị giác cho 4 nan quỹ đạo hội tụ vào — không cần thêm yếu tố thay
+            thế, tránh trùng lặp với "Band điểm hiện tại" (BandOverviewWidget)
+            hiển thị ngay bên dưới hero. Trên nền sáng, quầng sáng phát quang
+            (feGaussianBlur, chỉ ăn ý trên nền tối) được thay bằng bóng đổ nhẹ
+            (feDropShadow) — mảng màu phẳng có viền rõ, không còn "hắt sáng". */}
+        <g className="net-core-breathe" filter="url(#net-shadow-f)">
           <circle cx="200" cy="200" r="42" fill="url(#net-core-grad)" stroke="var(--net-core-border)" strokeWidth="1.5" />
         </g>
       </svg>
