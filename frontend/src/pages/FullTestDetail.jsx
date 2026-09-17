@@ -381,12 +381,12 @@ export default function FullTestDetail() {
                       hasDraft ? (
                         <button
                           onClick={() => navigate(`${m.path}/${exam.id}?resume=true`)}
-                          className="min-w-[88px] h-8 px-4 rounded-full bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium inline-flex items-center justify-center leading-none select-none shrink-0 whitespace-nowrap transition-colors shadow-xs cursor-pointer"
+                          className="w-[100px] h-8 px-4 rounded-full bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium inline-flex items-center justify-center leading-none select-none shrink-0 whitespace-nowrap transition-colors shadow-xs cursor-pointer"
                         >Tiếp tục</button>
                       ) : (
                         <button
                           onClick={() => navigate(`${m.path}/${exam.id}`)}
-                          className="min-w-[88px] h-8 px-4 rounded-full text-white text-xs font-medium inline-flex items-center justify-center leading-none select-none shrink-0 whitespace-nowrap transition-colors shadow-xs cursor-pointer"
+                          className="w-[100px] h-8 px-4 rounded-full text-white text-xs font-medium inline-flex items-center justify-center leading-none select-none shrink-0 whitespace-nowrap transition-colors shadow-xs cursor-pointer"
                           style={{ background: 'var(--primary)' }}
                           onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
                           onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
