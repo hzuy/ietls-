@@ -29,6 +29,7 @@ const prisma = require('../lib/prisma')
 const { Prisma } = require('@prisma/client')
 const { getGroqClient, getGroqModel } = require('../lib/groqClient')
 const { cleanJsonRaw, repairTruncatedJson } = require('../services/json/jsonSanitizer')
+const { printDbBanner } = require('../lib/dbInfo')
 
 function parseArgs(argv) {
   const out = { limit: null, delay: 400, skill: null, practice: false, dryRun: false, ids: null }
@@ -271,6 +272,7 @@ async function processPracticeQuestion(pq, { dryRun }) {
 
 async function main() {
   const opts = parseArgs(process.argv.slice(2))
+  printDbBanner('generate-explanations.js')
   console.log('=== generate-explanations.js ===')
   console.log('Options:', opts)
 

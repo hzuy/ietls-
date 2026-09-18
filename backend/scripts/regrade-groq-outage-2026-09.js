@@ -24,6 +24,7 @@
 const prisma = require('../lib/prisma')
 const Groq = require('groq-sdk')
 const { getGroqModel } = require('../lib/groqClient')
+const { printDbBanner } = require('../lib/dbInfo')
 
 const WRITING_ANSWER_IDS = [59]
 const SPEAKING_ANSWER_IDS = [33, 34, 35]
@@ -134,6 +135,7 @@ Trả về JSON (không có gì khác):
 }
 
 async function main() {
+  printDbBanner('regrade-groq-outage-2026-09.js')
   for (const id of WRITING_ANSWER_IDS) await regradeWriting(id)
   for (const id of SPEAKING_ANSWER_IDS) await regradeSpeaking(id)
   await prisma.$disconnect()

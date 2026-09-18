@@ -483,6 +483,8 @@ async function seed() {
 
 const isCleanupOnly = process.argv.includes('--cleanup')
 
+require('../lib/dbInfo').printDbBanner('seed_demo_analytics.js')
+
 ;(isCleanupOnly ? cleanup : seed)()
   .catch((err) => {
     console.error('❌ Lỗi khi thực thi script:', err)

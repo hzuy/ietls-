@@ -37,6 +37,7 @@ const fs = require('fs')
 const path = require('path')
 const prisma = require('../lib/prisma')
 const { uploadsDir } = require('../lib/adminUploads')
+const { printDbBanner } = require('../lib/dbInfo')
 
 const APPLY = process.argv.includes('--apply')
 
@@ -59,6 +60,7 @@ function urlToPath(url) {
 }
 
 async function run() {
+  printDbBanner('reorganize-uploads.js')
   console.log(`--- Tổ chức lại backend/uploads/: ${APPLY ? 'APPLY' : 'DRY-RUN (không ghi gì)'} ---\n`)
 
   // Gom theo url -> refs (dedupe theo file — 1 file vật lý có thể được nhiều

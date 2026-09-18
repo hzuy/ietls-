@@ -2,9 +2,13 @@
 // Dùng: node mark-password-change.js [email-admin-giữ-nguyên]
 // Ví dụ: node mark-password-change.js admin@example.com
 
-const prisma = require('./lib/prisma')
+// Đường dẫn require dưới đây trước đây là './lib/prisma' (sai — chạy sẽ luôn
+// MODULE_NOT_FOUND, script chưa từng chạy được). Sửa thành '../lib/prisma'.
+const prisma = require('../lib/prisma')
+const { printDbBanner } = require('../lib/dbInfo')
 
 async function main() {
+  printDbBanner('mark-password-change.js')
   const excludeEmail = process.argv[2] || null
 
   const where = excludeEmail

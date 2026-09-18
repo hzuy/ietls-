@@ -1,6 +1,8 @@
 const prisma = require('../lib/prisma')
+const { printDbBanner } = require('../lib/dbInfo')
 
 async function backfill() {
+  printDbBanner('backfill-writing-speaking-status.js')
   console.log('--- Bắt đầu kiểm tra và backfill trạng thái WritingAnswer / SpeakingAnswer ---')
 
   // 1. Backfill WritingAnswer

@@ -8,6 +8,7 @@
 
 require('dotenv').config()
 const { PrismaClient } = require('@prisma/client')
+const { printDbBanner } = require('../lib/dbInfo')
 const prisma = new PrismaClient()
 
 function getListeningBand(correct) {
@@ -47,6 +48,7 @@ function getReadingBand(correct) {
 }
 
 async function recalculate() {
+  printDbBanner('recalculate-scores.js')
   const attempts = await prisma.attempt.findMany({
     where: { exam: { skill: { in: ['reading', 'listening'] } } },
     include: {

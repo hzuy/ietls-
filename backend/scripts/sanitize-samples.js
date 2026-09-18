@@ -14,6 +14,7 @@
 
 const prisma = require('../lib/prisma')
 const { sanitizeRichText } = require('../lib/sanitizeHtml')
+const { printDbBanner } = require('../lib/dbInfo')
 
 const APPLY = process.argv.includes('--apply')
 
@@ -47,6 +48,7 @@ const dropped = (before, after) => {
 }
 
 async function run() {
+  printDbBanner('sanitize-samples.js')
   console.log(
     `--- Sanitize samples: ${APPLY ? 'APPLY (ghi vào DB)' : 'DRY-RUN (chỉ xem trước, không ghi)'} ---\n`
   )

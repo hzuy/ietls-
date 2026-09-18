@@ -30,6 +30,7 @@ const sharp = require('sharp')
 const prisma = require('../lib/prisma')
 const { uploadsDir } = require('../lib/adminUploads')
 const { COVER_WIDTH, WEBP_QUALITY } = require('../lib/imageResize')
+const { printDbBanner } = require('../lib/dbInfo')
 
 const APPLY = process.argv.includes('--apply')
 const RESIZABLE_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp'])
@@ -54,6 +55,7 @@ function urlToPath(url) {
 }
 
 async function run() {
+  printDbBanner('resize-existing-covers.js')
   console.log(`--- Resize ảnh bìa/thumbnail cũ: ${APPLY ? 'APPLY' : 'DRY-RUN (không ghi gì)'} ---`)
   console.log(`    width=${COVER_WIDTH}px  quality=${WEBP_QUALITY}  backup=${BACKUP_ROOT}\n`)
 
