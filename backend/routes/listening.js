@@ -258,7 +258,7 @@ router.get('/exams/:id/result-detail', authMiddleware, validate(resultDetailQuer
               questions: {
                 where: { groupId: null },
                 orderBy: { number: 'asc' },
-                select: { id: true, number: true, type: true, questionText: true, correctAnswer: true }
+                select: { id: true, number: true, type: true, questionText: true, correctAnswer: true, explanation: true }
               },
               questionGroups: {
                 orderBy: [
@@ -269,7 +269,7 @@ router.get('/exams/:id/result-detail', authMiddleware, validate(resultDetailQuer
                   id: true, type: true, qNumberStart: true, qNumberEnd: true, maxChoices: true,
                   questions: {
                     orderBy: { number: 'asc' },
-                    select: { id: true, number: true, type: true, questionText: true, correctAnswer: true }
+                    select: { id: true, number: true, type: true, questionText: true, correctAnswer: true, explanation: true }
                   }
                 }
               }
@@ -350,6 +350,7 @@ router.get('/exams/:id/result-detail', authMiddleware, validate(resultDetailQuer
           status,
           userAnswer: ans?.userAnswer || '',
           correctAnswer: q.correctAnswer,
+          explanation: q.explanation || null,
           grouped: false
         })
       }
@@ -415,7 +416,7 @@ router.get('/exams/:id/result-detail', authMiddleware, validate(resultDetailQuer
               }
             }
             
-            questions.push({ grouped: true, numbers, answers, userAnswers, statuses })
+            questions.push({ grouped: true, numbers, answers, userAnswers, statuses, explanation: q.explanation || null })
           } else {
             // All other group types — flatten to individual questions
             totalQuestions++
@@ -433,6 +434,7 @@ router.get('/exams/:id/result-detail', authMiddleware, validate(resultDetailQuer
               status,
               userAnswer: ans?.userAnswer || '',
               correctAnswer: q.correctAnswer,
+              explanation: q.explanation || null,
               grouped: false
             })
           }
