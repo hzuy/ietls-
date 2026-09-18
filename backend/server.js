@@ -78,7 +78,25 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3001
 if (require.main === module) {
-  app.listen(PORT, () => console.log(`Server chạy tại http://localhost:${PORT}`))
+  const { printDbBanner } = require('./lib/dbInfo')
+  printDbBanner('server.js')
+
+  const httpServer = app.listen(PORT, () => console.log(`Server chạy tại http://localhost:${PORT}`))
+
+  // Không có handler này, cổng đã bị chiếm (vd tiến trình server cũ chưa tắt
+  // hẳn) sẽ ném lỗi 'error' không bắt được — trên Windows qua nodemon, thông
+  // báo dễ bị chìm/khó nhận biết, khiến tưởng nhầm server mới đã chạy trong
+  // khi thực ra request đang rơi vào tiến trình cũ (đã có sự cố thật do việc
+  // này: tiến trình cũ trỏ production trả lời thay tiến trình mới trỏ dev).
+  httpServer.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`\n❌ Cổng ${PORT} đã có tiến trình khác đang dùng — rất có thể là một server cũ chưa tắt hẳn.`)
+      console.error(`   Kiểm tra và tắt tiến trình đó trước khi chạy lại (đừng giả định server mới đã chạy đúng).\n`)
+    } else {
+      console.error('\n❌ Lỗi khởi động server:', err.message, '\n')
+    }
+    process.exit(1)
+  })
 }
 
 module.exports = app
