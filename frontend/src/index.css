@@ -68,20 +68,20 @@
 /* ─── Google Fonts ──────────────────────────────────────────────────────────── */
 /* ─── Design Tokens ─────────────────────────────────────────────────────────── */
 :root {
-  /* Brand — Warm Academic (Đợt 1: bảng màu chính thức toàn app) */
-  --primary:        #5b21b6;   /* Violet 800 */
-  --primary-hover:  #4c1d95;   /* Violet 900 */
-  --primary-light:  #ede9fe;   /* Violet 100 */
+  /* Brand — Monochrome Zinc (Đợt 5: đồng bộ admin, giữ 4 màu kỹ năng) */
+  --primary:        #18181b;   /* Zinc 900 */
+  --primary-hover:  #09090b;   /* Zinc 950 */
+  --primary-light:  #f4f4f5;   /* Zinc 100 */
 
   /* Palette — Deep Ink */
   --ink:            #18181b;   /* Zinc 900 heading */
   --ink-soft:       #27272a;   /* Zinc 800 text */
 
   /* Surfaces */
-  --bg:             #fdfbf5;   /* Warm academic background (thay cho trắng thuần) */
+  --bg:             #fafafa;   /* Zinc 50 — đồng bộ nền với admin */
   --surface:        #ffffff;
   --surface-raised: #f4f4f5;   /* Zinc 100 */
-  --surface-alt:    #fafaf7;   /* Warm-tinted zinc 50 */
+  --surface-alt:    #fafafa;   /* Zinc 50 */
 
   /* Text */
   --text:           #3f3f46;   /* Zinc 700 body text */
@@ -624,24 +624,20 @@ button:disabled {
 /* Legacy alias */
 .hero-dots { position: absolute; inset: 0; background-image: radial-gradient(circle, rgba(24,24,27,0.08) 1px, transparent 1px); background-size: 24px 24px; pointer-events: none; user-select: none; opacity: 0.35; }
 
-/* ─── Home hero — "Quỹ đạo Band Score" trên nền sáng (redesign, thay bản nền
-   tối cũ). Khối hero dùng chung nền ấm --bg của toàn site (không còn wrapper
-   nền riêng cho cả trang) nên nối liền tự nhiên với phần nội dung bên dưới —
-   giống mọi trang sáng khác, không cần lớp fade riêng khi xuống Footer tối.
-   .home-hero-light chỉ override token --net-* (dùng bởi HeroBandOrbit) trong
-   phạm vi khối hero, sang tông tím nhạt có viền rõ thay cho quầng sáng/quả
-   cầu phát sáng vốn chỉ ăn trên nền tối. */
+/* ─── Home hero — "Quỹ đạo Band Score" trên nền sáng. Override token --net-*
+   sang tông zinc đơn sắc (Đợt 5); 4 vệ tinh kỹ năng giữ nguyên màu riêng
+   trong HeroBandOrbit.jsx, không bị ảnh hưởng bởi override này. */
 .home-hero-light {
   position: relative;
 
   --net-grad-0:      #ffffff;
-  --net-grad-50:     #f5f3ff;
-  --net-grad-100:    var(--primary-light);
-  --net-core-border: rgba(91,33,182,0.4);
+  --net-grad-50:     #fafafa;
+  --net-grad-100:    #f4f4f5;
+  --net-core-border: rgba(24,24,27,0.3);
   --net-node-bg:     #ffffff;
-  --net-line-stroke: rgba(91,33,182,0.22);
-  --net-dot-fill:    var(--primary);
-  --net-dec-fill:    rgba(91,33,182,0.35);
+  --net-line-stroke: rgba(24,24,27,0.18);
+  --net-dot-fill:    #18181b;
+  --net-dec-fill:    rgba(24,24,27,0.25);
 }
 
 /* Blob nền phẳng phía sau khối quỹ đạo — mảng màu pastel bo tròn lớn, mờ dần
@@ -657,12 +653,12 @@ button:disabled {
 .home-hero-blob-primary {
   width: clamp(260px, 38vw, 460px);
   height: clamp(260px, 38vw, 460px);
-  background: radial-gradient(circle, var(--primary-light), transparent 70%);
+  background: radial-gradient(circle, #f4f4f5, transparent 70%);
 }
 .home-hero-blob-accent {
   width: clamp(180px, 26vw, 320px);
   height: clamp(180px, 26vw, 320px);
-  background: radial-gradient(circle, var(--skill-l-bg), transparent 70%);
+  background: radial-gradient(circle, #f4f4f5, transparent 70%);
 }
 @keyframes home-hero-blob-breathe {
   from { opacity: 0.7; }
@@ -803,18 +799,14 @@ input:focus, textarea:focus, select:focus {
   scrollbar-width: none;
 }
 
-/* ─── Admin Isolation: strictly Neutral Zinc, never tint links, tabs, buttons or inputs blue ── */
-/* Đợt 1 đổi --primary sang tím thương hiệu cho giao diện người dùng, nhưng admin phải giữ
-   nguyên zinc đơn sắc (yêu cầu rõ ràng: không đụng giao diện admin). .btn-primary, badge active
-   nav, input focus ring... trong toàn app đều đọc var(--primary) trực tiếp, nên khai báo lại
-   token ngay trong phạm vi .admin-scope là cách chặn triệt để mà không phải sửa từng component. */
+/* ─── Admin Isolation ─────────────────────────────────────────────────────────
+   Đợt 5: :root --primary nay đã là zinc-900 (đồng bộ admin ↔ user), nhưng giữ
+   .admin-scope override để phòng trường hợp token :root bị đổi lại trong tương
+   lai — admin luôn zinc đơn sắc bất kể :root thay đổi. */
 .admin-scope {
   --primary:       #18181b;   /* Zinc 900 */
   --primary-hover: #09090b;   /* Zinc 950 / Black */
   --primary-light: #f4f4f5;   /* Zinc 100 */
-  /* Tailwind sinh utility bg-primary/text-primary/border-primary từ --color-primary
-     (khai báo trong @theme) — override luôn để phòng trường hợp có chỗ dùng class đó
-     thay vì var(--primary) trực tiếp. */
   --color-primary:       #18181b;
   --color-primary-hover: #09090b;
   --color-primary-light: #f4f4f5;

@@ -1,7 +1,7 @@
 // Chuẩn hoá feedback strengths/improvements từ AI (Groq) thành list hiển thị.
 // AI có thể trả string, mảng, hoặc object — hàm này xử lý được cả 3, không crash.
 // Dùng chung bởi WritingExam.jsx và SpeakingExam.jsx.
-export function renderFeedbackList(input, bulletColorClass = 'text-purple-600') {
+export function renderFeedbackList(input, bulletColorClass = 'text-zinc-700') {
   if (!input) return null
 
   let items = []
