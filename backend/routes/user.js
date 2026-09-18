@@ -2,8 +2,10 @@ const express = require('express')
 const router = express.Router()
 const prisma = require('../lib/prisma')
 const authMiddleware = require('../middleware/auth')
+const validate = require('../middleware/validate')
 const { roundBand, ieltsOverall } = require('../lib/scoreUtils')
 const { computeStreak } = require('../lib/streak')
+const { historyQuerySchema } = require('../validators/historyValidator')
 
 // GET /api/user/stats — thống kê luyện thi của user đang đăng nhập
 router.get('/stats', authMiddleware, async (req, res) => {
@@ -56,6 +58,85 @@ router.get('/stats', authMiddleware, async (req, res) => {
     const streak = computeStreak(finishedDates.map(a => a.finishedAt))
 
     res.json({ totalAttempts, avgBand, streak, bandBySkill })
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
+// GET /api/user/history — lịch sử làm bài Reading/Listening (đã hoàn thành) của
+// user đang đăng nhập. Chỉ trả lượt của chính req.user.userId — không nhận userId
+// từ query nên không có đường nào để xem lượt của người khác.
+router.get('/history', authMiddleware, validate(historyQuerySchema, 'query'), async (req, res) => {
+  try {
+    const userId = req.user.userId
+    const { skill, examId, page, limit } = req.validatedQuery
+    const skip = (page - 1) * limit
+
+    const where = {
+      userId,
+      finishedAt: { not: null },
+      exam: { skill: skill || { in: ['reading', 'listening'] } },
+    }
+    if (examId) where.examId = examId
+
+    const [attempts, total] = await Promise.all([
+      prisma.attempt.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { finishedAt: 'desc' },
+        select: {
+          id: true,
+          score: true,
+          finishedAt: true,
+          exam: {
+            select: {
+              id: true, title: true, skill: true, testNumber: true, bookNumber: true,
+              series: { select: { name: true } },
+            },
+          },
+        },
+      }),
+      prisma.attempt.count({ where }),
+    ])
+
+    // Số câu đúng/tổng tính từ QuestionAnswer theo attemptId (không dùng AnswerLog) —
+    // gộp 2 truy vấn groupBy trên đúng trang hiện tại, tránh N+1 theo từng attempt.
+    const attemptIds = attempts.map(a => a.id)
+    const correctByAttempt = {}
+    const totalByAttempt = {}
+    if (attemptIds.length > 0) {
+      const [totalCounts, correctCounts] = await Promise.all([
+        prisma.questionAnswer.groupBy({
+          by: ['attemptId'],
+          where: { attemptId: { in: attemptIds } },
+          _count: { _all: true },
+        }),
+        prisma.questionAnswer.groupBy({
+          by: ['attemptId'],
+          where: { attemptId: { in: attemptIds }, isCorrect: true },
+          _count: { _all: true },
+        }),
+      ])
+      totalCounts.forEach(t => { totalByAttempt[t.attemptId] = t._count._all })
+      correctCounts.forEach(c => { correctByAttempt[c.attemptId] = c._count._all })
+    }
+
+    const history = attempts.map(a => ({
+      attemptId: a.id,
+      examId: a.exam.id,
+      examTitle: a.exam.title,
+      seriesName: a.exam.series?.name ?? null,
+      bookNumber: a.exam.bookNumber,
+      testNumber: a.exam.testNumber,
+      skill: a.exam.skill,
+      correct: correctByAttempt[a.id] || 0,
+      total: totalByAttempt[a.id] || 0,
+      bandScore: a.score,
+      finishedAt: a.finishedAt,
+    }))
+
+    res.json({ history, total, page, pages: Math.ceil(total / limit) })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
   }
