@@ -28,19 +28,25 @@ const SEED_MARKER = '[SEED-DEV]'
 async function seedUsers() {
   const passwordHash = await bcrypt.hash('Password123!', 10)
 
+  // `update` KHÔNG được để rỗng — nếu để `{}`, chạy lại seed trên tài khoản đã
+  // tồn tại sẽ không đặt lại gì cả, nên nếu mật khẩu đã bị đổi (thao tác thủ
+  // công trong lúc test, hoặc gõ nhầm) thì `Password123!` ghi trong tài liệu
+  // sẽ không còn đăng nhập được nữa dù đã chạy lại seed. Luôn ghi đè password
+  // về mặc định để "chạy lại seed" thực sự nghĩa là khôi phục trạng thái biết
+  // trước, đúng như README/CLAUDE.md mô tả.
   const admin = await prisma.user.upsert({
     where: { email: 'dev-admin@example.test' },
-    update: {},
+    update: { password: passwordHash },
     create: { email: 'dev-admin@example.test', password: passwordHash, name: `${SEED_MARKER} Admin Dev`, role: 'admin' },
   })
   const teacher = await prisma.user.upsert({
     where: { email: 'dev-teacher@example.test' },
-    update: {},
+    update: { password: passwordHash },
     create: { email: 'dev-teacher@example.test', password: passwordHash, name: `${SEED_MARKER} Teacher Dev`, role: 'teacher' },
   })
   const user = await prisma.user.upsert({
     where: { email: 'dev-user@example.test' },
-    update: {},
+    update: { password: passwordHash },
     create: { email: 'dev-user@example.test', password: passwordHash, name: `${SEED_MARKER} User Dev`, role: 'user' },
   })
 
