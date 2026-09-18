@@ -9,6 +9,7 @@ import { RotateCcw, AlertCircle, Sparkles, X, Check, History } from 'lucide-reac
 import api from '../utils/axios'
 import { askAITutor } from './common/AIChatbotDrawer'
 import QuestionTypeBreakdown from './exam/QuestionTypeBreakdown'
+import ExplanationPanel from './exam/ExplanationPanel'
 import useCountUp from '../hooks/useCountUp'
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
@@ -74,6 +75,10 @@ export const splitGroupedQuestions = (questions) => {
         answers: answers.slice(i, i + pairSize),
         userAnswers: q.userAnswers?.slice(i, i + pairSize) ?? [],
         statuses: q.statuses?.slice(i, i + pairSize) ?? Array(pairSize).fill('missed'),
+        // 1 câu DB (mcq_multi) có thể bị tách thành nhiều cặp hiển thị khi
+        // maxChoices > 2 — chỉ gắn giải thích vào cặp đầu tiên, tránh lặp lại
+        // cùng nội dung giải thích ở mỗi cặp con.
+        explanation: i === 0 ? q.explanation : null,
       });
     }
   });
@@ -163,36 +168,41 @@ function AnswerRow({ q, onAskAI }) {
           const rowUserAns = q.userAnswers?.[i]
           const skipped = isMissed(rowUserAns)
           const isWrongOrSkipped = rowStatus === 'wrong' || skipped
+          const isLast = i === q.numbers.length - 1
 
           return (
-            <div key={num} className="answer-row group flex items-start sm:items-center justify-between gap-3 py-2 border-b border-zinc-100 last:border-0">
-              <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap sm:flex-nowrap">
-                <QNum num={num} status={rowStatus} />
-                {skipped ? (
-                  <MissedLabel />
-                ) : rowStatus === 'wrong' ? (
-                  <span className="text-error line-through text-xs sm:text-sm font-medium break-words min-w-0 flex-1 leading-normal">
-                    {rowUserAns}
+            <div key={num} className="answer-row group flex flex-col py-2 border-b border-zinc-100 last:border-0">
+              <div className="flex items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap sm:flex-nowrap">
+                  <QNum num={num} status={rowStatus} />
+                  {skipped ? (
+                    <MissedLabel />
+                  ) : rowStatus === 'wrong' ? (
+                    <span className="text-error line-through text-xs sm:text-sm font-medium break-words min-w-0 flex-1 leading-normal">
+                      {rowUserAns}
+                    </span>
+                  ) : (
+                    <span className="text-zinc-400 text-xs sm:text-sm font-medium">Đúng</span>
+                  )}
+                  <span className="text-zinc-300">|</span>
+                  <span className="text-success font-semibold text-xs sm:text-sm break-words min-w-0 flex-1 leading-normal">
+                    {q.answers[i]}
                   </span>
-                ) : (
-                  <span className="text-zinc-400 text-xs sm:text-sm font-medium">Đúng</span>
+                </div>
+                {isWrongOrSkipped && onAskAI && (
+                  <button
+                    type="button"
+                    onClick={() => onAskAI(num, rowUserAns, q.answers[i])}
+                    title="Hỏi AI Tutor giải thích câu này"
+                    className="shrink-0 text-[11px] font-medium text-zinc-600 hover:text-zinc-900 flex items-center gap-1 px-3 py-1 rounded-full bg-zinc-50 hover:bg-zinc-100 transition cursor-pointer border border-zinc-200 shadow-2xs"
+                  >
+                    <Sparkles className="w-3 h-3 text-amber-500" />
+                    <span>Hỏi AI Tutor</span>
+                  </button>
                 )}
-                <span className="text-zinc-300">|</span>
-                <span className="text-success font-semibold text-xs sm:text-sm break-words min-w-0 flex-1 leading-normal">
-                  {q.answers[i]}
-                </span>
               </div>
-              {isWrongOrSkipped && onAskAI && (
-                <button
-                  type="button"
-                  onClick={() => onAskAI(num, rowUserAns, q.answers[i])}
-                  title="Hỏi AI Tutor giải thích câu này"
-                  className="shrink-0 text-[11px] font-medium text-zinc-600 hover:text-zinc-900 flex items-center gap-1 px-3 py-1 rounded-full bg-zinc-50 hover:bg-zinc-100 transition cursor-pointer border border-zinc-200 shadow-2xs"
-                >
-                  <Sparkles className="w-3 h-3 text-amber-500" />
-                  <span>Hỏi AI Tutor</span>
-                </button>
-              )}
+              {/* 1 giải thích/câu DB (mcq_multi) — chỉ hiện 1 lần ở dòng cuối cùng của nhóm, tránh lặp lại cùng nội dung ở mỗi dòng con. */}
+              {isLast && <ExplanationPanel explanation={q.explanation} />}
             </div>
           )
         })}
@@ -206,34 +216,37 @@ function AnswerRow({ q, onAskAI }) {
   const isWrongOrSkipped = effectiveStatus === 'wrong' || skipped
 
   return (
-    <div className="answer-row group flex items-start sm:items-center justify-between gap-3 py-2.5 border-b border-zinc-100 last:border-0">
-      <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap sm:flex-nowrap">
-        <QNum num={q.number} status={effectiveStatus} />
-        {skipped ? (
-          <MissedLabel />
-        ) : effectiveStatus === 'wrong' ? (
-          <span className="text-error line-through text-xs sm:text-sm font-medium break-words min-w-0 flex-1 leading-normal">
-            {q.userAnswer}
+    <div className="answer-row group flex flex-col py-2.5 border-b border-zinc-100 last:border-0">
+      <div className="flex items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap sm:flex-nowrap">
+          <QNum num={q.number} status={effectiveStatus} />
+          {skipped ? (
+            <MissedLabel />
+          ) : effectiveStatus === 'wrong' ? (
+            <span className="text-error line-through text-xs sm:text-sm font-medium break-words min-w-0 flex-1 leading-normal">
+              {q.userAnswer}
+            </span>
+          ) : (
+            <span className="text-zinc-400 text-xs sm:text-sm font-medium">Đúng</span>
+          )}
+          <span className="text-zinc-300">|</span>
+          <span className="text-success font-semibold text-xs sm:text-sm break-words min-w-0 flex-1 leading-normal">
+            {q.correctAnswer}
           </span>
-        ) : (
-          <span className="text-zinc-400 text-xs sm:text-sm font-medium">Đúng</span>
+        </div>
+        {isWrongOrSkipped && onAskAI && (
+          <button
+            type="button"
+            onClick={() => onAskAI(q.number, q.userAnswer, q.correctAnswer)}
+            title="Hỏi AI Tutor giải thích câu này"
+            className="shrink-0 text-[11px] font-medium text-zinc-600 hover:text-zinc-900 flex items-center gap-1 px-3 py-1 rounded-full bg-zinc-50 hover:bg-zinc-100 transition cursor-pointer border border-zinc-200 shadow-2xs"
+          >
+            <Sparkles className="w-3 h-3 text-amber-500" />
+            <span>Hỏi AI Tutor</span>
+          </button>
         )}
-        <span className="text-zinc-300">|</span>
-        <span className="text-success font-semibold text-xs sm:text-sm break-words min-w-0 flex-1 leading-normal">
-          {q.correctAnswer}
-        </span>
       </div>
-      {isWrongOrSkipped && onAskAI && (
-        <button
-          type="button"
-          onClick={() => onAskAI(q.number, q.userAnswer, q.correctAnswer)}
-          title="Hỏi AI Tutor giải thích câu này"
-          className="shrink-0 text-[11px] font-medium text-zinc-600 hover:text-zinc-900 flex items-center gap-1 px-3 py-1 rounded-full bg-zinc-50 hover:bg-zinc-100 transition cursor-pointer border border-zinc-200 shadow-2xs"
-        >
-          <Sparkles className="w-3 h-3 text-amber-500" />
-          <span>Hỏi AI Tutor</span>
-        </button>
-      )}
+      <ExplanationPanel explanation={q.explanation} />
     </div>
   )
 }
