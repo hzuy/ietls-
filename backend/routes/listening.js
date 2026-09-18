@@ -2,7 +2,7 @@ const express = require('express')
 const authMiddleware = require('../middleware/auth')
 const validate = require('../middleware/validate')
 const { objectiveSubmitLimiter } = require('../middleware/rateLimiter')
-const { listeningSubmitSchema } = require('../validators/submissionValidator')
+const { listeningSubmitSchema, resultDetailQuerySchema } = require('../validators/submissionValidator')
 const { getListeningBand } = require('../lib/scoreUtils')
 const { getOrSet, TTL_EXAM_DETAIL } = require('../utils/cache')
 
@@ -235,12 +235,16 @@ router.post('/exams/:id/submit', authMiddleware, objectiveSubmitLimiter, validat
 })
 
 // GET /listening/exams/:id/result-detail  — Detailed answer key for result page
-router.get('/exams/:id/result-detail', authMiddleware, async (req, res) => {
+// ?attemptId= (tùy chọn) — xem lại một lượt cụ thể thay vì mặc định lượt mới nhất.
+// Luôn kiểm tra lượt đó thuộc về chính user đang đăng nhập VÀ đúng đề :id, nếu
+// không sẽ không tìm thấy (404) — không phân biệt "không tồn tại" hay "không phải của bạn".
+router.get('/exams/:id/result-detail', authMiddleware, validate(resultDetailQuerySchema, 'query'), async (req, res) => {
   try {
     const userId = req.user.userId
     const examId = parseInt(req.params.id)
+    const { attemptId } = req.validatedQuery
 
-    // Fetch exam + latest attempt + question answers in parallel
+    // Fetch exam + attempt (latest, or the requested one) + question answers in parallel
     const [exam, attempt] = await Promise.all([
       prisma.exam.findUnique({
         where: { id: examId },
@@ -274,7 +278,7 @@ router.get('/exams/:id/result-detail', authMiddleware, async (req, res) => {
         }
       }),
       prisma.attempt.findFirst({
-        where: { userId, examId },
+        where: attemptId ? { id: attemptId, userId, examId } : { userId, examId },
         orderBy: { finishedAt: 'desc' },
         select: {
           id: true, score: true,

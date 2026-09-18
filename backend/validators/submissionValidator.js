@@ -66,6 +66,12 @@ const analyticsQuerySchema = z.object({
   to: z.preprocess(emptyToUndefined, isoDate.optional()),
 })
 
+// 8. Result Detail Query Schema (dùng cho GET /reading|listening/exams/:id/result-detail)
+// ?attemptId= tùy chọn — chọn xem lại một lượt cụ thể thay vì mặc định lượt mới nhất.
+const resultDetailQuerySchema = z.object({
+  attemptId: z.preprocess(emptyToUndefined, z.coerce.number({ message: 'attemptId phải là số' }).int().positive().optional()),
+})
+
 module.exports = {
   readingSubmitSchema,
   listeningSubmitSchema,
@@ -74,4 +80,5 @@ module.exports = {
   transcribeSchema,
   attemptsQuerySchema,
   analyticsQuerySchema,
+  resultDetailQuerySchema,
 }
