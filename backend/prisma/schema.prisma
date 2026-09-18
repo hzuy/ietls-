@@ -98,6 +98,11 @@ model Question {
   options            String? // JSON array
   correctAnswer      String
   imageUrl           String?
+  // Giải thích do AI sinh 1 lần, dùng chung cho mọi người/mọi lượt xem — KHÔNG
+  // sinh lại mỗi lần mở trang kết quả. null = chưa sinh (câu vẫn hiển thị bình
+  // thường, chỉ không có khu vực giải thích). Cấu trúc 4 phần cố định:
+  // { restatement, evidence, reasoning, conclusion } — xem scripts/generate-explanations.js.
+  explanation        Json?
 
   passage          Passage?          @relation(fields: [passageId], references: [id], onDelete: Cascade)
   listeningSection ListeningSection? @relation(fields: [listeningSectionId], references: [id], onDelete: Cascade)
@@ -387,6 +392,8 @@ model PracticeQuestion {
   orderNum      Int          @default(0)
   options       String? // JSON array string
   correctAnswer String?
+  // Cùng cấu trúc/mục đích với Question.explanation ở trên — xem comment tại đó.
+  explanation   Json?
   createdAt     DateTime     @default(now())
   exam          PracticeExam @relation(fields: [examId], references: [id], onDelete: Cascade)
 }
