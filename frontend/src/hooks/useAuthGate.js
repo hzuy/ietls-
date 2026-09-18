@@ -23,6 +23,7 @@ const AUTH_PREFIXES = [
   '/speaking',          // /speaking/:id
   '/profile',
   '/progress',
+  '/history',
 ]
 
 /**

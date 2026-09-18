@@ -39,6 +39,7 @@ const SampleDetailPage  = lazy(() => import('./pages/SampleDetailPage'))
 const SamplesPage       = lazy(() => import('./pages/SamplesPage'))
 const UserProfile       = lazy(() => import('./pages/UserProfile'))
 const ProgressAnalysis  = lazy(() => import('./pages/ProgressAnalysis'))
+const HistoryPage       = lazy(() => import('./pages/History'))
 const NotFound          = lazy(() => import('./pages/NotFound'))
 
 // Admin pages — lazily loaded, heaviest chunks
@@ -182,6 +183,7 @@ export default function App() {
                     <Route path="/full-test/result" element={<PrivateRoute><FullTestResult /></PrivateRoute>} />
                     <Route path="/profile" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
                     <Route path="/progress" element={<PrivateRoute><ProgressAnalysis /></PrivateRoute>} />
+                    <Route path="/history" element={<PrivateRoute><HistoryPage /></PrivateRoute>} />
                     {/* 404 Route */}
                     <Route path="*" element={<NotFound />} />
                   </Route>
