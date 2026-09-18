@@ -4,8 +4,8 @@
  * and as a standalone page via /reading/:id/result or /listening/:id/result
  */
 import React, { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { RotateCcw, AlertCircle, Sparkles, X, Check } from 'lucide-react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { RotateCcw, AlertCircle, Sparkles, X, Check, History } from 'lucide-react'
 import api from '../utils/axios'
 import { askAITutor } from './common/AIChatbotDrawer'
 import QuestionTypeBreakdown from './exam/QuestionTypeBreakdown'
@@ -364,6 +364,11 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
   const { id: examIdParam } = useParams()
   const examId = examIdProp ?? examIdParam   // prop takes priority, fallback to URL :id
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  // ?attemptId= — xem lại một lượt cụ thể từ trang /history thay vì lượt mới nhất.
+  // Luồng nộp bài xong xem kết quả ngay không truyền attemptId → giữ nguyên hành vi cũ.
+  const attemptId = searchParams.get('attemptId')
+  const reviewFinishedAt = searchParams.get('finishedAt')
   const answerKeyRef = useRef(null)
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
@@ -391,7 +396,7 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
       return
     }
 
-    api.get(`/${skillType}/exams/${examId}/result-detail`)
+    api.get(`/${skillType}/exams/${examId}/result-detail`, { params: attemptId ? { attemptId } : {} })
       .then(r => {
         const d = r.data
         const fixed = fixSections(d.sections)
@@ -411,7 +416,7 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
       })
       .catch(e => setError(e?.response?.data?.message || 'Không thể tải kết quả'))
       .finally(() => setLoading(false))
-  }, [examId, skillType, dataProp])
+  }, [examId, skillType, dataProp, attemptId])
 
   const handleClose = () => {
     if (onClose) return onClose()
@@ -492,6 +497,28 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
       </div>
 
       <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-16">
+
+        {/* Đang xem lại một lượt đã làm trước đây (vào từ /history) — luồng nộp bài
+            xong xem kết quả ngay không có attemptId nên KHÔNG hiện banner này. */}
+        {attemptId && (
+          <div className="w-full max-w-4xl mx-auto mb-6 rounded-2xl px-4 py-3 flex flex-wrap items-center gap-x-3 gap-y-2 anim-fade-up"
+            style={{ background: 'var(--warning-bg)', border: '1px solid var(--warning-border)' }}
+          >
+            <History className="w-4 h-4 shrink-0" style={{ color: 'var(--warning-text)' }} />
+            <p className="text-sm m-0 flex-1 min-w-0" style={{ color: 'var(--warning-text)' }}>
+              Bạn đang xem lại lượt làm bài trước đó
+              {reviewFinishedAt && ` — ${new Date(reviewFinishedAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`}
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate('/history')}
+              className="text-sm font-semibold underline shrink-0 cursor-pointer bg-transparent border-none"
+              style={{ color: 'var(--warning-text)' }}
+            >
+              ← Quay lại danh sách lịch sử
+            </button>
+          </div>
+        )}
 
         {/* ── Score Card Hero Section ── */}
         <div className="w-full max-w-4xl mx-auto bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs mb-8 anim-fade-up">
