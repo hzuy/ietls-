@@ -10,7 +10,7 @@ import Modal from '../components/common/Modal'
 import AcademicCover from '../components/common/AcademicCover'
 import Card from '../components/common/Card'
 import PillButton from '../components/common/PillButton'
-import { SkeletonCard } from '../components/skeletons'
+import { UserExamListSkeleton } from '../components/skeletons'
 
 const SKILL_META = {
   reading:   { label: 'Reading',   Icon: BookOpen,   colorVar: '--skill-r-color', bgVar: '--skill-r-bg', borderVar: '--skill-r-border', path: '/reading',   desc: '3 passages · 40 câu · 60 phút' },
@@ -157,17 +157,42 @@ export default function FullTestDetail() {
   )
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
+    <div className="min-h-screen bg-[var(--bg)]">
       <div className="app-container py-6">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-6 items-start">
           <div>
-            <div className="h-[158px] bg-white rounded-2xl border border-zinc-200 shadow-xs animate-pulse mb-5" />
-            <div className="h-6 w-32 bg-zinc-200 rounded-md animate-pulse mb-3.5" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              {[1, 2, 3, 4].map(i => <SkeletonCard key={i} aspect="4/5" />)}
+            {/* Hero sách */}
+            <div className="bg-white rounded-2xl border border-zinc-200 p-6 shadow-xs mb-5 flex gap-5 items-start">
+              <div className="w-[80px] h-[110px] rounded-xl bg-zinc-200/80 animate-pulse shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-6 w-48 bg-zinc-200/90 rounded-md animate-pulse" />
+                <div className="h-4 w-72 bg-zinc-100 rounded-md animate-pulse" />
+                <div className="flex gap-4 pt-2">
+                  <div className="h-8 w-16 bg-zinc-100 rounded-lg animate-pulse" />
+                  <div className="h-8 w-16 bg-zinc-100 rounded-lg animate-pulse" />
+                </div>
+              </div>
+            </div>
+
+            <div className="h-6 w-32 bg-zinc-200/90 rounded-md animate-pulse mb-3.5" />
+            <UserExamListSkeleton count={4} />
+          </div>
+
+          {/* Sidebar sách liên quan */}
+          <div className="bg-white rounded-2xl border border-zinc-200 p-5 shadow-xs space-y-4">
+            <div className="h-4 w-32 bg-zinc-200/90 rounded-md animate-pulse" />
+            <div className="space-y-3">
+              {[0, 1, 2, 3].map(i => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="w-9 h-12 rounded-lg bg-zinc-100 animate-pulse shrink-0" />
+                  <div className="flex-1 space-y-1">
+                    <div className="h-3.5 w-24 bg-zinc-200/80 rounded-md animate-pulse" />
+                    <div className="h-3 w-16 bg-zinc-100 rounded-md animate-pulse" />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-          <div className="h-40 bg-white rounded-2xl border border-zinc-200 shadow-xs animate-pulse" />
         </div>
       </div>
     </div>

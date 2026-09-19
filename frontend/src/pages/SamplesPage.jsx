@@ -5,6 +5,7 @@ import ContentCard from '../components/common/ContentCard'
 import AcademicCover from '../components/common/AcademicCover'
 import Card from '../components/common/Card'
 import PillButton from '../components/common/PillButton'
+import { UserCardGridSkeleton } from '../components/skeletons'
 import { CONTENT_CARD_CONFIG, buildSampleChips } from '../components/common/contentCardConfig'
 import { API_BASE, resolveImg } from '../utils/media'
 
@@ -157,21 +158,7 @@ export default function SamplesPage({ skill }) {
           </div>
 
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[0,1,2,3,4,5].map(i => (
-                <div key={i} className="card-base flex flex-col h-full overflow-hidden">
-                  <div className="w-full aspect-video shrink-0 bg-zinc-200 animate-pulse" />
-                  <div className="p-4 flex flex-col flex-1 gap-3">
-                    <div className="h-4 bg-zinc-200 animate-pulse rounded w-[80%]" />
-                    <div className="h-4 bg-zinc-200 animate-pulse rounded w-[50%]" />
-                    <div className="mt-auto flex gap-2 pt-2">
-                      <div className="h-5 w-16 bg-zinc-200 animate-pulse rounded-full" />
-                      <div className="h-5 w-20 bg-zinc-200 animate-pulse rounded-full" />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <UserCardGridSkeleton aspect="16/9" count={6} hasPills={true} />
           ) : error ? (
             <Card className="text-center py-16 px-6 flex flex-col items-center">
               <div className="w-16 h-16 rounded-full bg-zinc-50 border border-zinc-200 flex items-center justify-center mb-6 text-zinc-400">

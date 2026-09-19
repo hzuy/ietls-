@@ -11,6 +11,7 @@ import { askAITutor } from './common/AIChatbotDrawer'
 import QuestionTypeBreakdown from './exam/QuestionTypeBreakdown'
 import ExplanationPanel from './exam/ExplanationPanel'
 import useCountUp from '../hooks/useCountUp'
+import { UserResultSkeleton } from './skeletons'
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 
@@ -446,17 +447,7 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
 
   const skillLabel = skillType === 'reading' ? 'Reading' : 'Listening'
 
-  if (loading) return (
-    <div className="min-h-screen bg-[var(--bg)]">
-      <div style={{ maxWidth: 780, margin: '0 auto', padding: '80px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {[1, 2, 3].map(i => (
-          <div key={i} className="bg-white border border-zinc-200 rounded-2xl animate-pulse" style={{
-            height: i === 1 ? 180 : i === 2 ? 220 : 400,
-          }} />
-        ))}
-      </div>
-    </div>
-  )
+  if (loading) return <UserResultSkeleton />
 
   if (error) return (
     <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center p-4">

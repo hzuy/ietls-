@@ -6,7 +6,7 @@ import ContentCard from '../components/common/ContentCard'
 import AcademicCover from '../components/common/AcademicCover'
 import Card from '../components/common/Card'
 import PillButton from '../components/common/PillButton'
-import { SkeletonCard } from '../components/skeletons'
+import { UserCardGridSkeleton } from '../components/skeletons'
 import { CONTENT_CARD_CONFIG } from '../components/common/contentCardConfig'
 import { BACKEND_URL, resolveImg } from '../utils/media'
 
@@ -165,12 +165,8 @@ export default function FullTest() {
           <div className="flex flex-col gap-12">
             {[1, 2].map(i => (
               <div key={i}>
-                <div className="h-7 w-48 bg-zinc-200 animate-pulse rounded-md mb-6" />
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-                  {[1, 2, 3, 4, 5].map(j => (
-                    <SkeletonCard key={j} aspect="4/5" />
-                  ))}
-                </div>
+                <div className="h-7 w-48 bg-zinc-200/90 animate-pulse rounded-md mb-6" />
+                <UserCardGridSkeleton aspect="4/5" count={5} />
               </div>
             ))}
           </div>

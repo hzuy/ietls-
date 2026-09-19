@@ -15,6 +15,7 @@ import StreakWidget from '../components/home/StreakWidget'
 import BandOverviewWidget from '../components/home/BandOverviewWidget'
 import QuickFullTestWidget from '../components/home/QuickFullTestWidget'
 import HeroBandOrbit from '../components/home/HeroBandOrbit'
+import { UserCardGridSkeleton } from '../components/skeletons'
 import { getLatestDraft, clearDraft } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
 import { useAuthGate } from '../hooks/useAuthGate'
@@ -414,15 +415,11 @@ export default function Home() {
               {fullTestsData === 'error' ? (
                 <HomeSectionError onRetry={loadData} />
               ) : fullTestsData === null ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                  {[0, 1, 2, 3, 4, 5].map(i => (
-                    <div key={i}>
-                      <div className="w-full aspect-[3/4] bg-zinc-200 rounded-xl animate-pulse" />
-                      <div className="h-3.5 bg-zinc-200 rounded mt-2.5 w-3/4 animate-pulse" />
-                      <div className="h-3 bg-zinc-200 rounded mt-1.5 w-1/2 animate-pulse" />
-                    </div>
-                  ))}
-                </div>
+                <UserCardGridSkeleton
+                  aspect="3/4"
+                  count={6}
+                  gridClassName="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4"
+                />
               ) : (
                 <CompactBookGrid
                   books={seriesTab === 'cambridge' ? cambridgeBooks : practicePlusBooks}

@@ -7,6 +7,8 @@ import Card from '../components/common/Card'
 import PageHeader from '../components/common/PageHeader'
 import StatValue from '../components/common/StatValue'
 
+import { UserHistorySkeleton } from '../components/skeletons'
+
 const SKILL_META = {
   reading:   { label: 'Reading',   colorVar: '--skill-r-color', bgVar: '--skill-r-bg', borderVar: '--skill-r-border' },
   listening: { label: 'Listening', colorVar: '--skill-l-color', bgVar: '--skill-l-bg', borderVar: '--skill-l-border' },
@@ -27,22 +29,6 @@ function SkillBadge({ skill }) {
     >
       {meta.label}
     </span>
-  )
-}
-
-function HistoryRowSkeleton() {
-  return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 px-5 py-4">
-      <div className="flex-1 min-w-0 space-y-2">
-        <div className="h-4 w-1/3 bg-zinc-200 animate-pulse rounded" />
-        <div className="h-3 w-1/4 bg-zinc-200 animate-pulse rounded" />
-      </div>
-      <div className="flex items-center gap-6 shrink-0">
-        <div className="h-6 w-16 bg-zinc-200 animate-pulse rounded" />
-        <div className="h-6 w-16 bg-zinc-200 animate-pulse rounded" />
-        <div className="h-6 w-28 bg-zinc-200 animate-pulse rounded" />
-      </div>
-    </div>
   )
 }
 
@@ -141,9 +127,7 @@ export default function HistoryPage() {
 
         {/* Danh sách */}
         {isLoading ? (
-          <Card className="overflow-hidden divide-y divide-zinc-100">
-            {[1, 2, 3, 4, 5].map(i => <HistoryRowSkeleton key={i} />)}
-          </Card>
+          <UserHistorySkeleton count={5} />
         ) : isError ? (
           <Card className="text-center py-16 px-6 flex flex-col items-center">
             <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center mb-4 text-amber-600">

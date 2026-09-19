@@ -6,7 +6,7 @@ import AcademicCover from '../components/common/AcademicCover'
 import Card from '../components/common/Card'
 import PageHeader from '../components/common/PageHeader'
 import PillButton from '../components/common/PillButton'
-import { SkeletonCard } from '../components/skeletons'
+import { UserCardGridSkeleton } from '../components/skeletons'
 import { Headphones, BookOpen, PenTool, Mic, AlertCircle, RefreshCw, FolderArchive } from 'lucide-react'
 import { BACKEND_URL, resolveImg } from '../utils/media'
 
@@ -104,11 +104,7 @@ export default function SeriesPage({ filterPattern, title }) {
 
       <div className="app-container py-6 flex-1">
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
-            {[1,2,3,4,5].map(i => (
-              <SkeletonCard key={i} aspect="3/4" />
-            ))}
-          </div>
+          <UserCardGridSkeleton aspect="3/4" count={5} />
         ) : error ? (
           <Card className="text-center py-16 px-6 flex flex-col items-center">
             <div className="w-14 h-14 rounded-2xl bg-error-bg border border-error-border flex items-center justify-center mb-4 text-error shadow-xs">

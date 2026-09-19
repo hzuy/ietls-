@@ -38,28 +38,33 @@ export default function FullTestResult() {
   }, [seriesId, bookNumber, testNumber])
 
   if (loading) return (
-    <div className="min-h-screen bg-[var(--bg)]">
+    <div
+      className="min-h-screen bg-[var(--bg)]"
+      role="status"
+      aria-label="Đang tải kết quả bài thi"
+      aria-busy="true"
+    >
       <div className="bg-white border-b border-zinc-200">
         <div className="max-w-2xl mx-auto px-6 py-12 flex flex-col items-center">
-          <div className="w-14 h-14 rounded-xl bg-zinc-200 animate-pulse mb-4" />
-          <div className="w-48 h-8 bg-zinc-200 animate-pulse rounded mb-3" />
-          <div className="w-64 h-5 bg-zinc-200 animate-pulse rounded" />
+          <div className="w-14 h-14 rounded-2xl bg-zinc-100 border border-zinc-200 animate-pulse mb-4" />
+          <div className="w-48 h-8 bg-zinc-200/90 animate-pulse rounded-md mb-3" />
+          <div className="w-64 h-5 bg-zinc-100 animate-pulse rounded-full" />
         </div>
       </div>
       <div className="app-container section-py max-w-5xl flex flex-col gap-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           <div className="lg:col-span-4 bg-white border border-zinc-200 rounded-2xl p-8 flex flex-col items-center shadow-xs">
-            <div className="w-24 h-24 bg-zinc-200 animate-pulse rounded-full mb-4" />
-            <div className="w-32 h-6 bg-zinc-200 animate-pulse rounded" />
+            <div className="w-24 h-24 bg-zinc-100 border-6 border-zinc-200 animate-pulse rounded-full mb-4" />
+            <div className="w-32 h-6 bg-zinc-200/80 animate-pulse rounded-full" />
           </div>
-          <div className="lg:col-span-5 bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs flex flex-col gap-3">
+          <div className="lg:col-span-5 bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs flex flex-col gap-3 justify-center">
             {[1, 2, 3, 4].map(i => (
-              <div key={i} className="w-full h-8 bg-zinc-200 animate-pulse rounded" />
+              <div key={i} className="w-full h-8 bg-zinc-100 animate-pulse rounded-full border border-zinc-200/50" />
             ))}
           </div>
-          <div className="lg:col-span-3 bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs flex flex-col gap-3">
-            <div className="w-full h-10 bg-zinc-200 animate-pulse rounded" />
-            <div className="w-full h-10 bg-zinc-200 animate-pulse rounded" />
+          <div className="lg:col-span-3 bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs flex flex-col gap-3 justify-center">
+            <div className="w-full h-10 bg-zinc-200/90 animate-pulse rounded-full" />
+            <div className="w-full h-10 bg-zinc-100 animate-pulse rounded-full border border-zinc-200" />
           </div>
         </div>
       </div>

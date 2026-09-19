@@ -34,8 +34,24 @@ export default function SampleDetailPage({ skill }) {
   if (loading) return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
       <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '32px 24px' }}>
+        {/* Nút quay lại */}
+        <div className="h-5 w-36 bg-zinc-200/80 rounded-full animate-pulse mb-6" />
+
         <Card className="p-8 md:p-12">
-          <SkeletonText lines={8} />
+          <div style={{ maxWidth: '900px', margin: '0 auto' }} className="space-y-6">
+            {/* Header bài mẫu: Tag pill, Title, Meta */}
+            <div className="space-y-3 pb-6 border-b border-zinc-100">
+              <div className="h-5 w-20 bg-zinc-200/80 rounded-full animate-pulse" />
+              <div className="h-7 w-4/5 bg-zinc-200/90 rounded-md animate-pulse" />
+              <div className="flex items-center gap-3 pt-1">
+                <div className="h-4 w-28 bg-zinc-100 rounded-full animate-pulse" />
+                <div className="h-4 w-20 bg-zinc-100 rounded-full animate-pulse" />
+              </div>
+            </div>
+
+            {/* Nội dung đề bài & bài mẫu */}
+            <SkeletonText lines={10} />
+          </div>
         </Card>
       </div>
     </div>

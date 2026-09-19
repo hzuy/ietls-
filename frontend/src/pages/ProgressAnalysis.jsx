@@ -10,6 +10,7 @@ import {
 import Card from '../components/common/Card'
 import PageHeader from '../components/common/PageHeader'
 import PillButton from '../components/common/PillButton'
+import { UserProgressSkeleton } from '../components/skeletons'
 import {
   TrendingUp,
   TrendingDown,
@@ -261,10 +262,7 @@ export default function ProgressAnalysis() {
 
         {/* Global Loading State */}
         {loadingStats ? (
-          <div className="space-y-6">
-            <div className="h-32 bg-white rounded-2xl p-6 border border-zinc-200 animate-pulse" />
-            <div className="h-64 bg-white rounded-2xl p-6 border border-zinc-200 animate-pulse" />
-          </div>
+          <UserProgressSkeleton />
         ) : statsError ? (
           <div className="p-6 bg-error-bg border border-error-border rounded-2xl text-error-text text-sm font-medium flex items-center justify-between">
             <span>{statsError}</span>

@@ -6,7 +6,7 @@ import Card from '../components/common/Card'
 import PageHeader from '../components/common/PageHeader'
 import PillButton from '../components/common/PillButton'
 import AcademicCover from '../components/common/AcademicCover'
-import { SkeletonCard } from '../components/skeletons'
+import { UserCardGridSkeleton } from '../components/skeletons'
 import { CONTENT_CARD_CONFIG } from '../components/common/contentCardConfig'
 import { getTypesBySkill } from '../utils/questionTypes'
 import { API_BASE, resolveImg } from '../utils/media'
@@ -97,9 +97,7 @@ export default function PracticeList({ skill: skillKey }) {
       {/* Content */}
       <div className="app-container pt-4 pb-16 flex flex-col gap-12">
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[0,1,2,3,4,5,6,7].map(i => <SkeletonCard key={i} />)}
-          </div>
+          <UserCardGridSkeleton aspect="160px" count={8} />
         ) : error ? (
           <Card className="text-center py-20 px-6 flex flex-col items-center">
             <div className="w-16 h-16 rounded-full bg-zinc-50 border border-zinc-200 flex items-center justify-center mb-6 text-zinc-400">

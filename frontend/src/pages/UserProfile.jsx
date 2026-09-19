@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import Card from '../components/common/Card'
 import PillButton from '../components/common/PillButton'
 import PillInput from '../components/common/PillInput'
+import { UserProfileSkeleton } from '../components/skeletons'
 import { getMe, updateProfile, changePassword, getUserStats } from '../services/userService'
 import { User, BarChart2, Lock, CheckCircle2, AlertCircle } from 'lucide-react'
 import { formatBand } from '../utils/ielts'
@@ -222,14 +223,7 @@ export default function UserProfile() {
           {activeTab === 'results' && (
             <div className="flex flex-col gap-6">
               {statsLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {[1, 2, 3].map(i => (
-                    <div key={i} className="card-base p-6 flex flex-col items-center justify-center h-[116px]">
-                      <div className="w-16 h-8 bg-zinc-200 animate-pulse rounded mb-2" />
-                      <div className="w-24 h-4 bg-zinc-200 animate-pulse rounded mt-1" />
-                    </div>
-                  ))}
-                </div>
+                <UserProfileSkeleton variant="results" />
               ) : statsError ? (
                 <Card className="text-center p-12 flex flex-col items-center">
                   <div className="w-16 h-16 rounded-full bg-zinc-50 border border-zinc-200 flex items-center justify-center mb-6 text-zinc-400">
