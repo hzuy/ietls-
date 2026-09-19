@@ -5,6 +5,7 @@ import { Listbox, ListboxButton, ListboxOptions, ListboxOption } from '@headless
 import { getAdminAnalytics, getAdminUser } from '../../services/adminService'
 import { Users2, BarChart2, Trophy, Award, ChevronRight, ChevronDown, Check } from 'lucide-react'
 import StudentDetailModal from '../../components/admin/StudentDetailModal'
+import { AdminAnalyticsSkeleton } from '../../components/skeletons'
 import {
   AreaChart, Area, BarChart, Bar,
   PieChart, Pie,
@@ -287,13 +288,7 @@ export default function Analytics() {
   )
 
   // ─── Initial skeleton (very first load) ─────────────────────────────────────
-  if (initialLoading) return (
-    <div style={{ padding: 24, maxWidth: 1152, margin: '0 auto' }}>
-      {[1, 2, 3].map(i => (
-        <div key={i} className="animate-pulse h-28 bg-zinc-100 rounded-2xl mb-4" />
-      ))}
-    </div>
-  )
+  if (initialLoading) return <AdminAnalyticsSkeleton />
 
   if (!data) return (
     <div className="p-8 text-zinc-400">Không thể tải dữ liệu.</div>

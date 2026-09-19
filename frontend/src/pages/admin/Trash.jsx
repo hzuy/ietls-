@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Modal from '../../components/common/Modal'
 import Select from '../../components/admin/Select'
-import { SkeletonTable } from '../../components/skeletons'
+import { AdminTableSkeleton } from '../../components/skeletons'
 
 import { getAdminTrash, restoreTrashItem, permanentDeleteTrashItem, purgeTrash, notifyTrashChanged } from '../../services/adminService'
 import { Trash2, RotateCcw, AlertTriangle } from 'lucide-react'
@@ -200,7 +200,7 @@ export default function Trash() {
 
         <div>
         {isPending && items.length === 0 ? (
-          <SkeletonTable rows={6} cols={4} />
+          <AdminTableSkeleton firstColType="text" rows={6} cols={4} />
         ) : filtered.length === 0 ? (
           <div className="w-full min-h-[340px] flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-white/50 p-8 text-center">
             <div className="w-12 h-12 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-400 mb-3">

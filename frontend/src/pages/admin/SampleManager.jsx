@@ -6,7 +6,7 @@ import { ConfirmDeleteModal, DraftBanner, DraftSavedHint, AdminListHeader, Thumb
 import { useToast } from '../../context/ToastContext'
 import ImageWithFallback from '../../components/common/ImageWithFallback'
 import Select from '../../components/admin/Select'
-import { SkeletonTable } from '../../components/skeletons'
+import { AdminTableSkeleton } from '../../components/skeletons'
 import FetchingDim from '../../components/admin/FetchingDim'
 
 import RichTextEditor from '../../components/RichTextEditor'
@@ -323,10 +323,13 @@ export default function SampleManager({ kind }) {
     <>
       <div className="p-6 max-w-6xl mx-auto">
         <AdminListHeader title={cfg.listTitle} subtitle={cfg.listSubtitle} onAdd={openAdd} addLabel={cfg.addLabel} />
-        <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-xs">
-          {isPending && list.length === 0 ? <SkeletonTable rows={6} cols={6} />
-            : list.length === 0 ? <div className="p-10 text-center text-xs text-zinc-400">Chưa có bài mẫu nào.</div>
-            : (
+        {isPending && list.length === 0 ? (
+          <AdminTableSkeleton firstColType="thumbnail" rows={6} cols={6} />
+        ) : (
+          <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-xs">
+            {list.length === 0 ? (
+              <div className="p-10 text-center text-xs text-zinc-400">Chưa có bài mẫu nào.</div>
+            ) : (
               <FetchingDim isFetching={isFetching && list.length > 0}>
               <table className="w-full">
                 <thead><tr className="border-b border-zinc-200 bg-zinc-50">
@@ -375,7 +378,8 @@ export default function SampleManager({ kind }) {
               </table>
               </FetchingDim>
             )}
-        </div>
+          </div>
+        )}
       </div>
       <ConfirmDeleteModal
         open={!!delConfirm}

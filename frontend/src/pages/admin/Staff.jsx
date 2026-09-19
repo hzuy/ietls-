@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getAdminStaff, makeAdmin, makeTeacher, removeStaff } from '../../services/adminService'
 import { useToast } from '../../context/ToastContext'
-import { SkeletonTable } from '../../components/skeletons'
+import { AdminTableSkeleton } from '../../components/skeletons'
 import Modal from '../../components/common/Modal'
 
 
@@ -108,11 +108,23 @@ export default function Staff() {
         {/* Stats */}
         <div className="grid grid-cols-2 gap-4 mb-6">
           <div className="bg-white rounded-2xl p-4 border border-zinc-200 shadow-xs">
-            <div className="text-2xl font-bold tabular-nums text-zinc-900">{adminCount}</div>
+            <div className="text-2xl font-bold tabular-nums text-zinc-900">
+              {isPending && staff.length === 0 ? (
+                <span className="inline-block w-12 h-7 bg-zinc-100 rounded animate-pulse" />
+              ) : (
+                adminCount
+              )}
+            </div>
             <div className="text-xs text-zinc-500 mt-1 font-medium">Admin</div>
           </div>
           <div className="bg-white rounded-2xl p-4 border border-zinc-200 shadow-xs">
-            <div className="text-2xl font-bold tabular-nums text-zinc-900">{teacherCount}</div>
+            <div className="text-2xl font-bold tabular-nums text-zinc-900">
+              {isPending && staff.length === 0 ? (
+                <span className="inline-block w-12 h-7 bg-zinc-100 rounded animate-pulse" />
+              ) : (
+                teacherCount
+              )}
+            </div>
             <div className="text-xs text-zinc-500 mt-1 font-medium">Teacher</div>
           </div>
         </div>
@@ -120,7 +132,7 @@ export default function Staff() {
         {/* Table */}
         <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
           {isPending && staff.length === 0 ? (
-            <SkeletonTable rows={4} cols={4} />
+            <AdminTableSkeleton firstColType="avatar" rows={4} cols={4} />
           ) : staff.length === 0 ? (
             <p className="text-center text-zinc-400 py-12 text-xs">Chưa có nhân sự nào</p>
           ) : (

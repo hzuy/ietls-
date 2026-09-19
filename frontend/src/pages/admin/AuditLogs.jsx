@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getAdminAuditLogs, getAdminAuditLogFilters } from '../../services/adminService'
-import { SkeletonTable } from '../../components/skeletons'
+import { AdminTableSkeleton } from '../../components/skeletons'
 import FetchingDim from '../../components/admin/FetchingDim'
 import Select from '../../components/admin/Select'
 import { useDebounce } from '../../hooks/useDebounce'
@@ -153,9 +153,13 @@ export default function AuditLogs() {
         <div className="mb-6">
           <h1 className="text-xl font-semibold text-zinc-900 tracking-tight flex items-center gap-2.5">
             Nhật ký hoạt động
-            <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200">
-              {total} bản ghi
-            </span>
+            {loading && !data.total ? (
+              <span className="inline-block w-16 h-5 rounded-full bg-zinc-100 animate-pulse border border-zinc-200" />
+            ) : (
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200">
+                {total} bản ghi
+              </span>
+            )}
           </h1>
           <p className="text-xs text-zinc-500 mt-1">
             Theo dõi các thao tác quản trị đã thực hiện trong hệ thống
@@ -275,7 +279,7 @@ export default function AuditLogs() {
 
         {/* Data Table Card */}
         {loading ? (
-          <SkeletonTable rows={8} cols={5} />
+          <AdminTableSkeleton firstColType="text" rows={8} cols={5} />
         ) : (
           <FetchingDim isFetching={isFetching}>
           {logs.length === 0 ? (

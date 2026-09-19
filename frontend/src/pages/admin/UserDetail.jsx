@@ -6,6 +6,7 @@ import { KeyRound } from 'lucide-react'
 import { ADMIN_SKILL_COLORS, SKILL_LABEL, SKILL_ORDER } from '../../utils/adminSkillColors'
 import { formatBand } from '../../utils/ielts'
 import Modal from '../../components/common/Modal'
+import { AdminDetailSkeleton } from '../../components/skeletons'
 
 export default function UserDetail() {
   const { showToast } = useToast()
@@ -27,11 +28,7 @@ export default function UserDetail() {
       .finally(() => setLoading(false))
   }, [id])
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <div className="w-8 h-8 border-4 border-zinc-900 border-t-transparent rounded-full animate-spin" />
-    </div>
-  )
+  if (loading) return <AdminDetailSkeleton />
 
   if (!data) return <div className="p-8 text-zinc-400">Không tìm thấy người dùng.</div>
 

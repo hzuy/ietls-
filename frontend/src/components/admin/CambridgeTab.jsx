@@ -4,6 +4,7 @@ import { showAlert } from '../../utils/alertUtils'
 import { notifyTrashChanged } from '../../services/adminService'
 import { SeriesCard, SeriesDetailView } from './CambridgeBookComponents'
 import { BookOpen } from 'lucide-react'
+import { AdminGridSkeleton } from '../skeletons'
 
 // ─── TAB: SERIES & BOOKS ──────────────────────────────────────────────────────
 
@@ -173,7 +174,7 @@ function CambridgeTab({ initialSeriesList = [], onExamsChanged }) {
           )}
 
           {loading ? (
-            <p className="text-xs text-zinc-400 text-center py-6">Đang tải...</p>
+            <AdminGridSkeleton count={6} />
           ) : seriesList.length === 0 && !loadError ? (
             <div className="text-center py-12 border-2 border-dashed border-zinc-200 rounded-xl">
               <BookOpen className="w-8 h-8 mx-auto mb-2 text-zinc-300 stroke-[1.5]" />

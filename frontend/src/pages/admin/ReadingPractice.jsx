@@ -19,6 +19,7 @@ import {
 import AdminGroupPreview from '../../components/practice/AdminGroupPreview'
 import ImageWithFallback from '../../components/common/ImageWithFallback'
 import Select from '../../components/admin/Select'
+import { AdminTableSkeleton } from '../../components/skeletons'
 
 // ─── PREVIEW MODAL ────────────────────────────────────────────────────────────
 function ReadingPracticePreviewModal({ form, showAnswers, setShowAnswers, onClose }) {
@@ -372,13 +373,14 @@ export default function ReadingPractice() {
           onAdd={openAdd}
         />
 
-        <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-xs">
-          {isPending && list.length === 0 ? (
-            <div className="p-10 text-center text-sm text-zinc-400">Đang tải...</div>
-          ) : list.length === 0 ? (
-            <div className="p-10 text-center text-sm text-zinc-400">Chưa có bài nào. Bấm "+ Thêm mới" để bắt đầu.</div>
-          ) : (
-            <table className="w-full">
+        {isPending && list.length === 0 ? (
+          <AdminTableSkeleton firstColType="thumbnail" rows={6} cols={5} />
+        ) : (
+          <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-xs">
+            {list.length === 0 ? (
+              <div className="p-10 text-center text-sm text-zinc-400">Chưa có bài nào. Bấm "+ Thêm mới" để bắt đầu.</div>
+            ) : (
+              <table className="w-full">
               <thead>
                 <tr className="border-b border-zinc-200 bg-zinc-50">
                   <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 w-16">Ảnh</th>
@@ -418,9 +420,10 @@ export default function ReadingPractice() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-          )}
-        </div>
+              </table>
+            )}
+          </div>
+        )}
       </div>
 
       <ConfirmDeleteModal

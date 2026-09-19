@@ -222,7 +222,13 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
           { label: 'Chưa có câu hỏi', value: stats ? stats.noQuestionsCount : '—' },
         ].map(card => (
           <div key={card.label} className="rounded-lg p-3 bg-white border border-zinc-200 shadow-2xs">
-            <div className="text-xl font-bold text-zinc-900">{card.value}</div>
+            <div className="text-xl font-bold text-zinc-900">
+              {isCurrentLoading && !stats ? (
+                <span className="inline-block w-12 h-6 bg-zinc-100 rounded animate-pulse" />
+              ) : (
+                card.value
+              )}
+            </div>
             <div className="text-xs mt-0.5 text-zinc-500">{card.label}</div>
           </div>
         ))}

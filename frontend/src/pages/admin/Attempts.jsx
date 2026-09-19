@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getAdminAttempts, getAdminAttemptsExport, getAdminExamSeriesForFilter } from '../../services/adminService'
 import { useToast } from '../../context/ToastContext'
-import { SkeletonTable } from '../../components/skeletons'
+import { AdminTableSkeleton } from '../../components/skeletons'
 import FetchingDim from '../../components/admin/FetchingDim'
 import { ADMIN_SKILL_COLORS, SKILL_LABEL } from '../../utils/adminSkillColors'
 import Modal from '../../components/common/Modal'
@@ -293,9 +293,13 @@ export default function Attempts() {
           <div>
             <h1 className="text-xl font-semibold text-zinc-900 tracking-tight flex items-center gap-2.5">
               Lịch sử bài thi
-              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200">
-                {total} lượt
-              </span>
+              {loading && !data.total ? (
+                <span className="inline-block w-14 h-5 rounded-full bg-zinc-100 animate-pulse border border-zinc-200" />
+              ) : (
+                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200">
+                  {total} lượt
+                </span>
+              )}
             </h1>
             <p className="text-xs text-zinc-500 mt-1">
               Quản lý và tra cứu chi tiết các lượt làm bài thi của học viên
@@ -448,7 +452,7 @@ export default function Attempts() {
 
         {/* Data Table Card */}
         {loading ? (
-          <SkeletonTable rows={8} cols={7} />
+          <AdminTableSkeleton firstColType="checkbox" rows={8} cols={7} />
         ) : (
         <FetchingDim isFetching={isFetching}>
         <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden w-full flex-1 shadow-xs">
