@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Modal from '../../components/common/Modal'
+import Select from '../../components/admin/Select'
 import { SkeletonTable } from '../../components/skeletons'
 
 import { getAdminTrash, restoreTrashItem, permanentDeleteTrashItem, purgeTrash, notifyTrashChanged } from '../../services/adminService'
@@ -26,18 +27,23 @@ const TYPE_LABEL = {
 // not by colour (matches Attempts.jsx).
 const BADGE_CLS = 'text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-700 border border-zinc-200'
 
+// Nhóm hiển thị cho Select "Lọc theo loại" — thuần trình bày UI (gom 11 danh mục
+// theo loại đối tượng), không đổi danh mục/khóa lọc thực tế. Khớp cách nhóm
+// "Loại hành động" ở AuditLogs.jsx (groupActionOptions).
+const GROUP_LABEL = { practice: 'Đề luyện tập', exam: 'Đề thi Cambridge', sample: 'Bài mẫu' }
+const GROUP_ORDER = ['practice', 'exam', 'sample']
+
 const TABS = [
-  { key: 'all',                label: 'Tất cả' },
-  { key: 'reading_practice',   label: 'Reading Practice' },
-  { key: 'listening_practice', label: 'Listening Practice' },
-  { key: 'writing_sample',     label: 'Writing Samples' },
-  { key: 'speaking_sample',    label: 'Speaking Samples' },
-  { key: 'exam_reading',       label: 'Reading' },
-  { key: 'exam_listening',     label: 'Listening' },
-  { key: 'exam_writing',       label: 'Writing' },
-  { key: 'exam_speaking',      label: 'Speaking' },
-  { key: 'exam_series',        label: 'Bộ đề' },
-  { key: 'book',               label: 'Cuốn sách' },
+  { key: 'reading_practice',   label: 'Reading Practice',   group: 'practice' },
+  { key: 'listening_practice', label: 'Listening Practice', group: 'practice' },
+  { key: 'exam_reading',       label: 'Reading',             group: 'exam' },
+  { key: 'exam_listening',     label: 'Listening',           group: 'exam' },
+  { key: 'exam_writing',       label: 'Writing',             group: 'exam' },
+  { key: 'exam_speaking',      label: 'Speaking',            group: 'exam' },
+  { key: 'exam_series',        label: 'Bộ đề',                group: 'exam' },
+  { key: 'book',                label: 'Cuốn sách',           group: 'exam' },
+  { key: 'writing_sample',     label: 'Writing Samples',     group: 'sample' },
+  { key: 'speaking_sample',    label: 'Speaking Samples',    group: 'sample' },
 ]
 
 // Whole days left before the 30-day auto-purge removes this item.
@@ -141,6 +147,17 @@ export default function Trash() {
   const countByType = {}
   for (const item of items) countByType[item.type] = (countByType[item.type] || 0) + 1
 
+  const filterOptions = [
+    { value: 'all', label: items.length > 0 ? `Tất cả (${items.length})` : 'Tất cả' },
+    ...GROUP_ORDER.map(g => ({
+      group: GROUP_LABEL[g],
+      options: TABS.filter(t => t.group === g).map(t => {
+        const cnt = countByType[t.key] || 0
+        return { value: t.key, label: cnt > 0 ? `${t.label} (${cnt})` : t.label }
+      }),
+    })),
+  ]
+
   return (
     <>
       <div className="p-6 max-w-6xl mx-auto">
@@ -166,48 +183,22 @@ export default function Trash() {
           )}
         </div>
 
-        {/* Tabs — 11 pills cố định; cột theo breakpoint chọn để 11 chia dư tối đa 1 (hàng cuối chỉ
-            hụt đúng 1 pill với 2/3/4/6 cột) thay vì flex-wrap tự nhiên, vốn để hàng cuối hụt hẳn
-            nhiều item vì độ rộng pill lệch nhau theo độ dài nhãn. Giữ 4 cột suốt lg→xl (không nhảy
-            lên 6 ở xl=1280px) vì ở đó nhãn 2 từ dài nhất ("Speaking Samples") vỡ dòng — chỉ đủ chỗ
-            cho 6 cột không vỡ dòng từ 2xl=1536px trở lên. */}
-        <div
-          role="tablist"
-          aria-label="Lọc theo loại"
-          className="p-1.5 sm:p-2 bg-zinc-100/90 border border-zinc-200/80 rounded-2xl grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-1.5 sm:gap-2 mb-6 shadow-2xs"
-        >
-          {TABS.map(t => {
-            const cnt = t.key === 'all' ? items.length : (countByType[t.key] || 0)
-            const selected = tab === t.key
-            return (
-              <button
-                key={t.key}
-                role="tab"
-                aria-selected={selected}
-                aria-controls="trash-panel"
-                onClick={() => setTab(t.key)}
-                className={`w-full rounded-full px-4 h-8 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-1 ${
-                  selected
-                    ? 'bg-zinc-900 text-white shadow-xs'
-                    : 'bg-white hover:bg-zinc-100 text-zinc-600 rounded-full border border-zinc-200 transition-colors'
-                }`}
-              >
-                <span>{t.label}</span>
-                {cnt > 0 && (
-                  <span
-                    className={`text-[11px] tabular-nums font-normal ${
-                      selected ? 'text-zinc-300' : 'text-zinc-400'
-                    }`}
-                  >
-                    ({cnt})
-                  </span>
-                )}
-              </button>
-            )
-          })}
+        {/* Lọc theo loại — Select nhóm (thay 11 pill 3 hàng trước đây), gom theo loại đối
+            tượng (Đề luyện tập / Đề thi Cambridge / Bài mẫu), khớp cách nhóm "Loại hành động"
+            ở AuditLogs.jsx. Giữ nguyên đủ 11 danh mục + số đếm cạnh mỗi danh mục (trong label). */}
+        <div className="mb-6 w-full sm:w-80">
+          <label className="text-xs font-medium text-zinc-700 mb-1.5 block">
+            Lọc theo loại
+          </label>
+          <Select
+            ariaLabel="Lọc theo loại"
+            value={tab}
+            onChange={setTab}
+            options={filterOptions}
+          />
         </div>
 
-        <div id="trash-panel" role="tabpanel">
+        <div>
         {isPending && items.length === 0 ? (
           <SkeletonTable rows={6} cols={4} />
         ) : filtered.length === 0 ? (
@@ -226,7 +217,7 @@ export default function Trash() {
                   <th className="px-4 py-3 text-left">Tên</th>
                   <th className="px-4 py-3 text-left hidden sm:table-cell w-40">Loại</th>
                   <th className="px-4 py-3 text-left hidden sm:table-cell w-44">Ngày xóa</th>
-                  <th className="px-4 py-3 text-right w-52">HÀNH ĐỘNG</th>
+                  <th className="px-4 py-3 text-right w-64">HÀNH ĐỘNG</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
@@ -254,16 +245,16 @@ export default function Trash() {
                         </div>
                       </td>
                       <td className="px-4 py-3 align-top">
-                        <div className="flex items-center gap-2 justify-end">
+                        <div className="flex items-center gap-2 justify-end flex-nowrap">
                           <button
                             onClick={() => setConfirming({ ...item, action: 'restore' })}
-                            className="h-8 px-3.5 rounded-full text-xs font-medium border border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-100 transition shadow-2xs focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 cursor-pointer"
+                            className="h-8 px-3.5 rounded-full text-xs font-medium border border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-100 transition shadow-2xs focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 cursor-pointer shrink-0 whitespace-nowrap"
                           >
                             Khôi phục
                           </button>
                           <button
                             onClick={() => setConfirming({ ...item, action: 'delete' })}
-                            className="h-8 px-3.5 rounded-full text-xs font-medium bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 cursor-pointer"
+                            className="h-8 px-3.5 rounded-full text-xs font-medium bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 cursor-pointer shrink-0 whitespace-nowrap"
                           >
                             {err ? 'Thử lại' : 'Xóa vĩnh viễn'}
                           </button>

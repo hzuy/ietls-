@@ -6,6 +6,8 @@ import { ConfirmDeleteModal, DraftBanner, DraftSavedHint, AdminListHeader, Thumb
 import { useToast } from '../../context/ToastContext'
 import ImageWithFallback from '../../components/common/ImageWithFallback'
 import Select from '../../components/admin/Select'
+import { SkeletonTable } from '../../components/skeletons'
+import FetchingDim from '../../components/admin/FetchingDim'
 
 import RichTextEditor from '../../components/RichTextEditor'
 import {
@@ -109,7 +111,7 @@ export default function SampleManager({ kind }) {
   const svc = cfg.services
   const formatTask = (level) => cfg.taskLabels[level] || level || ''
 
-  const { data: list = [], isPending } = useQuery({
+  const { data: list = [], isPending, isFetching } = useQuery({
     queryKey: ['admin', 'samples', kind],
     queryFn: () => svc.list(),
     placeholderData: (prev) => prev,
@@ -322,9 +324,10 @@ export default function SampleManager({ kind }) {
       <div className="p-6 max-w-6xl mx-auto">
         <AdminListHeader title={cfg.listTitle} subtitle={cfg.listSubtitle} onAdd={openAdd} addLabel={cfg.addLabel} />
         <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-xs">
-          {isPending && list.length === 0 ? <div className="p-10 text-center text-xs text-zinc-400">Đang tải...</div>
+          {isPending && list.length === 0 ? <SkeletonTable rows={6} cols={6} />
             : list.length === 0 ? <div className="p-10 text-center text-xs text-zinc-400">Chưa có bài mẫu nào.</div>
             : (
+              <FetchingDim isFetching={isFetching && list.length > 0}>
               <table className="w-full">
                 <thead><tr className="border-b border-zinc-200 bg-zinc-50">
                   <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 w-16">Ảnh</th>
@@ -370,6 +373,7 @@ export default function SampleManager({ kind }) {
                   ))}
                 </tbody>
               </table>
+              </FetchingDim>
             )}
         </div>
       </div>

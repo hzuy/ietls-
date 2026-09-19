@@ -3,11 +3,42 @@ import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getAdminAuditLogs, getAdminAuditLogFilters } from '../../services/adminService'
 import { SkeletonTable } from '../../components/skeletons'
+import FetchingDim from '../../components/admin/FetchingDim'
 import Select from '../../components/admin/Select'
 import { useDebounce } from '../../hooks/useDebounce'
 import { AuditLogDetailModal, ENTITY_TYPE_LABEL, fmtDateTime } from '../../components/admin/AuditLogDetailModal'
 
 import { Search, RotateCcw, Eye, ChevronLeft, ChevronRight, ScrollText, Bot, UserX, X } from 'lucide-react'
+
+// Nhóm hiển thị cho Select "Loại hành động" — thuần trình bày UI, suy ra từ tiền
+// tố trước dấu chấm của action.value (vd "exam.create" → nhóm "Đề thi"). Không
+// đổi danh sách hành động thực tế (actionOptions vẫn nguyên từ API), chỉ tổ chức
+// lại cách hiển thị cho dễ tìm giữa hơn 30 mục. Khớp AUDIT_ACTIONS ở
+// backend/lib/auditActions.js.
+const ACTION_GROUP_LABEL = {
+  exam: 'Đề thi',
+  series: 'Bộ đề',
+  book: 'Cuốn sách',
+  practice: 'Đề luyện tập',
+  sample: 'Bài mẫu',
+  user: 'Người dùng',
+  staff: 'Nhân sự',
+  trash: 'Thùng rác',
+  setting: 'Cài đặt',
+  auditlog: 'Hệ thống',
+}
+const ACTION_GROUP_ORDER = Object.keys(ACTION_GROUP_LABEL)
+
+function groupActionOptions(actionOptions) {
+  const byPrefix = {}
+  for (const opt of actionOptions) {
+    const prefix = opt.value.split('.')[0]
+    ;(byPrefix[prefix] ||= []).push(opt)
+  }
+  return ACTION_GROUP_ORDER
+    .filter(prefix => byPrefix[prefix]?.length)
+    .map(prefix => ({ group: ACTION_GROUP_LABEL[prefix], options: byPrefix[prefix] }))
+}
 
 function ActorCell({ log }) {
   if (log.actorType === 'system') {
@@ -80,6 +111,7 @@ export default function AuditLogs() {
   const {
     data = {},
     isLoading: loading,
+    isFetching,
   } = useQuery({
     queryKey: ['admin', 'auditLogs', { page, limit: 20, search: debouncedSearch, actorUserId, action, entityType, entityId, dateFrom, dateTo }],
     queryFn: () => {
@@ -185,21 +217,7 @@ export default function AuditLogs() {
                 onChange={v => { setAction(v); setPage(1) }}
                 options={[
                   { value: '', label: 'Tất cả hành động' },
-                  ...actionOptions.map(a => ({ value: a.value, label: a.label })),
-                ]}
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Nhóm đối tượng</label>
-              <Select
-                buttonClassName="bg-zinc-50"
-                ariaLabel="Nhóm đối tượng"
-                value={entityType}
-                onChange={v => { setEntityType(v); setPage(1) }}
-                options={[
-                  { value: '', label: 'Tất cả nhóm đối tượng' },
-                  ...entityTypes.map(t => ({ value: t, label: ENTITY_TYPE_LABEL[t] || t })),
+                  ...groupActionOptions(actionOptions),
                 ]}
               />
             </div>
@@ -229,6 +247,20 @@ export default function AuditLogs() {
             </div>
 
             <div>
+              <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Nhóm đối tượng</label>
+              <Select
+                buttonClassName="bg-zinc-50"
+                ariaLabel="Nhóm đối tượng"
+                value={entityType}
+                onChange={v => { setEntityType(v); setPage(1) }}
+                options={[
+                  { value: '', label: 'Tất cả nhóm đối tượng' },
+                  ...entityTypes.map(t => ({ value: t, label: ENTITY_TYPE_LABEL[t] || t })),
+                ]}
+              />
+            </div>
+
+            <div>
               <button
                 type="button"
                 onClick={reset}
@@ -244,7 +276,9 @@ export default function AuditLogs() {
         {/* Data Table Card */}
         {loading ? (
           <SkeletonTable rows={8} cols={5} />
-        ) : logs.length === 0 ? (
+        ) : (
+          <FetchingDim isFetching={isFetching}>
+          {logs.length === 0 ? (
           hasActiveFilters ? (
             <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden w-full flex-1 shadow-xs">
               <p className="text-center text-zinc-400 py-16 text-xs font-medium">Không có nhật ký nào khớp bộ lọc</p>
@@ -331,6 +365,8 @@ export default function AuditLogs() {
               </div>
             )}
           </div>
+          )}
+          </FetchingDim>
         )}
       </div>
 

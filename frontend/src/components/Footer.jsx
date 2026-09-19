@@ -1,29 +1,19 @@
 import GatedLink from './common/GatedLink'
 
-const NAV_COLUMNS = [
-  {
-    heading: 'Product',
-    links: [
-      { label: 'IELTS Full Test', to: '/full-test' },
-      { label: 'Practice Plus', to: '/practice-plus' },
-    ],
-  },
-  {
-    heading: 'Skills',
-    links: [
-      { label: 'Reading', to: '/practice/reading' },
-      { label: 'Listening', to: '/practice/listening' },
-      { label: 'Bài mẫu Writing', to: '/writing-samples' },
-      { label: 'Bài mẫu Speaking', to: '/speaking-samples' },
-    ],
-  },
+const NAV_LINKS = [
+  { label: 'IELTS Full Test', to: '/full-test' },
+  { label: 'Practice Plus', to: '/practice-plus' },
+  { label: 'Reading', to: '/practice/reading' },
+  { label: 'Listening', to: '/practice/listening' },
+  { label: 'Bài mẫu Writing', to: '/writing-samples' },
+  { label: 'Bài mẫu Speaking', to: '/speaking-samples' },
 ]
 
 function FooterLink({ to, children }) {
   return (
     <GatedLink
       to={to}
-      className="block mb-3 text-zinc-400 hover:text-zinc-100 transition-colors duration-300 text-[14px]"
+      className="footer-link text-[13px]"
       style={{ textDecoration: 'none' }}
     >
       {children}
@@ -31,53 +21,50 @@ function FooterLink({ to, children }) {
   )
 }
 
+// Chân trang tối giản một dòng (Đợt 5): bỏ lưới 4 cột + tagline quảng cáo kiểu
+// SaaS/e-commerce ("Product" heading, "giúp bạn đạt band score mục tiêu nhanh
+// hơn...") — chỉ giữ đúng 3 thứ bắt buộc (thương hiệu, điều hướng nội bộ, bản
+// quyền) trên một hàng, tự xuống dòng ở màn hình hẹp qua flex-wrap thay vì
+// dàn thành các cột riêng.
+//
+// justify-between (dàn brand/nav/copyright sát 2 mép) chỉ bật từ `lg:` — dưới
+// mốc đó container không còn bị `max-w-6xl` giới hạn nên nội dung hàng cuối
+// (link/copyright) sẽ áp sát mép phải thật của viewport, đúng góc mà nút
+// chatbot nổi toàn site (AIChatbotDrawer, fixed bottom-6 right-6, ~52px) luôn
+// đứng — khi cuộn hết trang (footer là phần tử cuối) hai thứ đè lên nhau, che
+// chữ. Giữ layout "center + nav xuống dòng riêng" tới hết `lg` để không có gì
+// áp sát mép ngang đó.
+//
+// pb-24 (KHÔNG hạ lại ở breakpoint nào, kể cả khi justify-between bật ở lg)
+// vì lề ngang do max-w-6xl tạo ra chỉ đủ lớn để né nút chatbot từ khoảng
+// ~1280px trở lên (đã đo bằng Playwright: ở đúng 1024px — biên lg — copyright
+// vẫn đè trúng nút vì lề lúc đó chỉ ~12px, không đủ). Dùng khoảng đệm DƯỚI cố
+// định thay vì né theo lề NGANG: nút chỉ chiếm 24-76px tính từ đáy viewport,
+// pb-24 (96px) đảm bảo hàng cuối luôn nằm cao hơn mép trên của nút ~20px, bất
+// kể độ rộng màn hình — tránh phải dò lại từng breakpoint mỗi khi nội dung
+// hàng cuối thay đổi.
 export default function Footer() {
   return (
     <footer className="bg-zinc-950 border-t border-zinc-800">
-      {/* Thin subtle top accent line */}
-      <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-zinc-700 to-transparent opacity-60" />
-
-      {/* Main section */}
-      <div className="max-w-6xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
-
-          {/* Col 1 — Brand */}
-          <div className="md:col-span-2">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center shrink-0">
-                <div className="w-3 h-3 rounded-full bg-zinc-950" />
-              </div>
-              <span className="font-bold text-[18px] text-white tracking-[-0.01em]">
-                IELTS<span className="text-zinc-400 font-medium">Pro</span>
-              </span>
-            </div>
-
-            <p className="text-zinc-400 text-[14px] leading-relaxed max-w-[280px]">
-              Nền tảng luyện thi IELTS chuyên nghiệp với AI phản hồi tức thì, giúp bạn đạt band score mục tiêu nhanh hơn.
-            </p>
+      <div className="max-w-6xl mx-auto px-6 pt-5 pb-24 flex flex-wrap items-center justify-center lg:justify-between gap-x-8 gap-y-4">
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center shrink-0">
+            <div className="w-2.5 h-2.5 rounded-full bg-zinc-950" />
           </div>
-
-          {/* Cols 3-4 — Nav groups */}
-          {NAV_COLUMNS.map(col => (
-            <div key={col.heading}>
-              <p className="text-zinc-100 text-[13px] font-bold uppercase tracking-wider mb-5">
-                {col.heading}
-              </p>
-              {col.links.map(l => (
-                <FooterLink key={l.label} to={l.to}>{l.label}</FooterLink>
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Bottom bar */}
-      <div className="border-t border-zinc-800/80">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-center">
-          <span className="text-zinc-500 text-[13px]">
-            © 2026 IELTSPro. All rights reserved.
+          <span className="font-bold text-[15px] text-white tracking-[-0.01em]">
+            IELTS<span className="text-zinc-400 font-medium">Pro</span>
           </span>
         </div>
+
+        <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 order-3 lg:order-none w-full lg:w-auto">
+          {NAV_LINKS.map(l => (
+            <FooterLink key={l.to} to={l.to}>{l.label}</FooterLink>
+          ))}
+        </nav>
+
+        <span className="text-zinc-500 text-[12px] whitespace-nowrap shrink-0">
+          © 2026 IELTSPro
+        </span>
       </div>
     </footer>
   )

@@ -9,6 +9,7 @@ import {
 } from '../services/statsService'
 import Card from '../components/common/Card'
 import PageHeader from '../components/common/PageHeader'
+import PillButton from '../components/common/PillButton'
 import {
   TrendingUp,
   TrendingDown,
@@ -267,12 +268,9 @@ export default function ProgressAnalysis() {
         ) : statsError ? (
           <div className="p-6 bg-error-bg border border-error-border rounded-2xl text-error-text text-sm font-medium flex items-center justify-between">
             <span>{statsError}</span>
-            <button
-              onClick={() => setSkillFilter(s => s)}
-              className="px-5 h-9 bg-error text-white text-xs font-bold rounded-full hover:opacity-90 transition"
-            >
+            <PillButton variant="danger" onClick={() => setSkillFilter(s => s)}>
               Thử lại
-            </button>
+            </PillButton>
           </div>
         ) : (
           <div className="space-y-8">

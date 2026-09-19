@@ -396,7 +396,7 @@ export default function Analytics() {
             { label: 'Band trung bình', value: formatBand(overview.avgBand), Icon: Trophy },
           ].map(c => (
             <div key={c.label}
-              className={`bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs flex items-center gap-4 transition-opacity ${chartLoading ? 'opacity-50' : 'opacity-100'}`}>
+              className={`bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs flex items-center gap-4 transition-opacity motion-reduce:transition-none ${chartLoading ? 'opacity-50' : 'opacity-100'}`}>
               <div className="w-11 h-11 rounded-xl bg-zinc-100 flex items-center justify-center shrink-0">
                 <c.Icon size={20} className="text-zinc-900" strokeWidth={2} />
               </div>

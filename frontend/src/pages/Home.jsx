@@ -9,6 +9,7 @@ import {
 import AcademicCover from '../components/common/AcademicCover'
 import Card from '../components/common/Card'
 import PageHeader from '../components/common/PageHeader'
+import PillButton from '../components/common/PillButton'
 import ResumeHeroCard from '../components/home/ResumeHeroCard'
 import StreakWidget from '../components/home/StreakWidget'
 import BandOverviewWidget from '../components/home/BandOverviewWidget'
@@ -29,12 +30,9 @@ function HomeSectionError({ onRetry }) {
       <p className="mb-3 text-[11px] text-zinc-500">
         Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.
       </p>
-      <button
-        onClick={onRetry || (() => window.location.reload())}
-        className="h-9 px-5 text-xs font-medium rounded-full bg-zinc-900 text-white cursor-pointer inline-flex items-center justify-center leading-none"
-      >
+      <PillButton onClick={onRetry || (() => window.location.reload())}>
         Thử lại
-      </button>
+      </PillButton>
     </div>
   )
 }
@@ -76,12 +74,12 @@ function CompactBookCard({ book, onClick }) {
         )}
       </div>
 
-      {/* Book Info — nằm trực tiếp trên nền trang tối, không phải trong thẻ trắng */}
+      {/* Book Info — nằm trực tiếp trên nền trang sáng, không phải trong thẻ trắng */}
       <div className="mt-2 text-left">
-        <h3 className="text-xs font-semibold truncate group-hover:text-zinc-300 transition-colors" style={{ color: '#f4f4f5' }}>
+        <h3 className="text-xs font-semibold truncate text-zinc-900 group-hover:text-zinc-600 transition-colors">
           {book.title}
         </h3>
-        <p className="text-[11px] text-zinc-400 font-mono mt-0.5">
+        <p className="text-[11px] text-zinc-500 font-mono mt-0.5">
           {book.testCount} đề Full Test
         </p>
       </div>
@@ -263,28 +261,30 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen home-page-dark flex flex-col">
-      {/* ── 1. Hero Section — nền tối "Quỹ đạo Band Score" (Đợt 3) ─────────── */}
-      <section className="relative overflow-hidden home-hero-dark">
-        <div className="bg-dots-light" aria-hidden="true" />
-        <div className="home-hero-glow home-hero-glow-pulse" style={{ top: '-8%', right: '2%' }} aria-hidden="true" />
+    <div className="min-h-screen flex flex-col">
+      {/* ── 1. Hero Section — nền sáng "Quỹ đạo Band Score" (redesign, thay bản
+           nền tối trước đây) ─────────────────────────────────────────────── */}
+      <section className="relative overflow-hidden home-hero-light">
+        <div className="bg-dots" aria-hidden="true" />
+        <div className="home-hero-blob home-hero-blob-primary home-hero-blob-pulse" style={{ top: '-10%', right: '4%' }} aria-hidden="true" />
+        <div className="home-hero-blob home-hero-blob-accent home-hero-blob-pulse" style={{ bottom: '-12%', left: '2%' }} aria-hidden="true" />
         <div className="app-container py-12 md:py-16 relative">
           <div className="flex flex-col md:flex-row items-center justify-between gap-10">
             <div className="max-w-2xl w-full anim-fade-up">
               <PageHeader
                 title="Không gian Luyện thi & Khảo thí IELTS"
                 subtitle="Nền tảng kiểm tra trực tuyến mô phỏng kỳ thi trên máy tính, tích hợp AI phân tích 4 kỹ năng."
-                titleClassName="text-2xl sm:text-3xl font-bold text-white tracking-tight"
-                subtitleClassName="text-sm text-zinc-300 max-w-xl leading-relaxed mt-2"
+                titleClassName="text-2xl sm:text-3xl font-bold text-zinc-900 tracking-tight"
+                subtitleClassName="text-sm text-zinc-500 max-w-xl leading-relaxed mt-2"
               />
 
               <div className="flex flex-wrap items-center gap-3 mt-5">
                 <button
                   onClick={() => gate('/cambridge')}
                   className="h-9 px-5 text-white text-sm font-medium rounded-full shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
-                  style={{ background: 'linear-gradient(135deg, #7c3aed, #5b21b6)' }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'linear-gradient(135deg, #6d28d9, #4c1d95)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'linear-gradient(135deg, #7c3aed, #5b21b6)'}
+                  style={{ background: 'var(--primary)' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
                 >
                   Vào phòng thi Cambridge
                 </button>
@@ -294,10 +294,7 @@ export default function Home() {
                     if (el) el.scrollIntoView({ behavior: 'smooth' })
                     else gate('/practice/reading')
                   }}
-                  className="h-9 px-5 text-white text-sm font-medium rounded-full border transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
-                  style={{ borderColor: 'rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.06)' }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.14)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                  className="h-9 px-5 text-zinc-700 text-sm font-medium rounded-full border border-zinc-300 bg-white transition-colors cursor-pointer inline-flex items-center justify-center leading-none hover:bg-zinc-50 hover:border-zinc-400"
                 >
                   Luyện tập kỹ năng
                 </button>
@@ -359,26 +356,26 @@ export default function Home() {
 
           {/* Section 1: Bộ đề Cambridge Academic & IELTS Practice Plus */}
             <section className="flex flex-col gap-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-200">
                 <div className="flex items-center gap-3 flex-wrap">
                   <div>
-                    <h2 className="text-base font-semibold" style={{ color: '#f4f4f5' }}>
+                    <h2 className="text-base font-semibold text-zinc-900">
                       {seriesTab === 'cambridge' ? 'Bộ đề Cambridge Academic' : 'Bộ đề IELTS Practice Test Plus'}
                     </h2>
-                    <p className="text-[11px] font-mono text-zinc-400 mt-0.5">
+                    <p className="text-[11px] font-mono text-zinc-500 mt-0.5">
                       {seriesTab === 'cambridge' ? '(Đề chuẩn IDP / British Council)' : '(Dòng sách luyện đề chuyên sâu độ khó cao)'}
                     </p>
                   </div>
 
                   {/* Segmented Switcher: Cambridge | Practice Plus | Luyện kỹ năng */}
-                  <div className="inline-flex p-1 bg-white/10 rounded-full border border-white/15 shrink-0 sm:ml-2">
+                  <div className="inline-flex p-1 bg-zinc-100 rounded-full border border-zinc-200 shrink-0 sm:ml-2">
                     <button
                       type="button"
                       onClick={() => setSeriesTab('cambridge')}
                       className={`px-4 py-1.5 text-xs rounded-full transition-all cursor-pointer ${
                         seriesTab === 'cambridge'
                           ? 'bg-white text-zinc-900 font-semibold shadow-2xs'
-                          : 'text-zinc-400 hover:text-white'
+                          : 'text-zinc-500 hover:text-zinc-900'
                       }`}
                     >
                       Cambridge Academic
@@ -390,7 +387,7 @@ export default function Home() {
                         className={`px-4 py-1.5 text-xs rounded-full transition-all cursor-pointer ${
                           seriesTab === 'practice-plus'
                             ? 'bg-white text-zinc-900 font-semibold shadow-2xs'
-                            : 'text-zinc-400 hover:text-white'
+                            : 'text-zinc-500 hover:text-zinc-900'
                         }`}
                       >
                         Practice Plus
@@ -399,7 +396,7 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => document.getElementById('quick-skills-section')?.scrollIntoView({ behavior: 'smooth' })}
-                      className="px-4 py-1.5 text-xs rounded-full transition-all cursor-pointer text-zinc-400 hover:text-white"
+                      className="px-4 py-1.5 text-xs rounded-full transition-all cursor-pointer text-zinc-500 hover:text-zinc-900"
                     >
                       Luyện kỹ năng
                     </button>
@@ -408,7 +405,7 @@ export default function Home() {
 
                 <button
                   onClick={() => gate(seriesTab === 'cambridge' ? '/cambridge' : '/practice-plus')}
-                  className="text-xs font-semibold text-zinc-300 hover:text-white transition-colors cursor-pointer self-start sm:self-auto"
+                  className="text-xs font-semibold text-zinc-500 hover:text-zinc-900 transition-colors cursor-pointer self-start sm:self-auto"
                 >
                   {seriesTab === 'cambridge' ? 'Xem trọn bộ Cambridge' : 'Xem trọn bộ Practice Plus'}
                 </button>
@@ -420,9 +417,9 @@ export default function Home() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                   {[0, 1, 2, 3, 4, 5].map(i => (
                     <div key={i}>
-                      <div className="w-full aspect-[3/4] bg-white/10 rounded-xl animate-pulse" />
-                      <div className="h-3.5 bg-white/10 rounded mt-2.5 w-3/4 animate-pulse" />
-                      <div className="h-3 bg-white/10 rounded mt-1.5 w-1/2 animate-pulse" />
+                      <div className="w-full aspect-[3/4] bg-zinc-200 rounded-xl animate-pulse" />
+                      <div className="h-3.5 bg-zinc-200 rounded mt-2.5 w-3/4 animate-pulse" />
+                      <div className="h-3 bg-zinc-200 rounded mt-1.5 w-1/2 animate-pulse" />
                     </div>
                   ))}
                 </div>
@@ -439,12 +436,12 @@ export default function Home() {
                 giảm chiều cao trang, hạ độ ưu tiên thị giác so với dải tiến độ
                 và bộ đề Cambridge/Practice Plus ở trên. */}
             <section id="quick-skills-section" className="flex flex-col gap-4">
-              <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center justify-between pb-3 border-b border-zinc-200">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-base font-semibold shrink-0" style={{ color: '#f4f4f5' }}>
+                  <h2 className="text-base font-semibold shrink-0 text-zinc-900">
                     Khám phá thêm
                   </h2>
-                  <span className="text-[11px] font-mono text-zinc-400">
+                  <span className="text-[11px] font-mono text-zinc-500">
                     (Luyện kỹ năng tương tác & thư viện bài mẫu tham khảo)
                   </span>
                 </div>

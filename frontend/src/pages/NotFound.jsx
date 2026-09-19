@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { FolderArchive, Library, BarChart2 } from 'lucide-react'
 import Card from '../components/common/Card'
+import PillButton from '../components/common/PillButton'
 
 // Lối đi gợi ý tới 3 khu vực chính — không phải danh sách đầy đủ điều hướng,
 // chỉ chọn nơi người học thường muốn quay lại nhất khi lỡ vào một đường dẫn hỏng.
@@ -88,9 +89,9 @@ export default function NotFound() {
           Chọn một lối đi quen thuộc bên dưới hoặc quay về trang chủ.
         </p>
 
-        <Link to="/" className="btn-primary mt-7 px-8 py-3.5 text-[15px] font-bold no-underline">
+        <PillButton as={Link} to="/" className="mt-7 no-underline">
           Về trang chủ
-        </Link>
+        </PillButton>
 
         <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-2xl">
           {SUGGESTIONS.map(({ to, icon: Icon, label, desc, colorVar, bgVar }) => (

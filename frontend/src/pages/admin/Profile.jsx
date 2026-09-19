@@ -9,36 +9,38 @@ const ROLE_COLOR = { admin: 'bg-zinc-900 text-white', teacher: 'bg-zinc-100 text
 
 function ProfileSkeleton() {
   return (
-    <div className="p-6 max-w-2xl mx-auto animate-pulse">
-      <div className="mb-8 space-y-2">
+    <div className="p-6 max-w-5xl mx-auto animate-pulse">
+      <div className="mb-6 space-y-2">
         <div className="h-6 w-48 bg-zinc-200 rounded" />
         <div className="h-3.5 w-64 bg-zinc-100 rounded" />
       </div>
-      {/* Profile card skeleton */}
-      <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-6 mb-5">
-        <div className="flex items-center gap-5">
-          <div className="w-14 h-14 rounded-2xl bg-zinc-100 shrink-0" />
-          <div className="flex-1 space-y-2">
-            <div className="h-5 w-40 bg-zinc-200 rounded" />
-            <div className="h-3.5 w-56 bg-zinc-100 rounded" />
-            <div className="h-3 w-32 bg-zinc-100 rounded" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+        {/* Profile card skeleton */}
+        <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-6">
+          <div className="flex items-center gap-5">
+            <div className="w-14 h-14 rounded-2xl bg-zinc-100 shrink-0" />
+            <div className="flex-1 space-y-2">
+              <div className="h-5 w-40 bg-zinc-200 rounded" />
+              <div className="h-3.5 w-56 bg-zinc-100 rounded" />
+              <div className="h-3 w-32 bg-zinc-100 rounded" />
+            </div>
+          </div>
+          <div className="mt-5 pt-5 border-t border-zinc-100 grid grid-cols-2 gap-4">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="space-y-1.5">
+                <div className="h-3 w-16 bg-zinc-100 rounded" />
+                <div className="h-4 w-32 bg-zinc-200 rounded" />
+              </div>
+            ))}
           </div>
         </div>
-        <div className="mt-5 pt-5 border-t border-zinc-100 grid grid-cols-2 gap-4">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="space-y-1.5">
-              <div className="h-3 w-16 bg-zinc-100 rounded" />
-              <div className="h-4 w-32 bg-zinc-200 rounded" />
-            </div>
-          ))}
+        {/* Password section skeleton */}
+        <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-6 space-y-4">
+          <div className="h-4 w-28 bg-zinc-200 rounded" />
+          <div className="h-3.5 w-48 bg-zinc-100 rounded" />
+          <div className="h-9 w-full bg-zinc-100 rounded-lg" />
+          <div className="h-9 w-full bg-zinc-100 rounded-lg" />
         </div>
-      </div>
-      {/* Password section skeleton */}
-      <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-6 space-y-4">
-        <div className="h-4 w-28 bg-zinc-200 rounded" />
-        <div className="h-3.5 w-48 bg-zinc-100 rounded" />
-        <div className="h-9 w-full bg-zinc-100 rounded-lg" />
-        <div className="h-9 w-full bg-zinc-100 rounded-lg" />
       </div>
     </div>
   )
@@ -115,16 +117,21 @@ export default function Profile() {
     : '?'
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
+    <div className="p-6 max-w-5xl mx-auto">
 
         {/* Page header */}
-        <div className="mb-8">
+        <div className="mb-6">
           <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Cài đặt tài khoản</h1>
           <p className="text-xs text-zinc-500 mt-1">Thông tin tài khoản đang đăng nhập</p>
         </div>
 
+        {/* Thông tin tài khoản + Đổi mật khẩu cạnh nhau từ lg trở lên (xếp dọc ở màn hình hẹp
+            hơn) — trước đây xếp dọc luôn nên tổng chiều cao ~770px, nút "Đổi mật khẩu" bị đẩy
+            ra ngoài màn hình đầu tiên ở độ phân giải laptop phổ biến (vd 1280x720). */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+
         {/* ── Profile card ─────────────────────────────── */}
-        <section className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-6 mb-5">
+        <section className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-6">
           <div className="flex items-center gap-5">
             {/* Avatar */}
             <div className="w-14 h-14 rounded-2xl bg-zinc-900 flex items-center justify-center shrink-0">
@@ -218,6 +225,7 @@ export default function Profile() {
           </form>
         </section>
 
+        </div>
       </div>
   )
 }

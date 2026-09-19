@@ -252,7 +252,7 @@ export default function ReadingExam() {
 
   const onAnswer = useCallback((qId, val) => setAnswers(a => ({ ...a, [qId]: val })), [])
 
-  // ── Highlight text (bôi đen → menu nổi Tô màu / Ghi chú; click highlight → Xóa) ──
+  // ── Highlight text (bôi đen → menu nổi Highlight / Note; click highlight → Xóa) ──
   const closeHighlightPopovers = useCallback(() => {
     setSelectionBubble(null)
     setHighlightMenu(null)
@@ -788,7 +788,7 @@ export default function ReadingExam() {
         />
       )}
 
-      {/* Floating bubble: bôi đen văn bản → Tô màu / Ghi chú */}
+      {/* Floating bubble: bôi đen văn bản → Highlight / Note */}
       {selectionBubble && (
         <div
           data-highlight-popover
@@ -800,7 +800,7 @@ export default function ReadingExam() {
             onClick={applyHighlight}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full hover:bg-white/15 transition-colors cursor-pointer"
           >
-            <Highlighter className="w-3.5 h-3.5" /> Tô màu
+            <Highlighter className="w-3.5 h-3.5" /> Highlight
           </button>
           <div className="w-px h-4 bg-white/20" />
           <button
@@ -808,7 +808,7 @@ export default function ReadingExam() {
             onClick={openNoteEditorForSelection}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full hover:bg-white/15 transition-colors cursor-pointer"
           >
-            <StickyNote className="w-3.5 h-3.5" /> Ghi chú
+            <StickyNote className="w-3.5 h-3.5" /> Note
           </button>
         </div>
       )}

@@ -68,20 +68,20 @@
 /* ─── Google Fonts ──────────────────────────────────────────────────────────── */
 /* ─── Design Tokens ─────────────────────────────────────────────────────────── */
 :root {
-  /* Brand — Warm Academic (Đợt 1: bảng màu chính thức toàn app) */
-  --primary:        #5b21b6;   /* Violet 800 */
-  --primary-hover:  #4c1d95;   /* Violet 900 */
-  --primary-light:  #ede9fe;   /* Violet 100 */
+  /* Brand — Monochrome Zinc (Đợt 5: đồng bộ admin, giữ 4 màu kỹ năng) */
+  --primary:        #18181b;   /* Zinc 900 */
+  --primary-hover:  #09090b;   /* Zinc 950 */
+  --primary-light:  #f4f4f5;   /* Zinc 100 */
 
   /* Palette — Deep Ink */
   --ink:            #18181b;   /* Zinc 900 heading */
   --ink-soft:       #27272a;   /* Zinc 800 text */
 
   /* Surfaces */
-  --bg:             #fdfbf5;   /* Warm academic background (thay cho trắng thuần) */
+  --bg:             #fafafa;   /* Zinc 50 — đồng bộ nền với admin */
   --surface:        #ffffff;
   --surface-raised: #f4f4f5;   /* Zinc 100 */
-  --surface-alt:    #fafaf7;   /* Warm-tinted zinc 50 */
+  --surface-alt:    #fafafa;   /* Zinc 50 */
 
   /* Text */
   --text:           #3f3f46;   /* Zinc 700 body text */
@@ -268,6 +268,14 @@ aside nav a, aside nav button { font-family: inherit; }
    consistent scale. Labels sit at text-xs via labelCls and are unaffected;
    section titles / meta text use <span>/<h*> and are unaffected. */
 .admin-main :is(input, textarea, select, button, [role="button"]) { font-size: var(--fs-sm); }
+
+/* Modal.jsx portals its content to document.body (see that component's own
+   comment) — so it sits OUTSIDE .admin-main in the DOM and escapes the rule
+   above entirely, silently falling back to the ~17px meant for user-facing
+   dialogs. Admin dialogs whose content is a real form (not just confirm
+   buttons) opt in with this class on <Modal className="..."> to get the same
+   --fs-sm pull-back as the rest of the admin panel. */
+.admin-modal-form :is(input, textarea, select, button, [role="button"]) { font-size: var(--fs-sm); }
 
 /* ─── AI Tutor chatbot ───────────────────────────────────────────────────────── */
 /* Same footgun as above: the unlayered `button { font-size: var(--fs-base) }`
@@ -592,11 +600,6 @@ button:disabled {
   to   { transform: scale(1.08); }
 }
 
-@keyframes net-glow-pulse {
-  from { opacity: 0.45; }
-  to   { opacity: 0.85; }
-}
-
 /* ── Motion — single unified block, no theme conditions ── */
 @media (prefers-reduced-motion: no-preference) {
   .hero-net-wrap    { animation: orb-float 7s ease-in-out infinite alternate; }
@@ -604,7 +607,6 @@ button:disabled {
   /* Counter-rotate icons at exactly the same speed/easing — net rotation = 0 */
   .net-icon-counter { animation: ring-spin-ccw 30s linear infinite; }
   .net-core-breathe { animation: net-breathe 4s ease-in-out infinite alternate; }
-  .net-glow-halo    { animation: net-glow-pulse 3s ease-in-out infinite alternate; }
   .net-flow-dot     { visibility: visible; }
 }
 
@@ -619,72 +621,51 @@ button:disabled {
   opacity: 0.22;
 }
 
-/* Light-dot variant — same pattern for dark backgrounds (Home hero, Đợt 3) */
-.bg-dots-light {
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(circle, rgba(255,255,255,0.16) 1px, transparent 1px);
-  background-size: 28px 28px;
-  pointer-events: none;
-  user-select: none;
-  opacity: 0.5;
-}
-
 /* Legacy alias */
 .hero-dots { position: absolute; inset: 0; background-image: radial-gradient(circle, rgba(24,24,27,0.08) 1px, transparent 1px); background-size: 24px 24px; pointer-events: none; user-select: none; opacity: 0.35; }
 
-/* ─── Home — nền tối "Quỹ đạo Band Score" kéo dài toàn trang (Việc 1, chỉ
-   Home.jsx). Nền tối đặt ở wrapper ngoài cùng (.home-page-dark) để chạy liên
-   tục hết trang, không cắt ở cuối hero — tránh seam cứng giữa hero và nội
-   dung bên dưới. .home-hero-dark chỉ còn override token --net-* (dùng bởi
-   HeroBandOrbit) trong phạm vi khối hero, bản thân nó không tự vẽ nền nữa. */
-.home-page-dark {
-  /* Điểm cuối #0b0a14 gần với zinc-950 (#09090b, nền Footer dùng chung toàn
-     site) để nối mượt vào Footer — không cần lớp fade riêng. */
-  background: linear-gradient(180deg, #1b1033 0%, #120f24 22%, #0b0a14 100%);
-}
-
-.home-hero-dark {
+/* ─── Home hero — "Quỹ đạo Band Score" trên nền sáng. Override token --net-*
+   sang tông zinc đơn sắc (Đợt 5); 4 vệ tinh kỹ năng giữ nguyên màu riêng
+   trong HeroBandOrbit.jsx, không bị ảnh hưởng bởi override này. */
+.home-hero-light {
   position: relative;
 
-  --net-grad-0:      #2a1f4d;
-  --net-grad-50:     #201640;
-  --net-grad-100:    #170f30;
-  --net-core-border: rgba(196,181,253,0.45);
-  --net-core-glow:   rgba(139,92,246,0.55);
-  --net-core-icon:   #f4f4f5;
-  --net-node-bg:     rgba(255,255,255,0.08);
-  --net-node-border: rgba(255,255,255,0.28);
-  --net-node-icon:   #f4f4f5;
-  --net-line-stroke: rgba(255,255,255,0.2);
-  --net-line-dim:    rgba(255,255,255,0.08);
-  --net-dot-fill:    #c4b5fd;
-  --net-dec-fill:    rgba(255,255,255,0.28);
+  --net-grad-0:      #ffffff;
+  --net-grad-50:     #fafafa;
+  --net-grad-100:    #f4f4f5;
+  --net-core-border: rgba(24,24,27,0.3);
+  --net-node-bg:     #ffffff;
+  --net-line-stroke: rgba(24,24,27,0.18);
+  --net-dot-fill:    #18181b;
+  --net-dec-fill:    rgba(24,24,27,0.25);
 }
 
-/* h1 { color: var(--ink) } ở khối Typography phía trên là CSS thường (không
-   @layer) nên đè cả utility `text-white` của Tailwind (nằm trong layer) —
-   đúng bẫy đã ghi trong CLAUDE.md ("index.css unlayered global rules silently
-   beat Tailwind v4 utilities"). Selector cụ thể hơn ở đây thắng theo specificity
-   thường, không phải nhờ layer. */
-.home-hero-dark h1 {
-  color: #f4f4f5;
-}
-
-/* Quầng sáng tím phía sau khối quỹ đạo — blur TĨNH (không animate blur, chỉ
-   animate opacity của chính div này) để không tốn hiệu năng compositing. */
-.home-hero-glow {
+/* Blob nền phẳng phía sau khối quỹ đạo — mảng màu pastel bo tròn lớn, mờ dần
+   ra mép bằng chính radial-gradient (transparent 70%) chứ không dùng filter
+   blur: tạo cảm giác khối màu có chủ đích, không phải quầng sáng hắt ra từ
+   một nguồn sáng (vốn chỉ hợp nền tối). Animate opacity biên độ nhỏ để vẫn
+   "thở" nhẹ mà không giống hiệu ứng đèn nhấp nháy. */
+.home-hero-blob {
   position: absolute;
-  width: clamp(260px, 40vw, 480px);
-  height: clamp(260px, 40vw, 480px);
   border-radius: 9999px;
-  background: radial-gradient(circle, rgba(139,92,246,0.35), transparent 70%);
-  filter: blur(30px);
   pointer-events: none;
-  opacity: 0.6;
+}
+.home-hero-blob-primary {
+  width: clamp(260px, 38vw, 460px);
+  height: clamp(260px, 38vw, 460px);
+  background: radial-gradient(circle, #f4f4f5, transparent 70%);
+}
+.home-hero-blob-accent {
+  width: clamp(180px, 26vw, 320px);
+  height: clamp(180px, 26vw, 320px);
+  background: radial-gradient(circle, #f4f4f5, transparent 70%);
+}
+@keyframes home-hero-blob-breathe {
+  from { opacity: 0.7; }
+  to   { opacity: 1; }
 }
 @media (prefers-reduced-motion: no-preference) {
-  .home-hero-glow-pulse { animation: net-glow-pulse 3.5s ease-in-out infinite alternate; }
+  .home-hero-blob-pulse { animation: home-hero-blob-breathe 4s ease-in-out infinite alternate; }
 }
 
 /* ─── Global Base UI Standardization (Subtle) ─────────────────────────────── */
@@ -795,6 +776,20 @@ input:focus, textarea:focus, select:focus {
 }
 .animate-dialog-in { animation: dialogIn 150ms ease-out both; }
 
+/* 8c. Headless UI portal (admin/Select.jsx dùng Listbox anchor="bottom start") — component tự
+   portal panel option ra #headlessui-portal-root, 1 div dùng chung cuối <body>. Div này mặc định
+   position:static/z-index:auto nên KHÔNG tạo stacking context riêng: theo thứ tự vẽ CSS, nó luôn
+   bị vẽ dưới bất kỳ phần tử anh em nào của <body> có position:fixed + z-index dương (ví dụ overlay
+   Modal.jsx, z-50), bất kể portal-root nằm sau trong DOM. Hệ quả: mở Select bên trong Modal (vd
+   Role select ở Accounts.jsx) thì panel option render đúng vị trí, đúng opacity nhưng bị Modal vẽ
+   đè lên — người dùng không thấy, click cũng rơi vào Modal chứ không tới được option. Ép
+   position:relative + z-index cao hơn Modal (z-50) để portal-root tự tạo stacking context riêng,
+   luôn nổi trên mọi Modal — sửa 1 lần cho mọi tổ hợp Select-trong-Modal, không riêng Accounts.jsx. */
+#headlessui-portal-root {
+  position: relative;
+  z-index: 60;
+}
+
 /* 9. Utility: hide scrollbar while preserving scroll functionality */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
@@ -804,18 +799,14 @@ input:focus, textarea:focus, select:focus {
   scrollbar-width: none;
 }
 
-/* ─── Admin Isolation: strictly Neutral Zinc, never tint links, tabs, buttons or inputs blue ── */
-/* Đợt 1 đổi --primary sang tím thương hiệu cho giao diện người dùng, nhưng admin phải giữ
-   nguyên zinc đơn sắc (yêu cầu rõ ràng: không đụng giao diện admin). .btn-primary, badge active
-   nav, input focus ring... trong toàn app đều đọc var(--primary) trực tiếp, nên khai báo lại
-   token ngay trong phạm vi .admin-scope là cách chặn triệt để mà không phải sửa từng component. */
+/* ─── Admin Isolation ─────────────────────────────────────────────────────────
+   Đợt 5: :root --primary nay đã là zinc-900 (đồng bộ admin ↔ user), nhưng giữ
+   .admin-scope override để phòng trường hợp token :root bị đổi lại trong tương
+   lai — admin luôn zinc đơn sắc bất kể :root thay đổi. */
 .admin-scope {
   --primary:       #18181b;   /* Zinc 900 */
   --primary-hover: #09090b;   /* Zinc 950 / Black */
   --primary-light: #f4f4f5;   /* Zinc 100 */
-  /* Tailwind sinh utility bg-primary/text-primary/border-primary từ --color-primary
-     (khai báo trong @theme) — override luôn để phòng trường hợp có chỗ dùng class đó
-     thay vì var(--primary) trực tiếp. */
   --color-primary:       #18181b;
   --color-primary-hover: #09090b;
   --color-primary-light: #f4f4f5;

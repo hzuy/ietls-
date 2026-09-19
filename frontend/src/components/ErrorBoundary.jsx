@@ -1,4 +1,5 @@
 import React from 'react'
+import PillButton from './common/PillButton'
 
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -30,12 +31,9 @@ export default class ErrorBoundary extends React.Component {
             <p className="text-sm text-zinc-600 mb-6 leading-relaxed">
               Xin lỗi, đã có sự cố xảy ra trong quá trình hiển thị trang. Vui lòng tải lại trang để tiếp tục.
             </p>
-            <button
-              onClick={() => window.location.reload()}
-              className="btn-primary w-full py-2.5 text-sm font-medium rounded-lg"
-            >
+            <PillButton onClick={() => window.location.reload()} fullWidth>
               Tải lại trang
-            </button>
+            </PillButton>
           </div>
         </div>
       )

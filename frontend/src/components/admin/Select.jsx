@@ -6,7 +6,11 @@ import { Check, ChevronDown } from 'lucide-react'
 // API cố tình giống <select>: value là giá trị hiện tại, onChange nhận thẳng
 // giá trị mới được chọn (không phải event — khác với onChange={e => ...} của
 // <select> native, cần bỏ `.target.value` khi thay thế từng chỗ gọi).
-// options: [{ value, label, disabled? }]
+// options: [{ value, label, disabled? }] — hoặc trộn thêm mục nhóm dạng
+// { group: string, options: [{ value, label, disabled? }] } để phân nhóm bằng
+// tiêu đề không chọn được (chỉ dùng khi danh sách quá dài, ví dụ Loại hành
+// động ở AuditLogs). Không bắt buộc — mọi chỗ dùng flat array hiện có vẫn
+// chạy y nguyên, không cần đổi cách gọi.
 export default function Select({
   value,
   onChange,
@@ -20,7 +24,8 @@ export default function Select({
   buttonClassName = '',
   panelClassName = '',
 }) {
-  const selected = options.find(o => o.value === value)
+  const flatOptions = options.flatMap(o => (o.group ? o.options : [o]))
+  const selected = flatOptions.find(o => o.value === value)
 
   return (
     <div className={`relative ${className}`}>
@@ -42,7 +47,24 @@ export default function Select({
               transition
               className={`z-20 w-[var(--button-width)] mt-1.5 rounded-xl border border-zinc-200 bg-white shadow-lg p-1 focus:outline-none transition duration-100 ease-out data-[closed]:opacity-0 data-[closed]:scale-95 ${panelClassName}`}
             >
-              {options.map(opt => (
+              {options.map(opt => opt.group ? (
+                <div key={opt.group}>
+                  <p className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400 select-none">
+                    {opt.group}
+                  </p>
+                  {opt.options.map(sub => (
+                    <ListboxOption key={sub.value} value={sub.value} disabled={sub.disabled}
+                      className={({ focus }) => `flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-xs font-medium cursor-pointer select-none transition-colors ${focus ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-700'}`}>
+                      {({ selected: isSelected }) => (
+                        <>
+                          <span className="truncate">{sub.label}</span>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-zinc-900 shrink-0" />}
+                        </>
+                      )}
+                    </ListboxOption>
+                  ))}
+                </div>
+              ) : (
                 <ListboxOption key={opt.value} value={opt.value} disabled={opt.disabled}
                   className={({ focus }) => `flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-xs font-medium cursor-pointer select-none transition-colors ${focus ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-700'}`}>
                   {({ selected: isSelected }) => (

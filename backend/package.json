@@ -16,7 +16,8 @@
     "db:dev:push": "node scripts/with-dev-db.js -- npx prisma db push",
     "db:dev:seed": "node scripts/with-dev-db.js -- node prisma/seed-dev.js",
     "db:dev:studio": "node scripts/with-dev-db.js -- npx prisma studio",
-    "db:dev:gen-explanations": "node scripts/with-dev-db.js -- node scripts/generate-explanations.js"
+    "db:dev:gen-explanations": "node scripts/with-dev-db.js -- node scripts/generate-explanations.js",
+    "kill-ports": "node ../scripts/kill-dev-ports.js"
   },
   "keywords": [],
   "author": "",

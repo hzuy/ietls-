@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { AlertCircle, RefreshCw, FileQuestion } from 'lucide-react'
 
 import Card from '../components/common/Card'
+import PillButton from '../components/common/PillButton'
 import { SkeletonText } from '../components/skeletons'
 import SampleHeader from '../components/SampleHeader'
 import { getSample } from '../services/sampleService'
@@ -46,13 +47,10 @@ export default function SampleDetailPage({ skill }) {
         <AlertCircle className="w-10 h-10 text-zinc-400 mb-3 stroke-[1.75]" />
         <p style={{ color: 'var(--ink)', fontWeight: 700, fontSize: 16 }}>Không thể tải bài mẫu</p>
         <p className="mb-5" style={{ color: 'var(--muted)', fontSize: 14 }}>Vui lòng kiểm tra kết nối và thử lại.</p>
-        <button
-          onClick={fetchSample}
-          className="btn-primary flex items-center justify-center gap-2 px-6 h-9 rounded-full font-semibold text-sm cursor-pointer"
-        >
+        <PillButton onClick={fetchSample}>
           <RefreshCw className="w-4 h-4" />
           Thử lại
-        </button>
+        </PillButton>
       </Card>
     </div>
   )

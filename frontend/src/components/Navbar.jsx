@@ -6,6 +6,7 @@ import { useAuthGate } from '../hooks/useAuthGate'
 import GatedLink from './common/GatedLink'
 import NavDropdown from './nav/NavDropdown'
 import LogoutConfirmModal from './nav/LogoutConfirmModal'
+import PillButton from './common/PillButton'
 
 function NavBtn({ children, active, onClick, hasDropdown }) {
   return (
@@ -312,8 +313,8 @@ export default function Navbar() {
                 </>
               ) : (
                 <>
-                  <button onClick={() => openAuthModal('login')} className="btn-secondary" style={{ minHeight: 44, padding: '0.375rem 1rem' }}>Đăng nhập</button>
-                  <button onClick={() => openAuthModal('register')} className="btn-primary" style={{ minHeight: 44, padding: '0.375rem 1rem' }}>Đăng ký</button>
+                  <PillButton variant="secondary" onClick={() => openAuthModal('login')}>Đăng nhập</PillButton>
+                  <PillButton onClick={() => openAuthModal('register')}>Đăng ký</PillButton>
                 </>
               )}
             </div>
@@ -446,8 +447,8 @@ export default function Navbar() {
             </>
           ) : (
             <>
-              <button onClick={() => { closeMobile(); openAuthModal('login') }} className="btn-secondary w-full">Đăng nhập</button>
-              <button onClick={() => { closeMobile(); openAuthModal('register') }} className="btn-primary w-full">Đăng ký</button>
+              <PillButton variant="secondary" fullWidth onClick={() => { closeMobile(); openAuthModal('login') }}>Đăng nhập</PillButton>
+              <PillButton fullWidth onClick={() => { closeMobile(); openAuthModal('register') }}>Đăng ký</PillButton>
             </>
           )}
         </div>

@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Card from '../components/common/Card'
+import PillButton from '../components/common/PillButton'
+import PillInput from '../components/common/PillInput'
 import { getMe, updateProfile, changePassword, getUserStats } from '../services/userService'
 import { User, BarChart2, Lock, CheckCircle2, AlertCircle } from 'lucide-react'
 import { formatBand } from '../utils/ielts'
@@ -177,48 +179,41 @@ export default function UserProfile() {
               <form onSubmit={handleSaveInfo}>
                 <div className="flex flex-col gap-5">
                   <div>
-                    <label htmlFor="up-name" className="block font-bold text-zinc-700 mb-2" style={{ fontSize: 'var(--fs-sm)' }}>
+                    <label htmlFor="up-name" className="block text-xs font-semibold text-zinc-700 mb-1.5">
                       Họ và tên
                     </label>
-                    <input
+                    <PillInput
                       id="up-name"
                       value={name}
                       onChange={e => setName(e.target.value)}
                       required
-                      className="w-full px-5 py-2.5 rounded-full border border-zinc-200 text-zinc-900 outline-none transition-all focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900 bg-white text-sm"
                     />
                   </div>
                   <div>
-                    <label htmlFor="up-email" className="block font-bold text-zinc-700 mb-2" style={{ fontSize: 'var(--fs-sm)' }}>
+                    <label htmlFor="up-email" className="block text-xs font-semibold text-zinc-700 mb-1.5">
                       Email
                     </label>
-                    <input
+                    <PillInput
                       id="up-email"
                       value={user?.email || ''}
                       disabled
-                      className="w-full px-5 py-2.5 rounded-full border border-zinc-200 text-zinc-500 bg-zinc-50 cursor-not-allowed text-sm"
                     />
                   </div>
                   <div>
-                    <label htmlFor="up-join" className="block font-bold text-zinc-700 mb-2" style={{ fontSize: 'var(--fs-sm)' }}>
+                    <label htmlFor="up-join" className="block text-xs font-semibold text-zinc-700 mb-1.5">
                       Ngày tham gia
                     </label>
-                    <input
+                    <PillInput
                       id="up-join"
                       value={joinDate}
                       disabled
-                      className="w-full px-5 py-2.5 rounded-full border border-zinc-200 text-zinc-500 bg-zinc-50 cursor-not-allowed text-sm"
                     />
                   </div>
                 </div>
                 <Alert msg={infoMsg} />
-                <button
-                  type="submit"
-                  className="btn-primary mt-6 px-6 py-2.5 font-bold"
-                  style={{ fontSize: 'var(--fs-sm)' }}
-                >
+                <PillButton type="submit" className="mt-6">
                   Lưu thay đổi
-                </button>
+                </PillButton>
               </form>
             </div>
           )}
@@ -242,7 +237,7 @@ export default function UserProfile() {
                   </div>
                   <h2 className="text-lg font-bold text-zinc-900 mb-2">Không thể tải dữ liệu</h2>
                   <p className="text-zinc-600 mb-6 max-w-sm" style={{ fontSize: 'var(--fs-sm)' }}>Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
-                  <button className="btn-primary px-8 py-3 font-bold" style={{ fontSize: 'var(--fs-sm)' }} onClick={() => window.location.reload()}>Thử lại</button>
+                  <PillButton onClick={() => window.location.reload()}>Thử lại</PillButton>
                 </Card>
               ) : stats?.totalAttempts === 0 ? (
                 <Card className="text-center p-12 flex flex-col items-center">
@@ -251,7 +246,7 @@ export default function UserProfile() {
                   </div>
                   <h2 className="text-lg font-bold text-zinc-900 mb-2">Bạn chưa có dữ liệu học tập</h2>
                   <p className="text-zinc-600 mb-6 max-w-sm" style={{ fontSize: 'var(--fs-sm)' }}>Hãy bắt đầu luyện tập để xây dựng hồ sơ tiến bộ của mình.</p>
-                  <button className="btn-primary px-8 py-3 font-bold" style={{ fontSize: 'var(--fs-sm)' }} onClick={() => navigate('/full-test')}>Bắt đầu luyện tập</button>
+                  <PillButton onClick={() => navigate('/full-test')}>Bắt đầu luyện tập</PillButton>
                 </Card>
               ) : (
                 <>
@@ -325,28 +320,23 @@ export default function UserProfile() {
                     { id: 'up-confirm', label: 'Xác nhận mật khẩu mới',  value: confirmPwd, set: setConfirmPwd },
                   ].map(({ id, label, value, set }) => (
                     <div key={id}>
-                      <label htmlFor={id} className="block font-bold text-zinc-700 mb-2" style={{ fontSize: 'var(--fs-sm)' }}>
+                      <label htmlFor={id} className="block text-xs font-semibold text-zinc-700 mb-1.5">
                         {label}
                       </label>
-                      <input
+                      <PillInput
                         id={id}
                         type="password"
                         value={value}
                         onChange={e => set(e.target.value)}
                         required
-                        className="w-full px-5 py-2.5 rounded-full border border-zinc-200 text-zinc-900 outline-none transition-all focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900 bg-white text-sm"
                       />
                     </div>
                   ))}
                 </div>
                 <Alert msg={pwdMsg} />
-                <button
-                  type="submit"
-                  className="btn-primary mt-6 px-6 py-2.5 font-bold"
-                  style={{ fontSize: 'var(--fs-sm)' }}
-                >
+                <PillButton type="submit" className="mt-6">
                   Đổi mật khẩu
-                </button>
+                </PillButton>
               </form>
             </div>
           )}

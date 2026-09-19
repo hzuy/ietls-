@@ -4,6 +4,7 @@ import Breadcrumb from '../components/common/Breadcrumb'
 import ContentCard from '../components/common/ContentCard'
 import AcademicCover from '../components/common/AcademicCover'
 import Card from '../components/common/Card'
+import PillButton from '../components/common/PillButton'
 import { CONTENT_CARD_CONFIG, buildSampleChips } from '../components/common/contentCardConfig'
 import { API_BASE, resolveImg } from '../utils/media'
 
@@ -178,7 +179,7 @@ export default function SamplesPage({ skill }) {
               </div>
               <p className="text-lg font-bold text-zinc-900 mb-2">Không thể tải dữ liệu</p>
               <p className="text-sm text-zinc-500 mb-6 max-w-sm">Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
-              <button className="btn-primary px-8 py-3 text-sm font-bold" onClick={() => window.location.reload()}>Thử lại</button>
+              <PillButton onClick={() => window.location.reload()}>Thử lại</PillButton>
             </Card>
           ) : filtered.length === 0 ? (
             <Card className="text-center py-16 px-6 flex flex-col items-center">
@@ -187,7 +188,7 @@ export default function SamplesPage({ skill }) {
               </div>
               <p className="text-lg font-bold text-zinc-900 mb-2">Không tìm thấy bài mẫu phù hợp</p>
               <p className="text-sm text-zinc-500 mb-6 max-w-sm">Hãy thử thay đổi từ khóa hoặc lựa chọn dạng bài khác.</p>
-              <button className="btn-secondary px-6 py-2.5 text-sm font-bold" onClick={() => setSearchParams(new URLSearchParams())}>Xóa bộ lọc</button>
+              <PillButton variant="secondary" onClick={() => setSearchParams(new URLSearchParams())}>Xóa bộ lọc</PillButton>
             </Card>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

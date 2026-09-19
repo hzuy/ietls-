@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { GoogleLogin } from '@react-oauth/google'
 import { login, register, googleAuth } from '../services/userService'
 import { showAlert } from '../utils/alertUtils'
 import { AlertCircle } from 'lucide-react'
+import PillButton from './common/PillButton'
+import PillInput from './common/PillInput'
 
 export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
   const navigate = useNavigate()
@@ -20,6 +22,19 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
 
   // Google Sign-In state (dùng chung cho cả 2 tab)
   const [googleError, setGoogleError] = useState('')
+
+  // Đo width của modal content để truyền vào GoogleLogin.width (responsive)
+  const modalBodyRef = useRef(null)
+  const [googleBtnWidth, setGoogleBtnWidth] = useState(360)
+  useEffect(() => {
+    const el = modalBodyRef.current
+    if (!el) return
+    const observer = new ResizeObserver(([entry]) => {
+      setGoogleBtnWidth(Math.min(400, Math.max(280, Math.floor(entry.contentRect.width))))
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   // Xử lý y hệt handleLogin/handleRegister: lưu token/user, theo dõi requirePasswordChange, gọi onSuccess
   const handleGoogleSuccess = async (credentialResponse) => {
@@ -103,10 +118,16 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
 
-  const inputStyle = { border: '1px solid var(--border)', color: 'var(--text)' }
-  const inputCls   = 'w-full rounded-full px-5 py-3 text-sm outline-none transition-all duration-300 focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900'
+  // Bo góc pill (bản sắc riêng phía người dùng), kích thước/cỡ chữ theo chuẩn
+  // gọn của admin (h-9) — xem CLAUDE.md "Redesign giao diện người dùng".
+  // Input/nút dùng PillInput/PillButton dùng chung; label/tiêu đề style riêng
+  // vì không có component chung cho chúng.
+  const labelCls = 'block text-xs font-semibold mb-1.5'
 
-  // Khối "hoặc" + nút Google — dùng chung cho cả 2 tab, chỉ đổi text nút theo ngữ cảnh
+  // Khối "hoặc" + nút Google — dùng chung cho cả 2 tab, chỉ đổi text nút theo ngữ cảnh.
+  // shape="pill" là prop có sẵn của @react-oauth/google (Google tự render pill
+  // trong iframe riêng) — không dùng CSS/wrapper để ép hình, vì nội dung iframe
+  // nằm ngoài tầm với của CSS trang chủ.
   const googleSection = (
     <>
       {googleError && (
@@ -120,13 +141,17 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
         <span className="text-xs font-medium" style={{ color: 'var(--subtle)' }}>hoặc</span>
         <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
       </div>
-      <div className="flex justify-center">
+      {/* width truyền từ googleBtnWidth (đo ResizeObserver trên modal container):
+           nút Google sẽ co giãn theo chiều rộng thực của hộp thoại (max 400px)
+           thay vì cố định 320px. GoogleLogin render trong iframe sandbox riêng
+           nên chỉ có thể đồng bộ chiều rộng qua prop width, không qua CSS. */}
+      <div className="flex justify-center overflow-hidden">
         <GoogleLogin
           onSuccess={handleGoogleSuccess}
           onError={() => setGoogleError('Đăng nhập Google thất bại')}
           text={tab === 'register' ? 'signup_with' : 'signin_with'}
           shape="pill"
-          width="320"
+          width={String(googleBtnWidth)}
         />
       </div>
     </>
@@ -139,7 +164,8 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="w-full max-w-md rounded-2xl p-8 relative"
+        ref={modalBodyRef}
+        className="w-full max-w-md rounded-2xl p-6 relative"
         style={{ backgroundColor: 'var(--surface)', boxShadow: 'var(--shadow-lg)', border: '1px solid var(--border)' }}
       >
         {/* Nút X */}
@@ -168,7 +194,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
         </div>
 
         {/* Tabs */}
-        <div className="flex mb-6" style={{ borderBottom: '1px solid var(--border)' }}>
+        <div className="flex mb-4" style={{ borderBottom: '1px solid var(--border)' }}>
           {['login', 'register'].map(t => (
             <button
               key={t}
@@ -189,9 +215,6 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
         {/* LOGIN */}
         {tab === 'login' && (
           <>
-            <h2 className="text-xl font-extrabold mb-1" style={{ color: 'var(--ink)' }}>Đăng nhập</h2>
-            <p className="text-sm mb-5" style={{ color: 'var(--muted)' }}>Chào mừng bạn quay lại!</p>
-
             {loginError && (
               <div role="alert" className="p-3 rounded-2xl mb-4 text-xs font-medium bg-error-bg border border-error-border text-error-text flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-error shrink-0" />
@@ -201,12 +224,10 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
 
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label htmlFor="login-email" className="block text-sm font-bold mb-1.5" style={{ color: 'var(--text)' }}>Email</label>
-                <input
+                <label htmlFor="login-email" className={labelCls} style={{ color: 'var(--text)' }}>Email</label>
+                <PillInput
                   id="login-email"
                   type="email"
-                  className={inputCls}
-                  style={inputStyle}
                   placeholder="example@gmail.com"
                   value={loginForm.email}
                   onChange={e => setLoginForm({ ...loginForm, email: e.target.value })}
@@ -215,30 +236,24 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
                 />
               </div>
               <div>
-                <label htmlFor="login-password" className="block text-sm font-bold mb-1.5" style={{ color: 'var(--text)' }}>Mật khẩu</label>
-                <input
+                <label htmlFor="login-password" className={labelCls} style={{ color: 'var(--text)' }}>Mật khẩu</label>
+                <PillInput
                   id="login-password"
                   type="password"
-                  className={inputCls}
-                  style={inputStyle}
                   placeholder="••••••••"
                   value={loginForm.password}
                   onChange={e => setLoginForm({ ...loginForm, password: e.target.value })}
                   required
                 />
               </div>
-              <button
-                type="submit"
-                disabled={loginLoading}
-                className="w-full py-3 rounded-full text-sm font-bold btn-primary mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
-              >
+              <PillButton type="submit" disabled={loginLoading} fullWidth className="mt-2">
                 {loginLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
-              </button>
+              </PillButton>
             </form>
 
             {googleSection}
 
-            <p className="text-center text-sm mt-5" style={{ color: 'var(--muted)' }}>
+            <p className="text-center text-xs mt-5" style={{ color: 'var(--muted)' }}>
               Chưa có tài khoản?{' '}
               <button onClick={() => onTabChange('register')} className="font-bold" style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}>
                 Đăng ký ngay
@@ -250,9 +265,6 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
         {/* REGISTER */}
         {tab === 'register' && (
           <>
-            <h2 className="text-xl font-extrabold mb-1" style={{ color: 'var(--ink)' }}>Tạo tài khoản học viên</h2>
-            <p className="text-xs mb-5 text-zinc-500">Lưu trữ kết quả thi và theo dõi lộ trình nâng band điểm</p>
-
             {regError && (
               <div role="alert" className="p-3 rounded-2xl mb-4 text-xs font-medium bg-error-bg border border-error-border text-error-text flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-error shrink-0" />
@@ -262,12 +274,10 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
 
             <form onSubmit={handleRegister} className="space-y-4">
               <div>
-                <label htmlFor="reg-name" className="block text-sm font-bold mb-1.5" style={{ color: 'var(--text)' }}>Họ và tên</label>
-                <input
+                <label htmlFor="reg-name" className={labelCls} style={{ color: 'var(--text)' }}>Họ và tên</label>
+                <PillInput
                   id="reg-name"
                   type="text"
-                  className={inputCls}
-                  style={inputStyle}
                   placeholder="Nguyễn Văn A"
                   value={regForm.name}
                   onChange={e => setRegForm({ ...regForm, name: e.target.value })}
@@ -276,12 +286,10 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
                 />
               </div>
               <div>
-                <label htmlFor="reg-email" className="block text-sm font-bold mb-1.5" style={{ color: 'var(--text)' }}>Email</label>
-                <input
+                <label htmlFor="reg-email" className={labelCls} style={{ color: 'var(--text)' }}>Email</label>
+                <PillInput
                   id="reg-email"
                   type="email"
-                  className={inputCls}
-                  style={inputStyle}
                   placeholder="example@gmail.com"
                   value={regForm.email}
                   onChange={e => setRegForm({ ...regForm, email: e.target.value })}
@@ -289,30 +297,24 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
                 />
               </div>
               <div>
-                <label htmlFor="reg-password" className="block text-sm font-bold mb-1.5" style={{ color: 'var(--text)' }}>Mật khẩu</label>
-                <input
+                <label htmlFor="reg-password" className={labelCls} style={{ color: 'var(--text)' }}>Mật khẩu</label>
+                <PillInput
                   id="reg-password"
                   type="password"
-                  className={inputCls}
-                  style={inputStyle}
                   placeholder="Tối thiểu 8 ký tự"
                   value={regForm.password}
                   onChange={e => setRegForm({ ...regForm, password: e.target.value })}
                   required
                 />
               </div>
-              <button
-                type="submit"
-                disabled={regLoading}
-                className="w-full py-3 rounded-full text-sm font-bold btn-primary mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {regLoading ? 'Đang tạo tài khoản...' : 'Đăng ký miễn phí'}
-              </button>
+              <PillButton type="submit" disabled={regLoading} fullWidth className="mt-2">
+                {regLoading ? 'Đang tạo tài khoản...' : 'Đăng ký'}
+              </PillButton>
             </form>
 
             {googleSection}
 
-            <p className="text-center text-sm mt-5" style={{ color: 'var(--muted)' }}>
+            <p className="text-center text-xs mt-5" style={{ color: 'var(--muted)' }}>
               Đã có tài khoản?{' '}
               <button onClick={() => onTabChange('login')} className="font-bold" style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}>
                 Đăng nhập

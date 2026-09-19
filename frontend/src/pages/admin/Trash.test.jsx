@@ -40,15 +40,18 @@ describe('Trash page — P3 modal + a11y + error handling', () => {
     expect(screen.getAllByText(/tự dọn sau|sắp được dọn/).length).toBeGreaterThan(0)
   })
 
-  it('type-filter chips expose role="tab" + aria-selected', async () => {
+  it('type-filter Select exposes all 11 categories grouped, and filters on selection', async () => {
     render(<Trash />)
     await screen.findByText('Đề Reading A')
-    const tabs = screen.getAllByRole('tab')
-    expect(tabs.length).toBe(11)
-    const all = tabs.find(t => t.textContent.startsWith('Tất cả'))
-    expect(all).toHaveAttribute('aria-selected', 'true')
-    fireEvent.click(tabs.find(t => t.textContent.startsWith('Reading') && !t.textContent.includes('Practice')))
-    expect(screen.getByRole('tab', { selected: true }).textContent).toMatch(/^Reading/)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Lọc theo loại' }))
+    const options = await screen.findAllByRole('option')
+    expect(options.length).toBe(11)
+    expect(options.some(o => o.textContent.startsWith('Tất cả'))).toBe(true)
+
+    fireEvent.click(options.find(o => o.textContent === 'Bộ đề (1)'))
+    expect(screen.getByText('Bộ đề X')).toBeInTheDocument()
+    expect(screen.queryByText('Đề Reading A')).not.toBeInTheDocument()
   })
 
   it('P3-4: opening the delete confirm mounts a role="dialog"; Escape closes it', async () => {
