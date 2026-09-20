@@ -7,7 +7,7 @@ import { saveDraft, loadDraft, clearDraft, isDataEmpty, formatSavedAt } from '..
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
-import { Clock, Sparkles, CheckCircle2, RotateCcw, AlertCircle, ChevronRight, X } from 'lucide-react'
+import { Clock, Sparkles, CheckCircle2, RotateCcw, AlertCircle, ChevronRight, X, ArrowLeft } from 'lucide-react'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
 import { renderFeedbackList } from '../utils/feedbackList'
@@ -154,8 +154,8 @@ export default function WritingExam() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [phase, allSubmitted, persistDraftNow])
 
-  // Chặn nút Back (<) của trình duyệt khi đang làm bài
-  const { showModal: showExitModal, stay: stayInExam, leave: leaveExam } = useBrowserHistoryGuard(phase === 'exam' && !allSubmitted, persistDraftNow)
+  const exitPath = exam?.seriesId ? `/full-test/${exam.seriesId}?book=${exam.bookNumber}` : '/writing-samples'
+  const { showModal: showExitModal, setShowExitModal, stay: stayInExam, leave: leaveExam } = useBrowserHistoryGuard(phase === 'exam' && !allSubmitted, persistDraftNow, exitPath)
 
   // Khi đã nộp hết cả 2 task (hoặc bài chỉ có 1 task và đã nộp) → clear draft
   useEffect(() => {
@@ -648,6 +648,15 @@ export default function WritingExam() {
       {/* Header */}
       <header className="h-14 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-3 min-w-0">
+          <button
+            type="button"
+            onClick={() => setShowExitModal(true)}
+            className="p-1.5 -ml-1.5 mr-1.5 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 rounded-full transition-colors cursor-pointer"
+            title="Rời khỏi phòng thi"
+            aria-label="Quay lại danh sách"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
           <span className="text-xs sm:text-sm font-semibold text-zinc-900 truncate">
             {exam.title}
           </span>
@@ -944,8 +953,8 @@ export default function WritingExam() {
         </div>
       )}
 
-      {/* Exit confirmation modal — Back nút trình duyệt */}
-      <ExitConfirmModal open={showExitModal} onStay={stayInExam} onLeave={leaveExam} />
+      {/* Exit confirmation modal — Back nút trình duyệt hoặc nút Header */}
+      <ExitConfirmModal open={showExitModal} onStay={stayInExam} onLeave={() => leaveExam(exitPath)} />
 
       {/* Loading overlay khi nộp bài */}
       {submitting && (

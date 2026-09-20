@@ -2,13 +2,18 @@ import { render, act, screen, cleanup } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useBrowserHistoryGuard } from './useBrowserHistoryGuard'
 
-function TestComponent({ enabled, onBeforeExit }) {
-  const { showModal, stay, leave } = useBrowserHistoryGuard(enabled, onBeforeExit)
+const mockNavigate = vi.fn()
+vi.mock('react-router-dom', () => ({
+  useNavigate: () => mockNavigate,
+}))
+
+function TestComponent({ enabled, onBeforeExit, defaultFallbackPath, targetPath }) {
+  const { showModal, stay, leave } = useBrowserHistoryGuard(enabled, onBeforeExit, defaultFallbackPath)
   return (
     <div>
       <span data-testid="modal-state">{showModal ? 'open' : 'closed'}</span>
       <button data-testid="stay-btn" onClick={stay}>Ở lại</button>
-      <button data-testid="leave-btn" onClick={leave}>Thoát</button>
+      <button data-testid="leave-btn" onClick={() => leave(targetPath)}>Thoát</button>
     </div>
   )
 }
@@ -18,6 +23,8 @@ describe('useBrowserHistoryGuard', () => {
   let goSpy
 
   beforeEach(() => {
+    mockNavigate.mockClear()
+    Object.defineProperty(window.history, 'length', { value: 5, configurable: true, writable: true })
     pushStateSpy = vi.spyOn(window.history, 'pushState').mockImplementation(() => {})
     goSpy = vi.spyOn(window.history, 'go').mockImplementation(() => {})
   })
@@ -73,7 +80,7 @@ describe('useBrowserHistoryGuard', () => {
     expect(goSpy).not.toHaveBeenCalled()
   })
 
-  it('bấm "Thoát" → đóng modal và gọi history.go(-2) để thoát trang', () => {
+  it('bấm "Thoát" khi history.length > 2 và không có targetPath → đóng modal và gọi history.go(-2)', () => {
     const onBeforeExit = vi.fn()
     render(<TestComponent enabled={true} onBeforeExit={onBeforeExit} />)
 
@@ -89,6 +96,42 @@ describe('useBrowserHistoryGuard', () => {
     expect(goSpy).toHaveBeenCalledWith(-2)
     // onBeforeExit được gọi ít nhất 1 lần (lúc popstate và lúc leave)
     expect(onBeforeExit).toHaveBeenCalled()
+  })
+
+  it('bấm "Thoát" với targetPath → gọi navigate(targetPath, { replace: true }) và không gọi history.go', () => {
+    const onBeforeExit = vi.fn()
+    render(<TestComponent enabled={true} onBeforeExit={onBeforeExit} targetPath="/practice/reading" />)
+
+    act(() => {
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    })
+    expect(screen.getByTestId('modal-state').textContent).toBe('open')
+
+    act(() => {
+      screen.getByTestId('leave-btn').click()
+    })
+
+    expect(screen.getByTestId('modal-state').textContent).toBe('closed')
+    expect(mockNavigate).toHaveBeenCalledWith('/practice/reading', { replace: true })
+    expect(goSpy).not.toHaveBeenCalled()
+    expect(onBeforeExit).toHaveBeenCalled()
+  })
+
+  it('khi history.length <= 2 và không có targetPath → navigate về fallback path an toàn', () => {
+    Object.defineProperty(window.history, 'length', { value: 2, configurable: true, writable: true })
+    render(<TestComponent enabled={true} defaultFallbackPath="/full-test/1?book=1" />)
+
+    act(() => {
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    })
+
+    act(() => {
+      screen.getByTestId('leave-btn').click()
+    })
+
+    expect(screen.getByTestId('modal-state').textContent).toBe('closed')
+    expect(mockNavigate).toHaveBeenCalledWith('/full-test/1?book=1', { replace: true })
+    expect(goSpy).not.toHaveBeenCalled()
   })
 
   it('sau khi bấm "Thoát", sự kiện popstate tiếp diễn (do history.go kích hoạt) KHÔNG mở lại modal lần 2', () => {
@@ -119,3 +162,4 @@ describe('useBrowserHistoryGuard', () => {
     expect(pushStateSpy).toHaveBeenCalledTimes(pushCountBeforeLeave)
   })
 })
+

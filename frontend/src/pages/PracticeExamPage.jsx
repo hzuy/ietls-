@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 
 import Navbar from '../components/Navbar'
 import { getPractice } from '../services/practiceService'
-import { Clock } from 'lucide-react'
+import { Clock, ArrowLeft } from 'lucide-react'
 import MatchingTickGrid from '../components/MatchingTickGrid'
 import DragWordBankGroup from '../components/DragWordBankGroup'
 import MatchingDragGroup from '../components/MatchingDragGroup'
@@ -84,8 +84,8 @@ function ReadingPracticeExam({ exam, onBack }) {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [phase, persistDraftNow])
 
-  // Chặn nút Back (<) của trình duyệt khi đang làm bài
-  const { showModal: showExitModal, stay: stayInExam, leave: leaveExam } = useBrowserHistoryGuard(phase === 'exam', persistDraftNow)
+  const exitPath = '/practice/reading'
+  const { showModal: showExitModal, setShowExitModal, stay: stayInExam, leave: leaveExam } = useBrowserHistoryGuard(phase === 'exam', persistDraftNow, exitPath)
 
 
 
@@ -244,6 +244,15 @@ function ReadingPracticeExam({ exam, onBack }) {
       {/* Header */}
       <header className="h-14 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-3 min-w-0">
+          <button
+            type="button"
+            onClick={() => setShowExitModal(true)}
+            className="p-1.5 -ml-1.5 mr-1.5 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 rounded-full transition-colors cursor-pointer"
+            title="Rời khỏi phòng thi"
+            aria-label="Quay lại danh sách"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
           <span className="text-xs sm:text-sm font-semibold text-zinc-900 truncate">{exam.title}</span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
@@ -339,8 +348,8 @@ function ReadingPracticeExam({ exam, onBack }) {
         onCancel={() => setShowConfirm(false)}
         onConfirm={() => { setShowConfirm(false); doSubmit() }}
       />
-      {/* Exit confirmation modal — Back nút trình duyệt */}
-      <ExitConfirmModal open={showExitModal} onStay={stayInExam} onLeave={leaveExam} />
+      {/* Exit confirmation modal — Back nút trình duyệt hoặc nút Header */}
+      <ExitConfirmModal open={showExitModal} onStay={stayInExam} onLeave={() => leaveExam(exitPath)} />
     </div>
   )
 }
@@ -392,8 +401,8 @@ function ListeningPracticeExam({ exam, onBack }) {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [phase, persistDraftNow])
 
-  // Chặn nút Back (<) của trình duyệt khi đang làm bài
-  const { showModal: showExitModal, stay: stayInExam, leave: leaveExam } = useBrowserHistoryGuard(phase === 'exam', persistDraftNow)
+  const exitPath = '/practice/listening'
+  const { showModal: showExitModal, setShowExitModal, stay: stayInExam, leave: leaveExam } = useBrowserHistoryGuard(phase === 'exam', persistDraftNow, exitPath)
 
 
 
@@ -529,6 +538,15 @@ function ListeningPracticeExam({ exam, onBack }) {
       {/* Header */}
       <header className="h-14 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-3 min-w-0">
+          <button
+            type="button"
+            onClick={() => setShowExitModal(true)}
+            className="p-1.5 -ml-1.5 mr-1.5 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 rounded-full transition-colors cursor-pointer"
+            title="Rời khỏi phòng thi"
+            aria-label="Quay lại danh sách"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
           <span className="text-xs sm:text-sm font-semibold text-zinc-900 truncate">{exam.title}</span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
@@ -606,8 +624,8 @@ function ListeningPracticeExam({ exam, onBack }) {
         onCancel={() => setShowConfirm(false)}
         onConfirm={() => { setShowConfirm(false); doSubmit() }}
       />
-      {/* Exit confirmation modal — Back nút trình duyệt */}
-      <ExitConfirmModal open={showExitModal} onStay={stayInExam} onLeave={leaveExam} />
+      {/* Exit confirmation modal — Back nút trình duyệt hoặc nút Header */}
+      <ExitConfirmModal open={showExitModal} onStay={stayInExam} onLeave={() => leaveExam(exitPath)} />
     </div>
   )
 }

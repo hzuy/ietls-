@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 /**
  * useBrowserHistoryGuard — Chặn thao tác nhấn nút Back (<) hoặc Alt+Left Arrow
@@ -9,9 +10,11 @@ import { useEffect, useRef, useState, useCallback } from 'react'
  *
  * @param {boolean} enabled — Chỉ kích hoạt khi bài thi đang trong tiến trình làm bài.
  * @param {() => void} [onBeforeExit] — Callback chạy đồng bộ để lưu nháp trước khi rời đi.
- * @returns {{ showModal: boolean, stay: () => void, leave: () => void }}
+ * @param {string} [defaultFallbackPath='/full-test'] — Đường dẫn mặc định khi cần fallback an toàn.
+ * @returns {{ showModal: boolean, stay: () => void, leave: (targetPath?: string) => void }}
  */
-export function useBrowserHistoryGuard(enabled, onBeforeExit) {
+export function useBrowserHistoryGuard(enabled, onBeforeExit, defaultFallbackPath = '/full-test') {
+  const navigate = useNavigate()
   const [showModal, setShowModal] = useState(false)
   const isExitingRef = useRef(false)
   const handlePopStateRef = useRef(null)
@@ -52,8 +55,8 @@ export function useBrowserHistoryGuard(enabled, onBeforeExit) {
     setShowModal(false)
   }, [])
 
-  // Thoát: đánh dấu cờ thoát, gỡ listener, lưu nháp, đóng modal và đi ngược về 2 entry
-  const leave = useCallback(() => {
+  // Thoát: đánh dấu cờ thoát, gỡ listener, lưu nháp, đóng modal và phân luồng điều hướng dứt điểm
+  const leave = useCallback((targetPath) => {
     // 1. Đánh dấu ngay cờ bypass để các popstate tiếp theo (do history.go kích hoạt) bị bỏ qua
     isExitingRef.current = true
     // 2. Gỡ bỏ listener trên window ngay lập tức
@@ -62,10 +65,33 @@ export function useBrowserHistoryGuard(enabled, onBeforeExit) {
     }
     // 3. Đảm bảo bản nháp mới nhất được lưu trước khi rời phòng thi
     try { onBeforeExitRef.current?.() } catch { /* lỗi lưu không chặn điều hướng */ }
-    // 4. Đóng modal và lùi 2 bước về trang trước
+    // 4. Đóng modal
     setShowModal(false)
-    window.history.go(-2)
+
+    // 5. Phân luồng điều hướng dứt điểm:
+    // Nếu có targetPath (thoát chủ động từ nút Header): gọi navigate(targetPath, { replace: true })
+    if (targetPath) {
+      navigate(targetPath, { replace: true })
+      return
+    }
+
+    // Nếu không có targetPath (thoát qua nút Back trình duyệt):
+    // Kiểm tra an toàn: nếu history.length <= 2 -> chuyển hướng về defaultFallbackPath (hoặc /full-test)
+    if (window.history.length <= 2) {
+      navigate(defaultFallbackPath || '/full-test', { replace: true })
+    } else {
+      window.history.go(-2)
+    }
+  }, [navigate, defaultFallbackPath])
+
+  // Mở/đóng modal chủ động từ UI (ví dụ nút Header Back) — tự động lưu nháp khi mở
+  const setShowExitModal = useCallback((val) => {
+    if (val) {
+      try { onBeforeExitRef.current?.() } catch { /* lỗi lưu không chặn modal */ }
+    }
+    setShowModal(val)
   }, [])
 
-  return { showModal, stay, leave }
+  return { showModal, setShowModal, setShowExitModal, stay, leave }
 }
+
