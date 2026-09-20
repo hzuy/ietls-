@@ -13,6 +13,8 @@ import { useEffect, useRef, useState, useCallback } from 'react'
  */
 export function useBrowserHistoryGuard(enabled, onBeforeExit) {
   const [showModal, setShowModal] = useState(false)
+  const isExitingRef = useRef(false)
+  const handlePopStateRef = useRef(null)
   const onBeforeExitRef = useRef(onBeforeExit)
   // Sync ref mỗi render để không cần đưa vào deps effect
   useEffect(() => {
@@ -22,10 +24,15 @@ export function useBrowserHistoryGuard(enabled, onBeforeExit) {
   useEffect(() => {
     if (!enabled) return
 
+    isExitingRef.current = false
+
     // Đẩy một entry sentinel vào history để bắt sự kiện popstate
     window.history.pushState(null, '', window.location.href)
 
     const handlePopState = () => {
+      // Nếu đang trong quá trình chủ động thoát (kích hoạt bởi leave), bỏ qua hoàn toàn popstate
+      if (isExitingRef.current) return
+
       // Chèn lại sentinel ngay lập tức để giữ URL hiện tại trong lúc modal hiện
       window.history.pushState(null, '', window.location.href)
       // Lưu nháp ngay khi phát hiện ý định thoát (trước khi user xác nhận)
@@ -33,6 +40,7 @@ export function useBrowserHistoryGuard(enabled, onBeforeExit) {
       setShowModal(true)
     }
 
+    handlePopStateRef.current = handlePopState
     window.addEventListener('popstate', handlePopState)
     return () => {
       window.removeEventListener('popstate', handlePopState)
@@ -44,10 +52,18 @@ export function useBrowserHistoryGuard(enabled, onBeforeExit) {
     setShowModal(false)
   }, [])
 
-  // Thoát: đóng modal, đi ngược về 2 entry (sentinel + entry thật của trang trước)
+  // Thoát: đánh dấu cờ thoát, gỡ listener, lưu nháp, đóng modal và đi ngược về 2 entry
   const leave = useCallback(() => {
+    // 1. Đánh dấu ngay cờ bypass để các popstate tiếp theo (do history.go kích hoạt) bị bỏ qua
+    isExitingRef.current = true
+    // 2. Gỡ bỏ listener trên window ngay lập tức
+    if (handlePopStateRef.current) {
+      window.removeEventListener('popstate', handlePopStateRef.current)
+    }
+    // 3. Đảm bảo bản nháp mới nhất được lưu trước khi rời phòng thi
+    try { onBeforeExitRef.current?.() } catch { /* lỗi lưu không chặn điều hướng */ }
+    // 4. Đóng modal và lùi 2 bước về trang trước
     setShowModal(false)
-    // Gỡ sentinel để back thật sự hoạt động
     window.history.go(-2)
   }, [])
 

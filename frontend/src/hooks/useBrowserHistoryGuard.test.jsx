@@ -74,7 +74,8 @@ describe('useBrowserHistoryGuard', () => {
   })
 
   it('bấm "Thoát" → đóng modal và gọi history.go(-2) để thoát trang', () => {
-    render(<TestComponent enabled={true} />)
+    const onBeforeExit = vi.fn()
+    render(<TestComponent enabled={true} onBeforeExit={onBeforeExit} />)
 
     act(() => {
       window.dispatchEvent(new PopStateEvent('popstate'))
@@ -86,5 +87,35 @@ describe('useBrowserHistoryGuard', () => {
 
     expect(screen.getByTestId('modal-state').textContent).toBe('closed')
     expect(goSpy).toHaveBeenCalledWith(-2)
+    // onBeforeExit được gọi ít nhất 1 lần (lúc popstate và lúc leave)
+    expect(onBeforeExit).toHaveBeenCalled()
+  })
+
+  it('sau khi bấm "Thoát", sự kiện popstate tiếp diễn (do history.go kích hoạt) KHÔNG mở lại modal lần 2', () => {
+    render(<TestComponent enabled={true} />)
+
+    // 1. Thí sinh bấm nút Back lần đầu -> mở modal
+    act(() => {
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    })
+    expect(screen.getByTestId('modal-state').textContent).toBe('open')
+    const pushCountBeforeLeave = pushStateSpy.mock.calls.length
+
+    // 2. Thí sinh bấm "Thoát"
+    act(() => {
+      screen.getByTestId('leave-btn').click()
+    })
+    expect(screen.getByTestId('modal-state').textContent).toBe('closed')
+    expect(goSpy).toHaveBeenCalledWith(-2)
+
+    // 3. Trình duyệt phát sinh sự kiện popstate trong quá trình lùi history
+    act(() => {
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    })
+
+    // Modal PHẢI giữ nguyên trạng thái closed, TUYỆT ĐỐI không mở lại lần 2
+    expect(screen.getByTestId('modal-state').textContent).toBe('closed')
+    // Không đẩy thêm bất kỳ sentinel pushState nào
+    expect(pushStateSpy).toHaveBeenCalledTimes(pushCountBeforeLeave)
   })
 })
