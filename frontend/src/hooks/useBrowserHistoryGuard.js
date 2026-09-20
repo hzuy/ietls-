@@ -13,6 +13,29 @@ import { useNavigate } from 'react-router-dom'
  * @param {string} [defaultFallbackPath='/full-test'] — Đường dẫn mặc định khi cần fallback an toàn.
  * @returns {{ showModal: boolean, stay: () => void, leave: (targetPath?: string) => void }}
  */
+/**
+ * Kiểm tra xem trang có vừa được F5 / reload qua Navigation Timing API không
+ */
+function isPageReloaded() {
+  try {
+    const navEntry = window.performance?.getEntriesByType?.('navigation')?.[0]
+    if (navEntry && navEntry.type) return navEntry.type === 'reload'
+    return window.performance?.navigation?.type === 1
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Kiểm tra xem đây có phải entry đầu tiên trong session (link trực tiếp, tab mới)
+ */
+function isDirectOrFirstEntry() {
+  if (window.history.length <= 2) return true
+  const routerIdx = window.history.state?.idx
+  if (routerIdx == null || routerIdx <= 0) return true
+  return false
+}
+
 export function useBrowserHistoryGuard(enabled, onBeforeExit, defaultFallbackPath = '/full-test') {
   const navigate = useNavigate()
   const [showModal, setShowModal] = useState(false)
@@ -56,7 +79,7 @@ export function useBrowserHistoryGuard(enabled, onBeforeExit, defaultFallbackPat
   }, [])
 
   // Thoát: đánh dấu cờ thoát, gỡ listener, lưu nháp, đóng modal và phân luồng điều hướng dứt điểm
-  const leave = useCallback((fallbackUrl) => {
+  const leave = useCallback((targetPath) => {
     // 1. Đánh dấu ngay cờ bypass để các popstate tiếp theo (do history.go kích hoạt) bị bỏ qua
     isExitingRef.current = true
     // 2. Gỡ bỏ listener trên window ngay lập tức
@@ -69,27 +92,11 @@ export function useBrowserHistoryGuard(enabled, onBeforeExit, defaultFallbackPat
     setShowModal(false)
 
     // 5. Phân luồng điều hướng dứt điểm cho nút Back trình duyệt:
-    const destination = fallbackUrl || defaultFallbackPath || '/full-test'
+    const destination = targetPath || defaultFallbackPath || '/full-test'
 
-    // Phát hiện trang vừa bị F5/reload qua Navigation Timing API
-    let isReload = false
-    try {
-      const navEntry = window.performance?.getEntriesByType?.('navigation')?.[0]
-      if (navEntry && navEntry.type) {
-        isReload = navEntry.type === 'reload'
-      } else if (window.performance?.navigation) {
-        isReload = window.performance.navigation.type === 1
-      }
-    } catch {
-      isReload = false
-    }
-
-    // Kiểm tra router session index (nếu idx <= 0, đây là trang đầu tiên trong session SPA này)
-    const isFirstRoute = window.history.state?.idx != null && window.history.state.idx <= 0
-
-    // Nếu stack không đủ sâu (length <= 2), vừa F5 reload, hoặc là route đầu tiên:
+    // Nếu vừa F5 reload, stack không đủ sâu/direct link, hoặc có targetPath:
     // history.go(-2) sẽ làm kẹt thí sinh trong phòng thi -> navigate replace dứt điểm
-    if (window.history.length <= 2 || isReload || isFirstRoute) {
+    if (isPageReloaded() || isDirectOrFirstEntry() || Boolean(targetPath)) {
       navigate(destination, { replace: true })
     } else {
       // Stack đủ sâu (> 2) và không phải reload: lùi 2 bước để vượt qua sentinel về đúng trang trước khi vào thi

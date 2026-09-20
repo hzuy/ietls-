@@ -25,6 +25,7 @@ describe('useBrowserHistoryGuard', () => {
   beforeEach(() => {
     mockNavigate.mockClear()
     Object.defineProperty(window.history, 'length', { value: 5, configurable: true, writable: true })
+    Object.defineProperty(window.history, 'state', { value: { idx: 1 }, configurable: true, writable: true })
     pushStateSpy = vi.spyOn(window.history, 'pushState').mockImplementation(() => {})
     goSpy = vi.spyOn(window.history, 'go').mockImplementation(() => {})
   })
