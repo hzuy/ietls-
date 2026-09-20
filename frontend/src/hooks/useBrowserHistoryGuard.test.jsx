@@ -162,5 +162,47 @@ describe('useBrowserHistoryGuard', () => {
     // Không đẩy thêm bất kỳ sentinel pushState nào
     expect(pushStateSpy).toHaveBeenCalledTimes(pushCountBeforeLeave)
   })
+
+  it('sau khi F5 reload (navigation type="reload"), dù history.length > 2 vẫn gọi navigate replace dứt điểm', () => {
+    // Giả lập sau F5 reload: history.length là 5 nhưng navigation entry báo reload
+    Object.defineProperty(window.history, 'length', { value: 5, configurable: true, writable: true })
+    const perfSpy = vi.spyOn(window.performance, 'getEntriesByType').mockReturnValue([{ type: 'reload' }])
+
+    render(<TestComponent enabled={true} defaultFallbackPath="/full-test/1?book=1" />)
+
+    act(() => {
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    })
+    expect(screen.getByTestId('modal-state').textContent).toBe('open')
+
+    act(() => {
+      screen.getByTestId('leave-btn').click()
+    })
+
+    expect(screen.getByTestId('modal-state').textContent).toBe('closed')
+    expect(mockNavigate).toHaveBeenCalledWith('/full-test/1?book=1', { replace: true })
+    expect(goSpy).not.toHaveBeenCalled()
+    perfSpy.mockRestore()
+  })
+
+  it('khi là entry đầu tiên trong React Router session (history.state.idx <= 0), dù history.length > 2 vẫn gọi navigate replace', () => {
+    Object.defineProperty(window.history, 'length', { value: 5, configurable: true, writable: true })
+    Object.defineProperty(window.history, 'state', { value: { idx: 0 }, configurable: true, writable: true })
+
+    render(<TestComponent enabled={true} defaultFallbackPath="/practice/reading" />)
+
+    act(() => {
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    })
+    expect(screen.getByTestId('modal-state').textContent).toBe('open')
+
+    act(() => {
+      screen.getByTestId('leave-btn').click()
+    })
+
+    expect(screen.getByTestId('modal-state').textContent).toBe('closed')
+    expect(mockNavigate).toHaveBeenCalledWith('/practice/reading', { replace: true })
+    expect(goSpy).not.toHaveBeenCalled()
+  })
 })
 

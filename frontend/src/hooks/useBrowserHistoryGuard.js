@@ -71,12 +71,28 @@ export function useBrowserHistoryGuard(enabled, onBeforeExit, defaultFallbackPat
     // 5. Phân luồng điều hướng dứt điểm cho nút Back trình duyệt:
     const destination = fallbackUrl || defaultFallbackPath || '/full-test'
 
-    // Nếu stack không đủ sâu (vào link trực tiếp ?resume=true / mở tab mới / sau F5 reload: length <= 2)
-    // history.go(-2) sẽ không thể lùi được và làm kẹt thí sinh -> navigate replace ngay lập tức
-    if (window.history.length <= 2) {
+    // Phát hiện trang vừa bị F5/reload qua Navigation Timing API
+    let isReload = false
+    try {
+      const navEntry = window.performance?.getEntriesByType?.('navigation')?.[0]
+      if (navEntry && navEntry.type) {
+        isReload = navEntry.type === 'reload'
+      } else if (window.performance?.navigation) {
+        isReload = window.performance.navigation.type === 1
+      }
+    } catch {
+      isReload = false
+    }
+
+    // Kiểm tra router session index (nếu idx <= 0, đây là trang đầu tiên trong session SPA này)
+    const isFirstRoute = window.history.state?.idx != null && window.history.state.idx <= 0
+
+    // Nếu stack không đủ sâu (length <= 2), vừa F5 reload, hoặc là route đầu tiên:
+    // history.go(-2) sẽ làm kẹt thí sinh trong phòng thi -> navigate replace dứt điểm
+    if (window.history.length <= 2 || isReload || isFirstRoute) {
       navigate(destination, { replace: true })
     } else {
-      // Stack đủ sâu (> 2): lùi 2 bước để vượt qua sentinel về đúng trang trước khi vào thi
+      // Stack đủ sâu (> 2) và không phải reload: lùi 2 bước để vượt qua sentinel về đúng trang trước khi vào thi
       window.history.go(-2)
     }
   }, [navigate, defaultFallbackPath])
