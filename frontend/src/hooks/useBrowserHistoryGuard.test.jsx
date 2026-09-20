@@ -98,7 +98,8 @@ describe('useBrowserHistoryGuard', () => {
     expect(onBeforeExit).toHaveBeenCalled()
   })
 
-  it('bấm "Thoát" với targetPath → gọi navigate(targetPath, { replace: true }) và không gọi history.go', () => {
+  it('khi history.length <= 2 và có fallbackUrl → gọi navigate(fallbackUrl, { replace: true }) và không gọi history.go', () => {
+    Object.defineProperty(window.history, 'length', { value: 2, configurable: true, writable: true })
     const onBeforeExit = vi.fn()
     render(<TestComponent enabled={true} onBeforeExit={onBeforeExit} targetPath="/practice/reading" />)
 

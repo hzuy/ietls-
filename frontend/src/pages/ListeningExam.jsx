@@ -8,7 +8,7 @@ import { saveDraft, loadDraft, clearDraft, formatSavedAt } from '../services/dra
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
-import { Clock, LayoutGrid, ChevronUp, ChevronDown, ArrowLeft } from 'lucide-react'
+import { Clock, LayoutGrid, ChevronUp, ChevronDown } from 'lucide-react'
 import { getSectionSlots, isSlotAnswered } from '../utils/questionCount'
 import MatchingTickGrid from '../components/MatchingTickGrid'
 import DragWordBankGroup from '../components/DragWordBankGroup'
@@ -108,7 +108,7 @@ export default function ListeningExam() {
   }, [phase, previewMode, persistDraftNow])
 
   const exitPath = exam?.seriesId ? `/full-test/${exam.seriesId}?book=${exam.bookNumber}` : '/practice/listening'
-  const { showModal: showExitModal, setShowExitModal, stay: stayInExam, leave: leaveExam } = useBrowserHistoryGuard(phase === 'exam' && !previewMode, persistDraftNow, exitPath)
+  const { showModal: showExitModal, stay: stayInExam, leave: leaveExam } = useBrowserHistoryGuard(phase === 'exam' && !previewMode, persistDraftNow, exitPath)
 
   const loadExam = useCallback(() => {
     setLoading(true)
@@ -279,15 +279,6 @@ export default function ListeningExam() {
       {/* Header */}
       <header className="h-14 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-3 min-w-0">
-          <button
-            type="button"
-            onClick={() => setShowExitModal(true)}
-            className="p-1.5 -ml-1.5 mr-1.5 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 rounded-full transition-colors cursor-pointer"
-            title="Rời khỏi phòng thi"
-            aria-label="Quay lại danh sách"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
           <span className="text-xs sm:text-sm font-semibold text-zinc-900 truncate">
             {exam.title}
           </span>

@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
 import { useSpeechRecording } from '../hooks/useSpeechRecording'
-import { Mic, X, Square, Play, Pause, AlertCircle, RotateCcw, Sparkles, Eye, Volume2, ArrowLeft } from 'lucide-react'
+import { Mic, X, Square, Play, Pause, AlertCircle, RotateCcw, Sparkles, Eye, Volume2 } from 'lucide-react'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
 import { renderFeedbackList } from '../utils/feedbackList'
@@ -143,7 +143,7 @@ export default function SpeakingExam() {
   }, [phase, previewMode, allSubmitted, persistDraftNow])
 
   const exitPath = exam?.seriesId ? `/full-test/${exam.seriesId}?book=${exam.bookNumber}` : '/speaking-samples'
-  const { showModal: showExitModal, setShowExitModal, stay: stayInExam, leave: leaveExam } = useBrowserHistoryGuard(phase === 'exam' && !previewMode && !allSubmitted, persistDraftNow, exitPath)
+  const { showModal: showExitModal, stay: stayInExam, leave: leaveExam } = useBrowserHistoryGuard(phase === 'exam' && !previewMode && !allSubmitted, persistDraftNow, exitPath)
 
   // Nộp + chấm xong hết → xoá draft
   useEffect(() => {
@@ -728,15 +728,6 @@ export default function SpeakingExam() {
       {/* Header */}
       <header className="h-14 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-3 min-w-0">
-          <button
-            type="button"
-            onClick={() => setShowExitModal(true)}
-            className="p-1.5 -ml-1.5 mr-1.5 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 rounded-full transition-colors cursor-pointer"
-            title="Rời khỏi phòng thi"
-            aria-label="Quay lại danh sách"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
           <span className="text-xs sm:text-sm font-semibold text-zinc-900 truncate">
             {exam.title}
           </span>

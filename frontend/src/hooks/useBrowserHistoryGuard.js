@@ -56,7 +56,7 @@ export function useBrowserHistoryGuard(enabled, onBeforeExit, defaultFallbackPat
   }, [])
 
   // Thoát: đánh dấu cờ thoát, gỡ listener, lưu nháp, đóng modal và phân luồng điều hướng dứt điểm
-  const leave = useCallback((targetPath) => {
+  const leave = useCallback((fallbackUrl) => {
     // 1. Đánh dấu ngay cờ bypass để các popstate tiếp theo (do history.go kích hoạt) bị bỏ qua
     isExitingRef.current = true
     // 2. Gỡ bỏ listener trên window ngay lập tức
@@ -68,18 +68,15 @@ export function useBrowserHistoryGuard(enabled, onBeforeExit, defaultFallbackPat
     // 4. Đóng modal
     setShowModal(false)
 
-    // 5. Phân luồng điều hướng dứt điểm:
-    // Nếu có targetPath (thoát chủ động từ nút Header): gọi navigate(targetPath, { replace: true })
-    if (targetPath) {
-      navigate(targetPath, { replace: true })
-      return
-    }
+    // 5. Phân luồng điều hướng dứt điểm cho nút Back trình duyệt:
+    const destination = fallbackUrl || defaultFallbackPath || '/full-test'
 
-    // Nếu không có targetPath (thoát qua nút Back trình duyệt):
-    // Kiểm tra an toàn: nếu history.length <= 2 -> chuyển hướng về defaultFallbackPath (hoặc /full-test)
+    // Nếu stack không đủ sâu (vào link trực tiếp ?resume=true / mở tab mới / sau F5 reload: length <= 2)
+    // history.go(-2) sẽ không thể lùi được và làm kẹt thí sinh -> navigate replace ngay lập tức
     if (window.history.length <= 2) {
-      navigate(defaultFallbackPath || '/full-test', { replace: true })
+      navigate(destination, { replace: true })
     } else {
+      // Stack đủ sâu (> 2): lùi 2 bước để vượt qua sentinel về đúng trang trước khi vào thi
       window.history.go(-2)
     }
   }, [navigate, defaultFallbackPath])
