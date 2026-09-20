@@ -244,10 +244,50 @@ router.get('/exams/:id/result-detail', authMiddleware, validate(resultDetailQuer
     const examId = parseInt(req.params.id)
     const { attemptId } = req.validatedQuery
 
+    function parseOptions(options) {
+      if (!options) return null
+      if (Array.isArray(options)) return options
+      if (typeof options === 'string') {
+        try {
+          const parsed = JSON.parse(options)
+          return Array.isArray(parsed) ? parsed : null
+        } catch {
+          return null
+        }
+      }
+      return null
+    }
+
+    function resolveSingleAnswerToLetter(text, optionsList) {
+      if (!text || !optionsList || !optionsList.length) return text
+      const trimmed = String(text).trim()
+      if (!trimmed) return text
+      if (/^[A-Z]$/i.test(trimmed)) return trimmed.toUpperCase()
+
+      const normalize = (s) => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ')
+      const target = normalize(trimmed)
+      const idx = optionsList.findIndex(opt => normalize(opt) === target)
+      if (idx !== -1) {
+        return String.fromCharCode(65 + idx)
+      }
+      return text
+    }
+
+    function resolveAnswerToLetter(text, options) {
+      if (!text) return text
+      const optionsList = parseOptions(options)
+      if (!optionsList || optionsList.length === 0) return text
+      const str = String(text).trim()
+      if (str.includes(',')) {
+        return str.split(',').map(p => resolveSingleAnswerToLetter(p, optionsList)).join(', ')
+      }
+      return resolveSingleAnswerToLetter(str, optionsList)
+    }
+
     // Fetch exam (with fallback if explanation column is absent) + attempt in parallel
     const fetchReadingExam = (withExplanation = true) => {
       const qSelect = {
-        id: true, number: true, type: true, questionText: true, correctAnswer: true,
+        id: true, number: true, type: true, questionText: true, correctAnswer: true, options: true,
         ...(withExplanation ? { explanation: true } : {})
       }
       return prisma.exam.findUnique({
@@ -357,10 +397,20 @@ router.get('/exams/:id/result-detail', authMiddleware, validate(resultDetailQuer
         else if (status === 'wrong') wrong++
         else missed++
         trackType(getTypeName(q.type), status)
+        const rawUserAnswer = ans?.userAnswer || ''
+        const rawCorrectAnswer = q.correctAnswer || ''
+        const parsedOpts = parseOptions(q.options)
+        const displayUserAnswer = resolveAnswerToLetter(rawUserAnswer, parsedOpts)
+        const displayCorrectAnswer = resolveAnswerToLetter(rawCorrectAnswer, parsedOpts)
+
         questions.push({
           number: q.number, status,
-          userAnswer: ans?.userAnswer || '',
-          correctAnswer: q.correctAnswer,
+          userAnswer: displayUserAnswer,
+          correctAnswer: displayCorrectAnswer,
+          rawUserAnswer,
+          rawCorrectAnswer,
+          options: parsedOpts,
+          type: q.type,
           explanation: q.explanation || null,
           grouped: false
         })
@@ -389,8 +439,8 @@ router.get('/exams/:id/result-detail', authMiddleware, validate(resultDetailQuer
             }
             
             const statuses = []
-            const userAnswers = []
-            const answers = []
+            const rawUserAnswers = []
+            const rawAnswers = []
             
             let ci = 0, wi = 0
             const usedCorrect = []
@@ -400,33 +450,48 @@ router.get('/exams/:id/result-detail', authMiddleware, validate(resultDetailQuer
               if (ci < correctMatches.length) {
                 trackType(getTypeName(g.type), 'correct')
                 statuses.push('correct')
-                userAnswers.push(correctMatches[ci])
-                answers.push(correctMatches[ci])
+                rawUserAnswers.push(correctMatches[ci])
+                rawAnswers.push(correctMatches[ci])
                 usedCorrect.push(correctMatches[ci].toLowerCase())
                 ci++
               } else if (wi < wrongMatches.length) {
                 trackType(getTypeName(g.type), 'wrong')
                 statuses.push('wrong')
-                userAnswers.push(wrongMatches[wi])
+                rawUserAnswers.push(wrongMatches[wi])
                 const remainingCorrect = correctArr.find(c => !usedCorrect.includes(c.toLowerCase()))
                 if (remainingCorrect) {
-                  answers.push(remainingCorrect)
+                  rawAnswers.push(remainingCorrect)
                   usedCorrect.push(remainingCorrect.toLowerCase())
-                } else answers.push('?')
+                } else rawAnswers.push('?')
                 wi++
               } else {
                 trackType(getTypeName(g.type), 'missed')
                 statuses.push('missed')
-                userAnswers.push(null)
+                rawUserAnswers.push(null)
                 const remainingCorrect = correctArr.find(c => !usedCorrect.includes(c.toLowerCase()))
                 if (remainingCorrect) {
-                  answers.push(remainingCorrect)
+                  rawAnswers.push(remainingCorrect)
                   usedCorrect.push(remainingCorrect.toLowerCase())
-                } else answers.push('?')
+                } else rawAnswers.push('?')
               }
             }
             
-            questions.push({ grouped: true, numbers, answers, userAnswers, statuses, explanation: q.explanation || null })
+            const parsedOpts = parseOptions(q.options)
+            const userAnswers = rawUserAnswers.map(a => a ? resolveAnswerToLetter(a, parsedOpts) : null)
+            const answers = rawAnswers.map(a => a ? resolveAnswerToLetter(a, parsedOpts) : a)
+
+            questions.push({
+              grouped: true,
+              numbers,
+              answers,
+              userAnswers,
+              rawAnswers,
+              rawUserAnswers,
+              statuses,
+              options: parsedOpts,
+              type: g.type,
+              explanation: q.explanation || null
+            })
           } else {
             // All other group types — flatten to individual questions
             totalQuestions++
@@ -439,10 +504,21 @@ router.get('/exams/:id/result-detail', authMiddleware, validate(resultDetailQuer
             else if (status === 'wrong') wrong++
             else missed++
             trackType(getTypeName(g.type), status)
+
+            const rawUserAnswer = ans?.userAnswer || ''
+            const rawCorrectAnswer = q.correctAnswer || ''
+            const parsedOpts = parseOptions(q.options)
+            const displayUserAnswer = resolveAnswerToLetter(rawUserAnswer, parsedOpts)
+            const displayCorrectAnswer = resolveAnswerToLetter(rawCorrectAnswer, parsedOpts)
+
             questions.push({
               number: q.number, status,
-              userAnswer: ans?.userAnswer || '',
-              correctAnswer: q.correctAnswer,
+              userAnswer: displayUserAnswer,
+              correctAnswer: displayCorrectAnswer,
+              rawUserAnswer,
+              rawCorrectAnswer,
+              options: parsedOpts,
+              type: g.type || q.type,
               explanation: q.explanation || null,
               grouped: false
             })

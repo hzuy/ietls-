@@ -187,7 +187,9 @@ function ReadingPracticeExam({ exam, onBack }) {
           grouped: false,
           status,
           userAnswer: answers[qKey] || '',
-          correctAnswer: q.correctAnswer
+          correctAnswer: q.correctAnswer,
+          options: q.options || null,
+          type: g.type || q.type
         })
       })
     })
@@ -483,7 +485,9 @@ function ListeningPracticeExam({ exam, onBack }) {
           grouped: false,
           status,
           userAnswer: userRaw,
-          correctAnswer: correctRaw
+          correctAnswer: correctRaw,
+          options: q.options || null,
+          type: g.type || q.type
         })
       })
     })

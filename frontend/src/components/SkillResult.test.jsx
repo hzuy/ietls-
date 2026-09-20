@@ -113,6 +113,51 @@ describe('SkillResult Component', () => {
     // Check "Hỏi AI Tutor câu sai" CTA in Bento
     expect(screen.getByRole('button', { name: /Hỏi AI Tutor câu sai/i })).toBeInTheDocument()
   })
+
+  it('correctly maps long MCQ options to single letters in AnswerRow', () => {
+    const mcqOptions = [
+      'The speakers are communicating in different languages.',
+      'Neither of the speakers is familiar with their environment.',
+      'The topic of the conversation is difficult for both speakers.',
+      'Aspects of the conversation are challenging for both speakers.'
+    ]
+
+    const mcqData = {
+      bookName: 'Cambridge 19',
+      testNumber: 3,
+      bandScore: 6.5,
+      sections: [
+        {
+          number: 3,
+          questions: [
+            {
+              number: 26,
+              status: 'wrong',
+              userAnswer: 'The speakers are communicating in different languages.',
+              correctAnswer: 'Aspects of the conversation are challenging for both speakers.',
+              options: mcqOptions,
+              type: 'mcq'
+            }
+          ]
+        }
+      ],
+      questionTypes: [{ name: 'Multiple Choice', total: 1, correct: 0, wrong: 1, missed: 0 }]
+    }
+
+    render(
+      <MemoryRouter>
+        <SkillResult skillType="reading" examId={20} dataProp={mcqData} />
+      </MemoryRouter>
+    )
+
+    // User answer index 0 -> 'A'
+    expect(screen.getByText('A')).toBeInTheDocument()
+    // Correct answer index 3 -> 'D'
+    expect(screen.getByText('D')).toBeInTheDocument()
+    // The raw text should NOT be visible directly in the text node, but preserved in title attribute
+    expect(screen.queryByText('Aspects of the conversation are challenging for both speakers.')).not.toBeInTheDocument()
+    expect(screen.getByTitle('Aspects of the conversation are challenging for both speakers.')).toBeInTheDocument()
+  })
 })
 
 

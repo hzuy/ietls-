@@ -159,6 +159,45 @@ const MissedLabel = () => (
   </span>
 )
 
+export function formatDisplayAnswer(answer, options) {
+  if (answer == null || answer === '') return ''
+  if (typeof answer !== 'string') return String(answer)
+
+  let optsList = null
+  if (Array.isArray(options)) {
+    optsList = options
+  } else if (typeof options === 'string') {
+    try {
+      const p = JSON.parse(options)
+      if (Array.isArray(p)) optsList = p
+    } catch {
+      // ignore
+    }
+  }
+
+  if (!optsList || optsList.length === 0) {
+    return answer
+  }
+
+  const mapOne = (val) => {
+    const str = String(val).trim()
+    if (!str) return val
+    if (/^[A-Z]$/i.test(str)) return str.toUpperCase()
+    const target = str.toLowerCase().replace(/\s+/g, ' ')
+    const idx = optsList.findIndex(opt => String(opt || '').trim().toLowerCase().replace(/\s+/g, ' ') === target)
+    if (idx !== -1) {
+      return String.fromCharCode(65 + idx)
+    }
+    return str
+  }
+
+  if (answer.includes(',')) {
+    return answer.split(',').map(p => mapOne(p.trim())).filter(Boolean).join(', ')
+  }
+
+  return mapOne(answer)
+}
+
 function AnswerRow({ q, onAskAI }) {
   // ── Grouped "In either order" (mcq_multi) ──────────────────────
   if (q.grouped) {
@@ -166,34 +205,43 @@ function AnswerRow({ q, onAskAI }) {
       <React.Fragment>
         {q.numbers.map((num, i) => {
           const rowStatus = q.statuses?.[i] ?? 'missed'
-          const rowUserAns = q.userAnswers?.[i]
+          const rowUserAns = formatDisplayAnswer(q.userAnswers?.[i], q.options)
+          const rowCorrectAns = formatDisplayAnswer(q.answers?.[i], q.options)
+          const rawUser = q.rawUserAnswers?.[i] || q.userAnswers?.[i]
+          const rawCorrect = q.rawAnswers?.[i] || q.answers?.[i]
           const skipped = isMissed(rowUserAns)
           const isWrongOrSkipped = rowStatus === 'wrong' || skipped
           const isLast = i === q.numbers.length - 1
 
           return (
-            <div key={num} className="answer-row group flex flex-col py-2 border-b border-zinc-100 last:border-0">
-              <div className="flex items-start sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap sm:flex-nowrap">
+            <div key={num} className="answer-row group flex flex-col py-1 border-b border-zinc-100 last:border-0">
+              <div className="h-11 min-h-[44px] flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0 flex-1 flex-nowrap overflow-hidden">
                   <QNum num={num} status={rowStatus} />
                   {skipped ? (
                     <MissedLabel />
                   ) : rowStatus === 'wrong' ? (
-                    <span className="text-error line-through text-xs sm:text-sm font-medium break-words min-w-0 flex-1 leading-normal">
+                    <span
+                      title={String(rawUser || rowUserAns)}
+                      className="text-error line-through text-xs sm:text-sm font-medium truncate max-w-[180px] sm:max-w-[240px] whitespace-nowrap"
+                    >
                       {rowUserAns}
                     </span>
                   ) : (
-                    <span className="text-zinc-400 text-xs sm:text-sm font-medium">Đúng</span>
+                    <span className="text-zinc-400 text-xs sm:text-sm font-medium shrink-0">Đúng</span>
                   )}
-                  <span className="text-zinc-300">|</span>
-                  <span className="text-success font-semibold text-xs sm:text-sm break-words min-w-0 flex-1 leading-normal">
-                    {q.answers[i]}
+                  <span className="text-zinc-300 shrink-0">|</span>
+                  <span
+                    title={String(rawCorrect || rowCorrectAns)}
+                    className="text-success font-semibold text-xs sm:text-sm truncate max-w-[180px] sm:max-w-[240px] whitespace-nowrap"
+                  >
+                    {rowCorrectAns}
                   </span>
                 </div>
                 {isWrongOrSkipped && onAskAI && (
                   <button
                     type="button"
-                    onClick={() => onAskAI(num, rowUserAns, q.answers[i])}
+                    onClick={() => onAskAI(num, rowUserAns, rowCorrectAns, rawUser, rawCorrect)}
                     title="Hỏi AI Tutor giải thích câu này"
                     className="shrink-0 text-[11px] font-medium text-zinc-600 hover:text-zinc-900 flex items-center gap-1 px-3 py-1 rounded-full bg-zinc-50 hover:bg-zinc-100 transition cursor-pointer border border-zinc-200 shadow-2xs"
                   >
@@ -212,33 +260,43 @@ function AnswerRow({ q, onAskAI }) {
   }
 
   // ── Single flat question ─────────────────────────────────────
-  const skipped = isMissed(q.userAnswer)
+  const displayUser = formatDisplayAnswer(q.userAnswer, q.options)
+  const displayCorrect = formatDisplayAnswer(q.correctAnswer, q.options)
+  const rawUser = q.rawUserAnswer || q.userAnswer
+  const rawCorrect = q.rawCorrectAnswer || q.correctAnswer
+  const skipped = isMissed(displayUser)
   const effectiveStatus = skipped ? 'missed' : q.status
   const isWrongOrSkipped = effectiveStatus === 'wrong' || skipped
 
   return (
-    <div className="answer-row group flex flex-col py-2.5 border-b border-zinc-100 last:border-0">
-      <div className="flex items-start sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap sm:flex-nowrap">
+    <div className="answer-row group flex flex-col py-1 border-b border-zinc-100 last:border-0">
+      <div className="h-11 min-h-[44px] flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0 flex-1 flex-nowrap overflow-hidden">
           <QNum num={q.number} status={effectiveStatus} />
           {skipped ? (
             <MissedLabel />
           ) : effectiveStatus === 'wrong' ? (
-            <span className="text-error line-through text-xs sm:text-sm font-medium break-words min-w-0 flex-1 leading-normal">
-              {q.userAnswer}
+            <span
+              title={String(rawUser || displayUser)}
+              className="text-error line-through text-xs sm:text-sm font-medium truncate max-w-[180px] sm:max-w-[240px] whitespace-nowrap"
+            >
+              {displayUser}
             </span>
           ) : (
-            <span className="text-zinc-400 text-xs sm:text-sm font-medium">Đúng</span>
+            <span className="text-zinc-400 text-xs sm:text-sm font-medium shrink-0">Đúng</span>
           )}
-          <span className="text-zinc-300">|</span>
-          <span className="text-success font-semibold text-xs sm:text-sm break-words min-w-0 flex-1 leading-normal">
-            {q.correctAnswer}
+          <span className="text-zinc-300 shrink-0">|</span>
+          <span
+            title={String(rawCorrect || displayCorrect)}
+            className="text-success font-semibold text-xs sm:text-sm truncate max-w-[180px] sm:max-w-[240px] whitespace-nowrap"
+          >
+            {displayCorrect}
           </span>
         </div>
         {isWrongOrSkipped && onAskAI && (
           <button
             type="button"
-            onClick={() => onAskAI(q.number, q.userAnswer, q.correctAnswer)}
+            onClick={() => onAskAI(q.number, displayUser, displayCorrect, rawUser, rawCorrect)}
             title="Hỏi AI Tutor giải thích câu này"
             className="shrink-0 text-[11px] font-medium text-zinc-600 hover:text-zinc-900 flex items-center gap-1 px-3 py-1 rounded-full bg-zinc-50 hover:bg-zinc-100 transition cursor-pointer border border-zinc-200 shadow-2xs"
           >
@@ -469,8 +527,10 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
 
   const { bookName, testNumber, bandScore, correct, wrong, missed, totalQuestions, questionTypes, sections } = data
 
-  const handleAskAI = (questionNum, userAns, correctAns) => {
-    const prompt = `Trong bài thi ${bookName || ''} Test ${testNumber || ''} (${skillLabel}), câu hỏi số ${questionNum}: đáp án của tôi là "${userAns || 'bỏ qua'}", nhưng đáp án đúng là "${correctAns}". Giải thích giúp tôi tại sao đáp án đúng lại là "${correctAns}" và phân tích lỗi sai trong câu trả lời của tôi.`
+  const handleAskAI = (questionNum, userAns, correctAns, rawUserAns, rawCorrectAns) => {
+    const finalUser = rawUserAns || userAns
+    const finalCorrect = rawCorrectAns || correctAns
+    const prompt = `Trong bài thi ${bookName || ''} Test ${testNumber || ''} (${skillLabel}), câu hỏi số ${questionNum}: đáp án của tôi là "${finalUser || 'bỏ qua'}", nhưng đáp án đúng là "${finalCorrect}". Giải thích giúp tôi tại sao đáp án đúng lại là "${finalCorrect}" và phân tích lỗi sai trong câu trả lời của tôi.`
     askAITutor(prompt)
   }
 
