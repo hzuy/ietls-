@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
 import { useSpeechRecording } from '../hooks/useSpeechRecording'
-import { Mic, ArrowLeft, X, Square, Play, Pause, AlertCircle, RotateCcw, Sparkles, Eye, Volume2 } from 'lucide-react'
+import { Mic, X, Square, Play, Pause, AlertCircle, RotateCcw, Sparkles, Eye, Volume2 } from 'lucide-react'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
 import { renderFeedbackList } from '../utils/feedbackList'
@@ -59,7 +59,7 @@ export default function SpeakingExam() {
   const [exam, setExam] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [phase, setPhase] = useState('start')
+  const [phase, setPhase] = useState('exam')
   const [activePart, setActivePart] = useState(0)
   const [transcripts, setTranscripts] = useState({}) // { partId: text }
   const [results, setResults] = useState({})         // { partId: result }
@@ -270,10 +270,6 @@ export default function SpeakingExam() {
     loadExam()
   }, [loadExam])
 
-  // Skip start screen in preview mode
-  useEffect(() => {
-    if (previewMode && exam && phase === 'start') setPhase('exam')
-  }, [previewMode, exam, phase])
 
 
   useEffect(() => {
@@ -475,41 +471,6 @@ export default function SpeakingExam() {
 
   const allDone = exam.speakingParts.every(p => results[p.id])
 
-  // ── Start ─────────────────────────────────────────────────────────────────
-  if (phase === 'start') return (
-    <div className="min-h-screen bg-zinc-50/50 flex items-center justify-center p-6">
-      <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-10 max-w-md w-full text-center flex flex-col items-center transition-all duration-300">
-        <div className="w-16 h-16 bg-zinc-100 border border-zinc-200 rounded-2xl flex items-center justify-center mx-auto mb-6">
-          <Mic className="w-8 h-8 text-zinc-600 stroke-[1.75]" />
-        </div>
-        <h1 className="text-2xl font-bold text-zinc-900 tracking-tight mb-2">{exam.title}</h1>
-        <p className="text-zinc-500 text-sm mb-1">{exam.speakingParts.length} Parts</p>
-        <p className="text-zinc-500 text-sm mb-6">Thời gian: <span className="font-bold text-zinc-900">~15 phút</span></p>
-
-        <div className="bg-zinc-50 rounded-2xl border border-zinc-200 p-5 text-left text-sm text-zinc-600 mb-8 flex flex-col gap-2.5 leading-relaxed w-full">
-          <p className="m-0">• Part 1: câu hỏi quen thuộc (~4 phút)</p>
-          <p className="m-0">• Part 2: thuyết trình 2 phút (~4 phút)</p>
-          <p className="m-0">• Part 3: thảo luận chuyên sâu (~5 phút)</p>
-          <p className="m-0">• AI chấm điểm theo 4 tiêu chí IELTS</p>
-        </div>
-
-        <button
-          onClick={() => setPhase('exam')}
-          className="btn-primary w-full text-sm font-medium transition shadow-xs"
-          style={{ width: '100%', padding: '12px 0', borderRadius: '9999px', marginBottom: 8 }}
-        >
-          Bắt đầu làm bài
-        </button>
-        <button
-          onClick={handleBack}
-          className="w-full text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-all duration-200 ease-in-out font-medium text-sm flex items-center justify-center gap-1.5 cursor-pointer"
-          style={{ width: '100%', padding: '12px 0', borderRadius: '9999px' }}
-        >
-          <ArrowLeft className="w-4 h-4 text-zinc-500" /> Quay lại
-        </button>
-      </div>
-    </div>
-  )
 
   // ── Result ────────────────────────────────────────────────────────────────
   if (allDone) {

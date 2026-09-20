@@ -8,7 +8,7 @@ import { saveDraft, loadDraft, clearDraft, formatSavedAt } from '../services/dra
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
-import { Headphones, ArrowLeft, Clock, LayoutGrid, ChevronUp, ChevronDown } from 'lucide-react'
+import { Clock, LayoutGrid, ChevronUp, ChevronDown } from 'lucide-react'
 import { getSectionSlots, isSlotAnswered } from '../utils/questionCount'
 import MatchingTickGrid from '../components/MatchingTickGrid'
 import DragWordBankGroup from '../components/DragWordBankGroup'
@@ -51,7 +51,7 @@ export default function ListeningExam() {
   const [submitting, setSubmitting] = useState(false)
   const [activeSection, setActiveSection] = useState(0)
   const [timeLeft, setTimeLeft] = useState(DEFAULT_LISTENING_TIME)
-  const [phase, setPhase] = useState('start')
+  const [phase, setPhase] = useState('exam')
   const [showAnswers, setShowAnswers] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [showNavNumbers, setShowNavNumbers] = useState(true)
@@ -151,10 +151,6 @@ export default function ListeningExam() {
     loadExam()
   }, [loadExam])
 
-  // Skip start screen in preview mode
-  useEffect(() => {
-    if (previewMode && exam && phase === 'start') setPhase('exam')
-  }, [previewMode, exam])
 
   useEffect(() => {
     if (phase !== 'exam' || previewMode) return
@@ -275,34 +271,6 @@ export default function ListeningExam() {
     )
   }
 
-  // ── Start ─────────────────────────────────────────────────────
-  if (phase === 'start') return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div className="flex flex-col items-center" style={{ background: 'var(--surface)', borderRadius: '1rem', boxShadow: 'var(--shadow-md)', padding: 40, maxWidth: 448, width: '100%', textAlign: 'center', border: '1px solid var(--border)' }}>
-        <div className="w-16 h-16 rounded-2xl bg-zinc-100 border border-zinc-200 flex items-center justify-center mx-auto mb-5">
-          <Headphones className="w-8 h-8 text-zinc-600 stroke-[1.75]" />
-        </div>
-        <h1 className="text-2xl font-bold text-zinc-900 tracking-tight mb-2">{exam.title}</h1>
-        <p style={{ color: 'var(--text)', fontSize: 'var(--fs-sm)', marginBottom: 4 }}>{exam.listeningSections.length} Sections · <span style={{ fontFamily: 'var(--font-mono)' }}>{allQ.length}</span> câu hỏi</p>
-        <p style={{ color: 'var(--text)', fontSize: 'var(--fs-sm)', marginBottom: 32 }}>Thời gian: <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--skill-l-color)' }}>40 phút</span></p>
-        <div style={{ background: 'var(--skill-l-bg)', borderRadius: '1rem', padding: 16, textAlign: 'left', fontSize: 'var(--fs-sm)', color: 'var(--ink-soft)', marginBottom: 32, display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
-          <p style={{ margin: 0 }}>• Nghe audio rồi trả lời câu hỏi bên dưới</p>
-          <p style={{ margin: 0 }}>• Có thể tua lại audio trong phần làm bài</p>
-          <p style={{ margin: 0 }}>• Bài sẽ tự nộp khi hết giờ</p>
-        </div>
-        <button onClick={() => setPhase('exam')} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '9999px', fontSize: 'var(--fs-base)', marginBottom: 8 }}>
-          Bắt đầu làm bài
-        </button>
-        <button
-          onClick={handleBack}
-          className="w-full text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-all duration-200 ease-in-out font-medium text-sm flex items-center justify-center gap-1.5 cursor-pointer"
-          style={{ width: '100%', padding: '12px 0', borderRadius: '9999px' }}
-        >
-          <ArrowLeft className="w-4 h-4 text-zinc-500" /> Quay lại
-        </button>
-      </div>
-    </div>
-  )
 
   // ── Exam ──────────────────────────────────────────────────────
 

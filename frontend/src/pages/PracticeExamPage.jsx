@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 
 import Navbar from '../components/Navbar'
 import { getPractice } from '../services/practiceService'
-import { BookOpen, Headphones, ArrowLeft, Clock } from 'lucide-react'
+import { Clock } from 'lucide-react'
 import MatchingTickGrid from '../components/MatchingTickGrid'
 import DragWordBankGroup from '../components/DragWordBankGroup'
 import MatchingDragGroup from '../components/MatchingDragGroup'
@@ -33,11 +33,10 @@ function ReadingPracticeExam({ exam, onBack }) {
   const { user } = useAuth()
   const userId = user ? (user.id || user._id) : null
   const [answers, setAnswers] = useState({})
-  const [phase, setPhase] = useState('start')
+  const [phase, setPhase] = useState('exam')
   const [timeLeft, setTimeLeft] = useState(PRACTICE_TIME)
   const [showConfirm, setShowConfirm] = useState(false)
   const [result, setResult] = useState(null)
-  const [draftMeta, setDraftMeta] = useState(null) // { hasDraft, savedAt, timeRemaining, data } — nạp 1 lần lúc mount
   const bodyRef = useRef(null)
   const isDraggingRef = useRef(false)
   const [isDragging, setIsDragging] = useState(false)
@@ -62,13 +61,16 @@ function ReadingPracticeExam({ exam, onBack }) {
     enabled: phase === 'exam',
   })
 
-  // Mount: có draft chưa nộp thì cho start-screen biết để hiện nút "Tiếp tục".
-  // KHÔNG tự prefill answers ở đây — người dùng chủ động chọn.
+  // Mount: nếu có draft chưa nộp thì tự động khôi phục answers và timeLeft
   useEffect(() => {
     if (!userId) return
     const d = checkDraftOnMount()
-    if (d.hasDraft) setDraftMeta(d)
-  }, [userId, checkDraftOnMount])
+    if (d.hasDraft && d.data) {
+      setAnswers(d.data)
+      setTimeLeft(Math.max(1, d.timeRemaining ?? PRACTICE_TIME))
+      markSaved(d.data, d.savedAt)
+    }
+  }, [userId, checkDraftOnMount, markSaved])
 
   // Cảnh báo trình duyệt (beforeunload) khi thí sinh đóng tab/F5 trong lúc làm bài
   useEffect(() => {
@@ -85,19 +87,7 @@ function ReadingPracticeExam({ exam, onBack }) {
   // Chặn nút Back (<) của trình duyệt khi đang làm bài
   const { showModal: showExitModal, stay: stayInExam, leave: leaveExam } = useBrowserHistoryGuard(phase === 'exam', persistDraftNow)
 
-  const resumeDraft = () => {
-    if (!draftMeta?.hasDraft) return
-    setAnswers(draftMeta.data)
-    setTimeLeft(Math.max(1, draftMeta.timeRemaining ?? PRACTICE_TIME))
-    markSaved(draftMeta.data, draftMeta.savedAt) // snapshot khớp → guard không nổ nhầm
-    setPhase('exam')
-  }
 
-  const startFresh = () => {
-    // Bỏ qua nháp nhưng KHÔNG xoá — chỉ xoá draft khi thực sự nộp bài.
-    setDraftMeta(null)
-    setPhase('exam')
-  }
 
   const groups = exam.questions?.groups || []
   const navItems = groups.flatMap(g => {
@@ -234,43 +224,7 @@ function ReadingPracticeExam({ exam, onBack }) {
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  // ── Start screen ────────────────────────────────────────────────────────────
-  if (phase === 'start') return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-50/50">
-      <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-10 max-w-md w-full text-center flex flex-col items-center">
-        <div className="w-16 h-16 rounded-2xl bg-zinc-100 border border-zinc-200 flex items-center justify-center mx-auto mb-5">
-          <BookOpen className="w-8 h-8 text-zinc-700 stroke-[1.75]" />
-        </div>
-        <h1 className="text-2xl font-bold text-zinc-900 tracking-tight mb-2">{exam.title}</h1>
-        <p className="text-sm text-zinc-500 mb-1">1 Passage · {totalSlots} câu hỏi</p>
-        <p className="text-sm text-zinc-500 mb-8">Thời gian: <span className="font-semibold text-zinc-900">20 phút</span></p>
-        <div className="rounded-2xl p-4 text-left text-sm mb-8 space-y-1 w-full bg-zinc-50 border border-zinc-200 text-zinc-700">
-          <p>• Đọc passage bên trái, trả lời câu hỏi bên phải</p>
-          <p>• Bài sẽ tự nộp khi hết giờ</p>
-        </div>
-        {draftMeta?.hasDraft ? (
-          <>
-            <button onClick={resumeDraft} className="w-full h-9 px-5 rounded-full font-medium text-sm tracking-normal bg-zinc-900 hover:bg-zinc-800 text-white transition-colors shadow-xs cursor-pointer mb-2 inline-flex items-center justify-center leading-none select-none">
-              Tiếp tục{draftMeta.savedAt ? ` (đã lưu ${formatSavedAt(draftMeta.savedAt)})` : ''}
-            </button>
-            <button onClick={startFresh} className="w-full text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 transition-colors font-medium text-sm tracking-normal h-9 rounded-full mb-1 cursor-pointer inline-flex items-center justify-center leading-none select-none">
-              Làm lại từ đầu
-            </button>
-          </>
-        ) : (
-          <button onClick={() => setPhase('exam')} className="w-full h-9 px-5 rounded-full font-medium text-sm tracking-normal bg-zinc-900 hover:bg-zinc-800 text-white transition-colors shadow-xs cursor-pointer mb-2 inline-flex items-center justify-center leading-none select-none">
-            Bắt đầu làm bài
-          </button>
-        )}
-        <button
-          onClick={onBack}
-          className="w-full text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors font-medium text-sm tracking-normal h-9 px-5 rounded-full inline-flex items-center justify-center leading-none gap-1.5 cursor-pointer select-none"
-        >
-          <ArrowLeft className="w-4 h-4 text-zinc-500" /> Quay lại
-        </button>
-      </div>
-    </div>
-  )
+
 
   // ── Result screen ───────────────────────────────────────────────────────────
   if (phase === 'result' && result) return (
@@ -393,11 +347,10 @@ function ListeningPracticeExam({ exam, onBack }) {
   const { user } = useAuth()
   const userId = user ? (user.id || user._id) : null
   const [answers, setAnswers] = useState({})
-  const [phase, setPhase] = useState('start')
+  const [phase, setPhase] = useState('exam')
   const [timeLeft, setTimeLeft] = useState(LISTENING_TIME)
   const [showConfirm, setShowConfirm] = useState(false)
   const [result, setResult] = useState(null)
-  const [draftMeta, setDraftMeta] = useState(null) // { hasDraft, savedAt, timeRemaining, data } — nạp 1 lần lúc mount
 
   // Autosave 30s + resume — namespace 'practice-listening' để KHÔNG đè draft của
   // bài thi Listening chính có cùng examId (PracticeExam.id trùng dải số với Exam.id;
@@ -414,13 +367,16 @@ function ListeningPracticeExam({ exam, onBack }) {
     enabled: phase === 'exam',
   })
 
-  // Mount: có draft chưa nộp thì cho start-screen biết để hiện nút "Tiếp tục".
-  // KHÔNG tự prefill answers ở đây — người dùng chủ động chọn.
+  // Mount: nếu có draft chưa nộp thì tự động khôi phục answers và timeLeft
   useEffect(() => {
     if (!userId) return
     const d = checkDraftOnMount()
-    if (d.hasDraft) setDraftMeta(d)
-  }, [userId, checkDraftOnMount])
+    if (d.hasDraft && d.data) {
+      setAnswers(d.data)
+      setTimeLeft(Math.max(1, d.timeRemaining ?? LISTENING_TIME))
+      markSaved(d.data, d.savedAt)
+    }
+  }, [userId, checkDraftOnMount, markSaved])
 
   // Cảnh báo trình duyệt (beforeunload) khi thí sinh đóng tab/F5 trong lúc làm bài
   useEffect(() => {
@@ -437,19 +393,7 @@ function ListeningPracticeExam({ exam, onBack }) {
   // Chặn nút Back (<) của trình duyệt khi đang làm bài
   const { showModal: showExitModal, stay: stayInExam, leave: leaveExam } = useBrowserHistoryGuard(phase === 'exam', persistDraftNow)
 
-  const resumeDraft = () => {
-    if (!draftMeta?.hasDraft) return
-    setAnswers(draftMeta.data)
-    setTimeLeft(Math.max(1, draftMeta.timeRemaining ?? LISTENING_TIME))
-    markSaved(draftMeta.data, draftMeta.savedAt) // snapshot khớp → guard không nổ nhầm
-    setPhase('exam')
-  }
 
-  const startFresh = () => {
-    // Bỏ qua nháp nhưng KHÔNG xoá — chỉ xoá draft khi thực sự nộp bài.
-    setDraftMeta(null)
-    setPhase('exam')
-  }
 
   const groups = exam.questions?.groups || []
 
@@ -563,43 +507,7 @@ function ListeningPracticeExam({ exam, onBack }) {
     setPhase('result')
   }
 
-  // Start screen
-  if (phase === 'start') return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-50/50">
-      <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-10 max-w-md w-full text-center flex flex-col items-center">
-        <div className="w-16 h-16 rounded-2xl bg-zinc-100 border border-zinc-200 flex items-center justify-center mx-auto mb-5">
-          <Headphones className="w-8 h-8 text-zinc-700 stroke-[1.75]" />
-        </div>
-        <h1 className="text-2xl font-bold text-zinc-900 tracking-tight mb-2">{exam.title}</h1>
-        <p className="text-sm text-zinc-500 mb-1">{totalSlots} câu hỏi</p>
-        <p className="text-sm text-zinc-500 mb-8">Thời gian: <span className="font-semibold text-zinc-900">10 phút</span></p>
-        <div className="rounded-2xl p-4 text-left text-sm mb-8 space-y-1 w-full bg-zinc-50 border border-zinc-200 text-zinc-700">
-          <p>• Nghe audio và trả lời các câu hỏi</p>
-          <p>• Bài sẽ tự nộp khi hết giờ</p>
-        </div>
-        {draftMeta?.hasDraft ? (
-          <>
-            <button onClick={resumeDraft} className="w-full h-9 px-5 rounded-full font-medium text-sm tracking-normal bg-zinc-900 hover:bg-zinc-800 text-white transition-colors shadow-xs cursor-pointer mb-2 inline-flex items-center justify-center leading-none select-none">
-              Tiếp tục{draftMeta.savedAt ? ` (đã lưu ${formatSavedAt(draftMeta.savedAt)})` : ''}
-            </button>
-            <button onClick={startFresh} className="w-full text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 transition-colors font-medium text-sm tracking-normal h-9 rounded-full mb-1 cursor-pointer inline-flex items-center justify-center leading-none select-none">
-              Làm lại từ đầu
-            </button>
-          </>
-        ) : (
-          <button onClick={() => setPhase('exam')} className="w-full h-9 px-5 rounded-full font-medium text-sm tracking-normal bg-zinc-900 hover:bg-zinc-800 text-white transition-colors shadow-xs cursor-pointer mb-2 inline-flex items-center justify-center leading-none select-none">
-            Bắt đầu làm bài
-          </button>
-        )}
-        <button
-          onClick={onBack}
-          className="w-full text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors font-medium text-sm tracking-normal h-9 px-5 rounded-full inline-flex items-center justify-center leading-none gap-1.5 cursor-pointer select-none"
-        >
-          <ArrowLeft className="w-4 h-4 text-zinc-500" /> Quay lại
-        </button>
-      </div>
-    </div>
-  )
+
 
   // Result screen
   if (phase === 'result' && result) return (

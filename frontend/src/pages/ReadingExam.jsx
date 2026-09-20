@@ -50,7 +50,7 @@ export default function ReadingExam() {
   const [submitting, setSubmitting] = useState(false)
   const [activePassage, setActivePassage] = useState(0)
   const [timeLeft, setTimeLeft] = useState(DEFAULT_READING_TIME)
-  const [phase, setPhase] = useState('start')
+  const [phase, setPhase] = useState('exam')
   const [showAnswers, setShowAnswers] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [showNavNumbers, setShowNavNumbers] = useState(true)
@@ -179,11 +179,6 @@ export default function ReadingExam() {
       navigate('/practice/reading')
     }
   }
-
-  // Skip start screen in preview mode
-  useEffect(() => {
-    if (previewMode && exam && phase === 'start') setPhase('exam')
-  }, [previewMode, exam])
 
   useEffect(() => {
     const handler = () => setIsMobile(window.innerWidth < 768)
@@ -474,34 +469,6 @@ export default function ReadingExam() {
     return null
   }
 
-  // ── Start ─────────────────────────────────────────────────────
-  if (phase === 'start') return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div className="flex flex-col items-center" style={{ background: 'var(--surface)', borderRadius: '16px', boxShadow: 'var(--shadow-md)', padding: 40, maxWidth: 448, width: '100%', textAlign: 'center', border: '1px solid var(--border)' }}>
-        <div className="w-16 h-16 rounded-2xl bg-zinc-100 border border-zinc-200 flex items-center justify-center mx-auto mb-5">
-          <BookOpen className="w-8 h-8 text-zinc-600 stroke-[1.75]" />
-        </div>
-        <h1 className="text-2xl font-bold text-zinc-900 tracking-tight mb-2">{exam.title}</h1>
-        <p style={{ color: 'var(--text)', fontSize: 'var(--fs-sm)', marginBottom: 4 }}>{exam.passages.length} Passages · <span className="font-mono">{totalSlots}</span> câu hỏi</p>
-        <p style={{ color: 'var(--text)', fontSize: 'var(--fs-sm)', marginBottom: 32 }}>Thời gian: <span className="font-mono font-bold" style={{ color: 'var(--skill-r-color)' }}>60 phút</span></p>
-        <div style={{ background: 'var(--skill-r-bg)', borderRadius: 'var(--radius-md)', padding: 16, textAlign: 'left', fontSize: 'var(--fs-sm)', color: 'var(--ink-soft)', marginBottom: 32, display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
-          <p style={{ margin: 0 }}>• Đọc passage bên trái, trả lời câu hỏi bên phải</p>
-          <p style={{ margin: 0 }}>• Có thể chuyển qua lại giữa các passage</p>
-          <p style={{ margin: 0 }}>• Bài sẽ tự nộp khi hết giờ</p>
-        </div>
-        <button onClick={() => setPhase('exam')} className="btn-primary" style={{ width: '100%', padding: '12px 0', borderRadius: '9999px', fontSize: 'var(--fs-base)', marginBottom: 8, textAlign: 'center' }}>
-          Bắt đầu làm bài
-        </button>
-        <button
-          onClick={handleBack}
-          className="w-full text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-all duration-200 ease-in-out font-medium text-sm flex items-center justify-center gap-1.5 cursor-pointer"
-          style={{ width: '100%', padding: '12px 0', borderRadius: '9999px' }}
-        >
-          <ArrowLeft className="w-4 h-4 text-zinc-500" /> Quay lại
-        </button>
-      </div>
-    </div>
-  )
 
   // ── Exam ──────────────────────────────────────────────────────
 

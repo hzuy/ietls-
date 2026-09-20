@@ -7,7 +7,7 @@ import { saveDraft, loadDraft, clearDraft, isDataEmpty, formatSavedAt } from '..
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
-import { PenTool, ArrowLeft, Clock, Sparkles, CheckCircle2, RotateCcw, AlertCircle, ChevronRight, X } from 'lucide-react'
+import { Clock, Sparkles, CheckCircle2, RotateCcw, AlertCircle, ChevronRight, X } from 'lucide-react'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
 import { renderFeedbackList } from '../utils/feedbackList'
@@ -71,7 +71,7 @@ export default function WritingExam() {
   const [exam, setExam] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [phase, setPhase] = useState('start')
+  const [phase, setPhase] = useState('exam')
   const [activeTask, setActiveTask] = useState(0)
   const [essays, setEssays] = useState({}) // { taskId: text }
   const [results, setResults] = useState({}) // { taskId: result }
@@ -82,7 +82,6 @@ export default function WritingExam() {
   const [retryingTask, setRetryingTask] = useState(null)
   const [confirmResubmitId, setConfirmResubmitId] = useState(null) // taskId đang chờ xác nhận "Nộp lại"
   const [timeLeft, setTimeLeft] = useState(DEFAULT_WRITING_TIME)
-  const [totalMinutes, setTotalMinutes] = useState(DEFAULT_WRITING_TIME / 60) // hiển thị ở start-screen
   const [lightbox, setLightbox] = useState(null)
   const [fullTestStatus, setFullTestStatus] = useState(null)
   const pollTimerRef = useRef(null)
@@ -170,7 +169,7 @@ export default function WritingExam() {
     getAdminSettings()
       .then(settings => {
         const mins = parseInt(settings.writing_time)
-        if (!isNaN(mins) && mins > 0) { setTimeLeft(mins * 60); setTotalMinutes(mins) }
+        if (!isNaN(mins) && mins > 0) { setTimeLeft(mins * 60) }
       })
       .catch(() => {})
     Promise.all([
@@ -432,41 +431,6 @@ export default function WritingExam() {
 
   const allDone = exam.writingTasks.every(t => results[t.id])
 
-  // ── Start ─────────────────────────────────────────────────────
-  if (phase === 'start') return (
-    <div className="min-h-screen bg-zinc-50/50 flex items-center justify-center p-6">
-      <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-10 max-w-md w-full text-center flex flex-col items-center transition-all duration-300">
-        <div className="w-16 h-16 bg-zinc-100 border border-zinc-200 rounded-2xl flex items-center justify-center mx-auto mb-6">
-          <PenTool className="w-8 h-8 text-zinc-700 stroke-[1.75]" />
-        </div>
-        <h1 className="text-zinc-900 text-xl font-bold mb-2 tracking-tight">{exam.title}</h1>
-        <p className="text-zinc-600 text-sm mb-1">{exam.writingTasks.length} Tasks</p>
-        <p className="text-zinc-600 text-sm mb-6">Thời gian: <span className="font-bold text-zinc-900">{totalMinutes} phút</span></p>
-
-        <div className="bg-zinc-50 rounded-2xl border border-zinc-200 p-5 text-left text-sm text-zinc-600 mb-8 flex flex-col gap-2.5 leading-relaxed w-full">
-          <p className="m-0">• Task 1: mô tả biểu đồ/bản đồ — tối thiểu 150 từ (~20 phút)</p>
-          <p className="m-0">• Task 2: viết luận — tối thiểu 250 từ (~40 phút)</p>
-          <p className="m-0">• AI chấm điểm theo 4 tiêu chí IELTS</p>
-          <p className="m-0">• Bài sẽ tự nộp khi hết giờ</p>
-        </div>
-        
-        <button
-          onClick={() => setPhase('exam')}
-          className="btn-primary w-full text-sm font-bold transition-all duration-300"
-          style={{ width: '100%', padding: '12px 0', borderRadius: '9999px', marginBottom: 8 }}
-        >
-          Bắt đầu làm bài
-        </button>
-        <button
-          onClick={handleBack}
-          className="w-full text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-all duration-200 ease-in-out font-medium text-sm flex items-center justify-center gap-1.5 cursor-pointer"
-          style={{ width: '100%', padding: '12px 0', borderRadius: '9999px' }}
-        >
-          <ArrowLeft className="w-4 h-4 text-zinc-500" /> Quay lại
-        </button>
-      </div>
-    </div>
-  )
 
   // ── Result ────────────────────────────────────────────────────
   if (allDone) {
