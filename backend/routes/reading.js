@@ -244,8 +244,13 @@ router.get('/exams/:id/result-detail', authMiddleware, validate(resultDetailQuer
     const examId = parseInt(req.params.id)
     const { attemptId } = req.validatedQuery
 
-    const [exam, attempt] = await Promise.all([
-      prisma.exam.findUnique({
+    // Fetch exam (with fallback if explanation column is absent) + attempt in parallel
+    const fetchReadingExam = (withExplanation = true) => {
+      const qSelect = {
+        id: true, number: true, type: true, questionText: true, correctAnswer: true,
+        ...(withExplanation ? { explanation: true } : {})
+      }
+      return prisma.exam.findUnique({
         where: { id: examId },
         select: {
           title: true, seriesId: true, bookNumber: true, testNumber: true,
@@ -257,7 +262,7 @@ router.get('/exams/:id/result-detail', authMiddleware, validate(resultDetailQuer
               questions: {
                 where: { groupId: null },
                 orderBy: { number: 'asc' },
-                select: { id: true, number: true, type: true, questionText: true, correctAnswer: true, explanation: true }
+                select: qSelect
               },
               questionGroups: {
                 orderBy: [
@@ -268,14 +273,25 @@ router.get('/exams/:id/result-detail', authMiddleware, validate(resultDetailQuer
                   id: true, type: true, qNumberStart: true, qNumberEnd: true, maxChoices: true,
                   questions: {
                     orderBy: { number: 'asc' },
-                    select: { id: true, number: true, type: true, questionText: true, correctAnswer: true, explanation: true }
+                    select: qSelect
                   }
                 }
               }
             }
           }
         }
-      }),
+      })
+    }
+
+    const examPromise = fetchReadingExam(true).catch(err => {
+      if (err.code === 'P2022') {
+        return fetchReadingExam(false)
+      }
+      throw err
+    })
+
+    const [exam, attempt] = await Promise.all([
+      examPromise,
       prisma.attempt.findFirst({
         where: attemptId ? { id: attemptId, userId, examId } : { userId, examId },
         orderBy: { finishedAt: 'desc' },
