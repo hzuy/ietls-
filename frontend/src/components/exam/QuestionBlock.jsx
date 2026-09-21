@@ -1,5 +1,6 @@
 import React from 'react'
 import { toImgSrc } from '../../utils/media'
+import ExplanationPanel from './ExplanationPanel'
 
 const MATCHING_TYPES = ['matching','matching_headings','matching_features','matching_paragraph','matching_endings','choose_title','map_diagram']
 
@@ -121,7 +122,7 @@ function QuestionBlockInner({ q, answers, onAnswer, maxChoices = 2, previewMode,
   )
 }
 
-const QuestionBlock = React.memo(QuestionBlockInner, (prev, next) => {
+const MemoizedQuestionBlockInner = React.memo(QuestionBlockInner, (prev, next) => {
   return (
     prev.q?.id === next.q?.id &&
     prev.q?.questionText === next.q?.questionText &&
@@ -135,4 +136,27 @@ const QuestionBlock = React.memo(QuestionBlockInner, (prev, next) => {
   )
 })
 
-export default QuestionBlock
+export default function QuestionBlock(props) {
+  const { viewResultMode, reviewData, q } = props
+
+  let explanation = null
+  if (viewResultMode && reviewData && q) {
+    const rev = reviewData[q.id]
+    if (rev && (rev.explanation || rev.status)) {
+      explanation = { ...rev, number: q.number }
+    }
+  }
+
+  return (
+    <div className="relative">
+      <MemoizedQuestionBlockInner {...props} />
+      
+      {explanation && (
+        <div className="mt-2 mb-6 bg-white border-l-4 border-l-indigo-400 border border-zinc-200 rounded-lg p-3 shadow-xs flex flex-col gap-3">
+          <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider mb-1 ml-2">Kết quả & Giải thích</p>
+          <ExplanationPanel reviewInfo={explanation} />
+        </div>
+      )}
+    </div>
+  )
+}

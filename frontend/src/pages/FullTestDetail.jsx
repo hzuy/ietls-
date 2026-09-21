@@ -4,6 +4,7 @@ import Breadcrumb from '../components/common/Breadcrumb'
 
 import { useAuth } from '../context/AuthContext'
 import { checkDraft } from '../services/draftService'
+import { getMyHistory } from '../services/historyService'
 import { Headphones, BookOpen, PenTool, Mic, AlertCircle, RefreshCw, FolderArchive } from 'lucide-react'
 import { BACKEND_URL, resolveImg, handleImgError } from '../utils/media'
 import Modal from '../components/common/Modal'
@@ -11,6 +12,7 @@ import AcademicCover from '../components/common/AcademicCover'
 import Card from '../components/common/Card'
 import PillButton from '../components/common/PillButton'
 import { UserExamListSkeleton } from '../components/skeletons'
+import ExamAttemptListModal from '../components/exam/ExamAttemptListModal'
 
 const SKILL_META = {
   reading:   { label: 'Reading',   Icon: BookOpen,   colorVar: '--skill-r-color', bgVar: '--skill-r-bg', borderVar: '--skill-r-border', path: '/reading',   desc: '3 passages · 40 câu · 60 phút' },
@@ -34,6 +36,8 @@ export default function FullTestDetail() {
   const [fetchError, setFetchError] = useState(false)
   const [modal, setModal] = useState(null)
   const [draftInfo, setDraftInfo] = useState({}) // { [testNumber-skill]: checkDraft result }
+  const [historyInfo, setHistoryInfo] = useState({}) // { [examId]: [attempts] }
+  const [historyModal, setHistoryModal] = useState(null) // { skill, skillLabel, attempts }
 
   const fetchBookData = useCallback(() => {
     if (!bookNumber) return
@@ -142,6 +146,16 @@ export default function FullTestDetail() {
       }
     }
     setDraftInfo(info)
+
+    // Load attempt history
+    getMyHistory({ limit: 100 }).then(data => {
+      const historyMap = {}
+      ;(data.history || []).forEach(h => {
+        if (!historyMap[h.examId]) historyMap[h.examId] = []
+        historyMap[h.examId].push(h)
+      })
+      setHistoryInfo(historyMap)
+    }).catch(() => {})
   }, [user, bookData])
 
   const handleStart = (test) => {
@@ -401,20 +415,30 @@ export default function FullTestDetail() {
                       <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>{m.desc}</p>
                     </div>
                     {exam && (
-                      hasDraft ? (
-                        <button
-                          onClick={() => navigate(`${m.path}/${exam.id}?resume=true`)}
-                          className="w-[100px] h-9 px-4 rounded-full bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium inline-flex items-center justify-center leading-none select-none shrink-0 whitespace-nowrap transition-colors shadow-xs cursor-pointer"
-                        >Tiếp tục</button>
-                      ) : (
-                        <button
-                          onClick={() => navigate(`${m.path}/${exam.id}`)}
-                          className="w-[100px] h-9 px-4 rounded-full text-white text-xs font-medium inline-flex items-center justify-center leading-none select-none shrink-0 whitespace-nowrap transition-colors shadow-xs cursor-pointer"
-                          style={{ background: 'var(--primary)' }}
-                          onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
-                          onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
-                        >Làm bài</button>
-                      )
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        {historyInfo[exam.id] && historyInfo[exam.id].length > 0 && (
+                          <button
+                            onClick={() => setHistoryModal({ skill, skillLabel: m.label, attempts: historyInfo[exam.id] })}
+                            className="h-9 px-4 rounded-full bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 hover:text-zinc-900 transition-colors text-xs font-medium inline-flex items-center justify-center shadow-xs cursor-pointer leading-none"
+                          >
+                            Lịch sử
+                          </button>
+                        )}
+                        {hasDraft ? (
+                          <button
+                            onClick={() => navigate(`${m.path}/${exam.id}?resume=true`)}
+                            className="w-[100px] h-9 px-4 rounded-full bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium inline-flex items-center justify-center leading-none select-none shrink-0 whitespace-nowrap transition-colors shadow-xs cursor-pointer"
+                          >Tiếp tục</button>
+                        ) : (
+                          <button
+                            onClick={() => navigate(`${m.path}/${exam.id}`)}
+                            className="w-[100px] h-9 px-4 rounded-full text-white text-xs font-medium inline-flex items-center justify-center leading-none select-none shrink-0 whitespace-nowrap transition-colors shadow-xs cursor-pointer"
+                            style={{ background: 'var(--primary)' }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
+                          >Làm bài</button>
+                        )}
+                      </div>
                     )}
                   </div>
                 )
@@ -423,6 +447,15 @@ export default function FullTestDetail() {
           </div>
         </Modal>
       )}
+
+      {/* Modal History */}
+      <ExamAttemptListModal
+        open={!!historyModal}
+        onClose={() => setHistoryModal(null)}
+        skill={historyModal?.skill}
+        skillLabel={historyModal?.skillLabel}
+        attempts={historyModal?.attempts}
+      />
     </div>
   )
 }

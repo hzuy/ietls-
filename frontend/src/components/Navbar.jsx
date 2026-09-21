@@ -224,9 +224,7 @@ export default function Navbar() {
               Tiến độ & Phân tích
             </NavBtn>
 
-            <NavBtn active={location.pathname.startsWith('/history')} onClick={() => gate('/history')}>
-              Lịch sử làm bài
-            </NavBtn>
+
           </nav>
 
           {/* Desktop auth */}
@@ -420,9 +418,7 @@ export default function Navbar() {
           <MobileNavLink to="/progress" active={location.pathname.startsWith('/progress')} onClick={closeMobile}>
             Tiến độ & Phân tích
           </MobileNavLink>
-          <MobileNavLink to="/history" active={location.pathname.startsWith('/history')} onClick={closeMobile}>
-            Lịch sử làm bài
-          </MobileNavLink>
+
         </nav>
 
         {/* Auth section */}

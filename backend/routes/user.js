@@ -75,8 +75,14 @@ router.get('/history', authMiddleware, validate(historyQuerySchema, 'query'), as
     const where = {
       userId,
       finishedAt: { not: null },
-      exam: { skill: skill || { in: ['reading', 'listening'] } },
     }
+    
+    if (skill) {
+      where.exam = { skill }
+    } else if (!examId) {
+      where.exam = { skill: { in: ['reading', 'listening', 'writing', 'speaking'] } }
+    }
+
     if (examId) where.examId = examId
 
     const [attempts, total] = await Promise.all([

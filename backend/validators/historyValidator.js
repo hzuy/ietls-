@@ -4,9 +4,9 @@ const { z } = require('zod')
 // "" về undefined để .optional()/.default() hoạt động đúng (giống submissionValidator).
 const emptyToUndefined = (v) => (v === '' || v === null || v === undefined ? undefined : v)
 
-// GET /api/user/history — lịch sử làm bài Reading/Listening của user đang đăng nhập
+// GET /api/user/history — lịch sử làm bài (cả 4 kỹ năng) của user đang đăng nhập
 const historyQuerySchema = z.object({
-  skill: z.preprocess(emptyToUndefined, z.enum(['reading', 'listening'], { message: 'skill không hợp lệ' }).optional()),
+  skill: z.preprocess(emptyToUndefined, z.enum(['reading', 'listening', 'writing', 'speaking'], { message: 'skill không hợp lệ' }).optional()),
   examId: z.preprocess(emptyToUndefined, z.coerce.number({ message: 'examId phải là số' }).int().positive().optional()),
   page: z.preprocess(emptyToUndefined, z.coerce.number({ message: 'page phải là số' }).int().positive().optional().default(1)),
   limit: z.preprocess(emptyToUndefined, z.coerce.number({ message: 'limit phải là số' }).int().positive().max(100).optional().default(20)),

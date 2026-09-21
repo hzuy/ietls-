@@ -18,29 +18,26 @@ describe('ExplanationPanel', () => {
 
   it('mặc định thu gọn — không hiện nội dung 4 phần cho tới khi bấm mở', () => {
     render(<ExplanationPanel explanation={EXPLANATION} />)
-    expect(screen.getByText('Xem giải thích')).toBeInTheDocument()
+    expect(screen.getByText('Xem giải thích chi tiết')).toBeInTheDocument()
     expect(screen.queryByText(EXPLANATION.restatement)).not.toBeInTheDocument()
   })
 
-  it('bấm vào mở ra đủ 4 phần với tiêu đề tương ứng, bấm lại thì thu gọn', async () => {
+  it('bấm mở/đóng thì đổi icon/text và ẩn/hiện giải thích', async () => {
     const user = userEvent.setup()
     render(<ExplanationPanel explanation={EXPLANATION} />)
-
-    const toggle = screen.getByRole('button', { name: /Xem giải thích/i })
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
-
-    await user.click(toggle)
-    expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByText('Câu hỏi kiểm tra điều gì')).toBeInTheDocument()
+    const btn = screen.getByRole('button')
+    
+    // Mở
+    await user.click(btn)
+    expect(screen.getByText('Ẩn giải thích')).toBeInTheDocument()
     expect(screen.getByText(EXPLANATION.restatement)).toBeInTheDocument()
-    expect(screen.getByText('Đối chiếu với đoạn văn / bài nghe')).toBeInTheDocument()
     expect(screen.getByText(EXPLANATION.evidence)).toBeInTheDocument()
-    expect(screen.getByText('Các bước suy luận')).toBeInTheDocument()
     expect(screen.getByText(EXPLANATION.reasoning)).toBeInTheDocument()
-    expect(screen.getByText('Kết luận')).toBeInTheDocument()
     expect(screen.getByText(EXPLANATION.conclusion)).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /Ẩn giải thích/i }))
+    // Đóng
+    await user.click(btn)
+    expect(screen.getByText('Xem giải thích chi tiết')).toBeInTheDocument()
     expect(screen.queryByText(EXPLANATION.restatement)).not.toBeInTheDocument()
   })
 

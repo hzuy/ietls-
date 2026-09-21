@@ -16,6 +16,7 @@ import MatchingHeadingsGroup from '../MatchingHeadingsGroup'
 import TableCompletionRender from '../TableCompletionRender'
 import TypeHeader from './TypeHeaders'
 import QuestionBlock from './QuestionBlock'
+import ExplanationPanel from './ExplanationPanel'
 
 // Render a group of questions (from questionGroups) with the appropriate header/UI
 function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, showAnswers }) {
@@ -243,5 +244,33 @@ function areGroupPropsEqual(prev, next) {
   return true
 }
 
-const GroupBlock = React.memo(GroupBlockInner, areGroupPropsEqual)
-export default GroupBlock
+const MemoizedGroupBlockInner = React.memo(GroupBlockInner, areGroupPropsEqual)
+
+export default function GroupBlock(props) {
+  const { viewResultMode, reviewData, group } = props
+
+  const explanations = []
+  if (viewResultMode && reviewData) {
+    (group.questions || []).forEach(q => {
+      const rev = reviewData[q.id]
+      if (rev && (rev.explanation || rev.status)) {
+        explanations.push({ number: q.number, data: rev })
+      }
+    })
+  }
+
+  return (
+    <div className="relative">
+      <MemoizedGroupBlockInner {...props} />
+      
+      {explanations.length > 0 && (
+        <div className="mt-3 mb-6 bg-white border-l-4 border-l-indigo-400 border border-zinc-200 rounded-lg p-3 shadow-xs flex flex-col gap-3">
+          <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider mb-1 ml-2">Kết quả & Giải thích (Câu {group.qNumberStart} - {group.qNumberEnd})</p>
+          {explanations.map(ex => (
+            <ExplanationPanel key={ex.number} reviewInfo={{ ...ex.data, number: ex.number }} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}

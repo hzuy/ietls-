@@ -298,7 +298,7 @@ router.get('/exams/:id/result-detail', authMiddleware, validate(resultDetailQuer
           passages: {
             orderBy: { number: 'asc' },
             select: {
-              id: true, number: true,
+              id: true, number: true, title: true, subtitle: true, body: true, letteredParagraphs: true,
               questions: {
                 where: { groupId: null },
                 orderBy: { number: 'asc' },
@@ -534,7 +534,12 @@ router.get('/exams/:id/result-detail', authMiddleware, validate(resultDetailQuer
 
       const nums = questions.flatMap(q => q.grouped ? q.numbers : [q.number])
       return {
+        id: passage.id,
         number: passage.number,
+        title: passage.title,
+        subtitle: passage.subtitle,
+        body: passage.body,
+        letteredParagraphs: passage.letteredParagraphs,
         from: Math.min(...nums),
         to: Math.max(...nums),
         questions

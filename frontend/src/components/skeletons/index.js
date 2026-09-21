@@ -17,7 +17,7 @@ export { default as UserCardGridSkeleton }  from './user/UserCardGridSkeleton'
 export { default as UserExamListSkeleton }  from './user/UserExamListSkeleton'
 export { default as UserHomeSkeleton }      from './user/UserHomeSkeleton'
 export { default as UserProfileSkeleton }   from './user/UserProfileSkeleton'
-export { default as UserHistorySkeleton }   from './user/UserHistorySkeleton'
+
 export { default as UserProgressSkeleton }  from './user/UserProgressSkeleton'
 export { default as UserResultSkeleton }    from './user/UserResultSkeleton'
 

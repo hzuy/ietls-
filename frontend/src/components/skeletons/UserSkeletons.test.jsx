@@ -6,7 +6,6 @@ import {
   UserExamListSkeleton,
   UserHomeSkeleton,
   UserProfileSkeleton,
-  UserHistorySkeleton,
   UserProgressSkeleton,
   UserResultSkeleton,
   SkeletonCard,
@@ -86,16 +85,6 @@ describe('User Skeletons Suite', () => {
     })
   })
 
-  describe('UserHistorySkeleton', () => {
-    it('renders history rows with rounded-full skill badge and review button', () => {
-      const { container } = render(<UserHistorySkeleton count={5} showFilters={true} />)
-      // 5 nút xem lại bo rounded-full
-      expect(container.querySelectorAll('.h-8.w-20.rounded-full').length).toBe(5)
-      // Có khung bộ lọc
-      expect(container.querySelector('.sm\\:grid-cols-3')).toBeInTheDocument()
-    })
-  })
-
   describe('UserProgressSkeleton', () => {
     it('renders 4 metric cards and breakdown bars', () => {
       const { container } = render(<UserProgressSkeleton />)
@@ -136,7 +125,6 @@ describe('User Skeletons Suite', () => {
         <UserHomeSkeleton key="home" />,
         <UserProfileSkeleton key="prof-res" variant="results" />,
         <UserProfileSkeleton key="prof-full" variant="full" />,
-        <UserHistorySkeleton key="hist" showFilters={true} />,
         <UserProgressSkeleton key="prog" />,
         <UserResultSkeleton key="res" />,
       ]

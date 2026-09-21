@@ -39,7 +39,7 @@ const SampleDetailPage  = lazy(() => import('./pages/SampleDetailPage'))
 const SamplesPage       = lazy(() => import('./pages/SamplesPage'))
 const UserProfile       = lazy(() => import('./pages/UserProfile'))
 const ProgressAnalysis  = lazy(() => import('./pages/ProgressAnalysis'))
-const HistoryPage       = lazy(() => import('./pages/History'))
+
 const NotFound          = lazy(() => import('./pages/NotFound'))
 
 // Admin pages — lazily loaded, heaviest chunks
@@ -153,9 +153,11 @@ export default function App() {
                   <Route path="/change-password" element={<ChangePassword />} />
                   <Route path="/reading" element={<Navigate to="/practice/reading" replace />} />
                   <Route path="/reading/:id/result" element={<PrivateRoute><SkillResultPage skillType="reading" /></PrivateRoute>} />
+                  <Route path="/reading/:id/explanation" element={<PrivateRoute><ReadingExam /></PrivateRoute>} />
                   <Route path="/reading/:id" element={<PrivateRoute><ReadingExam /></PrivateRoute>} />
                   <Route path="/listening" element={<Navigate to="/practice/listening" replace />} />
                   <Route path="/listening/:id/result" element={<PrivateRoute><SkillResultPage skillType="listening" /></PrivateRoute>} />
+                  <Route path="/listening/:id/explanation" element={<PrivateRoute><ListeningExam /></PrivateRoute>} />
                   <Route path="/listening/:id" element={<PrivateRoute><ListeningExam /></PrivateRoute>} />
                   <Route path="/writing" element={<Navigate to="/writing-samples" replace />} />
                   <Route path="/writing/:id" element={<PrivateRoute><WritingExam /></PrivateRoute>} />
@@ -183,7 +185,7 @@ export default function App() {
                     <Route path="/full-test/result" element={<PrivateRoute><FullTestResult /></PrivateRoute>} />
                     <Route path="/profile" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
                     <Route path="/progress" element={<PrivateRoute><ProgressAnalysis /></PrivateRoute>} />
-                    <Route path="/history" element={<PrivateRoute><HistoryPage /></PrivateRoute>} />
+
                     {/* 404 Route */}
                     <Route path="*" element={<NotFound />} />
                   </Route>

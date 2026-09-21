@@ -9,7 +9,6 @@ import { RotateCcw, AlertCircle, Sparkles, X, Check, History } from 'lucide-reac
 import api from '../utils/axios'
 import { askAITutor } from './common/AIChatbotDrawer'
 import QuestionTypeBreakdown from './exam/QuestionTypeBreakdown'
-import ExplanationPanel from './exam/ExplanationPanel'
 import useCountUp from '../hooks/useCountUp'
 import { UserResultSkeleton } from './skeletons'
 
@@ -250,8 +249,6 @@ function AnswerRow({ q, onAskAI }) {
                   </button>
                 )}
               </div>
-              {/* 1 giải thích/câu DB (mcq_multi) — chỉ hiện 1 lần ở dòng cuối cùng của nhóm, tránh lặp lại cùng nội dung ở mỗi dòng con. */}
-              {isLast && <ExplanationPanel explanation={q.explanation} />}
             </div>
           )
         })}
@@ -305,7 +302,6 @@ function AnswerRow({ q, onAskAI }) {
           </button>
         )}
       </div>
-      <ExplanationPanel explanation={q.explanation} />
     </div>
   )
 }

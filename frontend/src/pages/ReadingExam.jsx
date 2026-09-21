@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { queryClient } from '../lib/queryClient'
 import { getReadingExam, getReadingExamWithAnswers, submitReadingExam } from '../services/examService'
+import api from '../utils/axios'
 import { getAdminSettings } from '../services/adminService'
 import { saveDraft, loadDraft, clearDraft, formatSavedAt } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
@@ -39,7 +40,8 @@ export default function ReadingExam() {
   const [searchParams] = useSearchParams()
   const previewMode = searchParams.get('preview') === 'true'
   const resumeMode = searchParams.get('resume') === 'true'
-  const viewResultMode = searchParams.get('viewResult') === 'true'
+  const viewResultMode = searchParams.get('viewResult') === 'true' || window.location.pathname.includes('/explanation')
+  const attemptId = searchParams.get('attemptId')
   const { user } = useAuth()
   const { showToast } = useToast()
 
@@ -51,6 +53,7 @@ export default function ReadingExam() {
   const [activePassage, setActivePassage] = useState(0)
   const [timeLeft, setTimeLeft] = useState(DEFAULT_READING_TIME)
   const [phase, setPhase] = useState('exam')
+  const [reviewData, setReviewData] = useState(null)
   const [showAnswers, setShowAnswers] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [showNavNumbers, setShowNavNumbers] = useState(true)
@@ -158,7 +161,53 @@ export default function ReadingExam() {
         }
         // Jump straight to result view if ?viewResult=true
         if (viewResultMode) {
-          setPhase('viewResult')
+          api.get(`/reading/exams/${id}/result-detail`, { params: attemptId ? { attemptId } : {} })
+            .then(res => {
+              const numToId = {}
+              data.passages.forEach(p => {
+                (p.questions || []).forEach(q => { numToId[q.number] = q.id })
+                ;(p.questionGroups || []).forEach(g => {
+                  (g.questions || []).forEach(q => { numToId[q.number] = q.id })
+                })
+              })
+
+              const userAns = {}
+              const revData = {}
+              ;(res.data.sections || []).forEach(sec => {
+                ;(sec.questions || []).forEach(q => {
+                  if (q.grouped) {
+                    (q.numbers || []).forEach((num, idx) => {
+                      const qId = numToId[num]
+                      if (qId) {
+                        userAns[qId] = q.userAnswers?.[idx] || ''
+                        revData[qId] = {
+                          status: q.statuses?.[idx] || 'missed',
+                          userAnswer: q.userAnswers?.[idx] || '',
+                          correctAnswer: q.answers?.[idx] || '',
+                          explanation: idx === 0 ? q.explanation : null
+                        }
+                      }
+                    })
+                  } else {
+                    const qId = numToId[q.number]
+                    if (qId) {
+                      userAns[qId] = q.rawUserAnswer || ''
+                      revData[qId] = {
+                        status: q.status,
+                        userAnswer: q.rawUserAnswer || '',
+                        correctAnswer: q.rawCorrectAnswer || '',
+                        explanation: q.explanation
+                      }
+                    }
+                  }
+                })
+              })
+              setAnswers(userAns)
+              setReviewData(revData)
+            })
+            .catch(err => {
+              console.error('Lỗi tải kết quả:', err)
+            })
         }
       })
       .catch((err) => {
@@ -462,12 +511,8 @@ export default function ReadingExam() {
     )
   }
 
-  // ── View Result mode: redirect to dedicated result route ──────
-  // (handled by navigate in doSubmit; ?viewResult=true redirects here too)
-  if (viewResultMode) {
-    navigate(`/reading/${id}/result`, { replace: true })
-    return null
-  }
+  // ── View Result mode redirect removed ──────
+  // (handled by fetching result-detail and rendering reviewData instead)
 
 
   // ── Exam ──────────────────────────────────────────────────────
@@ -636,8 +681,10 @@ export default function ReadingExam() {
                     answers={answers}
                     onAnswer={onAnswer}
                     globalOffset={groupOffset}
-                    previewMode={previewMode}
+                    previewMode={previewMode || viewResultMode}
                     showAnswers={showAnswers}
+                    viewResultMode={viewResultMode}
+                    reviewData={reviewData}
                   />
                 )
                 groupOffset += (group.questions || []).length
@@ -659,6 +706,10 @@ export default function ReadingExam() {
                       globalIdx={passageStartIdx + group.startOffset + qi}
                       answers={answers}
                       onAnswer={onAnswer}
+                      previewMode={previewMode || viewResultMode}
+                      showAnswers={showAnswers}
+                      viewResultMode={viewResultMode}
+                      reviewData={reviewData}
                     />
                   ))}
                 </div>
