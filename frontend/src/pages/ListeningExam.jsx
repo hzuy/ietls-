@@ -8,7 +8,7 @@ import { saveDraft, loadDraft, clearDraft, formatSavedAt } from '../services/dra
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
-import { Clock, LayoutGrid, ChevronUp, ChevronDown } from 'lucide-react'
+import { Clock, LayoutGrid, ChevronUp, ChevronDown, ArrowRight } from 'lucide-react'
 import { getSectionSlots, isSlotAnswered } from '../utils/questionCount'
 import MatchingTickGrid from '../components/MatchingTickGrid'
 import DragWordBankGroup from '../components/DragWordBankGroup'
@@ -54,11 +54,15 @@ export default function ListeningExam() {
   const [phase, setPhase] = useState('exam')
   const [showAnswers, setShowAnswers] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
-  const [showNavNumbers, setShowNavNumbers] = useState(true)
+  const [showNavNumbers, setShowNavNumbers] = useState(() => {
+    if (typeof window === 'undefined') return true
+    return window.matchMedia('(min-width: 640px)').matches
+  })
   const [showQuestionPanel, setShowQuestionPanel] = useState(false)
   const [bottomBarHeight, setBottomBarHeight] = useState(0)
   const audioRef = useRef(null)
   const bottomBarRef = useRef(null)
+  const questionsScrollRef = useRef(null)
   const savedDraftRef = useRef('{}')  // JSON của answers đã ghi vào draft gần nhất
   const [lastSavedAt, setLastSavedAt] = useState(null) // mốc lưu nháp gần nhất — cho indicator header
 
@@ -195,7 +199,7 @@ export default function ListeningExam() {
     })
     ro.observe(bottomBarRef.current)
     return () => ro.disconnect()
-  }, [])
+  }, [loading, exam, previewMode])
 
   const onAnswer = useCallback((qId, val) => setAnswers(a => ({ ...a, [qId]: val })), [])
 
@@ -242,6 +246,20 @@ export default function ListeningExam() {
 
   const allQ = useMemo(() => exam?.listeningSections?.flatMap(s => getSectionSlots(s)) || [], [exam])
   const answered = useMemo(() => allQ.filter(s => isSlotAnswered(s, answers)).length, [allQ, answers])
+
+  const sectionPillItems = useMemo(() => (exam?.listeningSections || []).map(sec => {
+    const slots = getSectionSlots(sec)
+    return {
+      label: `Section ${sec.number}`,
+      answered: slots.filter(sl => isSlotAnswered(sl, answers)).length,
+      total: slots.length,
+    }
+  }), [exam, answers])
+
+  const goToSection = useCallback((idx) => {
+    setActiveSection(idx)
+    requestAnimationFrame(() => questionsScrollRef.current?.scrollTo({ top: 0 }))
+  }, [])
 
   const section = exam?.listeningSections?.[activeSection] || null
   const startIdx = useMemo(() => {
@@ -350,7 +368,7 @@ export default function ListeningExam() {
       </div>
 
       {/* Body: Scrollable Question Area */}
-      <div className="flex-1 overflow-y-auto">
+      <div ref={questionsScrollRef} className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-6 py-6 space-y-4">
           {/* Questions */}
           <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-xs">
@@ -405,6 +423,12 @@ export default function ListeningExam() {
             </div>
           )}
 
+          {exam.listeningSections.length > 1 && (
+            <div className="md:hidden px-4 pt-2 border-b border-gray-100">
+              <PassagePills fill items={sectionPillItems} activeIndex={activeSection} onChange={goToSection} />
+            </div>
+          )}
+
           {/* Row 2: controls */}
           <div className="px-6 h-14 flex items-center justify-between gap-6">
             {/* Left: icons */}
@@ -414,7 +438,7 @@ export default function ListeningExam() {
                 title="Bảng câu hỏi"
                 aria-label="Bảng câu hỏi"
                 onClick={() => setShowQuestionPanel(v => !v)}
-                className={`w-9 h-9 flex items-center justify-center rounded-full border transition-all cursor-pointer ${
+                className={`exam-bar-btn w-9 h-9 flex items-center justify-center rounded-full border transition-all cursor-pointer ${
                   showQuestionPanel
                     ? 'bg-zinc-900 border-zinc-900 text-white shadow-xs'
                     : 'bg-white border-zinc-200 text-zinc-500 hover:border-zinc-400 hover:text-zinc-900'
@@ -427,35 +451,40 @@ export default function ListeningExam() {
                 title={showNavNumbers ? 'Thu gọn' : 'Mở rộng'}
                 aria-label={showNavNumbers ? 'Thu gọn' : 'Mở rộng'}
                 onClick={() => setShowNavNumbers(v => !v)}
-                className="w-9 h-9 flex items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 hover:border-zinc-400 hover:text-zinc-900 transition-all cursor-pointer"
+                className="exam-bar-btn w-9 h-9 flex items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 hover:border-zinc-400 hover:text-zinc-900 transition-all cursor-pointer"
               >
                 {showNavNumbers ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
               </button>
             </div>
 
-            {/* Middle: Section Pills */}
-            <PassagePills
-              items={exam.listeningSections.map(s => {
-                const slots = getSectionSlots(s)
-                return {
-                  label: `Section ${s.number}`,
-                  answered: slots.filter(sl => isSlotAnswered(sl, answers)).length,
-                  total: slots.length,
-                }
-              })}
-              activeIndex={activeSection}
-              onChange={setActiveSection}
-            />
+            <div className="hidden md:flex flex-1 min-w-0">
+              <PassagePills
+                items={sectionPillItems}
+                activeIndex={activeSection}
+                onChange={setActiveSection}
+              />
+            </div>
 
-            {/* Right: submit */}
             <div className="flex items-center shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowConfirm(true)}
-                className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-5 rounded-full shadow-xs transition-colors cursor-pointer shrink-0 inline-flex items-center justify-center leading-none"
-              >
-                Nộp bài
-              </button>
+              {activeSection < exam.listeningSections.length - 1 ? (
+                <button
+                  type="button"
+                  onClick={() => goToSection(activeSection + 1)}
+                  aria-label={`Sang Section ${exam.listeningSections[activeSection + 1].number}`}
+                  className="exam-bar-btn bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-5 rounded-full shadow-xs transition-colors cursor-pointer shrink-0 inline-flex items-center justify-center leading-none gap-1.5"
+                >
+                  Section {exam.listeningSections[activeSection + 1].number}
+                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowConfirm(true)}
+                  className="exam-bar-btn bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-5 rounded-full shadow-xs transition-colors cursor-pointer shrink-0 inline-flex items-center justify-center leading-none"
+                >
+                  Nộp bài
+                </button>
+              )}
             </div>
           </div>
         </div>

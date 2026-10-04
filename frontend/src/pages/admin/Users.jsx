@@ -133,21 +133,21 @@ export default function Users() {
         </div>
 
         {/* ── Stats row ──────────────────────────────────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-2xl p-4 border border-zinc-200 shadow-xs">
-            <div className="text-2xl font-bold tabular-nums text-zinc-900">
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6">
+          <div className="bg-white rounded-2xl p-3 sm:p-4 border border-zinc-200 shadow-xs min-w-0">
+            <div className="text-xl sm:text-2xl font-bold tabular-nums text-zinc-900">
               {isPending && !data ? <span className="inline-block w-12 h-7 bg-zinc-100 rounded animate-pulse" /> : total}
             </div>
             <div className="text-xs text-zinc-500 mt-1 font-medium">Tổng người dùng</div>
           </div>
-          <div className="bg-white rounded-2xl p-4 border border-zinc-200 shadow-xs">
-            <div className="text-2xl font-bold tabular-nums text-zinc-900">
+          <div className="bg-white rounded-2xl p-3 sm:p-4 border border-zinc-200 shadow-xs min-w-0">
+            <div className="text-xl sm:text-2xl font-bold tabular-nums text-zinc-900">
               {isPending && !data ? <span className="inline-block w-12 h-7 bg-zinc-100 rounded animate-pulse" /> : activeCount}
             </div>
             <div className="text-xs text-zinc-500 mt-1 font-medium">Đang hoạt động</div>
           </div>
-          <div className="bg-white rounded-2xl p-4 border border-zinc-200 shadow-xs">
-            <div className="text-2xl font-bold tabular-nums text-zinc-900">
+          <div className="bg-white rounded-2xl p-3 sm:p-4 border border-zinc-200 shadow-xs min-w-0">
+            <div className="text-xl sm:text-2xl font-bold tabular-nums text-zinc-900">
               {isPending && !data ? <span className="inline-block w-12 h-7 bg-zinc-100 rounded animate-pulse" /> : lockedCount}
             </div>
             <div className="text-xs text-zinc-500 mt-1 font-medium">Bị khóa</div>
@@ -162,10 +162,10 @@ export default function Users() {
               placeholder="Tìm tên / email..."
               value={search}
               onChange={e => { setSearch(e.target.value); setPage(1) }}
-              className="w-[220px] px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 bg-white text-zinc-900 placeholder:text-zinc-400"
+              className="w-full sm:w-[220px] px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 bg-white text-zinc-900 placeholder:text-zinc-400"
             />
             <Select
-              className="w-[168px]"
+              className="flex-1 min-w-0 sm:flex-none sm:w-[168px]"
               ariaLabel="Lọc theo trạng thái"
               value={statusFilter}
               onChange={v => { setStatusFilter(v); setPage(1) }}
@@ -176,7 +176,7 @@ export default function Users() {
               ]}
             />
             <Select
-              className="w-[152px]"
+              className="flex-1 min-w-0 sm:flex-none sm:w-[152px]"
               ariaLabel="Sắp xếp"
               value={sortBy}
               onChange={v => { setSortBy(v); setPage(1) }}
@@ -207,7 +207,7 @@ export default function Users() {
             )
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="rtable w-full text-xs">
                 <thead>
                   <tr className="text-[11px] text-zinc-500 bg-zinc-50 border-b border-zinc-200">
                     <th className="px-5 py-3 text-left font-medium">Người dùng</th>
@@ -228,7 +228,7 @@ export default function Users() {
                         className={`border-b border-zinc-100 hover:bg-zinc-50 transition cursor-pointer ${idx % 2 === 1 ? 'bg-zinc-50/40' : ''}`}>
 
                         {/* Người dùng */}
-                        <td className="px-5 py-3">
+                        <td className="rt-main px-5 py-3">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-zinc-900 text-white text-xs font-bold flex items-center justify-center shrink-0">
                               {avatarInitials(u.name)}
@@ -241,7 +241,7 @@ export default function Users() {
                         </td>
 
                         {/* Trạng thái */}
-                        <td className="px-4 py-3">
+                        <td data-label="Trạng thái" className="px-4 py-3">
                           {u.isLocked
                             ? <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-500/10 text-red-600 border border-red-500/20">Không HĐ</span>
                             : <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">Hoạt động</span>
@@ -249,12 +249,12 @@ export default function Users() {
                         </td>
 
                         {/* Lượt thi */}
-                        <td className="px-4 py-3 text-right tabular-nums text-zinc-700 font-medium hidden sm:table-cell">
+                        <td data-label="Lượt thi" className="px-4 py-3 text-right tabular-nums text-zinc-700 font-medium hidden sm:table-cell">
                           {u._count?.attempts ?? 0}
                         </td>
 
                         {/* Band TB */}
-                        <td className="px-4 py-3 text-right tabular-nums hidden md:table-cell">
+                        <td data-label="Band TB" className="px-4 py-3 text-right tabular-nums hidden md:table-cell">
                           {band != null
                             ? <span className="font-semibold text-zinc-900">
                                 {band.toFixed(1)}
@@ -264,12 +264,12 @@ export default function Users() {
                         </td>
 
                         {/* Ngày tham gia */}
-                        <td className="px-4 py-3 text-[11px] text-zinc-500 hidden lg:table-cell">
+                        <td className="rt-hide px-4 py-3 text-[11px] text-zinc-500 hidden lg:table-cell">
                           {fmtDate(u.createdAt)}
                         </td>
 
                         {/* Hành động */}
-                        <td className="px-5 py-3 text-right" onClick={e => e.stopPropagation()}>
+                        <td className="rt-actions px-5 py-3 text-right" onClick={e => e.stopPropagation()}>
                           <div className="inline-flex items-center justify-end gap-1">
                             <button
                               onClick={() => navigate(`/admin/users/${u.id}`)}

@@ -136,7 +136,7 @@ export default function Staff() {
           ) : staff.length === 0 ? (
             <p className="text-center text-zinc-400 py-12 text-xs">Chưa có nhân sự nào</p>
           ) : (
-            <table className="w-full text-xs">
+            <table className="rtable w-full text-xs">
               <thead>
                 <tr className="text-[11px] text-zinc-500 bg-zinc-50 border-b border-zinc-200">
                   <th className="px-5 py-3 text-left font-medium">Tên / Email</th>
@@ -148,7 +148,7 @@ export default function Staff() {
               <tbody>
                 {staff.map(s => (
                   <tr key={s.id} className="border-b border-zinc-100 hover:bg-zinc-50 transition">
-                    <td className="px-5 py-3">
+                    <td className="rt-main px-5 py-3">
                       <div className="flex items-center gap-2">
                         <div>
                           <p className="font-medium text-zinc-900 text-xs">{s.name}</p>
@@ -159,15 +159,15 @@ export default function Staff() {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td data-label="Vai trò" className="px-4 py-3">
                       {s.role === 'admin' ? (
                         <span className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-xs px-2.5 py-0.5 rounded-full font-medium">Admin</span>
                       ) : (
                         <span className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 text-xs px-2.5 py-0.5 rounded-full font-medium">Teacher</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-[11px] text-zinc-500">{fmtDate(s.createdAt)}</td>
-                    <td className="px-4 py-3">
+                    <td data-label="Ngày tham gia" className="px-4 py-3 text-[11px] text-zinc-500">{fmtDate(s.createdAt)}</td>
+                    <td className="rt-actions px-4 py-3">
                       <div className="inline-flex items-center gap-1.5 flex-wrap">
                         {s.role === 'teacher' && (
                           <button

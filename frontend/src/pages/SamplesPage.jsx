@@ -35,7 +35,8 @@ function FilterBtn({ active, onClick, children }) {
   return (
     <button
       onClick={onClick}
-      className={`block w-full text-left px-3.5 py-2 rounded-full border-none cursor-pointer text-[13px] font-medium transition-all duration-200 ${
+      style={{ fontSize: 13 }}
+      className={`inline-flex items-center shrink-0 whitespace-nowrap max-md:min-h-11 md:block md:w-full md:shrink md:whitespace-normal text-left px-3.5 py-2 rounded-full border-none cursor-pointer font-medium transition-all duration-200 ${
         active
           ? 'bg-zinc-100 text-zinc-900 font-semibold'
           : 'bg-transparent text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
@@ -105,13 +106,13 @@ export default function SamplesPage({ skill }) {
       </div>
 
       {/* Body */}
-      <div className="app-container pt-4 pb-16 flex gap-8 items-start">
+      <div className="app-container pt-4 pb-16 flex flex-col md:flex-row gap-4 md:gap-8 md:items-start">
         {/* Sidebar */}
-        <Card as="aside" className="w-56 shrink-0 p-5 sticky top-24">
+        <Card as="aside" className="w-full p-4 md:w-56 md:shrink-0 md:p-5 md:sticky md:top-24">
           {/* Level filter (Task/Part) */}
-          <div className="mb-6">
+          <div className="mb-4 md:mb-6">
             <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider ml-1 mb-3">{meta.groupLabel}</p>
-            <div className="flex flex-col gap-1">
+            <div className="flex gap-1 overflow-x-auto [scrollbar-width:none] md:flex-col md:overflow-visible">
               <FilterBtn active={!selectedLevel} onClick={() => setFilter(meta.paramKey, '')}>Tất cả</FilterBtn>
               {levelOptions.map(opt => (
                 <FilterBtn key={opt.value} active={selectedLevel === opt.value} onClick={() => setFilter(meta.paramKey, selectedLevel === opt.value ? '' : opt.value)}>
@@ -125,7 +126,7 @@ export default function SamplesPage({ skill }) {
           {examTypes.length > 0 && (
             <div>
               <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider ml-1 mb-3">Dạng bài</p>
-              <div className="flex flex-col gap-1">
+              <div className="flex gap-1 overflow-x-auto [scrollbar-width:none] md:flex-col md:overflow-visible">
                 <FilterBtn active={!selectedType} onClick={() => setFilter('type', '')}>Tất cả</FilterBtn>
                 {examTypes.map(t => (
                   <FilterBtn key={t} active={selectedType === t} onClick={() => setFilter('type', selectedType === t ? '' : t)}>

@@ -98,7 +98,8 @@ export default function SampleDetailPage({ skill }) {
             background: 'none',
             border: 'none',
             cursor: 'pointer',
-            marginBottom: 24,
+            padding: '12px 0',
+            margin: '-12px 0 12px',
             display: 'flex',
             alignItems: 'center',
             gap: 6
@@ -165,6 +166,7 @@ export default function SampleDetailPage({ skill }) {
       </div>
 
       <style>{`
+        .rich-content { overflow-wrap: anywhere; }
         .rich-content h1 { font-size: 1.75rem; font-weight: 900; color: var(--ink); margin: 1.5em 0 0.6em; line-height: 1.3; }
         .rich-content h2 { font-size: 1.5rem; font-weight: 800; color: var(--ink); margin: 1.4em 0 0.5em; line-height: 1.3; }
         .rich-content h3 { font-size: 1.25rem; font-weight: 700; color: var(--ink); margin: 1.3em 0 0.5em; line-height: 1.3; }

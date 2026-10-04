@@ -141,7 +141,7 @@ export default function Navbar() {
         <div className="app-container h-full flex items-center justify-between flex-nowrap gap-4">
 
           {/* Logo */}
-          <Link to="/" style={{ textDecoration: 'none' }} className="flex items-center gap-2 shrink-0 whitespace-nowrap">
+          <Link to="/" style={{ textDecoration: 'none' }} className="tap-pad flex items-center gap-2 shrink-0 whitespace-nowrap">
             <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(24,24,27,0.2)', flexShrink: 0 }}>
               <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#fff' }} />
             </div>
@@ -363,7 +363,7 @@ export default function Navbar() {
       >
         {/* Drawer header */}
         <div className="flex items-center justify-between px-4 py-3 border-b" style={{ minHeight: 64, borderBottomColor: 'var(--border-soft)' }}>
-          <Link to="/" onClick={closeMobile} style={{ textDecoration: 'none' }} className="flex items-center gap-2">
+          <Link to="/" onClick={closeMobile} style={{ textDecoration: 'none' }} className="tap-pad flex items-center gap-2">
             <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#fff' }} />
             </div>

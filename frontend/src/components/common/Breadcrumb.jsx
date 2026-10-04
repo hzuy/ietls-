@@ -21,7 +21,7 @@ export default function Breadcrumb({ items, className = '' }) {
               {item.to && !isLast ? (
                 <Link
                   to={item.to}
-                  className="hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors duration-150 inline-flex items-center truncate"
+                  className="tap-pad hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors duration-150 inline-flex items-center truncate"
                 >
                   {item.label}
                 </Link>

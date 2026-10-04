@@ -9,7 +9,7 @@ import { saveDraft, loadDraft, clearDraft, formatSavedAt } from '../services/dra
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
-import { BookOpen, Type, Clock, LayoutGrid, ChevronUp, ChevronDown, Highlighter, StickyNote, Trash2 } from 'lucide-react'
+import { BookOpen, Type, Clock, LayoutGrid, ChevronUp, ChevronDown, Highlighter, StickyNote, Trash2, ArrowRight } from 'lucide-react'
 import HighlightLayer, { getOffsetWithinElement } from '../components/exam/HighlightLayer'
 import MatchingTickGrid from '../components/MatchingTickGrid'
 import DragWordBankGroup from '../components/DragWordBankGroup'
@@ -56,7 +56,12 @@ export default function ReadingExam() {
   const [reviewData, setReviewData] = useState(null)
   const [showAnswers, setShowAnswers] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
-  const [showNavNumbers, setShowNavNumbers] = useState(true)
+  const [mobileView, setMobileView] = useState('passage')
+
+  const [showNavNumbers, setShowNavNumbers] = useState(() => {
+    if (typeof window === 'undefined') return true
+    return window.matchMedia('(min-width: 640px)').matches
+  })
   const [showQuestionPanel, setShowQuestionPanel] = useState(false)
   const [bottomBarHeight, setBottomBarHeight] = useState(52)
   const bottomBarRef = useRef(null)
@@ -292,7 +297,7 @@ export default function ReadingExam() {
     const obs = new ResizeObserver(() => setBottomBarHeight(bottomBarRef.current?.offsetHeight || 52))
     obs.observe(bottomBarRef.current)
     return () => obs.disconnect()
-  }, [])
+  }, [loading, exam, previewMode])
 
   const onAnswer = useCallback((qId, val) => setAnswers(a => ({ ...a, [qId]: val })), [])
 
@@ -441,6 +446,8 @@ export default function ReadingExam() {
     }
     if (passageIdx === -1) return
 
+    if (isMobile) setMobileView('questions')
+
     const doScroll = () => {
       let el = document.getElementById(`q-${qNumber}`)
       if (!el) {
@@ -461,11 +468,20 @@ export default function ReadingExam() {
     } else {
       doScroll()
     }
-  }, [activePassage, exam])
+  }, [activePassage, exam, isMobile])
 
   const allNavItems = useMemo(() => exam?.passages ? exam.passages.flatMap(p => getPassageSlots(p)) : [], [exam])
   const totalSlots = useMemo(() => allNavItems.length, [allNavItems])
   const answered = useMemo(() => allNavItems.filter(slot => isSlotAnswered(slot, answers)).length, [allNavItems, answers])
+
+  const goToPassage = useCallback((idx, view) => {
+    setActivePassage(idx)
+    if (view) setMobileView(view)
+    requestAnimationFrame(() => {
+      passageTextRef.current?.scrollTo({ top: 0 })
+      rightPanelRef.current?.scrollTo({ top: 0 })
+    })
+  }, [])
 
   const passage = exam?.passages?.[activePassage] || null
   const useGroups = Boolean(passage?.questionGroups && passage.questionGroups.length > 0)
@@ -577,7 +593,7 @@ export default function ReadingExam() {
         <div
           ref={passageTextRef}
           onMouseUp={handlePassageMouseUp}
-          className="overflow-y-auto bg-white px-8 py-6 border-b md:border-b-0 md:border-r border-zinc-200"
+          className={`overflow-y-auto bg-white px-8 py-6 border-b md:border-b-0 md:border-r border-zinc-200 max-md:flex-1 max-md:min-h-0${isMobile && mobileView !== 'passage' ? ' hidden' : ''}`}
           style={{ width: isMobile ? '100%' : `${splitRatio}%` }}
         >
           {/* Passage Toolbar */}
@@ -597,7 +613,7 @@ export default function ReadingExam() {
                   type="button"
                   onClick={() => setFontSize(size)}
                   title={`Cỡ chữ ${desc}`}
-                  className={`px-2.5 py-0.5 text-xs font-medium rounded-full transition-colors cursor-pointer border-none ${
+                  className={`exam-chip ${
                     fontSize === size
                       ? 'bg-white text-zinc-900 shadow-xs font-semibold'
                       : 'bg-transparent text-zinc-500 hover:text-zinc-900'
@@ -666,7 +682,7 @@ export default function ReadingExam() {
         {/* Right: Questions */}
         <div
           ref={rightPanelRef}
-          className="overflow-y-auto bg-gray-50 px-6 py-5 max-md:w-full"
+          className={`overflow-y-auto bg-gray-50 px-6 py-5 max-md:w-full max-md:flex-1 max-md:min-h-0${isMobile && mobileView !== 'questions' ? ' hidden' : ''}`}
           style={{ width: isMobile ? '100%' : `${100 - splitRatio}%` }}
         >
           {useGroups ? (
@@ -739,6 +755,17 @@ export default function ReadingExam() {
             </div>
           )}
 
+          {isMobile && exam.passages.length > 1 && (
+            <div className="px-4 pt-2 border-b border-gray-100">
+              <PassagePills
+                fill
+                items={passagePillsItems}
+                activeIndex={activePassage}
+                onChange={(i) => goToPassage(i)}
+              />
+            </div>
+          )}
+
           {/* Row 2: controls & Passage Pills */}
           <div className="px-6 h-14 flex items-center justify-between gap-6">
             {/* Left: icons + Grid toggle */}
@@ -748,7 +775,7 @@ export default function ReadingExam() {
                 title="Bảng câu hỏi"
                 aria-label="Bảng câu hỏi"
                 onClick={() => setShowQuestionPanel(v => !v)}
-                className={`w-9 h-9 flex items-center justify-center rounded-full border transition-all cursor-pointer ${
+                className={`exam-bar-btn w-9 h-9 flex items-center justify-center rounded-full border transition-all cursor-pointer ${
                   showQuestionPanel
                     ? 'bg-zinc-900 border-zinc-900 text-white shadow-xs'
                     : 'bg-white border-zinc-200 text-zinc-500 hover:border-zinc-400 hover:text-zinc-900'
@@ -756,33 +783,59 @@ export default function ReadingExam() {
               >
                 <LayoutGrid className="w-4 h-4" />
               </button>
-              <button
-                type="button"
-                title={showNavNumbers ? 'Thu gọn' : 'Mở rộng'}
-                aria-label={showNavNumbers ? 'Thu gọn' : 'Mở rộng'}
-                onClick={() => setShowNavNumbers(v => !v)}
-                className="w-9 h-9 flex items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 hover:border-zinc-400 hover:text-zinc-900 transition-all cursor-pointer"
-              >
-                {showNavNumbers ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-              </button>
+              {isMobile ? (
+                <button
+                  type="button"
+                  title={mobileView === 'passage' ? 'Chuyển sang câu hỏi' : 'Quay lại bài đọc'}
+                  aria-label={mobileView === 'passage' ? 'Chuyển sang câu hỏi' : 'Quay lại bài đọc'}
+                  onClick={() => setMobileView(v => (v === 'passage' ? 'questions' : 'passage'))}
+                  className="exam-bar-btn inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-zinc-900 text-white font-medium transition-colors cursor-pointer hover:bg-zinc-700"
+                >
+                  {mobileView === 'passage'
+                    ? <><LayoutGrid className="w-4 h-4" /><span>Câu hỏi</span></>
+                    : <><BookOpen className="w-4 h-4" /><span>Bài đọc</span></>}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  title={showNavNumbers ? 'Thu gọn' : 'Mở rộng'}
+                  aria-label={showNavNumbers ? 'Thu gọn' : 'Mở rộng'}
+                  onClick={() => setShowNavNumbers(v => !v)}
+                  className="exam-bar-btn w-9 h-9 flex items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 hover:border-zinc-400 hover:text-zinc-900 transition-all cursor-pointer"
+                >
+                  {showNavNumbers ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                </button>
+              )}
             </div>
 
-            {/* Middle: Passage Pills */}
-            <PassagePills
-              items={passagePillsItems}
-              activeIndex={activePassage}
-              onChange={setActivePassage}
-            />
+            {!isMobile && (
+              <PassagePills
+                items={passagePillsItems}
+                activeIndex={activePassage}
+                onChange={setActivePassage}
+              />
+            )}
 
-            {/* Right: Submit Button */}
             <div className="flex items-center shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowConfirm(true)}
-                className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-5 rounded-full shadow-xs transition-colors cursor-pointer shrink-0 inline-flex items-center justify-center leading-none"
-              >
-                Nộp bài
-              </button>
+              {activePassage < exam.passages.length - 1 ? (
+                <button
+                  type="button"
+                  onClick={() => goToPassage(activePassage + 1, 'passage')}
+                  aria-label={`Sang Passage ${exam.passages[activePassage + 1].number}`}
+                  className="exam-bar-btn bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-5 rounded-full shadow-xs transition-colors cursor-pointer shrink-0 inline-flex items-center justify-center leading-none gap-1.5"
+                >
+                  Passage {exam.passages[activePassage + 1].number}
+                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowConfirm(true)}
+                  className="exam-bar-btn bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-5 rounded-full shadow-xs transition-colors cursor-pointer shrink-0 inline-flex items-center justify-center leading-none"
+                >
+                  Nộp bài
+                </button>
+              )}
             </div>
           </div>
         </div>

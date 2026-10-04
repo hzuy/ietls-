@@ -239,7 +239,7 @@ export default function Accounts() {
             <p className="text-center text-zinc-400 py-12 text-xs">Chưa có tài khoản nội bộ nào</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="rtable w-full text-xs">
                 <thead>
                   <tr className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 bg-zinc-50 border-b border-zinc-200">
                     <th className="px-5 py-3 text-left">Tên / Email</th>
@@ -254,7 +254,7 @@ export default function Accounts() {
                     const isSelf = acc.email === currentUser.email
                     return (
                     <tr key={acc.id} className={`border-b border-zinc-100 transition-colors ${isSelf ? 'bg-zinc-100/70 hover:bg-zinc-100' : `${idx % 2 === 1 ? 'bg-zinc-50/40' : ''} hover:bg-zinc-50`}`}>
-                      <td className="px-5 py-3">
+                      <td className="rt-main px-5 py-3">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-zinc-900 text-white text-xs font-bold flex items-center justify-center shrink-0">
                             {avatarInitials(acc.name)}
@@ -270,22 +270,22 @@ export default function Accounts() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3">
+                      <td data-label="Role" className="px-4 py-3">
                         {acc.role === 'admin' ? (
                           <span className="bg-purple-500/10 text-purple-600 border border-purple-500/20 text-xs px-2.5 py-0.5 rounded-full font-medium">Admin</span>
                         ) : (
                           <span className="bg-blue-500/10 text-blue-600 border border-blue-500/20 text-xs px-2.5 py-0.5 rounded-full font-medium">Teacher</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-[11px] font-mono text-zinc-600">{fmtDate(acc.createdAt)}</td>
-                      <td className="px-4 py-3">
+                      <td data-label="Ngày tạo" className="px-4 py-3 text-[11px] font-mono text-zinc-600">{fmtDate(acc.createdAt)}</td>
+                      <td data-label="Trạng thái" className="px-4 py-3">
                         {acc.isLocked ? (
                           <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-red-500/10 text-red-600 border border-red-500/20">Không HĐ</span>
                         ) : (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">Hoạt động</span>
                         )}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="rt-actions px-4 py-3">
                         <div className="inline-flex items-center gap-1">
                           <button onClick={() => openEdit(acc)} title="Sửa tài khoản"
                             className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer">

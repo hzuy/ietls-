@@ -114,7 +114,7 @@ export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }
             {(Array.isArray(q.options) ? q.options : []).filter(o => o && o.trim()).map((opt, oi) => {
               const isSelected = answers[q.number] === opt
               return (
-                <label key={oi} className={`flex items-center gap-2 px-3.5 py-2 rounded-full text-sm transition cursor-pointer
+                <label key={oi} className={`exam-option rounded-full cursor-pointer
                   ${isSelected ? 'bg-zinc-100 border border-zinc-900 text-zinc-900 font-medium' : 'hover:bg-zinc-50 border border-transparent text-zinc-700'}`}>
                   <input type="radio" name={`q${q.number}`} checked={isSelected} onChange={() => onAnswer(q.number, opt)} className="accent-zinc-900 shrink-0" />
                   <span>{String.fromCharCode(65 + oi)}. {opt}</span>
@@ -144,7 +144,7 @@ export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }
               {(Array.isArray(q.options) ? q.options : []).filter(o => o && o.trim()).map((opt, oi) => {
                 const isSelected = selected.includes(opt)
                 return (
-                  <label key={oi} className={`flex items-center gap-2 px-3.5 py-2 rounded-full text-sm transition cursor-pointer
+                  <label key={oi} className={`exam-option rounded-full cursor-pointer
                     ${isSelected ? 'bg-zinc-100 border border-zinc-900 text-zinc-900 font-medium' : 'hover:bg-zinc-50 border border-transparent text-zinc-700'}`}>
                     <input type="checkbox" checked={isSelected} onChange={() => toggleOpt(opt)} className="accent-zinc-900 shrink-0" />
                     <span>{String.fromCharCode(65 + oi)}. {opt}</span>

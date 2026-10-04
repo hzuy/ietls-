@@ -50,7 +50,7 @@ export default function AcademicCover({
   if (compact) {
     return (
       <div
-        className={`w-full h-full relative overflow-hidden flex flex-col justify-between p-2 select-none bg-gradient-to-br from-zinc-800 via-zinc-900 to-zinc-950 text-white border-l-2 border-zinc-700/80 ${className}`}
+        className={`academic-cover w-full h-full relative overflow-hidden flex flex-col justify-between p-2 select-none bg-gradient-to-br from-zinc-800 via-zinc-900 to-zinc-950 text-white border-l-2 border-zinc-700/80 ${className}`}
         style={{
           imageRendering: '-webkit-optimize-contrast',
           transform: 'translateZ(0)',
@@ -79,7 +79,7 @@ export default function AcademicCover({
 
   return (
     <div
-      className={`w-full h-full relative overflow-hidden flex flex-col justify-between p-4 sm:p-5 select-none bg-gradient-to-br from-zinc-800 via-zinc-900 to-zinc-950 text-white border-l-4 border-zinc-700/80 shadow-inner ${className}`}
+      className={`academic-cover w-full h-full relative overflow-hidden flex flex-col justify-between p-4 sm:p-5 select-none bg-gradient-to-br from-zinc-800 via-zinc-900 to-zinc-950 text-white border-l-4 border-zinc-700/80 shadow-inner ${className}`}
       style={{
         imageRendering: '-webkit-optimize-contrast',
         transform: 'translateZ(0)',

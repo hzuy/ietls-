@@ -137,7 +137,7 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
                   const checked = selected.includes(opt)
                   const disabled = !checked && limitReached
                   return (
-                    <label key={oi} className={`flex items-center gap-2 px-3.5 py-2 rounded-full text-sm transition
+                    <label key={oi} className={`exam-option rounded-full
                       ${checked ? 'bg-zinc-100 border border-zinc-900 text-zinc-900 font-medium cursor-pointer'
                       : disabled ? 'border border-transparent text-zinc-300 cursor-not-allowed'
                       : 'hover:bg-zinc-50 border border-transparent text-zinc-700 cursor-pointer'}`}>
@@ -178,7 +178,7 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
                 {opts.filter(o => o && o.trim()).map((opt, oi) => {
                   const isSelected = answers[q.id] === opt
                   return (
-                    <label key={oi} className={`flex items-center gap-2 px-3.5 py-2 rounded-full text-sm transition cursor-pointer
+                    <label key={oi} className={`exam-option rounded-full cursor-pointer
                       ${isSelected ? 'bg-zinc-100 border border-zinc-900 text-zinc-900 font-medium' : 'hover:bg-zinc-50 border border-transparent text-zinc-700'}`}>
                       <input type="radio" name={`q${q.id}`} checked={isSelected} onChange={() => onAnswer(q.id, opt)} className="accent-zinc-900 shrink-0" />
                       <span>{String.fromCharCode(65 + oi)}. {opt}</span>
@@ -212,7 +212,7 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
               {tfOpts.map(opt => {
                 const isSelected = answers[q.id] === opt
                 return (
-                  <label key={opt} className={`flex items-center gap-2 px-3.5 py-2 rounded-full text-sm transition cursor-pointer
+                  <label key={opt} className={`exam-option rounded-full cursor-pointer
                     ${isSelected ? 'bg-zinc-100 border border-zinc-900 text-zinc-900 font-medium' : 'hover:bg-zinc-50 border border-transparent text-zinc-700'}`}>
                     <input type="radio" name={`q${q.id}`} checked={isSelected} onChange={() => onAnswer(q.id, opt)} className="accent-zinc-900 shrink-0" />
                     <span>{opt}</span>

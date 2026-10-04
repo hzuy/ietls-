@@ -40,6 +40,7 @@ export default function QuestionNavButton({ number, status, onClick, size = 32, 
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       aria-label={`Câu ${number}${answered ? ' — đã trả lời' : ''}`}
+      className="qnav-btn"
       style={{
         width: size,
         height: size,

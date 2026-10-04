@@ -25,7 +25,7 @@ export default function PillButton({
   ...props
 }) {
   const variantCls = VARIANTS[variant] || VARIANTS.primary
-  const base = 'h-9 px-5 rounded-full font-medium inline-flex items-center justify-center gap-2 leading-none transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
+  const base = 'h-9 pointer-coarse:h-11 px-5 rounded-full font-medium inline-flex items-center justify-center gap-2 leading-none transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
   return (
     <As
       className={[base, variantCls, fullWidth ? 'w-full' : '', className].filter(Boolean).join(' ')}

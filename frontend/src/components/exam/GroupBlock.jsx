@@ -180,7 +180,7 @@ function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, 
                   const checked = previewMode && showAnswers ? correctSelected.includes(opt) : selected.includes(opt)
                   const disabled = previewMode || (!checked && limitReached)
                   return (
-                    <label key={opt} className={`flex items-center gap-2 px-3.5 py-2 rounded-full text-sm transition
+                    <label key={opt} className={`exam-option rounded-full
                       ${checked && previewMode && showAnswers ? 'bg-green-50 border border-green-400 text-green-700 cursor-default'
                         : checked ? 'bg-zinc-100 border border-zinc-900 text-zinc-900 font-medium cursor-pointer'
                         : disabled ? 'border border-transparent text-zinc-300 cursor-not-allowed'

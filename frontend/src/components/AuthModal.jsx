@@ -30,7 +30,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
     const el = modalBodyRef.current
     if (!el) return
     const observer = new ResizeObserver(([entry]) => {
-      setGoogleBtnWidth(Math.min(400, Math.max(280, Math.floor(entry.contentRect.width))))
+      setGoogleBtnWidth(Math.min(400, Math.max(200, Math.floor(entry.contentRect.width))))
     })
     observer.observe(el)
     return () => observer.disconnect()
@@ -172,7 +172,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
         <button
           onClick={onClose}
           aria-label="Đóng"
-          style={{ position: 'absolute', top: 14, right: 18, color: 'var(--subtle)', fontSize: 22, lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer' }}
+          style={{ position: 'absolute', top: 3, right: 4, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--subtle)', fontSize: 22, lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer' }}
           className="font-bold hover:text-zinc-600 transition-colors"
         >
           ×
@@ -199,7 +199,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
             <button
               key={t}
               onClick={() => onTabChange(t)}
-              className="pb-3 px-1 mr-6 text-sm font-bold transition-colors"
+              className="pb-3 pointer-coarse:pt-2 px-1 mr-6 text-sm font-bold transition-colors"
               style={{
                 color: tab === t ? 'var(--primary)' : 'var(--subtle)',
                 background: 'none', border: 'none',
@@ -255,7 +255,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
 
             <p className="text-center text-xs mt-5" style={{ color: 'var(--muted)' }}>
               Chưa có tài khoản?{' '}
-              <button onClick={() => onTabChange('register')} className="font-bold" style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}>
+              <button onClick={() => onTabChange('register')} className="tap-pad font-bold" style={{ fontSize: 'inherit', color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}>
                 Đăng ký ngay
               </button>
             </p>
@@ -316,7 +316,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
 
             <p className="text-center text-xs mt-5" style={{ color: 'var(--muted)' }}>
               Đã có tài khoản?{' '}
-              <button onClick={() => onTabChange('login')} className="font-bold" style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}>
+              <button onClick={() => onTabChange('login')} className="tap-pad font-bold" style={{ fontSize: 'inherit', color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}>
                 Đăng nhập
               </button>
             </p>

@@ -413,11 +413,12 @@ export default function ListeningPractice() {
             {list.length === 0 ? (
               <div className="p-10 text-center text-xs text-zinc-400">Chưa có bài nào.</div>
             ) : (
-              <table className="w-full">
+              <div className="overflow-x-auto">
+              <table className="rtable w-full">
                 <thead>
                   <tr className="border-b border-zinc-200 bg-zinc-50">
                     <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 w-16">Ảnh</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500">Tên bài</th>
+                    <th className="min-w-[10rem] px-4 py-3 text-left text-xs font-semibold text-zinc-500">Tên bài</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 hidden sm:table-cell">Audio</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 hidden sm:table-cell">Câu</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 hidden sm:table-cell">Ngày tạo</th>
@@ -427,7 +428,7 @@ export default function ListeningPractice() {
                 <tbody>
                   {list.map(item => (
                     <tr key={item.id} className="border-b border-zinc-100 hover:bg-zinc-50 transition">
-                      <td className="px-4 py-3">
+                      <td className="rt-thumb px-4 py-3">
                         <div style={{ width: 60, height: 40, borderRadius: 6, overflow: 'hidden', background: '#f4f4f5', border: '1px solid #e4e4e7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <ImageWithFallback
                             src={resolveImg(item.thumbnailUrl)}
@@ -435,13 +436,13 @@ export default function ListeningPractice() {
                           />
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm font-medium text-zinc-800">{item.title}</td>
-                      <td className="px-4 py-3 hidden sm:table-cell">
+                      <td className="rt-main px-4 py-3 text-sm font-medium text-zinc-800">{item.title}</td>
+                      <td data-label="Audio" className="px-4 py-3 hidden sm:table-cell">
                         {item.audioUrl
                           ? <span className="text-xs text-green-600 font-medium">🎵 Có audio</span>
                           : <span className="text-xs text-amber-600 font-medium">⚠ Thiếu audio</span>}
                       </td>
-                      <td className="px-4 py-3 hidden sm:table-cell">
+                      <td data-label="Số câu" className="px-4 py-3 hidden sm:table-cell">
                         {(() => {
                           const count = item.questionCount ?? 0; const total = 40
                           const bg    = count === total ? '#dcfce7' : count > total ? '#fee2e2' : '#f4f4f5'
@@ -449,8 +450,8 @@ export default function ListeningPractice() {
                           return <span style={{ background: bg, color, borderRadius: 9999, padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>{count}/{total}</span>
                         })()}
                       </td>
-                      <td className="px-4 py-3 text-sm text-zinc-500 hidden sm:table-cell">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</td>
-                      <td className="px-4 py-3">
+                      <td data-label="Ngày tạo" className="px-4 py-3 text-sm text-zinc-500 hidden sm:table-cell">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</td>
+                      <td className="rt-actions px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
                           <button onClick={() => openEdit(item)} disabled={loadingEditId !== null} className="h-8 px-3.5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs font-medium text-zinc-700 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-slate-800 transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{loadingEditId === item.id ? 'Đang tải...' : 'Sửa'}</button>
                           <button onClick={() => setDelConfirm(item.id)} disabled={loadingEditId !== null} className="h-8 px-3.5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs font-medium text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-200 transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Xóa</button>
@@ -460,6 +461,7 @@ export default function ListeningPractice() {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         )}

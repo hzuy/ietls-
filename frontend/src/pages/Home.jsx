@@ -282,7 +282,7 @@ export default function Home() {
               <div className="flex flex-wrap items-center gap-3 mt-5">
                 <button
                   onClick={() => gate('/cambridge')}
-                  className="h-9 px-5 text-white text-sm font-medium rounded-full shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
+                  className="h-9 pointer-coarse:h-11 px-5 text-white text-sm font-medium rounded-full shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
                   style={{ background: 'var(--primary)' }}
                   onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
@@ -295,7 +295,7 @@ export default function Home() {
                     if (el) el.scrollIntoView({ behavior: 'smooth' })
                     else gate('/practice/reading')
                   }}
-                  className="h-9 px-5 text-zinc-700 text-sm font-medium rounded-full border border-zinc-300 bg-white transition-colors cursor-pointer inline-flex items-center justify-center leading-none hover:bg-zinc-50 hover:border-zinc-400"
+                  className="h-9 pointer-coarse:h-11 px-5 text-zinc-700 text-sm font-medium rounded-full border border-zinc-300 bg-white transition-colors cursor-pointer inline-flex items-center justify-center leading-none hover:bg-zinc-50 hover:border-zinc-400"
                 >
                   Luyện tập kỹ năng
                 </button>
@@ -338,7 +338,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => gate('/cambridge')}
-                  className="h-9 px-5 text-white text-sm font-medium rounded-full shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none shrink-0"
+                  className="h-9 pointer-coarse:h-11 px-5 text-white text-sm font-medium rounded-full shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none shrink-0"
                   style={{ background: 'var(--primary)' }}
                   onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
@@ -369,11 +369,11 @@ export default function Home() {
                   </div>
 
                   {/* Segmented Switcher: Cambridge | Practice Plus | Luyện kỹ năng */}
-                  <div className="inline-flex p-1 bg-zinc-100 rounded-full border border-zinc-200 shrink-0 sm:ml-2">
+                  <div className="seg-scroller p-1 bg-zinc-100 rounded-full border border-zinc-200 sm:ml-2">
                     <button
                       type="button"
                       onClick={() => setSeriesTab('cambridge')}
-                      className={`px-4 py-1.5 text-xs rounded-full transition-all cursor-pointer ${
+                      className={`px-4 py-1.5 pointer-coarse:min-h-11 text-xs rounded-full transition-all cursor-pointer ${
                         seriesTab === 'cambridge'
                           ? 'bg-white text-zinc-900 font-semibold shadow-2xs'
                           : 'text-zinc-500 hover:text-zinc-900'
@@ -385,7 +385,7 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={() => setSeriesTab('practice-plus')}
-                        className={`px-4 py-1.5 text-xs rounded-full transition-all cursor-pointer ${
+                        className={`px-4 py-1.5 pointer-coarse:min-h-11 text-xs rounded-full transition-all cursor-pointer ${
                           seriesTab === 'practice-plus'
                             ? 'bg-white text-zinc-900 font-semibold shadow-2xs'
                             : 'text-zinc-500 hover:text-zinc-900'
@@ -397,7 +397,7 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => document.getElementById('quick-skills-section')?.scrollIntoView({ behavior: 'smooth' })}
-                      className="px-4 py-1.5 text-xs rounded-full transition-all cursor-pointer text-zinc-500 hover:text-zinc-900"
+                      className="px-4 py-1.5 pointer-coarse:min-h-11 text-xs rounded-full transition-all cursor-pointer text-zinc-500 hover:text-zinc-900"
                     >
                       Luyện kỹ năng
                     </button>
@@ -406,7 +406,7 @@ export default function Home() {
 
                 <button
                   onClick={() => gate(seriesTab === 'cambridge' ? '/cambridge' : '/practice-plus')}
-                  className="text-xs font-semibold text-zinc-500 hover:text-zinc-900 transition-colors cursor-pointer self-start sm:self-auto"
+                  className="tap-pad text-xs font-semibold text-zinc-500 hover:text-zinc-900 transition-colors cursor-pointer self-start sm:self-auto"
                 >
                   {seriesTab === 'cambridge' ? 'Xem trọn bộ Cambridge' : 'Xem trọn bộ Practice Plus'}
                 </button>

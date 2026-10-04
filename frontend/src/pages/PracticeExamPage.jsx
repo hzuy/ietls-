@@ -29,6 +29,38 @@ const LISTENING_TIME = 10 * 60
 const LISTENING_FILL_TYPES = ['note_completion', 'table_completion', 'drag_word_bank', 'diagram_label']
 
 // ─── Full ReadingExam-style UI for Reading Practice ───────────────────────────
+function PracticeBottomBar({ answered, total, items, isAnswered, onJump, onSubmit }) {
+  const buttons = items.map(item => (
+    <QuestionNavButton
+      key={item.number}
+      number={item.number}
+      roundedFull={true}
+      status={isAnswered(item) ? 'answered' : 'unanswered'}
+      onClick={() => onJump(item.number)}
+    />
+  ))
+  return (
+    <div className="bg-white border-t border-zinc-200 shrink-0 z-20">
+      <div className="md:hidden px-4 pt-2 border-b border-zinc-100">
+        <div className="seg-scroller gap-2 py-1">{buttons}</div>
+      </div>
+      <div className="h-14 px-6 flex items-center gap-4">
+        <span className="text-xs text-zinc-500 shrink-0 min-w-[90px] font-mono tabular-nums">Đã làm {answered}/{total} câu</span>
+        <div className="hidden md:block flex-1 min-w-0">
+          <div className="seg-scroller gap-2">{buttons}</div>
+        </div>
+        <button
+          type="button"
+          onClick={onSubmit}
+          className="exam-bar-btn ml-auto bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-5 rounded-full shadow-xs transition-colors shrink-0 cursor-pointer inline-flex items-center justify-center leading-none"
+        >
+          Nộp bài
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function ReadingPracticeExam({ exam, onBack }) {
   const { user } = useAuth()
   const userId = user ? (user.id || user._id) : null
@@ -306,28 +338,14 @@ function ReadingPracticeExam({ exam, onBack }) {
         </div>
       </div>
 
-      {/* Bottom navigator bar — single row */}
-      <div className="h-14 px-6 bg-white border-t border-zinc-200 flex items-center gap-4 shrink-0 z-20">
-        <span className="text-xs text-zinc-500 shrink-0 min-w-[90px] font-mono tabular-nums">Đã làm {answered}/{totalSlots} câu</span>
-        <div className="flex flex-wrap gap-2 flex-1 justify-center">
-          {navItems.map(({ number, qId }) => (
-            <QuestionNavButton
-              key={number}
-              number={number}
-              roundedFull={true}
-              status={qId && answers[qId] ? 'answered' : 'unanswered'}
-              onClick={() => jumpToQuestion(number)}
-            />
-          ))}
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowConfirm(true)}
-          className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-5 rounded-full shadow-xs transition-colors shrink-0 cursor-pointer inline-flex items-center justify-center leading-none"
-        >
-          Nộp bài
-        </button>
-      </div>
+      <PracticeBottomBar
+        answered={answered}
+        total={totalSlots}
+        items={navItems}
+        isAnswered={({ qId }) => Boolean(qId && answers[qId])}
+        onJump={jumpToQuestion}
+        onSubmit={() => setShowConfirm(true)}
+      />
 
       {/* Submit confirm */}
       <ExamActionDialog
@@ -573,28 +591,14 @@ function ListeningPracticeExam({ exam, onBack }) {
         </div>
       </div>
 
-      {/* Bottom navigator */}
-      <div className="h-14 px-6 bg-white border-t border-zinc-200 flex items-center gap-4 shrink-0 z-20">
-        <span className="text-xs text-zinc-500 shrink-0 min-w-[90px] font-mono tabular-nums">Đã làm {answered}/{totalSlots} câu</span>
-        <div className="flex flex-wrap gap-2 flex-1 justify-center">
-          {navItems.map(({ number }) => (
-            <QuestionNavButton
-              key={number}
-              number={number}
-              roundedFull={true}
-              status={answers[number] ? 'answered' : 'unanswered'}
-              onClick={() => jumpToQuestion(number)}
-            />
-          ))}
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowConfirm(true)}
-          className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-5 rounded-full shadow-xs transition-colors shrink-0 cursor-pointer inline-flex items-center justify-center leading-none"
-        >
-          Nộp bài
-        </button>
-      </div>
+      <PracticeBottomBar
+        answered={answered}
+        total={totalSlots}
+        items={navItems}
+        isAnswered={({ number }) => Boolean(answers[number])}
+        onJump={jumpToQuestion}
+        onSubmit={() => setShowConfirm(true)}
+      />
 
       {/* Submit confirm */}
       <ExamActionDialog

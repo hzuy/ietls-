@@ -69,9 +69,9 @@ export default function Admin() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="overflow-x-auto pb-1 no-scrollbar mb-8">
-        <div className="flex gap-2 bg-white p-1.5 rounded-2xl border border-zinc-200 shadow-xs w-fit">
-          {TABS.map(tab => {
+      <div className="@container mb-8">
+        <div className="grid grid-cols-6 gap-1.5 bg-white p-1.5 rounded-2xl border border-zinc-200 shadow-xs @min-[36rem]:flex @min-[36rem]:gap-2 @min-[36rem]:w-fit">
+          {TABS.map((tab, i) => {
             const isTabActive = activeTab === tab.key
             return (
               <NavLink
@@ -81,7 +81,7 @@ export default function Admin() {
                   e.preventDefault()
                   navigate(`/admin/exams/${tab.path}`)
                 }}
-                className={`group flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer select-none whitespace-nowrap shrink-0 ${
+                className={`group flex items-center justify-center gap-2 px-2 @min-[36rem]:px-5 py-2.5 pointer-coarse:min-h-11 rounded-xl text-sm font-semibold transition-colors cursor-pointer select-none whitespace-nowrap shrink-0 ${i < 3 ? 'col-span-2' : 'col-span-3'} ${
                   isTabActive
                     ? 'bg-zinc-900 text-white shadow-xs'
                     : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'

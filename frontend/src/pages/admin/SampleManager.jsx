@@ -331,10 +331,11 @@ export default function SampleManager({ kind }) {
               <div className="p-10 text-center text-xs text-zinc-400">Chưa có bài mẫu nào.</div>
             ) : (
               <FetchingDim isFetching={isFetching && list.length > 0}>
-              <table className="w-full">
+              <div className="overflow-x-auto">
+              <table className="rtable w-full">
                 <thead><tr className="border-b border-zinc-200 bg-zinc-50">
                   <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 w-16">Ảnh</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500">Tên bài</th>
+                  <th className="min-w-[10rem] px-4 py-3 text-left text-xs font-semibold text-zinc-500">Tên bài</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 hidden sm:table-cell">{cfg.taskColHeader}</th>
                   {cfg.showTags && <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 hidden sm:table-cell">Tags</th>}
                   <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 hidden sm:table-cell">Ngày tạo</th>
@@ -343,7 +344,7 @@ export default function SampleManager({ kind }) {
                 <tbody>
                   {list.map(item => (
                     <tr key={item.id} className="border-b border-zinc-100 hover:bg-zinc-50 transition">
-                      <td className="px-4 py-3">
+                      <td className="rt-thumb px-4 py-3">
                         <div style={{ width: 60, height: 40, borderRadius: 8, overflow: 'hidden', background: '#f4f4f5', border: '1px solid #e4e4e7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <ImageWithFallback
                             src={resolveImg(item.thumbnailUrl)}
@@ -351,8 +352,8 @@ export default function SampleManager({ kind }) {
                           />
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm font-medium text-zinc-900">{item.title}</td>
-                      <td className="px-4 py-3 hidden sm:table-cell">
+                      <td className="rt-main px-4 py-3 text-sm font-medium text-zinc-900">{item.title}</td>
+                      <td data-label={cfg.taskColHeader} className="px-4 py-3 hidden sm:table-cell">
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
                           {item.level && (
                             <span style={{ fontSize: 11, background: cfg.listChipStyle.background, color: cfg.listChipStyle.color, borderRadius: 6, padding: '2px 8px', fontWeight: 600, border: '1px solid #e4e4e7' }}>
@@ -366,9 +367,9 @@ export default function SampleManager({ kind }) {
                           )}
                         </div>
                       </td>
-                      {cfg.showTags && <td className="px-4 py-3 hidden sm:table-cell"><div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{(item.tags || []).map(t => <span key={t} style={{ fontSize: 11, background: cfg.listChipStyle.background, color: cfg.listChipStyle.color, borderRadius: 6, padding: '2px 8px', border: '1px solid #e4e4e7' }}>{t}</span>)}</div></td>}
-                      <td className="px-4 py-3 text-sm text-zinc-500 hidden sm:table-cell">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</td>
-                      <td className="px-4 py-3"><div className="flex items-center justify-end gap-2">
+                      {cfg.showTags && <td data-label="Tags" className="px-4 py-3 hidden sm:table-cell"><div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{(item.tags || []).map(t => <span key={t} style={{ fontSize: 11, background: cfg.listChipStyle.background, color: cfg.listChipStyle.color, borderRadius: 6, padding: '2px 8px', border: '1px solid #e4e4e7' }}>{t}</span>)}</div></td>}
+                      <td data-label="Ngày tạo" className="px-4 py-3 text-sm text-zinc-500 hidden sm:table-cell">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</td>
+                      <td className="rt-actions px-4 py-3"><div className="flex items-center justify-end gap-2">
                         <button onClick={() => openEdit(item)} disabled={loadingEditId !== null} className="h-8 px-3.5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs font-medium text-zinc-700 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-slate-800 transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{loadingEditId === item.id ? 'Đang tải...' : 'Sửa'}</button>
                         <button onClick={() => setDelConfirm(item.id)} disabled={loadingEditId !== null} className="h-8 px-3.5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs font-medium text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-200 transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Xóa</button>
                       </div></td>
@@ -376,6 +377,7 @@ export default function SampleManager({ kind }) {
                   ))}
                 </tbody>
               </table>
+              </div>
               </FetchingDim>
             )}
           </div>

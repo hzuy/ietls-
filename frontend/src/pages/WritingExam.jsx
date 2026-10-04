@@ -803,7 +803,7 @@ export default function WritingExam() {
                   </span>
                   <button
                     onClick={() => submitTask(task)}
-                    className="ml-3 h-8 px-3.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-full text-xs font-medium shadow-xs transition-colors cursor-pointer flex items-center gap-1"
+                    className="exam-bar-btn ml-3 h-8 px-3.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-full text-xs font-medium shadow-xs transition-colors cursor-pointer flex items-center gap-1"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     Thử nộp lại
@@ -854,7 +854,7 @@ export default function WritingExam() {
                 key={t.id}
                 type="button"
                 onClick={() => setActiveTask(i)}
-                className={`h-9 px-3.5 sm:px-4 rounded-full text-xs sm:text-sm font-medium inline-flex items-center justify-center gap-2 leading-none transition-all cursor-pointer ${
+                className={`exam-bar-btn shrink-0 whitespace-nowrap h-9 px-3.5 sm:px-4 rounded-full text-xs sm:text-sm font-medium inline-flex items-center justify-center gap-2 leading-none transition-all cursor-pointer ${
                   done
                     ? 'bg-zinc-900 text-white border border-zinc-900'
                     : 'border border-zinc-300 text-zinc-700 bg-white hover:border-zinc-400'
@@ -873,7 +873,7 @@ export default function WritingExam() {
             type="button"
             onClick={() => submitTask(task)}
             disabled={submitting || words < 50 || taskDone}
-            className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-5 rounded-full shadow-xs transition-colors cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5 leading-none"
+            className="exam-bar-btn whitespace-nowrap bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-5 rounded-full shadow-xs transition-colors cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5 leading-none"
           >
             {submitting ? (
               <>

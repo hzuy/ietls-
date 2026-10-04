@@ -204,7 +204,7 @@ export default function ProgressAnalysis() {
             <div className="flex flex-nowrap items-center gap-1.5 p-1 bg-zinc-100 rounded-full border border-zinc-200 shrink-0">
               <button
                 onClick={() => setSkillFilter('all')}
-                className={`whitespace-nowrap px-4 py-1.5 text-xs md:text-sm font-medium rounded-full transition cursor-pointer ${
+                className={`whitespace-nowrap pointer-coarse:min-h-11 px-4 py-1.5 text-xs md:text-sm font-medium rounded-full transition cursor-pointer ${
                   skillFilter === 'all'
                     ? 'bg-white text-zinc-900 shadow-xs font-semibold'
                     : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/60'
@@ -214,7 +214,7 @@ export default function ProgressAnalysis() {
               </button>
               <button
                 onClick={() => setSkillFilter('reading')}
-                className={`whitespace-nowrap flex items-center gap-1.5 px-4 py-1.5 text-xs md:text-sm font-medium rounded-full transition cursor-pointer ${
+                className={`whitespace-nowrap pointer-coarse:min-h-11 flex items-center gap-1.5 px-4 py-1.5 text-xs md:text-sm font-medium rounded-full transition cursor-pointer ${
                   skillFilter === 'reading'
                     ? 'bg-white text-zinc-900 shadow-xs font-semibold'
                     : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/60'
@@ -225,7 +225,7 @@ export default function ProgressAnalysis() {
               </button>
               <button
                 onClick={() => setSkillFilter('listening')}
-                className={`whitespace-nowrap flex items-center gap-1.5 px-4 py-1.5 text-xs md:text-sm font-medium rounded-full transition cursor-pointer ${
+                className={`whitespace-nowrap pointer-coarse:min-h-11 flex items-center gap-1.5 px-4 py-1.5 text-xs md:text-sm font-medium rounded-full transition cursor-pointer ${
                   skillFilter === 'listening'
                     ? 'bg-white text-zinc-900 shadow-xs font-semibold'
                     : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/60'
@@ -236,7 +236,7 @@ export default function ProgressAnalysis() {
               </button>
               <button
                 onClick={() => setSkillFilter('writing')}
-                className={`whitespace-nowrap flex items-center gap-1.5 px-4 py-1.5 text-xs md:text-sm font-medium rounded-full transition cursor-pointer ${
+                className={`whitespace-nowrap pointer-coarse:min-h-11 flex items-center gap-1.5 px-4 py-1.5 text-xs md:text-sm font-medium rounded-full transition cursor-pointer ${
                   skillFilter === 'writing'
                     ? 'bg-white text-zinc-900 shadow-xs font-semibold'
                     : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/60'
@@ -247,7 +247,7 @@ export default function ProgressAnalysis() {
               </button>
               <button
                 onClick={() => setSkillFilter('speaking')}
-                className={`whitespace-nowrap flex items-center gap-1.5 px-4 py-1.5 text-xs md:text-sm font-medium rounded-full transition cursor-pointer ${
+                className={`whitespace-nowrap pointer-coarse:min-h-11 flex items-center gap-1.5 px-4 py-1.5 text-xs md:text-sm font-medium rounded-full transition cursor-pointer ${
                   skillFilter === 'speaking'
                     ? 'bg-white text-zinc-900 shadow-xs font-semibold'
                     : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/60'

@@ -161,9 +161,9 @@ export default function Trash() {
   return (
     <>
       <div className="p-6 max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
           <div>
-            <h1 className="text-xl font-semibold text-zinc-900 tracking-tight flex items-center gap-2.5">
+            <h1 className="text-xl font-semibold text-zinc-900 tracking-tight flex items-center gap-2.5 whitespace-nowrap">
               Thùng rác
               {items.length > 0 && (
                 <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-600 border border-zinc-200">
@@ -176,7 +176,7 @@ export default function Trash() {
           {items.length > 0 && (
             <button
               onClick={() => setPurgeConfirm(true)}
-              className="h-9 px-4 rounded-full text-xs font-medium bg-zinc-100 text-zinc-800 hover:bg-zinc-200 border border-zinc-200 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 cursor-pointer"
+              className="h-9 px-4 whitespace-nowrap rounded-full text-xs font-medium bg-zinc-100 text-zinc-800 hover:bg-zinc-200 border border-zinc-200 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 cursor-pointer"
             >
               Dọn sạch thùng rác
             </button>
@@ -211,10 +211,11 @@ export default function Trash() {
           </div>
         ) : (
           <div className="bg-white rounded-xl border border-zinc-200 shadow-xs overflow-hidden">
-            <table className="w-full text-xs">
+            <div className="overflow-x-auto">
+            <table className="rtable w-full text-xs">
               <thead className="bg-zinc-50 border-b border-zinc-200">
                 <tr className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-                  <th className="px-4 py-3 text-left">Tên</th>
+                  <th className="min-w-[10rem] px-4 py-3 text-left">Tên</th>
                   <th className="px-4 py-3 text-left hidden sm:table-cell w-40">Loại</th>
                   <th className="px-4 py-3 text-left hidden sm:table-cell w-44">Ngày xóa</th>
                   <th className="px-4 py-3 text-right w-64">HÀNH ĐỘNG</th>
@@ -226,7 +227,7 @@ export default function Trash() {
                   const daysLeft = daysUntilPurge(item.deletedAt)
                   return (
                     <tr key={item.type + item.id} className={`transition ${err ? 'bg-red-50/60 hover:bg-red-50' : 'hover:bg-zinc-50'}`}>
-                      <td className="px-4 py-3 text-xs font-medium text-zinc-800 align-top">
+                      <td className="rt-main px-4 py-3 text-xs font-medium text-zinc-800 align-top">
                         {item.title}
                         {err && (
                           <div className="flex items-start gap-1 mt-1 text-[11px] font-normal text-red-600">
@@ -235,16 +236,16 @@ export default function Trash() {
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 hidden sm:table-cell align-top">
+                      <td data-label="Loại" className="px-4 py-3 hidden sm:table-cell align-top">
                         <span className={BADGE_CLS}>{TYPE_LABEL[item.type] || item.type}</span>
                       </td>
-                      <td className="px-4 py-3 hidden sm:table-cell align-top text-xs">
+                      <td data-label="Ngày xóa" className="px-4 py-3 hidden sm:table-cell align-top text-xs">
                         <div className="text-zinc-500">{new Date(item.deletedAt).toLocaleDateString('vi-VN')}</div>
                         <div className={`text-[11px] mt-0.5 ${daysLeft <= 3 ? 'text-red-600 font-medium' : 'text-zinc-400'}`}>
                           {daysLeft > 0 ? `tự dọn sau ${daysLeft} ngày` : 'sắp được dọn'}
                         </div>
                       </td>
-                      <td className="px-4 py-3 align-top">
+                      <td className="rt-actions px-4 py-3 align-top">
                         <div className="flex items-center gap-2 justify-end flex-nowrap">
                           <button
                             onClick={() => setConfirming({ ...item, action: 'restore' })}
@@ -265,6 +266,7 @@ export default function Trash() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )}
         </div>

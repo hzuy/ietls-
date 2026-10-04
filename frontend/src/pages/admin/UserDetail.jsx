@@ -77,14 +77,14 @@ export default function UserDetail() {
 
         {/* User info */}
         <div className="bg-white rounded-2xl border border-zinc-200 p-6 mb-4 shadow-xs">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-zinc-900 text-white text-base font-bold flex items-center justify-center">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="w-12 h-12 shrink-0 rounded-full bg-zinc-900 text-white text-base font-bold flex items-center justify-center">
               {user.name?.charAt(0)?.toUpperCase()}
             </div>
-            <div>
+            <div className="min-w-0">
               <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">{user.name}</h1>
               <p className="text-xs text-zinc-500 mt-1">{user.email}</p>
-              <div className="flex gap-2 mt-1.5">
+              <div className="flex flex-wrap gap-2 mt-1.5 [&>span]:whitespace-nowrap">
                 {user.role === 'admin' ? (
                   <span className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-xs px-2.5 py-0.5 rounded-full font-medium">Admin</span>
                 ) : (
@@ -95,11 +95,11 @@ export default function UserDetail() {
                 </span>
               </div>
             </div>
-            <div className="ml-auto text-right flex flex-col items-end gap-2">
+            <div className="w-full sm:w-auto sm:ml-auto text-left sm:text-right flex flex-col items-start sm:items-end gap-2">
               <p className="text-[11px] text-zinc-500">Ngày đăng ký</p>
               <p className="text-xs font-medium text-zinc-700">{new Date(user.createdAt).toLocaleDateString('vi-VN')}</p>
               {/* Action buttons */}
-              <div className="inline-flex items-center gap-2 mt-1">
+              <div className="flex flex-wrap items-center gap-2 mt-1">
                 <button onClick={handleToggleLock} disabled={togglingLock}
                   className={`h-9 px-4 text-xs rounded-full border border-zinc-200 dark:border-slate-700 font-medium transition text-zinc-700 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-slate-800 cursor-pointer shadow-2xs`}>
                   {togglingLock ? '...' : user.isLocked ? 'Mở khoá' : 'Khoá'}
@@ -149,7 +149,7 @@ export default function UserDetail() {
             <p className="text-center text-zinc-400 py-8 text-xs">Chưa có lượt thi nào</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="rtable w-full text-xs">
                 <thead>
                   <tr className="text-[11px] text-zinc-500 bg-zinc-50 border-b border-zinc-200">
                     <th className="px-5 py-3 text-left font-medium">Đề thi</th>
@@ -161,19 +161,19 @@ export default function UserDetail() {
                 <tbody>
                   {attempts.map((a, idx) => (
                     <tr key={a.id} className={`border-b border-zinc-100 hover:bg-zinc-50 transition ${idx % 2 === 1 ? 'bg-zinc-50/40' : ''}`}>
-                      <td className="px-5 py-3 text-zinc-800 font-medium">{a.exam?.title}</td>
-                      <td className="px-4 py-3">
+                      <td className="rt-main px-5 py-3 text-zinc-800 font-medium">{a.exam?.title}</td>
+                      <td data-label="Kỹ năng" className="px-4 py-3">
                         <span
                           className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-100 text-zinc-800 border border-zinc-200">
                           {SKILL_LABEL[a.exam?.skill]}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
+                      <td data-label="Band" className="px-4 py-3">
                         {a.score != null
                           ? <span className="font-semibold text-zinc-900">{a.score.toFixed(1)}</span>
                           : <span className="text-zinc-300">—</span>}
                       </td>
-                      <td className="px-4 py-3 text-[11px] text-zinc-500">{fmtDate(a.createdAt)}</td>
+                      <td data-label="Thời gian" className="px-4 py-3 text-[11px] text-zinc-500">{fmtDate(a.createdAt)}</td>
                     </tr>
                   ))}
                 </tbody>

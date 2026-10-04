@@ -74,7 +74,7 @@ export default function ResultPassagePanel({ passage, activePassage, fontSize, s
               type="button"
               onClick={() => setFontSize(size)}
               title={`Cỡ chữ ${desc}`}
-              className={`px-2.5 py-0.5 text-xs font-medium rounded-full transition-colors cursor-pointer border-none ${
+              className={`exam-chip ${
                 fontSize === size
                   ? 'bg-white text-zinc-900 shadow-xs font-semibold'
                   : 'bg-transparent text-zinc-500 hover:text-zinc-900'

@@ -127,7 +127,7 @@ function QuestionBlockInner({ q, globalIdx, answers, onAnswer, previewMode, show
           {opts.map(opt => {
             const isSelected = previewMode && showAnswers ? q.correctAnswer === opt : answers[q.id] === opt
             return (
-              <label key={opt} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition
+              <label key={opt} className={`exam-option rounded-lg
                 ${isSelected && previewMode && showAnswers ? 'bg-green-50 border border-green-400 text-green-700 cursor-default'
                   : isSelected ? 'bg-zinc-100 border border-zinc-900 text-zinc-900 font-medium cursor-pointer'
                   : previewMode ? 'border border-transparent text-zinc-400 cursor-default'
@@ -148,7 +148,7 @@ function QuestionBlockInner({ q, globalIdx, answers, onAnswer, previewMode, show
             const correctAnswers = previewMode && showAnswers ? (q.correctAnswer || '').split(',').filter(Boolean) : []
             const checked = previewMode && showAnswers ? correctAnswers.includes(opt) : selected.includes(opt)
             return (
-              <label key={opt} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition
+              <label key={opt} className={`exam-option rounded-lg
                 ${checked && previewMode && showAnswers ? 'bg-green-50 border border-green-400 text-green-700 cursor-default'
                   : checked ? 'bg-zinc-100 border border-zinc-900 text-zinc-900 font-medium cursor-pointer'
                   : previewMode ? 'border border-transparent text-zinc-400 cursor-default'
@@ -171,7 +171,7 @@ function QuestionBlockInner({ q, globalIdx, answers, onAnswer, previewMode, show
             readOnly={previewMode}
             onChange={previewMode ? undefined : e => onAnswer(q.id, e.target.value)}
             placeholder={previewMode ? '' : 'Nhập đáp án...'}
-            className={`border-b-2 ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} outline-none px-2 py-1 text-sm w-56 bg-transparent transition`} />
+            className={`exam-input ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'text-zinc-900'} px-2 py-1 text-sm w-56 bg-transparent transition`} />
         </div>
       )}
       {['matching', 'map_diagram'].includes(q.type) && (
@@ -192,7 +192,7 @@ function QuestionBlockInner({ q, globalIdx, answers, onAnswer, previewMode, show
               readOnly={previewMode}
               onChange={previewMode ? undefined : e => onAnswer(q.id, e.target.value)}
               placeholder={previewMode ? '' : 'Nhập đáp án...'}
-              className={`border-b-2 ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} outline-none px-2 py-1 text-sm w-56 bg-transparent transition`} />
+              className={`exam-input ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'text-zinc-900'} px-2 py-1 text-sm w-56 bg-transparent transition`} />
           )}
         </div>
       )}

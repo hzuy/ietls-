@@ -1141,9 +1141,8 @@ export default function SpeakingExam() {
       </div>
 
       {/* Bottom Bar */}
-      <div className="h-14 px-6 bg-white border-t border-zinc-200 flex items-center justify-between gap-4 shrink-0 z-20">
-        {/* Left/Middle: Part palette */}
-        <div className="flex items-center gap-2">
+      <div className="h-14 px-4 sm:px-6 bg-white border-t border-zinc-200 flex items-center justify-between gap-3 sm:gap-4 shrink-0 z-20">
+        <div className="flex items-center gap-2 min-w-0 overflow-x-auto [scrollbar-width:none]">
           {exam.speakingParts.map((p, i) => {
             const done = isPartDone(p.id)
             const active = activePart === i
@@ -1152,14 +1151,16 @@ export default function SpeakingExam() {
                 key={p.id}
                 type="button"
                 onClick={() => setActivePart(i)}
-                className={`h-9 px-3.5 sm:px-4 rounded-full text-xs sm:text-sm font-medium inline-flex items-center justify-center gap-2 leading-none transition-all cursor-pointer ${
+                aria-label={`Part ${p.number}${done ? ' — đã nộp' : ''}`}
+                className={`exam-bar-btn shrink-0 whitespace-nowrap h-9 px-3.5 sm:px-4 rounded-full text-xs sm:text-sm font-medium inline-flex items-center justify-center gap-2 leading-none transition-all cursor-pointer ${
                   done
                     ? 'bg-zinc-900 text-white border border-zinc-900'
                     : 'border border-zinc-300 text-zinc-700 bg-white hover:border-zinc-400'
                 } ${active ? 'ring-2 ring-zinc-900/20 font-semibold' : ''}`}
               >
-                <span>Part {p.number}</span>
-                {done && <CheckCircle2 className="w-3.5 h-3.5" />}
+                <span className="sm:hidden" aria-hidden="true">P{p.number}</span>
+                <span className="hidden sm:inline" aria-hidden="true">Part {p.number}</span>
+                {done && <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />}
               </button>
             )
           })}
@@ -1171,7 +1172,7 @@ export default function SpeakingExam() {
             type="button"
             onClick={() => submitPart(part)}
             disabled={submitting || wordCount < 10 || isTranscribing || partDone}
-            className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-5 rounded-full shadow-xs transition-colors cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5 leading-none"
+            className="exam-bar-btn whitespace-nowrap bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-5 rounded-full shadow-xs transition-colors cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5 leading-none"
           >
             {submitting ? (
               <>

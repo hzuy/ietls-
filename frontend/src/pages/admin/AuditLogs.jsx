@@ -5,6 +5,7 @@ import { getAdminAuditLogs, getAdminAuditLogFilters } from '../../services/admin
 import { AdminTableSkeleton } from '../../components/skeletons'
 import FetchingDim from '../../components/admin/FetchingDim'
 import Select from '../../components/admin/Select'
+import { MobileFilterToggle } from '../../components/admin/contentPageUI'
 import { useDebounce } from '../../hooks/useDebounce'
 import { AuditLogDetailModal, ENTITY_TYPE_LABEL, fmtDateTime } from '../../components/admin/AuditLogDetailModal'
 
@@ -96,6 +97,8 @@ export default function AuditLogs() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [detailLog, setDetailLog] = useState(null)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const moreFiltersCls = filtersOpen ? '' : 'max-sm:hidden'
 
   const todayStr = new Date().toISOString().split('T')[0]
 
@@ -186,19 +189,27 @@ export default function AuditLogs() {
 
             <div className="md:col-span-2">
               <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Tìm kiếm</label>
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="Tìm theo tên đối tượng hoặc email người thực hiện..."
-                  value={search}
-                  onChange={e => { setSearch(e.target.value); setPage(1) }}
-                  className="w-full h-9 pl-8 pr-3 text-xs border border-zinc-200 rounded-md text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition shadow-2xs bg-zinc-50"
+              <div className="flex gap-2">
+                <div className="relative flex-1 min-w-0">
+                  <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Tìm theo tên đối tượng hoặc email người thực hiện..."
+                    value={search}
+                    onChange={e => { setSearch(e.target.value); setPage(1) }}
+                    className="w-full h-9 pl-8 pr-3 text-xs border border-zinc-200 rounded-md text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition shadow-2xs bg-zinc-50"
+                  />
+                </div>
+                <MobileFilterToggle
+                  open={filtersOpen}
+                  onToggle={() => setFiltersOpen(o => !o)}
+                  activeCount={[actorUserId, action, dateFrom || dateTo, entityType].filter(Boolean).length}
+                  controlsId="audit-more-filters"
                 />
               </div>
             </div>
 
-            <div>
+            <div id="audit-more-filters" className={moreFiltersCls}>
               <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Người thực hiện</label>
               <Select
                 buttonClassName="bg-zinc-50"
@@ -212,7 +223,7 @@ export default function AuditLogs() {
               />
             </div>
 
-            <div>
+            <div className={moreFiltersCls}>
               <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Loại hành động</label>
               <Select
                 buttonClassName="bg-zinc-50"
@@ -226,7 +237,7 @@ export default function AuditLogs() {
               />
             </div>
 
-            <div className="md:col-span-2">
+            <div className={`md:col-span-2 ${moreFiltersCls}`}>
               <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Khoảng ngày</label>
               <div className="flex items-center border border-zinc-200 rounded-md h-9 bg-zinc-50 w-full hover:border-zinc-300 focus-within:ring-2 focus-within:ring-zinc-200 focus-within:border-zinc-900 transition shadow-2xs">
                 <input
@@ -250,7 +261,7 @@ export default function AuditLogs() {
               </div>
             </div>
 
-            <div>
+            <div className={moreFiltersCls}>
               <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Nhóm đối tượng</label>
               <Select
                 buttonClassName="bg-zinc-50"
@@ -264,7 +275,7 @@ export default function AuditLogs() {
               />
             </div>
 
-            <div>
+            <div className={moreFiltersCls}>
               <button
                 type="button"
                 onClick={reset}
@@ -301,7 +312,7 @@ export default function AuditLogs() {
         ) : (
           <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden w-full flex-1 shadow-xs">
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="rtable w-full text-xs">
                 <thead>
                   <tr className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 bg-zinc-50 border-b border-zinc-200">
                     <th className="px-5 py-3 text-left">Thời gian</th>
@@ -314,27 +325,27 @@ export default function AuditLogs() {
                 <tbody className="divide-y divide-zinc-100">
                   {logs.map(log => (
                     <tr key={log.id} className="odd:bg-zinc-50/40 hover:bg-zinc-50 transition-colors">
-                      <td className="px-5 py-3 text-[11px] text-zinc-600 font-mono whitespace-nowrap align-top">
+                      <td data-label="Thời gian" className="px-5 py-3 text-[11px] text-zinc-600 font-mono whitespace-nowrap align-top">
                         {fmtDateTime(log.createdAt)}
                       </td>
-                      <td className="px-4 py-3 align-top">
+                      <td className="rt-main px-4 py-3 align-top">
                         <ActorCell log={log} />
                       </td>
-                      <td className="px-4 py-3 align-top">
-                        <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-100 text-zinc-800 border border-zinc-200">
+                      <td data-label="Hành động" className="px-4 py-3 align-top">
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-100 text-zinc-800 border border-zinc-200 whitespace-nowrap">
                           {log.actionLabel}
                         </span>
                       </td>
-                      <td className="px-4 py-3 align-top">
+                      <td data-label="Đối tượng" className="rt-wide px-4 py-3 align-top">
                         <p className="text-zinc-700 font-medium text-xs max-w-[220px] truncate">{log.entityLabel || '—'}</p>
                         <p className="text-[11px] text-zinc-500">{ENTITY_TYPE_LABEL[log.entityType] || log.entityType}</p>
                       </td>
-                      <td className="px-4 py-3 text-right align-top">
+                      <td className="rt-actions px-4 py-3 text-right align-top">
                         <button
                           type="button"
                           onClick={() => setDetailLog(log)}
                           title="Xem chi tiết nhật ký"
-                          className="h-8 px-4 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                          className="h-8 px-4 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-medium inline-flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer"
                         >
                           <Eye className="w-3.5 h-3.5" />
                           <span>Chi tiết</span>

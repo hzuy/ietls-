@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { validateImageFile } from '../../utils/fileValidation'
 import { useToast } from '../../context/ToastContext'
-import { Trash2, FileText, Save } from 'lucide-react'
+import { Trash2, FileText, Save, SlidersHorizontal } from 'lucide-react'
 import Modal from '../common/Modal'
 
 /**
@@ -101,6 +101,28 @@ export function AdminListHeader({ title, subtitle, onAdd, addLabel = '+ Thêm m�
         </div>
       )}
     </div>
+  )
+}
+
+export function MobileFilterToggle({ open, onToggle, activeCount = 0, controlsId }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      aria-controls={controlsId}
+      className={`sm:hidden shrink-0 h-9 px-3 rounded-md border text-xs font-medium inline-flex items-center gap-1.5 transition cursor-pointer shadow-2xs ${
+        open ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50'
+      }`}
+    >
+      <SlidersHorizontal className="w-3.5 h-3.5" />
+      <span>Bộ lọc</span>
+      {activeCount > 0 && (
+        <span className={`min-w-4 h-4 px-1 rounded-full text-[11px] leading-4 text-center tabular-nums ${open ? 'bg-white text-zinc-900' : 'bg-zinc-900 text-white'}`}>
+          {activeCount}
+        </span>
+      )}
+    </button>
   )
 }
 

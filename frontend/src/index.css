@@ -481,6 +481,77 @@ button.chatbot-chip { font-size: 0.875rem; line-height: 1.25rem; }
   transform: translateY(-1px);
 }
 
+.exam-option {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  font-size: var(--fs-sm);
+  transition: background var(--transition), border-color var(--transition);
+}
+.exam-option > input[type="radio"],
+.exam-option > input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 1rem; height: 1rem;
+}
+
+.exam-option-list > * + * { margin-top: 0.25rem; }
+
+.exam-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px; border: none;
+  font-size: var(--fs-sm); font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+
+.exam-input {
+  background: transparent;
+  border: none; border-bottom: 2px solid var(--border);
+  padding: 0.25rem 0.5rem;
+  outline: none;
+  transition: border-color var(--transition);
+}
+.exam-input:focus { border-bottom-color: var(--primary); }
+
+.seg-scroller {
+  display: flex;
+  align-items: center;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  justify-content: safe center;
+}
+.seg-scroller::-webkit-scrollbar { display: none; }
+.seg-scroller > * { flex-shrink: 0; }
+
+@media (pointer: coarse) {
+  .qnav-btn { min-width: 40px; min-height: 40px; }
+}
+
+@media (pointer: coarse) {
+  .exam-bar-btn { min-width: 44px; min-height: 44px; }
+}
+
+@media (pointer: coarse) {
+  .exam-option { min-height: 44px; }
+  .exam-option > input[type="radio"],
+  .exam-option > input[type="checkbox"] { width: 1.25rem; height: 1.25rem; }
+  .exam-option-list > * + * { margin-top: 0.5rem; }
+  .exam-chip  { min-height: 44px; min-width: 44px; }
+  .exam-input { min-height: 44px; }
+}
+
+@media (max-width: 639px) {
+  :root { --fs-xs: 0.6875rem; }
+  :is(.text-\[8px\], .text-\[9px\], .text-\[10px\]):not(.academic-cover *) { font-size: 11px; }
+}
+
+@media (pointer: coarse) {
+  .tap-pad { padding-block: 0.875rem; margin-block: -0.875rem; }
+}
+
 /* ─── Input base ─────────────────────────────────────────────────────────────
    font-size explicitly set to var(--fs-base) — prevents iOS Safari auto-zoom
    which triggers when input font-size < 16px on focus.
@@ -521,6 +592,9 @@ button:disabled {
 .footer-link:hover {
   color: #ffffff;
   opacity: 1;
+}
+@media (pointer: coarse) {
+  .footer-link { display: inline-flex; align-items: center; min-height: 44px; }
 }
 
 /* ─── AI Neural Network Hero ────────────────────────────────────────────────── */
@@ -841,6 +915,54 @@ input:focus, textarea:focus, select:focus {
    nested inside the wrapper's ring (visible border "thickening" between the
    two range fields). Nothing else in the app uses this class, so this is a
    no-op everywhere else. */
+
+@media (max-width: 639px) {
+  .rtable,
+  .rtable > tbody { display: block; width: 100%; }
+  .rtable > thead { display: none; }
+  .rtable > tbody > tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.625rem 0.75rem;
+    padding: 0.875rem 1rem;
+    position: relative;
+  }
+  .rtable > tbody > tr > td {
+    display: block;
+    flex: 1 1 5rem;
+    max-width: none;
+    overflow-wrap: break-word;
+    padding: 0;
+    text-align: left;
+  }
+  .rtable > tbody > tr > td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #71717a;
+  }
+  .rtable .rt-main { order: -1; flex-basis: 100%; }
+  .rtable .rt-thumb { order: -2; flex: 0 0 auto; }
+  .rtable tr:has(> .rt-thumb) > .rt-main { flex: 1 1 calc(100% - 60px - 0.75rem); align-self: center; }
+  .rtable .rt-actions { order: 2; flex: 1 0 auto; align-self: flex-end; display: flex; justify-content: flex-end; }
+  .rtable .rt-wide { order: 1; flex: 999 1 10rem; }
+  .rtable .rt-hide { display: none; }
+  .rtable td[colspan] { flex-basis: 100%; }
+
+  .rtable td.rt-select { position: absolute; top: 0.625rem; right: 0.625rem; }
+  .rtable tr:has(> .rt-select) > .rt-main { padding-right: 2.5rem; }
+  .rtable > thead:has(.rt-select) { display: block; }
+  .rtable > thead:has(.rt-select) > tr { display: flex; padding: 0.625rem 1rem; }
+  .rtable > thead:has(.rt-select) > tr > th:not(.rt-select) { display: none; }
+  .rtable > thead > tr > th.rt-select { padding: 0; width: auto; text-align: left; }
+  .rtable .rt-select input { width: 1.125rem; height: 1.125rem; }
+  .rtable td.rt-select label { display: flex; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; }
+}
 
 /* ─── Ultra-Sharp Image Rendering (Retina & Anti-Blur) ─────────────────────── */
 .img-crisp {
