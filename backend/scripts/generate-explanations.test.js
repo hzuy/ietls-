@@ -17,9 +17,34 @@ require.cache[prismaPath] = {
   exports: prismaMock,
 }
 
+const PASSAGE = 'A shipping magnate made his fortune in the timber and shipping trades.\nHis granddaughters became collectors.'
+
 const VALID_EXPLANATION = {
-  restatement: 'a', evidence: 'b', reasoning: 'c', conclusion: 'd',
+  question_chunks: [{ text: 'the grandfather', label: 'người ông' }, { text: '[Q:1]', label: 'nguồn còn thiếu' }],
+  predict: 'STEP 1 — Cần một danh từ chỉ nguồn của cải.',
+  locate_note: 'Tìm ý gây dựng của cải.',
+  locate_keywords: ['made his fortune', 'không có trong bài'],
+  evidence_quote: 'A shipping magnate made his fortune in the timber and shipping trades.',
+  evidence_chunks: [
+    { text: 'in the timber and shipping trades', label: 'ngành gỗ và vận tải biển' },
+    { text: 'made his fortune', label: 'gây dựng cơ nghiệp' },
+    { text: 'cụm bịa', label: 'x' },
+  ],
+  answer: 'timber',
+  full_sentence: 'the grandfather built his wealth on timber',
+  translation: 'người ông gây dựng của cải từ gỗ',
+  reasoning: 'Bài nêu ngành gỗ.',
+  paraphrases: [
+    { question: 'built his wealth', question_label: 'gây dựng của cải', passage: 'made his fortune', passage_label: 'tạo dựng cơ nghiệp' },
+    { question: 'x', question_label: 'x', passage: 'không có trong bài', passage_label: 'x' },
+  ],
+  distractors: [
+    { option: 'shipping', label: 'vận tải biển', reason: 'Đề đã cho ngành này.' },
+    { option: 'weights', label: 'trọng lượng', reason: 'Không có trong bài.' },
+  ],
 }
+
+const COMPLETION_Q = { id: 42, number: 1, type: 'fill_blank', questionText: null, correctAnswer: 'timber', group: { passage: { body: PASSAGE } } }
 
 // Mock trực tiếp lib/groqClient.js (cùng kỹ thuật require.cache override như
 // prismaMock ở trên) thay vì vi.mock('groq-sdk') — tránh phụ thuộc vào cách
@@ -42,6 +67,8 @@ const {
   classifyFamily,
   findNoteSectionContext,
   buildContext,
+  enrichExplanation,
+  normalizeText,
   processQuestion,
   processPracticeQuestion,
   SKIP_FAMILIES,
@@ -150,40 +177,102 @@ describe('processQuestion', () => {
 
   it('sinh giải thích hợp lệ và ghi vào DB qua cột explanation', async () => {
     mockGroqResponse(VALID_EXPLANATION)
-    const q = { id: 42, type: 'mcq', questionText: 'Q?', correctAnswer: 'A', group: { passage: { body: 'ctx' } } }
-    const result = await processQuestion(q, { dryRun: false })
-    expect(result).toEqual({ skipped: false, explanation: VALID_EXPLANATION })
-    expect(prismaMock.question.update).toHaveBeenCalledWith({ where: { id: 42 }, data: { explanation: VALID_EXPLANATION } })
+    const result = await processQuestion(COMPLETION_Q, { dryRun: false })
+    expect(result.skipped).toBe(false)
+    expect(result.explanation.v).toBe(2)
+    expect(prismaMock.question.update).toHaveBeenCalledWith({ where: { id: 42 }, data: { explanation: result.explanation } })
   })
 
   it('--dry-run gọi Groq nhưng KHÔNG ghi vào DB', async () => {
     mockGroqResponse(VALID_EXPLANATION)
-    const q = { id: 42, type: 'mcq', questionText: 'Q?', correctAnswer: 'A', group: { passage: { body: 'ctx' } } }
-    await processQuestion(q, { dryRun: true })
+    await processQuestion(COMPLETION_Q, { dryRun: true })
     expect(prismaMock.question.update).not.toHaveBeenCalled()
   })
 
-  it('ném lỗi khi Groq trả JSON thiếu trường bắt buộc — không ghi DB', async () => {
-    mockGroqResponse({ restatement: 'a', evidence: 'b' }) // thiếu reasoning/conclusion
-    const q = { id: 42, type: 'mcq', questionText: 'Q?', correctAnswer: 'A', group: { passage: { body: 'ctx' } } }
-    await expect(processQuestion(q, { dryRun: false })).rejects.toThrow()
+  it('JSON thiếu trường bắt buộc → gọi lại 1 lần rồi bỏ, không ghi DB', async () => {
+    mockGroqResponse({ predict: 'a' })
+    mockGroqResponse({ predict: 'a' })
+    await expect(processQuestion(COMPLETION_Q, { dryRun: false })).rejects.toThrow()
+    expect(groqCreateMock).toHaveBeenCalledTimes(2)
     expect(prismaMock.question.update).not.toHaveBeenCalled()
+  })
+
+  it('câu trích không có trong bài → gọi lại kèm lý do, lần 2 đúng thì dùng', async () => {
+    mockGroqResponse({ ...VALID_EXPLANATION, evidence_quote: 'He was a famous painter.' })
+    mockGroqResponse(VALID_EXPLANATION)
+    const result = await processQuestion(COMPLETION_Q, { dryRun: false })
+    expect(groqCreateMock).toHaveBeenCalledTimes(2)
+    expect(groqCreateMock.mock.calls[1][0].messages[0].content).toContain('LẦN TRẢ LỜI TRƯỚC BỊ LOẠI')
+    expect(result.explanation.evidence.parts[0].paragraph).toBe(0)
   })
 
   it('ném lỗi khi Groq trả JSON không hợp lệ (không parse được)', async () => {
     groqCreateMock.mockResolvedValueOnce({ choices: [{ message: { content: 'not json at all' }, finish_reason: 'stop' }] })
-    const q = { id: 42, type: 'mcq', questionText: 'Q?', correctAnswer: 'A', group: { passage: { body: 'ctx' } } }
-    await expect(processQuestion(q, { dryRun: false })).rejects.toThrow()
+    await expect(processQuestion(COMPLETION_Q, { dryRun: false })).rejects.toThrow()
+  })
+
+  it('Groq báo 429 → chờ rồi gọi lại, không bỏ câu', async () => {
+    vi.useFakeTimers()
+    const rateErr = Object.assign(new Error('Rate limit reached. Please try again in 10ms.'), { status: 429 })
+    groqCreateMock.mockRejectedValueOnce(rateErr)
+    mockGroqResponse(VALID_EXPLANATION)
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const promise = processQuestion(COMPLETION_Q, { dryRun: true })
+    await vi.runAllTimersAsync()
+    const result = await promise
+    expect(result.explanation.v).toBe(2)
+    expect(groqCreateMock).toHaveBeenCalledTimes(2)
+    logSpy.mockRestore()
+    vi.useRealTimers()
+  })
+})
+
+describe('enrichExplanation — chỉ giữ thông tin có thật trong bài', () => {
+  const ctx = { sourceText: PASSAGE }
+  const out = enrichExplanation(VALID_EXPLANATION, ctx, 'timber', 'COMPLETION')
+
+  it('tính số đoạn từ vị trí câu trích', () => {
+    expect(out.evidence.paragraph).toBe(0)
+    expect(out.locate.paragraph).toBe(0)
+  })
+
+  it('bỏ cụm trích, từ khoá, paraphrase không có trong bài; sắp cụm theo thứ tự xuất hiện', () => {
+    expect(out.evidence.chunks.map(c => c.text)).toEqual(['made his fortune', 'in the timber and shipping trades'])
+    expect(out.locate.keywords).toEqual(['made his fortune'])
+    expect(out.paraphrases).toHaveLength(1)
+  })
+
+  it('câu điền từ: bỏ lựa chọn nhiễu không có trong bài', () => {
+    expect(out.distractors.map(d => d.option)).toEqual(['shipping'])
+  })
+
+  it('bỏ tiền tố "STEP n —" và đổi [Q:n] thành "n. ___"', () => {
+    expect(out.predict).toBe('Cần một danh từ chỉ nguồn của cải.')
+    expect(out.question_chunks[1].text).toBe('1. ___')
+  })
+
+  it('câu trích nhiều chỗ ngăn bởi " | " được tách thành nhiều phần', () => {
+    const multi = enrichExplanation({ ...VALID_EXPLANATION, evidence_quote: 'His granddaughters became collectors. | A shipping magnate made his fortune' }, ctx, 'x')
+    expect(multi.evidence.parts.map(p => p.paragraph)).toEqual([1, 0])
+  })
+
+  it('so khớp bỏ qua khác biệt dấu nháy, gạch nối, khoảng trắng', () => {
+    expect(normalizeText('“Well‑being,”  he said')).toBe(normalizeText("'Well-being,' he said"))
+  })
+
+  it('NOT GIVEN không có câu trích → evidence null, không lỗi', () => {
+    const ng = enrichExplanation({ ...VALID_EXPLANATION, evidence_quote: '' }, ctx, 'NOT GIVEN', 'TFNG')
+    expect(ng.evidence).toBeNull()
   })
 })
 
 describe('processPracticeQuestion', () => {
   it('trích được questionText từ content dạng JSON.stringify object', async () => {
     mockGroqResponse(VALID_EXPLANATION)
-    const pq = { id: 7, type: 'mcq', content: JSON.stringify({ questionText: 'Hidden question' }), correctAnswer: 'A', exam: { skill: 'reading', passage: 'ctx' } }
+    const pq = { id: 7, type: 'mcq', content: JSON.stringify({ questionText: 'Hidden question' }), correctAnswer: 'A', exam: { skill: 'reading', passage: PASSAGE } }
     const result = await processPracticeQuestion(pq, { dryRun: false })
     expect(result.skipped).toBe(false)
-    expect(prismaMock.practiceQuestion.update).toHaveBeenCalledWith({ where: { id: 7 }, data: { explanation: VALID_EXPLANATION } })
+    expect(prismaMock.practiceQuestion.update).toHaveBeenCalledWith({ where: { id: 7 }, data: { explanation: result.explanation } })
   })
 
   it('dùng nguyên văn content khi không phải JSON', async () => {
@@ -198,9 +287,9 @@ describe('processPracticeQuestion', () => {
 describe('main — cô lập lỗi từng câu, không dừng cả script', () => {
   it('một câu lỗi không chặn các câu còn lại (2 OK, 1 lỗi trong số 3 câu)', async () => {
     prismaMock.question.findMany.mockResolvedValueOnce([
-      { id: 1, type: 'mcq', questionText: 'Q1', correctAnswer: 'A', group: { passage: { body: 'ctx' } } },
-      { id: 2, type: 'mcq', questionText: 'Q2', correctAnswer: 'B', group: { passage: { body: 'ctx' } } },
-      { id: 3, type: 'mcq', questionText: 'Q3', correctAnswer: 'C', group: { passage: { body: 'ctx' } } },
+      { ...COMPLETION_Q, id: 1 },
+      { ...COMPLETION_Q, id: 2 },
+      { ...COMPLETION_Q, id: 3 },
     ])
     mockGroqResponse(VALID_EXPLANATION) // câu 1 OK
     groqCreateMock.mockResolvedValueOnce({ choices: [{ message: { content: 'broken json' }, finish_reason: 'stop' }] }) // câu 2 lỗi
@@ -213,8 +302,7 @@ describe('main — cô lập lỗi từng câu, không dừng cả script', () =
     await mod.main()
 
     expect(prismaMock.question.update).toHaveBeenCalledTimes(2)
-    expect(prismaMock.question.update).toHaveBeenCalledWith({ where: { id: 1 }, data: { explanation: VALID_EXPLANATION } })
-    expect(prismaMock.question.update).toHaveBeenCalledWith({ where: { id: 3 }, data: { explanation: VALID_EXPLANATION } })
+    expect(prismaMock.question.update.mock.calls.map(c => c[0].where.id)).toEqual([1, 3])
 
     logSpy.mockRestore()
     errSpy.mockRestore()
