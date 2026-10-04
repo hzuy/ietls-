@@ -21,17 +21,30 @@ import { useState } from 'react'
  *   onClick  — () => void
  *   size     — cạnh nút tính bằng px (mặc định 32)
  */
-export default function QuestionNavButton({ number, status, onClick, size = 32, roundedFull = false }) {
+const REVIEW_STYLES = {
+  correct: { backgroundColor: 'var(--success-bg)', borderColor: 'var(--success)', color: 'var(--success)', label: 'đúng' },
+  wrong: { backgroundColor: 'var(--error-bg)', borderColor: 'var(--error)', color: 'var(--error)', label: 'sai' },
+  missed: { backgroundColor: 'var(--surface-raised)', borderColor: 'var(--border)', color: 'var(--muted)', label: 'bỏ trống' },
+}
+
+export default function QuestionNavButton({ number, status, onClick, size = 32, roundedFull = false, active = false }) {
   const [hovered, setHovered] = useState(false)
   const answered = status === 'answered'
+  const review = REVIEW_STYLES[status]
 
-  const backgroundColor = answered ? 'var(--primary-light)' : '#ffffff'
-  const borderColor = answered
-    ? 'var(--primary)'
-    : hovered ? 'var(--primary)' : 'var(--border)'
-  const color = answered
-    ? 'var(--primary)'
-    : hovered ? 'var(--primary)' : 'var(--ink)'
+  const backgroundColor = review ? review.backgroundColor : answered ? 'var(--primary-light)' : '#ffffff'
+  const borderColor = review
+    ? review.borderColor
+    : answered
+      ? 'var(--primary)'
+      : hovered ? 'var(--primary)' : 'var(--border)'
+  const color = review
+    ? review.color
+    : answered
+      ? 'var(--primary)'
+      : hovered ? 'var(--primary)' : 'var(--ink)'
+
+  const stateLabel = review ? ` — ${review.label}` : answered ? ' — đã trả lời' : ''
 
   return (
     <button
@@ -39,9 +52,11 @@ export default function QuestionNavButton({ number, status, onClick, size = 32, 
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      aria-label={`Câu ${number}${answered ? ' — đã trả lời' : ''}`}
+      aria-label={`Câu ${number}${stateLabel}`}
+      aria-current={active ? 'true' : undefined}
       className="qnav-btn"
       style={{
+        boxShadow: active ? '0 0 0 2px #fff, 0 0 0 4px var(--ink)' : undefined,
         width: size,
         height: size,
         flexShrink: 0,

@@ -19,7 +19,35 @@ import QuestionBlock from './QuestionBlock'
 import ExplanationPanel from './ExplanationPanel'
 
 // Render a group of questions (from questionGroups) with the appropriate header/UI
-function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, showAnswers }) {
+function ReviewBlank({ number, info, active, onSelect }) {
+  const missed = !info?.userAnswer
+  const correct = info?.status === 'correct'
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect?.(number)}
+      aria-label={`Câu ${number}`}
+      aria-current={active ? 'true' : undefined}
+      className={`inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mx-1 px-2 py-0.5 rounded-full border align-middle text-left cursor-pointer transition ${
+        active ? 'border-zinc-900 bg-zinc-50 ring-2 ring-zinc-900/10' : 'border-transparent hover:border-zinc-300'
+      }`}
+    >
+      <span className="text-xs font-bold text-amber-600">{number}.</span>
+      {correct ? (
+        <span className="text-sm font-medium text-emerald-700 underline decoration-emerald-500 decoration-2 underline-offset-4">{info.userAnswer}</span>
+      ) : (
+        <>
+          <span className={`text-sm underline decoration-2 underline-offset-4 ${missed ? 'text-amber-600 decoration-amber-400' : 'text-red-600 line-through decoration-red-400'}`}>
+            {missed ? 'Bỏ trống' : info.userAnswer}
+          </span>
+          <span className="text-sm font-medium text-emerald-700 underline decoration-emerald-500 decoration-2 underline-offset-4">{info?.correctAnswer}</span>
+        </>
+      )}
+    </button>
+  )
+}
+
+function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, showAnswers, review, activeNumber, onSelectNumber }) {
   const from = group.qNumberStart
   const to = group.qNumberEnd
 
@@ -32,6 +60,10 @@ function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, 
       const parts = content.split(/(\[Q:\d+\])/)
       return parts.map((part, i) => {
         const match = part.match(/\[Q:(\d+)\]/)
+        if (match && review) {
+          const qNum = parseInt(match[1])
+          return <ReviewBlank key={i} number={qNum} info={review[qNum]} active={activeNumber === qNum} onSelect={onSelectNumber} />
+        }
         if (match) {
           const qNum = parseInt(match[1])
           const q = questionMap[qNum]
@@ -227,6 +259,9 @@ function areGroupPropsEqual(prev, next) {
     prev.previewMode !== next.previewMode ||
     prev.showAnswers !== next.showAnswers ||
     prev.globalOffset !== next.globalOffset ||
+    prev.review !== next.review ||
+    prev.activeNumber !== next.activeNumber ||
+    prev.onSelectNumber !== next.onSelectNumber ||
     prev.onAnswer !== next.onAnswer
   ) {
     return false

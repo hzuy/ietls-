@@ -63,7 +63,8 @@ export default function QuestionPanelPopover({ groups, activeIndex, bottomOffset
                       key={it.number}
                       number={it.number}
                       roundedFull
-                      status={it.answered ? 'answered' : 'unanswered'}
+                      status={it.status || (it.answered ? 'answered' : 'unanswered')}
+                      active={it.active}
                       onClick={() => { onJump(it.ref); onClose() }}
                     />
                   ))}

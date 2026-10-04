@@ -45,6 +45,16 @@ describe('AIChatbotDrawer Component', () => {
     expect(screen.getByRole('button', { name: /Mở IELTS AI Tutor/i })).toBeInTheDocument()
   })
 
+  it('shows on the review page /reading/:id/explanation', () => {
+    render(
+      <MemoryRouter initialEntries={['/reading/123/explanation?attemptId=5']}>
+        <AIChatbotDrawer />
+      </MemoryRouter>
+    )
+
+    expect(screen.getByRole('button', { name: /Mở IELTS AI Tutor/i })).toBeInTheDocument()
+  })
+
   it('opens drawer when FAB is clicked and displays initial welcome message', () => {
     render(
       <MemoryRouter initialEntries={['/']}>

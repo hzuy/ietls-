@@ -57,9 +57,9 @@ export default function ExamActionDialog({
         <h2 id={titleId} className="text-lg font-semibold text-zinc-900 text-left">
           {title}
         </h2>
-        <p id={descId} className="text-sm text-zinc-500 mt-1.5 leading-relaxed text-left">
+        <div id={descId} className="text-sm text-zinc-500 mt-1.5 leading-relaxed text-left">
           {description}
-        </p>
+        </div>
 
         <div className="flex items-center justify-end gap-3 mt-6">
           <button

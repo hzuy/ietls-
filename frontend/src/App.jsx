@@ -28,6 +28,7 @@ const ListeningExam     = lazy(() => import('./pages/ListeningExam'))
 const WritingExam       = lazy(() => import('./pages/WritingExam'))
 const SpeakingExam      = lazy(() => import('./pages/SpeakingExam'))
 const SkillResultPage   = lazy(() => import('./components/SkillResult'))
+const ExamReview        = lazy(() => import('./pages/ExamReview'))
 const Admin             = lazy(() => import('./pages/Admin'))
 const FullTest          = lazy(() => import('./pages/FullTest'))
 const FullTestDetail    = lazy(() => import('./pages/FullTestDetail'))
@@ -153,7 +154,7 @@ export default function App() {
                   <Route path="/change-password" element={<ChangePassword />} />
                   <Route path="/reading" element={<Navigate to="/practice/reading" replace />} />
                   <Route path="/reading/:id/result" element={<PrivateRoute><SkillResultPage skillType="reading" /></PrivateRoute>} />
-                  <Route path="/reading/:id/explanation" element={<PrivateRoute><ReadingExam /></PrivateRoute>} />
+                  <Route path="/reading/:id/explanation" element={<PrivateRoute><ExamReview /></PrivateRoute>} />
                   <Route path="/reading/:id" element={<PrivateRoute><ReadingExam /></PrivateRoute>} />
                   <Route path="/listening" element={<Navigate to="/practice/listening" replace />} />
                   <Route path="/listening/:id/result" element={<PrivateRoute><SkillResultPage skillType="listening" /></PrivateRoute>} />

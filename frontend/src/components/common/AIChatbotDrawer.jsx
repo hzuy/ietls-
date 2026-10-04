@@ -138,6 +138,7 @@ export function detectPageContext(pathname, search) {
 
   const isResult =
     pathname.includes('/result') ||
+    pathname.includes('/explanation') ||
     pathname.startsWith('/progress') ||
     search.includes('viewResult=true')
 
@@ -257,7 +258,7 @@ export default function AIChatbotDrawer() {
   }
 
   // Determine visibility: hide in admin and during active timed exam without results
-  const isResultView = pathname.includes('/result') || search.includes('viewResult=true')
+  const isResultView = pathname.includes('/result') || pathname.includes('/explanation') || search.includes('viewResult=true')
   const isExamInProgress =
     !isResultView &&
     (/^\/(reading|listening|writing|speaking)\/[^/]+/.test(pathname) ||
@@ -372,7 +373,8 @@ export default function AIChatbotDrawer() {
           type="button"
           onClick={() => setIsOpen(true)}
           aria-label="Mở IELTS AI Tutor"
-          className="fixed bottom-6 right-6 z-50 w-13 h-13 rounded-full bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xl border border-zinc-200/40 dark:border-zinc-800 hover:scale-105 active:scale-95 transition-all flex items-center justify-center cursor-pointer group"
+          style={{ bottom: 'calc(var(--chat-fab-offset, 0px) + 1.5rem)' }}
+          className="fixed right-6 z-50 w-13 h-13 rounded-full bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xl border border-zinc-200/40 dark:border-zinc-800 hover:scale-105 active:scale-95 transition-all flex items-center justify-center cursor-pointer group"
         >
           <Sparkles className="w-5 h-5 text-white dark:text-zinc-900 transition-transform group-hover:rotate-12" />
           {/* Online indicator */}
@@ -385,7 +387,8 @@ export default function AIChatbotDrawer() {
         <div
           role="dialog"
           aria-label="Khung trò chuyện IELTS AI Tutor"
-          className="fixed bottom-6 right-6 z-50 w-96 max-w-[calc(100vw-32px)] h-[560px] max-h-[calc(100vh-100px)] bg-white rounded-2xl border border-zinc-200 shadow-2xl flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200"
+          style={{ bottom: 'calc(var(--chat-fab-offset, 0px) + 1.5rem)' }}
+          className="fixed right-6 z-50 w-96 max-w-[calc(100vw-32px)] h-[560px] max-h-[calc(100vh-100px)] bg-white rounded-2xl border border-zinc-200 shadow-2xl flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200"
         >
           {/* Header — Tối giản theo phong cách Viettel Store */}
           <div className="px-4 py-3 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/80 backdrop-blur-xs select-none">
