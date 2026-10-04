@@ -6,6 +6,6 @@ import api from '../utils/axios'
  * @param {Array<{role: string, content: string}>} conversationHistory - Recent conversation items
  * @returns {Promise<{reply: string}>}
  */
-export const sendChatMessage = (message, conversationHistory = []) => {
-  return api.post('/chatbot/chat', { message, conversationHistory }).then(r => r.data)
+export const sendChatMessage = (message, conversationHistory = [], pageContext = null) => {
+  return api.post('/chatbot/chat', { message, conversationHistory, pageContext }).then(r => r.data)
 }

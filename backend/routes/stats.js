@@ -579,3 +579,7 @@ YÊU CẦU BẮT BUỘC KHI TẠO CÂU TRẢ LỜI:
 })
 
 module.exports = router
+module.exports.fetchErrorBreakdown = fetchErrorBreakdown
+module.exports.fetchTrendData = fetchTrendData
+module.exports.fetchWritingCriteriaStats = fetchWritingCriteriaStats
+module.exports.fetchSpeakingCriteriaStats = fetchSpeakingCriteriaStats

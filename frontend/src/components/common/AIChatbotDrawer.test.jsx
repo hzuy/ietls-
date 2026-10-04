@@ -92,7 +92,7 @@ describe('AIChatbotDrawer Component', () => {
     const sendBtn = screen.getByRole('button', { name: /Gửi tin nhắn/i })
     fireEvent.click(sendBtn)
 
-    expect(chatbotService.sendChatMessage).toHaveBeenCalledWith('Phân biệt False và Not Given', expect.any(Array))
+    expect(chatbotService.sendChatMessage).toHaveBeenCalledWith('Phân biệt False và Not Given', [], expect.objectContaining({ path: '/' }))
 
     await waitFor(() => {
       expect(screen.getByText(/False là thông tin đối lập hoàn toàn/i)).toBeInTheDocument()
@@ -114,7 +114,7 @@ describe('AIChatbotDrawer Component', () => {
 
     await waitFor(() => {
       expect(screen.getByText('IELTS AI Tutor')).toBeInTheDocument()
-      expect(chatbotService.sendChatMessage).toHaveBeenCalledWith('Giải thích câu 2 giúp tôi', expect.any(Array))
+      expect(chatbotService.sendChatMessage).toHaveBeenCalledWith('Giải thích câu 2 giúp tôi', expect.any(Array), expect.objectContaining({ path: '/reading/1/result' }))
     })
   })
 
@@ -235,11 +235,13 @@ describe('AIChatbotDrawer Component', () => {
       await waitFor(() => {
         expect(chatbotService.sendChatMessage).toHaveBeenCalledWith(
           expect.stringContaining('[Ngữ cảnh:'),
-          expect.any(Array)
+          expect.any(Array),
+          expect.objectContaining({ path: '/writing-samples' })
         )
         expect(chatbotService.sendChatMessage).toHaveBeenCalledWith(
           expect.stringContaining('Phân tích cấu trúc đoạn văn bài mẫu này'),
-          expect.any(Array)
+          expect.any(Array),
+          expect.objectContaining({ path: '/writing-samples' })
         )
       })
     })

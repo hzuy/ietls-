@@ -42,6 +42,25 @@ const prismaMock = {
   },
   attempt: {
     findMany: vi.fn(),
+    findFirst: vi.fn(),
+  },
+  questionAnswer: {
+    groupBy: vi.fn(),
+  },
+  answerLog: {
+    groupBy: vi.fn(),
+  },
+  exam: {
+    findMany: vi.fn(),
+  },
+  practiceExam: {
+    groupBy: vi.fn(),
+  },
+  writingSample: {
+    count: vi.fn(),
+  },
+  speakingSample: {
+    count: vi.fn(),
   },
   writingCriterionLog: {
     findMany: vi.fn(),
@@ -81,6 +100,13 @@ describe('Chatbot API Routes (/api/chatbot/message)', () => {
 
     prismaMock.writingCriterionLog.findMany.mockResolvedValue([])
     prismaMock.speakingCriterionLog.findMany.mockResolvedValue([])
+    prismaMock.questionAnswer.groupBy.mockResolvedValue([])
+    prismaMock.answerLog.groupBy.mockResolvedValue([])
+    prismaMock.attempt.findFirst.mockResolvedValue(null)
+    prismaMock.exam.findMany.mockResolvedValue([])
+    prismaMock.practiceExam.groupBy.mockResolvedValue([])
+    prismaMock.writingSample.count.mockResolvedValue(0)
+    prismaMock.speakingSample.count.mockResolvedValue(0)
     mockCreate.mockResolvedValue({
       choices: [{ message: { content: 'MOCK AI CHATBOT REPLY' }, finish_reason: 'stop' }],
     })
@@ -91,7 +117,7 @@ describe('Chatbot API Routes (/api/chatbot/message)', () => {
     expect(res.status).toBe(401)
   })
 
-  it('rejects empty message or message > 500 characters with 400 Bad Request', async () => {
+  it('rejects empty message or message > 1000 characters with 400 Bad Request', async () => {
     const token = makeToken(101)
 
     // Empty message
@@ -102,14 +128,13 @@ describe('Chatbot API Routes (/api/chatbot/message)', () => {
     expect(resEmpty.status).toBe(400)
     expect(resEmpty.body.message).toContain('Vui lòng nhập nội dung')
 
-    // Message > 500 chars
-    const longMsg = 'A'.repeat(501)
+    const longMsg = 'A'.repeat(1001)
     const resLong = await request(app)
       .post('/api/chatbot/message')
       .set('Authorization', `Bearer ${token}`)
       .send({ message: longMsg })
     expect(resLong.status).toBe(400)
-    expect(resLong.body.message).toContain('không được vượt quá 500 ký tự')
+    expect(resLong.body.message).toContain('không được vượt quá 1000 ký tự')
   })
 
   it('enforces chatbotRateLimiter (max 20 requests/user/hour)', async () => {
@@ -215,9 +240,10 @@ describe('Chatbot API Routes (/api/chatbot/message)', () => {
     expect(mockCreate).toHaveBeenCalled()
     const callArgs = mockCreate.mock.calls[0][0]
     const systemMessage = callArgs.messages.find(m => m.role === 'system')
-    expect(systemMessage.content).toContain('GIỚI HẠN PHẠM VI HỌC THUẬT IELTS')
-    expect(systemMessage.content).toContain('TUYỆT ĐỐI TỪ CHỐI các chủ đề ngoài lề cuộc thi')
-    expect(systemMessage.content).toContain('Trợ lý Học thuật AI IELTS')
+    expect(systemMessage.content).toContain('IELTS AI Tutor')
+    expect(systemMessage.content).toContain('Từ chối lịch sự các chủ đề không liên quan')
+    expect(systemMessage.content).toContain('TUYỆT ĐỐI KHÔNG bịa nội dung đề thi')
+    expect(systemMessage.content).toContain('không nêu tên model')
   })
 
   it('includes short-reply and no-heading/table formatting guardrail in the system prompt', async () => {
@@ -239,9 +265,8 @@ describe('Chatbot API Routes (/api/chatbot/message)', () => {
 
     const callArgs = mockCreate.mock.calls[0][0]
     const systemMessage = callArgs.messages.find(m => m.role === 'system')
-    expect(systemMessage.content).toContain('NGẮN GỌN')
-    expect(systemMessage.content).toContain('KHÔNG dùng heading markdown')
-    expect(systemMessage.content).toContain('KHÔNG dùng bảng dài')
+    expect(systemMessage.content).toContain('Ngắn gọn')
+    expect(systemMessage.content).toContain('Không dùng heading markdown, không dùng bảng')
   })
 
   it('rounds avgBand/bandBySkill to valid IELTS 0.5 steps instead of raw toFixed(2) decimals (regression: was producing values like 0.81)', async () => {
@@ -272,20 +297,119 @@ describe('Chatbot API Routes (/api/chatbot/message)', () => {
     const callArgs = mockCreate.mock.calls[0][0]
     const systemMessage = callArgs.messages.find(m => m.role === 'system')
 
-    const contextMatch = systemMessage.content.match(/\{[\s\S]*"bandBySkill"[\s\S]*?\}\s*\}/)
-    expect(contextMatch).not.toBeNull()
-    const userContext = JSON.parse(contextMatch[0])
+    expect(systemMessage.content).toContain('Band trung bình theo kỹ năng: Reading 6.0, Listening 7.0, Writing chưa có, Speaking chưa có')
+    expect(systemMessage.content).toContain('Overall (chỉ tính kỹ năng đã có điểm): 6.5')
+    expect(systemMessage.content).not.toMatch(/5\.75|6\.38/)
+    expect(systemMessage.content).toContain('Band IELTS chỉ có bước 0.5')
+  })
 
-    expect(userContext.bandBySkill.reading).toBe(6)
-    expect(userContext.bandBySkill.listening).toBe(7)
-    expect(userContext.overallAvgBand).toBe(6.5)
+  function mockUser(id) {
+    prismaMock.user.findUnique.mockResolvedValue({ id, name: `User ${id}`, createdAt: new Date('2026-01-01') })
+  }
 
-    // Không giá trị band nào được phép lệch khỏi bước 0.5 (vd 0.81, 5.75, 6.38)
-    const allBandValues = [userContext.overallAvgBand, ...Object.values(userContext.bandBySkill).filter(v => v !== null)]
-    for (const v of allBandValues) {
-      expect((v * 2) % 1).toBe(0)
-    }
+  async function sendAndGetSystem(token, body) {
+    const res = await request(app).post('/api/chatbot/message').set('Authorization', `Bearer ${token}`).send(body)
+    const callArgs = mockCreate.mock.calls[0]?.[0]
+    return { res, callArgs, system: callArgs?.messages.find(m => m.role === 'system')?.content || '' }
+  }
 
-    expect(systemMessage.content).toContain('Band điểm IELTS CHỈ có các mức 0, 0.5, 1.0, 1.5, 2.0 ... 9.0')
+  it('lists recent attempts with exam name, band and correct count — and never sends email to the AI', async () => {
+    process.env.GROQ_API_KEY = 'test_groq_key'
+    mockUser(400)
+    prismaMock.attempt.findMany.mockResolvedValue([
+      { id: 91, score: 5.5, finishedAt: new Date('2026-09-20T03:00:00Z'), exam: { skill: 'reading', title: 'x', bookNumber: 19, testNumber: 2, series: { name: 'IELTS Cambridge Academic' } } },
+    ])
+    prismaMock.questionAnswer.groupBy
+      .mockResolvedValueOnce([{ attemptId: 91, _count: { _all: 40 } }])
+      .mockResolvedValueOnce([{ attemptId: 91, _count: { _all: 21 } }])
+
+    const { res, system } = await sendAndGetSystem(makeToken(400), { message: 'Cho mình thông tin các bài mình đã làm' })
+
+    expect(res.status).toBe(200)
+    expect(system).toContain('IELTS Cambridge Academic 19 – Test 2 · band 5.5, đúng 21/40 câu')
+    expect(system).not.toContain('@')
+  })
+
+  it('does not send the current message twice when the client also puts it in conversationHistory', async () => {
+    process.env.GROQ_API_KEY = 'test_groq_key'
+    mockUser(401)
+    prismaMock.attempt.findMany.mockResolvedValue([])
+
+    const { callArgs } = await sendAndGetSystem(makeToken(401), {
+      message: 'Câu hỏi mới',
+      conversationHistory: [
+        { role: 'user', content: 'Câu cũ' },
+        { role: 'assistant', content: 'Trả lời cũ' },
+        { role: 'user', content: 'Câu hỏi mới' },
+      ],
+    })
+
+    const userTurns = callArgs.messages.filter(m => m.role === 'user').map(m => m.content)
+    expect(userTurns).toEqual(['Câu cũ', 'Câu hỏi mới'])
+  })
+
+  it('on a review page loads only the current user attempt and grounds the mentioned question with its stored explanation', async () => {
+    process.env.GROQ_API_KEY = 'test_groq_key'
+    mockUser(402)
+    prismaMock.attempt.findMany.mockResolvedValue([])
+    prismaMock.attempt.findFirst.mockResolvedValue({
+      id: 52, score: 3, finishedAt: new Date(), exam: { skill: 'reading', title: 'x', bookNumber: 19, testNumber: 1, series: { name: 'IELTS Cambridge Academic' } },
+      questionAnswers: [
+        { userAnswer: 'TRUE', isCorrect: false, question: { number: 5, type: 'true_false_ng', questionText: 'Fischer designed the racket.', correctAnswer: 'NOT GIVEN', explanation: { v: 2, reasoning: 'Bài không nói ai thiết kế.', evidence: { parts: [{ text: 'Fischer started playing with it.' }] } } } },
+        { userAnswer: 'A', isCorrect: true, question: { number: 6, type: 'mcq', questionText: 'q6', correctAnswer: 'A', explanation: null } },
+      ],
+    })
+
+    const { system } = await sendAndGetSystem(makeToken(402), {
+      message: 'Giải thích câu 5 giúp mình',
+      pageContext: { path: '/reading/13/explanation', search: '?attemptId=52', title: 'Cambridge 19 Test 1' },
+    })
+
+    expect(prismaMock.attempt.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ userId: 402, examId: 13, id: 52 }),
+    }))
+    expect(system).toContain('Câu 5 (True/False/Not Given): học viên "TRUE", đáp án đúng "NOT GIVEN"')
+    expect(system).toContain('Bài không nói ai thiết kế.')
+  })
+
+  it('keeps the prompt small: no exam catalog and only 3 recent attempts for a pure knowledge question', async () => {
+    process.env.GROQ_API_KEY = 'test_groq_key'
+    mockUser(404)
+    const attempt = n => ({ id: n, score: 5, finishedAt: new Date(2026, 8, n), exam: { skill: 'reading', title: `Đề ${n}`, bookNumber: null, testNumber: null, series: null } })
+    prismaMock.attempt.findMany.mockResolvedValue([1, 2, 3, 4, 5, 6].map(attempt))
+
+    const { system } = await sendAndGetSystem(makeToken(404), { message: 'Phân biệt Not Given và False' })
+
+    expect(prismaMock.exam.findMany).not.toHaveBeenCalled()
+    expect(system).toContain('3 lượt làm gần nhất')
+    expect(system).toContain('còn 3 lượt cũ hơn không liệt kê')
+  })
+
+  it('includes the real exam catalog when the learner asks what the website has', async () => {
+    process.env.GROQ_API_KEY = 'test_groq_key'
+    mockUser(405)
+    prismaMock.attempt.findMany.mockResolvedValue([])
+    prismaMock.exam.findMany.mockResolvedValue([
+      { skill: 'listening', bookNumber: 18, testNumber: 1, series: { name: 'IELTS Cambridge Academic' } },
+    ])
+
+    const { system } = await sendAndGetSystem(makeToken(405), { message: 'Web có đề Cambridge 18 không?' })
+
+    expect(system).toContain('- IELTS Cambridge Academic 18: Listening (Test 1)')
+  })
+
+  it('uses low reasoning effort and retries once when the model spends the whole budget on reasoning', async () => {
+    process.env.GROQ_API_KEY = 'test_groq_key'
+    mockUser(403)
+    prismaMock.attempt.findMany.mockResolvedValue([])
+    mockCreate
+      .mockResolvedValueOnce({ choices: [{ message: { content: '' }, finish_reason: 'length' }] })
+      .mockResolvedValueOnce({ choices: [{ message: { content: 'Câu trả lời ngắn' }, finish_reason: 'stop' }] })
+
+    const { res, callArgs } = await sendAndGetSystem(makeToken(403), { message: 'Mẹo làm Matching Headings?' })
+
+    expect(callArgs.max_tokens).toBeGreaterThanOrEqual(1000)
+    expect(mockCreate).toHaveBeenCalledTimes(2)
+    expect(res.body.reply).toBe('Câu trả lời ngắn')
   })
 })

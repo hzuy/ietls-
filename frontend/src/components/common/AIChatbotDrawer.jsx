@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
-import { useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Sparkles, Send, X, RotateCcw, Bot, AlertCircle } from 'lucide-react'
@@ -103,14 +103,20 @@ function MarkdownRenderer({ content }) {
           </blockquote>
         ),
         a: ({ href, children }) => (
-          <a
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-zinc-900 underline hover:opacity-80 text-sm font-normal"
-          >
-            {children}
-          </a>
+          href?.startsWith('/') ? (
+            <Link to={href} className="text-zinc-900 underline font-medium hover:opacity-80 text-sm">
+              {children}
+            </Link>
+          ) : (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-zinc-900 underline hover:opacity-80 text-sm font-normal"
+            >
+              {children}
+            </a>
+          )
         ),
       }}
     >
@@ -323,12 +329,16 @@ export default function AIChatbotDrawer() {
 
     try {
       // Send past messages (excluding welcome message)
-      const history = nextMessages
+      const history = messages
         .filter(m => m.id !== 'welcome')
         .slice(-6)
         .map(m => ({ role: m.role, content: m.promptText || m.content }))
 
-      const res = await sendChatMessage(trimmed, history)
+      const res = await sendChatMessage(trimmed, history, {
+        path: pathname,
+        search,
+        title: getContextDetails().pageTitle,
+      })
       const aiReply = res?.reply || 'Xin lỗi, không có phản hồi từ AI.'
 
       setMessages(prev => [
