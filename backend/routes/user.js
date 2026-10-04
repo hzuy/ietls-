@@ -2,13 +2,14 @@ const express = require('express')
 const router = express.Router()
 const prisma = require('../lib/prisma')
 const authMiddleware = require('../middleware/auth')
+const { learnerOnly } = require('../lib/roles')
 const validate = require('../middleware/validate')
 const { roundBand, ieltsOverall } = require('../lib/scoreUtils')
 const { computeStreak } = require('../lib/streak')
 const { historyQuerySchema } = require('../validators/historyValidator')
 
 // GET /api/user/stats — thống kê luyện thi của user đang đăng nhập
-router.get('/stats', authMiddleware, async (req, res) => {
+router.get('/stats', authMiddleware, learnerOnly, async (req, res) => {
   try {
     const userId = req.user.userId
 
@@ -66,7 +67,7 @@ router.get('/stats', authMiddleware, async (req, res) => {
 // GET /api/user/history — lịch sử làm bài Reading/Listening (đã hoàn thành) của
 // user đang đăng nhập. Chỉ trả lượt của chính req.user.userId — không nhận userId
 // từ query nên không có đường nào để xem lượt của người khác.
-router.get('/history', authMiddleware, validate(historyQuerySchema, 'query'), async (req, res) => {
+router.get('/history', authMiddleware, learnerOnly, validate(historyQuerySchema, 'query'), async (req, res) => {
   try {
     const userId = req.user.userId
     const { skill, examId, page, limit } = req.validatedQuery

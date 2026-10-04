@@ -1,6 +1,7 @@
 import { Suspense, useState, useEffect, useCallback, useRef } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { ADMIN_PAGE_ROLES } from '../utils/roles'
 import { useFormDirty } from '../context/FormDirtyContext'
 import { NAV_LEAVE_MSG } from '../hooks/useUnsavedChanges'
 import { getTrashCount, onTrashChanged } from '../services/adminService'
@@ -25,21 +26,21 @@ import {
 } from 'lucide-react'
 
 const NAV_ALL = [
-  { to: '/admin',           label: 'Dashboard',       icon: LayoutDashboard, end: true,  roles: ['admin', 'teacher'] },
+  { to: '/admin',           label: 'Dashboard',       icon: LayoutDashboard, end: true,  roles: ADMIN_PAGE_ROLES['/admin'] },
   // Admin
-  { to: '/admin/users',     label: 'Người dùng',       icon: Users,           roles: ['admin'] },
-  { to: '/admin/accounts',  label: 'Quản lý nhân sự',  icon: UserCheck,       roles: ['admin'] },
+  { to: '/admin/users',     label: 'Người dùng',       icon: Users,           roles: ADMIN_PAGE_ROLES['/admin/users'] },
+  { to: '/admin/accounts',  label: 'Quản lý nhân sự',  icon: UserCheck,       roles: ADMIN_PAGE_ROLES['/admin/accounts'] },
   // Staff / Teacher / Admin
-  { to: '/admin/exams/cambridge',     label: 'Quản lý đề thi',    icon: FileText,   roles: ['admin', 'teacher'], isExam: true },
-  { to: '/admin/reading-practice',   label: 'Reading Practice',  icon: BookOpen,   roles: ['teacher'] },
-  { to: '/admin/listening-practice', label: 'Listening Practice',icon: Headphones, roles: ['teacher'] },
-  { to: '/admin/writing-samples',    label: 'Writing Samples',   icon: PenTool,    roles: ['teacher'] },
-  { to: '/admin/speaking-samples',   label: 'Speaking Samples',  icon: Mic,        roles: ['teacher'] },
-  { to: '/admin/attempts',           label: 'Lịch sử thi',       icon: History,    roles: ['admin', 'teacher'] },
-  { to: '/admin/audit-logs',         label: 'Nhật ký hoạt động', icon: ScrollText, roles: ['admin'] },
-  { to: '/admin/trash',              label: 'Đã xóa',             icon: Trash2,     roles: ['admin', 'teacher'], trash: true },
+  { to: '/admin/exams/cambridge',     label: 'Quản lý đề thi',    icon: FileText,   roles: ADMIN_PAGE_ROLES['/admin/exams'], isExam: true },
+  { to: '/admin/reading-practice',   label: 'Reading Practice',  icon: BookOpen,   roles: ADMIN_PAGE_ROLES['/admin/reading-practice'] },
+  { to: '/admin/listening-practice', label: 'Listening Practice',icon: Headphones, roles: ADMIN_PAGE_ROLES['/admin/listening-practice'] },
+  { to: '/admin/writing-samples',    label: 'Writing Samples',   icon: PenTool,    roles: ADMIN_PAGE_ROLES['/admin/writing-samples'] },
+  { to: '/admin/speaking-samples',   label: 'Speaking Samples',  icon: Mic,        roles: ADMIN_PAGE_ROLES['/admin/speaking-samples'] },
+  { to: '/admin/attempts',           label: 'Lịch sử thi',       icon: History,    roles: ADMIN_PAGE_ROLES['/admin/attempts'] },
+  { to: '/admin/audit-logs',         label: 'Nhật ký hoạt động', icon: ScrollText, roles: ADMIN_PAGE_ROLES['/admin/audit-logs'] },
+  { to: '/admin/trash',              label: 'Đã xóa',             icon: Trash2,     roles: ADMIN_PAGE_ROLES['/admin/trash'], trash: true },
   // Both
-  { to: '/admin/profile',   label: 'Cài đặt',           icon: Settings,    roles: ['admin', 'teacher'] },
+  { to: '/admin/profile',   label: 'Cài đặt',           icon: Settings,    roles: ADMIN_PAGE_ROLES['/admin/profile'] },
 ]
 
 const navCls = (isActive) =>

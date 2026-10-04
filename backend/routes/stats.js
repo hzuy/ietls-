@@ -2,6 +2,7 @@ const express = require('express')
 const groqSdk = require('groq-sdk')
 const Groq = groqSdk.Groq || groqSdk.default || groqSdk
 const authMiddleware = require('../middleware/auth')
+const { learnerOnly } = require('../lib/roles')
 const prisma = require('../lib/prisma')
 const { cleanJsonRaw, repairTruncatedJson } = require('../services/json/jsonSanitizer')
 const { getGroqModel } = require('../lib/groqClient')
@@ -335,7 +336,7 @@ async function fetchSpeakingCriteriaStats(targetUserId) {
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/stats/error-breakdown
 // ─────────────────────────────────────────────────────────────────────────────
-router.get('/error-breakdown', authMiddleware, async (req, res) => {
+router.get('/error-breakdown', authMiddleware, learnerOnly, async (req, res) => {
   try {
     const targetUserId = getTargetUserId(req, res)
     if (targetUserId === null) return
@@ -350,7 +351,7 @@ router.get('/error-breakdown', authMiddleware, async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/stats/trend
 // ─────────────────────────────────────────────────────────────────────────────
-router.get('/trend', authMiddleware, async (req, res) => {
+router.get('/trend', authMiddleware, learnerOnly, async (req, res) => {
   try {
     const targetUserId = getTargetUserId(req, res)
     if (targetUserId === null) return
@@ -366,7 +367,7 @@ router.get('/trend', authMiddleware, async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/stats/writing-criteria
 // ─────────────────────────────────────────────────────────────────────────────
-router.get('/writing-criteria', authMiddleware, async (req, res) => {
+router.get('/writing-criteria', authMiddleware, learnerOnly, async (req, res) => {
   try {
     const targetUserId = getTargetUserId(req, res)
     if (targetUserId === null) return
@@ -381,7 +382,7 @@ router.get('/writing-criteria', authMiddleware, async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/stats/speaking-criteria
 // ─────────────────────────────────────────────────────────────────────────────
-router.get('/speaking-criteria', authMiddleware, async (req, res) => {
+router.get('/speaking-criteria', authMiddleware, learnerOnly, async (req, res) => {
   try {
     const targetUserId = getTargetUserId(req, res)
     if (targetUserId === null) return
@@ -396,7 +397,7 @@ router.get('/speaking-criteria', authMiddleware, async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/stats/advice — Layer 3 AI Advisor Recommendation (4 Skills Unified)
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/advice', authMiddleware, adviceRateLimiter, async (req, res) => {
+router.post('/advice', authMiddleware, learnerOnly, adviceRateLimiter, async (req, res) => {
   try {
     const targetUserId = getTargetUserId(req, res)
     if (targetUserId === null) return

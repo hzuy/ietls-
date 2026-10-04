@@ -21,4 +21,14 @@ const teacherOnly = (req, res, next) => {
   next()
 }
 
-module.exports = { adminOnly, teacherOrAdmin, teacherOnly }
+const requireRoles = (...roles) => (req, res, next) => {
+  if (!roles.includes(req.user?.role)) {
+    return res.status(403).json({ message: 'Không có quyền truy cập' })
+  }
+  next()
+}
+
+const learnerOnly = requireRoles('user')
+const teacherStrict = requireRoles('teacher')
+
+module.exports = { adminOnly, teacherOrAdmin, teacherOnly, requireRoles, learnerOnly, teacherStrict }

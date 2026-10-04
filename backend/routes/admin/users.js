@@ -6,6 +6,7 @@ const authMiddleware = require('../../middleware/auth')
 const validate = require('../../middleware/validate')
 const { roundBand } = require('../../lib/scoreUtils')
 const { adminOnly, teacherOrAdmin } = require('../../lib/roles')
+const { invalidateAuthUser } = require('../../lib/authUser')
 const {
   adminChangePasswordSchema,
   createAccountSchema,
@@ -26,6 +27,7 @@ router.post('/make-admin', authMiddleware, adminOnly, validate(userIdSchema), as
       data: { role: 'admin' },
       select: { id: true, name: true, email: true, role: true }
     })
+    invalidateAuthUser(targetId)
     await logAuditEvent(req, {
       action: AUDIT_ACTIONS.USER_ROLE_CHANGE,
       entityType: 'User',
@@ -169,6 +171,7 @@ router.put('/users/:id/toggle-lock', authMiddleware, adminOnly, async (req, res)
     const user = await prisma.user.findUnique({ where: { id }, select: { isLocked: true, email: true } })
     if (!user) return res.status(404).json({ message: 'Không tìm thấy user' })
     const updated = await prisma.user.update({ where: { id }, data: { isLocked: !user.isLocked } })
+    invalidateAuthUser(id)
     await logAuditEvent(req, {
       action: updated.isLocked ? AUDIT_ACTIONS.USER_LOCK : AUDIT_ACTIONS.USER_UNLOCK,
       entityType: 'User',
@@ -187,6 +190,7 @@ router.delete('/users/:id', authMiddleware, adminOnly, async (req, res) => {
     if (id === req.user.userId) return res.status(400).json({ message: 'Không thể xóa tài khoản đang dùng' })
     const existing = await prisma.user.findUnique({ where: { id }, select: { email: true } })
     await prisma.user.update({ where: { id }, data: { deletedAt: new Date(), isLocked: true } })
+    invalidateAuthUser(id)
     await logAuditEvent(req, {
       action: AUDIT_ACTIONS.USER_DELETE,
       entityType: 'User',
@@ -294,6 +298,7 @@ router.put('/accounts/:id', authMiddleware, teacherOrAdmin, validate(updateAccou
       data,
       select: { id: true, name: true, email: true, role: true, isLocked: true, createdAt: true }
     })
+    invalidateAuthUser(id)
     const changedFields = {}
     if (data.role !== undefined) changedFields.role = data.role
     if (data.isLocked !== undefined) changedFields.isLocked = data.isLocked
@@ -316,6 +321,7 @@ router.delete('/accounts/:id', authMiddleware, adminOnly, async (req, res) => {
     if (id === req.user.userId) return res.status(400).json({ message: 'Không thể xóa tài khoản đang dùng' })
     const existing = await prisma.user.findUnique({ where: { id }, select: { email: true } })
     await prisma.user.delete({ where: { id } })
+    invalidateAuthUser(id)
     await logAuditEvent(req, {
       action: AUDIT_ACTIONS.STAFF_DELETE,
       entityType: 'User',
@@ -394,6 +400,7 @@ router.post('/make-teacher', authMiddleware, adminOnly, validate(userIdSchema), 
       data: { role: 'teacher' },
       select: { id: true, name: true, email: true, role: true }
     })
+    invalidateAuthUser(userId)
     await logAuditEvent(req, {
       action: AUDIT_ACTIONS.USER_ROLE_CHANGE,
       entityType: 'User',
@@ -417,6 +424,7 @@ router.post('/remove-staff', authMiddleware, adminOnly, validate(userIdSchema), 
       data: { role: 'user' },
       select: { id: true, name: true, email: true, role: true }
     })
+    invalidateAuthUser(userId)
     await logAuditEvent(req, {
       action: AUDIT_ACTIONS.USER_ROLE_CHANGE,
       entityType: 'User',

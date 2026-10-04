@@ -1,5 +1,6 @@
 const express = require('express')
 const authMiddleware = require('../middleware/auth')
+const { learnerOnly } = require('../lib/roles')
 const prisma = require('../lib/prisma')
 const { ieltsOverall } = require('../lib/scoreUtils')
 
@@ -118,7 +119,7 @@ async function getFullTestStatus(userId, seriesId, bookNumber, testNumber) {
 }
 
 // GET /full-test/status?examId=X
-router.get('/status', authMiddleware, async (req, res) => {
+router.get('/status', authMiddleware, learnerOnly, async (req, res) => {
   try {
     const userId = req.user.userId
     const examId = parseInt(req.query.examId)
@@ -140,7 +141,7 @@ router.get('/status', authMiddleware, async (req, res) => {
 })
 
 // GET /full-test/result?seriesId=X&bookNumber=Y&testNumber=Z
-router.get('/result', authMiddleware, async (req, res) => {
+router.get('/result', authMiddleware, learnerOnly, async (req, res) => {
   try {
     const userId = req.user.userId
     const { seriesId, bookNumber, testNumber } = req.query
@@ -162,7 +163,7 @@ router.get('/result', authMiddleware, async (req, res) => {
 // P2 Fix: Thay thế vòng lặp N×5 queries bằng 4 parallel queries + xử lý in-memory
 // Trước: 40 nhóm × 5 queries = 200 DB queries / request
 // Sau:   1 + 3 = 4 DB queries tổng cộng bất kể có bao nhiêu nhóm
-router.get('/user-progress', authMiddleware, async (req, res) => {
+router.get('/user-progress', authMiddleware, learnerOnly, async (req, res) => {
   try {
     const userId = req.user.userId
 

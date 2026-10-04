@@ -42,7 +42,7 @@ require.cache[storagePath] = { id: storagePath, filename: storagePath, loaded: t
 const app = require('../server')
 
 describe('routes/samples.js — audit log wiring', () => {
-  const token = jwt.sign({ userId: 4, email: 'admin@example.com', role: 'admin' }, 'test_secret_key', { expiresIn: '1h' })
+  const token = jwt.sign({ userId: 4, email: 'teacher@example.com', role: 'teacher' }, 'test_secret_key', { expiresIn: '1h' })
 
   beforeEach(() => {
     vi.clearAllMocks()

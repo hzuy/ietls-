@@ -184,21 +184,16 @@ describe('Stats Integration Routes (/api/stats)', () => {
       expect(res.body.message).toContain('Không có quyền')
     })
 
-    it('security: admin requesting another userId succeeds', async () => {
+    it('security: learner analytics endpoints are closed to staff accounts', async () => {
       prismaMock.answerLog.groupBy.mockResolvedValue([])
 
-      const res = await request(app)
-        .get('/api/stats/error-breakdown?userId=888')
-        .set('Authorization', `Bearer ${makeToken(1, 'admin')}`)
-
-      expect(res.status).toBe(200)
-      expect(prismaMock.answerLog.groupBy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            userId: 888,
-          }),
-        })
-      )
+      for (const role of ['admin', 'teacher']) {
+        const res = await request(app)
+          .get('/api/stats/error-breakdown?userId=888')
+          .set('Authorization', `Bearer ${makeToken(1, role)}`)
+        expect(res.status).toBe(403)
+      }
+      expect(prismaMock.answerLog.groupBy).not.toHaveBeenCalled()
     })
   })
 

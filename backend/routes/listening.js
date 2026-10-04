@@ -1,5 +1,6 @@
 const express = require('express')
 const authMiddleware = require('../middleware/auth')
+const { learnerOnly } = require('../lib/roles')
 const validate = require('../middleware/validate')
 const { objectiveSubmitLimiter } = require('../middleware/rateLimiter')
 const { listeningSubmitSchema, resultDetailQuerySchema } = require('../validators/submissionValidator')
@@ -110,7 +111,7 @@ router.get('/exams/:id', authMiddleware, async (req, res) => {
 })
 
 
-router.post('/exams/:id/submit', authMiddleware, objectiveSubmitLimiter, validate(listeningSubmitSchema), async (req, res) => {
+router.post('/exams/:id/submit', authMiddleware, learnerOnly, objectiveSubmitLimiter, validate(listeningSubmitSchema), async (req, res) => {
   try {
     const { answers } = req.body
     const examId = parseInt(req.params.id)
@@ -238,7 +239,7 @@ router.post('/exams/:id/submit', authMiddleware, objectiveSubmitLimiter, validat
 // ?attemptId= (tùy chọn) — xem lại một lượt cụ thể thay vì mặc định lượt mới nhất.
 // Luôn kiểm tra lượt đó thuộc về chính user đang đăng nhập VÀ đúng đề :id, nếu
 // không sẽ không tìm thấy (404) — không phân biệt "không tồn tại" hay "không phải của bạn".
-router.get('/exams/:id/result-detail', authMiddleware, validate(resultDetailQuerySchema, 'query'), async (req, res) => {
+router.get('/exams/:id/result-detail', authMiddleware, learnerOnly, validate(resultDetailQuerySchema, 'query'), async (req, res) => {
   try {
     const userId = req.user.userId
     const examId = parseInt(req.params.id)

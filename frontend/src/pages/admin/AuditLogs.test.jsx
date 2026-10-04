@@ -202,7 +202,7 @@ describe('AuditLogs page — chặn truy cập teacher (route guard)', () => {
     vi.spyOn(adminService, 'getAdminAuditLogs').mockResolvedValue({ logs: [], total: 0, page: 1, pages: 1 })
   })
 
-  it('redirects a teacher away from /admin/audit-logs instead of rendering the page', async () => {
+  it('redirects a teacher to the staff dashboard instead of rendering /admin/audit-logs', async () => {
     localStorage.setItem('token', 'fake-token')
     vi.spyOn(authContext, 'useAuth').mockReturnValue({ role: 'teacher' })
 
@@ -211,13 +211,14 @@ describe('AuditLogs page — chặn truy cập teacher (route guard)', () => {
         <MemoryRouter initialEntries={['/admin/audit-logs']}>
           <Routes>
             <Route path="/" element={<div>Trang chủ</div>} />
+            <Route path="/admin" element={<div>Bảng điều khiển</div>} />
             <Route path="/admin/audit-logs" element={<AdminRoute><AuditLogs /></AdminRoute>} />
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>
     )
 
-    expect(await screen.findByText('Trang chủ')).toBeInTheDocument()
+    expect(await screen.findByText('Bảng điều khiển')).toBeInTheDocument()
     expect(screen.queryByText('Nhật ký hoạt động')).not.toBeInTheDocument()
     localStorage.removeItem('token')
   })
@@ -231,6 +232,7 @@ describe('AuditLogs page — chặn truy cập teacher (route guard)', () => {
         <MemoryRouter initialEntries={['/admin/audit-logs']}>
           <Routes>
             <Route path="/" element={<div>Trang chủ</div>} />
+            <Route path="/admin" element={<div>Bảng điều khiển</div>} />
             <Route path="/admin/audit-logs" element={<AdminRoute><AuditLogs /></AdminRoute>} />
           </Routes>
         </MemoryRouter>

@@ -53,11 +53,7 @@ const audioUpload = multer({
   limits: { fileSize: 50 * 1024 * 1024 }
 })
 
-const teacherOrAdmin = (req, res, next) => {
-  if (req.user.role !== 'admin' && req.user.role !== 'teacher')
-    return res.status(403).json({ message: 'Không có quyền' })
-  next()
-}
+const { teacherStrict } = require('../lib/roles')
 
 // ─── PUBLIC: list ─────────────────────────────────────────────────────────────
 // Fetcher + SWR cache nằm ở lib/publicContent.js (chia sẻ cache với /api/home).
@@ -103,7 +99,7 @@ router.get('/listening/:id', authMiddleware, async (req, res) => {
 // select tường minh — KHÔNG lấy `passage` (toàn văn bài đọc, vài KB/row): bảng
 // danh sách admin chỉ cần title + thumbnail + số câu; sửa đề fetch riêng qua
 // route detail /admin/:skill/:id (vẫn trả đủ `passage`, không đụng ở đây — P7).
-router.get('/admin/reading', authMiddleware, teacherOrAdmin, async (req, res) => {
+router.get('/admin/reading', authMiddleware, teacherStrict, async (req, res) => {
   try {
     const rows = await prisma.practiceExam.findMany({
       where: { skill: 'reading', deletedAt: null },
@@ -123,7 +119,7 @@ router.get('/admin/reading', authMiddleware, teacherOrAdmin, async (req, res) =>
   } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
 })
 
-router.get('/admin/listening', authMiddleware, teacherOrAdmin, async (req, res) => {
+router.get('/admin/listening', authMiddleware, teacherStrict, async (req, res) => {
   try {
     const rows = await prisma.practiceExam.findMany({
       where: { skill: 'listening', deletedAt: null },
@@ -144,7 +140,7 @@ router.get('/admin/listening', authMiddleware, teacherOrAdmin, async (req, res) 
 })
 
 // ─── ADMIN: detail for editing ────────────────────────────────────────────────
-router.get('/admin/:skill/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
+router.get('/admin/:skill/:id', authMiddleware, teacherStrict, async (req, res) => {
   try {
     const exam = await prisma.practiceExam.findUnique({ 
       where: { id: parseInt(req.params.id) },
@@ -159,7 +155,7 @@ router.get('/admin/:skill/:id', authMiddleware, teacherOrAdmin, async (req, res)
 })
 
 // ─── ADMIN: create (FIXED) ────────────────────────────────────────────────────
-router.post('/admin/:skill', authMiddleware, teacherOrAdmin, validate(createPracticeSchema), async (req, res) => {
+router.post('/admin/:skill', authMiddleware, teacherStrict, validate(createPracticeSchema), async (req, res) => {
   const { skill } = req.params
   const { title, level, thumbnailUrl, audioUrl, passage, questions } = req.body
 
@@ -207,7 +203,7 @@ router.post('/admin/:skill', authMiddleware, teacherOrAdmin, validate(createPrac
 })
 
 // ─── ADMIN: update (FIXED) ────────────────────────────────────────────────────
-router.put('/admin/:skill/:id', authMiddleware, teacherOrAdmin, validate(updatePracticeSchema), async (req, res) => {
+router.put('/admin/:skill/:id', authMiddleware, teacherStrict, validate(updatePracticeSchema), async (req, res) => {
   const { id, skill } = req.params
   const { title, level, thumbnailUrl, audioUrl, passage, questions } = req.body
 
@@ -265,7 +261,7 @@ router.put('/admin/:skill/:id', authMiddleware, teacherOrAdmin, validate(updateP
 // Dùng khi TẠO MỚI: upload file trước, lấy URL, rồi mới tạo record với URL trong
 // body → upload fail thì không có record mồ côi thiếu file. Tái dùng đúng
 // thumbUpload/audioUpload (5MB / 50MB, lọc type) như endpoint /:id/* bên dưới.
-router.post('/admin/:skill/upload-thumbnail', authMiddleware, teacherOrAdmin, thumbUpload.single('thumbnail'), async (req, res) => {
+router.post('/admin/:skill/upload-thumbnail', authMiddleware, teacherStrict, thumbUpload.single('thumbnail'), async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
   try {
     const { url } = await uploadOptimizedCover(req.file, { dir: thumbDir, urlPrefix: '/uploads/thumbnails', folder: 'thumbnails' })
@@ -281,7 +277,7 @@ router.post('/admin/:skill/upload-thumbnail', authMiddleware, teacherOrAdmin, th
   } catch (err) { res.status(500).json({ message: 'Lỗi upload', error: err.message }) }
 })
 
-router.post('/admin/listening/upload-audio', authMiddleware, teacherOrAdmin, audioUpload.single('audio'), async (req, res) => {
+router.post('/admin/listening/upload-audio', authMiddleware, teacherStrict, audioUpload.single('audio'), async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
   try {
     const { url } = await uploadAudio(req.file, { subdir: 'audio', folder: 'audio' })
@@ -296,7 +292,7 @@ router.post('/admin/listening/upload-audio', authMiddleware, teacherOrAdmin, aud
 })
 
 // ─── ADMIN: upload thumbnail (gắn thẳng vào record :id — giữ cho tương thích) ──
-router.post('/admin/:skill/:id/thumbnail', authMiddleware, teacherOrAdmin, thumbUpload.single('thumbnail'), async (req, res) => {
+router.post('/admin/:skill/:id/thumbnail', authMiddleware, teacherStrict, thumbUpload.single('thumbnail'), async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
   try {
     const { url: thumbnailUrl } = await uploadOptimizedCover(req.file, { dir: thumbDir, urlPrefix: '/uploads/thumbnails', folder: 'thumbnails' })
@@ -317,7 +313,7 @@ router.post('/admin/:skill/:id/thumbnail', authMiddleware, teacherOrAdmin, thumb
 })
 
 // ─── ADMIN: upload audio (listening only) ────────────────────────────────────
-router.post('/admin/listening/:id/audio', authMiddleware, teacherOrAdmin, audioUpload.single('audio'), async (req, res) => {
+router.post('/admin/listening/:id/audio', authMiddleware, teacherStrict, audioUpload.single('audio'), async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
   try {
     const { url: audioUrl } = await uploadAudio(req.file, { subdir: 'audio', folder: 'audio' })
@@ -338,7 +334,7 @@ router.post('/admin/listening/:id/audio', authMiddleware, teacherOrAdmin, audioU
 })
 
 // ─── ADMIN: delete (soft) ─────────────────────────────────────────────────────
-router.delete('/admin/:skill/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
+router.delete('/admin/:skill/:id', authMiddleware, teacherStrict, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
     // Đọc tiêu đề trước khi soft-delete để entityLabel vẫn đọc được sau này.

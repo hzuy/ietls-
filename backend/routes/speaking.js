@@ -4,6 +4,7 @@ const multer = require('multer')
 const path = require('path')
 const fs = require('fs')
 const authMiddleware = require('../middleware/auth')
+const { learnerOnly } = require('../lib/roles')
 const validate = require('../middleware/validate')
 const { aiSubmitLimiter } = require('../middleware/rateLimiter')
 const { speakingSubmitSchema, transcribeSchema } = require('../validators/submissionValidator')
@@ -75,7 +76,7 @@ router.get('/exams/:id', authMiddleware, async (req, res) => {
 // nút "Thử chấm điểm lại" thay vì im lặng treo ở "Đang tổng hợp kết quả").
 // Part đang 'pending'/'grading' bị bỏ qua — không có cách tiếp tục polling sau
 // khi reload trang, giữ hành vi cũ.
-router.get('/exams/:id/my-results', authMiddleware, async (req, res) => {
+router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res) => {
   try {
     const examId = parseInt(req.params.id)
     const userId = req.user.userId
@@ -134,7 +135,7 @@ router.get('/exams/:id/my-results', authMiddleware, async (req, res) => {
 
 // ── POST /speaking/transcribe — Whisper STT fallback (Brave/Firefox/Safari) ──
 // Nhận chunk audio và dịch text. Dùng prompt context để tránh duplicate word khi chia chunk.
-router.post('/transcribe', authMiddleware, audioUpload.single('audio'), validate(transcribeSchema), async (req, res) => {
+router.post('/transcribe', authMiddleware, learnerOnly, audioUpload.single('audio'), validate(transcribeSchema), async (req, res) => {
   const filePath = req.file?.path
   const promptContext = req.body.prompt || ''
 
@@ -267,7 +268,7 @@ Trả về JSON (không có gì khác):
   }
 }
 
-router.post('/exams/:id/submit', authMiddleware, aiSubmitLimiter, validate(speakingSubmitSchema), async (req, res) => {
+router.post('/exams/:id/submit', authMiddleware, learnerOnly, aiSubmitLimiter, validate(speakingSubmitSchema), async (req, res) => {
   try {
     const { partId, transcript } = req.body
     const examId = parseInt(req.params.id)
@@ -307,7 +308,7 @@ router.post('/exams/:id/submit', authMiddleware, aiSubmitLimiter, validate(speak
 })
 
 // Endpoint cho Client polling trạng thái nhận xét Speaking
-router.get('/answers/:id/status', authMiddleware, async (req, res) => {
+router.get('/answers/:id/status', authMiddleware, learnerOnly, async (req, res) => {
   try {
     const answerId = parseInt(req.params.id)
     const answer = await prisma.speakingAnswer.findUnique({ where: { id: answerId } })
@@ -347,7 +348,7 @@ router.get('/answers/:id/status', authMiddleware, async (req, res) => {
 // yêu cầu người dùng ghi âm lại. Khác với /submit (luôn tạo answer MỚI): retry
 // chấm lại NGAY trên bản ghi cũ, dùng cho lỗi hạ tầng AI (model đổi, timeout...)
 // chứ không phải muốn nói lại nội dung (dùng nút "Nộp lại" ở FE cho trường hợp đó).
-router.post('/answers/:id/retry', authMiddleware, aiSubmitLimiter, async (req, res) => {
+router.post('/answers/:id/retry', authMiddleware, learnerOnly, aiSubmitLimiter, async (req, res) => {
   try {
     const answerId = parseInt(req.params.id)
     const answer = await prisma.speakingAnswer.findUnique({

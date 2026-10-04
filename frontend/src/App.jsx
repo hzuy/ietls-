@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClient } from './lib/queryClient'
 import { useAuth } from './context/AuthContext'
+import { ADMIN_PAGE_ROLES, STAFF_ROLES, homePathFor, isStaff } from './utils/roles'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { ToastProvider } from './context/ToastContext'
@@ -51,7 +52,6 @@ const Attempts          = lazy(() => import('./pages/admin/Attempts'))
 const AuditLogs         = lazy(() => import('./pages/admin/AuditLogs'))
 const Analytics         = lazy(() => import('./pages/admin/Analytics'))
 const Accounts          = lazy(() => import('./pages/admin/Accounts'))
-const Staff             = lazy(() => import('./pages/admin/Staff'))
 const Profile           = lazy(() => import('./pages/admin/Profile'))
 const ReadingPractice   = lazy(() => import('./pages/admin/ReadingPractice'))
 const ListeningPractice = lazy(() => import('./pages/admin/ListeningPractice'))
@@ -73,32 +73,34 @@ function PageTransition({ children }) {
   )
 }
 
-// Yêu cầu đăng nhập — mở modal nếu chưa login
-function PrivateRoute({ children }) {
+export function LearnerRoute({ children, allowGuest = false }) {
+  const { role } = useAuth()
+  const location = useLocation()
+  const token = localStorage.getItem('token')
+  if (!token) {
+    return allowGuest ? children : <Navigate to="/" replace state={{ authModal: 'login', redirectTo: location.pathname }} />
+  }
+  if (localStorage.getItem('requirePasswordChange') === 'true') return <Navigate to="/change-password" />
+  const isPreview = new URLSearchParams(location.search).get('preview') === 'true'
+  if (isStaff(role) && !isPreview) return <Navigate to="/admin" replace />
+  return children
+}
+
+export function RoleRoute({ roles, children }) {
+  const { role } = useAuth()
   const location = useLocation()
   const token = localStorage.getItem('token')
   if (!token) return <Navigate to="/" replace state={{ authModal: 'login', redirectTo: location.pathname }} />
-  if (localStorage.getItem('requirePasswordChange') === 'true') return <Navigate to="/change-password" />
+  if (!roles.includes(role)) return <Navigate to={homePathFor(role)} replace />
   return children
 }
 
-// Chỉ admin
 export function AdminRoute({ children }) {
-  const { role } = useAuth()
-  const token = localStorage.getItem('token')
-  if (!token) return <Navigate to="/" replace state={{ authModal: 'login' }} />
-  // BUG-20: Redirect to '/' instead of '/admin' to avoid redirect loop
-  if (role !== 'admin') return <Navigate to="/" />
-  return children
+  return <RoleRoute roles={['admin']}>{children}</RoleRoute>
 }
 
-// Admin hoặc teacher
-function StaffRoute({ children }) {
-  const { role } = useAuth()
-  const token = localStorage.getItem('token')
-  if (!token) return <Navigate to="/" replace state={{ authModal: 'login' }} />
-  if (role !== 'admin' && role !== 'teacher') return <Navigate to="/" />
-  return children
+function AdminPage({ path, children }) {
+  return <RoleRoute roles={ADMIN_PAGE_ROLES[path]}>{children}</RoleRoute>
 }
 
 // Ẩn footer trên admin và các trang làm bài
@@ -153,39 +155,39 @@ export default function App() {
                   <Route path="/register" element={<Navigate to="/" replace state={{ authModal: 'register' }} />} />
                   <Route path="/change-password" element={<ChangePassword />} />
                   <Route path="/reading" element={<Navigate to="/practice/reading" replace />} />
-                  <Route path="/reading/:id/result" element={<PrivateRoute><SkillResultPage skillType="reading" /></PrivateRoute>} />
-                  <Route path="/reading/:id/explanation" element={<PrivateRoute><ExamReview /></PrivateRoute>} />
-                  <Route path="/reading/:id" element={<PrivateRoute><ReadingExam /></PrivateRoute>} />
+                  <Route path="/reading/:id/result" element={<LearnerRoute><SkillResultPage skillType="reading" /></LearnerRoute>} />
+                  <Route path="/reading/:id/explanation" element={<LearnerRoute><ExamReview /></LearnerRoute>} />
+                  <Route path="/reading/:id" element={<LearnerRoute><ReadingExam /></LearnerRoute>} />
                   <Route path="/listening" element={<Navigate to="/practice/listening" replace />} />
-                  <Route path="/listening/:id/result" element={<PrivateRoute><SkillResultPage skillType="listening" /></PrivateRoute>} />
-                  <Route path="/listening/:id/explanation" element={<PrivateRoute><ListeningExam /></PrivateRoute>} />
-                  <Route path="/listening/:id" element={<PrivateRoute><ListeningExam /></PrivateRoute>} />
+                  <Route path="/listening/:id/result" element={<LearnerRoute><SkillResultPage skillType="listening" /></LearnerRoute>} />
+                  <Route path="/listening/:id/explanation" element={<LearnerRoute><ListeningExam /></LearnerRoute>} />
+                  <Route path="/listening/:id" element={<LearnerRoute><ListeningExam /></LearnerRoute>} />
                   <Route path="/writing" element={<Navigate to="/writing-samples" replace />} />
-                  <Route path="/writing/:id" element={<PrivateRoute><WritingExam /></PrivateRoute>} />
+                  <Route path="/writing/:id" element={<LearnerRoute><WritingExam /></LearnerRoute>} />
                   <Route path="/speaking" element={<Navigate to="/speaking-samples" replace />} />
-                  <Route path="/speaking/:id" element={<PrivateRoute><SpeakingExam /></PrivateRoute>} />
+                  <Route path="/speaking/:id" element={<LearnerRoute><SpeakingExam /></LearnerRoute>} />
                   {/* Màn hình làm bài luyện tập lẻ — giữ nguyên tối giản, KHÔNG bọc UserLayout/Navbar
                       (PracticeExamPage tự quyết định khi nào hiện Navbar, chỉ ở loading/not-found). */}
-                  <Route path="/practice/reading/:id" element={<PrivateRoute><PracticeExamPage skill="reading" /></PrivateRoute>} />
-                  <Route path="/practice/listening/:id" element={<PrivateRoute><PracticeExamPage skill="listening" /></PrivateRoute>} />
+                  <Route path="/practice/reading/:id" element={<LearnerRoute><PracticeExamPage skill="reading" /></LearnerRoute>} />
+                  <Route path="/practice/listening/:id" element={<LearnerRoute><PracticeExamPage skill="listening" /></LearnerRoute>} />
 
                   {/* Layout mỏng cho khu vực người dùng — chỉ render Navbar 1 lần rồi
                       <Outlet/>, không đụng wrapper/padding riêng của từng trang con. */}
-                  <Route element={<UserLayout />}>
+                  <Route element={<LearnerRoute allowGuest><UserLayout /></LearnerRoute>}>
                     <Route path="/" element={<Home />} />
-                    <Route path="/full-test" element={<PrivateRoute><FullTest /></PrivateRoute>} />
+                    <Route path="/full-test" element={<LearnerRoute><FullTest /></LearnerRoute>} />
                     <Route path="/full-test/:id" element={<FullTestDetail />} />
-                    <Route path="/cambridge" element={<PrivateRoute><SeriesPage filterPattern="Cambridge" title="IELTS Cambridge Academic" description="Trọn bộ đề thi IELTS từ NXB Cambridge (cuốn 10 - 20)" /></PrivateRoute>} />
-                    <Route path="/practice-plus" element={<PrivateRoute><SeriesPage filterPattern="Practice" title="IELTS Practice Test Plus" description="Dòng sách luyện đề chuyên sâu với độ khó cao" /></PrivateRoute>} />
-                    <Route path="/practice/reading" element={<PrivateRoute><PracticeList skill="reading" /></PrivateRoute>} />
-                    <Route path="/practice/listening" element={<PrivateRoute><PracticeList skill="listening" /></PrivateRoute>} />
+                    <Route path="/cambridge" element={<LearnerRoute><SeriesPage filterPattern="Cambridge" title="IELTS Cambridge Academic" description="Trọn bộ đề thi IELTS từ NXB Cambridge (cuốn 10 - 20)" /></LearnerRoute>} />
+                    <Route path="/practice-plus" element={<LearnerRoute><SeriesPage filterPattern="Practice" title="IELTS Practice Test Plus" description="Dòng sách luyện đề chuyên sâu với độ khó cao" /></LearnerRoute>} />
+                    <Route path="/practice/reading" element={<LearnerRoute><PracticeList skill="reading" /></LearnerRoute>} />
+                    <Route path="/practice/listening" element={<LearnerRoute><PracticeList skill="listening" /></LearnerRoute>} />
                     <Route path="/writing-samples" element={<SamplesPage skill="writing" />} />
                     <Route path="/speaking-samples" element={<SamplesPage skill="speaking" />} />
                     <Route path="/samples/writing/:id" element={<SampleDetailPage skill="writing" />} />
                     <Route path="/samples/speaking/:id" element={<SampleDetailPage skill="speaking" />} />
-                    <Route path="/full-test/result" element={<PrivateRoute><FullTestResult /></PrivateRoute>} />
-                    <Route path="/profile" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
-                    <Route path="/progress" element={<PrivateRoute><ProgressAnalysis /></PrivateRoute>} />
+                    <Route path="/full-test/result" element={<LearnerRoute><FullTestResult /></LearnerRoute>} />
+                    <Route path="/profile" element={<LearnerRoute><UserProfile /></LearnerRoute>} />
+                    <Route path="/progress" element={<LearnerRoute><ProgressAnalysis /></LearnerRoute>} />
 
                     {/* 404 Route */}
                     <Route path="*" element={<NotFound />} />
@@ -195,23 +197,24 @@ export default function App() {
                       giữa các mục nữa). Quyền hạn (AdminRoute vs StaffRoute) KHÔNG đồng nhất giữa
                       các trang con (vd /admin/users chỉ admin, /admin/attempts admin+teacher) nên
                       guard vẫn đặt riêng ở từng route con như cũ — không gộp lên route cha. */}
-                  <Route path="/admin" element={<AdminLayout />}>
-                    <Route index                    element={<StaffRoute><Analytics /></StaffRoute>} />
-                    <Route path="exams/*"           element={<StaffRoute><Admin /></StaffRoute>} />
-                    <Route path="attempts"          element={<StaffRoute><Attempts /></StaffRoute>} />
-                    <Route path="audit-logs"        element={<AdminRoute><AuditLogs /></AdminRoute>} />
+                  <Route path="/admin" element={<RoleRoute roles={STAFF_ROLES}><AdminLayout /></RoleRoute>}>
+                    <Route index                    element={<AdminPage path="/admin"><Analytics /></AdminPage>} />
+                    <Route path="exams/*"           element={<AdminPage path="/admin/exams"><Admin /></AdminPage>} />
+                    <Route path="attempts"          element={<AdminPage path="/admin/attempts"><Attempts /></AdminPage>} />
+                    <Route path="audit-logs"        element={<AdminPage path="/admin/audit-logs"><AuditLogs /></AdminPage>} />
                     <Route path="analytics"         element={<Navigate to="/admin" replace />} />
-                    <Route path="accounts"          element={<AdminRoute><Accounts /></AdminRoute>} />
-                    <Route path="users"             element={<AdminRoute><Users /></AdminRoute>} />
-                    <Route path="users/:id"         element={<AdminRoute><UserDetail /></AdminRoute>} />
-                    <Route path="staff"             element={<AdminRoute><Staff /></AdminRoute>} />
+                    <Route path="accounts"          element={<AdminPage path="/admin/accounts"><Accounts /></AdminPage>} />
+                    <Route path="users"             element={<AdminPage path="/admin/users"><Users /></AdminPage>} />
+                    <Route path="users/:id"         element={<AdminPage path="/admin/users"><UserDetail /></AdminPage>} />
+                    <Route path="staff"             element={<AdminPage path="/admin/accounts"><Navigate to="/admin/accounts" replace /></AdminPage>} />
                     <Route path="settings"          element={<Navigate to="/admin" replace />} />
-                    <Route path="profile"           element={<StaffRoute><Profile /></StaffRoute>} />
-                    <Route path="reading-practice"   element={<StaffRoute><ReadingPractice /></StaffRoute>} />
-                    <Route path="listening-practice" element={<StaffRoute><ListeningPractice /></StaffRoute>} />
-                    <Route path="writing-samples"    element={<StaffRoute><SampleManager kind="writing" /></StaffRoute>} />
-                    <Route path="speaking-samples"   element={<StaffRoute><SampleManager kind="speaking" /></StaffRoute>} />
-                    <Route path="trash"              element={<StaffRoute><Trash /></StaffRoute>} />
+                    <Route path="profile"           element={<AdminPage path="/admin/profile"><Profile /></AdminPage>} />
+                    <Route path="reading-practice"   element={<AdminPage path="/admin/reading-practice"><ReadingPractice /></AdminPage>} />
+                    <Route path="listening-practice" element={<AdminPage path="/admin/listening-practice"><ListeningPractice /></AdminPage>} />
+                    <Route path="writing-samples"    element={<AdminPage path="/admin/writing-samples"><SampleManager kind="writing" /></AdminPage>} />
+                    <Route path="speaking-samples"   element={<AdminPage path="/admin/speaking-samples"><SampleManager kind="speaking" /></AdminPage>} />
+                    <Route path="trash"              element={<AdminPage path="/admin/trash"><Trash /></AdminPage>} />
+                    <Route path="*"                  element={<Navigate to="/admin" replace />} />
                   </Route>
                 </Routes>
                 </PageTransition>

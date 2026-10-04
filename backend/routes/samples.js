@@ -35,11 +35,7 @@ const thumbUpload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }
 })
 
-const teacherOrAdmin = (req, res, next) => {
-  if (req.user.role !== 'admin' && req.user.role !== 'teacher')
-    return res.status(403).json({ message: 'Không có quyền' })
-  next()
-}
+const { teacherStrict } = require('../lib/roles')
 
 // ─── PUBLIC: list samples (home page) ────────────────────────────────────────
 // Fetcher + SWR cache nằm ở lib/publicContent.js (chia sẻ cache với /api/home).
@@ -82,7 +78,7 @@ router.get('/speaking/:id', async (req, res) => {
 })
 
 // ─── ADMIN: list all ──────────────────────────────────────────────────────────
-router.get('/admin/writing', authMiddleware, teacherOrAdmin, async (req, res) => {
+router.get('/admin/writing', authMiddleware, teacherStrict, async (req, res) => {
   try {
     const rows = await prisma.writingSample.findMany({
       where: { deletedAt: null },
@@ -95,7 +91,7 @@ router.get('/admin/writing', authMiddleware, teacherOrAdmin, async (req, res) =>
   }
 })
 
-router.get('/admin/speaking', authMiddleware, teacherOrAdmin, async (req, res) => {
+router.get('/admin/speaking', authMiddleware, teacherStrict, async (req, res) => {
   try {
     const rows = await prisma.speakingSample.findMany({
       where: { deletedAt: null },
@@ -109,7 +105,7 @@ router.get('/admin/speaking', authMiddleware, teacherOrAdmin, async (req, res) =
 })
 
 // ─── ADMIN: get full detail ───────────────────────────────────────────────────
-router.get('/admin/writing/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
+router.get('/admin/writing/:id', authMiddleware, teacherStrict, async (req, res) => {
   try {
     const s = await prisma.writingSample.findUnique({ where: { id: parseInt(req.params.id) } })
     if (!s) return res.status(404).json({ message: 'Không tìm thấy' })
@@ -119,7 +115,7 @@ router.get('/admin/writing/:id', authMiddleware, teacherOrAdmin, async (req, res
   }
 })
 
-router.get('/admin/speaking/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
+router.get('/admin/speaking/:id', authMiddleware, teacherStrict, async (req, res) => {
   try {
     const s = await prisma.speakingSample.findUnique({ 
       where: { id: parseInt(req.params.id) },
@@ -133,7 +129,7 @@ router.get('/admin/speaking/:id', authMiddleware, teacherOrAdmin, async (req, re
 })
 
 // ─── ADMIN: create ────────────────────────────────────────────────────────────
-router.post('/admin/writing', authMiddleware, teacherOrAdmin, validate(createSampleSchema), async (req, res) => {
+router.post('/admin/writing', authMiddleware, teacherStrict, validate(createSampleSchema), async (req, res) => {
   try {
     const { title, level, examType, content, thumbnailUrl, tags } = req.body
     const s = await prisma.writingSample.create({
@@ -152,7 +148,7 @@ router.post('/admin/writing', authMiddleware, teacherOrAdmin, validate(createSam
   }
 })
 
-router.post('/admin/speaking', authMiddleware, teacherOrAdmin, validate(createSampleSchema), async (req, res) => {
+router.post('/admin/speaking', authMiddleware, teacherStrict, validate(createSampleSchema), async (req, res) => {
   try {
     const { title, level, examType, content, thumbnailUrl, tags } = req.body
     const s = await prisma.speakingSample.create({
@@ -172,7 +168,7 @@ router.post('/admin/speaking', authMiddleware, teacherOrAdmin, validate(createSa
 })
 
 // ─── ADMIN: update ────────────────────────────────────────────────────────────
-router.put('/admin/writing/:id', authMiddleware, teacherOrAdmin, validate(updateSampleSchema), async (req, res) => {
+router.put('/admin/writing/:id', authMiddleware, teacherStrict, validate(updateSampleSchema), async (req, res) => {
   try {
     const { title, level, examType, content, thumbnailUrl, tags } = req.body
     const data = {}
@@ -196,7 +192,7 @@ router.put('/admin/writing/:id', authMiddleware, teacherOrAdmin, validate(update
   }
 })
 
-router.put('/admin/speaking/:id', authMiddleware, teacherOrAdmin, validate(updateSampleSchema), async (req, res) => {
+router.put('/admin/speaking/:id', authMiddleware, teacherStrict, validate(updateSampleSchema), async (req, res) => {
   try {
     const { title, level, examType, content, thumbnailUrl, tags } = req.body
     const data = {}
@@ -231,11 +227,11 @@ const uploadThumbToUrl = async (req, res) => {
     res.json({ url })
   } catch (err) { res.status(500).json({ message: 'Lỗi upload', error: err.message }) }
 }
-router.post('/admin/writing/upload-thumbnail', authMiddleware, teacherOrAdmin, thumbUpload.single('thumbnail'), uploadThumbToUrl)
-router.post('/admin/speaking/upload-thumbnail', authMiddleware, teacherOrAdmin, thumbUpload.single('thumbnail'), uploadThumbToUrl)
+router.post('/admin/writing/upload-thumbnail', authMiddleware, teacherStrict, thumbUpload.single('thumbnail'), uploadThumbToUrl)
+router.post('/admin/speaking/upload-thumbnail', authMiddleware, teacherStrict, thumbUpload.single('thumbnail'), uploadThumbToUrl)
 
 // ─── ADMIN: upload thumbnail (gắn thẳng vào record :id — giữ cho tương thích) ──
-router.post('/admin/writing/:id/thumbnail', authMiddleware, teacherOrAdmin,
+router.post('/admin/writing/:id/thumbnail', authMiddleware, teacherStrict,
   thumbUpload.single('thumbnail'), async (req, res) => {
     if (!req.file) return res.status(400).json({ message: 'Không có file' })
     try {
@@ -255,7 +251,7 @@ router.post('/admin/writing/:id/thumbnail', authMiddleware, teacherOrAdmin,
   }
 )
 
-router.post('/admin/speaking/:id/thumbnail', authMiddleware, teacherOrAdmin,
+router.post('/admin/speaking/:id/thumbnail', authMiddleware, teacherStrict,
   thumbUpload.single('thumbnail'), async (req, res) => {
     if (!req.file) return res.status(400).json({ message: 'Không có file' })
     try {
@@ -276,7 +272,7 @@ router.post('/admin/speaking/:id/thumbnail', authMiddleware, teacherOrAdmin,
 )
 
 // ─── ADMIN: delete (soft) ─────────────────────────────────────────────────────
-router.delete('/admin/writing/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
+router.delete('/admin/writing/:id', authMiddleware, teacherStrict, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
     // Đọc tiêu đề trước khi soft-delete để entityLabel vẫn đọc được sau này.
@@ -293,7 +289,7 @@ router.delete('/admin/writing/:id', authMiddleware, teacherOrAdmin, async (req, 
   } catch (err) { res.status(500).json({ message: 'Lỗi xóa', error: err.message }) }
 })
 
-router.delete('/admin/speaking/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
+router.delete('/admin/speaking/:id', authMiddleware, teacherStrict, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
     const existing = await prisma.speakingSample.findUnique({ where: { id }, select: { title: true } })

@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const prisma = require('../lib/prisma')
 const authMiddleware = require('../middleware/auth')
+const { learnerOnly } = require('../lib/roles')
 const groqSdk = require('groq-sdk')
 const Groq = groqSdk.Groq || groqSdk.default || groqSdk
 const { getGroqModel } = require('../lib/groqClient')
@@ -399,7 +400,7 @@ async function completeChat(groq, messages) {
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/chatbot/message — Chatbot AI endpoint
 // ─────────────────────────────────────────────────────────────────────────────
-router.post(['/message', '/chat'], authMiddleware, chatbotRateLimiter, async (req, res) => {
+router.post(['/message', '/chat'], authMiddleware, learnerOnly, chatbotRateLimiter, async (req, res) => {
   try {
     const targetUserId = req.user.userId
     const { message, conversationHistory, pageContext } = req.body

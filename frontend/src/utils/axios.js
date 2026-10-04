@@ -24,7 +24,9 @@ api.interceptors.response.use(
     const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/google')
     const isSettingsEndpoint = url.includes('/admin/settings')
 
-    if (status === 401 && !isAuthEndpoint && !isSettingsEndpoint) {
+    const isLockedAccount = status === 403 && error.response?.data?.code === 'ACCOUNT_LOCKED'
+
+    if ((status === 401 || isLockedAccount) && !isAuthEndpoint && !isSettingsEndpoint) {
       // Chỉ xóa token và redirect khi thực sự bị hết hạn session trên protected route
       localStorage.removeItem('token')
       localStorage.removeItem('user')
