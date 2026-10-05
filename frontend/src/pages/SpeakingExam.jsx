@@ -7,11 +7,10 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
 import { useSpeechRecording } from '../hooks/useSpeechRecording'
-import { Mic, X, Square, Play, Pause, AlertCircle, RotateCcw, Sparkles, Eye, Volume2 } from 'lucide-react'
+import { Mic, X, Square, Play, Pause, AlertCircle, RotateCcw, Sparkles, Eye, Volume2, History } from 'lucide-react'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
 import { renderFeedbackList } from '../utils/feedbackList'
-import { askAITutor } from '../components/common/AIChatbotDrawer'
 import ExitConfirmModal from '../components/common/ExitConfirmModal'
 
 const CRITERIA_LABELS = {
@@ -53,6 +52,7 @@ export default function SpeakingExam() {
   const [searchParams] = useSearchParams()
   const previewMode = searchParams.get('preview') === 'true'
   const resumeMode = searchParams.get('resume') === 'true'
+  const viewResultMode = searchParams.get('viewResult') === 'true'
   const { user } = useAuth()
   const { showToast } = useToast()
 
@@ -70,6 +70,7 @@ export default function SpeakingExam() {
   // hỗ trợ NHIỀU part lỗi cùng lúc (vd. cả 3 part cùng lỗi model Groq).
   const [gradingErrors, setGradingErrors] = useState({})
   const [retryingPart, setRetryingPart] = useState(null)
+  const [hasPastResults, setHasPastResults] = useState(false)
   const [confirmResubmitId, setConfirmResubmitId] = useState(null) // partId đang chờ xác nhận "Nộp lại"
   const [fullTestStatus, setFullTestStatus] = useState(null)
   const [playingPartId, setPlayingPartId] = useState(null)
@@ -206,20 +207,40 @@ export default function SpeakingExam() {
     ])
       .then(([data, myResults]) => {
         setExam(data)
+        
+        // ── Resume draft cục bộ (logic cũ, dùng functional update để không
+        //    clobber phần state mà nhánh khôi phục vừa set) ─────────────────
+        let draftTranscripts = null
+        let draftIds = []
+        let activeDraft = false
+        if (user) {
+          const userId = user.id || user._id
+          const draft = loadDraft(userId, id, 'speaking')
+          // Cho phép tự động load draft kể cả không có ?resume=true
+          if (draft?.data && !isDataEmpty(draft.data)) {
+            draftTranscripts = draft.data.transcripts || {}
+            draftIds = Array.isArray(draft.data.submittedPartIds) ? draft.data.submittedPartIds : []
+            activeDraft = true
+            setTranscripts(prev => ({ ...prev, ...draftTranscripts }))
+            setSubmittedPartIds(prev => Array.from(new Set([...prev, ...draftIds])))
+            if (draft.savedAt) setLastSavedAt(new Date(draft.savedAt))
+          }
+        }
 
         // ── Khôi phục kết quả đã chấm (status 'graded') ─────────────────────
-        // Set `results` + `submittedPartIds` cho part có trong response, và
-        // `transcripts` (để ô "Bài nói của bạn" hiển thị lại đúng).
-        // Part với bản ghi mới nhất 'failed' (vd. lỗi model Groq) KHÔNG được coi
-        // là "đã nộp" — nạp vào `gradingErrors` để hiện banner lỗi + nút thử lại,
-        // thay vì im lặng treo ở "Đang tổng hợp kết quả" như trước.
+        // NẾU có draft đang dang dở (hoặc vừa bấm Làm lại), CHỈ khôi phục
+        // kết quả của những part thuộc attempt hiện tại (nằm trong draft).
         const restoredResults = {}
         const restoredTranscripts = {}
         const restoredIds = []
         const restoredErrors = {}
         if (Array.isArray(myResults)) {
+          if (myResults.length > 0) setHasPastResults(true)
           for (const entry of myResults) {
             if (!entry || entry.partId == null) continue
+            // Lọc bớt result cũ nếu không phải ở chế độ xem lại (viewResultMode)
+            if (!viewResultMode && (!activeDraft || !draftIds.includes(entry.partId))) continue;
+
             if (entry.status === 'graded') {
               restoredResults[entry.partId] = entry
               restoredIds.push(entry.partId)
@@ -242,22 +263,7 @@ export default function SpeakingExam() {
           setGradingErrors(prev => ({ ...restoredErrors, ...prev }))
         }
 
-        // ── Resume draft cục bộ (logic cũ, dùng functional update để không
-        //    clobber phần state mà nhánh khôi phục vừa set) ─────────────────
-        let draftTranscripts = null
-        let draftIds = []
-        if (resumeMode && user) {
-          const userId = user.id || user._id
-          const draft = loadDraft(userId, id, 'speaking')
-          if (draft?.data && !isDataEmpty(draft.data)) {
-            draftTranscripts = draft.data.transcripts || {}
-            draftIds = Array.isArray(draft.data.submittedPartIds) ? draft.data.submittedPartIds : []
-            setTranscripts(prev => ({ ...prev, ...draftTranscripts }))
-            setSubmittedPartIds(prev => Array.from(new Set([...prev, ...draftIds])))
-            if (draft.savedAt) setLastSavedAt(new Date(draft.savedAt))
-          }
-          setPhase('exam')
-        }
+        setPhase('exam')
       })
       .catch((err) => {
         setError(err?.response?.data?.message || err?.message || 'Không tìm thấy đề thi hoặc kết nối bị gián đoạn.')
@@ -556,23 +562,27 @@ export default function SpeakingExam() {
                   </div>
                 </div>
 
-                {/* Cột 3: Đúng 2 nút hành động cốt lõi */}
+                {/* Cột 3: Nút hành động */}
                 <div className="flex flex-col gap-2.5 justify-center w-full max-w-[220px] mx-auto">
                   <button
                     type="button"
-                    onClick={() => window.location.reload()}
+                    onClick={() => {
+                      if (user) {
+                        clearDraft(user.id || user._id, id, 'speaking')
+                        saveDraft({
+                          userId: user.id || user._id,
+                          examId: id,
+                          skillType: 'speaking',
+                          data: { transcripts: {}, submittedPartIds: [], isRetake: true },
+                          timeRemaining: null
+                        })
+                      }
+                      window.location.href = window.location.pathname
+                    }}
                     className="h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer shadow-xs"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Làm lại bài thi</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => askAITutor(`Tôi vừa hoàn thành bài thi Speaking "${exam.title}" với điểm Overall Band ${overallBand} (${partScores.map((s, i) => `Part ${i + 1}: Band ${s}`).join(', ')}). Nhờ AI phân tích các tiêu chí cần ưu tiên nâng điểm và gợi ý phương pháp luyện phát âm/phản xạ giúp tôi.`)}
-                    className="h-9 px-5 rounded-full border border-zinc-200 hover:bg-zinc-50 text-zinc-700 text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer bg-white"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Hỏi AI phân tích bài làm</span>
                   </button>
                 </div>
               </div>
@@ -676,16 +686,6 @@ export default function SpeakingExam() {
                         </div>
                       )}
                     </div>
-
-                    {/* AI tutor action button */}
-                    <button
-                      type="button"
-                      onClick={() => askAITutor(`Tôi vừa hoàn thành IELTS Speaking Part ${part.number} (${partTitle}) với kết quả Band ${r.overall} (Trôi chảy: ${fluencyScore}, Từ vựng: ${vocabScore}, Ngữ pháp: ${grammarScore}, Phát âm: ${pronScore}). Bài nói của tôi: "${transcripts[part.id]}". Hãy phân tích lỗi ngữ pháp/phát âm cụ thể và gợi ý cách diễn đạt band 7.5+ giúp tôi.`)}
-                      className="h-8 px-4 rounded-full text-xs font-medium text-zinc-700 hover:text-zinc-900 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                      Hỏi AI Tutor câu này
-                    </button>
                   </div>
                 )
               })}
@@ -1197,7 +1197,7 @@ export default function SpeakingExam() {
     <ExitConfirmModal open={showExitModal} onStay={stayInExam} onLeave={() => leaveExam(exitPath)} />
 
     {/* Loading overlay khi nộp bài */}
-    {submitting && (
+    {(submitting && exam.speakingParts.filter(p => !isPartDone(p.id)).length <= 1) && (
       <div className="fixed inset-0 z-50 bg-white/80 backdrop-blur-xs flex flex-col items-center justify-center gap-3">
         <div className="w-10 h-10 border-3 border-zinc-200 border-t-zinc-900 rounded-full animate-spin" />
         <p className="text-sm font-medium text-zinc-700">Đang chấm điểm và tổng hợp kết quả...</p>

@@ -5,9 +5,8 @@
  */
 import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { RotateCcw, AlertCircle, Sparkles, X, Check, History } from 'lucide-react'
+import { RotateCcw, AlertCircle, X, Check, History } from 'lucide-react'
 import api from '../utils/axios'
-import { askAITutor } from './common/AIChatbotDrawer'
 import QuestionTypeBreakdown from './exam/QuestionTypeBreakdown'
 import useCountUp from '../hooks/useCountUp'
 import { UserResultSkeleton } from './skeletons'
@@ -197,11 +196,19 @@ export function formatDisplayAnswer(answer, options) {
   return mapOne(answer)
 }
 
-function AnswerRow({ q, onAskAI }) {
+function AnswerRow({ q }) {
   // ── Grouped "In either order" (mcq_multi) ──────────────────────
   if (q.grouped) {
+    // Show group header once, then each sub-row
+    const numbersLabel = q.numbers.join(' & ')
     return (
-      <React.Fragment>
+      <div style={{ borderBottom: '1px solid #f4f4f5', paddingBottom: 6, marginBottom: 2 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0 2px' }}>
+          {q.numbers.map(n => (
+            <QNum key={n} num={n} status={q.statuses?.[q.numbers.indexOf(n)] ?? 'missed'} />
+          ))}
+          <span style={{ fontSize: 11, color: '#a1a1aa', fontStyle: 'italic' }}>In either order</span>
+        </div>
         {q.numbers.map((num, i) => {
           const rowStatus = q.statuses?.[i] ?? 'missed'
           const rowUserAns = formatDisplayAnswer(q.userAnswers?.[i], q.options)
@@ -209,50 +216,21 @@ function AnswerRow({ q, onAskAI }) {
           const rawUser = q.rawUserAnswers?.[i] || q.userAnswers?.[i]
           const rawCorrect = q.rawAnswers?.[i] || q.answers?.[i]
           const skipped = isMissed(rowUserAns)
-          const isWrongOrSkipped = rowStatus === 'wrong' || skipped
-          const isLast = i === q.numbers.length - 1
-
           return (
-            <div key={num} className="answer-row group flex flex-col py-1 border-b border-zinc-100 last:border-0">
-              <div className="h-11 min-h-[44px] flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 min-w-0 flex-1 flex-nowrap overflow-hidden">
-                  <QNum num={num} status={rowStatus} />
-                  {skipped ? (
-                    <MissedLabel />
-                  ) : rowStatus === 'wrong' ? (
-                    <span
-                      title={String(rawUser || rowUserAns)}
-                      className="text-error line-through text-xs sm:text-sm font-medium truncate max-w-[180px] sm:max-w-[240px] whitespace-nowrap"
-                    >
-                      {rowUserAns}
-                    </span>
-                  ) : (
-                    <span className="text-zinc-400 text-xs sm:text-sm font-medium shrink-0">Đúng</span>
-                  )}
-                  <span className="text-zinc-300 shrink-0">|</span>
-                  <span
-                    title={String(rawCorrect || rowCorrectAns)}
-                    className="text-success font-semibold text-xs sm:text-sm truncate max-w-[180px] sm:max-w-[240px] whitespace-nowrap"
-                  >
-                    {rowCorrectAns}
-                  </span>
-                </div>
-                {isWrongOrSkipped && onAskAI && (
-                  <button
-                    type="button"
-                    onClick={() => onAskAI(num, rowUserAns, rowCorrectAns, rawUser, rawCorrect)}
-                    title="Hỏi AI Tutor giải thích câu này"
-                    className="shrink-0 text-[11px] font-medium text-zinc-600 hover:text-zinc-900 flex items-center gap-1 px-3 py-1 rounded-full bg-zinc-50 hover:bg-zinc-100 transition cursor-pointer border border-zinc-200 shadow-2xs"
-                  >
-                    <Sparkles className="w-3 h-3 text-amber-500" />
-                    <span>Hỏi AI Tutor</span>
-                  </button>
-                )}
-              </div>
+            <div key={num} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0 2px 8px' }}>
+              {skipped ? (
+                <span style={{ fontSize: 13, color: '#a1a1aa', fontWeight: 500 }}>Missed</span>
+              ) : rowStatus === 'wrong' ? (
+                <span title={String(rawUser || rowUserAns)} style={{ fontSize: 13, color: 'var(--error)', fontWeight: 500, textDecoration: 'line-through' }}>{rowUserAns}</span>
+              ) : (
+                <span style={{ fontSize: 13, color: '#71717a', fontWeight: 500 }}>Đúng</span>
+              )}
+              <span style={{ color: '#d4d4d8', fontSize: 12 }}>|</span>
+              <span title={String(rawCorrect || rowCorrectAns)} style={{ fontSize: 13, color: 'var(--success)', fontWeight: 600 }}>{rowCorrectAns}</span>
             </div>
           )
         })}
-      </React.Fragment>
+      </div>
     )
   }
 
@@ -263,87 +241,78 @@ function AnswerRow({ q, onAskAI }) {
   const rawCorrect = q.rawCorrectAnswer || q.correctAnswer
   const skipped = isMissed(displayUser)
   const effectiveStatus = skipped ? 'missed' : q.status
-  const isWrongOrSkipped = effectiveStatus === 'wrong' || skipped
 
   return (
-    <div className="answer-row group flex flex-col py-1 border-b border-zinc-100 last:border-0">
-      <div className="h-11 min-h-[44px] flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 min-w-0 flex-1 flex-nowrap overflow-hidden">
-          <QNum num={q.number} status={effectiveStatus} />
-          {skipped ? (
-            <MissedLabel />
-          ) : effectiveStatus === 'wrong' ? (
-            <span
-              title={String(rawUser || displayUser)}
-              className="text-error line-through text-xs sm:text-sm font-medium truncate max-w-[180px] sm:max-w-[240px] whitespace-nowrap"
-            >
-              {displayUser}
-            </span>
-          ) : (
-            <span className="text-zinc-400 text-xs sm:text-sm font-medium shrink-0">Đúng</span>
-          )}
-          <span className="text-zinc-300 shrink-0">|</span>
-          <span
-            title={String(rawCorrect || displayCorrect)}
-            className="text-success font-semibold text-xs sm:text-sm truncate max-w-[180px] sm:max-w-[240px] whitespace-nowrap"
-          >
-            {displayCorrect}
-          </span>
-        </div>
-        {isWrongOrSkipped && onAskAI && (
-          <button
-            type="button"
-            onClick={() => onAskAI(q.number, displayUser, displayCorrect, rawUser, rawCorrect)}
-            title="Hỏi AI Tutor giải thích câu này"
-            className="shrink-0 text-[11px] font-medium text-zinc-600 hover:text-zinc-900 flex items-center gap-1 px-3 py-1 rounded-full bg-zinc-50 hover:bg-zinc-100 transition cursor-pointer border border-zinc-200 shadow-2xs"
-          >
-            <Sparkles className="w-3 h-3 text-amber-500" />
-            <span>Hỏi AI Tutor</span>
-          </button>
-        )}
-      </div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid #f4f4f5' }}>
+      <QNum num={q.number} status={effectiveStatus} />
+      {skipped ? (
+        <span style={{ fontSize: 13, color: '#a1a1aa', fontWeight: 500 }}>Missed</span>
+      ) : effectiveStatus === 'wrong' ? (
+        <span title={String(rawUser || displayUser)} style={{ fontSize: 13, color: 'var(--error)', fontWeight: 500, textDecoration: 'line-through', maxWidth: 120, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{displayUser}</span>
+      ) : (
+        <span style={{ fontSize: 13, color: '#71717a', fontWeight: 500 }}>Đúng</span>
+      )}
+      <span style={{ color: '#d4d4d8', fontSize: 12, flexShrink: 0 }}>|</span>
+      <span title={String(rawCorrect || displayCorrect)} style={{ fontSize: 13, color: 'var(--success)', fontWeight: 600, maxWidth: 160, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{displayCorrect}</span>
     </div>
   )
 }
 
-function SectionBlock({ section, skillType, filterStatus = 'all', onAskAI }) {
+export function splitQuestionsForTwoColumns(questions) {
+  if (!questions || questions.length <= 1) {
+    return { col1: questions || [], col2: [] }
+  }
+  const totalCount = questions.reduce((acc, q) => acc + (q.numbers?.length || 1), 0)
+  const target = Math.ceil(totalCount / 2)
+  let count = 0
+  let splitIdx = 1
+  for (let i = 0; i < questions.length; i++) {
+    count += (questions[i].numbers?.length || 1)
+    if (count >= target) {
+      splitIdx = i + 1
+      break
+    }
+  }
+  return {
+    col1: questions.slice(0, splitIdx),
+    col2: questions.slice(splitIdx),
+  }
+}
+
+function SectionBlock({ section, skillType }) {
   const label = skillType === 'reading'
     ? `PASSAGE ${section.number} (QUESTION ${section.from} – ${section.to})`
     : `SECTION ${section.number} (QUESTION ${section.from} – ${section.to})`
 
-  const filteredQuestions = (section.questions || []).filter(q => {
-    if (filterStatus === 'all') return true
-    if (q.grouped) {
-      return (q.statuses || []).some((st, i) => {
-        const skipped = isMissed(q.userAnswers?.[i])
-        const eff = skipped ? 'missed' : st
-        return eff === filterStatus
-      })
-    }
-    const skipped = isMissed(q.userAnswer)
-    const eff = skipped ? 'missed' : q.status
-    return eff === filterStatus
-  })
-
-  if (filterStatus !== 'all' && filteredQuestions.length === 0) {
-    return null
-  }
+  const questions = section.questions || []
+  const { col1, col2 } = splitQuestionsForTwoColumns(questions)
 
   return (
     <div>
       <p style={{
         fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
         textTransform: 'uppercase', color: 'var(--subtle)',
-        margin: '16px 0 8px',
+        margin: '0 0 10px',
       }}>
         {label}
       </p>
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-        gap: '6px 36px'
+        gridTemplateColumns: col2.length > 0 ? 'repeat(2, 1fr)' : '1fr',
+        gap: '0 48px',
       }}>
-        {filteredQuestions.map((q, i) => <AnswerRow key={i} q={q} onAskAI={onAskAI} />)}
+        <div>
+          {col1.map((q, i) => (
+            <AnswerRow key={q.number || (q.numbers ? q.numbers.join('-') : i)} q={q} />
+          ))}
+        </div>
+        {col2.length > 0 && (
+          <div>
+            {col2.map((q, i) => (
+              <AnswerRow key={q.number || (q.numbers ? q.numbers.join('-') : `col2-${i}`)} q={q} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -428,7 +397,15 @@ function ScoreRing({ score, maxScore, isPractice, correct, totalQuestions, bandS
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function SkillResult({ examId: examIdProp, skillType, onClose, dataProp, isPractice }) {
+export default function SkillResult({
+  examId: examIdProp,
+  skillType,
+  onClose,
+  dataProp,
+  isPractice,
+  isAnswerSheet: isAnswerSheetProp,
+}) {
+  const isAnswerSheet = isAnswerSheetProp ?? (!isPractice && !!onClose)
   const { id: examIdParam } = useParams()
   const examId = examIdProp ?? examIdParam   // prop takes priority, fallback to URL :id
   const navigate = useNavigate()
@@ -441,7 +418,7 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
-  const [filterStatus, setFilterStatus] = useState('all')
+  // filterStatus removed — all questions shown at once
 
   useEffect(() => {
     if (dataProp) {
@@ -523,44 +500,55 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
 
   const { bookName, testNumber, bandScore, correct, wrong, missed, totalQuestions, questionTypes, sections } = data
 
-  const handleAskAI = (questionNum, userAns, correctAns, rawUserAns, rawCorrectAns) => {
-    const finalUser = rawUserAns || userAns
-    const finalCorrect = rawCorrectAns || correctAns
-    const prompt = `Trong bài thi ${bookName || ''} Test ${testNumber || ''} (${skillLabel}), câu hỏi số ${questionNum}: đáp án của tôi là "${finalUser || 'bỏ qua'}", nhưng đáp án đúng là "${finalCorrect}". Giải thích giúp tôi tại sao đáp án đúng lại là "${finalCorrect}" và phân tích lỗi sai trong câu trả lời của tôi.`
-    askAITutor(prompt)
-  }
+  const isModal = !!onClose
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] font-sans text-zinc-900">
+    <div className={`${isModal ? '' : 'min-h-screen'} bg-[var(--bg)] font-sans text-zinc-900`}>
 
       {/* ── Sticky Header ── */}
-      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 py-3 flex items-center">
-        <div style={{ flex: 1 }} />
-        <div style={{ textAlign: 'center' }}>
-          <p className="font-bold text-sm text-zinc-900 m-0">
-            Answer key — {skillLabel}
-          </p>
-          <p className="text-xs text-zinc-500 m-0">
-            {bookName} · Test {testNumber}
-          </p>
-        </div>
-        <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
+      {isAnswerSheet ? (
+        <div className="sticky top-0 z-20 bg-white border-b border-zinc-100 px-6 py-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-zinc-900 m-0">Answer Sheet</h2>
           <button
             type="button"
             onClick={handleClose}
             aria-label="Đóng"
-            className="w-8 h-8 rounded-full border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-bold cursor-pointer flex items-center justify-center transition"
+            className="w-8 h-8 rounded-full border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-600 flex items-center justify-center transition cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
-      </div>
+      ) : (
+        <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 py-3 flex items-center">
+          <div style={{ flex: 1 }} />
+          <div style={{ textAlign: 'center' }}>
+            <p className="font-bold text-sm text-zinc-900 m-0">
+              Answer key — {skillLabel}
+            </p>
+            <p className="text-xs text-zinc-500 m-0">
+              {bookName} · Test {testNumber}
+            </p>
+          </div>
+          <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
+            {onClose && (
+              <button
+                type="button"
+                onClick={handleClose}
+                aria-label="Đóng"
+                className="w-8 h-8 rounded-full border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-bold cursor-pointer flex items-center justify-center transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
-      <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-16">
+      <div className={isAnswerSheet ? "w-full px-6 py-6 pb-12" : "w-full max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-16"}>
 
         {/* Đang xem lại một lượt đã làm trước đây (vào từ /history) — luồng nộp bài
             xong xem kết quả ngay không có attemptId nên KHÔNG hiện banner này. */}
-        {attemptId && (
+        {!isAnswerSheet && attemptId && (
           <div className="w-full max-w-4xl mx-auto mb-6 rounded-2xl px-4 py-3 flex flex-wrap items-center gap-x-3 gap-y-2 anim-fade-up"
             style={{ background: 'var(--warning-bg)', border: '1px solid var(--warning-border)' }}
           >
@@ -581,85 +569,79 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
         )}
 
         {/* ── Score Card Hero Section ── */}
-        <div className="w-full max-w-4xl mx-auto bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs mb-8 anim-fade-up">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-            {/* Cột 1: Vòng tròn Band Score lớn & thông tin điểm */}
-            <div className="flex items-center justify-center gap-4">
-              <ScoreRing 
-                score={isPractice ? correct : (typeof bandScore === 'number' ? bandScore : 0)} 
-                maxScore={isPractice ? totalQuestions : 9} 
-                isPractice={isPractice} 
-                correct={correct} 
-                totalQuestions={totalQuestions} 
-                bandScore={bandScore} 
-              />
-              <div className="flex flex-col items-start">
-                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
-                  {isPractice ? 'Practice Score' : 'Band Score'}
-                </span>
-                <p className="text-sm font-bold text-zinc-900 m-0">
-                  Đúng: {correct}/{totalQuestions} câu
-                </p>
-                <p className="text-xs text-zinc-500 m-0 mt-0.5">
-                  Độ chính xác: {totalQuestions ? Math.round((correct / totalQuestions) * 100) : 0}%
-                </p>
+        {!isAnswerSheet && (
+          <div className="w-full max-w-4xl mx-auto bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs mb-8 anim-fade-up">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+              {/* Cột 1: Vòng tròn Band Score lớn & thông tin điểm */}
+              <div className="flex items-center justify-center gap-4">
+                <ScoreRing 
+                  score={isPractice ? correct : (typeof bandScore === 'number' ? bandScore : 0)} 
+                  maxScore={isPractice ? totalQuestions : 9} 
+                  isPractice={isPractice} 
+                  correct={correct} 
+                  totalQuestions={totalQuestions} 
+                  bandScore={bandScore} 
+                />
+                <div className="flex flex-col items-start">
+                  <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                    {isPractice ? 'Practice Score' : 'Band Score'}
+                  </span>
+                  <p className="text-sm font-bold text-zinc-900 m-0">
+                    Đúng: {correct}/{totalQuestions} câu
+                  </p>
+                  <p className="text-xs text-zinc-500 m-0 mt-0.5">
+                    Độ chính xác: {totalQuestions ? Math.round((correct / totalQuestions) * 100) : 0}%
+                  </p>
+                </div>
               </div>
-            </div>
 
-            {/* Cột 2: Tóm tắt 3 chỉ số ngắn gọn trên 1 hàng/cột */}
-            <div className="flex flex-col justify-center items-center md:items-start border-t md:border-t-0 md:border-x border-zinc-100 px-6 py-2 gap-2">
-              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-0.5">
-                Tổng quan kết quả
-              </span>
-              <div className="h-2 w-full bg-zinc-100 rounded-full overflow-hidden flex">
-                {totalQuestions > 0 && (
-                  <>
-                    <div className="h-full bg-success transition-all duration-500" style={{ width: `${(correct / totalQuestions) * 100}%` }} />
-                    <div className="h-full bg-error transition-all duration-500" style={{ width: `${(wrong / totalQuestions) * 100}%` }} />
-                    <div className="h-full bg-zinc-400 transition-all duration-500" style={{ width: `${(missed / totalQuestions) * 100}%` }} />
-                  </>
-                )}
+              {/* Cột 2: Tóm tắt 3 chỉ số ngắn gọn trên 1 hàng/cột */}
+              <div className="flex flex-col justify-center items-center md:items-start border-t md:border-t-0 md:border-x border-zinc-100 px-6 py-2 gap-2">
+                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-0.5">
+                  Tổng quan kết quả
+                </span>
+                <div className="h-2 w-full bg-zinc-100 rounded-full overflow-hidden flex">
+                  {totalQuestions > 0 && (
+                    <>
+                      <div className="h-full bg-success transition-all duration-500" style={{ width: `${(correct / totalQuestions) * 100}%` }} />
+                      <div className="h-full bg-error transition-all duration-500" style={{ width: `${(wrong / totalQuestions) * 100}%` }} />
+                      <div className="h-full bg-zinc-400 transition-all duration-500" style={{ width: `${(missed / totalQuestions) * 100}%` }} />
+                    </>
+                  )}
+                </div>
+                <div className="flex items-center justify-between w-full text-xs text-zinc-600 pt-1">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-success shrink-0" />
+                    Đúng: <strong className="text-zinc-900 font-bold font-mono">{correct}</strong>
+                  </span>
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-error shrink-0" />
+                    Sai: <strong className="text-zinc-900 font-bold font-mono">{wrong}</strong>
+                  </span>
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-zinc-400 shrink-0" />
+                    Bỏ qua: <strong className="text-zinc-900 font-bold font-mono">{missed}</strong>
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center justify-between w-full text-xs text-zinc-600 pt-1">
-                <span className="flex items-center gap-1.5 font-medium">
-                  <span className="w-2 h-2 rounded-full bg-success shrink-0" />
-                  Đúng: <strong className="text-zinc-900 font-bold font-mono">{correct}</strong>
-                </span>
-                <span className="flex items-center gap-1.5 font-medium">
-                  <span className="w-2 h-2 rounded-full bg-error shrink-0" />
-                  Sai: <strong className="text-zinc-900 font-bold font-mono">{wrong}</strong>
-                </span>
-                <span className="flex items-center gap-1.5 font-medium">
-                  <span className="w-2 h-2 rounded-full bg-zinc-400 shrink-0" />
-                  Bỏ qua: <strong className="text-zinc-900 font-bold font-mono">{missed}</strong>
-                </span>
-              </div>
-            </div>
 
-            {/* Cột 3: Đúng 2 nút hành động cốt lõi */}
-            <div className="flex flex-col gap-2.5 justify-center w-full max-w-[220px] mx-auto">
-              <button
-                type="button"
-                onClick={handleRetry}
-                className="h-9 px-5 rounded-full text-white text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer shadow-xs"
-                style={{ background: 'var(--primary)' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Làm lại đề này</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => askAITutor(`Tôi vừa hoàn thành bài thi ${bookName || ''} Test ${testNumber || ''} (${skillLabel}) với kết quả ${correct}/${totalQuestions} câu đúng (${typeof bandScore === 'number' ? `Band ${bandScore}` : ''}). Hãy phân tích lỗi sai phổ biến và hướng dẫn cải thiện giúp tôi.`)}
-                className="h-9 px-5 rounded-full border border-zinc-200 hover:bg-zinc-50 text-zinc-700 text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer bg-white"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                <span>Hỏi AI Tutor câu sai</span>
-              </button>
+              {/* Cột 3: Nút hành động */}
+              <div className="flex flex-col gap-2.5 justify-center w-full max-w-[220px] mx-auto">
+                <button
+                  type="button"
+                  onClick={handleRetry}
+                  className="h-9 px-5 rounded-full text-white text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer shadow-xs"
+                  style={{ background: 'var(--primary)' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Làm lại đề này</span>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* ── Question-Type Breakdown Table ── */}
         <QuestionTypeBreakdown questionTypes={questionTypes} sections={sections} />
@@ -667,51 +649,29 @@ export default function SkillResult({ examId: examIdProp, skillType, onClose, da
         {/* ── Answer Key ── */}
         <div
           ref={answerKeyRef}
-          className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs"
+          style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 16, padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,.06)' }}
         >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-zinc-100">
-            <div>
-              <h3 className="text-sm font-bold text-zinc-900 m-0">
-                Answer key
-              </h3>
-              <p className="text-xs text-zinc-500 mt-0.5">
-                Bấm "Hỏi AI" ở từng câu sai để nhận giải thích chi tiết
-              </p>
-            </div>
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: '#18181b', margin: '0 0 16px' }}>
+            Answer key
+          </h3>
 
-            {/* Smart Filter Tabs */}
-            <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-full border border-zinc-200/60 shrink-0">
-              {[
-                { id: 'all', label: `Tất cả (${totalQuestions})` },
-                { id: 'wrong', label: `Câu sai cần sửa (${wrong})` },
-                { id: 'correct', label: `Câu đúng (${correct})` },
-                { id: 'missed', label: `Chưa làm (${missed})` },
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setFilterStatus(tab.id)}
-                  className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors cursor-pointer border-none ${
-                    filterStatus === tab.id
-                      ? 'bg-white text-zinc-900 shadow-xs'
-                      : 'bg-transparent text-zinc-500 hover:text-zinc-900'
-                  }`}
-                >
-                  {tab.label}
-                </button>
+          {sections && sections.length > 0 ? (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 28,
+            }}>
+              {sections.map(s => (
+                <SectionBlock
+                  key={s.number}
+                  section={s}
+                  skillType={skillType}
+                />
               ))}
             </div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-            {sections && sections.length > 0 ? (
-              sections.map(s => (
-                <SectionBlock key={s.number} section={s} skillType={skillType} filterStatus={filterStatus} onAskAI={handleAskAI} />
-              ))
-            ) : (
-              <p style={{ color: 'var(--muted)', fontSize: 14, margin: 0 }}>Không có dữ liệu chi tiết cho bài thi này.</p>
-            )}
-          </div>
+          ) : (
+            <p style={{ color: 'var(--muted)', fontSize: 14, margin: 0 }}>Không có dữ liệu chi tiết cho bài thi này.</p>
+          )}
         </div>
 
 

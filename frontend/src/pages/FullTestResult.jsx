@@ -6,8 +6,7 @@ import Card from '../components/common/Card'
 import PageHeader from '../components/common/PageHeader'
 import PillButton from '../components/common/PillButton'
 import useCountUp from '../hooks/useCountUp'
-import { Headphones, BookOpen, PenTool, Mic, BarChart2, Clock, Sparkles, RotateCcw, ArrowRight, CheckCircle2 } from 'lucide-react'
-import { askAITutor } from '../components/common/AIChatbotDrawer'
+import { Headphones, BookOpen, PenTool, Mic, BarChart2, Clock, RotateCcw, ArrowRight, CheckCircle2 } from 'lucide-react'
 
 const SKILL_META = {
   listening: { label: 'Listening', Icon: Headphones, colorVar: '--skill-l-color', bgVar: '--skill-l-bg', borderVar: '--skill-l-border' },
@@ -103,14 +102,6 @@ export default function FullTestResult() {
 
   const testLabel = `${data.seriesName} — Test ${testNumber}`
   const completedCount = SKILL_ORDER.filter(s => data.skills[s]?.done).length
-
-  const handleAskAITutor = () => {
-    const scoresStr = SKILL_ORDER.map(s => `${SKILL_META[s].label}: ${data.skills[s]?.score ?? 'chưa làm'}`).join(', ')
-    const prompt = data.isComplete
-      ? `Tôi vừa hoàn thành bài Full Test IELTS (${testLabel}) với điểm Overall Band là ${data.overallBand} (${scoresStr}). Nhờ bạn phân tích điểm mạnh, điểm yếu và đưa ra kế hoạch học tập chi tiết để tôi bứt phá lên band điểm cao hơn nhé!`
-      : `Tôi đang làm bài Full Test IELTS (${testLabel}), hiện đã hoàn thành ${completedCount}/4 kỹ năng (${scoresStr}). Bạn có thể tư vấn chiến lược làm bài và phân bổ thời gian hiệu quả cho các kỹ năng còn lại không?`
-    askAITutor(prompt)
-  }
 
   return (
     <div className="min-h-screen bg-[var(--bg)] font-sans text-zinc-900">
@@ -225,27 +216,19 @@ export default function FullTestResult() {
           <Card className="lg:col-span-3 p-6 flex flex-col justify-center gap-2.5 anim-fade-up delay-3">
             <button
               type="button"
-              onClick={handleAskAITutor}
+              onClick={() => navigate('/progress')}
               className="w-full h-9 px-4 rounded-full text-xs sm:text-sm font-medium text-white transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
               style={{ background: 'var(--primary)' }}
               onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
               onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              Hỏi AI Tutor lộ trình
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/progress')}
-              className="w-full h-9 px-4 rounded-full text-xs sm:text-sm font-medium border border-zinc-200 hover:bg-zinc-100 text-zinc-900 transition-colors flex items-center justify-center gap-2 cursor-pointer bg-white shadow-xs"
-            >
-              <BarChart2 className="w-3.5 h-3.5 text-zinc-500" />
+              <BarChart2 className="w-3.5 h-3.5 text-white" />
               Xem bảng phân tích
             </button>
             <button
               type="button"
               onClick={() => navigate('/full-test')}
-              className="w-full h-9 px-4 rounded-full text-xs sm:text-sm font-medium bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full h-9 px-4 rounded-full text-xs sm:text-sm font-medium border border-zinc-200 hover:bg-zinc-100 text-zinc-900 transition-colors flex items-center justify-center gap-2 cursor-pointer bg-white shadow-xs"
             >
               <RotateCcw className="w-3.5 h-3.5 text-zinc-500" />
               Về trang Full Test
@@ -295,17 +278,6 @@ export default function FullTestResult() {
                       )}
                     </div>
                   </div>
-
-                  {done && (
-                    <button
-                      type="button"
-                      onClick={() => askAITutor(`Phân tích kết quả kỹ năng ${m.label} của tôi (Band ${s.score ?? '–'}) trong bài thi Full Test ${testLabel}. Tôi cần lưu ý những gì để nâng band?`)}
-                      className="mt-2 text-xs font-semibold text-zinc-600 hover:text-zinc-900 flex items-center gap-1.5 transition cursor-pointer pt-3 border-t border-zinc-100"
-                    >
-                      <Sparkles className="w-3 h-3 text-amber-500" />
-                      Hỏi AI Tutor kỹ năng này
-                    </button>
-                  )}
                 </div>
               )
             })}

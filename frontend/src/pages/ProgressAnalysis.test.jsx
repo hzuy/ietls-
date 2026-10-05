@@ -30,10 +30,6 @@ describe('ProgressAnalysis - Single-fetch on mount & zero refetch on tab switche
     vi.spyOn(statsService, 'getSpeakingCriteria').mockResolvedValue([
       { criterion: 'fluency', avgScore: 6.5, sampleCount: 3, latestScore: 7.0, latestComment: 'Fluent', trend: 'up' },
     ])
-    vi.spyOn(statsService, 'getAIAdvice').mockResolvedValue({
-      insufficientData: false,
-      advice: { summary: 'Good job', skills: {}, actionItems: [] },
-    })
   })
 
   it('fetches stats ONCE on mount and DOES NOT re-fetch when switching tabs 5 times', async () => {
@@ -70,5 +66,9 @@ describe('ProgressAnalysis - Single-fetch on mount & zero refetch on tab switche
     expect(statsService.getTrendData).toHaveBeenCalledTimes(1)
     expect(statsService.getWritingCriteria).toHaveBeenCalledTimes(1)
     expect(statsService.getSpeakingCriteria).toHaveBeenCalledTimes(1)
+
+    // Verify AI advisor section and CTA are NOT rendered
+    expect(screen.queryByText(/Nhận nhận xét từ AI/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Unified AI Advisor/i)).not.toBeInTheDocument()
   })
 })

@@ -143,7 +143,82 @@ router.get('/history', authMiddleware, learnerOnly, validate(historyQuerySchema,
       finishedAt: a.finishedAt,
     }))
 
-    res.json({ history, total, page, pages: Math.ceil(total / limit) })
+    const [writingAnswers, speakingAnswers] = await Promise.all([
+      prisma.writingAnswer.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          taskId: true,
+          aiScore: true,
+          createdAt: true,
+          task: { select: { examId: true } }
+        }
+      }),
+      prisma.speakingAnswer.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          partId: true,
+          aiScore: true,
+          createdAt: true,
+          part: { select: { examId: true } }
+        }
+      })
+    ])
+
+    const writingHistoryExamIds = [...new Set(writingAnswers.map(a => a.task.examId))]
+    const speakingHistoryExamIds = [...new Set(speakingAnswers.map(a => a.part.examId))]
+
+    // Tính điểm Writing gần nhất theo từng exam
+    const writingScoresByExam = {}
+    const writingByExamTask = {}
+    for (const a of writingAnswers) {
+      const eId = a.task?.examId
+      if (!eId) continue
+      if (!writingByExamTask[eId]) writingByExamTask[eId] = {}
+      if (writingByExamTask[eId][a.taskId] === undefined) {
+        writingByExamTask[eId][a.taskId] = a.aiScore
+      }
+    }
+    for (const [eId, taskScoresMap] of Object.entries(writingByExamTask)) {
+      const scores = Object.values(taskScoresMap).filter(s => s != null)
+      if (scores.length > 0) {
+        writingScoresByExam[eId] = Math.round(Math.min(9, Math.max(0, scores.reduce((a, b) => a + b, 0) / scores.length)) * 2) / 2
+      } else {
+        writingScoresByExam[eId] = 0.0
+      }
+    }
+
+    // Tính điểm Speaking gần nhất theo từng exam
+    const speakingScoresByExam = {}
+    const speakingByExamPart = {}
+    for (const a of speakingAnswers) {
+      const eId = a.part?.examId
+      if (!eId) continue
+      if (!speakingByExamPart[eId]) speakingByExamPart[eId] = {}
+      if (speakingByExamPart[eId][a.partId] === undefined) {
+        speakingByExamPart[eId][a.partId] = a.aiScore
+      }
+    }
+    for (const [eId, partScoresMap] of Object.entries(speakingByExamPart)) {
+      const scores = Object.values(partScoresMap).filter(s => s != null)
+      if (scores.length > 0) {
+        speakingScoresByExam[eId] = Math.round(Math.min(9, Math.max(0, scores.reduce((a, b) => a + b, 0) / scores.length)) * 2) / 2
+      } else {
+        speakingScoresByExam[eId] = 0.0
+      }
+    }
+
+    res.json({ 
+      history, 
+      total, 
+      page, 
+      pages: Math.ceil(total / limit),
+      writingHistoryExamIds,
+      speakingHistoryExamIds,
+      writingScoresByExam,
+      speakingScoresByExam
+    })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
   }

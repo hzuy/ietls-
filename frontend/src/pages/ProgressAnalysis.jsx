@@ -5,7 +5,6 @@ import {
   getTrendData,
   getWritingCriteria,
   getSpeakingCriteria,
-  getAIAdvice,
 } from '../services/statsService'
 import Card from '../components/common/Card'
 import PageHeader from '../components/common/PageHeader'
@@ -16,17 +15,13 @@ import {
   TrendingDown,
   Minus,
   BarChart3,
-  Sparkles,
   CheckCircle2,
   XCircle,
   Clock,
-  AlertTriangle,
-  Lightbulb,
   BookOpen,
   Headphones,
   PenTool,
   Mic,
-  RotateCcw,
   Info,
 } from 'lucide-react'
 
@@ -110,10 +105,7 @@ export default function ProgressAnalysis() {
   const [loadingStats, setLoadingStats] = useState(true)
   const [statsError, setStatsError] = useState(null)
 
-  // AI Advice states
-  const [aiLoading, setAiLoading] = useState(false)
-  const [aiResponse, setAiResponse] = useState(null)
-  const [aiError, setAiError] = useState(null)
+
 
   // Fetch statistics ONCE on mount
   useEffect(() => {
@@ -147,30 +139,7 @@ export default function ProgressAnalysis() {
     return true
   })
 
-  // Handle manual AI Advice request
-  const handleFetchAdvice = async () => {
-    setAiLoading(true)
-    setAiError(null)
 
-    try {
-      const data = await getAIAdvice()
-      setAiResponse(data)
-    } catch (err) {
-      if (err.response?.status === 429) {
-        setAiError({
-          isRateLimit: true,
-          message: err.response?.data?.message || 'Bạn đã đạt giới hạn 5 lần xin nhận xét AI trong ngày. Vui lòng quay lại sau 24 giờ.',
-        })
-      } else {
-        setAiError({
-          isRateLimit: false,
-          message: err.response?.data?.message || err.message || 'Lỗi kết nối máy chủ AI. Vui lòng thử lại.',
-        })
-      }
-    } finally {
-      setAiLoading(false)
-    }
-  }
 
   // Calculate overall metrics for Reading/Listening
   const totalQuestionsAll = breakdown.reduce((sum, item) => sum + (item.total || 0), 0)
@@ -194,7 +163,7 @@ export default function ProgressAnalysis() {
             </div>
             <PageHeader
               title="Phân tích Lỗi sai & Lộ trình 4 Kỹ năng"
-              subtitle="Theo dõi chi tiết tiêu chí IELTS Reading, Listening, Writing và Speaking kèm cố vấn AI cá nhân hóa."
+              subtitle="Theo dõi chi tiết tiêu chí IELTS Reading, Listening, Writing và Speaking."
               titleClassName="text-2xl md:text-3xl font-bold text-zinc-900 tracking-tight"
             />
           </div>
@@ -513,204 +482,7 @@ export default function ProgressAnalysis() {
               </Card>
             )}
 
-            {/* SECTION 4: UNIFIED 4-SKILLS AI ADVISOR */}
-            <section className="bg-zinc-900 rounded-2xl p-6 md:p-8 text-white shadow-xs border border-zinc-800">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-8 pb-6 border-b border-zinc-800">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-amber-400" />
-                    <span className="text-xs font-semibold text-zinc-300 uppercase tracking-widest bg-zinc-800 px-2.5 py-1 rounded-full border border-zinc-700">
-                      Unified AI Advisor (4 Skills)
-                    </span>
-                  </div>
-                  <h2 className="text-2xl font-bold text-white tracking-tight">Cố vấn Học thuật AI Toàn diện</h2>
-                  <p className="text-xs text-zinc-400 max-w-xl">
-                    Nhấp vào nút bên dưới để AI phân tích chuyên sâu dữ liệu 4 kỹ năng và lập lộ trình ôn tập cá nhân hóa. <em>(Tối đa 5 lượt/ngày).</em>
-                  </p>
-                </div>
 
-                <button
-                  onClick={handleFetchAdvice}
-                  disabled={aiLoading}
-                  className="flex items-center justify-center gap-2 px-6 py-2.5 bg-white hover:bg-zinc-100 text-zinc-900 text-sm font-semibold rounded-full transition shadow-xs disabled:opacity-50 shrink-0 cursor-pointer"
-                >
-                  {aiLoading ? (
-                    <>
-                      <RotateCcw className="w-4 h-4 animate-spin" />
-                      <span>AI đang đọc dữ liệu 4 kỹ năng...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4 text-amber-500" />
-                      <span>Nhận nhận xét từ AI</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* AI Error Notification */}
-              {aiError && (
-                <div
-                  className={`p-4 rounded-2xl border text-sm font-medium mb-6 ${
-                    aiError.isRateLimit
-                      ? 'bg-amber-500/10 border-amber-500/30 text-amber-200'
-                      : 'bg-rose-500/10 border-rose-500/30 text-rose-200'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 font-bold mb-1">
-                    <AlertTriangle className="w-5 h-5" />
-                    <span>{aiError.isRateLimit ? 'Đạt giới hạn lượt dùng trong ngày' : 'Thông báo từ máy chủ'}</span>
-                  </div>
-                  <p className="text-xs leading-relaxed opacity-90">{aiError.message}</p>
-                </div>
-              )}
-
-              {/* AI Response Display */}
-              {aiLoading ? (
-                <div className="p-8 rounded-2xl bg-zinc-950/60 border border-zinc-800 animate-pulse space-y-4">
-                  <div className="h-5 bg-zinc-800 rounded-full w-1/3" />
-                  <div className="h-4 bg-zinc-800/60 rounded-full w-3/4" />
-                  <div className="h-4 bg-zinc-800/60 rounded-full w-2/3" />
-                </div>
-              ) : aiResponse?.insufficientData ? (
-                <div className="p-6 rounded-2xl bg-zinc-950/60 border border-zinc-800 text-zinc-300 text-sm">
-                  <div className="flex items-center gap-2 font-bold mb-2 text-amber-400">
-                    <AlertTriangle className="w-5 h-5" />
-                    <span>Chưa đủ dữ liệu để AI nhận xét</span>
-                  </div>
-                  <p className="text-xs leading-relaxed text-zinc-400">
-                    {aiResponse.message}
-                  </p>
-                </div>
-              ) : aiResponse?.advice ? (
-                <div className="space-y-6">
-                  {/* Summary Card */}
-                  <div className="p-5 md:p-6 rounded-2xl bg-zinc-950/60 border border-zinc-800 backdrop-blur-sm">
-                    <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2 mb-2">
-                      <Sparkles className="w-4 h-4 text-amber-400" />
-                      Đánh giá Tổng quan 4 Kỹ năng
-                    </h3>
-                    <p className="text-sm leading-relaxed text-zinc-200 font-normal">
-                      {aiResponse.advice.summary}
-                    </p>
-                  </div>
-
-                  {/* 3 Skill Cards/Tabs */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-                    {/* Reading & Listening */}
-                    <div className="p-5 rounded-2xl bg-zinc-950/60 border border-zinc-800 backdrop-blur-sm">
-                      <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2 mb-3">
-                        <BookOpen className="w-4 h-4 text-zinc-400" />
-                        Reading & Listening
-                      </h4>
-
-                      {!aiResponse.advice.skills?.reading_listening?.available ? (
-                        <p className="text-xs text-zinc-500 italic">Chưa đủ dữ liệu để đánh giá kỹ năng này.</p>
-                      ) : (
-                        <div className="space-y-3 text-xs">
-                          <div>
-                            <span className="font-bold text-emerald-400 block mb-1">Điểm mạnh:</span>
-                            <ul className="space-y-1 text-zinc-300">
-                              {aiResponse.advice.skills.reading_listening.strengths?.map((s, i) => (
-                                <li key={i}>• {s}</li>
-                              ))}
-                            </ul>
-                          </div>
-                          <div>
-                            <span className="font-bold text-amber-400 block mb-1">Cần chú ý:</span>
-                            <ul className="space-y-1 text-zinc-300">
-                              {aiResponse.advice.skills.reading_listening.weaknesses?.map((w, i) => (
-                                <li key={i}>• {w}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Writing */}
-                    <div className="p-5 rounded-2xl bg-zinc-950/60 border border-zinc-800 backdrop-blur-sm">
-                      <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2 mb-3">
-                        <PenTool className="w-4 h-4 text-zinc-400" />
-                        Writing
-                      </h4>
-
-                      {!aiResponse.advice.skills?.writing?.available ? (
-                        <p className="text-xs text-zinc-500 italic">Chưa đủ dữ liệu để đánh giá kỹ năng này.</p>
-                      ) : (
-                        <div className="space-y-3 text-xs">
-                          <div>
-                            <span className="font-bold text-emerald-400 block mb-1">Điểm mạnh:</span>
-                            <ul className="space-y-1 text-zinc-300">
-                              {aiResponse.advice.skills.writing.strengths?.map((s, i) => (
-                                <li key={i}>• {s}</li>
-                              ))}
-                            </ul>
-                          </div>
-                          <div>
-                            <span className="font-bold text-amber-400 block mb-1">Cần chú ý:</span>
-                            <ul className="space-y-1 text-zinc-300">
-                              {aiResponse.advice.skills.writing.weaknesses?.map((w, i) => (
-                                <li key={i}>• {w}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Speaking */}
-                    <div className="p-5 rounded-2xl bg-zinc-950/60 border border-zinc-800 backdrop-blur-sm">
-                      <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2 mb-3">
-                        <Mic className="w-4 h-4 text-zinc-400" />
-                        Speaking
-                      </h4>
-
-                      {!aiResponse.advice.skills?.speaking?.available ? (
-                        <p className="text-xs text-zinc-500 italic">Chưa đủ dữ liệu để đánh giá kỹ năng này.</p>
-                      ) : (
-                        <div className="space-y-3 text-xs">
-                          <div>
-                            <span className="font-bold text-emerald-400 block mb-1">Điểm mạnh:</span>
-                            <ul className="space-y-1 text-zinc-300">
-                              {aiResponse.advice.skills.speaking.strengths?.map((s, i) => (
-                                <li key={i}>• {s}</li>
-                              ))}
-                            </ul>
-                          </div>
-                          <div>
-                            <span className="font-bold text-amber-400 block mb-1">Cần chú ý:</span>
-                            <ul className="space-y-1 text-zinc-300">
-                              {aiResponse.advice.skills.speaking.weaknesses?.map((w, i) => (
-                                <li key={i}>• {w}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Action Items Card */}
-                  <div className="p-5 md:p-6 rounded-2xl bg-zinc-950/60 border border-zinc-800 backdrop-blur-sm">
-                    <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2 mb-3">
-                      <Lightbulb className="w-4 h-4 text-zinc-400" />
-                      Lộ trình hành động khuyến nghị (Ưu tiên kỹ năng yếu nhất)
-                    </h3>
-                    <div className="space-y-2.5">
-                      {aiResponse.advice.actionItems?.map((act, i) => (
-                        <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-zinc-800/60 border border-zinc-700/60 text-xs md:text-sm text-zinc-200">
-                          <span className="w-6 h-6 rounded-full bg-zinc-700 text-white font-bold flex items-center justify-center shrink-0 text-xs">
-                            {i + 1}
-                          </span>
-                          <span className="mt-0.5 leading-relaxed">{act}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-            </section>
           </div>
         )}
       </main>

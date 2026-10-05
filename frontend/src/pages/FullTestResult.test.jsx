@@ -1,9 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import FullTestResult from './FullTestResult'
 import * as examService from '../services/examService'
-import * as chatbotDrawer from '../components/common/AIChatbotDrawer'
 
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({ user: { id: 1, name: 'Student' }, openAuthModal: vi.fn() })
@@ -52,7 +51,7 @@ describe('FullTestResult Page', () => {
       expect(screen.getByText(/Cambridge 19 — Test 1/i)).toBeInTheDocument()
       expect(screen.getAllByText('7.5').length).toBeGreaterThan(0)
       expect(screen.getByText(/Đủ 4 kỹ năng/i)).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /Hỏi AI Tutor lộ trình/i })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Hỏi AI Tutor/i })).not.toBeInTheDocument()
       expect(screen.getByRole('button', { name: /Xem bảng phân tích/i })).toBeInTheDocument()
     })
   })
@@ -76,9 +75,8 @@ describe('FullTestResult Page', () => {
   })
 
 
-  it('triggers askAITutor when "Hỏi AI Tutor lộ trình" button is clicked', async () => {
+  it('does NOT render "Hỏi AI Tutor lộ trình" button', async () => {
     vi.spyOn(examService, 'getFullTestResult').mockResolvedValue(mockCompleteData)
-    const askSpy = vi.spyOn(chatbotDrawer, 'askAITutor').mockImplementation(() => {})
 
     render(
       <MemoryRouter initialEntries={['/full-test/result?seriesId=1&bookNumber=19&testNumber=1']}>
@@ -87,10 +85,9 @@ describe('FullTestResult Page', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Hỏi AI Tutor lộ trình/i })).toBeInTheDocument()
+      expect(screen.getByText('Kết quả Full Test')).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /Hỏi AI Tutor lộ trình/i }))
-    expect(askSpy).toHaveBeenCalledWith(expect.stringContaining('Overall Band là 7.5'))
+    expect(screen.queryByRole('button', { name: /Hỏi AI Tutor/i })).not.toBeInTheDocument()
   })
 })

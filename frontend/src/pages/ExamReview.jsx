@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import SkillResult from '../components/SkillResult'
 import { X, LayoutGrid, ChevronLeft, ChevronRight, BookOpen, Check, Minus } from 'lucide-react'
 import api from '../utils/axios'
 import { queryClient } from '../lib/queryClient'
@@ -212,6 +213,7 @@ export default function ExamReview() {
   const [showPanel, setShowPanel] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [confirmExit, setConfirmExit] = useState(false)
+  const [showAnswerSheet, setShowAnswerSheet] = useState(false)
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches)
   const [footerHeight, setFooterHeight] = useState(64)
 
@@ -325,6 +327,13 @@ export default function ExamReview() {
     return () => window.removeEventListener('keydown', onKey)
   }, [sheetOpen])
 
+  useEffect(() => {
+    if (!showAnswerSheet) return
+    const onKey = e => { if (e.key === 'Escape') setShowAnswerSheet(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [showAnswerSheet])
+
   const toggleLocate = value => {
     setLocate(value)
     if (value && isMobile) setSheetOpen(true)
@@ -377,9 +386,13 @@ export default function ExamReview() {
           </button>
           <div className="min-w-0 flex-1">
             <p className="m-0 text-sm sm:text-base font-semibold text-zinc-900 truncate">{exam.title}</p>
-            <Link to={`/reading/${id}/result${currentAttemptId ? `?attemptId=${currentAttemptId}` : ''}`} className="tap-pad text-xs text-zinc-500 underline hover:text-zinc-900">
+            <button
+              type="button"
+              onClick={() => setShowAnswerSheet(true)}
+              className="tap-pad text-xs text-zinc-500 underline hover:text-zinc-900 bg-transparent border-none p-0 cursor-pointer"
+            >
               Xem Answer Sheet
-            </Link>
+            </button>
           </div>
           <ScoreBadge value={band} />
           <div className="hidden md:block">{attemptSelect}</div>
@@ -575,6 +588,50 @@ export default function ExamReview() {
             <div ref={sheetBodyRef} className="flex-1 overflow-y-auto px-5 py-4">
               <PassageView passage={passage} targets={targets} />
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Answer Sheet Modal Overlay ── */}
+      {showAnswerSheet && result && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Answer Sheet"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 60,
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          {/* Backdrop */}
+          <div
+            style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.5)', backdropFilter: 'blur(2px)' }}
+            onClick={() => setShowAnswerSheet(false)}
+          />
+          {/* Panel — scrollable, centered, max-width constrained */}
+          <div style={{
+            position: 'relative',
+            margin: 'auto',
+            width: '100%',
+            maxWidth: 900,
+            maxHeight: '92dvh',
+            background: 'var(--bg, #f9fafb)',
+            borderRadius: 20,
+            boxShadow: '0 24px 60px rgba(0,0,0,.22)',
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+          }}>
+            <SkillResult
+              skillType="reading"
+              examId={id}
+              dataProp={result}
+              isAnswerSheet={true}
+              onClose={() => setShowAnswerSheet(false)}
+            />
           </div>
         </div>
       )}

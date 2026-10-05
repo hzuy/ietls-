@@ -7,13 +7,12 @@ import { saveDraft, loadDraft, clearDraft, isDataEmpty, formatSavedAt } from '..
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
-import { Clock, Sparkles, CheckCircle2, RotateCcw, AlertCircle, ChevronRight, X } from 'lucide-react'
+import { Clock, Sparkles, CheckCircle2, RotateCcw, AlertCircle, ChevronRight, X, History } from 'lucide-react'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
 import { renderFeedbackList } from '../utils/feedbackList'
 import { isTaskComplete, countUnsubmitted } from '../utils/writingTasks'
 import { toImgSrc } from '../utils/media'
-import { askAITutor } from '../components/common/AIChatbotDrawer'
 import ExitConfirmModal from '../components/common/ExitConfirmModal'
 
 const DEFAULT_WRITING_TIME = 60 * 60
@@ -66,6 +65,7 @@ export default function WritingExam() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const resumeMode = searchParams.get('resume') === 'true'
+  const viewResultMode = searchParams.get('viewResult') === 'true'
   const { user } = useAuth()
   const { showToast } = useToast()
   const [exam, setExam] = useState(null)
@@ -81,6 +81,7 @@ export default function WritingExam() {
   const [gradingErrors, setGradingErrors] = useState({})
   const [retryingTask, setRetryingTask] = useState(null)
   const [confirmResubmitId, setConfirmResubmitId] = useState(null) // taskId đang chờ xác nhận "Nộp lại"
+  const [hasPastResults, setHasPastResults] = useState(false)
   const [timeLeft, setTimeLeft] = useState(DEFAULT_WRITING_TIME)
   const [lightbox, setLightbox] = useState(null)
   const [fullTestStatus, setFullTestStatus] = useState(null)
@@ -179,12 +180,36 @@ export default function WritingExam() {
       .then(([data, myResults]) => {
         setExam(data)
 
+        let draftEssays = null
+        let draftIds = []
+        let activeDraft = false
+        if (user) {
+          const userId = user.id || user._id
+          const draft = loadDraft(userId, id, 'writing')
+          // Cho phép resume tự động nếu có draft, kể cả không có ?resume=true
+          if (draft?.data && !isDataEmpty(draft.data)) {
+            draftEssays = draft.data.essays || {}
+            draftIds = Array.isArray(draft.data.submittedTaskIds) ? draft.data.submittedTaskIds : []
+            activeDraft = true
+            setEssays(draftEssays)
+            setSubmittedTaskIds(prev => Array.from(new Set([...prev, ...draftIds])))
+            if (draft.timeRemaining != null) setTimeLeft(draft.timeRemaining)
+            if (draft.savedAt) setLastSavedAt(new Date(draft.savedAt))
+          }
+        }
+
         const restoredResults = {}
         const restoredIds = []
         const restoredErrors = {}
         if (Array.isArray(myResults)) {
+          if (myResults.length > 0) setHasPastResults(true)
           for (const entry of myResults) {
             if (!entry || entry.taskId == null) continue
+            // NẾU KHÔNG ở chế độ xem lại (viewResultMode),
+            // CHỈ khôi phục kết quả của những task nằm trong draft (thuộc attempt hiện tại đang làm dở).
+            // Nếu không có draft, bỏ qua toàn bộ kết quả cũ.
+            if (!viewResultMode && (!activeDraft || !draftIds.includes(entry.taskId))) continue;
+
             if (entry.status === 'graded') {
               restoredResults[entry.taskId] = entry
               restoredIds.push(entry.taskId)
@@ -200,22 +225,8 @@ export default function WritingExam() {
         if (Object.keys(restoredErrors).length > 0) {
           setGradingErrors(prev => ({ ...restoredErrors, ...prev }))
         }
-
-        let draftEssays = null
-        let draftIds = []
-        if (resumeMode && user) {
-          const userId = user.id || user._id
-          const draft = loadDraft(userId, id, 'writing')
-          if (draft?.data && !isDataEmpty(draft.data)) {
-            draftEssays = draft.data.essays || {}
-            draftIds = Array.isArray(draft.data.submittedTaskIds) ? draft.data.submittedTaskIds : []
-            setEssays(draftEssays)
-            setSubmittedTaskIds(prev => Array.from(new Set([...prev, ...draftIds])))
-            if (draft.timeRemaining != null) setTimeLeft(draft.timeRemaining)
-            if (draft.savedAt) setLastSavedAt(new Date(draft.savedAt))
-          }
-          setPhase('exam')
-        }
+        
+        setPhase('exam')
       })
       .catch((err) => {
         setError(err?.response?.data?.message || err?.message || 'Không tìm thấy đề thi hoặc kết nối bị gián đoạn.')
@@ -516,23 +527,27 @@ export default function WritingExam() {
                   </div>
                 </div>
 
-                {/* Cột 3: Đúng 2 nút hành động cốt lõi */}
+                {/* Cột 3: Nút hành động */}
                 <div className="flex flex-col gap-2.5 justify-center w-full max-w-[220px] mx-auto">
                   <button
                     type="button"
-                    onClick={() => window.location.reload()}
+                    onClick={() => {
+                      if (user) {
+                        clearDraft(user.id || user._id, id, 'writing')
+                        saveDraft({
+                          userId: user.id || user._id,
+                          examId: id,
+                          skillType: 'writing',
+                          data: { essays: {}, submittedTaskIds: [], isRetake: true },
+                          timeRemaining: DEFAULT_WRITING_TIME
+                        })
+                      }
+                      window.location.href = window.location.pathname
+                    }}
                     className="h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer shadow-xs"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Làm lại bài thi</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => askAITutor(`Tôi vừa hoàn thành bài thi Writing "${exam.title}" với điểm Overall Band ${overallBand} (${exam.writingTasks.map(t => `Task ${t.number}: Band ${results[t.id]?.overall}`).join(', ')}). Nhờ AI phân tích các tiêu chí cần ưu tiên nâng điểm và gợi ý bài tập luyện tập cụ thể giúp tôi.`)}
-                    className="h-9 px-5 rounded-full border border-zinc-200 hover:bg-zinc-50 text-zinc-700 text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer bg-white"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Hỏi AI phân tích bài làm</span>
                   </button>
                 </div>
               </div>
@@ -578,19 +593,10 @@ export default function WritingExam() {
                               {score ?? '–'}
                             </div>
 
-                            <div className="text-zinc-600 text-xs leading-relaxed font-medium mb-4 bg-zinc-50 rounded-xl p-3 border border-zinc-100">
+                            <div className="text-zinc-600 text-xs leading-relaxed font-medium mb-1 bg-zinc-50 rounded-xl p-3 border border-zinc-100">
                               {comment || 'Chưa có nhận xét chi tiết.'}
                             </div>
                           </div>
-
-                          <button
-                            type="button"
-                            onClick={() => askAITutor(`Tôi đang cần nâng band tiêu chí "${label}" trong IELTS Writing Task ${task.number} (hiện tại: Band ${score ?? '–'}). Nhận xét của giám khảo: "${comment}". Bạn hãy phân tích chi tiết điểm yếu, gợi ý cấu trúc câu và từ vựng band 7.5+ để cải thiện tiêu chí này giúp tôi.`)}
-                            className="w-full h-9 px-4 rounded-full text-xs font-medium text-zinc-700 hover:text-zinc-900 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer mt-auto"
-                          >
-                            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                            Hỏi AI cách nâng band tiêu chí này
-                          </button>
                         </div>
                       )
                     })}
@@ -651,6 +657,21 @@ export default function WritingExam() {
           <span className="text-xs sm:text-sm font-semibold text-zinc-900 truncate">
             {exam.title}
           </span>
+          {hasPastResults && !viewResultMode && !allDone && (
+            <button
+              type="button"
+              onClick={() => {
+                const params = new URLSearchParams(searchParams)
+                params.set('viewResult', 'true')
+                navigate(`?${params.toString()}`, { replace: true })
+                window.location.reload()
+              }}
+              className="ml-2 h-7 px-3 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border border-zinc-200 text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs whitespace-nowrap shrink-0"
+            >
+              <History className="w-3 h-3" />
+              Xem kết quả cũ
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {lastSavedAt && (
@@ -948,7 +969,7 @@ export default function WritingExam() {
       <ExitConfirmModal open={showExitModal} onStay={stayInExam} onLeave={() => leaveExam(exitPath)} />
 
       {/* Loading overlay khi nộp bài */}
-      {submitting && (
+      {(submitting && exam.writingTasks.filter(t => !isTaskComplete(t.id, results, submittedTaskIds)).length <= 1) && (
         <div className="fixed inset-0 z-50 bg-white/80 backdrop-blur-xs flex flex-col items-center justify-center gap-3">
           <div className="w-10 h-10 border-3 border-zinc-200 border-t-zinc-900 rounded-full animate-spin" />
           <p className="text-sm font-medium text-zinc-700">Đang chấm điểm và tổng hợp kết quả...</p>

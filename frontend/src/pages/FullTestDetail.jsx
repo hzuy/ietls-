@@ -1,13 +1,12 @@
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'
 import Breadcrumb from '../components/common/Breadcrumb'
 
 import { useAuth } from '../context/AuthContext'
 import { checkDraft } from '../services/draftService'
 import { getMyHistory } from '../services/historyService'
-import { Headphones, BookOpen, PenTool, Mic, AlertCircle, RefreshCw, FolderArchive } from 'lucide-react'
+import { Headphones, BookOpen, PenTool, Mic, AlertCircle, RefreshCw, FolderArchive, PlayCircle, ChevronDown, History, PauseCircle, RotateCcw, Lightbulb, FileText } from 'lucide-react'
 import { BACKEND_URL, resolveImg, handleImgError } from '../utils/media'
-import Modal from '../components/common/Modal'
 import AcademicCover from '../components/common/AcademicCover'
 import Card from '../components/common/Card'
 import PillButton from '../components/common/PillButton'
@@ -15,12 +14,223 @@ import { UserExamListSkeleton } from '../components/skeletons'
 import ExamAttemptListModal from '../components/exam/ExamAttemptListModal'
 
 const SKILL_META = {
-  reading:   { label: 'Reading',   Icon: BookOpen,   colorVar: '--skill-r-color', bgVar: '--skill-r-bg', borderVar: '--skill-r-border', path: '/reading',   desc: '3 passages · 40 câu · 60 phút' },
   listening: { label: 'Listening', Icon: Headphones, colorVar: '--skill-l-color', bgVar: '--skill-l-bg', borderVar: '--skill-l-border', path: '/listening', desc: '4 sections · 40 câu · 40 phút' },
+  reading:   { label: 'Reading',   Icon: BookOpen,   colorVar: '--skill-r-color', bgVar: '--skill-r-bg', borderVar: '--skill-r-border', path: '/reading',   desc: '3 passages · 40 câu · 60 phút' },
   writing:   { label: 'Writing',   Icon: PenTool,    colorVar: '--skill-w-color', bgVar: '--skill-w-bg', borderVar: '--skill-w-border', path: '/writing',   desc: 'Task 1 + Task 2 · AI chấm điểm' },
   speaking:  { label: 'Speaking',  Icon: Mic,        colorVar: '--skill-s-color', bgVar: '--skill-s-bg', borderVar: '--skill-s-border', path: '/speaking',  desc: 'Part 1+2+3 · AI nhận xét' },
 }
-const SKILL_ORDER = ['reading', 'listening', 'writing', 'speaking']
+const SKILL_ORDER = ['listening', 'reading', 'writing', 'speaking']
+
+function ActionDropdown({ exam, skill, m, hasDraft, historyInfo = {}, setHistoryModal, navigate, user, openAuthModal, location, isLastRow }) {
+  const [open, setOpen] = useState(false)
+  const dropdownRef = useRef(null)
+  
+  const examId = exam?.id
+  const historyList = (examId && historyInfo?.[examId]) || []
+  const hasHistory = (historyList.length > 0) || 
+                     (skill === 'writing' && historyInfo?.writingHistory?.includes(examId)) ||
+                     (skill === 'speaking' && historyInfo?.speakingHistory?.includes(examId))
+
+  const isContinue = hasDraft
+  const isRetake = !hasDraft && hasHistory
+  
+  let btnText = 'Làm bài'
+  let Icon = PlayCircle
+  let iconColor = 'text-red-500'
+
+  if (isContinue) {
+    btnText = 'Làm tiếp'
+    Icon = PauseCircle
+    iconColor = 'text-blue-600'
+  } else if (isRetake) {
+    btnText = 'Làm lại'
+    Icon = RotateCcw
+    iconColor = 'text-zinc-500 dark:text-zinc-400'
+  }
+
+  const handleClickMain = () => {
+    if (!user) {
+      openAuthModal('login', (location?.pathname || '') + (location?.search || ''))
+      return
+    }
+    if (hasDraft) navigate(`${m.path}/${exam?.id}?resume=true`)
+    else navigate(`${m.path}/${exam?.id}`)
+  }
+
+  const handleOpenHistory = () => {
+    setOpen(false)
+    if (!user) {
+      openAuthModal('login', (location?.pathname || '') + (location?.search || ''))
+      return
+    }
+    if (skill === 'writing' || skill === 'speaking') {
+      navigate(`${m.path}/${exam?.id}?viewResult=true`)
+    } else {
+      setHistoryModal({ skill, skillLabel: m.label, attempts: historyInfo?.[exam?.id] || [] })
+    }
+  }
+  
+  useEffect(() => {
+    if (!open) return
+    const handleClick = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('click', handleClick)
+    return () => document.removeEventListener('click', handleClick)
+  }, [open])
+
+  // Bài nào chưa làm (chưa có lịch sử) thì chỉ hiện nút thường, không có mũi tên xổ xuống
+  if (!hasHistory) {
+    return (
+      <button
+        type="button"
+        onClick={handleClickMain}
+        className="inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 shadow-2xs hover:border-zinc-300 dark:hover:border-zinc-600 hover:text-zinc-900 dark:hover:text-white text-zinc-700 dark:text-zinc-200 text-[12px] font-normal transition-colors cursor-pointer select-none"
+      >
+        <Icon className={`w-3.5 h-3.5 shrink-0 ${iconColor}`} />
+        <span className="whitespace-nowrap">{btnText}</span>
+      </button>
+    )
+  }
+
+  // Bài đã làm rồi (có lịch sử) thì có nút và tam giác xổ xuống xem "Lịch sử"
+  return (
+    <div
+      ref={dropdownRef}
+      className="relative inline-flex flex-col items-center"
+      onClick={e => e.stopPropagation()}
+    >
+      <div className="inline-flex items-center h-8 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 shadow-2xs hover:border-zinc-300 dark:hover:border-zinc-600 transition-colors">
+        <button
+          type="button"
+          onClick={handleClickMain}
+          className="h-full flex items-center gap-1.5 pl-2.5 pr-1 text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white text-[12px] font-normal transition-colors cursor-pointer select-none"
+        >
+          <Icon className={`w-3.5 h-3.5 shrink-0 ${iconColor}`} />
+          <span className="whitespace-nowrap">{btnText}</span>
+        </button>
+        
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          aria-label="Xem lịch sử"
+          className="h-full pl-0.5 pr-2 flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors cursor-pointer"
+        >
+          <ChevronDown className={`w-3 h-3 shrink-0 transition-transform ${open ? 'rotate-180 text-zinc-600 dark:text-zinc-300' : ''}`} />
+        </button>
+      </div>
+
+      {open && (
+        <div className={`absolute ${isLastRow ? 'bottom-[calc(100%+4px)]' : 'top-[calc(100%+4px)]'} left-0 w-full bg-white dark:bg-zinc-800 rounded-lg shadow-md border border-zinc-200 dark:border-zinc-700 p-0.5 z-50 animate-in fade-in zoom-in-95 duration-100`}>
+          <button
+            type="button"
+            onClick={handleOpenHistory}
+            className="w-full h-7 flex items-center justify-center gap-1.5 px-2 text-[12px] font-normal text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 hover:text-zinc-900 dark:hover:text-white rounded-md transition-colors cursor-pointer"
+          >
+            <History className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+            <span className="whitespace-nowrap">Lịch sử</span>
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SkillCell({ exam, skill, testNumber, draftInfo = {}, historyInfo = {}, setHistoryModal, navigate, user, openAuthModal, location, isLastRow }) {
+  const m = SKILL_META[skill]
+  const hasDraft = draftInfo?.[`${testNumber}-${skill}`]?.hasDraft
+  const examId = exam?.id
+  const historyList = (examId && historyInfo?.[examId]) || []
+  const hasHistory = (historyList.length > 0) || 
+                     (skill === 'writing' && historyInfo?.writingHistory?.includes(examId)) ||
+                     (skill === 'speaking' && historyInfo?.speakingHistory?.includes(examId))
+
+  if (!exam) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[92px] opacity-40">
+        <div className="w-12 h-12 rounded-full border border-dashed border-zinc-300 dark:border-zinc-700 flex items-center justify-center text-zinc-400">
+          <m.Icon className="w-5 h-5 stroke-[1.5]" />
+        </div>
+        <span className="text-[11px] text-zinc-400 mt-2 font-medium">Chưa có đề</span>
+      </div>
+    )
+  }
+
+  const latestAttempt = historyList[0]
+  const band = latestAttempt?.bandScore != null 
+    ? (typeof latestAttempt.bandScore === 'number' ? latestAttempt.bandScore.toFixed(1) : String(latestAttempt.bandScore))
+    : (hasHistory ? '0.0' : null)
+
+  const handleCircleClick = () => {
+    if (!user) {
+      openAuthModal('login', (location?.pathname || '') + (location?.search || ''))
+      return
+    }
+    if (hasHistory) {
+      if (skill === 'reading') navigate(`/reading/${exam.id}/explanation`)
+      else if (skill === 'listening') navigate(`/listening/${exam.id}/explanation`)
+      else navigate(`${m.path}/${exam.id}?viewResult=true`)
+    } else if (hasDraft) {
+      navigate(`${m.path}/${exam.id}?resume=true`)
+    } else {
+      navigate(`${m.path}/${exam.id}`)
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-3 py-1">
+      {/* Circle Icon / Score matching DOL */}
+      {hasHistory ? (
+        <button
+          type="button"
+          onClick={handleCircleClick}
+          title={`Điểm gần nhất: ${band ?? '0.0'} — Bấm để xem kết quả`}
+          className="w-12 h-12 rounded-full border-2 border-emerald-500 bg-white dark:bg-zinc-800 flex flex-col items-center justify-center shadow-xs cursor-pointer hover:scale-105 transition-transform"
+        >
+          <m.Icon className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 mb-0.5" />
+          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 font-mono tabular-nums leading-none">
+            {band ?? '0.0'}
+          </span>
+        </button>
+      ) : hasDraft ? (
+        <button
+          type="button"
+          onClick={handleCircleClick}
+          title="Đang làm dở bài thi — Bấm để làm tiếp"
+          className="w-12 h-12 rounded-full border-2 border-amber-500 bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center shadow-xs cursor-pointer hover:scale-105 transition-transform"
+        >
+          <m.Icon className="w-5 h-5 text-amber-600 dark:text-amber-400 stroke-[1.75]" />
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={handleCircleClick}
+          title={`Làm bài ${m.label}`}
+          className="w-12 h-12 rounded-full border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 flex items-center justify-center shadow-xs cursor-pointer hover:border-zinc-300 hover:scale-105 transition-all text-zinc-400 dark:text-zinc-500"
+        >
+          <m.Icon className="w-5 h-5 stroke-[1.5]" />
+        </button>
+      )}
+
+      {/* Action Button */}
+      <ActionDropdown
+        exam={exam}
+        skill={skill}
+        m={m}
+        hasDraft={hasDraft}
+        historyInfo={historyInfo}
+        setHistoryModal={setHistoryModal}
+        navigate={navigate}
+        user={user}
+        openAuthModal={openAuthModal}
+        location={location}
+        isLastRow={isLastRow}
+      />
+    </div>
+  )
+}
 
 export default function FullTestDetail() {
   const { id: seriesId } = useParams()
@@ -34,7 +244,6 @@ export default function FullTestDetail() {
   const [bookData, setBookData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState(false)
-  const [modal, setModal] = useState(null)
   const [draftInfo, setDraftInfo] = useState({}) // { [testNumber-skill]: checkDraft result }
   const [historyInfo, setHistoryInfo] = useState({}) // { [examId]: [attempts] }
   const [historyModal, setHistoryModal] = useState(null) // { skill, skillLabel, attempts }
@@ -154,15 +363,26 @@ export default function FullTestDetail() {
         if (!historyMap[h.examId]) historyMap[h.examId] = []
         historyMap[h.examId].push(h)
       })
-      setHistoryInfo(historyMap)
+
+      // Nạp điểm Writing và Speaking vào historyMap để hiển thị điểm số gần nhất
+      const writingScores = data.writingScoresByExam || {}
+      for (const [eId, score] of Object.entries(writingScores)) {
+        if (!historyMap[eId]) historyMap[eId] = []
+        historyMap[eId].push({ examId: Number(eId), bandScore: score, skill: 'writing' })
+      }
+      const speakingScores = data.speakingScoresByExam || {}
+      for (const [eId, score] of Object.entries(speakingScores)) {
+        if (!historyMap[eId]) historyMap[eId] = []
+        historyMap[eId].push({ examId: Number(eId), bandScore: score, skill: 'speaking' })
+      }
+
+      setHistoryInfo({
+        ...historyMap,
+        writingHistory: data.writingHistoryExamIds || [],
+        speakingHistory: data.speakingHistoryExamIds || []
+      })
     }).catch(() => {})
   }, [user, bookData])
-
-  const handleStart = (test) => {
-    // Trang này public — gate ở nút. redirectTo = URL hiện tại để sau khi login quay lại đúng đề.
-    if (!user) { openAuthModal('login', location.pathname + location.search); return }
-    setModal(test)
-  }
 
   if (!bookNumber) return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
@@ -280,66 +500,68 @@ export default function FullTestDetail() {
               </div>
             </div>
 
-            {/* Test list */}
-            <h2 className="text-lg font-semibold text-zinc-900 mb-3.5">Chọn bài test</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              {bookData.tests.map(test => {
-                const availCount = SKILL_ORDER.filter(s => test.exams[s]).length
-                const hasDraft = SKILL_ORDER.some(s => draftInfo[`${test.testNumber}-${s}`]?.hasDraft)
+            {/* Test list - Table layout matching DOL */}
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Chọn bài test</h2>
+            </div>
+            <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-xs overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[620px]">
+                  <thead>
+                    <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-800/40">
+                      <th scope="col" className="py-4 pl-6 pr-4 text-xs font-bold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider w-[130px]">
+                        BÀI TEST
+                      </th>
+                      {SKILL_ORDER.map(skill => (
+                        <th key={skill} scope="col" className="py-4 px-3 text-xs font-bold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider text-center">
+                          {SKILL_META[skill].label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
+                    {bookData.tests.map((test, idx) => {
+                      const isLastRow = idx === bookData.tests.length - 1
+                      const hasAnyDraft = SKILL_ORDER.some(s => draftInfo?.[`${test.testNumber}-${s}`]?.hasDraft)
 
-                return (
-                  <div key={test.testNumber} style={{ background: 'var(--surface)', borderRadius: '1rem', border: '1px solid var(--border)', padding: 18, boxShadow: 'var(--shadow-xs)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                      <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{`Test ${test.testNumber}`}</span>
-                      <span style={{ fontSize: 11, fontWeight: 700, borderRadius: '9999px', padding: '2.5px 10px', background: 'var(--skill-r-bg)', color: 'var(--skill-r-color)' }}>
-                        {`${availCount} kỹ năng`}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
-                      {SKILL_ORDER.map(skill => {
-                        const m = SKILL_META[skill]
-                        const exam = test.exams[skill]
-                        const SkillIcon = m.Icon
-                        return (
-                          <span key={skill} style={{
-                            fontSize: 11, fontWeight: 700, borderRadius: '9999px', padding: '3px 10px',
-                            background: exam ? `var(${m.bgVar})` : 'var(--surface-raised)',
-                            color: exam ? `var(${m.colorVar})` : 'var(--subtle)',
-                            border: `1px solid ${exam ? `var(${m.borderVar})` : 'var(--border-soft)'}`,
-                            display: 'inline-flex', alignItems: 'center', gap: 4
-                          }}>
-                            <SkillIcon className="w-3.5 h-3.5 stroke-[1.75]" />
-                            {m.label}
-                          </span>
-                        )
-                      })}
-                    </div>
-                    {/* Draft indicator badges */}
-                    {hasDraft && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
-                        {SKILL_ORDER.map(s => {
-                          const dk = `${test.testNumber}-${s}`
-                          if (!draftInfo[dk]?.hasDraft) return null
-                          return (
-                            <span key={s} style={{ fontSize: 11, color: 'var(--warning-text)', fontWeight: 600, background: 'var(--warning-bg)', border: '1px solid var(--warning-border)', borderRadius: 9999, padding: '2px 10px' }}>
-                              ● {SKILL_META[s].label} đang làm dở
-                            </span>
-                          )
-                        })}
-                      </div>
-                    )}
-                    <button
-                      onClick={() => handleStart(test)}
-                      className="btn-hover-default mt-2 w-full h-9 px-5 rounded-full text-white text-sm font-medium tracking-normal shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none select-none"
-                      style={{ background: 'var(--primary)' }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
-                    >
-                      Bắt đầu
-                    </button>
-                  </div>
-                )
-              })}
+                      return (
+                        <tr key={test.testNumber} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
+                          <td className="py-6 pl-6 pr-4 align-middle">
+                            <div className="font-bold text-base text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
+                              Test {test.testNumber}
+                            </div>
+                            {hasAnyDraft && (
+                              <div className="mt-1.5 flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                                <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400 whitespace-nowrap">
+                                  Đang làm dở
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                          {SKILL_ORDER.map(skill => (
+                            <td key={skill} className="py-6 px-2 text-center align-middle">
+                              <SkillCell
+                                exam={test.exams?.[skill]}
+                                skill={skill}
+                                testNumber={test.testNumber}
+                                draftInfo={draftInfo}
+                                historyInfo={historyInfo}
+                                setHistoryModal={setHistoryModal}
+                                navigate={navigate}
+                                user={user}
+                                openAuthModal={openAuthModal}
+                                location={location}
+                                isLastRow={isLastRow}
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
 
@@ -376,77 +598,7 @@ export default function FullTestDetail() {
         </div>
       </div>
 
-      {/* Modal Skill Selection */}
-      {modal && (
-        <Modal
-          onClose={() => setModal(null)}
-          title={`Test ${modal.testNumber} — Chọn kỹ năng`}
-          size="md"
-        >
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-5">
-              <h3 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--ink)', margin: 0 }}>{`Test ${modal.testNumber}`} — Chọn kỹ năng</h3>
-              <button
-                type="button"
-                onClick={() => setModal(null)}
-                aria-label="Đóng"
-                className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-colors font-bold cursor-pointer border-none bg-transparent"
-              >
-                ✕
-              </button>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {SKILL_ORDER.map(skill => {
-                const m = SKILL_META[skill]
-                const exam = modal.exams[skill]
-                const hasDraft = draftInfo[`${modal.testNumber}-${skill}`]?.hasDraft
-                return (
-                  <div key={skill} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 14px', borderRadius: '1rem', border: `1px solid ${exam ? `var(${m.borderVar})` : 'var(--border)'}`, background: exam ? `var(${m.bgVar})` : 'var(--surface-raised)', opacity: exam ? 1 : 0.6 }}>
-                    <span className="shrink-0 flex items-center justify-center" style={{ color: exam ? `var(${m.colorVar})` : 'var(--subtle)' }}>
-                      <m.Icon className="w-5 h-5" />
-                    </span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: exam ? `var(${m.colorVar})` : 'var(--subtle)' }}>{m.label}</span>
-                        {hasDraft && (
-                          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--warning)' }}>● Đang làm dở</span>
-                        )}
-                      </div>
-                      <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>{m.desc}</p>
-                    </div>
-                    {exam && (
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        {historyInfo[exam.id] && historyInfo[exam.id].length > 0 && (
-                          <button
-                            onClick={() => setHistoryModal({ skill, skillLabel: m.label, attempts: historyInfo[exam.id] })}
-                            className="h-9 px-4 rounded-full bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 hover:text-zinc-900 transition-colors text-xs font-medium inline-flex items-center justify-center shadow-xs cursor-pointer leading-none"
-                          >
-                            Lịch sử
-                          </button>
-                        )}
-                        {hasDraft ? (
-                          <button
-                            onClick={() => navigate(`${m.path}/${exam.id}?resume=true`)}
-                            className="w-[100px] h-9 px-4 rounded-full bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium inline-flex items-center justify-center leading-none select-none shrink-0 whitespace-nowrap transition-colors shadow-xs cursor-pointer"
-                          >Tiếp tục</button>
-                        ) : (
-                          <button
-                            onClick={() => navigate(`${m.path}/${exam.id}`)}
-                            className="w-[100px] h-9 px-4 rounded-full text-white text-xs font-medium inline-flex items-center justify-center leading-none select-none shrink-0 whitespace-nowrap transition-colors shadow-xs cursor-pointer"
-                            style={{ background: 'var(--primary)' }}
-                            onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
-                          >Làm bài</button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </Modal>
-      )}
+
 
       {/* Modal History */}
       <ExamAttemptListModal

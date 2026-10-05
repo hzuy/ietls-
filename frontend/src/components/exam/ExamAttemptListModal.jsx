@@ -30,8 +30,13 @@ export default function ExamAttemptListModal({
   const handleReview = (h) => {
     const params = new URLSearchParams({ attemptId: h.attemptId })
     if (h.finishedAt) params.set('finishedAt', h.finishedAt)
-    const targetRoute = (h.skill === 'reading' || h.skill === 'listening') ? 'explanation' : 'result'
-    navigate(`/${h.skill}/${h.examId}/${targetRoute}?${params.toString()}`)
+
+    if (h.skill === 'writing' || h.skill === 'speaking') {
+      params.set('viewResult', 'true')
+      navigate(`/${h.skill}/${h.examId}?${params.toString()}`)
+    } else {
+      navigate(`/${h.skill}/${h.examId}/explanation?${params.toString()}`)
+    }
   }
 
   // Lấy color css vars từ index.css

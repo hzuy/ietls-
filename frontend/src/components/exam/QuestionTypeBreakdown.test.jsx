@@ -4,35 +4,25 @@ import QuestionTypeBreakdown from './QuestionTypeBreakdown'
 
 describe('QuestionTypeBreakdown Component', () => {
   const mockQuestionTypes = [
-    { name: 'mcq', total: 10, correct: 9, wrong: 1, missed: 0 }, // 90% -> Thành thạo
-    { name: 'fill_blank', total: 10, correct: 6, wrong: 4, missed: 0 }, // 60% -> Cần ôn lại
-    { name: 'matching_headings', total: 10, correct: 3, wrong: 5, missed: 2 }, // 30% -> Cần luyện thêm
+    { name: 'mcq', total: 10, correct: 9, wrong: 1, missed: 0 },
+    { name: 'fill_blank', total: 10, correct: 6, wrong: 4, missed: 0 },
+    { name: 'matching_headings', total: 10, correct: 3, wrong: 5, missed: 2 },
   ]
 
-  it('renders all table columns, type names, and status badges properly', () => {
+  it('renders all table columns and type names properly', () => {
     render(<QuestionTypeBreakdown questionTypes={mockQuestionTypes} />)
 
-    expect(screen.getByText('Phân tích theo dạng câu hỏi')).toBeInTheDocument()
-    expect(screen.getByText('Dạng bài')).toBeInTheDocument()
-    expect(screen.getByText('Số câu')).toBeInTheDocument()
-    expect(screen.getByText('Đúng / Tổng')).toBeInTheDocument()
-    expect(screen.getByText('Tỷ lệ chính xác')).toBeInTheDocument()
-    expect(screen.getByText('Đánh giá')).toBeInTheDocument()
+    expect(screen.getByText('Bảng thống kê')).toBeInTheDocument()
+    expect(screen.getByText('LOẠI')).toBeInTheDocument()
+    expect(screen.getByText('SỐ CÂU')).toBeInTheDocument()
+    expect(screen.getByText('ĐÚNG')).toBeInTheDocument()
+    expect(screen.getByText('SAI')).toBeInTheDocument()
+    expect(screen.getByText('BỎ QUA')).toBeInTheDocument()
 
-    // Row 1: 90%
+    // Type names
     expect(screen.getByText('Multiple Choice (Single)')).toBeInTheDocument()
-    expect(screen.getByText('90%')).toBeInTheDocument()
-    expect(screen.getByText('Thành thạo')).toBeInTheDocument()
-
-    // Row 2: 60%
     expect(screen.getByText('Summary / Note Completion')).toBeInTheDocument()
-    expect(screen.getByText('60%')).toBeInTheDocument()
-    expect(screen.getByText('Cần ôn lại')).toBeInTheDocument()
-
-    // Row 3: 30%
     expect(screen.getByText('Matching Headings')).toBeInTheDocument()
-    expect(screen.getByText('30%')).toBeInTheDocument()
-    expect(screen.getByText('Cần luyện thêm')).toBeInTheDocument()
   })
 
   it('aggregates question types from sections fallback when questionTypes is not provided', () => {
@@ -49,8 +39,9 @@ describe('QuestionTypeBreakdown Component', () => {
     render(<QuestionTypeBreakdown sections={mockSections} />)
 
     expect(screen.getByText('True / False / Not Given')).toBeInTheDocument()
-    expect(screen.getByText('50%')).toBeInTheDocument()
-    expect(screen.getByText('Cần ôn lại')).toBeInTheDocument()
+    // The new layout shows correct/wrong/missed circles, not a percentage
+    const circles = screen.getAllByRole('cell')
+    expect(circles.length).toBeGreaterThan(0)
   })
 
   it('renders nothing when questionTypes and sections are empty', () => {
