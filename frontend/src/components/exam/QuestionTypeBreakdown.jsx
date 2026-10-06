@@ -21,6 +21,9 @@ const QUESTION_TYPE_LABELS = {
   flow_chart: 'Flow-chart Completion',
   sentence_completion: 'Sentence Completion',
   note_completion: 'Note/Form Completion',
+  matching_drag: 'Matching',
+  matching_information: 'Matching Information',
+  drag_word_bank: 'Summary Completion (Word Bank)',
 }
 
 function isMissed(answer) {

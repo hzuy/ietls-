@@ -156,11 +156,11 @@ export default function App() {
                   <Route path="/change-password" element={<ChangePassword />} />
                   <Route path="/reading" element={<Navigate to="/practice/reading" replace />} />
                   <Route path="/reading/:id/result" element={<LearnerRoute><SkillResultPage skillType="reading" /></LearnerRoute>} />
-                  <Route path="/reading/:id/explanation" element={<LearnerRoute><ExamReview /></LearnerRoute>} />
+                  <Route path="/reading/:id/explanation" element={<LearnerRoute><ExamReview skill="reading" /></LearnerRoute>} />
                   <Route path="/reading/:id" element={<LearnerRoute><ReadingExam /></LearnerRoute>} />
                   <Route path="/listening" element={<Navigate to="/practice/listening" replace />} />
                   <Route path="/listening/:id/result" element={<LearnerRoute><SkillResultPage skillType="listening" /></LearnerRoute>} />
-                  <Route path="/listening/:id/explanation" element={<LearnerRoute><ListeningExam /></LearnerRoute>} />
+                  <Route path="/listening/:id/explanation" element={<LearnerRoute><ExamReview skill="listening" /></LearnerRoute>} />
                   <Route path="/listening/:id" element={<LearnerRoute><ListeningExam /></LearnerRoute>} />
                   <Route path="/writing" element={<Navigate to="/writing-samples" replace />} />
                   <Route path="/writing/:id" element={<LearnerRoute><WritingExam /></LearnerRoute>} />

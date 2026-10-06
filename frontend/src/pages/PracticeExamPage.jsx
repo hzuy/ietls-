@@ -198,7 +198,9 @@ function ReadingPracticeExam({ exam, onBack }) {
         const qKey = q.id ?? q.number
         const userAns = (answers[qKey] || '').trim().toLowerCase()
         const correctAns = (q.correctAnswer || '').trim().toLowerCase()
-        const isCorrect = userAns === correctAns
+        const isCorrect = g.type === 'mcq_multi'
+          ? userAns.split(',').map(x => x.trim()).filter(Boolean).sort().join(',') === correctAns.split(',').map(x => x.trim()).filter(Boolean).sort().join(',')
+          : correctAns.split('/').map(x => x.trim()).filter(Boolean).includes(userAns)
         
         let status = 'missed'
         if ((answers[qKey] || '').trim()) {

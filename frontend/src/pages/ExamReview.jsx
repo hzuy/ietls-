@@ -4,10 +4,11 @@ import SkillResult from '../components/SkillResult'
 import { X, LayoutGrid, ChevronLeft, ChevronRight, BookOpen, Check, Minus } from 'lucide-react'
 import api from '../utils/axios'
 import { queryClient } from '../lib/queryClient'
-import { getReadingExam } from '../services/examService'
+import { getReadingExam, getListeningExam } from '../services/examService'
 import { getMyHistory } from '../services/historyService'
 import GroupBlock from '../components/exam/GroupBlock'
 import QuestionBlock from '../components/exam/QuestionBlock'
+import { GroupBlock as ListeningGroupBlock } from '../components/exam/listening/OtherGroups'
 import TypeHeader from '../components/exam/TypeHeaders'
 import ReviewExplanation from '../components/exam/ReviewExplanation'
 import QuestionNavButton from '../components/common/QuestionNavButton'
@@ -15,13 +16,15 @@ import QuestionPanelPopover from '../components/common/QuestionPanelPopover'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
 import ExamActionDialog from '../components/common/ExamActionDialog'
-import { getPassageSlots } from '../utils/questionCount'
+import { getPassageSlots, getSectionSlots } from '../utils/questionCount'
 import { findRange, splitParagraphs } from '../utils/textMatch'
 import { examExitPath } from '../utils/submittedExam'
+import { toImgSrc } from '../utils/media'
 
 const noop = () => {}
 
 const WHOLE_GROUP_TYPES = new Set(['note_completion', 'matching_information', 'drag_word_bank', 'table_completion', 'matching_drag', 'diagram_label', 'matching_headings', 'mcq_multi'])
+const LISTENING_ONLY_TYPES = new Set(['map_diagram', 'matching'])
 const FS = { fontSize: 14 }
 
 function buildReviewMap(sections) {
@@ -33,6 +36,8 @@ function buildReviewMap(sections) {
           map[n] = {
             status: q.statuses?.[i] || 'missed',
             userAnswer: q.userAnswers?.[i] || '',
+            rawUserAnswer: q.rawUserAnswers?.[i] ?? q.userAnswers?.[i] ?? '',
+            rawCorrectAnswer: q.rawAnswers?.[i] ?? q.answers?.[i] ?? '',
             correctAnswer: q.answers?.[i] || '',
             explanation: q.explanation || null,
           }
@@ -41,6 +46,8 @@ function buildReviewMap(sections) {
         map[q.number] = {
           status: q.status || 'missed',
           userAnswer: q.userAnswer || '',
+          rawUserAnswer: q.rawUserAnswer ?? q.userAnswer ?? '',
+          rawCorrectAnswer: q.rawCorrectAnswer ?? q.correctAnswer ?? '',
           correctAnswer: q.correctAnswer || '',
           explanation: q.explanation || null,
         }
@@ -50,18 +57,18 @@ function buildReviewMap(sections) {
   return map
 }
 
-function buildAnswersById(exam, reviewMap) {
+function buildAnswersById(parts, reviewMap) {
   const out = {}
-  for (const p of exam?.passages || []) {
-    for (const q of p.questions || []) out[q.id] = reviewMap[q.number]?.userAnswer || ''
+  for (const p of parts || []) {
+    for (const q of p.questions || []) out[q.id] = reviewMap[q.number]?.rawUserAnswer || ''
     for (const g of p.questionGroups || []) {
       for (const q of g.questions || []) {
         if (g.type === 'mcq_multi') {
           const size = g.maxChoices || 2
-          const picks = Array.from({ length: size }, (_, i) => reviewMap[q.number + i]?.userAnswer).filter(Boolean)
+          const picks = Array.from({ length: size }, (_, i) => reviewMap[q.number + i]?.rawUserAnswer).filter(Boolean)
           out[q.id] = picks.join(',')
         } else {
-          out[q.id] = reviewMap[q.number]?.userAnswer || ''
+          out[q.id] = reviewMap[q.number]?.rawUserAnswer || ''
         }
       }
     }
@@ -143,12 +150,49 @@ function PassageView({ passage, targets }) {
   )
 }
 
+function TranscriptView({ section, targets }) {
+  const paragraphs = useMemo(() => splitParagraphs(section?.transcript), [section])
+  const dimOthers = !!targets
+  return (
+    <div className="text-zinc-800 text-[15px] leading-relaxed">
+      <div className="sticky -top-6 z-10 -mx-1 px-1 pt-6 -mt-6 pb-3 mb-3 bg-white border-b border-zinc-100">
+        <h2 className="text-lg font-semibold text-zinc-900 mb-1 leading-snug">Section {section?.number}</h2>
+        {section?.context && <p className="text-sm text-zinc-500 mb-2">{section.context}</p>}
+        {section?.audioUrl ? (
+          <audio key={section.id} controls preload="none" className="w-full h-10" src={toImgSrc(section.audioUrl)} />
+        ) : (
+          <p className="m-0 rounded-xl bg-zinc-100 px-3 py-2 text-sm text-zinc-500">Section này chưa có file audio.</p>
+        )}
+      </div>
+      {paragraphs.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-zinc-300 px-4 py-5 text-sm text-zinc-500">Section này chưa có transcript.</p>
+      ) : paragraphs.map((para, i) => {
+        const marks = targets?.[i]
+        return (
+          <p
+            key={i}
+            data-para={i}
+            data-target={marks ? 'true' : undefined}
+            className={`mb-3 transition-opacity duration-200 ${dimOthers && !marks ? 'opacity-35' : ''}`}
+          >
+            {marks ? <MarkedParagraph text={para} marks={marks} /> : para}
+          </p>
+        )
+      })}
+    </div>
+  )
+}
+
 function ScoreBadge({ value }) {
   return (
     <div className="w-10 h-10 shrink-0 rounded-full border-[3px] border-zinc-200 flex items-center justify-center">
       <span className="text-xs font-bold font-mono tabular-nums text-zinc-900">{value}</span>
     </div>
   )
+}
+
+function withText(letter, raw) {
+  return raw && raw !== letter ? `${letter}. ${raw}` : letter
 }
 
 function AnswerSummary({ number, info }) {
@@ -168,11 +212,11 @@ function AnswerSummary({ number, info }) {
       {!correct && (
         <span className="text-zinc-500">
           Bạn trả lời:{' '}
-          <span className={missed ? 'text-amber-600' : 'text-red-600 line-through'}>{missed ? '—' : info.userAnswer}</span>
+          <span className={missed ? 'text-amber-600' : 'text-red-600 line-through'}>{missed ? '—' : withText(info.userAnswer, info.rawUserAnswer)}</span>
         </span>
       )}
       <span className="text-zinc-500">
-        Đáp án: <span className="font-semibold text-emerald-700">{info.correctAnswer}</span>
+        Đáp án: <span className="font-semibold text-emerald-700">{withText(info.correctAnswer, info.rawCorrectAnswer)}</span>
       </span>
     </div>
   )
@@ -197,7 +241,11 @@ function LocateSwitch({ checked, disabled, onChange }) {
   )
 }
 
-export default function ExamReview() {
+export default function ExamReview({ skill = 'reading' }) {
+  const isListening = skill === 'listening'
+  const skillLabel = isListening ? 'Listening' : 'Reading'
+  const partLabel = isListening ? 'Section' : 'Passage'
+  const sourceLabel = isListening ? 'Transcript' : 'Bài đọc'
   const { id } = useParams()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -233,23 +281,24 @@ export default function ExamReview() {
     setLoading(true)
     setError(null)
     Promise.all([
-      queryClient.fetchQuery({ queryKey: ['exam', 'reading', id, { previewMode: false }], queryFn: () => getReadingExam(id), staleTime: 1000 * 60 * 5 }),
-      api.get(`/reading/exams/${id}/result-detail`, { params: attemptId ? { attemptId } : {} }).then(r => r.data),
+      queryClient.fetchQuery({ queryKey: ['exam', skill, id, { previewMode: false }], queryFn: () => (isListening ? getListeningExam(id) : getReadingExam(id)), staleTime: 1000 * 60 * 5 }),
+      api.get(`/${skill}/exams/${id}/result-detail`, { params: attemptId ? { attemptId } : {} }).then(r => r.data),
     ])
       .then(([examData, resultData]) => {
         setExam(examData)
         setResult(resultData)
-        const first = getPassageSlots(examData.passages?.[0])[0]?.number ?? null
+        const firstPart = isListening ? examData.listeningSections?.[0] : examData.passages?.[0]
+        const first = (isListening ? getSectionSlots(firstPart) : getPassageSlots(firstPart))[0]?.number ?? null
         setActiveNumber(n => n ?? first)
       })
       .catch(err => setError(err?.response?.data?.message || 'Không tải được bài chữa.'))
       .finally(() => setLoading(false))
-  }, [id, attemptId])
+  }, [id, attemptId, skill, isListening])
 
   useEffect(() => {
-    document.title = 'Chữa bài Reading | IELTS Pro'
+    document.title = `Chữa bài ${skillLabel} | IELTS Pro`
     load()
-  }, [load])
+  }, [load, skillLabel])
 
   useEffect(() => {
     getMyHistory({ examId: id, limit: 50 })
@@ -272,14 +321,15 @@ export default function ExamReview() {
   }, [footerHeight, isMobile])
 
   const reviewMap = useMemo(() => buildReviewMap(result?.sections), [result])
-  const answersById = useMemo(() => buildAnswersById(exam, reviewMap), [exam, reviewMap])
+  const parts = useMemo(() => (isListening ? exam?.listeningSections : exam?.passages) || [], [exam, isListening])
+  const answersById = useMemo(() => buildAnswersById(parts, reviewMap), [parts, reviewMap])
   const passageNumbers = useMemo(
-    () => (exam?.passages || []).map(p => getPassageSlots(p).map(s => s.number)),
-    [exam]
+    () => parts.map(p => (isListening ? getSectionSlots(p) : getPassageSlots(p)).map(s => s.number)),
+    [parts, isListening]
   )
   const allNumbers = useMemo(() => passageNumbers.flat(), [passageNumbers])
   const activePassage = Math.max(0, passageNumbers.findIndex(list => list.includes(activeNumber)))
-  const passage = exam?.passages?.[activePassage]
+  const passage = parts[activePassage]
   const activeInfo = reviewMap[activeNumber]
   const explanation = activeInfo?.explanation || null
   const targets = locate ? locateTargets(explanation) : null
@@ -295,8 +345,8 @@ export default function ExamReview() {
   const correctCount = useMemo(() => Object.values(reviewMap).filter(r => r.status === 'correct').length, [reviewMap])
 
   const paragraphLabel = useCallback(
-    i => (passage?.letteredParagraphs ? `Đoạn ${String.fromCharCode(65 + i)}` : `Đoạn ${i + 1}`),
-    [passage]
+    i => (isListening ? `Transcript đoạn ${i + 1}` : passage?.letteredParagraphs ? `Đoạn ${String.fromCharCode(65 + i)}` : `Đoạn ${i + 1}`),
+    [passage, isListening]
   )
 
   const selectNumber = useCallback(n => {
@@ -315,7 +365,8 @@ export default function ExamReview() {
     if (!targetKey) return
     const timer = setTimeout(() => {
       const root = isMobile ? sheetBodyRef.current : passagePaneRef.current
-      root?.querySelector('[data-target]')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      const el = root?.querySelector('[data-target] mark.bg-amber-100') || root?.querySelector('[data-target]')
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }, 80)
     return () => clearTimeout(timer)
   }, [targetKey, sheetOpen, isMobile])
@@ -345,7 +396,7 @@ export default function ExamReview() {
     setSearchParams(next)
   }
 
-  const close = () => navigate(examExitPath(exam, 'reading'), { replace: true })
+  const close = () => navigate(examExitPath(exam, skill), { replace: true })
   const requestClose = () => setConfirmExit(true)
 
   if (loading) return <SkeletonExamPage />
@@ -403,14 +454,16 @@ export default function ExamReview() {
       <div className="flex-1 min-h-0 flex">
         {!isMobile && (
           <div ref={passagePaneRef} className="w-1/2 overflow-y-auto bg-white border-r border-zinc-200 px-8 py-6">
-            <PassageView passage={passage} targets={targets} />
+            {isListening ? <TranscriptView section={passage} targets={targets} /> : <PassageView passage={passage} targets={targets} />}
           </div>
         )}
 
         <div ref={rightPaneRef} className="flex-1 min-w-0 overflow-y-auto px-4 sm:px-6 py-5 max-md:pb-36">
           <div className="max-w-3xl mx-auto flex flex-col gap-4">
             <div className="bg-white border border-zinc-200 rounded-2xl p-4 sm:p-5 shadow-xs">
-              {activeGroup && !WHOLE_GROUP_TYPES.has(activeGroup.type) && activeGroupQuestion ? (
+              {activeGroup && LISTENING_ONLY_TYPES.has(activeGroup.type) ? (
+                <ListeningGroupBlock group={activeGroup} answers={answersById} onAnswer={noop} previewMode showAnswers={false} />
+              ) : activeGroup && !WHOLE_GROUP_TYPES.has(activeGroup.type) && activeGroupQuestion ? (
                 <>
                   <TypeHeader type={activeGroupQuestion.type || activeGroup.type} from={activeGroup.qNumberStart} to={activeGroup.qNumberEnd} />
                   <QuestionBlock q={activeGroupQuestion} globalIdx={activeNumber - 1} answers={answersById} onAnswer={noop} previewMode showAnswers={false} />
@@ -455,7 +508,7 @@ export default function ExamReview() {
           style={{ ...FS, bottom: footerHeight + 12 }}
         >
           <BookOpen className="w-4 h-4" />
-          Bài đọc
+          {sourceLabel}
         </button>
       )}
 
@@ -480,7 +533,7 @@ export default function ExamReview() {
             {passageNumbers.map((nums, pi) => (
               pi === activePassage ? (
                 <div key={pi} className="flex items-center gap-1.5">
-                  <span className="px-2 text-sm font-semibold text-zinc-900 whitespace-nowrap">Passage {exam.passages[pi].number}</span>
+                  <span className="px-2 text-sm font-semibold text-zinc-900 whitespace-nowrap">{partLabel} {parts[pi].number}</span>
                   {nums.map(n => (
                     <QuestionNavButton key={n} number={n} status={reviewMap[n]?.status || 'missed'} active={n === activeNumber} roundedFull onClick={() => selectNumber(n)} />
                   ))}
@@ -493,7 +546,7 @@ export default function ExamReview() {
                   style={FS}
                   className="exam-bar-btn h-8 px-3 rounded-full font-medium text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer whitespace-nowrap"
                 >
-                  P{exam.passages[pi].number}
+                  {partLabel[0]}{parts[pi].number}
                 </button>
               )
             ))}
@@ -532,8 +585,8 @@ export default function ExamReview() {
           activeIndex={activePassage}
           onClose={() => setShowPanel(false)}
           onJump={selectNumber}
-          groups={exam.passages.map((p, pi) => ({
-            label: `Passage ${p.number}`,
+          groups={parts.map((p, pi) => ({
+            label: `${partLabel} ${p.number}`,
             items: passageNumbers[pi].map(n => ({
               number: n,
               ref: n,
@@ -556,7 +609,7 @@ export default function ExamReview() {
                 <p className="m-0 mb-1.5 font-semibold text-zinc-900">Cách xem lại bài chữa</p>
                 <ol className="m-0 pl-5 list-decimal flex flex-col gap-1">
                   <li>Vào <strong>Tất cả bộ đề Full Test</strong>, mở sách <strong>{[result.bookName, exam.bookNumber].filter(Boolean).join(' ')}</strong>, bấm <strong>Test {exam.testNumber}</strong></li>
-                  <li>Ở dòng <strong>Reading</strong>, bấm <strong>Lịch sử</strong></li>
+                  <li>Ở dòng <strong>{skillLabel}</strong>, bấm <strong>Lịch sử</strong></li>
                   <li>Chọn lượt làm, bấm <strong>Xem lại</strong></li>
                 </ol>
               </div>
@@ -570,23 +623,23 @@ export default function ExamReview() {
       />
 
       {isMobile && sheetOpen && (
-        <div className="fixed inset-0 z-40 flex flex-col justify-end" role="dialog" aria-modal="true" aria-label="Bài đọc">
+        <div className="fixed inset-0 z-40 flex flex-col justify-end" role="dialog" aria-modal="true" aria-label={sourceLabel}>
           <div className="absolute inset-0 bg-black/40" onClick={() => setSheetOpen(false)} />
           <div className="relative bg-white rounded-t-2xl shadow-2xl h-[85dvh] flex flex-col">
             <div className="flex items-center justify-between px-4 pt-2 pb-2 border-b border-zinc-100">
               <span className="absolute left-1/2 -translate-x-1/2 top-1.5 w-10 h-1 rounded-full bg-zinc-300" />
-              <span className="text-base font-semibold text-zinc-900 mt-2">Bài đọc</span>
+              <span className="text-base font-semibold text-zinc-900 mt-2">{sourceLabel}</span>
               <button
                 type="button"
                 onClick={() => setSheetOpen(false)}
-                aria-label="Đóng bài đọc"
+                aria-label={`Đóng ${sourceLabel.toLowerCase()}`}
                 className="exam-bar-btn mt-2 w-9 h-9 rounded-full hover:bg-zinc-100 flex items-center justify-center text-zinc-600 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
             <div ref={sheetBodyRef} className="flex-1 overflow-y-auto px-5 py-4">
-              <PassageView passage={passage} targets={targets} />
+              {isListening ? <TranscriptView section={passage} targets={targets} /> : <PassageView passage={passage} targets={targets} />}
             </div>
           </div>
         </div>
@@ -626,7 +679,7 @@ export default function ExamReview() {
             flexDirection: 'column',
           }}>
             <SkillResult
-              skillType="reading"
+              skillType={skill}
               examId={id}
               dataProp={result}
               isAnswerSheet={true}

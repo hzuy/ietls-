@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useNavigationType, useParams, useSearchParams } from 'react-router-dom'
 
 import { queryClient } from '../lib/queryClient'
 import { getListeningExam, getListeningExamWithAnswers, submitListeningExam } from '../services/examService'
@@ -29,6 +29,7 @@ import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
 import ExitConfirmModal from '../components/common/ExitConfirmModal'
 import ExamActionDialog from '../components/common/ExamActionDialog'
+import { markSubmitted, clearSubmitted, peekSubmittedExit, examExitPath } from '../utils/submittedExam'
 
 
 const DEFAULT_LISTENING_TIME = 40 * 60
@@ -41,6 +42,10 @@ export default function ListeningExam() {
   const previewMode = searchParams.get('preview') === 'true'
   const resumeMode = searchParams.get('resume') === 'true'
   const viewResultMode = searchParams.get('viewResult') === 'true'
+  const navigationType = useNavigationType()
+  const [redirectExit] = useState(() =>
+    !previewMode && !resumeMode && !viewResultMode && navigationType === 'POP' ? peekSubmittedExit('listening', id) : null
+  )
   const { user } = useAuth()
   const { showToast } = useToast()
 
@@ -111,8 +116,17 @@ export default function ListeningExam() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [phase, previewMode, persistDraftNow])
 
-  const exitPath = exam?.seriesId ? `/full-test/${exam.seriesId}?book=${exam.bookNumber}` : '/practice/listening'
-  const { showModal: showExitModal, stay: stayInExam, leave: leaveExam } = useBrowserHistoryGuard(phase === 'exam' && !previewMode, persistDraftNow, exitPath)
+  const exitPath = examExitPath(exam, 'listening')
+  const { showModal: showExitModal, stay: stayInExam, leave: leaveExam } = useBrowserHistoryGuard(phase === 'exam' && !previewMode && !redirectExit, persistDraftNow, exitPath)
+
+  useEffect(() => {
+    if (redirectExit) {
+      clearSubmitted('listening', id)
+      navigate(redirectExit, { replace: true })
+    } else if (navigationType === 'PUSH') {
+      clearSubmitted('listening', id)
+    }
+  }, [redirectExit, navigationType, id, navigate])
 
   const loadExam = useCallback(() => {
     setLoading(true)
@@ -157,11 +171,11 @@ export default function ListeningExam() {
 
 
   useEffect(() => {
-    if (phase !== 'exam' || previewMode) return
+    if (phase !== 'exam' || previewMode || redirectExit) return
     if (timeLeft <= 0) { doSubmit(); return }
     const t = setInterval(() => setTimeLeft(s => s - 1), 1000)
     return () => clearInterval(t)
-  }, [phase, timeLeft, previewMode])
+  }, [phase, timeLeft, previewMode, redirectExit])
 
   useEffect(() => {
     if (audioRef.current) {
@@ -208,7 +222,8 @@ export default function ListeningExam() {
     try {
       await submitListeningExam(id, answers)
       if (user) clearDraft(user.id || user._id, id, 'listening')
-      navigate(`/listening/${id}/result`, { replace: true })
+      markSubmitted('listening', id, exitPath)
+      navigate(`/listening/${id}/explanation`, { replace: true })
     } catch (e) {
       showToast(e?.response?.data?.message || e?.message || 'Lỗi nộp bài thi. Vui lòng thử lại.', 'error')
     } finally { setSubmitting(false) }
@@ -276,6 +291,7 @@ export default function ListeningExam() {
   }, [section?.questionGroups])
   const legacyGroups = useMemo(() => (section?.questions?.length > 0 ? groupByType(section.questions) : []), [section])
 
+  if (redirectExit) return null
   if (loading) return <SkeletonExamPage />
   if (error || !exam) {
     return (

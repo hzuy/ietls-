@@ -465,7 +465,8 @@ export default function SkillResult({
 
   const handleClose = () => {
     if (onClose) return onClose()
-    navigate('/')
+    if ((window.history.state?.idx ?? 0) > 0) navigate(-1)
+    else navigate('/')
   }
 
   const handleRetry = () => {
@@ -530,16 +531,14 @@ export default function SkillResult({
             </p>
           </div>
           <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
-            {onClose && (
-              <button
-                type="button"
-                onClick={handleClose}
-                aria-label="Đóng"
-                className="w-8 h-8 rounded-full border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-bold cursor-pointer flex items-center justify-center transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleClose}
+              aria-label="Đóng"
+              className="w-8 h-8 rounded-full border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-bold cursor-pointer flex items-center justify-center transition"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </div>
       )}
@@ -559,11 +558,11 @@ export default function SkillResult({
             </p>
             <button
               type="button"
-              onClick={() => navigate('/history')}
+              onClick={handleClose}
               className="text-sm font-semibold underline shrink-0 cursor-pointer bg-transparent border-none"
               style={{ color: 'var(--warning-text)' }}
             >
-              ← Quay lại danh sách lịch sử
+              ← Quay lại
             </button>
           </div>
         )}
