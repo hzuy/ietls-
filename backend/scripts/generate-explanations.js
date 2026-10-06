@@ -495,6 +495,7 @@ module.exports = {
   buildPrompt,
   callGroq,
   generateExplanation,
+  fetchQuestions,
   enrichExplanation,
   normalizeText,
   splitParagraphs,
