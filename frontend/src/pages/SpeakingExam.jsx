@@ -539,16 +539,23 @@ export default function SpeakingExam() {
       delete next[part.id]
       return next
     })
-    setSubmittedPartIds(ids => ids.filter(pid => pid !== part.id))\n    setTranscripts(prev => {\n      const next = { ...prev };\n      delete next[part.id];\n      return next;\n    })
+    setSubmittedPartIds(ids => ids.filter(pid => pid !== part.id))
+    setTranscripts(prev => {
+      const next = { ...prev }
+      delete next[part.id]
+      return next
+    })
     clearPartError(part.id)
     setConfirmResubmitId(null)
   }, [clearPartError])
 
-  const submitPart = useCallback(async (part) => {
-    const transcript = transcripts[part.id] || ''
-    if (transcript.trim().split(/\s+/).filter(Boolean).length < 10) {
-      showToast('Câu trả lời quá ngắn, hãy nói thêm!', 'error')
-      return
+    const submitPart = useCallback(async (part) => {
+    const transcriptArray = transcripts[part.id] || [];
+    const transcript = Array.isArray(transcriptArray) ? JSON.stringify(transcriptArray) : transcriptArray;
+    const wCount = Array.isArray(transcriptArray) ? transcriptArray.reduce((acc, curr) => acc + (curr.text || '').split(/\s+/).filter(Boolean).length, 0) : transcript.trim().split(/\s+/).filter(Boolean).length;
+    if (wCount < 10) {
+      showToast('Câu trả lời quá ngắn, hãy nói thêm!', 'error');
+      return;
     }
     if (isRecording) stopRecording()
     if (isTranscribing) return // Don't submit while Whisper is processing
@@ -1055,7 +1062,7 @@ export default function SpeakingExam() {
                     </div>
                     <div className="w-14 h-14 rounded-full flex items-center justify-center shadow-sm relative bg-white">
                        <svg className="absolute inset-0 w-full h-full -rotate-90 z-0" viewBox="0 0 100 100">
-                         <circle cx="50" cy="50" r="48" fill="none" stroke="#e0e7ff" strokeWidth="4" />
+                         
                          <circle cx="50" cy="50" r="48" fill="none" stroke="#4f46e5" strokeWidth="4" strokeDasharray="301.59" strokeDashoffset={`${301.59 * (1 - (recordingSeconds / getSpeakSecondsLimit(part.number)))}`} strokeLinecap="round" className="transition-all duration-1000 ease-linear" />
                        </svg>
                        <span className="text-xs font-bold text-indigo-900 tabular-nums z-10">{formatTime(recordingSeconds)}</span>
