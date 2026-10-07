@@ -172,9 +172,10 @@ export function useSpeechRecording(transcripts, setTranscripts) {
 
   // ── Core recording function (Whisper-only, tất cả trình duyệt) ──────────────
 
-  const startRecording = useCallback(async (partId) => {
+  const startRecording = useCallback(async (partId, questionId) => {
     // Reset state trước khi bắt đầu ghi âm mới
     forceCleanupAll();
+    mediaRecorderRef.current_questionId = questionId;
     revokeAudioUrl();
     userStoppedRef.current = false;
     setTranscribeError(null);
@@ -249,10 +250,21 @@ export function useSpeechRecording(transcripts, setTranscripts) {
           });
 
           const text = (res.data.transcript || '').trim();
+          const audioUrl = res.data.audioUrl;
           if (text) {
             setTranscribeError(null);
-            // Phương án A: THAY THẾ hoàn toàn (không nối chồng)
-            setTranscripts(t => ({ ...t, [partId]: text }));
+            setTranscripts(t => {
+              const partAnswers = t[partId] || [];
+              const qId = mediaRecorderRef.current_questionId;
+              const existingIndex = partAnswers.findIndex(a => a.questionId === qId);
+              let newAnswers = [...partAnswers];
+              if (existingIndex >= 0) {
+                newAnswers[existingIndex] = { questionId: qId, text, audioUrl };
+              } else {
+                newAnswers.push({ questionId: qId, text, audioUrl });
+              }
+              return { ...t, [partId]: newAnswers };
+            });
           } else {
             setTranscribeError('AI không nghe thấy rõ nội dung nói, vui lòng thử lại.');
           }

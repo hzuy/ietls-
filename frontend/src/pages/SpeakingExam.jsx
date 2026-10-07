@@ -539,7 +539,7 @@ export default function SpeakingExam() {
       delete next[part.id]
       return next
     })
-    setSubmittedPartIds(ids => ids.filter(pid => pid !== part.id))
+    setSubmittedPartIds(ids => ids.filter(pid => pid !== part.id))\n    setTranscripts(prev => {\n      const next = { ...prev };\n      delete next[part.id];\n      return next;\n    })
     clearPartError(part.id)
     setConfirmResubmitId(null)
   }, [clearPartError])
@@ -731,42 +731,44 @@ export default function SpeakingExam() {
                       </div>
                     </div>
 
-                    {/* Audio Player Bar */}
-                    <div className="flex items-center gap-3 bg-zinc-50 border border-zinc-200/80 rounded-xl px-3.5 py-2 mb-3">
-                      <button
-                        type="button"
-                        onClick={() => setPlayingPartId(prev => prev === part.id ? null : part.id)}
-                        className="w-8 h-8 rounded-full bg-zinc-900 text-white flex items-center justify-center hover:bg-zinc-800 transition cursor-pointer shrink-0"
-                        title={playingPartId === part.id ? "Tạm dừng" : "Nghe lại bài nói"}
-                      >
-                        {playingPartId === part.id ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
-                      </button>
-                      <div className="flex items-center gap-1 flex-1 h-6">
-                        {[35, 60, 45, 80, 65, 90, 40, 70, 85, 50, 75, 95, 60, 40, 80, 55, 70, 90, 65, 45, 85, 60, 75, 40, 55, 30].map((h, i) => (
-                          <span
-                            key={i}
-                            className={`w-1 rounded-full transition-all duration-300 ${
-                              playingPartId === part.id ? 'bg-zinc-800 animate-pulse' : 'bg-zinc-300'
-                            }`}
-                            style={{ height: `${h}%`, animationDelay: `${i * 60}ms` }}
-                          />
-                        ))}
-                      </div>
-                      <div className="text-[11px] font-mono font-medium text-zinc-500 shrink-0 flex items-center gap-1">
-                        <Volume2 className="w-3 h-3 text-zinc-400" />
-                        <span>Audio Recording</span>
-                      </div>
-                    </div>
+                    {/* Transcript block */}
+                    <div className="flex flex-col gap-4 mb-4">
+                      {Array.isArray(transcripts[part.id]) ? (
+                        transcripts[part.id].map((ans, idx) => {
+                          const q = part.questions.find(x => x.id === ans.questionId) || part.questions[idx];
+                          return (
+                            <div key={idx} className="bg-zinc-50/70 rounded-xl border border-zinc-200/70 p-4">
+                              <h4 className="text-sm font-bold text-zinc-800 mb-3 flex items-start gap-2">
+                                <span className="w-5 h-5 flex items-center justify-center rounded-full bg-pink-100 text-pink-600 text-[10px] shrink-0 mt-0.5">?</span>
+                                {q?.questionText || 'Câu hỏi'}
+                              </h4>
+                              
+                              {ans.audioUrl && (
+                                <div className="flex items-center gap-3 bg-white border border-zinc-200 rounded-lg px-3 py-2 mb-3 shadow-xs">
+                                  <audio controls src={ans.audioUrl} className="w-full h-8" />
+                                </div>
+                              )}
 
-                    {/* Transcript with highlights */}
-                    <div className="bg-zinc-50/70 rounded-xl border border-zinc-200/70 p-3.5 mb-3.5">
-                      <div className="flex items-center justify-between mb-1.5 text-xs text-zinc-500 font-medium">
-                        <span>Transcript bài nói của bạn:</span>
-                        <span className="text-[11px] font-mono text-zinc-400">
-                          {transcripts[part.id]?.trim() ? `${transcripts[part.id].trim().split(/\s+/).length} từ` : '0 từ'}
-                        </span>
-                      </div>
-                      <HighlightedTranscript text={transcripts[part.id]} />
+                              <div className="text-sm text-zinc-600 pl-7">
+                                <span className="text-[11px] font-mono text-zinc-400 mb-1 block">
+                                  {(ans.text || '').split(/\s+/).filter(Boolean).length} từ
+                                </span>
+                                <HighlightedTranscript text={ans.text} />
+                              </div>
+                            </div>
+                          )
+                        })
+                      ) : (
+                        <div className="bg-zinc-50/70 rounded-xl border border-zinc-200/70 p-3.5">
+                          <div className="flex items-center justify-between mb-1.5 text-xs text-zinc-500 font-medium">
+                            <span>Transcript bài nói của bạn:</span>
+                            <span className="text-[11px] font-mono text-zinc-400">
+                              {typeof transcripts[part.id] === 'string' && transcripts[part.id]?.trim() ? `${transcripts[part.id].trim().split(/\s+/).length} từ` : '0 từ'}
+                            </span>
+                          </div>
+                          <HighlightedTranscript text={typeof transcripts[part.id] === 'string' ? transcripts[part.id] : ''} />
+                        </div>
+                      )}
                     </div>
 
                     {/* 4 Criteria Badges Row (Pill badges) */}
@@ -832,7 +834,10 @@ export default function SpeakingExam() {
   // ── Exam ──────────────────────────────────────────────────────────────────
   const part = exam.speakingParts[activePart]
   const partTranscript = transcripts[part.id] || ''
-  const wordCount = partTranscript.trim().split(/\s+/).filter(Boolean).length
+  const partTranscripts = transcripts[part.id] || [];
+  const wordCount = Array.isArray(partTranscripts)
+    ? partTranscripts.reduce((acc, curr) => acc + (curr.text || '').split(/\s+/).filter(Boolean).length, 0)
+    : partTranscripts.trim().split(/\s+/).filter(Boolean).length;
   const partDone = isPartDone(part.id)
   const partGradingError = gradingErrors[part.id] || null
 

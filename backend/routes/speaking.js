@@ -9,6 +9,7 @@ const validate = require('../middleware/validate')
 const { aiSubmitLimiter } = require('../middleware/rateLimiter')
 const { speakingSubmitSchema, transcribeSchema } = require('../validators/submissionValidator')
 const { cleanJsonRaw, repairTruncatedJson } = require('../services/json/jsonSanitizer')
+const { uploadAudio } = require('../services/storageService')
 
 const router = express.Router()
 const prisma = require('../lib/prisma')
@@ -145,6 +146,9 @@ router.post('/transcribe', authMiddleware, learnerOnly, audioUpload.single('audi
     }
 
     const groq = getGroqClient()
+    const uploadRes = await uploadAudio({ path: filePath, filename: req.file.filename }, { subdir: 'user_audio', folder: 'user_audio' })
+    const audioUrl = uploadRes.url
+
     const transcription = await groq.audio.transcriptions.create({
       file: fs.createReadStream(filePath),
       model: 'whisper-large-v3',
@@ -157,7 +161,7 @@ router.post('/transcribe', authMiddleware, learnerOnly, audioUpload.single('audi
     // Clean up temp file sau khi success
     fs.unlink(filePath, () => {})
 
-    res.json({ transcript: transcription.text || '' })
+    res.json({ transcript: transcription.text || '', audioUrl })
   } catch (error) {
     // Clean up file nếu có lỗi xảy ra
     if (filePath) fs.unlink(filePath, () => {})
@@ -176,7 +180,7 @@ async function processSpeakingAI(answerId, partNumber, questionsText, transcript
     const prompt = `Bạn là giám khảo IELTS Speaking. Đánh giá câu trả lời Part ${partNumber}.
 
 CÂU HỎI:\n${questionsText}
-CÂU TRẢ LỜI: ${transcript}
+CÂU TRẢ LỜI:\n${(function(){ try { const p = JSON.parse(transcript); if(Array.isArray(p)) return p.map((i, idx)=>`Câu ${idx+1}: ${i.text}`).join(`\n`); } catch(e){} return transcript; })()}
 
 Trả về JSON (không có gì khác):
 {
