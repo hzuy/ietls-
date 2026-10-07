@@ -184,7 +184,7 @@ export default function ReadingResultSplitScreen({ data, onRetry, isPractice, on
 
   const passage = sections[activePassage]
   const passagePillsItems = sections.map((s, i) => ({
-    label: \`Passage \${s.number}\`,
+    label: `Passage ${s.number}`,
     status: 'default'
   }))
 
