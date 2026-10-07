@@ -561,6 +561,16 @@ export default function SpeakingExam() {
     setConfirmResubmitId(null)
   }, [clearPartError])
 
+  const redoPart = useCallback((part) => {
+    setTranscripts(prev => {
+      const next = { ...prev }
+      delete next[part.id]
+      return next
+    })
+    setTurnState('idle')
+    setActiveQuestionIndex(0)
+  }, [])
+
     const submitPart = useCallback(async (part) => {
     const transcriptArray = transcripts[part.id] || [];
     const transcript = Array.isArray(transcriptArray) ? JSON.stringify(transcriptArray) : transcriptArray;
@@ -1006,9 +1016,14 @@ export default function SpeakingExam() {
                       </button>
                     )}
                     {turnState === 'completed' && (
-                      <button onClick={() => submitPart(part)} disabled={submitting} className="px-6 py-2.5 rounded-full font-bold text-sm border-2 border-red-500 text-white bg-red-500 hover:bg-red-600 transition-all cursor-pointer inline-flex items-center gap-2">
-                        {submitting ? 'Đang nộp...' : 'Nộp Part 2'}
-                      </button>
+                      <div className="flex items-center justify-end gap-3">
+                        <button onClick={() => redoPart(part)} disabled={submitting} className="px-6 py-2.5 rounded-full font-bold text-sm border-2 border-zinc-200 text-zinc-600 bg-white hover:bg-zinc-50 transition-all cursor-pointer inline-flex items-center gap-2">
+                          Làm lại
+                        </button>
+                        <button onClick={() => submitPart(part)} disabled={submitting} className="px-6 py-2.5 rounded-full font-bold text-sm border-2 border-red-500 text-white bg-red-500 hover:bg-red-600 transition-all cursor-pointer inline-flex items-center gap-2">
+                          {submitting ? 'Đang nộp...' : 'Nộp Part 2'}
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1067,9 +1082,14 @@ export default function SpeakingExam() {
               {turnState === 'completed' && (
                  <div className="flex flex-col items-center justify-center gap-6 w-full">
                     <p className="text-sm font-medium text-zinc-500 text-center max-w-sm leading-relaxed">Bạn đã trả lời xong tất cả câu hỏi. Hãy ấn nút <strong className="text-zinc-700 font-bold">Nộp Part {part.number}</strong> bên dưới để hệ thống chấm điểm nhé!</p>
-                    <button onClick={() => submitPart(part)} disabled={submitting} className="px-8 py-3 rounded-full font-bold text-sm bg-red-500 text-white hover:bg-red-600 transition-colors shadow-lg cursor-pointer flex items-center gap-2">
-                      {submitting ? 'Đang nộp...' : `Nộp Part ${part.number}`}
-                    </button>
+                    <div className="flex items-center gap-4">
+                      <button onClick={() => redoPart(part)} disabled={submitting} className="px-6 py-3 rounded-full font-bold text-sm bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors cursor-pointer flex items-center gap-2">
+                        Làm lại
+                      </button>
+                      <button onClick={() => submitPart(part)} disabled={submitting} className="px-8 py-3 rounded-full font-bold text-sm bg-red-500 text-white hover:bg-red-600 transition-colors shadow-lg cursor-pointer flex items-center gap-2">
+                        {submitting ? 'Đang nộp...' : `Nộp Part ${part.number}`}
+                      </button>
+                    </div>
                  </div>
               )}
            </div>
