@@ -1063,6 +1063,15 @@ export default function SpeakingExam() {
                     </button>
                  </div>
               )}
+
+              {turnState === 'completed' && (
+                 <div className="flex flex-col items-center justify-center gap-6 w-full">
+                    <p className="text-sm font-medium text-zinc-500 text-center max-w-sm leading-relaxed">Bạn đã trả lời xong tất cả câu hỏi. Hãy ấn nút <strong className="text-zinc-700 font-bold">Nộp Part {part.number}</strong> bên dưới để hệ thống chấm điểm nhé!</p>
+                    <button onClick={() => submitPart(part)} disabled={submitting} className="px-8 py-3 rounded-full font-bold text-sm bg-red-500 text-white hover:bg-red-600 transition-colors shadow-lg cursor-pointer flex items-center gap-2">
+                      {submitting ? 'Đang nộp...' : `Nộp Part ${part.number}`}
+                    </button>
+                 </div>
+              )}
            </div>
 
            {/* Bottom bar for user_speaking */}
@@ -1095,57 +1104,6 @@ export default function SpeakingExam() {
            )}
         </div>
       )}
-      
-      {/* Bottom Bar */}
-      <div className="h-14 px-4 sm:px-6 bg-white border-t border-zinc-200 flex items-center justify-between gap-3 sm:gap-4 shrink-0 z-20">
-        <div className="flex items-center gap-2 min-w-0 overflow-x-auto [scrollbar-width:none]">
-          {exam.speakingParts.map((p, i) => {
-            const done = isPartDone(p.id)
-            const active = activePart === i
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => { setActivePart(i); setTurnState('idle'); setActiveQuestionIndex(0); if(isRecording) stopRecording(); }}
-                aria-label={`Part ${p.number}${done ? ' — đã nộp' : ''}`}
-                className={`exam-bar-btn shrink-0 whitespace-nowrap h-9 px-3.5 sm:px-4 rounded-full text-xs sm:text-sm inline-flex items-center justify-center gap-2 leading-none transition-all cursor-pointer border ${
-                  done
-                    ? 'bg-zinc-900 text-white border-zinc-900'
-                    : 'bg-white border-zinc-300'
-                } ${active ? 'font-bold text-zinc-900 border-zinc-400 shadow-sm' : 'font-medium text-zinc-600 hover:font-bold hover:text-zinc-900'}`}
-              >
-                <span className="sm:hidden" aria-hidden="true">P{p.number}</span>
-                <span className="hidden sm:inline" aria-hidden="true">Part {p.number}</span>
-                {done && <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />}
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Right: Submit button */}
-        <div className="flex items-center shrink-0">
-          <button
-            type="button"
-            onClick={() => submitPart(part)}
-            disabled={submitting || wordCount < 10 || isTranscribing || partDone}
-            className="exam-bar-btn whitespace-nowrap bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium h-9 px-5 rounded-full shadow-xs transition-colors cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5 leading-none"
-          >
-            {submitting ? (
-              <>
-                <Sparkles className="w-3.5 h-3.5 animate-spin" />
-                Đang chấm điểm...
-              </>
-            ) : partDone ? (
-              <>
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Đã nộp Part {part.number}
-              </>
-            ) : (
-              `Nộp Part ${part.number}`
-            )}
-          </button>
-        </div>
-      </div>
 
     </div>
 
