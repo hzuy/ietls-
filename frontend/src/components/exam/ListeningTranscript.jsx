@@ -122,6 +122,7 @@ export default function ListeningTranscript({ section, audioRef }) {
             )
           })}
         </div>
+      </div>
     </div>
   )
 }

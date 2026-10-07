@@ -46,6 +46,26 @@ const CONFIG = {
       { value: 'task2', label: 'Task 2' },
     ],
     taskLabels: { task1: 'Task 1', task2: 'Task 2' },
+    examTypes: {
+      task1: [
+        { value: '', label: '-- Chọn dạng đề --' },
+        { value: 'Line Graph', label: 'Line Graph' },
+        { value: 'Bar Chart', label: 'Bar Chart' },
+        { value: 'Pie Chart', label: 'Pie Chart' },
+        { value: 'Mixed Charts', label: 'Mixed Charts' },
+        { value: 'Table', label: 'Table' },
+        { value: 'Process', label: 'Process' },
+        { value: 'Map', label: 'Map' }
+      ],
+      task2: [
+        { value: '', label: '-- Chọn dạng đề --' },
+        { value: 'Opinion / Agree or Disagree Essay', label: 'Opinion / Agree or Disagree Essay' },
+        { value: 'Discussion / Discuss Both Views Essay', label: 'Discussion / Discuss Both Views Essay' },
+        { value: 'Advantages and Disadvantages Essay', label: 'Advantages and Disadvantages Essay' },
+        { value: 'Problem and Solution Essay', label: 'Problem and Solution Essay' },
+        { value: 'Two-Part Question / Direct Question Essay', label: 'Two-Part Question / Direct Question Essay' }
+      ]
+    },
     examTypePlaceholder: {
       task1: 'VD: Bar chart, Line graph, Pie chart, Map, Process diagram...',
       task2: 'VD: Opinion essay, Discussion essay, Problem-solution...',
@@ -83,6 +103,30 @@ const CONFIG = {
       { value: 'task3', label: 'Part 3' },
     ],
     taskLabels: { task1: 'Part 1', task2: 'Part 2', task3: 'Part 3' },
+    examTypes: {
+      task1: [
+        { value: '', label: '-- Chọn chủ đề --' },
+        { value: 'Personal Identification & Background', label: 'Personal Identification & Background' },
+        { value: 'Leisure & Lifestyle', label: 'Leisure & Lifestyle' },
+        { value: 'Everyday Consumer Habits & Environment', label: 'Everyday Consumer Habits & Environment' }
+      ],
+      task2: [
+        { value: '', label: '-- Chọn chủ đề --' },
+        { value: 'Describe a person', label: 'Describe a person' },
+        { value: 'Describe a place', label: 'Describe a place' },
+        { value: 'Describe an object', label: 'Describe an object' },
+        { value: 'Describe an event/activity', label: 'Describe an event/activity' },
+        { value: 'Describe an experience', label: 'Describe an experience' }
+      ],
+      task3: [
+        { value: '', label: '-- Chọn chủ đề --' },
+        { value: 'Technology', label: 'Technology' },
+        { value: 'Environment', label: 'Environment' },
+        { value: 'Education & Career', label: 'Education & Career' },
+        { value: 'Culture & Society', label: 'Culture & Society' },
+        { value: 'Media & Entertainment', label: 'Media & Entertainment' }
+      ]
+    },
     examTypePlaceholder: {
       task1: 'VD: Personal questions, Hobbies, Daily routine...',
       task2: 'VD: Describe a person, Describe a place, Describe an event...',
@@ -265,9 +309,18 @@ export default function SampleManager({ kind }) {
                 </div>
                 <div className="mb-3.5">
                   <label className="block text-xs font-medium text-zinc-700 mb-1.5">Dạng đề</label>
-                  <input value={form.examType} onChange={e => setForm(f => ({ ...f, examType: e.target.value }))}
-                    placeholder={cfg.examTypePlaceholder[form.level] || cfg.examTypePlaceholder['']}
-                    className="w-full px-3 py-2 border border-zinc-200 rounded-xl text-xs focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 transition bg-white text-zinc-900 placeholder:text-zinc-400 shadow-2xs" />
+                  {cfg.examTypes && cfg.examTypes[form.level] ? (
+                    <Select
+                      ariaLabel="Dạng đề"
+                      value={form.examType}
+                      onChange={v => setForm(f => ({ ...f, examType: v }))}
+                      options={cfg.examTypes[form.level]}
+                    />
+                  ) : (
+                    <input value={form.examType} onChange={e => setForm(f => ({ ...f, examType: e.target.value }))}
+                      placeholder={cfg.examTypePlaceholder[form.level] || cfg.examTypePlaceholder['']}
+                      className="w-full px-3 py-2 border border-zinc-200 rounded-xl text-xs focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 transition bg-white text-zinc-900 placeholder:text-zinc-400 shadow-2xs" />
+                  )}
                 </div>
                 {/* Tags */}
                 {cfg.showTags && (
@@ -354,7 +407,7 @@ export default function SampleManager({ kind }) {
                       </td>
                       <td className="rt-main px-4 py-3 text-sm font-medium text-zinc-900">{item.title}</td>
                       <td data-label={cfg.taskColHeader} className="px-4 py-3 hidden sm:table-cell">
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
+                        <div style={{ display: 'flex', flexWrap: 'nowrap', gap: 4, alignItems: 'center', whiteSpace: 'nowrap' }}>
                           {item.level && (
                             <span style={{ fontSize: 11, background: cfg.listChipStyle.background, color: cfg.listChipStyle.color, borderRadius: 6, padding: '2px 8px', fontWeight: 600, border: '1px solid #e4e4e7' }}>
                               {formatTask(item.level)}
@@ -370,7 +423,7 @@ export default function SampleManager({ kind }) {
                       {cfg.showTags && <td data-label="Tags" className="px-4 py-3 hidden sm:table-cell"><div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{(item.tags || []).map(t => <span key={t} style={{ fontSize: 11, background: cfg.listChipStyle.background, color: cfg.listChipStyle.color, borderRadius: 6, padding: '2px 8px', border: '1px solid #e4e4e7' }}>{t}</span>)}</div></td>}
                       <td data-label="Ngày tạo" className="px-4 py-3 text-sm text-zinc-500 hidden sm:table-cell">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</td>
                       <td className="rt-actions px-4 py-3"><div className="flex items-center justify-end gap-2">
-                        <button onClick={() => openEdit(item)} disabled={loadingEditId !== null} className="h-8 px-3.5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs font-medium text-zinc-700 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-slate-800 transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{loadingEditId === item.id ? 'Đang tải...' : 'Sửa'}</button>
+                        <button onClick={() => openEdit(item)} disabled={loadingEditId !== null} className="h-8 px-3.5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs font-medium text-zinc-700 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-slate-800 transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Sửa</button>
                         <button onClick={() => setDelConfirm(item.id)} disabled={loadingEditId !== null} className="h-8 px-3.5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs font-medium text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-200 transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Xóa</button>
                       </div></td>
                     </tr>

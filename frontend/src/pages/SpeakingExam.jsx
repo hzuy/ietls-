@@ -1053,7 +1053,7 @@ export default function SpeakingExam() {
                     <div className="flex items-end gap-1.5 h-10 w-24 justify-center">
                        {audioLevels.slice(0, 7).map((l, i) => <div key={i} className="w-2 bg-cyan-400 rounded-full transition-all" style={{height: `${Math.max(6, l*40)}px`}}/>)}
                     </div>
-                    <div className="w-14 h-14 rounded-full border-[3.5px] border-indigo-600 flex items-center justify-center shadow-sm relative overflow-hidden bg-white">
+                    <div className="w-14 h-14 rounded-full flex items-center justify-center shadow-sm relative bg-white">
                        <svg className="absolute inset-0 w-full h-full -rotate-90 z-0" viewBox="0 0 100 100">
                          <circle cx="50" cy="50" r="48" fill="none" stroke="#e0e7ff" strokeWidth="4" />
                          <circle cx="50" cy="50" r="48" fill="none" stroke="#4f46e5" strokeWidth="4" strokeDasharray="301.59" strokeDashoffset={`${301.59 * (1 - (recordingSeconds / getSpeakSecondsLimit(part.number)))}`} strokeLinecap="round" className="transition-all duration-1000 ease-linear" />

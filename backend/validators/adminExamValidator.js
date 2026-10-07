@@ -235,15 +235,48 @@ const createSpeakingExamSchema = z.object({
   ...examCommonFields,
   part1: z.object({
     cueCard: z.string().nullable().optional(),
-    questions: z.array(z.string()).optional().default([]),
+    introAudioUrl: z.string().nullable().optional(),
+    introTtsScript: z.string().nullable().optional(),
+    questions: z.array(
+      z.union([
+        z.string(),
+        z.object({
+          questionText: z.string(),
+          audioUrl: z.string().nullable().optional(),
+          ttsScript: z.string().nullable().optional(),
+        })
+      ])
+    ).optional().default([]),
   }).optional().default({ questions: [] }),
   part2: z.object({
     cueCard: z.string().nullable().optional(),
-    questions: z.array(z.string()).optional().default([]),
+    introAudioUrl: z.string().nullable().optional(),
+    introTtsScript: z.string().nullable().optional(),
+    questions: z.array(
+      z.union([
+        z.string(),
+        z.object({
+          questionText: z.string(),
+          audioUrl: z.string().nullable().optional(),
+          ttsScript: z.string().nullable().optional(),
+        })
+      ])
+    ).optional().default([]),
   }).optional().default({ questions: [] }),
   part3: z.object({
     cueCard: z.string().nullable().optional(),
-    questions: z.array(z.string()).optional().default([]),
+    introAudioUrl: z.string().nullable().optional(),
+    introTtsScript: z.string().nullable().optional(),
+    questions: z.array(
+      z.union([
+        z.string(),
+        z.object({
+          questionText: z.string(),
+          audioUrl: z.string().nullable().optional(),
+          ttsScript: z.string().nullable().optional(),
+        })
+      ])
+    ).optional().default([]),
   }).optional().default({ questions: [] }),
 })
 
@@ -264,15 +297,48 @@ const updateExamSchema = z.object({
   }).optional(),
   part1: z.object({
     cueCard: z.string().nullable().optional(),
-    questions: z.array(z.string()).optional().default([]),
+    introAudioUrl: z.string().nullable().optional(),
+    introTtsScript: z.string().nullable().optional(),
+    questions: z.array(
+      z.union([
+        z.string(),
+        z.object({
+          questionText: z.string(),
+          audioUrl: z.string().nullable().optional(),
+          ttsScript: z.string().nullable().optional(),
+        })
+      ])
+    ).optional().default([]),
   }).optional(),
   part2: z.object({
     cueCard: z.string().nullable().optional(),
-    questions: z.array(z.string()).optional().default([]),
+    introAudioUrl: z.string().nullable().optional(),
+    introTtsScript: z.string().nullable().optional(),
+    questions: z.array(
+      z.union([
+        z.string(),
+        z.object({
+          questionText: z.string(),
+          audioUrl: z.string().nullable().optional(),
+          ttsScript: z.string().nullable().optional(),
+        })
+      ])
+    ).optional().default([]),
   }).optional(),
   part3: z.object({
     cueCard: z.string().nullable().optional(),
-    questions: z.array(z.string()).optional().default([]),
+    introAudioUrl: z.string().nullable().optional(),
+    introTtsScript: z.string().nullable().optional(),
+    questions: z.array(
+      z.union([
+        z.string(),
+        z.object({
+          questionText: z.string(),
+          audioUrl: z.string().nullable().optional(),
+          ttsScript: z.string().nullable().optional(),
+        })
+      ])
+    ).optional().default([]),
   }).optional(),
 })
 

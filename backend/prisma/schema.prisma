@@ -133,10 +133,12 @@ model WritingTask {
 
 // ─── SPEAKING ───────────────────────────────────────
 model SpeakingPart {
-  id      Int     @id @default(autoincrement())
-  examId  Int
-  number  Int // 1, 2, 3
-  cueCard String?
+  id             Int     @id @default(autoincrement())
+  examId         Int
+  number         Int // 1, 2, 3
+  cueCard        String?
+  introAudioUrl  String?
+  introTtsScript String?
 
   exam      Exam               @relation(fields: [examId], references: [id], onDelete: Cascade)
   questions SpeakingQuestion[]
@@ -144,10 +146,12 @@ model SpeakingPart {
 }
 
 model SpeakingQuestion {
-  id           Int    @id @default(autoincrement())
+  id           Int     @id @default(autoincrement())
   partId       Int
   orderNum     Int
   questionText String
+  audioUrl     String?
+  ttsScript    String?
 
   part SpeakingPart @relation(fields: [partId], references: [id], onDelete: Cascade)
 }

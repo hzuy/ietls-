@@ -296,7 +296,6 @@ export default function WritingExam() {
   const pollStatus = async (answerId, task, pollCount = 0) => {
     if (pollCount >= 30) {
       setGradingErrors(prev => ({ ...prev, [task.id]: { error: 'Hết thời gian chờ chấm bài (90 giây). Vui lòng thử lại.', answerId } }))
-      setSubmitting(false)
       setGradingTask(null)
       setRetryingTask(null)
       return
@@ -309,10 +308,8 @@ export default function WritingExam() {
         setGradingTask(null)
         setRetryingTask(null)
         clearTaskError(task.id)
-        setSubmitting(false)
       } else if (res.status === 'failed') {
         setGradingErrors(prev => ({ ...prev, [task.id]: { error: res.error || 'Lỗi chấm bài AI', answerId: res.answerId ?? answerId } }))
-        setSubmitting(false)
         setGradingTask(null)
         setRetryingTask(null)
       } else {
@@ -321,7 +318,6 @@ export default function WritingExam() {
       }
     } catch (err) {
       setGradingErrors(prev => ({ ...prev, [task.id]: { error: err.response?.data?.message || 'Lỗi kiểm tra kết quả chấm', answerId } }))
-      setSubmitting(false)
       setGradingTask(null)
       setRetryingTask(null)
     }
@@ -336,11 +332,18 @@ export default function WritingExam() {
     try {
       const r = await submitWritingExam(id, task.id, essay)
       setSubmittedTaskIds(ids => ids.includes(task.id) ? ids : [...ids, task.id])
+      
+      const currentIndex = exam.writingTasks.findIndex(t => t.id === task.id)
+      if (currentIndex >= 0 && currentIndex < exam.writingTasks.length - 1) {
+        setActiveTask(currentIndex + 1)
+      }
+      
+      setSubmitting(false) // Release global submitting lock immediately
+
       if (r.answerId && r.status === 'pending') {
         pollStatus(r.answerId, task)
       } else {
         setResults(prev => ({ ...prev, [task.id]: r }))
-        setSubmitting(false)
         setGradingTask(null)
       }
     } catch (e) {
@@ -361,6 +364,7 @@ export default function WritingExam() {
     setGradingTask(task.id)
     try {
       const r = await retryWritingGrading(entry.answerId)
+      setSubmitting(false)
       pollStatus(r.answerId, task)
     } catch (e) {
       setGradingErrors(prev => ({ ...prev, [task.id]: { error: e.response?.data?.message || 'Lỗi chấm lại, thử lại nhé!', answerId: entry.answerId } }))
@@ -368,21 +372,6 @@ export default function WritingExam() {
       setGradingTask(null)
       setRetryingTask(null)
     }
-  }
-
-  // "Nộp lại" (Task 3) — cho task ĐÃ chấm xong viết lại từ đầu. Chỉ xoá state cục
-  // bộ (results/submittedTaskIds/gradingErrors); bản ghi WritingAnswer cũ trong DB
-  // giữ nguyên — /submit luôn tạo bản ghi MỚI, my-results tự ưu tiên bản mới nhất.
-  const handleResubmit = (task) => {
-    setResults(prev => {
-      if (!(task.id in prev)) return prev
-      const next = { ...prev }
-      delete next[task.id]
-      return next
-    })
-    setSubmittedTaskIds(ids => ids.filter(tid => tid !== task.id))
-    clearTaskError(task.id)
-    setConfirmResubmitId(null)
   }
 
   // ── Auto-submit khi hết giờ ────────────────────────────────────────────────
@@ -769,68 +758,41 @@ export default function WritingExam() {
                 )}
               </button>
             </div>
-          ) : taskDone ? (
-            <div className="flex-1 bg-white rounded-2xl border border-zinc-200 p-8 flex flex-col items-center justify-center text-center max-w-xl mx-auto w-full self-center shadow-xs">
-              <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mb-4 text-emerald-600">
-                <CheckCircle2 className="w-6 h-6 stroke-[2]" />
-              </div>
-              <p className="font-bold text-zinc-900 text-lg mb-1">Task {task.number} đã được nộp!</p>
-              <p className="text-zinc-500 text-sm mb-6 leading-relaxed">Kết quả chi tiết từ AI sẽ hiển thị sau khi hoàn thành tất cả các tasks của bài thi viết.</p>
-              {exam.writingTasks.length > 1 && activeTask < exam.writingTasks.length - 1 && !isTaskDone(exam.writingTasks[activeTask + 1]?.id) && (
-                <button onClick={() => setActiveTask(activeTask + 1)} className="btn-primary h-9 px-4 rounded-full text-xs sm:text-sm font-medium shadow-xs transition-colors cursor-pointer flex items-center justify-center">
-                  Làm Task {task.number + 1} →
-                </button>
-              )}
-              {/* Task 3: "Nộp lại" — hành động phụ, xác nhận 2 bước, không xoá bản ghi cũ */}
-              <div className="mt-5 pt-5 border-t border-zinc-100 w-full">
-                {confirmResubmitId === task.id ? (
-                  <div className="flex flex-col items-center gap-2">
-                    <p className="text-zinc-500 text-xs leading-relaxed m-0">Nộp lại sẽ ghi đè kết quả hiển thị bằng bài viết mới — bài cũ vẫn được lưu lại.</p>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => handleResubmit(task)} className="h-9 px-4 rounded-full text-sm font-medium bg-zinc-900 hover:bg-zinc-800 text-white shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none">
-                        Xác nhận nộp lại
-                      </button>
-                      <button onClick={() => setConfirmResubmitId(null)} className="h-9 px-4 rounded-full text-sm font-medium bg-white hover:bg-zinc-100 text-zinc-900 border border-zinc-200 shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none">
-                        Huỷ
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setConfirmResubmitId(task.id)}
-                    className="text-xs font-semibold text-zinc-400 hover:text-zinc-900 underline decoration-dotted transition-colors cursor-pointer bg-transparent border-none"
-                  >
-                    Nộp lại Task {task.number}
-                  </button>
-                )}
-              </div>
-            </div>
-          ) : gradingTask === task.id ? (
-            <div className="flex-1 bg-white rounded-2xl border border-zinc-200 p-8 flex flex-col items-center justify-center text-center max-w-xl mx-auto w-full self-center shadow-xs">
-              <div className="w-10 h-10 border-4 border-zinc-900 border-t-transparent rounded-full animate-spin mb-4" />
-              <p className="font-bold text-zinc-900 text-lg mb-1 flex items-center justify-center gap-2">
-                <Sparkles className="w-5 h-5 text-zinc-700 animate-pulse" />
-                AI đang chấm bài Task {task.number}...
-              </p>
-              <p className="text-zinc-500 text-sm leading-relaxed">Hệ thống đang xử lý bài viết của bạn. Vui lòng chờ trong giây lát.</p>
-            </div>
           ) : (
             <>
               {taskGradingError && (
-                <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center justify-between text-sm">
+                <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center justify-between text-sm shrink-0">
                   <span className="flex items-center gap-1.5">
                     <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
                     Nộp bài không thành công: {taskGradingError.error}
                   </span>
                   <button
                     onClick={() => submitTask(task)}
-                    className="exam-bar-btn ml-3 h-8 px-3.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-full text-xs font-medium shadow-xs transition-colors cursor-pointer flex items-center gap-1"
+                    className="exam-bar-btn ml-3 h-8 px-3.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-full text-xs font-medium shadow-xs transition-colors cursor-pointer flex items-center gap-1 shrink-0"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     Thử nộp lại
                   </button>
                 </div>
               )}
+              
+              {/* Thông báo nhè nhẹ nếu đang chấm hoặc đã nộp ở góc trên của editor */}
+              {(gradingTask === task.id || taskDone) && (
+                <div className={`mb-4 px-4 py-3 rounded-xl flex items-center gap-2 text-sm shrink-0 ${taskDone ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
+                  {taskDone ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 shrink-0" />
+                      Task {task.number} đã được nộp! Kết quả chi tiết từ AI sẽ hiển thị sau khi hoàn thành tất cả các tasks.
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 animate-pulse shrink-0" />
+                      AI đang chấm bài Task {task.number}... Vui lòng làm tiếp các task khác.
+                    </>
+                  )}
+                </div>
+              )}
+
               <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden flex-1 flex flex-col">
                 <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
                   <span className="text-xs font-bold text-zinc-700 uppercase tracking-wider">Bài viết Task {task.number}</span>
@@ -839,25 +801,13 @@ export default function WritingExam() {
                   </span>
                 </div>
                 <textarea
-                  className="flex-1 p-8 text-zinc-800 text-sm leading-relaxed resize-none focus:outline-none bg-white font-normal"
+                  className={`flex-1 p-8 text-zinc-800 text-sm leading-relaxed resize-none focus:outline-none font-normal ${(taskDone || gradingTask === task.id) ? 'bg-zinc-50/80 cursor-not-allowed opacity-80' : 'bg-white'}`}
                   placeholder={`Bắt đầu viết Task ${task.number} tại đây...`}
                   value={taskEssay}
+                  readOnly={taskDone || gradingTask === task.id}
                   onChange={e => setEssay(task.id, e.target.value)}
                 />
               </div>
-              <button
-                onClick={() => submitTask(task)}
-                disabled={submitting || words < 50}
-                className="mt-4 btn-primary h-9 px-5 rounded-full font-medium text-xs sm:text-sm w-full transition-colors shadow-xs disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 cursor-pointer leading-none">
-                {submitting ? (
-                  <>
-                    <Sparkles className="w-4 h-4 animate-spin" />
-                    Đang chấm điểm...
-                  </>
-                ) : (
-                  `Nộp Task ${task.number} để AI chấm`
-                )}
-              </button>
             </>
           )}
         </div>
@@ -969,12 +919,20 @@ export default function WritingExam() {
       <ExitConfirmModal open={showExitModal} onStay={stayInExam} onLeave={() => leaveExam(exitPath)} />
 
       {/* Loading overlay khi nộp bài */}
-      {(submitting && exam.writingTasks.filter(t => !isTaskComplete(t.id, results, submittedTaskIds)).length <= 1) && (
-        <div className="fixed inset-0 z-50 bg-white/80 backdrop-blur-xs flex flex-col items-center justify-center gap-3">
-          <div className="w-10 h-10 border-3 border-zinc-200 border-t-zinc-900 rounded-full animate-spin" />
-          <p className="text-sm font-medium text-zinc-700">Đang chấm điểm và tổng hợp kết quả...</p>
-        </div>
-      )}
+      {(() => {
+        const uncompletedCount = exam.writingTasks.filter(t => !isTaskComplete(t.id, results, submittedTaskIds)).length;
+        const isSubmittingLastTask = submitting && uncompletedCount === 1;
+        const isPollingFinalResults = uncompletedCount === 0 && !allDone;
+        if (isSubmittingLastTask || isPollingFinalResults) {
+          return (
+            <div className="fixed inset-0 z-50 bg-white/80 backdrop-blur-xs flex flex-col items-center justify-center gap-3">
+              <div className="w-10 h-10 border-3 border-zinc-200 border-t-zinc-900 rounded-full animate-spin" />
+              <p className="text-sm font-medium text-zinc-700">Đang chấm điểm và tổng hợp kết quả...</p>
+            </div>
+          )
+        }
+        return null;
+      })()}
     </div>
   )
 }
