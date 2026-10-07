@@ -250,13 +250,9 @@ export default function SpeakingExam() {
       setPrepSecondsLeft(PART2_PREP_SECONDS)
     } else {
       setTurnState('user_speaking')
-      if (!isRecordingRef.current) { // We can't access isRecording reliably in useCallback if it's stale, but startRecording handles it
-        startRecording(p.id)
-      } else {
-        resumeRecording()
-      }
+      startRecording(p.id, p.questions[activeQuestionIndex]?.id)
     }
-  }, [exam, activePart, activeQuestionIndex, startRecording, resumeRecording])
+  }, [exam, activePart, activeQuestionIndex, startRecording])
 
   const isRecordingRef = useRef(false)
   useEffect(() => {
@@ -289,7 +285,7 @@ export default function SpeakingExam() {
     const p = exam?.speakingParts?.[activePart]
     if (!p) return
     if (activeQuestionIndex < p.questions.length - 1) {
-      pauseRecording()
+      stopRecording()
       const nextIndex = activeQuestionIndex + 1
       setActiveQuestionIndex(nextIndex)
       setTurnState('ai_speaking')
@@ -303,19 +299,15 @@ export default function SpeakingExam() {
       setTurnState('completed')
       stopRecording()
     }
-  }, [exam, activePart, activeQuestionIndex, pauseRecording, stopRecording, playTTS, onAiAudioEnded])
+  }, [exam, activePart, activeQuestionIndex, stopRecording, playTTS, onAiAudioEnded])
 
   const skipPrep = useCallback(() => {
     setTurnState('user_speaking')
     const p = exam?.speakingParts?.[activePart]
     if (p) {
-      if (!isRecordingRef.current) {
-        startRecording(p.id)
-      } else {
-        resumeRecording()
-      }
+      startRecording(p.id, p.questions[0]?.id)
     }
-  }, [exam, activePart, startRecording, resumeRecording])
+  }, [exam, activePart, startRecording])
 
   const handleTogglePlayback = useCallback(() => {
     if (!audioRef.current) return
