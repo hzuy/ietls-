@@ -837,6 +837,10 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
 
     if (existing.skill === 'speaking') {
       const { part1, part2, part3 } = req.body
+      
+      const { processSpeakingTts } = require('../../../../services/ttsService')
+      await processSpeakingTts([part1, part2, part3])
+
       const srcByNumber = { 1: part1, 2: part2, 3: part3 }
 
       // Speaking has NO Attempt row — SpeakingAnswer (transcript + AI scores of past
@@ -857,13 +861,25 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
         for (const number of [1, 2, 3]) {
           const src = srcByNumber[number] || {}
           const cueCard = src.cueCard || null
-          const questions = (src.questions || [])
-            .filter(q => q.trim())
-            .map((q, i) => ({ orderNum: i + 1, questionText: q }))
+          const introAudioUrl = src.introAudioUrl || null
+          const introTtsScript = src.introTtsScript || null
+          
+          const rawQuestions = (src.questions || []).filter(q => typeof q === 'string' ? q.trim() : (q.questionText || '').trim())
+          const questions = rawQuestions.map((q, i) => {
+            if (typeof q === 'string') {
+              return { orderNum: i + 1, questionText: q }
+            }
+            return {
+              orderNum: i + 1,
+              questionText: q.questionText,
+              audioUrl: q.audioUrl || null,
+              ttsScript: q.ttsScript || null
+            }
+          })
 
           const partId = partIdByNumber.get(number)
           if (partId) {
-            await tx.speakingPart.update({ where: { id: partId }, data: { cueCard } })
+            await tx.speakingPart.update({ where: { id: partId }, data: { cueCard, introAudioUrl, introTtsScript } })
             counts.updated++
             const deleted = await tx.speakingQuestion.deleteMany({ where: { partId } })
             counts.deleted += deleted.count
@@ -873,7 +889,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
             }
           } else {
             await tx.speakingPart.create({
-              data: { examId: id, number, cueCard, questions: { create: questions } }
+              data: { examId: id, number, cueCard, introAudioUrl, introTtsScript, questions: { create: questions } }
             })
             counts.created += 1 + questions.length
           }

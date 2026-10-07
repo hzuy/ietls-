@@ -102,6 +102,53 @@ async function transcribeAudio(audioPathOrUrl) {
   }
 }
 
+// Helper function to read stream into buffer
+const getAudioBuffer = async (stream) => {
+  const reader = stream.getReader()
+  const chunks = []
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    chunks.push(value)
+  }
+  const dataArray = chunks.reduce(
+    (acc, chunk) => Uint8Array.from([...acc, ...chunk]),
+    new Uint8Array(0)
+  )
+  return Buffer.from(dataArray.buffer)
+}
+
+/**
+ * Sinh giọng nói giám khảo từ văn bản text.
+ * Trả về Buffer của file audio.
+ */
+async function generateExaminerVoice(text) {
+  if (!process.env.DEEPGRAM_API_KEY) {
+    throw new Error('DEEPGRAM_API_KEY không được cấu hình')
+  }
+
+  const deepgram = new DeepgramClient({ apiKey: process.env.DEEPGRAM_API_KEY })
+
+  try {
+    const response = await deepgram.speak.request(
+      { text },
+      { model: 'aura-asteria-en' }
+    )
+
+    const stream = await response.getStream()
+    if (!stream) {
+      throw new Error('Không có stream trả về từ Deepgram TTS')
+    }
+
+    const buffer = await getAudioBuffer(stream)
+    return buffer
+  } catch (err) {
+    console.error('Deepgram TTS Error:', err)
+    throw err
+  }
+}
+
 module.exports = {
-  transcribeAudio
+  transcribeAudio,
+  generateExaminerVoice
 }

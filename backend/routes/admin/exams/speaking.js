@@ -10,13 +10,15 @@ const { checkDuplicateExamTest } = require('./core')
 const { logAuditEvent } = require('../../../lib/auditLog')
 const { AUDIT_ACTIONS } = require('../../../lib/auditActions')
 
+const { processSpeakingTts } = require('../../../services/ttsService')
+
 // ─── CREATE SPEAKING EXAM ────────────────────────────────────────────────────
 router.post('/exams/speaking', authMiddleware, teacherOnly, validate(createSpeakingExamSchema), async (req, res) => {
   try {
     const { title, part1, part2, part3, bookNumber, testNumber, seriesId } = req.body
-    // part1: { questions: ['...', '...'] }
-    // part2: { cueCard: '...', questions: ['...'] }
-    // part3: { questions: ['...', '...'] }
+    
+    // Process TTS generation for missing audioUrls
+    await processSpeakingTts([part1, part2, part3])
 
     const existing = await prisma.exam.findFirst({ where: { title: { equals: title, mode: 'insensitive' }, skill: 'speaking' } })
     if (existing) return res.status(409).json({ message: `Đã tồn tại đề Speaking có tên "${existing.title}". Vui lòng đặt tên khác.` })
@@ -37,38 +39,29 @@ router.post('/exams/speaking', authMiddleware, teacherOnly, validate(createSpeak
         testNumber: testNumber ? parseInt(testNumber) : null,
         seriesId: seriesId ? parseInt(seriesId) : null,
         speakingParts: {
-          create: [
-            {
-              number: 1,
-              cueCard: part1?.cueCard || null,
+          create: [1, 2, 3].map(num => {
+            const part = num === 1 ? part1 : num === 2 ? part2 : part3
+            const questions = (part?.questions || []).filter(q => typeof q === 'string' ? q.trim() : (q.questionText || '').trim())
+            return {
+              number: num,
+              cueCard: part?.cueCard || null,
+              introAudioUrl: part?.introAudioUrl || null,
+              introTtsScript: part?.introTtsScript || null,
               questions: {
-                create: (part1?.questions || []).filter(q => q.trim()).map((q, i) => ({
-                  orderNum: i + 1,
-                  questionText: q
-                }))
-              }
-            },
-            {
-              number: 2,
-              cueCard: part2?.cueCard || null,
-              questions: {
-                create: (part2?.questions || []).filter(q => q.trim()).map((q, i) => ({
-                  orderNum: i + 1,
-                  questionText: q
-                }))
-              }
-            },
-            {
-              number: 3,
-              cueCard: part3?.cueCard || null,
-              questions: {
-                create: (part3?.questions || []).filter(q => q.trim()).map((q, i) => ({
-                  orderNum: i + 1,
-                  questionText: q
-                }))
+                create: questions.map((q, i) => {
+                  if (typeof q === 'string') {
+                    return { orderNum: i + 1, questionText: q }
+                  }
+                  return {
+                    orderNum: i + 1,
+                    questionText: q.questionText,
+                    audioUrl: q.audioUrl || null,
+                    ttsScript: q.ttsScript || null
+                  }
+                })
               }
             }
-          ]
+          })
         }
       },
       include: {
