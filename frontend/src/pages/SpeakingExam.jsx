@@ -900,21 +900,59 @@ export default function SpeakingExam() {
               </p>
             </div>
           )}
-          {turnState === 'user_preparing' && (
-            <div className="flex flex-col items-center justify-center w-full max-w-2xl text-center z-10">
-              <p className="text-zinc-500 font-bold uppercase tracking-wider mb-6 text-sm">Thời gian chuẩn bị</p>
-              <div className="text-7xl font-mono font-black text-zinc-900 mb-10 tracking-tighter" style={{ color: 'var(--ink)' }}>
-                {formatTime(prepSecondsLeft)}
+          {turnState === 'user_preparing' && (() => {
+            const cueText = part.cueCard ? (part.cueCard.indexOf('\n===\n') !== -1 ? part.cueCard.slice(part.cueCard.indexOf('\n===\n') + 5) : part.cueCard) : ''
+            const lines = cueText.split('\n').filter(l => l.trim())
+            const title = lines.length > 0 ? lines[0] : ''
+            const rest = lines.slice(1).join('\n')
+            
+            return (
+              <div className="flex flex-col w-full max-w-5xl z-10 px-4">
+                <div className="flex justify-between items-center mb-8">
+                  <div className="w-32 flex justify-start">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-indigo-500 text-indigo-600 font-bold text-sm">
+                      <History className="w-4 h-4" />
+                      {formatTime(prepSecondsLeft)}
+                    </span>
+                  </div>
+                  <h2 className="text-xl font-black uppercase tracking-widest text-zinc-900">Part {part.number}</h2>
+                  <div className="w-32 text-right">
+                    <button onClick={skipPrep} className="px-4 py-2 rounded-full border border-zinc-200 text-sm font-semibold text-zinc-600 hover:bg-zinc-50 cursor-pointer">Thoát</button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col md:flex-row gap-4 mb-8 h-80">
+                  {/* Left: Cue Card */}
+                  <div className="flex-1 bg-white border border-zinc-200 rounded-xl p-6 shadow-sm text-left overflow-y-auto">
+                    {title && <h3 className="text-pink-500 font-bold text-base mb-4">{title}</h3>}
+                    <div className="text-zinc-600 whitespace-pre-wrap leading-relaxed text-sm">
+                      {rest}
+                    </div>
+                  </div>
+                  
+                  {/* Right: Notes */}
+                  <div className="flex-1">
+                    <textarea 
+                      className="w-full h-full bg-white border border-zinc-200 rounded-xl p-6 shadow-sm resize-none focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 text-zinc-700 transition-all placeholder:text-zinc-400 text-sm"
+                      placeholder="Ghi chú ở đây..."
+                    ></textarea>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center px-2 pt-4 border-t border-zinc-100">
+                  <div className="flex items-center">
+                    <p className="text-indigo-500 font-medium text-sm">Đang có một phút để ghi chú...</p>
+                  </div>
+                  <div className="flex items-center justify-center">
+                    <span className="w-2 h-2 rounded-full bg-indigo-500 animate-ping"></span>
+                  </div>
+                  <button onClick={skipPrep} className="px-5 py-2 rounded-full font-bold text-sm border-2 border-indigo-500 text-indigo-600 hover:bg-indigo-50 transition-all cursor-pointer">
+                    Đã chuẩn bị xong
+                  </button>
+                </div>
               </div>
-              <div className="bg-zinc-50 border-2 border-zinc-900 rounded-3xl p-8 w-full shadow-sm mb-10 text-left">
-                 <p className="text-sm font-bold uppercase text-zinc-400 mb-4 tracking-wider">Cue Card</p>
-                 <p className="text-zinc-900 font-medium whitespace-pre-wrap leading-relaxed text-lg">{part.cueCard ? (part.cueCard.indexOf('\n===\n') !== -1 ? part.cueCard.slice(part.cueCard.indexOf('\n===\n') + 5) : part.cueCard) : ''}</p>
-              </div>
-              <button onClick={skipPrep} className="btn-primary h-14 px-10 rounded-full font-bold text-lg shadow-lg transition-all hover:scale-105 active:scale-95 cursor-pointer">
-                Bắt đầu nói
-              </button>
-            </div>
-          )}
+            )
+          })()}
           {turnState === 'user_speaking' && (
             <div className="flex flex-col items-center justify-center w-full max-w-2xl text-center z-10">
               <p className="text-zinc-500 font-bold uppercase tracking-wider mb-6 text-sm">Thời gian trả lời</p>
