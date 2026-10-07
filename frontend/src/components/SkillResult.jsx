@@ -10,6 +10,7 @@ import api from '../utils/axios'
 import QuestionTypeBreakdown from './exam/QuestionTypeBreakdown'
 import useCountUp from '../hooks/useCountUp'
 import { UserResultSkeleton } from './skeletons'
+import ReadingResultSplitScreen from './exam/ReadingResultSplitScreen'
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 
@@ -502,6 +503,18 @@ export default function SkillResult({
   const { bookName, testNumber, bandScore, correct, wrong, missed, totalQuestions, questionTypes, sections } = data
 
   const isModal = !!onClose
+
+  // Tái cấu trúc Reading Result sang Split-Screen
+  if (skillType === 'reading' && !isAnswerSheet) {
+    return (
+      <ReadingResultSplitScreen 
+        data={data}
+        onRetry={handleRetry}
+        isPractice={isPractice}
+        onClose={handleClose}
+      />
+    )
+  }
 
   return (
     <div className={`${isModal ? '' : 'min-h-screen'} bg-[var(--bg)] font-sans text-zinc-900`}>
