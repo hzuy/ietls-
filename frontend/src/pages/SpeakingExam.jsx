@@ -1041,12 +1041,14 @@ export default function SpeakingExam() {
               {turnState === 'user_speaking' && (
                  <div className="flex flex-col items-center gap-8 w-full">
                     {showQuestion && (
-                      <h3 className="text-2xl font-bold text-[#c026d3] flex items-center justify-center gap-4 text-center leading-relaxed max-w-4xl px-8">
+                      <h3 className="text-2xl font-bold text-[#c026d3] flex items-center justify-center gap-4 text-center leading-relaxed max-w-4xl px-8 mb-2">
                         <span className="w-8 h-8 flex items-center justify-center rounded-full border-[2.5px] border-[#c026d3] text-[#c026d3] shrink-0 font-bold bg-white text-sm">?</span>
                         <span className="max-w-2xl">{part.questions[activeQuestionIndex]?.questionText}</span>
                       </h3>
                     )}
-                    
+                    <button onClick={() => setShowQuestion(!showQuestion)} className="px-5 py-2 rounded-full bg-zinc-50 text-zinc-500 font-medium text-sm hover:bg-zinc-100 transition-colors cursor-pointer border border-zinc-200">
+                      {showQuestion ? 'Ẩn câu hỏi' : 'Hiện câu hỏi'}
+                    </button>
                  </div>
               )}
            </div>
