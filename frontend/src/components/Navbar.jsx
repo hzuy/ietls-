@@ -220,10 +220,6 @@ export default function Navbar() {
               </div>
             </NavDropdown>
 
-            <NavBtn active={location.pathname.startsWith('/progress')} onClick={() => gate('/progress')}>
-              Tiến độ & Phân tích
-            </NavBtn>
-
 
           </nav>
 
@@ -231,15 +227,7 @@ export default function Navbar() {
           <div className="hidden xl:flex items-center gap-2 flex-nowrap shrink-0">
               {isLoggedIn ? (
                 <>
-                  {/* Bot — progress link */}
-                  <Link to="/progress"
-                    className="flex items-center justify-center rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 hover:bg-zinc-200 hover:text-zinc-900 transition-all shrink-0 no-underline"
-                    style={{ width: 36, height: 36 }}
-                    title="Phân tích lỗi sai"
-                    aria-label="Phân tích lỗi sai"
-                  >
-                    <Bot size={18} strokeWidth={1.8} />
-                  </Link>
+
 
                   {/* Avatar + dropdown */}
                   <div ref={userMenuRef} className="relative shrink-0">
@@ -415,9 +403,7 @@ export default function Navbar() {
           </MobileNavLink>
 
           <div className="my-1 border-t border-zinc-100" />
-          <MobileNavLink to="/progress" active={location.pathname.startsWith('/progress')} onClick={closeMobile}>
-            Tiến độ & Phân tích
-          </MobileNavLink>
+
 
         </nav>
 
@@ -432,7 +418,7 @@ export default function Navbar() {
                 <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--ink)' }} className="truncate">{user.name}</span>
               </div>
               <MobileNavLink to="/profile" active={location.pathname === '/profile'} onClick={closeMobile}>Tài khoản</MobileNavLink>
-              <MobileNavLink to="/progress" active={location.pathname === '/progress'} onClick={closeMobile}>Phân tích lỗi sai</MobileNavLink>
+
               <button
                 onClick={() => { closeMobile(); setShowLogoutConfirm(true) }}
                 className="flex items-center w-full px-4 py-3 rounded-full text-error hover:bg-error-bg transition-colors"
