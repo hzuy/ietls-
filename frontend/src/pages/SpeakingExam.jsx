@@ -883,8 +883,109 @@ export default function SpeakingExam() {
       )}
 
       {/* Body */}
-      {turnState !== 'idle' ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-6 bg-white overflow-hidden relative">
+      {part.number === 2 ? (
+        <div className="flex-1 flex flex-col items-center justify-center p-6 bg-zinc-50 overflow-hidden relative">
+          {(() => {
+            const cueText = part.cueCard ? (part.cueCard.indexOf('\n===\n') !== -1 ? part.cueCard.slice(part.cueCard.indexOf('\n===\n') + 5) : part.cueCard) : ''
+            const lines = cueText.split('\n').filter(l => l.trim())
+            const title = lines.length > 0 ? lines[0] : ''
+            const rest = lines.slice(1).join('\n')
+            
+            return (
+              <div className="flex flex-col w-full max-w-5xl z-10 px-4 h-full py-4">
+                <div className="flex justify-between items-center mb-8 shrink-0">
+                  <div className="w-40 flex justify-start">
+                    {turnState !== 'idle' && (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 border-indigo-500 text-indigo-600 font-bold text-sm bg-indigo-50/50">
+                        <History className="w-4 h-4" />
+                        {turnState === 'user_preparing' ? formatTime(prepSecondsLeft) : formatTime(Math.max(0, getSpeakSecondsLimit(part.number) - recordingSeconds))}
+                      </span>
+                    )}
+                  </div>
+                  <h2 className="text-2xl font-black uppercase tracking-widest text-zinc-900">Part {part.number}</h2>
+                  <div className="w-40 text-right">
+                    {(turnState === 'idle' || turnState === 'user_preparing') && (
+                      <button onClick={turnState === 'user_preparing' ? skipPrep : undefined} className="px-5 py-2 rounded-full border border-zinc-200 text-sm font-semibold text-zinc-600 hover:bg-zinc-100 cursor-pointer transition-colors bg-white">
+                        Thoát
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col md:flex-row gap-6 mb-8 min-h-[300px] flex-1">
+                  {/* Left: Cue Card */}
+                  <div className="flex-1 bg-white border border-zinc-200 rounded-2xl p-8 shadow-sm text-left overflow-y-auto">
+                    {title && <h3 className="text-pink-600 font-bold text-lg mb-4">{title}</h3>}
+                    <div className="text-zinc-700 whitespace-pre-wrap leading-relaxed text-base">
+                      {rest}
+                    </div>
+                  </div>
+                  
+                  {/* Right: Notes */}
+                  <div className="flex-1">
+                    <textarea 
+                      className="w-full h-full bg-white border border-zinc-200 rounded-2xl p-8 shadow-sm resize-none focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 text-zinc-700 transition-all placeholder:text-zinc-400 text-base"
+                      placeholder="Ghi chú ở đây..."
+                    ></textarea>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center px-4 pt-6 border-t border-zinc-200 shrink-0 h-16">
+                  <div className="flex items-center min-w-[200px]">
+                    {turnState === 'idle' && <p className="text-zinc-500 font-medium text-sm">Sẵn sàng để bắt đầu...</p>}
+                    {turnState === 'ai_speaking' && <p className="text-indigo-500 font-medium text-sm animate-pulse">Giám khảo đang đọc hướng dẫn...</p>}
+                    {turnState === 'user_preparing' && <p className="text-indigo-500 font-medium text-sm">Đang có một phút để ghi chú...</p>}
+                    {turnState === 'user_speaking' && <p className="text-red-500 font-medium text-sm animate-pulse">Đang thu âm câu trả lời...</p>}
+                  </div>
+                  
+                  <div className="flex flex-1 items-center justify-center">
+                    {turnState === 'ai_speaking' && (
+                      <div className="flex items-center gap-1.5 h-6">
+                        {[1,2,3].map(n => <span key={n} className="w-1.5 bg-indigo-500 animate-pulse rounded-full h-full" style={{animationDelay: `${n*100}ms`}}/>)}
+                      </div>
+                    )}
+                    {turnState === 'user_preparing' && <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-ping"></span>}
+                    {turnState === 'user_speaking' && (
+                      <div className="flex items-end gap-1.5 h-6 justify-center w-32">
+                        {audioLevels.slice(0, 10).map((level, i) => (
+                          <div
+                            key={i}
+                            className="w-1.5 rounded-full bg-red-500 transition-all duration-75"
+                            style={{ height: `${Math.max(4, Math.round(level * 24))}px` }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="min-w-[200px] text-right">
+                    {turnState === 'idle' && (
+                      <button onClick={startInterview} disabled={partDone || gradingPart === part.id} className="px-6 py-2.5 rounded-full font-bold text-sm border-2 border-indigo-500 text-white bg-indigo-500 hover:bg-indigo-600 transition-all cursor-pointer shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+                        {(partDone || gradingPart === part.id) ? 'Đã hoàn thành' : 'Bắt đầu Part 2'}
+                      </button>
+                    )}
+                    {turnState === 'ai_speaking' && (
+                       <button disabled className="px-6 py-2.5 rounded-full font-bold text-sm border-2 border-zinc-200 text-zinc-400 bg-zinc-50 cursor-not-allowed">
+                         Đang nghe...
+                       </button>
+                    )}
+                    {turnState === 'user_preparing' && (
+                      <button onClick={skipPrep} className="px-6 py-2.5 rounded-full font-bold text-sm border-2 border-indigo-500 text-indigo-600 hover:bg-indigo-50 transition-all cursor-pointer bg-white">
+                        Đã chuẩn bị xong
+                      </button>
+                    )}
+                    {turnState === 'user_speaking' && (
+                      <button onClick={handleNextQuestion} className="px-6 py-2.5 rounded-full font-bold text-sm border-2 border-red-500 text-red-600 hover:bg-red-50 transition-all cursor-pointer bg-white inline-flex items-center gap-2">
+                        <Square className="w-4 h-4" /> Nộp Part 2
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+        </div>
+      ) : turnState !== 'idle' ? (<div className="flex-1 flex flex-col items-center justify-center p-6 bg-white overflow-hidden relative">
           {/* Mock Interview Component */}
           {turnState === 'ai_speaking' && (
             <div className="flex flex-col items-center justify-center w-full max-w-2xl text-center z-10">
@@ -900,59 +1001,7 @@ export default function SpeakingExam() {
               </p>
             </div>
           )}
-          {turnState === 'user_preparing' && (() => {
-            const cueText = part.cueCard ? (part.cueCard.indexOf('\n===\n') !== -1 ? part.cueCard.slice(part.cueCard.indexOf('\n===\n') + 5) : part.cueCard) : ''
-            const lines = cueText.split('\n').filter(l => l.trim())
-            const title = lines.length > 0 ? lines[0] : ''
-            const rest = lines.slice(1).join('\n')
-            
-            return (
-              <div className="flex flex-col w-full max-w-5xl z-10 px-4">
-                <div className="flex justify-between items-center mb-8">
-                  <div className="w-32 flex justify-start">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-indigo-500 text-indigo-600 font-bold text-sm">
-                      <History className="w-4 h-4" />
-                      {formatTime(prepSecondsLeft)}
-                    </span>
-                  </div>
-                  <h2 className="text-xl font-black uppercase tracking-widest text-zinc-900">Part {part.number}</h2>
-                  <div className="w-32 text-right">
-                    <button onClick={skipPrep} className="px-4 py-2 rounded-full border border-zinc-200 text-sm font-semibold text-zinc-600 hover:bg-zinc-50 cursor-pointer">Thoát</button>
-                  </div>
-                </div>
-
-                <div className="flex flex-col md:flex-row gap-4 mb-8 h-80">
-                  {/* Left: Cue Card */}
-                  <div className="flex-1 bg-white border border-zinc-200 rounded-xl p-6 shadow-sm text-left overflow-y-auto">
-                    {title && <h3 className="text-pink-500 font-bold text-base mb-4">{title}</h3>}
-                    <div className="text-zinc-600 whitespace-pre-wrap leading-relaxed text-sm">
-                      {rest}
-                    </div>
-                  </div>
-                  
-                  {/* Right: Notes */}
-                  <div className="flex-1">
-                    <textarea 
-                      className="w-full h-full bg-white border border-zinc-200 rounded-xl p-6 shadow-sm resize-none focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 text-zinc-700 transition-all placeholder:text-zinc-400 text-sm"
-                      placeholder="Ghi chú ở đây..."
-                    ></textarea>
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center px-2 pt-4 border-t border-zinc-100">
-                  <div className="flex items-center">
-                    <p className="text-indigo-500 font-medium text-sm">Đang có một phút để ghi chú...</p>
-                  </div>
-                  <div className="flex items-center justify-center">
-                    <span className="w-2 h-2 rounded-full bg-indigo-500 animate-ping"></span>
-                  </div>
-                  <button onClick={skipPrep} className="px-5 py-2 rounded-full font-bold text-sm border-2 border-indigo-500 text-indigo-600 hover:bg-indigo-50 transition-all cursor-pointer">
-                    Đã chuẩn bị xong
-                  </button>
-                </div>
-              </div>
-            )
-          })()}
+          
           {turnState === 'user_speaking' && (
             <div className="flex flex-col items-center justify-center w-full max-w-2xl text-center z-10">
               <p className="text-zinc-500 font-bold uppercase tracking-wider mb-6 text-sm">Thời gian trả lời</p>
@@ -1017,67 +1066,6 @@ export default function SpeakingExam() {
               </div>
             </div>
           )}
-
-          {/* Part 2 content */}
-          {part.number === 2 && (() => {
-            const sep = part.cueCard ? part.cueCard.indexOf('\n===\n') : -1
-            const instructions = sep !== -1 ? part.cueCard.slice(0, sep) : ''
-            const cueCardText = part.cueCard ? (sep !== -1 ? part.cueCard.slice(sep + 5) : part.cueCard) : ''
-            return (
-              <div className="p-6 bg-zinc-50/50 flex-1 flex flex-col gap-5">
-                {instructions && (
-                  <p className="text-zinc-500 text-sm leading-relaxed m-0 font-medium italic">{instructions}</p>
-                )}
-                {cueCardText && (
-                  <div className={`relative overflow-hidden bg-white border-l-4 border-zinc-900 rounded-r-2xl border-y border-r border-zinc-200 p-5 shadow-xs transition-all duration-500 ${playingAudioId === `intro-${part.id}` ? 'blur-sm select-none opacity-40' : ''}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-zinc-900 text-xs font-bold uppercase tracking-wider">Cue Card</p>
-                      {part.introAudioUrl && (
-                        <button 
-                          onClick={() => playingAudioId === `intro-${part.id}` ? (ttsAudioRef.current?.pause(), setPlayingAudioId(null)) : playTTS(part.introAudioUrl, `intro-${part.id}`)}
-                          className={`w-7 h-7 flex-shrink-0 rounded-full flex items-center justify-center transition-colors cursor-pointer z-10 ${playingAudioId === `intro-${part.id}` ? 'bg-zinc-900 text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'}`}
-                        >
-                          {playingAudioId === `intro-${part.id}` ? <Square className="w-3 h-3" /> : <Play className="w-3 h-3 ml-0.5" />}
-                        </button>
-                      )}
-                    </div>
-                    <p className="text-zinc-800 text-sm leading-relaxed font-semibold m-0 whitespace-pre-wrap">{cueCardText}</p>
-                    <p className="text-zinc-500 text-xs mt-4 font-medium italic m-0">Chuẩn bị 1 phút · Nói 1–2 phút</p>
-                    {playingAudioId === `intro-${part.id}` && (
-                      <div className="absolute inset-0 flex items-center justify-center z-10">
-                        <div className="flex items-center gap-1.5 h-8">
-                           {[1,2,3,4,5].map(n => <span key={n} className="w-1.5 bg-zinc-900 animate-pulse rounded-full h-full" style={{animationDelay: `${n*100}ms`}}/>)}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-                {part.questions.length > 0 && (
-                  <div className="flex flex-col gap-2.5 mt-2">
-                    <p className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-1">Follow-up Questions</p>
-                    <div className="flex flex-col gap-2.5">
-                      {part.questions.map(q => (
-                        <div key={q.id} className="flex gap-2.5 items-start bg-white p-3 rounded-xl border border-zinc-200 shadow-xs text-sm relative overflow-hidden">
-                          <span className="text-zinc-400 font-bold mt-0.5 flex-shrink-0">•</span>
-                          <div className="flex-1">
-                            <span className="text-zinc-600 leading-relaxed font-medium transition-all">{q.questionText}</span>
-                          </div>
-                          {q.audioUrl && (
-                            <button 
-                              onClick={() => playingAudioId === `q-${q.id}` ? (ttsAudioRef.current?.pause(), setPlayingAudioId(null)) : playTTS(q.audioUrl, `q-${q.id}`)}
-                              className={`w-6 h-6 flex-shrink-0 rounded-full flex items-center justify-center transition-colors cursor-pointer z-10 ${playingAudioId === `q-${q.id}` ? 'bg-zinc-900 text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'}`}
-                            >
-                              {playingAudioId === `q-${q.id}` ? <Square className="w-2.5 h-2.5" /> : <Play className="w-2.5 h-2.5 ml-0.5" />}
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })()}
 
           {/* Part 3 content */}
           {part.number === 3 && (() => {
@@ -1354,7 +1342,7 @@ export default function SpeakingExam() {
       </div>
       )}
 
-      {/* Bottom Bar */}
+            {/* Bottom Bar */}
       <div className="h-14 px-4 sm:px-6 bg-white border-t border-zinc-200 flex items-center justify-between gap-3 sm:gap-4 shrink-0 z-20">
         <div className="flex items-center gap-2 min-w-0 overflow-x-auto [scrollbar-width:none]">
           {exam.speakingParts.map((p, i) => {
