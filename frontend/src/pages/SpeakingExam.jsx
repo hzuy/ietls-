@@ -79,6 +79,7 @@ export default function SpeakingExam() {
 
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0)
   const [turnState, setTurnState] = useState('idle') // 'idle' | 'ai_speaking' | 'user_preparing' | 'user_speaking'
+  const [showQuestion, setShowQuestion] = useState(false)
   const [playingAudioId, setPlayingAudioId] = useState(null)
   const ttsAudioRef = useRef(null)
   const playTTS = useCallback((url, id, onEnded = null) => {
@@ -985,364 +986,88 @@ export default function SpeakingExam() {
             )
           })()}
         </div>
-      ) : turnState !== 'idle' ? (<div className="flex-1 flex flex-col items-center justify-center p-6 bg-white overflow-hidden relative">
-          {/* Mock Interview Component */}
-          {turnState === 'ai_speaking' && (
-            <div className="flex flex-col items-center justify-center w-full max-w-2xl text-center z-10">
-              <div className="w-40 h-40 rounded-full bg-zinc-900 shadow-[0_0_50px_rgba(24,24,27,0.3)] flex items-center justify-center relative mb-12">
-                 <div className="absolute inset-0 rounded-full border-4 border-zinc-900 animate-ping opacity-20"></div>
-                 <div className="flex items-center gap-1.5 h-8">
-                   {[1,2,3,4,5].map(n => <span key={n} className="w-1.5 bg-white animate-pulse rounded-full h-full" style={{animationDelay: `${n*100}ms`}}/>)}
+      ) : (
+        <div className="flex-1 flex flex-col items-center justify-center p-6 bg-white overflow-hidden relative">
+           <div className="flex justify-between items-center w-full max-w-5xl absolute top-6 px-4 z-20">
+              <div className="w-32"></div>
+              <h2 className="text-xl font-black uppercase tracking-widest text-zinc-900">Part {part.number}</h2>
+              <div className="w-32 text-right">
+                <button onClick={turnState === 'user_preparing' ? skipPrep : undefined} className="px-4 py-2 rounded-full border border-zinc-200 text-sm font-semibold text-zinc-600 hover:bg-zinc-100 bg-white cursor-pointer">Thoát</button>
+              </div>
+           </div>
+
+           {/* Center content */}
+           <div className="flex flex-col items-center justify-center flex-1 w-full max-w-3xl pb-24">
+              <p className="text-sm text-zinc-500 italic mb-12">
+                *Trả lời câu hỏi, sau đó nhấn Ghi nhận câu trả lời để sang câu tiếp theo.
+              </p>
+
+              {turnState === 'idle' && (
+                 <button onClick={startInterview} disabled={partDone || gradingPart === part.id} className="px-8 py-3 rounded-full font-bold text-base bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                   {(partDone || gradingPart === part.id) ? 'Đã hoàn thành' : `Bắt đầu Part ${part.number}`}
+                 </button>
+              )}
+
+              {turnState === 'ai_speaking' && (
+                 <div className="flex flex-col items-center gap-12 w-full">
+                    <h3 className="text-2xl font-bold text-pink-500 flex items-center justify-center gap-4 text-center leading-relaxed">
+                      <span className="w-10 h-10 flex items-center justify-center rounded-full border-2 border-pink-500 text-pink-500 shrink-0 shadow-sm bg-pink-50">?</span>
+                      <span className="max-w-2xl">{part.questions[activeQuestionIndex]?.questionText}</span>
+                    </h3>
+                    <div className="w-16 h-16 flex items-center justify-center rounded-full bg-blue-50 text-blue-500 animate-pulse shadow-inner border border-blue-100">
+                       <Volume2 className="w-8 h-8" />
+                    </div>
+                 </div>
+              )}
+
+              {turnState === 'user_speaking' && (
+                 <div className="flex flex-col items-center gap-8 w-full">
+                    {showQuestion && (
+                      <h3 className="text-2xl font-bold text-pink-500 flex items-center justify-center gap-4 text-center leading-relaxed mb-4">
+                        <span className="w-10 h-10 flex items-center justify-center rounded-full border-2 border-pink-500 text-pink-500 shrink-0 shadow-sm bg-pink-50">?</span>
+                        <span className="max-w-2xl">{part.questions[activeQuestionIndex]?.questionText}</span>
+                      </h3>
+                    )}
+                    <div className="flex items-center gap-4">
+                      <button disabled className="px-6 py-2.5 rounded-full bg-zinc-100 text-zinc-400 font-semibold text-sm cursor-not-allowed border border-zinc-200">Nghe lại</button>
+                      <button onClick={() => setShowQuestion(!showQuestion)} className="px-6 py-2.5 rounded-full bg-zinc-100 text-zinc-800 font-semibold text-sm hover:bg-zinc-200 transition-colors cursor-pointer border border-zinc-200 shadow-xs">{showQuestion ? 'Ẩn câu hỏi' : 'Hiện câu hỏi'}</button>
+                    </div>
+                 </div>
+              )}
+           </div>
+
+           {/* Bottom bar for user_speaking */}
+           {turnState === 'user_speaking' && (
+              <div className="w-full absolute bottom-0 left-0 h-24 border-t border-zinc-100 bg-white px-8 flex items-center justify-between shadow-[0_-4px_20px_rgba(0,0,0,0.03)] z-30">
+                 <div className="flex items-center gap-3 w-40">
+                    <span className="w-3 h-3 rounded-full bg-cyan-400 animate-pulse"></span>
+                    <span className="text-cyan-500 font-bold text-sm">Đang ghi âm...</span>
+                 </div>
+                 
+                 <div className="flex items-center gap-8 flex-1 justify-center">
+                    <div className="flex items-end gap-1.5 h-10 w-24 justify-center">
+                       {audioLevels.slice(0, 7).map((l, i) => <div key={i} className="w-2 bg-cyan-400 rounded-full transition-all" style={{height: `${Math.max(6, l*40)}px`}}/>)}
+                    </div>
+                    <div className="w-14 h-14 rounded-full border-[3.5px] border-indigo-600 flex items-center justify-center shadow-sm relative overflow-hidden bg-white">
+                       <svg className="absolute inset-0 w-full h-full -rotate-90 z-0" viewBox="0 0 100 100">
+                         <circle cx="50" cy="50" r="48" fill="none" stroke="#e0e7ff" strokeWidth="4" />
+                         <circle cx="50" cy="50" r="48" fill="none" stroke="#4f46e5" strokeWidth="4" strokeDasharray="301.59" strokeDashoffset={`${301.59 * (1 - (recordingSeconds / getSpeakSecondsLimit(part.number)))}`} strokeLinecap="round" className="transition-all duration-1000 ease-linear" />
+                       </svg>
+                       <span className="text-xs font-bold text-indigo-900 tabular-nums z-10">{formatTime(recordingSeconds)}</span>
+                    </div>
+                 </div>
+                 
+                 <div className="w-60 text-right">
+                   <button onClick={handleNextQuestion} className="px-8 py-3.5 rounded-full font-bold text-sm bg-indigo-700 text-white hover:bg-indigo-800 transition-colors shadow-lg cursor-pointer active:scale-95 whitespace-nowrap">
+                      Ghi nhận câu trả lời
+                   </button>
                  </div>
               </div>
-              <p className="text-zinc-500 font-semibold animate-pulse mb-6 text-sm uppercase tracking-widest">Giám khảo đang hỏi</p>
-              <p className="text-2xl text-zinc-900 font-medium leading-relaxed">
-                {part.number === 2 && activeQuestionIndex === 0 && part.introAudioUrl ? "Giám khảo đang hướng dẫn đề..." : part.questions[activeQuestionIndex]?.questionText}
-              </p>
-            </div>
-          )}
-          
-          {turnState === 'user_speaking' && (
-            <div className="flex flex-col items-center justify-center w-full max-w-2xl text-center z-10">
-              <p className="text-zinc-500 font-bold uppercase tracking-wider mb-6 text-sm">Thời gian trả lời</p>
-              <div className={`text-7xl font-mono font-black mb-10 tracking-tighter ${getSpeakSecondsLimit(part.number) - recordingSeconds <= 15 ? 'text-red-500 animate-pulse' : 'text-zinc-900'}`}>
-                {formatTime(Math.max(0, getSpeakSecondsLimit(part.number) - recordingSeconds))}
-              </div>
-              <div className="flex items-end gap-2 h-20 justify-center mb-10" style={{ width: '160px' }}>
-                {audioLevels.map((level, i) => (
-                  <div
-                    key={i}
-                    className="w-5 rounded-full bg-red-500 transition-all duration-75"
-                    style={{ height: `${Math.max(12, Math.round(level * 70))}px` }}
-                  />
-                ))}
-              </div>
-              <p className="mb-12 text-xl text-zinc-700 font-medium leading-relaxed">
-                {part.questions[activeQuestionIndex]?.questionText}
-              </p>
-              <button onClick={handleNextQuestion} className="h-14 px-10 bg-zinc-900 hover:bg-black text-white font-bold rounded-full transition-all shadow-xl hover:scale-105 active:scale-95 text-lg flex items-center gap-3 cursor-pointer">
-                {activeQuestionIndex < part.questions.length - 1 ? 'Chuyển câu tiếp theo' : 'Kết thúc phần thi'}
-                <Square className="w-5 h-5 fill-current" />
-              </button>
-            </div>
-          )}
+           )}
         </div>
-      ) : (
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left: questions */}
-        <div className={`overflow-y-auto bg-white border-r border-zinc-200 flex flex-col ${isMobile ? (mobileView === 'questions' ? 'w-full' : 'hidden') : 'w-2/5'}`}>
-          {/* Part banner */}
-          <div className="bg-[var(--ink)] px-5 py-3 text-xs font-bold text-white uppercase tracking-wider">
-            {part.number === 1 && 'Part 1 — Introduction & Interview'}
-            {part.number === 2 && 'Part 2 — Individual Long Turn'}
-            {part.number === 3 && 'Part 3 — Two-way Discussion'}
-          </div>
-
-          {/* Part 1 content */}
-          {part.number === 1 && (
-            <div className="p-6 bg-zinc-50/50 flex-1 flex flex-col gap-5">
-              {part.cueCard && (
-                <p className="text-zinc-500 text-sm leading-relaxed m-0 font-medium italic border-l-2 border-zinc-900 pl-3.5">{part.cueCard}</p>
-              )}
-              <div className="flex flex-col gap-4">
-                {part.questions.map((q, i) => (
-                  <div key={q.id} className="flex gap-3 bg-white p-4 rounded-xl border border-zinc-200 shadow-xs relative overflow-hidden">
-                    <span className="w-6 h-6 flex-shrink-0 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-900 font-bold text-xs flex items-center justify-center mt-0.5">{i + 1}</span>
-                    <div className="flex-1">
-                      <p className="text-zinc-800 text-sm leading-relaxed m-0 font-medium transition-all">
-                        {q.questionText}
-                      </p>
-                    </div>
-                    {q.audioUrl && (
-                      <button 
-                        onClick={() => playingAudioId === `q-${q.id}` ? (ttsAudioRef.current?.pause(), setPlayingAudioId(null)) : playTTS(q.audioUrl, `q-${q.id}`)}
-                        className={`w-7 h-7 flex-shrink-0 rounded-full flex items-center justify-center transition-colors cursor-pointer z-10 ${playingAudioId === `q-${q.id}` ? 'bg-zinc-900 text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'}`}
-                      >
-                        {playingAudioId === `q-${q.id}` ? <Square className="w-3 h-3" /> : <Play className="w-3 h-3 ml-0.5" />}
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Part 3 content */}
-          {part.number === 3 && (() => {
-            // Every ##TOPIC## marker (bare "##TOPIC##:" included) starts a new topic
-            // group; questions before the first marker fall into a leading group.
-            const groups = []
-            let currentTopic = null
-            for (const q of part.questions) {
-              if (q.questionText.startsWith('##TOPIC##:')) {
-                currentTopic = { label: q.questionText.slice('##TOPIC##:'.length), questions: [] }
-                groups.push(currentTopic)
-              } else {
-                if (!currentTopic) { currentTopic = { label: '', questions: [] }; groups.push(currentTopic) }
-                currentTopic.questions.push(q)
-              }
-            }
-            return (
-              <div className="p-6 bg-zinc-50/50 flex-1 flex flex-col gap-5">
-                {part.cueCard && (
-                  <div className={`relative overflow-hidden transition-all duration-500 ${playingAudioId === `intro-${part.id}` ? 'blur-sm select-none opacity-40' : ''}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-zinc-500 text-sm leading-relaxed m-0 font-medium italic border-l-2 border-zinc-900 pl-3.5 relative z-10">{part.cueCard}</p>
-                      {part.introAudioUrl && (
-                        <button 
-                          onClick={() => playingAudioId === `intro-${part.id}` ? (ttsAudioRef.current?.pause(), setPlayingAudioId(null)) : playTTS(part.introAudioUrl, `intro-${part.id}`)}
-                          className={`w-7 h-7 flex-shrink-0 rounded-full flex items-center justify-center transition-colors cursor-pointer z-10 ${playingAudioId === `intro-${part.id}` ? 'bg-zinc-900 text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'}`}
-                        >
-                          {playingAudioId === `intro-${part.id}` ? <Square className="w-3 h-3" /> : <Play className="w-3 h-3 ml-0.5" />}
-                        </button>
-                      )}
-                    </div>
-                    {playingAudioId === `intro-${part.id}` && (
-                      <div className="absolute inset-0 flex items-center justify-center z-20">
-                        <div className="flex items-center gap-1.5 h-6">
-                           {[1,2,3,4,5].map(n => <span key={n} className="w-1.5 bg-zinc-900 animate-pulse rounded-full h-full" style={{animationDelay: `${n*100}ms`}}/>)}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-                <div className="flex flex-col gap-5">
-                  {groups.map((group, gi) => (
-                    <div key={gi} className="bg-white rounded-2xl border border-zinc-200 p-4 shadow-xs flex flex-col gap-3">
-                      {(group.label || groups.length > 1) && (
-                        <p className="text-zinc-900 text-xs font-bold uppercase tracking-wider pb-2 border-b border-zinc-100 m-0">{group.label || `Chủ đề ${gi + 1}`}</p>
-                      )}
-                      <div className="flex flex-col gap-3">
-                        {group.questions.map((q, qi) => (
-                          <div key={q.id} className="flex gap-3 text-sm relative overflow-hidden">
-                            <span className="w-5 h-5 flex-shrink-0 rounded-full bg-zinc-100 text-zinc-600 font-bold text-xs flex items-center justify-center mt-0.5">{qi + 1}</span>
-                            <div className="flex-1">
-                              <span className="text-zinc-700 leading-relaxed font-medium transition-all">{q.questionText}</span>
-                            </div>
-                            {q.audioUrl && (
-                              <button 
-                                onClick={() => playingAudioId === `q-${q.id}` ? (ttsAudioRef.current?.pause(), setPlayingAudioId(null)) : playTTS(q.audioUrl, `q-${q.id}`)}
-                                className={`w-6 h-6 flex-shrink-0 rounded-full flex items-center justify-center transition-colors cursor-pointer z-10 ${playingAudioId === `q-${q.id}` ? 'bg-zinc-900 text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'}`}
-                              >
-                                {playingAudioId === `q-${q.id}` ? <Square className="w-2 h-2" /> : <Play className="w-2.5 h-2.5 ml-0.5" />}
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )
-          })()}
-        </div>
-
-        {/* Right: recording */}
-        <div className={`flex-1 flex flex-col overflow-hidden bg-zinc-50/50 p-6 ${isMobile && mobileView !== 'recording' ? 'hidden' : ''}`}>
-          {previewMode ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-center p-6 max-w-md mx-auto">
-              <div className="w-12 h-12 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center mb-4 text-zinc-600">
-                <Eye className="w-6 h-6 stroke-[2]" />
-              </div>
-              <p className="text-zinc-900 text-base font-bold mb-2">Chế độ Preview</p>
-              <p className="text-zinc-500 text-sm leading-relaxed m-0">Phần ghi âm và chấm điểm không hiển thị trong preview.<br />Nội dung đề thi hiển thị bên trái.</p>
-            </div>
-          ) : partGradingError?.answerId && !results[part.id] ? (
-            // Đã nộp NHƯNG bản chấm mới nhất bị lỗi (vd. model AI đổi/timeout) — vẫn còn
-            // transcript đã lưu, cho chấm lại tại chỗ thay vì treo mãi ở "Đang tổng hợp".
-            <div className="flex-1 bg-white rounded-2xl border border-red-200 p-8 flex flex-col items-center justify-center text-center max-w-xl mx-auto w-full self-center shadow-xs">
-              <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center mb-4 text-amber-600">
-                <AlertCircle className="w-6 h-6 stroke-[2]" />
-              </div>
-              <p className="font-bold text-zinc-900 text-lg mb-1">Nhận xét Part {part.number} không thành công</p>
-              <p className="text-zinc-500 text-sm mb-6 leading-relaxed">{partGradingError.error}</p>
-              <button
-                onClick={() => retryPart(part)}
-                disabled={retryingPart === part.id}
-                className="btn-primary h-9 px-4 rounded-full text-xs sm:text-sm font-medium shadow-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
-              >
-                {retryingPart === part.id ? (
-                  <>
-                    <RotateCcw className="w-4 h-4 animate-spin" />
-                    Đang chấm lại...
-                  </>
-                ) : (
-                  <>
-                    <RotateCcw className="w-4 h-4" />
-                    Thử chấm điểm lại
-                  </>
-                )}
-              </button>
-            </div>
-          ) : (
-            <div className="flex-1 flex flex-col gap-3.5 min-h-0">
-              {(partDone || gradingPart === part.id) && (
-                <div className={`mb-1 px-4 py-3 rounded-xl flex items-center gap-2 text-sm shrink-0 ${partDone ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
-                  {partDone ? (
-                    <>
-                      <CheckCircle2 className="w-4 h-4 shrink-0" />
-                      Part {part.number} đã được nộp!
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4 animate-pulse shrink-0" />
-                      AI đang nhận xét Part {part.number}...
-                    </>
-                  )}
-                </div>
-              )}
-              {partGradingError && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-1.5">
-                    <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-                    Nộp bài không thành công: {partGradingError.error}
-                  </span>
-                  <button
-                    onClick={() => submitPart(part)}
-                    className="ml-3 h-8 px-3.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-full text-xs font-medium shadow-xs transition-colors cursor-pointer flex items-center gap-1"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    Thử nộp lại
-                  </button>
-                </div>
-              )}
-              {/* Recording area */}
-              {isRecording ? (
-                /* ── 1. Compact horizontal bar while recording ─────────────── */
-                <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs px-5 py-4 flex flex-wrap items-center justify-between gap-3 transition-all duration-300">
-                  {/* Left: Recording indicator */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
-                    <span className="text-zinc-900 text-sm font-bold whitespace-nowrap">Đang ghi âm...</span>
-                  </div>
-
-                  {/* Middle: Compact waveform + Timer */}
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-full">
-                    <div className="flex items-end gap-1 h-5 justify-center" style={{ width: '40px' }}>
-                      {audioLevels.map((level, i) => (
-                        <div
-                          key={i}
-                          className="w-1.5 rounded-full bg-zinc-800 transition-all duration-75"
-                          style={{
-                            height: `${Math.max(4, Math.round(level * 18))}px`,
-                            minHeight: '4px',
-                            maxHeight: '18px',
-                          }}
-                        />
-                      ))}
-                    </div>
-                    <span className={`text-xs font-mono font-bold select-none ${part.number === 2 && (PART2_SPEAK_SECONDS - recordingSeconds) <= 20 ? 'text-red-600' : 'text-zinc-600'}`}>
-                      {part.number === 2
-                        ? formatTime(Math.max(0, PART2_SPEAK_SECONDS - recordingSeconds))
-                        : formatTime(recordingSeconds)}
-                    </span>
-                  </div>
-
-                  {/* Right: Actions */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <button
-                      onClick={cancelRecording}
-                      className="flex items-center gap-1 h-8 px-3.5 py-1 rounded-full border border-zinc-300 text-zinc-600 text-xs font-medium bg-white hover:bg-zinc-50 transition-colors cursor-pointer shadow-xs"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                      Huỷ
-                    </button>
-                    <button
-                      onClick={stopRecording}
-                      className="flex items-center gap-1.5 h-8 px-3.5 py-1 rounded-full text-white text-xs font-medium bg-zinc-900 hover:bg-zinc-800 transition-colors cursor-pointer shadow-xs"
-                    >
-                      <Square className="w-3.5 h-3.5" fill="currentColor" />
-                      Dừng và gửi
-                    </button>
-                  </div>
-                </div>
-              ) : isTranscribing ? (
-                /* ── 2. Loading state while Whisper processes audio ────────── */
-                <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-6 flex items-center justify-center gap-3">
-                  <div className="w-5 h-5 border-2 border-zinc-900 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                  <span className="text-zinc-700 text-sm font-semibold">Đang nhận dạng giọng nói...</span>
-                </div>
-              ) : (
-                /* ── 3. Idle state (Before recording OR after transcript received) ── */
-                <div className="flex-1 flex flex-col gap-3.5 min-h-0">
-                  {/* Mic action panel — fixed height, does not grow */}
-                  <div className="flex-shrink-0 bg-white rounded-2xl border border-zinc-200 shadow-xs p-5 flex flex-col items-center gap-3">
-                    <button
-                      onClick={startInterview}
-                      disabled={partDone || gradingPart === part.id}
-                      className={`w-14 h-14 rounded-full border-none flex items-center justify-center shadow-md transition-all duration-300 ${partDone || gradingPart === part.id ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed' : 'bg-zinc-900 text-white cursor-pointer hover:bg-black active:scale-95'}`}
-                    >
-                      <Mic className="w-6 h-6" />
-                    </button>
-                    <p className="text-zinc-600 text-sm font-semibold m-0 text-center">
-                      {(partDone || gradingPart === part.id) ? 'Bài thi đã hoàn thành' : partTranscript ? 'Đã ghi xong. Bấm để phỏng vấn lại' : 'Bấm để bắt đầu phỏng vấn'}
-                    </p>
-                    {transcribeError && (
-                      <p className="text-xs text-amber-600 font-medium m-0 text-center flex items-center justify-center gap-1">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                        {transcribeError}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Chat bubble transcript — grows to fill remaining space, scrolls if long */}
-                  {partTranscript && (
-                    <div className="flex-1 min-h-0 bg-white border border-zinc-200 rounded-2xl p-4 flex flex-col gap-3.5 shadow-xs overflow-hidden">
-                      {/* Header bar: Play button + Title (Left) and Word count (Right) */}
-                      <div className="flex items-center justify-between pb-3 border-b border-zinc-100 flex-shrink-0">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          {/* Audio playback button */}
-                          {recordingAudioUrl && (
-                            <button
-                              onClick={handleTogglePlayback}
-                              className="w-8 h-8 rounded-full bg-zinc-900 hover:bg-black active:scale-95 text-white flex items-center justify-center flex-shrink-0 transition cursor-pointer border-none shadow-xs"
-                              title={isPlayingAudio ? 'Tạm dừng' : 'Nghe lại đoạn ghi âm'}
-                            >
-                              {isPlayingAudio
-                                ? <Pause className="w-3.5 h-3.5" fill="currentColor" />
-                                : <Play className="w-3.5 h-3.5" fill="currentColor" style={{ marginLeft: 2 }} />}
-                            </button>
-                          )}
-
-                          {/* Hidden HTML audio element */}
-                          {recordingAudioUrl && (
-                            <audio
-                              ref={audioRef}
-                              src={recordingAudioUrl}
-                              onPlay={() => setIsPlayingAudio(true)}
-                              onPause={() => setIsPlayingAudio(false)}
-                              onEnded={() => setIsPlayingAudio(false)}
-                            />
-                          )}
-
-                          <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
-                            Bản ghi giọng nói
-                          </span>
-                        </div>
-
-                        <span className={`text-xs font-mono font-bold px-2.5 py-0.5 rounded-full flex-shrink-0 ${wordCount > 0 ? 'bg-zinc-100 text-zinc-800 border border-zinc-200' : 'bg-zinc-100 text-zinc-500'}`}>
-                          {wordCount} từ
-                        </span>
-                      </div>
-
-                      {/* Main content area: Standalone transcript text, full width, no background tint */}
-                      <div className="flex-1 min-h-0 overflow-y-auto">
-                        <p className="text-zinc-900 text-sm leading-relaxed font-normal m-0 italic">
-                          "{partTranscript}"
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
       )}
-
-            {/* Bottom Bar */}
+      
+      {/* Bottom Bar */}
       <div className="h-14 px-4 sm:px-6 bg-white border-t border-zinc-200 flex items-center justify-between gap-3 sm:gap-4 shrink-0 z-20">
         <div className="flex items-center gap-2 min-w-0 overflow-x-auto [scrollbar-width:none]">
           {exam.speakingParts.map((p, i) => {
