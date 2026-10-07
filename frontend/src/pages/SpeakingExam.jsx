@@ -564,6 +564,11 @@ export default function SpeakingExam() {
   }, [])
 
     const submitPart = useCallback(async (part) => {
+    if (isRecording) stopRecording()
+    if (isTranscribing) {
+      showToast('Hệ thống đang xử lý giọng nói, vui lòng chờ trong giây lát...', 'info');
+      return;
+    }
     const transcriptArray = transcripts[part.id] || [];
     const transcript = Array.isArray(transcriptArray) ? JSON.stringify(transcriptArray) : transcriptArray;
     const wCount = Array.isArray(transcriptArray) ? transcriptArray.reduce((acc, curr) => acc + (curr.text || '').split(/\s+/).filter(Boolean).length, 0) : transcript.trim().split(/\s+/).filter(Boolean).length;
@@ -571,8 +576,6 @@ export default function SpeakingExam() {
       showToast('Câu trả lời quá ngắn, hãy nói thêm!', 'error');
       return;
     }
-    if (isRecording) stopRecording()
-    if (isTranscribing) return // Don't submit while Whisper is processing
     setSubmitting(true)
     clearPartError(part.id)
     setGradingPart(part.id)

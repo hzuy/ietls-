@@ -243,7 +243,14 @@ export function useSpeechRecording(transcripts, setTranscripts) {
           const formData = new FormData();
           const ext = finalMime.includes('mp4') ? 'mp4' : 'webm';
           formData.append('audio', fullAudioBlob, `speech_recording.${ext}`);
-          formData.append('prompt', transcriptsRef.current[partId] || '');
+          let promptStr = '';
+          const existing = transcriptsRef.current[partId];
+          if (Array.isArray(existing)) {
+            promptStr = existing.map(a => a.text).join(' ');
+          } else if (typeof existing === 'string') {
+            promptStr = existing;
+          }
+          formData.append('prompt', promptStr);
 
           const res = await api.post('/speaking/transcribe', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
