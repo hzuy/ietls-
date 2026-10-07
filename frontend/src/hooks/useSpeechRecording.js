@@ -279,6 +279,24 @@ export function useSpeechRecording(transcripts, setTranscripts) {
     }
   }, [forceCleanupAll, revokeAudioUrl, startWaveformAnalysis, stopWaveformAnalysis, setTranscripts, showToast]);
 
+  const pauseRecording = useCallback(() => {
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.pause();
+      stopWaveformAnalysis();
+      // Optional: keep isRecording true, but maybe we want a separate isPaused?
+      // Since SpeakingExam controls turnState, we can just leave it.
+    }
+  }, [stopWaveformAnalysis]);
+
+  const resumeRecording = useCallback(() => {
+    if (mediaRecorderRef.current?.state === 'paused') {
+      mediaRecorderRef.current.resume();
+      if (streamRef.current) {
+        startWaveformAnalysis(streamRef.current);
+      }
+    }
+  }, [startWaveformAnalysis]);
+
   return {
     isRecording,
     isTranscribing,
@@ -293,5 +311,7 @@ export function useSpeechRecording(transcripts, setTranscripts) {
     stopRecording,
     cancelRecording,
     forceCleanupAll,
+    pauseRecording,
+    resumeRecording,
   };
 }
