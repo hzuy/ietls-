@@ -838,7 +838,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
     if (existing.skill === 'speaking') {
       const { part1, part2, part3 } = req.body
       
-      const { processSpeakingTts } = require('../../../../services/ttsService')
+      const { processSpeakingTts } = require('../../../services/ttsService')
       await processSpeakingTts([part1, part2, part3])
 
       const srcByNumber = { 1: part1, 2: part2, 3: part3 }
