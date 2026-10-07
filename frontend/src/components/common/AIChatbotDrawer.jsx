@@ -268,10 +268,10 @@ export default function AIChatbotDrawer() {
   const isExamInProgress =
     !isResultView &&
     (/^\/(reading|listening|writing|speaking)\/[^/]+/.test(pathname) ||
-      /^\/practice\/(reading|listening)\/[^/]+/.test(pathname) ||
-      /^\/full-test\/\d+/.test(pathname))
+      /^\/practice\/(reading|listening)\/[^/]+/.test(pathname))
 
-  const shouldHide = pathname.startsWith('/admin') || isExamInProgress
+  const shouldHideAll = pathname.startsWith('/admin') || isExamInProgress
+  const hideFloatingIcon = isResultView
 
   // Listen for external trigger events (e.g. from SkillResult "Hỏi AI Tutor")
   useEffect(() => {
@@ -373,12 +373,12 @@ export default function AIChatbotDrawer() {
     sendMessageInternal(input)
   }
 
-  if (shouldHide) return null
+  if (shouldHideAll) return null
 
   return (
     <>
       {/* ── 1. Floating Action Button (FAB) ── */}
-      {!isOpen && (
+      {!isOpen && !hideFloatingIcon && (
         <button
           type="button"
           onClick={() => setIsOpen(true)}

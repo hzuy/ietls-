@@ -40,7 +40,7 @@ const PracticeList      = lazy(() => import('./pages/PracticeList'))
 const SampleDetailPage  = lazy(() => import('./pages/SampleDetailPage'))
 const SamplesPage       = lazy(() => import('./pages/SamplesPage'))
 const UserProfile       = lazy(() => import('./pages/UserProfile'))
-const ProgressAnalysis  = lazy(() => import('./pages/ProgressAnalysis'))
+
 
 const NotFound          = lazy(() => import('./pages/NotFound'))
 
@@ -187,7 +187,7 @@ export default function App() {
                     <Route path="/samples/speaking/:id" element={<SampleDetailPage skill="speaking" />} />
                     <Route path="/full-test/result" element={<LearnerRoute><FullTestResult /></LearnerRoute>} />
                     <Route path="/profile" element={<LearnerRoute><UserProfile /></LearnerRoute>} />
-                    <Route path="/progress" element={<LearnerRoute><ProgressAnalysis /></LearnerRoute>} />
+
 
                     {/* 404 Route */}
                     <Route path="*" element={<NotFound />} />

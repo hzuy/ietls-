@@ -189,6 +189,8 @@ router.post('/exams/:id/submit', authMiddleware, learnerOnly, objectiveSubmitLim
           userId: req.user.userId,
           examId,
           score: band,
+          correctCount: correct,
+          totalCount: totalSlots,
           answers: JSON.stringify(answers),
           finishedAt: new Date()
         }
