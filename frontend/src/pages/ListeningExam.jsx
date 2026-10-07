@@ -30,6 +30,7 @@ import ExamErrorState from '../components/exam/ExamErrorState'
 import ExitConfirmModal from '../components/common/ExitConfirmModal'
 import ExamActionDialog from '../components/common/ExamActionDialog'
 import { markSubmitted, clearSubmitted, peekSubmittedExit, examExitPath } from '../utils/submittedExam'
+import ListeningTranscript from '../components/exam/ListeningTranscript'
 
 
 const DEFAULT_LISTENING_TIME = 40 * 60
@@ -416,6 +417,8 @@ export default function ListeningExam() {
               <p className="text-sm text-gray-400 text-center py-8 italic">Section này chưa có câu hỏi.</p>
             )}
           </div>
+
+          <ListeningTranscript section={section} audioRef={audioRef} />
         </div>
       </div>
 

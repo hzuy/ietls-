@@ -7,7 +7,7 @@ const validate = require('../../middleware/validate')
 const { teacherOnly } = require('../../lib/roles')
 const { transcribeUploadSchema } = require('../../validators/contentValidator')
 const { upload, imageUpload } = require('../../lib/adminUploads')
-const { getGroqClient } = require('../../lib/groqClient')
+const { transcribeAudio } = require('../../services/deepgramService')
 const {
   uploadAudio,
   uploadImage,
@@ -45,19 +45,13 @@ router.post('/transcribe', authMiddleware, teacherOnly, validate(transcribeUploa
     audioResolution = await resolveAudioForTranscription(audioUrl)
     const { filePath } = audioResolution
 
-    if (process.env.NODE_ENV !== 'production') console.log('[Transcribe] Bắt đầu phiên âm:', path.basename(filePath))
-    const groq = getGroqClient()
-    const transcription = await groq.audio.transcriptions.create({
-      file: fs.createReadStream(filePath),
-      model: 'whisper-large-v3',
-      response_format: 'json',
-      language: 'en',
-      temperature: 0.0
-    })
-
-    const text = transcription.text || ''
-    if (process.env.NODE_ENV !== 'production') console.log('[Transcribe] Xong, độ dài:', text.length)
-    res.json({ transcript: text })
+    if (process.env.NODE_ENV !== 'production') console.log('[Transcribe] Bắt đầu phiên âm Deepgram:', path.basename(filePath))
+    
+    // Call deepgramService which now supports absolute paths
+    const utterances = await transcribeAudio(filePath)
+    
+    if (process.env.NODE_ENV !== 'production') console.log('[Transcribe] Xong, độ dài script:', utterances.length)
+    res.json({ transcript: utterances })
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') console.error('[Transcribe] Lỗi:', error.message)
     res.status(500).json({ message: 'Lỗi phiên âm: ' + error.message })

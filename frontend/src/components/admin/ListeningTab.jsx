@@ -334,7 +334,10 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     try {
       const res = await api.post('/admin/transcribe', { audioUrl })
       updateSection(si, 'transcript', res.data.transcript || '')
-    } catch { showToast('Lỗi phiên âm audio — thử lại sau') }
+    } catch (err) { 
+      const errMsg = err?.response?.data?.message || err?.message || 'Lỗi phiên âm audio — thử lại sau'
+      showToast(errMsg) 
+    }
     finally { setTranscribing(t => ({ ...t, [si]: false })) }
   }
 

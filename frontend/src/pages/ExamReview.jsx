@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import SkillResult from '../components/SkillResult'
-import { X, LayoutGrid, ChevronLeft, ChevronRight, BookOpen, Check, Minus } from 'lucide-react'
+import { X, LayoutGrid, ChevronLeft, ChevronRight, BookOpen, Check, Minus, User, UserCircle } from 'lucide-react'
 import api from '../utils/axios'
 import { queryClient } from '../lib/queryClient'
 import { getReadingExam, getListeningExam } from '../services/examService'
@@ -18,6 +18,7 @@ import ExamErrorState from '../components/exam/ExamErrorState'
 import ExamActionDialog from '../components/common/ExamActionDialog'
 import { getPassageSlots, getSectionSlots } from '../utils/questionCount'
 import { findRange, splitParagraphs } from '../utils/textMatch'
+import { parseTranscript } from '../utils/transcriptParser'
 import { examExitPath } from '../utils/submittedExam'
 import { toImgSrc } from '../utils/media'
 
@@ -151,34 +152,145 @@ function PassageView({ passage, targets }) {
 }
 
 function TranscriptView({ section, targets }) {
-  const paragraphs = useMemo(() => splitParagraphs(section?.transcript), [section])
+  const { isScript, blocks, speakerCount } = parseTranscript(section?.transcript)
+  
+  const [currentTime, setCurrentTime] = useState(0)
+  const audioRef = useRef(null)
+  const utteranceRefs = useRef([])
+  const containerRef = useRef(null)
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    const onTimeUpdate = () => setCurrentTime(audio.currentTime)
+    audio.addEventListener('timeupdate', onTimeUpdate)
+    return () => audio.removeEventListener('timeupdate', onTimeUpdate)
+  }, [section?.id])
+
+  const activeIndex = isScript 
+    ? blocks.findIndex(u => currentTime >= (u.start || 0) && currentTime <= (u.end || 0))
+    : -1
+
+  useEffect(() => {
+    if (activeIndex >= 0 && utteranceRefs.current[activeIndex] && containerRef.current) {
+      // Scroll within the container
+      const el = utteranceRefs.current[activeIndex]
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [activeIndex])
+
+  const handleSeek = (start) => {
+    if (audioRef.current && start != null) {
+      audioRef.current.currentTime = start
+      audioRef.current.play().catch(() => {})
+    }
+  }
+
+  const isMonologue = speakerCount <= 1 || section?.number === 2 || section?.number === 4
+
+  // If it's raw text or 1-speaker, fallback to old logic or paragraph rendering
+  if (!isScript || isMonologue) {
+    const textToSplit = isScript ? blocks.map(b => b.text).join('\n\n') : section?.transcript
+    const paragraphs = textToSplit ? splitParagraphs(textToSplit) : []
+    const dimOthers = !!targets
+    return (
+      <div className="text-zinc-800 text-[15px] leading-relaxed flex flex-col h-full" ref={containerRef}>
+        <div className="sticky -top-6 z-10 -mx-1 px-1 pt-6 -mt-6 pb-3 mb-3 bg-white border-b border-zinc-100 shrink-0">
+          <h2 className="text-lg font-semibold text-zinc-900 mb-1 leading-snug">Section {section?.number}</h2>
+          {section?.context && <p className="text-sm text-zinc-500 mb-2">{section.context}</p>}
+          {section?.audioUrl ? (
+            <audio ref={audioRef} key={section.id} controls preload="none" className="w-full h-10" src={toImgSrc(section.audioUrl)} />
+          ) : (
+            <p className="m-0 rounded-xl bg-zinc-100 px-3 py-2 text-sm text-zinc-500">Section này chưa có file audio.</p>
+          )}
+        </div>
+        
+        <div className="overflow-y-auto pr-2 pb-4 space-y-4">
+          {paragraphs.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-zinc-300 px-4 py-5 text-sm text-zinc-500">Section này chưa có transcript.</p>
+          ) : paragraphs.map((para, i) => {
+            const marks = targets?.[i]
+            
+            // Map paragraph index to block index for Monologue if possible
+            // Wait, since we joined with \n\n, paragraphs array length matches blocks array length!
+            // Thus, we can safely use `i === activeIndex`.
+            const isActive = isScript && i === activeIndex
+
+            return (
+              <p
+                key={i}
+                data-para={i}
+                ref={el => utteranceRefs.current[i] = el}
+                onClick={() => { if (isScript) handleSeek(blocks[i]?.start) }}
+                data-target={marks ? 'true' : undefined}
+                className={`transition-colors duration-200 p-3 rounded-xl cursor-pointer ${dimOthers && !marks ? 'opacity-35' : ''} ${isActive ? 'bg-blue-600 text-white font-medium shadow-md' : 'hover:bg-zinc-50'}`}
+              >
+                {marks ? <MarkedParagraph text={para} marks={marks} /> : para}
+              </p>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  // Multi-Speaker Chat bubbles
   const dimOthers = !!targets
   return (
-    <div className="text-zinc-800 text-[15px] leading-relaxed">
-      <div className="sticky -top-6 z-10 -mx-1 px-1 pt-6 -mt-6 pb-3 mb-3 bg-white border-b border-zinc-100">
+    <div className="text-zinc-800 text-[15px] leading-relaxed flex flex-col h-full" ref={containerRef}>
+      <div className="sticky -top-6 z-10 -mx-1 px-1 pt-6 -mt-6 pb-3 mb-3 bg-white border-b border-zinc-100 shrink-0">
         <h2 className="text-lg font-semibold text-zinc-900 mb-1 leading-snug">Section {section?.number}</h2>
         {section?.context && <p className="text-sm text-zinc-500 mb-2">{section.context}</p>}
         {section?.audioUrl ? (
-          <audio key={section.id} controls preload="none" className="w-full h-10" src={toImgSrc(section.audioUrl)} />
+          <audio ref={audioRef} key={section.id} controls preload="none" className="w-full h-10" src={toImgSrc(section.audioUrl)} />
         ) : (
           <p className="m-0 rounded-xl bg-zinc-100 px-3 py-2 text-sm text-zinc-500">Section này chưa có file audio.</p>
         )}
       </div>
-      {paragraphs.length === 0 ? (
+      
+      {blocks.length === 0 ? (
         <p className="rounded-xl border border-dashed border-zinc-300 px-4 py-5 text-sm text-zinc-500">Section này chưa có transcript.</p>
-      ) : paragraphs.map((para, i) => {
-        const marks = targets?.[i]
-        return (
-          <p
-            key={i}
-            data-para={i}
-            data-target={marks ? 'true' : undefined}
-            className={`mb-3 transition-opacity duration-200 ${dimOthers && !marks ? 'opacity-35' : ''}`}
-          >
-            {marks ? <MarkedParagraph text={para} marks={marks} /> : para}
-          </p>
-        )
-      })}
+      ) : (
+        <div className="space-y-2 pr-1 pb-6 overflow-y-auto">
+          {blocks.map((b, i) => {
+            const isLeft = b.speaker !== 'Speaker B' && b.speaker !== 'SPEAKER B' && b.speaker !== 'SPEAKER 2'
+            const marks = targets?.[i]
+            const showAvatar = i === 0 || blocks[i - 1].speaker !== b.speaker
+            const isActive = i === activeIndex
+            
+            return (
+              <div 
+                key={i} 
+                data-para={i}
+                data-target={marks ? 'true' : undefined}
+                ref={el => utteranceRefs.current[i] = el}
+                onClick={() => handleSeek(b.start)}
+                className={`flex flex-col w-full cursor-pointer transition-opacity duration-200 ${isLeft ? 'items-start' : 'items-end'} ${dimOthers && !marks ? 'opacity-35' : ''} ${showAvatar ? 'mt-6' : 'mt-1'}`}
+              >
+                {showAvatar && (
+                  <span className={`text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5 ${isLeft ? 'ml-12' : 'mr-12'}`}>
+                    {b.speaker}
+                  </span>
+                )}
+                
+                <div className={`flex gap-3 max-w-[85%] ${isLeft ? 'flex-row' : 'flex-row-reverse'}`}>
+                  <div className={`w-9 h-9 shrink-0 flex items-center justify-center ${showAvatar ? 'rounded-full bg-zinc-100 text-zinc-400 border border-zinc-200' : 'opacity-0'}`}>
+                    {showAvatar && <User className="w-5 h-5" />}
+                  </div>
+                  
+                  <div 
+                    className={`px-5 py-3.5 text-[15px] leading-relaxed transition-all shadow-sm ${
+                      isActive ? 'bg-blue-600 text-white border-transparent' : 'bg-white border border-zinc-200 text-zinc-800'
+                    } ${showAvatar ? (isLeft ? 'rounded-2xl rounded-tl-none' : 'rounded-2xl rounded-tr-none') : 'rounded-2xl'}`}
+                  >
+                    {marks ? <MarkedParagraph text={b.text} marks={marks} /> : b.text}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
