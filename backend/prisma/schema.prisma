@@ -9,163 +9,146 @@ datasource db {
 }
 
 model User {
-  id                    Int      @id @default(autoincrement())
-  email                 String   @unique
+  id                    Int                     @id @default(autoincrement())
+  email                 String                  @unique
   password              String?
-  googleId              String?  @unique
   name                  String
-  role                  String   @default("user")
-  isLocked              Boolean  @default(false)
-  requirePasswordChange Boolean  @default(false)
-  createdAt             DateTime @default(now())
-  deletedAt             DateTime? // soft-delete — DELETE /admin/users/:id (khác staff.delete ở /admin/accounts/:id, vốn hard-delete)
-
-  attempts              Attempt[]
-  writingAnswers        WritingAnswer[]
-  speakingAnswers       SpeakingAnswer[]
+  role                  String                  @default("user")
+  createdAt             DateTime                @default(now())
+  isLocked              Boolean                 @default(false)
+  requirePasswordChange Boolean                 @default(false)
+  googleId              String?                 @unique
+  deletedAt             DateTime?
+  emailVerified         Boolean                 @default(true)
   answerLogs            AnswerLog[]
-  writingCriterionLogs  WritingCriterionLog[]
-  speakingCriterionLogs SpeakingCriterionLog[]
-  // Back-relation bắt buộc để Prisma khai báo AuditLog.actorUser (onDelete: SetNull) —
-  // không phải field nghiệp vụ, không dùng để join lấy lịch sử log của user này.
+  attempts              Attempt[]
   auditLogs             AuditLog[]
+  EmailVerificationCode EmailVerificationCode[]
+  speakingAnswers       SpeakingAnswer[]
+  speakingCriterionLogs SpeakingCriterionLog[]
+  writingAnswers        WritingAnswer[]
+  writingCriterionLogs  WritingCriterionLog[]
 
   @@index([role])
   @@index([createdAt])
 }
 
 model Exam {
-  id            Int         @id @default(autoincrement())
-  title         String
-  skill         String // reading | listening | writing | speaking
-  bookNumber    Int? // Cambridge book number (1-19)
-  testNumber    Int? // Test number within book (1-4)
-  coverImageUrl String? // Cover image for the exam card
-  seriesId      Int?
-  series        ExamSeries? @relation(fields: [seriesId], references: [id])
-  createdAt     DateTime    @default(now())
-  deletedAt     DateTime?
-
-  passages          Passage[]
-  listeningSections ListeningSection[]
-  writingTasks      WritingTask[]
-  speakingParts     SpeakingPart[]
+  id                Int                @id @default(autoincrement())
+  title             String
+  skill             String
+  createdAt         DateTime           @default(now())
+  bookNumber        Int?
+  testNumber        Int?
+  coverImageUrl     String?
+  seriesId          Int?
+  deletedAt         DateTime?
   attempts          Attempt[]
+  series            ExamSeries?        @relation(fields: [seriesId], references: [id])
+  listeningSections ListeningSection[]
+  passages          Passage[]
+  speakingParts     SpeakingPart[]
+  writingTasks      WritingTask[]
 
   @@index([skill])
   @@index([seriesId, bookNumber, testNumber])
   @@index([createdAt])
 }
 
-// ─── READING ────────────────────────────────────────
 model Passage {
-  id                 Int     @id @default(autoincrement())
+  id                 Int             @id @default(autoincrement())
   examId             Int
   number             Int
   title              String
-  subtitle           String?
   body               String
-  letteredParagraphs Boolean @default(false)
-
-  exam           Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
-  questions      Question[]
-  questionGroups QuestionGroup[]
+  subtitle           String?
+  letteredParagraphs Boolean         @default(false)
+  exam               Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
+  questions          Question[]
+  questionGroups     QuestionGroup[]
 }
 
-// ─── LISTENING ──────────────────────────────────────
 model ListeningSection {
-  id         Int     @id @default(autoincrement())
-  examId     Int
-  number     Int
-  context    String
-  audioUrl   String?
-  transcript String?
-
+  id             Int             @id @default(autoincrement())
+  examId         Int
+  number         Int
+  context        String
+  audioUrl       String?
+  transcript     String?
   exam           Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
   questions      Question[]
   questionGroups QuestionGroup[]
 }
 
-// ─── SHARED QUESTIONS (Reading + Listening) ─────────
 model Question {
-  id                 Int     @id @default(autoincrement())
+  id                 Int               @id @default(autoincrement())
   passageId          Int?
   listeningSectionId Int?
-  groupId            Int?
   number             Int
-  type               String // mcq | mcq_multi | fill_blank | short_answer | true_false_ng | yes_no_ng | matching | matching_headings | matching_features | matching_paragraph | matching_endings | choose_title | diagram_completion | map_diagram
+  type               String
   questionText       String
-  options            String? // JSON array
+  options            String?
   correctAnswer      String
   imageUrl           String?
-  // Giải thích do AI sinh 1 lần, dùng chung cho mọi người/mọi lượt xem — KHÔNG
-  // sinh lại mỗi lần mở trang kết quả. null = chưa sinh (câu vẫn hiển thị bình
-  // thường, chỉ không có khu vực giải thích). Cấu trúc 4 phần cố định:
-  // { restatement, evidence, reasoning, conclusion } — xem scripts/generate-explanations.js.
+  groupId            Int?
   explanation        Json?
-
-  passage          Passage?          @relation(fields: [passageId], references: [id], onDelete: Cascade)
-  listeningSection ListeningSection? @relation(fields: [listeningSectionId], references: [id], onDelete: Cascade)
-  group            QuestionGroup?    @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  answers          QuestionAnswer[]
-  answerLogs       AnswerLog[]
+  answerLogs         AnswerLog[]
+  group              QuestionGroup?    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  listeningSection   ListeningSection? @relation(fields: [listeningSectionId], references: [id], onDelete: Cascade)
+  passage            Passage?          @relation(fields: [passageId], references: [id], onDelete: Cascade)
+  answers            QuestionAnswer[]
 
   @@index([passageId])
   @@index([listeningSectionId])
   @@index([groupId])
 }
 
-// ─── WRITING ────────────────────────────────────────
 model WritingTask {
-  id       Int     @id @default(autoincrement())
+  id       Int             @id @default(autoincrement())
   examId   Int
-  number   Int // 1 or 2
+  number   Int
   taskType String?
   prompt   String
   imageUrl String?
   minWords Int
-
-  exam    Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
-  answers WritingAnswer[]
+  answers  WritingAnswer[]
+  exam     Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
 }
 
-// ─── SPEAKING ───────────────────────────────────────
 model SpeakingPart {
-  id      Int     @id @default(autoincrement())
-  examId  Int
-  number  Int // 1, 2, 3
-  cueCard String?
-
+  id        Int                @id @default(autoincrement())
+  examId    Int
+  number    Int
+  cueCard   String?
+  answers   SpeakingAnswer[]
   exam      Exam               @relation(fields: [examId], references: [id], onDelete: Cascade)
   questions SpeakingQuestion[]
-  answers   SpeakingAnswer[]
 }
 
 model SpeakingQuestion {
-  id           Int    @id @default(autoincrement())
+  id           Int          @id @default(autoincrement())
   partId       Int
   orderNum     Int
   questionText String
-
-  part SpeakingPart @relation(fields: [partId], references: [id], onDelete: Cascade)
+  part         SpeakingPart @relation(fields: [partId], references: [id], onDelete: Cascade)
 }
 
-// ─── ATTEMPTS ───────────────────────────────────────
 model Attempt {
-  id         Int       @id @default(autoincrement())
-  userId     Int
-  examId     Int
-  score      Float?
-  aiFeedback String?
-  answers    String?
-  finishedAt DateTime?
-  createdAt  DateTime  @default(now())
-  isSeeded   Boolean   @default(false)
-
-  user            User             @relation(fields: [userId], references: [id])
-  exam            Exam             @relation(fields: [examId], references: [id])
-  questionAnswers QuestionAnswer[]
+  id              Int              @id @default(autoincrement())
+  userId          Int
+  examId          Int
+  score           Float?
+  correctCount    Int?
+  totalCount      Int?
+  aiFeedback      String?
+  answers         String?
+  finishedAt      DateTime?
+  createdAt       DateTime         @default(now())
+  isSeeded        Boolean          @default(false)
   answerLogs      AnswerLog[]
+  exam            Exam             @relation(fields: [examId], references: [id])
+  user            User             @relation(fields: [userId], references: [id])
+  questionAnswers QuestionAnswer[]
 
   @@index([userId])
   @@index([examId])
@@ -185,30 +168,27 @@ model QuestionAnswer {
   questionId Int
   userAnswer String
   isCorrect  Boolean?
-
-  attempt  Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
-  question Question @relation(fields: [questionId], references: [id])
+  attempt    Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question   Question @relation(fields: [questionId], references: [id])
 
   @@index([attemptId])
   @@index([questionId])
 }
 
-// ─── ANSWER LOG (for AI review & learning analysis) ─────────────────────────────
 model AnswerLog {
   id            Int      @id @default(autoincrement())
   userId        Int
   attemptId     Int?
   questionId    Int
-  skillType     String // reading | listening
-  questionType  String // mcq | fill_blank | short_answer | true_false_ng | ...
+  skillType     String
+  questionType  String
   isCorrect     Boolean
   userAnswer    String
   correctAnswer String
   createdAt     DateTime @default(now())
-
-  user     User     @relation(fields: [userId], references: [id])
-  attempt  Attempt? @relation(fields: [attemptId], references: [id], onDelete: SetNull)
-  question Question @relation(fields: [questionId], references: [id])
+  attempt       Attempt? @relation(fields: [attemptId], references: [id])
+  question      Question @relation(fields: [questionId], references: [id])
+  user          User     @relation(fields: [userId], references: [id])
 
   @@index([userId, skillType, questionType])
   @@index([userId, isCorrect])
@@ -217,19 +197,18 @@ model AnswerLog {
 }
 
 model WritingAnswer {
-  id         Int      @id @default(autoincrement())
-  userId     Int
-  taskId     Int
-  essayText  String
-  wordCount  Int
-  aiFeedback String?
-  aiScore    Float?
-  status     String   @default("pending")
-  error      String?
-  createdAt  DateTime @default(now())
-
-  user          User                  @relation(fields: [userId], references: [id])
+  id            Int                   @id @default(autoincrement())
+  userId        Int
+  taskId        Int
+  essayText     String
+  wordCount     Int
+  aiFeedback    String?
+  aiScore       Float?
+  createdAt     DateTime              @default(now())
+  status        String                @default("pending")
+  error         String?
   task          WritingTask           @relation(fields: [taskId], references: [id])
+  user          User                  @relation(fields: [userId], references: [id])
   criterionLogs WritingCriterionLog[]
 
   @@index([userId])
@@ -239,18 +218,17 @@ model WritingAnswer {
 }
 
 model SpeakingAnswer {
-  id         Int      @id @default(autoincrement())
-  userId     Int
-  partId     Int
-  transcript String?
-  aiFeedback String?
-  aiScore    Float?
-  status     String   @default("pending")
-  error      String?
-  createdAt  DateTime @default(now())
-
-  user          User                   @relation(fields: [userId], references: [id])
+  id            Int                    @id @default(autoincrement())
+  userId        Int
+  partId        Int
+  transcript    String?
+  aiFeedback    String?
+  aiScore       Float?
+  createdAt     DateTime               @default(now())
+  status        String                 @default("pending")
+  error         String?
   part          SpeakingPart           @relation(fields: [partId], references: [id])
+  user          User                   @relation(fields: [userId], references: [id])
   criterionLogs SpeakingCriterionLog[]
 
   @@index([userId])
@@ -260,78 +238,73 @@ model SpeakingAnswer {
 }
 
 model WritingCriterionLog {
-  id              Int      @id @default(autoincrement())
+  id              Int           @id @default(autoincrement())
   userId          Int
   writingAnswerId Int
-  criterion       String // "task_achievement" | "coherence_cohesion" | "lexical_resource" | "grammatical_range"
+  criterion       String
   score           Float
-  comment         String?  @db.Text
-  createdAt       DateTime @default(now())
-
-  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  writingAnswer WritingAnswer @relation(fields: [writingAnswerId], references: [id], onDelete: Cascade)
+  comment         String?
+  createdAt       DateTime      @default(now())
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  writingAnswer   WritingAnswer @relation(fields: [writingAnswerId], references: [id], onDelete: Cascade)
 
   @@index([userId, criterion])
   @@index([writingAnswerId])
 }
 
 model SpeakingCriterionLog {
-  id               Int      @id @default(autoincrement())
+  id               Int            @id @default(autoincrement())
   userId           Int
   speakingAnswerId Int
-  criterion        String // "fluency" | "vocabulary" | "grammar" | "pronunciation"
+  criterion        String
   score            Float
-  comment          String?  @db.Text
-  createdAt        DateTime @default(now())
-
-  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  speakingAnswer SpeakingAnswer @relation(fields: [speakingAnswerId], references: [id], onDelete: Cascade)
+  comment          String?
+  createdAt        DateTime       @default(now())
+  speakingAnswer   SpeakingAnswer @relation(fields: [speakingAnswerId], references: [id], onDelete: Cascade)
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, criterion])
   @@index([speakingAnswerId])
 }
 
 model QuestionGroup {
-  id           Int     @id @default(autoincrement())
-  sectionId    Int?
-  passageId    Int?
-  qNumberStart Int     @default(1)
-  qNumberEnd   Int     @default(1)
-  instruction  String  @default("")
-  type         String
-  imageUrl     String?
-  sortOrder    Int     @default(0)
-  canReuse     Boolean @default(false)
-  maxChoices   Int     @default(2)
-
-  section         ListeningSection? @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  passage         Passage?          @relation(fields: [passageId], references: [id], onDelete: Cascade)
-  questions       Question[]
-  noteSections    NoteSection[]
+  id              Int               @id @default(autoincrement())
+  sectionId       Int?
+  qNumberStart    Int               @default(1)
+  qNumberEnd      Int               @default(1)
+  instruction     String            @default("")
+  type            String
+  imageUrl        String?
+  sortOrder       Int               @default(0)
+  passageId       Int?
+  canReuse        Boolean           @default(false)
+  maxChoices      Int               @default(2)
   matchingOptions MatchingOption[]
+  noteSections    NoteSection[]
+  questions       Question[]
+  passage         Passage?          @relation(fields: [passageId], references: [id], onDelete: Cascade)
+  section         ListeningSection? @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 
   @@index([sectionId])
   @@index([passageId])
 }
 
 model NoteSection {
-  id        Int    @id @default(autoincrement())
+  id        Int           @id @default(autoincrement())
   groupId   Int
-  title     String @default("")
-  sortOrder Int    @default(0)
-
-  group QuestionGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  lines NoteLine[]
+  title     String        @default("")
+  sortOrder Int           @default(0)
+  lines     NoteLine[]
+  group     QuestionGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
 }
 
 model NoteLine {
-  id                Int    @id @default(autoincrement())
+  id                Int         @id @default(autoincrement())
   sectionId         Int
-  contentWithTokens String @default("")
-  lineType          String @default("content")
-  sortOrder         Int    @default(0)
-
-  noteSection NoteSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  contentWithTokens String      @default("")
+  sortOrder         Int         @default(0)
+  lineType          String      @default("content")
+  noteSection       NoteSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 }
 
 model BookCover {
@@ -365,20 +338,18 @@ model Setting {
   updatedAt DateTime @updatedAt
 }
 
-// ─── PRACTICE EXAMS (standalone, not part of full-test) ──────────────────────
 model PracticeExam {
-  id           Int       @id @default(autoincrement())
+  id           Int                @id @default(autoincrement())
   title        String
-  skill        String // reading | listening
-  level        String? // beginner | intermediate | advanced
+  skill        String
+  level        String?
   thumbnailUrl String?
-  audioUrl     String? // listening only
-  passage      String? // passage text (reading) or context (listening)
-  isNormalized Boolean   @default(false)
-  createdAt    DateTime  @default(now())
+  audioUrl     String?
+  passage      String?
+  createdAt    DateTime           @default(now())
   deletedAt    DateTime?
-
-  questions PracticeQuestion[]
+  isNormalized Boolean            @default(false)
+  questions    PracticeQuestion[]
 
   @@index([skill])
   @@index([createdAt])
@@ -390,43 +361,39 @@ model PracticeQuestion {
   content       String
   type          String?
   orderNum      Int          @default(0)
-  options       String? // JSON array string
+  options       String?
   correctAnswer String?
-  // Cùng cấu trúc/mục đích với Question.explanation ở trên — xem comment tại đó.
-  explanation   Json?
   createdAt     DateTime     @default(now())
+  explanation   Json?
   exam          PracticeExam @relation(fields: [examId], references: [id], onDelete: Cascade)
 }
 
-// ─── WRITING SAMPLES ──────────────────────────────────────────────────────────
 model WritingSample {
   id           Int       @id @default(autoincrement())
   title        String
-  level        String? // task1 | task2
-  examType     String? // VD: "Bar chart", "Opinion essay"
-  taskType     String? // Normalized task type
+  level        String?
   thumbnailUrl String?
-  content      String? // rich text HTML
-  tags         String? // JSON array
+  content      String?
+  tags         String?
   createdAt    DateTime  @default(now())
   deletedAt    DateTime?
+  examType     String?
+  taskType     String?
 
   @@index([createdAt])
 }
 
-// ─── SPEAKING SAMPLES ─────────────────────────────────────────────────────────
 model SpeakingSample {
-  id           Int       @id @default(autoincrement())
+  id           Int                  @id @default(autoincrement())
   title        String
-  level        String? // task1 | task2 | task3
-  examType     String? // VD: "Describe a person", "Abstract discussion"
+  level        String?
   thumbnailUrl String?
-  content      String? // rich text HTML
-  tags         String? // JSON array
-  createdAt    DateTime  @default(now())
+  tags         String?
+  createdAt    DateTime             @default(now())
   deletedAt    DateTime?
-
-  parts SpeakingSamplePart[]
+  examType     String?
+  content      String?
+  parts        SpeakingSamplePart[]
 
   @@index([createdAt])
 }
@@ -450,49 +417,43 @@ model SpeakingSampleQuestion {
 }
 
 model MatchingOption {
-  id           Int    @id @default(autoincrement())
+  id           Int           @id @default(autoincrement())
   groupId      Int
   optionLetter String
-  optionText   String @default("")
-  sortOrder    Int    @default(0)
-
-  group QuestionGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  optionText   String        @default("")
+  sortOrder    Int           @default(0)
+  group        QuestionGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
 }
 
-// ─── AUDIT LOG ──────────────────────────────────────────────────────────────
-// Nhật ký hành động ghi dữ liệu ở Admin Panel. Chỉ có giá trị từ thời điểm
-// triển khai trở đi — KHÔNG backfill lịch sử cũ.
-// QUY TẮC BẮT BUỘC khi ghi log (áp dụng ở route, không phải ở đây):
-//   - Tuyệt đối không lưu mật khẩu vào metadata, kể cả plaintext tạm thời sinh
-//     ra từ route reset-password.
-//   - Không lưu toàn bộ payload request vào metadata — chỉ lưu diff rút gọn
-//     hoặc số lượng bản ghi bị thay đổi (created/updated/deleted).
 model AuditLog {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now())
-
-  // Actor — snapshot tại thời điểm hành động. Không suy ra email/name/role hiện
-  // tại qua join actorUser vì tài khoản có thể đã đổi quyền hoặc bị xóa sau đó.
-  actorType   String // "user" (người thật) | "system" (tác vụ tự động, vd trash.auto_purge)
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  actorType   String
   actorUserId Int?
   actorEmail  String?
   actorName   String?
-  actorRole   String? // snapshot role tại thời điểm hành động
-
-  // Xóa vĩnh viễn tài khoản staff (User) không được làm mất bản ghi log —
-  // actorUserId chỉ set null, các field snapshot phía trên vẫn giữ nguyên.
-  actorUser User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
-
-  // Hành động — action là chuỗi "đối_tượng.thao_tác" định nghĩa tập trung ở
-  // backend/lib/auditActions.js, không viết tự do ở route.
+  actorRole   String?
   action      String
-  entityType  String // Exam | PracticeExam | User | ExamSeries | BookCover | WritingSample | SpeakingSample | Setting | Trash (thao tác gộp nhiều loại, vd trash.purge_all/trash.auto_purge — chi tiết theo loại nằm trong metadata)
+  entityType  String
   entityId    Int?
-  entityLabel String? // nhãn người đọc được, snapshot tại thời điểm ghi (vd tên đề thi) — vẫn đọc được sau khi entity bị xóa vĩnh viễn
+  entityLabel String?
   metadata    Json?
+  actorUser   User?    @relation(fields: [actorUserId], references: [id])
 
   @@index([createdAt])
   @@index([actorUserId])
   @@index([action])
   @@index([entityType, entityId])
+}
+
+model EmailVerificationCode {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  codeHash  String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

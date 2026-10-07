@@ -95,6 +95,8 @@ router.get('/history', authMiddleware, learnerOnly, validate(historyQuerySchema,
         select: {
           id: true,
           score: true,
+          correctCount: true,
+          totalCount: true,
           finishedAt: true,
           exam: {
             select: {
@@ -137,8 +139,8 @@ router.get('/history', authMiddleware, learnerOnly, validate(historyQuerySchema,
       bookNumber: a.exam.bookNumber,
       testNumber: a.exam.testNumber,
       skill: a.exam.skill,
-      correct: correctByAttempt[a.id] || 0,
-      total: totalByAttempt[a.id] || 0,
+      correct: a.correctCount != null ? a.correctCount : (correctByAttempt[a.id] || 0),
+      total: a.totalCount != null ? a.totalCount : (totalByAttempt[a.id] || 0),
       bandScore: a.score,
       finishedAt: a.finishedAt,
     }))
