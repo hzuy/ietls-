@@ -259,6 +259,12 @@ export default function SpeakingExam() {
     isRecordingRef.current = isRecording
   }, [isRecording])
 
+  useEffect(() => {
+    if (transcribeError) {
+      showToast(transcribeError, 'error')
+    }
+  }, [transcribeError, showToast])
+
   const startInterview = useCallback(() => {
     const p = exam?.speakingParts?.[activePart]
     if (!p) return
@@ -573,7 +579,7 @@ export default function SpeakingExam() {
     const transcript = Array.isArray(transcriptArray) ? JSON.stringify(transcriptArray) : transcriptArray;
     const wCount = Array.isArray(transcriptArray) ? transcriptArray.reduce((acc, curr) => acc + (curr.text || '').split(/\s+/).filter(Boolean).length, 0) : transcript.trim().split(/\s+/).filter(Boolean).length;
     if (wCount < 10) {
-      showToast('Câu trả lời quá ngắn, hãy nói thêm!', 'error');
+      showToast(`Câu trả lời quá ngắn (${wCount} từ), hãy nói thêm!`, 'error');
       return;
     }
     setSubmitting(true)
