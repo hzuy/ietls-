@@ -1028,8 +1028,8 @@ export default function SpeakingExam() {
 
               {turnState === 'ai_speaking' && (
                  <div className="flex flex-col items-center gap-12 w-full">
-                    <h3 className="text-2xl font-bold text-pink-500 flex items-center justify-center gap-4 text-center leading-relaxed">
-                      <span className="w-10 h-10 flex items-center justify-center rounded-full border-2 border-pink-500 text-pink-500 shrink-0 shadow-sm bg-pink-50">?</span>
+                    <h3 className="text-2xl font-bold text-[#c026d3] flex items-center justify-center gap-4 text-center leading-relaxed max-w-4xl px-8">
+                      <span className="w-8 h-8 flex items-center justify-center rounded-full border-[2.5px] border-[#c026d3] text-[#c026d3] shrink-0 font-bold bg-white text-sm">?</span>
                       <span className="max-w-2xl">{part.questions[activeQuestionIndex]?.questionText}</span>
                     </h3>
                     <div className="w-16 h-16 flex items-center justify-center rounded-full bg-blue-50 text-blue-500 animate-pulse shadow-inner border border-blue-100">
@@ -1041,15 +1041,12 @@ export default function SpeakingExam() {
               {turnState === 'user_speaking' && (
                  <div className="flex flex-col items-center gap-8 w-full">
                     {showQuestion && (
-                      <h3 className="text-2xl font-bold text-pink-500 flex items-center justify-center gap-4 text-center leading-relaxed mb-4">
-                        <span className="w-10 h-10 flex items-center justify-center rounded-full border-2 border-pink-500 text-pink-500 shrink-0 shadow-sm bg-pink-50">?</span>
+                      <h3 className="text-2xl font-bold text-[#c026d3] flex items-center justify-center gap-4 text-center leading-relaxed max-w-4xl px-8">
+                        <span className="w-8 h-8 flex items-center justify-center rounded-full border-[2.5px] border-[#c026d3] text-[#c026d3] shrink-0 font-bold bg-white text-sm">?</span>
                         <span className="max-w-2xl">{part.questions[activeQuestionIndex]?.questionText}</span>
                       </h3>
                     )}
-                    <div className="flex items-center gap-4">
-                      <button disabled className="px-6 py-2.5 rounded-full bg-zinc-100 text-zinc-400 font-semibold text-sm cursor-not-allowed border border-zinc-200">Nghe lại</button>
-                      <button onClick={() => setShowQuestion(!showQuestion)} className="px-6 py-2.5 rounded-full bg-zinc-100 text-zinc-800 font-semibold text-sm hover:bg-zinc-200 transition-colors cursor-pointer border border-zinc-200 shadow-xs">{showQuestion ? 'Ẩn câu hỏi' : 'Hiện câu hỏi'}</button>
-                    </div>
+                    
                  </div>
               )}
            </div>
