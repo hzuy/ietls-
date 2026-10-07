@@ -62,6 +62,16 @@ export default function SpeakingExam() {
   const [error, setError] = useState(null)
   const [phase, setPhase] = useState('exam')
   const [activePart, setActivePart] = useState(0)
+
+  // Auto-advance to first unfinished part on load
+  useEffect(() => {
+    if (exam?.speakingParts && Object.keys(results).length > 0) {
+      const firstUnfinished = exam.speakingParts.findIndex(p => !(p.id in results))
+      if (firstUnfinished !== -1 && activePart === 0) {
+        setActivePart(firstUnfinished)
+      }
+    }
+  }, [exam, results, activePart])
   const [transcripts, setTranscripts] = useState({}) // { partId: text }
   const [results, setResults] = useState({})         // { partId: result }
   const [submittedPartIds, setSubmittedPartIds] = useState([]) // part đã nộp (kể cả phiên trước)
@@ -994,8 +1004,8 @@ export default function SpeakingExam() {
                       </button>
                     )}
                     {turnState === 'completed' && (
-                      <button disabled className="px-6 py-2.5 rounded-full font-bold text-sm border-2 border-zinc-200 text-zinc-400 bg-zinc-50 cursor-not-allowed">
-                        Đã hoàn thành
+                      <button onClick={() => submitPart(part)} disabled={submitting} className="px-6 py-2.5 rounded-full font-bold text-sm border-2 border-red-500 text-white bg-red-500 hover:bg-red-600 transition-all cursor-pointer inline-flex items-center gap-2">
+                        {submitting ? 'Đang nộp...' : 'Nộp Part 2'}
                       </button>
                     )}
                   </div>
