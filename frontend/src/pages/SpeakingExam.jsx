@@ -300,7 +300,7 @@ export default function SpeakingExam() {
         onAiAudioEnded()
       }
     } else {
-      setTurnState('idle')
+      setTurnState('completed')
       stopRecording()
     }
   }, [exam, activePart, activeQuestionIndex, pauseRecording, stopRecording, playTTS, onAiAudioEnded])
@@ -930,7 +930,7 @@ export default function SpeakingExam() {
                   <h2 className="text-2xl font-black uppercase tracking-widest text-zinc-900">Part {part.number}</h2>
                   <div className="w-40 text-right">
                     {(turnState === 'idle' || turnState === 'user_preparing') && (
-                      <button onClick={turnState === 'user_preparing' ? skipPrep : undefined} className="px-5 py-2 rounded-full border border-zinc-200 text-sm font-semibold text-zinc-600 hover:bg-zinc-100 cursor-pointer transition-colors bg-white">
+                      <button onClick={handleBack} className="px-5 py-2 rounded-full border border-zinc-200 text-sm font-semibold text-zinc-600 hover:bg-zinc-100 cursor-pointer transition-colors bg-white">
                         Thoát
                       </button>
                     )}
@@ -1022,7 +1022,7 @@ export default function SpeakingExam() {
               <div className="w-32"></div>
               <h2 className="text-xl font-black uppercase tracking-widest text-zinc-900">Part {part.number}</h2>
               <div className="w-32 text-right">
-                <button onClick={turnState === 'user_preparing' ? skipPrep : undefined} className="px-4 py-2 rounded-full border border-zinc-200 text-sm font-semibold text-zinc-600 hover:bg-zinc-100 bg-white cursor-pointer">Thoát</button>
+                <button onClick={handleBack} className="px-4 py-2 rounded-full border border-zinc-200 text-sm font-semibold text-zinc-600 hover:bg-zinc-100 bg-white cursor-pointer">Thoát</button>
               </div>
            </div>
 
