@@ -224,7 +224,7 @@ export default function SpeakingExam() {
   const [prepSecondsLeft, setPrepSecondsLeft] = useState(PART2_PREP_SECONDS)
   
   const getSpeakSecondsLimit = useCallback((partNum) => {
-    if (partNum === 1) return 30
+    if (partNum === 1) return 40
     if (partNum === 2) return 120
     if (partNum === 3) return 45
     return 60
