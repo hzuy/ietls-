@@ -489,7 +489,7 @@ export default function SpeakingExam() {
         // Auto-advance to next part
         const currentIndex = exam.speakingParts.findIndex(p => p.id === part.id)
         if (currentIndex < exam.speakingParts.length - 1) {
-          setActivePart(currentIndex + 1)
+          { setActivePart(currentIndex + 1); setTurnState('idle'); setActiveQuestionIndex(0); }
         }
       } else if (res.status === 'failed') {
         setGradingErrors(prev => ({ ...prev, [part.id]: { error: res.error || 'Lỗi nhận xét AI', answerId: res.answerId ?? answerId } }))
@@ -573,7 +573,7 @@ export default function SpeakingExam() {
         setGradingPart(null)
         const currentIndex = exam.speakingParts.findIndex(p => p.id === part.id)
         if (currentIndex < exam.speakingParts.length - 1) {
-          setActivePart(currentIndex + 1)
+          { setActivePart(currentIndex + 1); setTurnState('idle'); setActiveQuestionIndex(0); }
         }
       }
     } catch (e) {
@@ -949,6 +949,7 @@ export default function SpeakingExam() {
                     {turnState === 'ai_speaking' && <p className="text-indigo-500 font-medium text-sm animate-pulse">Giám khảo đang đọc hướng dẫn...</p>}
                     {turnState === 'user_preparing' && <p className="text-indigo-500 font-medium text-sm">Đang có một phút để ghi chú...</p>}
                     {turnState === 'user_speaking' && <p className="text-red-500 font-medium text-sm animate-pulse">Đang thu âm câu trả lời...</p>}
+                    {turnState === 'completed' && <p className="text-emerald-600 font-medium text-sm">Đã hoàn thành Part 2!</p>}
                   </div>
                   
                   <div className="flex flex-1 items-center justify-center">
@@ -990,6 +991,11 @@ export default function SpeakingExam() {
                     {turnState === 'user_speaking' && (
                       <button onClick={handleNextQuestion} className="px-6 py-2.5 rounded-full font-bold text-sm border-2 border-red-500 text-red-600 hover:bg-red-50 transition-all cursor-pointer bg-white inline-flex items-center gap-2">
                         <Square className="w-4 h-4" /> Nộp Part 2
+                      </button>
+                    )}
+                    {turnState === 'completed' && (
+                      <button disabled className="px-6 py-2.5 rounded-full font-bold text-sm border-2 border-zinc-200 text-zinc-400 bg-zinc-50 cursor-not-allowed">
+                        Đã hoàn thành
                       </button>
                     )}
                   </div>
@@ -1089,7 +1095,7 @@ export default function SpeakingExam() {
               <button
                 key={p.id}
                 type="button"
-                onClick={() => setActivePart(i)}
+                onClick={() => { setActivePart(i); setTurnState('idle'); setActiveQuestionIndex(0); if(isRecording) stopRecording(); }}
                 aria-label={`Part ${p.number}${done ? ' — đã nộp' : ''}`}
                 className={`exam-bar-btn shrink-0 whitespace-nowrap h-9 px-3.5 sm:px-4 rounded-full text-xs sm:text-sm font-medium inline-flex items-center justify-center gap-2 leading-none transition-all cursor-pointer ${
                   done
