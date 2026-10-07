@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { BACKEND_URL } from '../utils/media'
 
 import { getSpeakingExam, submitSpeakingExam, getSpeakingStatus, getFullTestStatus, getSpeakingMyResults, retrySpeakingGrading } from '../services/examService'
 import { saveDraft, loadDraft, clearDraft, isDataEmpty, formatSavedAt } from '../services/draftService'
@@ -78,7 +79,6 @@ export default function SpeakingExam() {
 
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0)
   const [turnState, setTurnState] = useState('idle') // 'idle' | 'ai_speaking' | 'user_preparing' | 'user_speaking'
-  const [isBlindMode, setIsBlindMode] = useState(false)
   const [playingAudioId, setPlayingAudioId] = useState(null)
   const ttsAudioRef = useRef(null)
   const playTTS = useCallback((url, id, onEnded = null) => {
@@ -89,7 +89,8 @@ export default function SpeakingExam() {
     if (ttsAudioRef.current) {
       ttsAudioRef.current.pause()
     }
-    const audio = new Audio(url)
+    const resolvedUrl = url.startsWith('/') ? `${BACKEND_URL}${url}` : url
+    const audio = new Audio(resolvedUrl)
     ttsAudioRef.current = audio
     setPlayingAudioId(id)
     audio.play().catch(e => {
@@ -851,13 +852,6 @@ export default function SpeakingExam() {
         </div>
         {!previewMode && (
           <div className="flex items-center gap-3 shrink-0">
-            <label className="flex items-center gap-1.5 cursor-pointer mr-2">
-              <div className="relative inline-flex items-center">
-                <input type="checkbox" className="sr-only peer" checked={isBlindMode} onChange={e => setIsBlindMode(e.target.checked)} />
-                <div className="w-8 h-4 bg-zinc-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-zinc-900"></div>
-              </div>
-              <span className="text-xs font-medium text-zinc-600">Blind Mode</span>
-            </label>
             {lastSavedAt && (
               <span className="text-[11px] text-zinc-400 whitespace-nowrap hidden sm:inline">
                 ✓ Đã lưu {formatSavedAt(lastSavedAt)}
@@ -901,11 +895,9 @@ export default function SpeakingExam() {
                  </div>
               </div>
               <p className="text-zinc-500 font-semibold animate-pulse mb-6 text-sm uppercase tracking-widest">Giám khảo đang hỏi</p>
-              {!isBlindMode && (
-                <p className="text-2xl text-zinc-900 font-medium leading-relaxed">
-                  {part.number === 2 && activeQuestionIndex === 0 && part.introAudioUrl ? "Giám khảo đang hướng dẫn đề..." : part.questions[activeQuestionIndex]?.questionText}
-                </p>
-              )}
+              <p className="text-2xl text-zinc-900 font-medium leading-relaxed">
+                {part.number === 2 && activeQuestionIndex === 0 && part.introAudioUrl ? "Giám khảo đang hướng dẫn đề..." : part.questions[activeQuestionIndex]?.questionText}
+              </p>
             </div>
           )}
           {turnState === 'user_preparing' && (
@@ -938,11 +930,9 @@ export default function SpeakingExam() {
                   />
                 ))}
               </div>
-              {!isBlindMode && (
-                 <p className="mb-12 text-xl text-zinc-700 font-medium leading-relaxed">
-                   {part.questions[activeQuestionIndex]?.questionText}
-                 </p>
-              )}
+              <p className="mb-12 text-xl text-zinc-700 font-medium leading-relaxed">
+                {part.questions[activeQuestionIndex]?.questionText}
+              </p>
               <button onClick={handleNextQuestion} className="h-14 px-10 bg-zinc-900 hover:bg-black text-white font-bold rounded-full transition-all shadow-xl hover:scale-105 active:scale-95 text-lg flex items-center gap-3 cursor-pointer">
                 {activeQuestionIndex < part.questions.length - 1 ? 'Chuyển câu tiếp theo' : 'Kết thúc phần thi'}
                 <Square className="w-5 h-5 fill-current" />
@@ -972,16 +962,9 @@ export default function SpeakingExam() {
                   <div key={q.id} className="flex gap-3 bg-white p-4 rounded-xl border border-zinc-200 shadow-xs relative overflow-hidden">
                     <span className="w-6 h-6 flex-shrink-0 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-900 font-bold text-xs flex items-center justify-center mt-0.5">{i + 1}</span>
                     <div className="flex-1">
-                      <p className={`text-zinc-800 text-sm leading-relaxed m-0 font-medium transition-all ${isBlindMode ? 'blur-md select-none opacity-50' : ''}`}>
+                      <p className="text-zinc-800 text-sm leading-relaxed m-0 font-medium transition-all">
                         {q.questionText}
                       </p>
-                      {isBlindMode && playingAudioId === `q-${q.id}` && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-[1px]">
-                          <div className="flex items-center gap-1 h-6">
-                            {[1,2,3,4].map(n => <span key={n} className="w-1 bg-zinc-900 animate-pulse rounded-full h-full" style={{animationDelay: `${n*100}ms`}}/>)}
-                          </div>
-                        </div>
-                      )}
                     </div>
                     {q.audioUrl && (
                       <button 
@@ -1009,7 +992,17 @@ export default function SpeakingExam() {
                 )}
                 {cueCardText && (
                   <div className={`relative overflow-hidden bg-white border-l-4 border-zinc-900 rounded-r-2xl border-y border-r border-zinc-200 p-5 shadow-xs transition-all duration-500 ${playingAudioId === `intro-${part.id}` ? 'blur-sm select-none opacity-40' : ''}`}>
-                    <p className="text-zinc-900 text-xs font-bold uppercase tracking-wider mb-2">Cue Card</p>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-zinc-900 text-xs font-bold uppercase tracking-wider">Cue Card</p>
+                      {part.introAudioUrl && (
+                        <button 
+                          onClick={() => playingAudioId === `intro-${part.id}` ? (ttsAudioRef.current?.pause(), setPlayingAudioId(null)) : playTTS(part.introAudioUrl, `intro-${part.id}`)}
+                          className={`w-7 h-7 flex-shrink-0 rounded-full flex items-center justify-center transition-colors cursor-pointer z-10 ${playingAudioId === `intro-${part.id}` ? 'bg-zinc-900 text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'}`}
+                        >
+                          {playingAudioId === `intro-${part.id}` ? <Square className="w-3 h-3" /> : <Play className="w-3 h-3 ml-0.5" />}
+                        </button>
+                      )}
+                    </div>
                     <p className="text-zinc-800 text-sm leading-relaxed font-semibold m-0 whitespace-pre-wrap">{cueCardText}</p>
                     <p className="text-zinc-500 text-xs mt-4 font-medium italic m-0">Chuẩn bị 1 phút · Nói 1–2 phút</p>
                     {playingAudioId === `intro-${part.id}` && (
@@ -1029,14 +1022,7 @@ export default function SpeakingExam() {
                         <div key={q.id} className="flex gap-2.5 items-start bg-white p-3 rounded-xl border border-zinc-200 shadow-xs text-sm relative overflow-hidden">
                           <span className="text-zinc-400 font-bold mt-0.5 flex-shrink-0">•</span>
                           <div className="flex-1">
-                            <span className={`text-zinc-600 leading-relaxed font-medium transition-all ${isBlindMode ? 'blur-md select-none opacity-50' : ''}`}>{q.questionText}</span>
-                            {isBlindMode && playingAudioId === `q-${q.id}` && (
-                              <div className="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-[1px]">
-                                <div className="flex items-center gap-1 h-5">
-                                  {[1,2,3].map(n => <span key={n} className="w-1 bg-zinc-900 animate-pulse rounded-full h-full" style={{animationDelay: `${n*100}ms`}}/>)}
-                                </div>
-                              </div>
-                            )}
+                            <span className="text-zinc-600 leading-relaxed font-medium transition-all">{q.questionText}</span>
                           </div>
                           {q.audioUrl && (
                             <button 
@@ -1074,7 +1060,17 @@ export default function SpeakingExam() {
               <div className="p-6 bg-zinc-50/50 flex-1 flex flex-col gap-5">
                 {part.cueCard && (
                   <div className={`relative overflow-hidden transition-all duration-500 ${playingAudioId === `intro-${part.id}` ? 'blur-sm select-none opacity-40' : ''}`}>
-                    <p className="text-zinc-500 text-sm leading-relaxed m-0 font-medium italic border-l-2 border-zinc-900 pl-3.5 relative z-10">{part.cueCard}</p>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-zinc-500 text-sm leading-relaxed m-0 font-medium italic border-l-2 border-zinc-900 pl-3.5 relative z-10">{part.cueCard}</p>
+                      {part.introAudioUrl && (
+                        <button 
+                          onClick={() => playingAudioId === `intro-${part.id}` ? (ttsAudioRef.current?.pause(), setPlayingAudioId(null)) : playTTS(part.introAudioUrl, `intro-${part.id}`)}
+                          className={`w-7 h-7 flex-shrink-0 rounded-full flex items-center justify-center transition-colors cursor-pointer z-10 ${playingAudioId === `intro-${part.id}` ? 'bg-zinc-900 text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'}`}
+                        >
+                          {playingAudioId === `intro-${part.id}` ? <Square className="w-3 h-3" /> : <Play className="w-3 h-3 ml-0.5" />}
+                        </button>
+                      )}
+                    </div>
                     {playingAudioId === `intro-${part.id}` && (
                       <div className="absolute inset-0 flex items-center justify-center z-20">
                         <div className="flex items-center gap-1.5 h-6">
@@ -1095,14 +1091,7 @@ export default function SpeakingExam() {
                           <div key={q.id} className="flex gap-3 text-sm relative overflow-hidden">
                             <span className="w-5 h-5 flex-shrink-0 rounded-full bg-zinc-100 text-zinc-600 font-bold text-xs flex items-center justify-center mt-0.5">{qi + 1}</span>
                             <div className="flex-1">
-                              <span className={`text-zinc-700 leading-relaxed font-medium transition-all ${isBlindMode ? 'blur-md select-none opacity-50' : ''}`}>{q.questionText}</span>
-                              {isBlindMode && playingAudioId === `q-${q.id}` && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-[1px]">
-                                  <div className="flex items-center gap-1 h-5">
-                                    {[1,2,3].map(n => <span key={n} className="w-1 bg-zinc-900 animate-pulse rounded-full h-full" style={{animationDelay: `${n*100}ms`}}/>)}
-                                  </div>
-                                </div>
-                              )}
+                              <span className="text-zinc-700 leading-relaxed font-medium transition-all">{q.questionText}</span>
                             </div>
                             {q.audioUrl && (
                               <button 
