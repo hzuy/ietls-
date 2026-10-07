@@ -87,6 +87,8 @@ Cần có sẵn trước khi deploy (thiết lập một lần trên máy điề
 | `GROQ_API_KEY` | ✅ | Chấm Writing/Speaking + chatbot + transcription. |
 | `FRONTEND_URL` | ✅ | `https://hzuy.net` — thiếu → CORS chặn hết request từ domain thật (`server.js` chỉ thêm origin này vào allowlist khi biến tồn tại). |
 | `GOOGLE_CLIENT_ID` | ✅ | Google OAuth login (`routes/auth.js`) — verify `audience` khi decode token Google. Thiếu → endpoint Google login lỗi runtime (lazy init, không throw lúc khởi động nên dễ bỏ sót). |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | ✅ | Gửi mã xác thực email khi đăng ký (`lib/mailer.js`). Thiếu → đăng ký vẫn tạo tài khoản nhưng không gửi được mã, người dùng mới không đăng nhập được. Server phải mở kết nối ra cổng SMTP (587/465) — kiểm tra trước khi deploy. Gmail cần App Password. |
+| `SMTP_SECURE`, `MAIL_FROM` | tùy chọn | `SMTP_SECURE` mặc định `true` khi cổng 465. `MAIL_FROM` mặc định `IELTS Pro <SMTP_USER>`. |
 | `PORT` | tùy chọn | `docker-compose.yml` set `PORT=5001` sẵn. |
 
 `frontend/.env.production` (đã commit trong repo, dùng lúc build ở local — [bước 3.4](#bước-34--build-frontend-tại-local)):

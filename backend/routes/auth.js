@@ -6,10 +6,14 @@ const router = express.Router()
 const prisma = require('../lib/prisma')
 const authMiddleware = require('../middleware/auth')
 const validate = require('../middleware/validate')
+const { authLimiter, emailCodeLimiter } = require('../middleware/rateLimiter')
+const { issueVerificationCode, verifyCode, getCooldownSeconds, RESEND_COOLDOWN_MS } = require('../lib/emailVerification')
 const {
   registerSchema,
   loginSchema,
   googleAuthSchema,
+  verifyEmailSchema,
+  resendVerificationSchema,
   changePasswordSchema,
   updateProfileSchema,
 } = require('../validators/authValidator')
@@ -23,23 +27,63 @@ function getGoogleClient() {
   return googleClient
 }
 
+function loginResponse(user) {
+  const token = jwt.sign(
+    { userId: user.id, email: user.email, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: '7d' }
+  )
+  return {
+    token,
+    user: { id: user.id, name: user.name, email: user.email, role: user.role },
+    requirePasswordChange: user.requirePasswordChange === true,
+  }
+}
+
+async function sendCodeIfAllowed(user) {
+  try {
+    if (await getCooldownSeconds(user.id)) return true
+    await issueVerificationCode(user)
+    return true
+  } catch (error) {
+    console.error('[auth] Gửi mã xác thực thất bại:', error.message)
+    return false
+  }
+}
+
+const VERIFY_FAIL_MESSAGES = {
+  expired: 'Mã xác thực đã hết hạn. Vui lòng bấm "Gửi lại mã".',
+  too_many: 'Bạn đã nhập sai quá nhiều lần. Vui lòng bấm "Gửi lại mã" để nhận mã mới.',
+}
+
 // Đăng ký
-router.post('/register', validate(registerSchema), async (req, res) => {
+router.post('/register', authLimiter, validate(registerSchema), async (req, res) => {
   try {
     const { email, password, name } = req.body
 
     const existing = await prisma.user.findUnique({ where: { email } })
-    if (existing) {
+    const pendingVerification = existing && existing.emailVerified === false && !existing.deletedAt && existing.password
+    if (existing && !pendingVerification) {
       return res.status(400).json({ message: 'Email đã được sử dụng' })
     }
 
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    const user = await prisma.user.create({
-      data: { email, password: hashedPassword, name }
-    })
+    const user = existing
+      ? await prisma.user.update({ where: { id: existing.id }, data: { name, password: hashedPassword } })
+      : await prisma.user.create({ data: { email, password: hashedPassword, name, emailVerified: false } })
 
-    res.status(201).json({ message: 'Đăng ký thành công!', userId: user.id })
+    const mailSent = await sendCodeIfAllowed(user)
+
+    res.status(201).json({
+      message: mailSent
+        ? 'Đăng ký thành công! Vui lòng nhập mã xác thực đã gửi tới email của bạn.'
+        : 'Đăng ký thành công nhưng chưa gửi được email xác thực. Vui lòng bấm "Gửi lại mã".',
+      userId: user.id,
+      email: user.email,
+      needsVerification: true,
+      mailSent,
+    })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
   }
@@ -79,7 +123,7 @@ router.post('/google', validate(googleAuthSchema), async (req, res) => {
         }
         user = await prisma.user.update({
           where: { id: existingByEmail.id },
-          data: { googleId },
+          data: { googleId, emailVerified: true },
         })
       } else {
         user = await prisma.user.create({
@@ -111,7 +155,7 @@ router.post('/google', validate(googleAuthSchema), async (req, res) => {
 })
 
 // Đăng nhập
-router.post('/login', validate(loginSchema), async (req, res) => {
+router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
   try {
     const { email, password } = req.body
 
@@ -133,17 +177,75 @@ router.post('/login', validate(loginSchema), async (req, res) => {
       return res.status(403).json({ message: 'Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên.' })
     }
 
-    const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    )
+    if (user.emailVerified === false) {
+      const mailSent = await sendCodeIfAllowed(user)
+      return res.status(403).json({
+        code: 'EMAIL_NOT_VERIFIED',
+        email: user.email,
+        mailSent,
+        message: mailSent
+          ? 'Email chưa được xác thực. Vui lòng nhập mã đã gửi tới email của bạn.'
+          : 'Email chưa được xác thực và chưa gửi được mã. Vui lòng bấm "Gửi lại mã".',
+      })
+    }
 
-    res.json({
-      token,
-      user: { id: user.id, name: user.name, email: user.email, role: user.role },
-      requirePasswordChange: user.requirePasswordChange === true,
-    })
+    res.json(loginResponse(user))
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
+router.post('/verify-email', emailCodeLimiter, validate(verifyEmailSchema), async (req, res) => {
+  try {
+    const { email, code } = req.body
+
+    const user = await prisma.user.findUnique({ where: { email } })
+    if (!user || user.deletedAt) {
+      return res.status(400).json({ message: 'Mã xác thực không đúng hoặc đã hết hạn' })
+    }
+    if (user.emailVerified !== false) {
+      return res.status(400).json({ code: 'ALREADY_VERIFIED', message: 'Email này đã được xác thực, vui lòng đăng nhập.' })
+    }
+
+    const result = await verifyCode(user.id, code)
+    if (!result.ok) {
+      const message = VERIFY_FAIL_MESSAGES[result.reason] || `Mã xác thực không đúng. Bạn còn ${result.remaining} lần thử.`
+      return res.status(400).json({ code: 'INVALID_CODE', reason: result.reason, message })
+    }
+
+    if (user.isLocked) {
+      return res.status(403).json({ message: 'Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên.' })
+    }
+
+    res.json(loginResponse(user))
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
+router.post('/resend-verification', emailCodeLimiter, validate(resendVerificationSchema), async (req, res) => {
+  try {
+    const { email } = req.body
+    const generic = { message: 'Nếu email cần xác thực, mã mới đã được gửi.', retryAfter: RESEND_COOLDOWN_MS / 1000 }
+
+    const user = await prisma.user.findUnique({ where: { email } })
+    if (!user || user.deletedAt || user.emailVerified !== false) {
+      return res.json(generic)
+    }
+
+    const wait = await getCooldownSeconds(user.id)
+    if (wait) {
+      return res.status(429).json({ message: `Vui lòng đợi ${wait} giây trước khi gửi lại mã.`, retryAfter: wait })
+    }
+
+    try {
+      await issueVerificationCode(user)
+    } catch (error) {
+      console.error('[auth] Gửi lại mã xác thực thất bại:', error.message)
+      return res.status(502).json({ message: 'Không gửi được email xác thực. Vui lòng thử lại sau.' })
+    }
+
+    res.json({ message: 'Đã gửi mã xác thực mới tới email của bạn.', retryAfter: RESEND_COOLDOWN_MS / 1000 })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
   }

@@ -9,26 +9,28 @@ datasource db {
 }
 
 model User {
-  id                    Int      @id @default(autoincrement())
-  email                 String   @unique
+  id                    Int       @id @default(autoincrement())
+  email                 String    @unique
   password              String?
-  googleId              String?  @unique
+  googleId              String?   @unique
   name                  String
-  role                  String   @default("user")
-  isLocked              Boolean  @default(false)
-  requirePasswordChange Boolean  @default(false)
-  createdAt             DateTime @default(now())
+  role                  String    @default("user")
+  isLocked              Boolean   @default(false)
+  emailVerified         Boolean   @default(true)
+  requirePasswordChange Boolean   @default(false)
+  createdAt             DateTime  @default(now())
   deletedAt             DateTime? // soft-delete — DELETE /admin/users/:id (khác staff.delete ở /admin/accounts/:id, vốn hard-delete)
 
-  attempts              Attempt[]
-  writingAnswers        WritingAnswer[]
-  speakingAnswers       SpeakingAnswer[]
-  answerLogs            AnswerLog[]
-  writingCriterionLogs  WritingCriterionLog[]
-  speakingCriterionLogs SpeakingCriterionLog[]
+  attempts               Attempt[]
+  writingAnswers         WritingAnswer[]
+  speakingAnswers        SpeakingAnswer[]
+  answerLogs             AnswerLog[]
+  writingCriterionLogs   WritingCriterionLog[]
+  speakingCriterionLogs  SpeakingCriterionLog[]
   // Back-relation bắt buộc để Prisma khai báo AuditLog.actorUser (onDelete: SetNull) —
   // không phải field nghiệp vụ, không dùng để join lấy lịch sử log của user này.
-  auditLogs             AuditLog[]
+  auditLogs              AuditLog[]
+  emailVerificationCodes EmailVerificationCode[]
 
   @@index([role])
   @@index([createdAt])
@@ -495,4 +497,17 @@ model AuditLog {
   @@index([actorUserId])
   @@index([action])
   @@index([entityType, entityId])
+}
+
+model EmailVerificationCode {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  codeHash  String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

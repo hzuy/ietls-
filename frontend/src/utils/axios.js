@@ -21,7 +21,7 @@ api.interceptors.response.use(
     const url = error.config?.url || ''
 
     // KHÔNG redirect khi lỗi xảy ra ở endpoint đăng nhập/đăng ký hoặc settings background
-    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/google')
+    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/google') || url.includes('/auth/verify-email') || url.includes('/auth/resend-verification')
     const isSettingsEndpoint = url.includes('/admin/settings')
 
     const isLockedAccount = status === 403 && error.response?.data?.code === 'ACCOUNT_LOCKED'

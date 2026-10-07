@@ -8,6 +8,11 @@ const DEFAULT_AI_MAX = parseInt(process.env.RATE_LIMIT_SUBMIT_AI_MAX) || 10
  * Key generator distinguishing by authenticated userId when available,
  * falling back to client IP.
  */
+function clientIpKey(req) {
+  const cf = req.headers && req.headers['cf-connecting-ip']
+  return cf || req.ip || req.socket?.remoteAddress || 'unknown'
+}
+
 function defaultKeyGenerator(req) {
   if (req.user && req.user.userId) {
     return `user_${req.user.userId}`
@@ -36,13 +41,14 @@ function createSubmitRateLimiter({
   max = DEFAULT_OBJECTIVE_MAX,
   message = 'Bạn đã gửi yêu cầu quá nhiều lần. Vui lòng thử lại sau.',
   skip = shouldSkip,
+  keyGenerator = defaultKeyGenerator,
 } = {}) {
   return rateLimit({
     windowMs,
     limit: max,
     standardHeaders: 'draft-6',
     legacyHeaders: false,
-    keyGenerator: defaultKeyGenerator,
+    keyGenerator,
     validate: { keyGeneratorIpFallback: false },
     skip,
     handler: (req, res, next, options) => {
@@ -68,8 +74,25 @@ const aiSubmitLimiter = createSubmitRateLimiter({
   message: 'Bạn đã gửi yêu cầu chấm điểm AI quá giới hạn. Vui lòng thử lại sau 15 phút.',
 })
 
+const authLimiter = createSubmitRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  keyGenerator: clientIpKey,
+  message: 'Bạn đã thử đăng nhập/đăng ký quá nhiều lần. Vui lòng thử lại sau 15 phút.',
+})
+
+const emailCodeLimiter = createSubmitRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  keyGenerator: clientIpKey,
+  message: 'Bạn đã thao tác với mã xác thực quá nhiều lần. Vui lòng thử lại sau 15 phút.',
+})
+
 module.exports = {
   createSubmitRateLimiter,
+  authLimiter,
+  emailCodeLimiter,
+  clientIpKey,
   objectiveSubmitLimiter,
   aiSubmitLimiter,
   defaultKeyGenerator,

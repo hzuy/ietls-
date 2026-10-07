@@ -18,6 +18,15 @@ const googleAuthSchema = z.object({
   credential: z.string({ message: 'Thiếu credential từ Google' }).min(1, { message: 'Credential không hợp lệ' }),
 })
 
+const verifyEmailSchema = z.object({
+  email: z.string({ message: 'Email là bắt buộc' }).email({ message: 'Email không đúng định dạng' }),
+  code: z.string({ message: 'Mã xác thực là bắt buộc' }).trim().regex(/^\d{6}$/, { message: 'Mã xác thực gồm 6 chữ số' }),
+})
+
+const resendVerificationSchema = z.object({
+  email: z.string({ message: 'Email là bắt buộc' }).email({ message: 'Email không đúng định dạng' }),
+})
+
 // 4. Đổi mật khẩu người dùng
 const changePasswordSchema = z.object({
   oldPassword: z.string({ message: 'Mật khẩu cũ là bắt buộc' }).min(1, { message: 'Thiếu thông tin mật khẩu cũ' }),
@@ -66,6 +75,8 @@ module.exports = {
   registerSchema,
   loginSchema,
   googleAuthSchema,
+  verifyEmailSchema,
+  resendVerificationSchema,
   changePasswordSchema,
   updateProfileSchema,
   adminChangePasswordSchema,

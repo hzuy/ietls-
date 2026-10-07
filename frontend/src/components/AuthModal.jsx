@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { GoogleLogin } from '@react-oauth/google'
-import { login, register, googleAuth } from '../services/userService'
+import { login, register, googleAuth, verifyEmail, resendVerification } from '../services/userService'
 import { showAlert } from '../utils/alertUtils'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, MailCheck, ArrowLeft } from 'lucide-react'
 import PillButton from './common/PillButton'
 import PillInput from './common/PillInput'
 
@@ -22,6 +22,80 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
 
   // Google Sign-In state (dùng chung cho cả 2 tab)
   const [googleError, setGoogleError] = useState('')
+
+  const [verifyFor, setVerifyFor]         = useState(null)
+  const [verifyCode, setVerifyCode]       = useState('')
+  const [verifyError, setVerifyError]     = useState('')
+  const [verifyInfo, setVerifyInfo]       = useState('')
+  const [verifyLoading, setVerifyLoading] = useState(false)
+  const [resendIn, setResendIn]           = useState(0)
+
+  useEffect(() => {
+    if (resendIn <= 0) return
+    const t = setTimeout(() => setResendIn(s => s - 1), 1000)
+    return () => clearTimeout(t)
+  }, [resendIn])
+
+  const startVerify = (email, mailSent, message) => {
+    setVerifyFor(email)
+    setVerifyCode('')
+    setVerifyError(mailSent ? '' : message)
+    setVerifyInfo(mailSent ? message : '')
+    setResendIn(mailSent ? 60 : 0)
+  }
+
+  const finishLogin = (data) => {
+    localStorage.setItem('token', data.token)
+    localStorage.setItem('user', JSON.stringify(data.user))
+    if (data.requirePasswordChange) {
+      localStorage.setItem('requirePasswordChange', 'true')
+      onClose()
+      navigate('/change-password')
+    } else {
+      localStorage.removeItem('requirePasswordChange')
+      onSuccess(data.user)
+    }
+  }
+
+  const handleVerify = async (e) => {
+    e.preventDefault()
+    if (!/^\d{6}$/.test(verifyCode)) {
+      setVerifyError('Mã xác thực gồm 6 chữ số')
+      return
+    }
+    setVerifyLoading(true)
+    setVerifyError('')
+    try {
+      finishLogin(await verifyEmail(verifyFor, verifyCode))
+    } catch (err) {
+      const data = err.response?.data
+      if (data?.code === 'ALREADY_VERIFIED') {
+        setVerifyFor(null)
+        setLoginForm(f => ({ ...f, email: verifyFor }))
+        onTabChange('login')
+        showAlert(data.message, 'info')
+        return
+      }
+      setVerifyError(data?.message || 'Xác thực thất bại')
+      if (data?.reason === 'too_many' || data?.reason === 'expired') setVerifyCode('')
+    } finally {
+      setVerifyLoading(false)
+    }
+  }
+
+  const handleResend = async () => {
+    setVerifyError('')
+    setVerifyInfo('')
+    try {
+      const data = await resendVerification(verifyFor)
+      setVerifyInfo(data.message)
+      setResendIn(data.retryAfter || 60)
+    } catch (err) {
+      const data = err.response?.data
+      setVerifyError(data?.message || 'Không gửi lại được mã')
+      if (data?.retryAfter) setResendIn(data.retryAfter)
+    }
+  }
 
   // Đo width của modal content để truyền vào GoogleLogin.width (responsive)
   const modalBodyRef = useRef(null)
@@ -63,19 +137,14 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
     setLoginLoading(true)
     setLoginError('')
     try {
-      const data = await login(loginForm.email, loginForm.password)
-      localStorage.setItem('token', data.token)
-      localStorage.setItem('user', JSON.stringify(data.user))
-      if (data.requirePasswordChange) {
-        localStorage.setItem('requirePasswordChange', 'true')
-        onClose()
-        navigate('/change-password')
-      } else {
-        localStorage.removeItem('requirePasswordChange')
-        onSuccess(data.user)
-      }
+      finishLogin(await login(loginForm.email, loginForm.password))
     } catch (err) {
-      const msg = err.response?.data?.message || 'Đăng nhập thất bại'
+      const data = err.response?.data
+      if (data?.code === 'EMAIL_NOT_VERIFIED') {
+        startVerify(data.email || loginForm.email, data.mailSent, data.message)
+        return
+      }
+      const msg = data?.message || 'Đăng nhập thất bại'
       setLoginError(msg)
       showAlert(msg, 'error')
     } finally {
@@ -94,13 +163,8 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
     setRegLoading(true)
     setRegError('')
     try {
-      await register(regForm)
-      // Auto-login sau khi đăng ký thành công
-      const data = await login(regForm.email, regForm.password)
-      localStorage.setItem('token', data.token)
-      localStorage.setItem('user', JSON.stringify(data.user))
-      localStorage.removeItem('requirePasswordChange')
-      onSuccess(data.user)
+      const data = await register(regForm)
+      startVerify(data.email || regForm.email, data.mailSent, data.message)
     } catch (err) {
       const msg = err.response?.data?.message || 'Đăng ký thất bại'
       setRegError(msg)
@@ -193,6 +257,74 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
           </span>
         </div>
 
+        {verifyFor && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setVerifyFor(null)}
+              className="tap-pad inline-flex items-center gap-1 text-xs font-semibold mb-4"
+              style={{ color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Quay lại
+            </button>
+            <div className="flex flex-col items-center text-center mb-5">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3" style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)' }}>
+                <MailCheck className="w-6 h-6" style={{ color: 'var(--primary)' }} />
+              </div>
+              <h2 className="font-bold m-0 mb-1" style={{ color: 'var(--ink)', fontSize: 18 }}>Xác thực email</h2>
+              <p className="text-xs m-0" style={{ color: 'var(--muted)' }}>
+                Nhập mã 6 số đã gửi tới <strong style={{ color: 'var(--ink)' }}>{verifyFor}</strong>
+              </p>
+            </div>
+
+            {verifyError && (
+              <div role="alert" className="p-3 rounded-2xl mb-4 text-xs font-medium bg-error-bg border border-error-border text-error-text flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-error shrink-0" />
+                <span>{verifyError}</span>
+              </div>
+            )}
+            {verifyInfo && !verifyError && (
+              <div role="status" className="p-3 rounded-2xl mb-4 text-xs font-medium" style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)', color: 'var(--text)' }}>
+                {verifyInfo}
+              </div>
+            )}
+
+            <form onSubmit={handleVerify} className="space-y-4">
+              <div>
+                <label htmlFor="verify-code" className={labelCls} style={{ color: 'var(--text)' }}>Mã xác thực</label>
+                <PillInput
+                  id="verify-code"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  placeholder="______"
+                  value={verifyCode}
+                  onChange={e => setVerifyCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className="text-center tracking-[0.5em] font-mono"
+                  required
+                  autoFocus
+                />
+              </div>
+              <PillButton type="submit" disabled={verifyLoading || verifyCode.length !== 6} fullWidth>
+                {verifyLoading ? 'Đang xác thực...' : 'Xác thực'}
+              </PillButton>
+            </form>
+
+            <p className="text-center text-xs mt-5" style={{ color: 'var(--muted)' }}>
+              Không nhận được mã? Kiểm tra cả thư mục Spam.{' '}
+              {resendIn > 0 ? (
+                <span className="tabular-nums">Gửi lại sau {resendIn}s</span>
+              ) : (
+                <button type="button" onClick={handleResend} className="tap-pad font-bold" style={{ fontSize: 'inherit', color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                  Gửi lại mã
+                </button>
+              )}
+            </p>
+          </div>
+        )}
+
+        {!verifyFor && (<>
         {/* Tabs */}
         <div className="flex mb-4" style={{ borderBottom: '1px solid var(--border)' }}>
           {['login', 'register'].map(t => (
@@ -322,6 +454,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
             </p>
           </>
         )}
+        </>)}
       </div>
     </div>
   )
