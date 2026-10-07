@@ -251,7 +251,7 @@ export default function ReadingResultSplitScreen({ data, onRetry, isPractice, on
       {/* Split Body */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Column: Passage */}
-        <div className={\`overflow-hidden bg-white border-r border-zinc-200 flex flex-col \${isMobile ? (mobileView === 'passage' ? 'w-full' : 'hidden') : 'w-1/2'}\`}>
+        <div className={`overflow-hidden bg-white border-r border-zinc-200 flex flex-col ${isMobile ? (mobileView === 'passage' ? 'w-full' : 'hidden') : 'w-1/2'}`}>
           <ResultPassagePanel
             passage={passage}
             activePassage={activePassage}
@@ -262,7 +262,7 @@ export default function ReadingResultSplitScreen({ data, onRetry, isPractice, on
         </div>
 
         {/* Right Column: Questions & Explanations */}
-        <div className={\`overflow-y-auto bg-zinc-50 flex flex-col \${isMobile ? (mobileView === 'questions' ? 'w-full' : 'hidden') : 'w-1/2'}\`}>
+        <div className={`overflow-y-auto bg-zinc-50 flex flex-col ${isMobile ? (mobileView === 'questions' ? 'w-full' : 'hidden') : 'w-1/2'}`}>
           <div className="p-6 max-w-3xl mx-auto w-full">
             <h3 className="text-xl font-bold text-zinc-900 mb-6">Phân tích đáp án chi tiết</h3>
             
