@@ -63,17 +63,19 @@ export default function SpeakingExam() {
   const [phase, setPhase] = useState('exam')
   const [activePart, setActivePart] = useState(0)
 
+
+  const [transcripts, setTranscripts] = useState({}) // { partId: text }
+  const [results, setResults] = useState({})         // { partId: result }
+
   // Auto-advance to first unfinished part on load
   useEffect(() => {
-    if (exam?.speakingParts && Object.keys(results).length > 0) {
+    if (exam?.speakingParts && Object.keys(results || {}).length > 0) {
       const firstUnfinished = exam.speakingParts.findIndex(p => !(p.id in results))
       if (firstUnfinished !== -1 && activePart === 0) {
         setActivePart(firstUnfinished)
       }
     }
   }, [exam, results, activePart])
-  const [transcripts, setTranscripts] = useState({}) // { partId: text }
-  const [results, setResults] = useState({})         // { partId: result }
   const [submittedPartIds, setSubmittedPartIds] = useState([]) // part đã nộp (kể cả phiên trước)
   const [submitting, setSubmitting] = useState(false)
   const [gradingPart, setGradingPart] = useState(null)
