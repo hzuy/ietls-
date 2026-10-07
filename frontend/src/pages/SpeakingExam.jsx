@@ -1097,7 +1097,11 @@ export default function SpeakingExam() {
                 type="button"
                 onClick={() => { setActivePart(i); setTurnState('idle'); setActiveQuestionIndex(0); if(isRecording) stopRecording(); }}
                 aria-label={`Part ${p.number}${done ? ' — đã nộp' : ''}`}
-                className={`exam-bar-btn shrink-0 whitespace-nowrap h-9 px-3.5 sm:px-4 text-xs sm:text-sm inline-flex items-center justify-center gap-2 leading-none transition-all cursor-pointer bg-transparent border-none outline-none ${done ? 'text-emerald-600' : 'text-zinc-500'} ${active ? 'font-bold text-zinc-900' : 'font-medium hover:font-bold hover:text-zinc-900'}`}
+                className={`exam-bar-btn shrink-0 whitespace-nowrap h-9 px-3.5 sm:px-4 rounded-full text-xs sm:text-sm inline-flex items-center justify-center gap-2 leading-none transition-all cursor-pointer border ${
+                  done
+                    ? 'bg-zinc-900 text-white border-zinc-900'
+                    : 'bg-white border-zinc-300'
+                } ${active ? 'font-bold text-zinc-900 border-zinc-400 shadow-sm' : 'font-medium text-zinc-600 hover:font-bold hover:text-zinc-900'}`}
               >
                 <span className="sm:hidden" aria-hidden="true">P{p.number}</span>
                 <span className="hidden sm:inline" aria-hidden="true">Part {p.number}</span>
