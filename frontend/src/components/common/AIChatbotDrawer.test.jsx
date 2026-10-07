@@ -35,24 +35,24 @@ describe('AIChatbotDrawer Component', () => {
     expect(screen.queryByRole('button', { name: /Mở IELTS AI Tutor/i })).not.toBeInTheDocument()
   })
 
-  it('shows during result view on exam routes', () => {
+  it('hides during result view on exam routes', () => {
     render(
       <MemoryRouter initialEntries={['/reading/123?viewResult=true']}>
         <AIChatbotDrawer />
       </MemoryRouter>
     )
 
-    expect(screen.getByRole('button', { name: /Mở IELTS AI Tutor/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Mở IELTS AI Tutor/i })).not.toBeInTheDocument()
   })
 
-  it('shows on the review page /reading/:id/explanation', () => {
+  it('hides on the review page /reading/:id/explanation', () => {
     render(
       <MemoryRouter initialEntries={['/reading/123/explanation?attemptId=5']}>
         <AIChatbotDrawer />
       </MemoryRouter>
     )
 
-    expect(screen.getByRole('button', { name: /Mở IELTS AI Tutor/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Mở IELTS AI Tutor/i })).not.toBeInTheDocument()
   })
 
   it('opens drawer when FAB is clicked and displays initial welcome message', () => {
