@@ -284,12 +284,7 @@ router.post('/exams/:id/submit', authMiddleware, learnerOnly, aiSubmitLimiter, v
     if (!part) return res.status(404).json({ message: 'Không tìm thấy part' })
     if (part.examId !== examId) {
       return res.status(400).json({ message: 'Part không thuộc đề thi này' })
-    }
-
-    const wordCount = transcript.trim().split(/\s+/).length
-    if (wordCount < 10) return res.status(400).json({ message: 'Câu trả lời quá ngắn!' })
-
-    const questionsText = part.questions.map((q, i) => `${i + 1}. ${q.questionText}`).join('\n')
+    }    const questionsText = part.questions.map((q, i) => `${i + 1}. ${q.questionText}`).join('\n')
 
     const speakingAnswer = await prisma.speakingAnswer.create({
       data: {
