@@ -141,17 +141,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
     setForm(f => ({ ...f, part1: { ...f.part1, questions: qs.length ? qs : [''] } }))
   }
 
-  // ── Part 2 helpers ─────────────────────────────────────────────
-  const updateP2Question = (idx, val) => {
-    const qs = [...form.part2.questions]; qs[idx] = val
-    setForm({ ...form, part2: { ...form.part2, questions: qs } })
-  }
-  const addP2Question = () =>
-    setForm({ ...form, part2: { ...form.part2, questions: [...form.part2.questions, ''] } })
-  const removeP2Question = (idx) => {
-    const qs = form.part2.questions.filter((_, i) => i !== idx)
-    setForm({ ...form, part2: { ...form.part2, questions: qs.length ? qs : [''] } })
-  }
+
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -379,24 +369,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
               value={form.part2.cueCard}
               onChange={e => setForm({ ...form, part2: { ...form.part2, cueCard: e.target.value } })} />
           </div>
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className={labelCls}>Follow-up questions (tùy chọn)</label>
-              <button type="button" onClick={addP2Question} className="text-xs font-semibold text-zinc-900 hover:text-zinc-700 transition">+ Thêm câu</button>
-            </div>
-            <div className="space-y-2">
-              {form.part2.questions.map((q, idx) => (
-                <div key={idx} className="flex gap-2">
-                  <input className={inputCls} placeholder={`Follow-up ${idx + 1}...`}
-                    value={q} onChange={e => updateP2Question(idx, e.target.value)} />
-                  {form.part2.questions.length > 1 && (
-                    <button type="button" onClick={() => removeP2Question(idx)}
-                      className="text-red-400 hover:text-red-600 px-2 flex-shrink-0">×</button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+
         </div>
 
         {/* ── Part 3 ── */}
