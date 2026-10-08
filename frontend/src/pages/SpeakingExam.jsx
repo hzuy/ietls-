@@ -59,6 +59,16 @@ function getScoreColorClass(scoreStr, isSolid = false) {
   return isSolid ? 'bg-zinc-300 text-zinc-800' : 'bg-zinc-50 text-zinc-800 border-zinc-300';
 }
 
+function roundIeltsScore(score) {
+  const num = parseFloat(score);
+  if (isNaN(num)) return score;
+  const whole = Math.floor(num);
+  const fraction = num - whole;
+  if (fraction >= 0.75) return (whole + 1).toFixed(1);
+  if (fraction >= 0.25) return (whole + 0.5).toFixed(1);
+  return whole.toFixed(1);
+}
+
 function CustomAudioPlayer({ src }) {
   const audioRef = useRef(null)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -893,7 +903,7 @@ export default function SpeakingExam() {
                           const maxAnswers = part.questions && part.questions.length > 0 ? part.questions.length : 1;
                           return ansArray.slice(0, maxAnswers).map((ans, idx) => {
                             const q = part.questions ? part.questions[idx] : null;
-                            const partScore = r.score || ((parseFloat(fluencyScore) + parseFloat(vocabScore) + parseFloat(grammarScore) + parseFloat(pronScore))/4).toFixed(1);
+                            const partScore = r.score ? roundIeltsScore(r.score) : roundIeltsScore((parseFloat(fluencyScore) + parseFloat(vocabScore) + parseFloat(grammarScore) + parseFloat(pronScore)) / 4);
                             
                             let questionTitle = q?.questionText || 'Câu hỏi';
                             if (part.number === 2 && !q?.questionText) {
