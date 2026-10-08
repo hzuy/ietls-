@@ -771,6 +771,7 @@ export default function SpeakingExam() {
         <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-16">
           <div className="flex flex-col gap-8">
             
+            
             {/* ── Score Card Hero Section ── */}
             <div className="w-full max-w-4xl mx-auto rounded-2xl shadow-sm border border-indigo-200 overflow-hidden mb-8">
               {/* Top Section */}
@@ -789,7 +790,7 @@ export default function SpeakingExam() {
                 </div>
 
                 {/* Pill Badges Row */}
-                <div className="flex justify-between items-end mt-4">
+                <div className="flex justify-between items-center mt-4">
                   <div className="flex flex-wrap gap-2">
                     {(() => {
                       let totalF = 0, totalV = 0, totalG = 0, totalP = 0;
@@ -818,37 +819,27 @@ export default function SpeakingExam() {
                       )
                     })()}
                   </div>
-                  <button className="w-8 h-8 rounded-full border border-indigo-200 bg-white/50 flex items-center justify-center text-indigo-400 hover:bg-white transition-colors shrink-0">
-                    <ChevronUp className="w-5 h-5" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (user) {
+                        clearDraft(user.id || user._id, id, 'speaking')
+                        saveDraft({
+                          userId: user.id || user._id,
+                          examId: id,
+                          skillType: 'speaking',
+                          data: { transcripts: {}, submittedPartIds: [], isRetake: true },
+                          timeRemaining: null
+                        })
+                      }
+                      window.location.href = window.location.pathname
+                    }}
+                    className="h-10 px-6 shrink-0 rounded-full bg-[#f000ff] hover:bg-[#d000d0] text-white text-[13px] font-bold inline-flex items-center justify-center gap-2 transition-colors whitespace-nowrap cursor-pointer shadow-md"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Thi lại</span>
                   </button>
                 </div>
-              </div>
-              
-              {/* Bottom Section */}
-              <div className="bg-white p-4 px-6 flex justify-between items-center border-t border-indigo-100">
-                <button className="flex items-center gap-1.5 text-indigo-600 font-bold text-[13px] hover:underline">
-                  Chia sẻ <Share className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (user) {
-                      clearDraft(user.id || user._id, id, 'speaking')
-                      saveDraft({
-                        userId: user.id || user._id,
-                        examId: id,
-                        skillType: 'speaking',
-                        data: { transcripts: {}, submittedPartIds: [], isRetake: true },
-                        timeRemaining: null
-                      })
-                    }
-                    window.location.href = window.location.pathname
-                  }}
-                  className="h-10 px-6 rounded-full bg-[#f000ff] hover:bg-[#d000d0] text-white text-[13px] font-bold inline-flex items-center justify-center gap-2 transition-colors whitespace-nowrap cursor-pointer shadow-md"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Thi lại</span>
-                </button>
               </div>
             </div>
 
