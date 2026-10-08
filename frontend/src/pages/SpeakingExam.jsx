@@ -787,14 +787,15 @@ export default function SpeakingExam() {
                           try { ansArray = JSON.parse(ansArray); } catch(e) {}
                         }
                         if (Array.isArray(ansArray)) {
-                          return ansArray.slice(0, part.questions.length).map((ans, idx) => {
+                          const maxAnswers = part.questions && part.questions.length > 0 ? part.questions.length : 1;
+                          return ansArray.slice(0, maxAnswers).map((ans, idx) => {
                             // Force index-based mapping to prevent duplicates caused by old questionId offsets.
-                            const q = part.questions[idx];
+                            const q = part.questions ? part.questions[idx] : null;
                             return (
                               <div key={idx} className="bg-zinc-50/70 rounded-xl border border-zinc-200/70 p-4">
                                 <h4 className="text-sm font-bold text-zinc-800 mb-3 flex items-start gap-2">
                                   <span className="w-5 h-5 flex items-center justify-center rounded-full bg-pink-100 text-pink-600 text-[10px] shrink-0 mt-0.5">?</span>
-                                  {q?.questionText || 'Câu hỏi'}
+                                  {part.number === 2 ? 'Phần trả lời Cue Card' : (q?.questionText || 'Câu hỏi')}
                                 </h4>
                                 
                                 {ans.audioUrl && (
