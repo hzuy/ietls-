@@ -781,43 +781,50 @@ export default function SpeakingExam() {
 
                     {/* Transcript block */}
                     <div className="flex flex-col gap-4 mb-4">
-                      {Array.isArray(transcripts[part.id]) ? (
-                        transcripts[part.id].slice(0, part.questions.length).map((ans, idx) => {
-                          // Force index-based mapping to prevent duplicates caused by old questionId offsets.
-                          const q = part.questions[idx];
-                          return (
-                            <div key={idx} className="bg-zinc-50/70 rounded-xl border border-zinc-200/70 p-4">
-                              <h4 className="text-sm font-bold text-zinc-800 mb-3 flex items-start gap-2">
-                                <span className="w-5 h-5 flex items-center justify-center rounded-full bg-pink-100 text-pink-600 text-[10px] shrink-0 mt-0.5">?</span>
-                                {q?.questionText || 'Câu hỏi'}
-                              </h4>
-                              
-                              {ans.audioUrl && (
-                                <div className="flex items-center gap-3 bg-white border border-zinc-200 rounded-lg px-3 py-2 mb-3 shadow-xs">
-                                  <audio controls src={ans.audioUrl?.startsWith('/') ? `${BACKEND_URL}${ans.audioUrl}` : ans.audioUrl} className="w-full h-8" />
-                                </div>
-                              )}
+                      {(() => {
+                        let ansArray = transcripts[part.id];
+                        if (typeof ansArray === 'string') {
+                          try { ansArray = JSON.parse(ansArray); } catch(e) {}
+                        }
+                        if (Array.isArray(ansArray)) {
+                          return ansArray.slice(0, part.questions.length).map((ans, idx) => {
+                            // Force index-based mapping to prevent duplicates caused by old questionId offsets.
+                            const q = part.questions[idx];
+                            return (
+                              <div key={idx} className="bg-zinc-50/70 rounded-xl border border-zinc-200/70 p-4">
+                                <h4 className="text-sm font-bold text-zinc-800 mb-3 flex items-start gap-2">
+                                  <span className="w-5 h-5 flex items-center justify-center rounded-full bg-pink-100 text-pink-600 text-[10px] shrink-0 mt-0.5">?</span>
+                                  {q?.questionText || 'Câu hỏi'}
+                                </h4>
+                                
+                                {ans.audioUrl && (
+                                  <div className="flex items-center gap-3 bg-white border border-zinc-200 rounded-lg px-3 py-2 mb-3 shadow-xs">
+                                    <audio controls src={ans.audioUrl?.startsWith('/') ? `${BACKEND_URL}${ans.audioUrl}` : ans.audioUrl} className="w-full h-8" />
+                                  </div>
+                                )}
 
-                              <div className="text-sm text-zinc-600 pl-7">
-                                <span className="text-[11px] font-mono text-zinc-400 mb-1 block">
-                                  {(ans.text || '').split(/\s+/).filter(Boolean).length} từ
-                                </span>
-                                <HighlightedTranscript text={ans.text} />
+                                <div className="text-sm text-zinc-600 pl-7">
+                                  <span className="text-[11px] font-mono text-zinc-400 mb-1 block">
+                                    {(ans.text || '').split(/\s+/).filter(Boolean).length} từ
+                                  </span>
+                                  <HighlightedTranscript text={ans.text} />
+                                </div>
                               </div>
+                            )
+                          })
+                        }
+                        return (
+                          <div className="bg-zinc-50/70 rounded-xl border border-zinc-200/70 p-3.5">
+                            <div className="flex items-center justify-between mb-1.5 text-xs text-zinc-500 font-medium">
+                              <span>Transcript bài nói của bạn:</span>
+                              <span className="text-[11px] font-mono text-zinc-400">
+                                {typeof transcripts[part.id] === 'string' && transcripts[part.id]?.trim() ? `${transcripts[part.id].trim().split(/\s+/).length} từ` : '0 từ'}
+                              </span>
                             </div>
-                          )
-                        })
-                      ) : (
-                        <div className="bg-zinc-50/70 rounded-xl border border-zinc-200/70 p-3.5">
-                          <div className="flex items-center justify-between mb-1.5 text-xs text-zinc-500 font-medium">
-                            <span>Transcript bài nói của bạn:</span>
-                            <span className="text-[11px] font-mono text-zinc-400">
-                              {typeof transcripts[part.id] === 'string' && transcripts[part.id]?.trim() ? `${transcripts[part.id].trim().split(/\s+/).length} từ` : '0 từ'}
-                            </span>
+                            <HighlightedTranscript text={typeof transcripts[part.id] === 'string' ? transcripts[part.id] : ''} />
                           </div>
-                          <HighlightedTranscript text={typeof transcripts[part.id] === 'string' ? transcripts[part.id] : ''} />
-                        </div>
-                      )}
+                        )
+                      })()}
                     </div>
 
                     {/* 4 Criteria Badges Row (Pill badges) */}
