@@ -691,11 +691,7 @@ export default function SpeakingExam() {
     }
     const transcriptArray = transcripts[part.id] || [];
     const transcript = Array.isArray(transcriptArray) ? JSON.stringify(transcriptArray) : transcriptArray;
-    const wCount = Array.isArray(transcriptArray) ? transcriptArray.reduce((acc, curr) => acc + (curr.text || '').split(/\s+/).filter(Boolean).length, 0) : transcript.trim().split(/\s+/).filter(Boolean).length;
-    if (wCount < 10) {
-      showToast(`Câu trả lời quá ngắn (${wCount} từ), hãy nói thêm!`, 'error');
-      return;
-    }
+    
     setSubmitting(true)
     clearPartError(part.id)
     setGradingPart(part.id)
