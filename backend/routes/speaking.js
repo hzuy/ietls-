@@ -146,8 +146,7 @@ router.post('/transcribe', authMiddleware, learnerOnly, audioUpload.single('audi
     }
 
     const groq = getGroqClient()
-    const uploadRes = await uploadAudio({ path: filePath, filename: req.file.filename }, { subdir: 'user_audio', folder: 'user_audio' })
-    const audioUrl = uploadRes.url
+
 
     const transcription = await groq.audio.transcriptions.create({
       file: fs.createReadStream(filePath),
@@ -158,8 +157,8 @@ router.post('/transcribe', authMiddleware, learnerOnly, audioUpload.single('audi
       prompt: promptContext,
     })
 
-    // Clean up temp file sau khi success
-    fs.unlink(filePath, () => {})
+    const uploadRes = await uploadAudio({ path: filePath, filename: req.file.filename }, { subdir: 'user_audio', folder: 'user_audio' })
+    const audioUrl = uploadRes.url
 
     res.json({ transcript: transcription.text || '', audioUrl })
   } catch (error) {

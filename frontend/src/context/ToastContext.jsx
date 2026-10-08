@@ -22,10 +22,15 @@ export function ToastProvider({ children }) {
   }, [])
 
   const showToast = useCallback((message, type = 'info', duration = 4000) => {
-    showAlert(message, type)
-
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
-    const toastItem = { id, message: String(message || ''), type }
+    
+    // Parse object message properly like alertUtils does
+    let text = message
+    if (typeof message === 'object' && message !== null) {
+      text = message.response?.data?.message || message.message || JSON.stringify(message)
+    }
+    
+    const toastItem = { id, message: String(text || ''), type }
 
     setToasts(prev => [...prev, toastItem])
 
