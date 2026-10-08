@@ -915,7 +915,7 @@ export default function SpeakingExam() {
                                   {/* Title */}
                                   <h4 className="text-[15px] font-medium text-zinc-600 mb-3 flex items-start gap-2">
                                     <span className="w-5 h-5 flex items-center justify-center rounded-full border-2 border-zinc-400 text-zinc-500 text-[11px] font-bold shrink-0 mt-0.5">?</span>
-                                    TEST PART {part.number}: {questionTitle}
+                                    {questionTitle}
                                   </h4>
 
                                   <div className="bg-[#E9EDFF] rounded-2xl p-5 md:p-6 shadow-sm border border-indigo-100/50">
