@@ -60,7 +60,6 @@ function ImageLightbox({ src, onClose }) {
   )
 }
 
-
 const getScoreColorClass = (scoreStr, isBg = false) => {
   const s = parseFloat(scoreStr)
   if (isNaN(s)) return isBg ? 'bg-zinc-200 text-zinc-500' : 'text-zinc-500'
@@ -69,7 +68,6 @@ const getScoreColorClass = (scoreStr, isBg = false) => {
   if (s >= 5.5) return isBg ? 'bg-amber-400 text-amber-900' : 'text-amber-500'
   return isBg ? 'bg-zinc-200 text-zinc-600' : 'text-zinc-500'
 }
-
 const roundIeltsScore = (num) => {
   if (isNaN(num)) return 0
   const whole = Math.floor(num)
@@ -78,7 +76,6 @@ const roundIeltsScore = (num) => {
   if (frac < 0.75) return whole + '.5'
   return (whole + 1) + '.0'
 }
-
 export default function WritingExam() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -505,7 +502,6 @@ export default function WritingExam() {
                     {overallBand}
                   </div>
                 </div>
-
                 {/* Per-Task Scores */}
                 <div className="flex flex-wrap items-center gap-4 mb-4">
                   {exam.writingTasks.map(t => (
@@ -517,7 +513,6 @@ export default function WritingExam() {
                      </div>
                   ))}
                 </div>
-
                 {/* Pill Badges Row */}
                 <div className="flex justify-between items-center mt-2">
                   <div className="flex flex-wrap gap-2">
@@ -572,7 +567,6 @@ export default function WritingExam() {
                 </div>
               </div>
             </div>
-
             {/* Per-task results */}
                         {exam.writingTasks.map(task => {
               const r = results[task.id]
@@ -582,7 +576,6 @@ export default function WritingExam() {
                   <h2 className="text-zinc-900 text-[20px] font-extrabold tracking-tight m-0 border-b-2 border-indigo-100 pb-3 mt-4">
                     Task {task.number}
                   </h2>
-
                   {/* Essay Display */}
                   <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden mt-2">
                     <div className="bg-zinc-50 border-b border-zinc-200 p-4">
@@ -604,7 +597,6 @@ export default function WritingExam() {
                       </div>
                     </div>
                   </div>
-
                   {/* 4 Criteria Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                     {Object.entries(CRITERIA_LABELS).map(([key, label]) => {
@@ -613,7 +605,6 @@ export default function WritingExam() {
                       const comment = crit?.comment || ''
                       const bgClass = getScoreColorClass(score, true)
                       const textClass = getScoreColorClass(score)
-
                       return (
                         <div key={key} className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-6 flex flex-col justify-between relative overflow-hidden group hover:shadow-md transition-shadow">
                           <div className={"absolute top-0 left-0 right-0 h-1.5 " + bgClass}></div>
@@ -632,7 +623,6 @@ export default function WritingExam() {
                       )
                     })}
                   </div>
-
                   {/* Strengths */}
                   <div className="bg-emerald-50/50 rounded-2xl border border-emerald-100 shadow-sm p-6 mt-2">
                     <p className="text-emerald-800 text-[15px] font-extrabold mb-4 flex items-center gap-2">
@@ -640,7 +630,6 @@ export default function WritingExam() {
                     </p>
                     {renderFeedbackList(r.strengths, 'text-emerald-600')}
                   </div>
-
                   {/* Improvements */}
                   <div className="bg-amber-50/50 rounded-2xl border border-amber-100 shadow-sm p-6 mt-2">
                     <p className="text-amber-800 text-[15px] font-extrabold mb-4 flex items-center gap-2">
@@ -650,24 +639,7 @@ export default function WritingExam() {
                   </div>
                 </div>
               )
-            })}\n\n            {/* Actions */}
-            <div className="flex flex-col gap-3 mt-4">
-              {fullTestStatus?.isComplete && (
-                <button
-                  onClick={() => navigate(`/full-test/result?seriesId=${fullTestStatus.seriesId}&bookNumber=${fullTestStatus.bookNumber}&testNumber=${fullTestStatus.testNumber}`)}
-                  className="btn-primary w-full h-9 px-5 text-xs sm:text-sm font-medium rounded-full shadow-xs transition-colors cursor-pointer flex items-center justify-center"
-                >
-                  Xem kết quả Full Test →
-                </button>
-              )}
-              <button 
-                type="button"
-                onClick={() => navigate('/writing')} 
-                className="w-full h-9 px-5 border border-zinc-200 hover:bg-zinc-100 text-zinc-900 bg-white rounded-full text-xs sm:text-sm font-medium shadow-xs transition-colors cursor-pointer flex items-center justify-center"
-              >
-                Làm đề khác
-              </button>
-            </div>
+            })}
           </div>
         </div>
       </div>
@@ -979,4 +951,4 @@ export default function WritingExam() {
       })()}
     </div>
   )
-}
+}
