@@ -1040,10 +1040,7 @@ export default function SpeakingExam() {
         <div className="flex-1 flex flex-col items-center justify-center p-6 bg-zinc-50 overflow-hidden relative">
           {(() => {
             const cueText = part.cueCard ? (part.cueCard.indexOf('\n===\n') !== -1 ? part.cueCard.slice(part.cueCard.indexOf('\n===\n') + 5) : part.cueCard) : ''
-            const lines = cueText.split('\n').filter(l => l.trim())
-            const title = lines.length > 0 ? lines[0] : ''
-            const rest = lines.slice(1).join('\n')
-            
+            const topic = part.topic || ''
             return (
               <div className="flex flex-col w-full max-w-5xl z-10 px-4 h-full py-4">
                 <div className="flex justify-between items-center mb-8 shrink-0">
@@ -1068,9 +1065,9 @@ export default function SpeakingExam() {
                 <div className="flex flex-col md:flex-row gap-6 mb-8 min-h-[300px] flex-1">
                   {/* Left: Cue Card */}
                   <div className="flex-1 bg-white border border-zinc-200 rounded-2xl p-8 shadow-sm text-left overflow-y-auto">
-                    {title && <h3 className="text-pink-600 font-bold text-lg mb-4">{title}</h3>}
+                    {topic && <h3 className="text-zinc-900 font-bold text-[17px] mb-4 leading-relaxed">{topic}</h3>}
                     <div className="text-zinc-700 whitespace-pre-wrap leading-relaxed text-base">
-                      {rest}
+                      {cueText}
                     </div>
                   </div>
                   
