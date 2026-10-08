@@ -541,10 +541,10 @@ export default function WritingExam() {
                       const avgGRA = weightSum > 0 ? roundIeltsScore(totalGRA / weightSum) : '–';
                       return (
                         <>
-                          <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(avgTA, true)}>TA/TR: {avgTA}</span>
-                          <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(avgCC, true)}>CC: {avgCC}</span>
-                          <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(avgLR, true)}>LR: {avgLR}</span>
-                          <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(avgGRA, true)}>GRA: {avgGRA}</span>
+                          <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(avgTA, true)}>Task Achievement / Response: {avgTA}</span>
+                          <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(avgCC, true)}>Coherence & Cohesion: {avgCC}</span>
+                          <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(avgLR, true)}>Lexical Resource: {avgLR}</span>
+                          <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(avgGRA, true)}>Grammatical Range & Accuracy: {avgGRA}</span>
                         </>
                       )
                     })()}
@@ -574,46 +574,66 @@ export default function WritingExam() {
             </div>
 
             {/* Per-task results */}
-            {exam.writingTasks.map(task => {
+                        {exam.writingTasks.map(task => {
               const r = results[task.id]
               if (!r) return null
               return (
                 <div key={task.id} className="flex flex-col gap-6">
-                  <h2 className="text-zinc-900 text-lg font-semibold tracking-tight m-0 border-b border-zinc-200 pb-2">
+                  <h2 className="text-zinc-900 text-[20px] font-extrabold tracking-tight m-0 border-b-2 border-indigo-100 pb-3 mt-4">
                     Task {task.number}
                   </h2>
                   
                   {/* Task score overview */}
-                  <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-6 text-center transition-all duration-300">
-                    <div className="text-5xl font-extrabold font-mono tracking-tight mb-1" style={{ color: 'var(--ink)' }}>
+                  <div className={"rounded-2xl border-2 shadow-sm p-6 text-center transition-all " + (r.overall >= 7.0 ? 'border-emerald-200 bg-emerald-50/30' : r.overall >= 5.5 ? 'border-amber-200 bg-amber-50/30' : 'border-zinc-200 bg-zinc-50/30')}>
+                    <div className={"text-[56px] font-black font-mono tracking-tighter mb-1 leading-none " + getScoreColorClass(r.overall)}>
                       {r.overall}
                     </div>
-                    <div className="text-zinc-400 text-xs font-semibold uppercase tracking-wider mb-2">Band Score</div>
-                    <div className="text-zinc-500 text-xs font-mono">{r.wordCount} từ</div>
+                    <div className={"text-xs font-bold uppercase tracking-widest mb-2 " + getScoreColorClass(r.overall)}>Band Score</div>
+                    <div className="text-zinc-500 text-sm font-semibold font-mono bg-white inline-block px-3 py-1 rounded-full border border-zinc-200 shadow-xs">{r.wordCount} từ</div>
+                  </div>
+
+                  {/* Essay Display */}
+                  <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden mt-2">
+                    <div className="bg-zinc-50 border-b border-zinc-200 p-4">
+                      <h3 className="text-[13px] font-bold text-zinc-800 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-indigo-500"></span> Đề bài & Bài làm của bạn
+                      </h3>
+                      {task.imageUrl && (
+                        <div className="bg-white p-3 rounded-xl border border-zinc-200 inline-block mb-4 shadow-sm">
+                          <img src={task.imageUrl} alt="Task image" className="max-w-full max-h-[300px] rounded-lg" />
+                        </div>
+                      )}
+                      <p className="text-zinc-700 text-[14.5px] leading-relaxed whitespace-pre-line m-0 font-medium font-serif bg-white p-5 rounded-xl border border-zinc-200 shadow-sm">
+                        {task.prompt}
+                      </p>
+                    </div>
+                    <div className="p-6 bg-[#fcfcfc]">
+                      <div className="text-zinc-800 text-[16px] leading-[1.8] whitespace-pre-wrap font-serif">
+                        {r.essayText || 'Không có dữ liệu bài viết.'}
+                      </div>
+                    </div>
                   </div>
 
                   {/* 4 Criteria Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                     {Object.entries(CRITERIA_LABELS).map(([key, label]) => {
                       const crit = r.criteria?.[key]
-                      const score = crit?.score
+                      const score = crit?.score || 0
                       const comment = crit?.comment || ''
+                      const bgClass = getScoreColorClass(score, true)
+                      const textClass = getScoreColorClass(score)
 
                       return (
-                        <div key={key} className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-6 flex flex-col justify-between transition-all duration-300 hover:border-zinc-300">
+                        <div key={key} className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-6 flex flex-col justify-between relative overflow-hidden group hover:shadow-md transition-shadow">
+                          <div className={"absolute top-0 left-0 right-0 h-1.5 " + bgClass}></div>
                           <div>
-                            <div className="flex items-center justify-between mb-3">
-                              <span className="text-zinc-900 text-sm font-bold tracking-tight">{label}</span>
-                              <span className="px-2.5 py-0.5 rounded-full bg-zinc-100 text-zinc-900 text-xs font-mono font-bold border border-zinc-200">
-                                Band {score ?? '–'}
+                            <div className="flex items-start justify-between mb-4 mt-2">
+                              <span className="text-zinc-900 text-[14px] font-extrabold tracking-tight uppercase leading-snug pr-4">{label}</span>
+                              <span className={"px-3 py-1 rounded-full text-[13px] font-black font-mono shadow-sm shrink-0 text-white " + bgClass}>
+                                {score > 0 ? score : '–'}
                               </span>
                             </div>
-
-                            <div className="text-4xl font-black font-mono mb-3 tracking-tight text-zinc-900">
-                              {score ?? '–'}
-                            </div>
-
-                            <div className="text-zinc-600 text-xs leading-relaxed font-medium mb-1 bg-zinc-50 rounded-xl p-3 border border-zinc-100">
+                            <div className="text-zinc-600 text-[13.5px] leading-relaxed font-medium bg-zinc-50 rounded-xl p-4 border border-zinc-100 min-h-[90px]">
                               {comment || 'Chưa có nhận xét chi tiết.'}
                             </div>
                           </div>
@@ -623,21 +643,23 @@ export default function WritingExam() {
                   </div>
 
                   {/* Strengths */}
-                  <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-6 transition-all duration-300">
-                    <p className="text-zinc-900 text-sm font-bold mb-3">Điểm mạnh (Strengths)</p>
-                    {renderFeedbackList(r.strengths, 'text-emerald-500')}
+                  <div className="bg-emerald-50/50 rounded-2xl border border-emerald-100 shadow-sm p-6 mt-2">
+                    <p className="text-emerald-800 text-[15px] font-extrabold mb-4 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Điểm mạnh (Strengths)
+                    </p>
+                    {renderFeedbackList(r.strengths, 'text-emerald-600')}
                   </div>
 
                   {/* Improvements */}
-                  <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-6 transition-all duration-300">
-                    <p className="text-zinc-900 text-sm font-bold mb-3">Điểm cần cải thiện & Gợi ý (Improvements)</p>
-                    {renderFeedbackList(r.improvements, 'text-orange-500')}
+                  <div className="bg-amber-50/50 rounded-2xl border border-amber-100 shadow-sm p-6 mt-2">
+                    <p className="text-amber-800 text-[15px] font-extrabold mb-4 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-amber-500"></span> Điểm cần cải thiện & Gợi ý (Improvements)
+                    </p>
+                    {renderFeedbackList(r.improvements, 'text-amber-600')}
                   </div>
                 </div>
               )
-            })}
-
-            {/* Actions */}
+            })}\n\n            {/* Actions */}
             <div className="flex flex-col gap-3 mt-4">
               {fullTestStatus?.isComplete && (
                 <button

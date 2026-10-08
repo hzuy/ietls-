@@ -61,7 +61,7 @@ router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res
     const answers = await prisma.writingAnswer.findMany({
       where: { userId, taskId: { in: taskIds } },
       orderBy: { createdAt: 'desc' },
-      select: { id: true, taskId: true, status: true, aiFeedback: true, wordCount: true, error: true }
+      select: { id: true, taskId: true, status: true, aiFeedback: true, wordCount: true, error: true, essayText: true, createdAt: true }
     })
 
     // list đã desc theo createdAt → bản đầu tiên gặp cho mỗi task = mới nhất
@@ -296,7 +296,9 @@ router.get('/answers/:id/status', authMiddleware, learnerOnly, async (req, res) 
         answerId: answer.id,
         status: 'graded',
         ...feedback,
-        wordCount: answer.wordCount
+        wordCount: answer.wordCount,
+        essayText: answer.essayText,
+        createdAt: answer.createdAt
       })
     }
 
