@@ -378,10 +378,22 @@ export default function SpeakingExam() {
             if (entry.status === 'graded') {
               restoredResults[entry.partId] = entry
               restoredIds.push(entry.partId)
-              if (entry.transcript) restoredTranscripts[entry.partId] = entry.transcript
+              if (entry.transcript) {
+                try {
+                  restoredTranscripts[entry.partId] = JSON.parse(entry.transcript);
+                } catch(e) {
+                  restoredTranscripts[entry.partId] = entry.transcript;
+                }
+              }
             } else if (entry.status === 'failed') {
               restoredErrors[entry.partId] = { error: entry.error, answerId: entry.answerId }
-              if (entry.transcript) restoredTranscripts[entry.partId] = entry.transcript
+              if (entry.transcript) {
+                try {
+                  restoredTranscripts[entry.partId] = JSON.parse(entry.transcript);
+                } catch(e) {
+                  restoredTranscripts[entry.partId] = entry.transcript;
+                }
+              }
             }
           }
         }
