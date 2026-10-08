@@ -84,10 +84,11 @@ router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res
 
     const parts = await prisma.speakingPart.findMany({
       where: { examId },
-      select: { id: true }
+      select: { id: true, number: true }
     })
     const partIds = parts.map(p => p.id)
     if (partIds.length === 0) return res.json([])
+    const part1Id = parts.find(p => p.number === 1)?.id
 
     // userId trong where clause ngay từ đầu — không thể chạm answer của user khác
     const answers = await prisma.speakingAnswer.findMany({
@@ -96,14 +97,20 @@ router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res
       select: { id: true, partId: true, status: true, aiFeedback: true, transcript: true, error: true, createdAt: true }
     })
 
+    // 1. Tìm timestamp của câu trả lời Part 1 mới nhất (mốc bắt đầu attempt hiện tại)
+    let latestPart1Time = 0
+    if (part1Id) {
+      const latestPart1 = answers.find(a => a.partId === part1Id)
+      if (latestPart1) latestPart1Time = new Date(latestPart1.createdAt).getTime()
+    }
+
+    // 2. Chỉ lấy những câu trả lời thuộc attempt hiện tại (createdAt >= latestPart1Time)
     // list đã desc theo createdAt → bản đầu tiên gặp cho mỗi part = mới nhất
     const latestByPart = {}
-    const latestTime = answers.length > 0 ? new Date(answers[0].createdAt).getTime() : 0
     for (const a of answers) {
       if (!latestByPart[a.partId]) {
-        // Lọc: nếu answer này cách answer mới nhất quá 12 tiếng thì xem như thuộc attempt cũ
-        if (latestTime - new Date(a.createdAt).getTime() > 12 * 60 * 60 * 1000) {
-           continue
+        if (latestPart1Time > 0 && new Date(a.createdAt).getTime() < latestPart1Time) {
+           continue // Bỏ qua các câu trả lời thuộc các attempt cũ (trước khi bắt đầu attempt mới nhất)
         }
         latestByPart[a.partId] = a
       }
