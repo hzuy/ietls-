@@ -771,9 +771,8 @@ export default function SpeakingExam() {
                     <div className="flex flex-col gap-4 mb-4">
                       {Array.isArray(transcripts[part.id]) ? (
                         transcripts[part.id].slice(0, part.questions.length).map((ans, idx) => {
-                          // Try to match by questionId first. If the original questionId belonged to a ##TOPIC##
-                          // that was filtered out, this will fallback to index-based mapping.
-                          const q = part.questions.find(x => x.id === ans.questionId) || part.questions[idx];
+                          // Force index-based mapping to prevent duplicates caused by old questionId offsets.
+                          const q = part.questions[idx];
                           return (
                             <div key={idx} className="bg-zinc-50/70 rounded-xl border border-zinc-200/70 p-4">
                               <h4 className="text-sm font-bold text-zinc-800 mb-3 flex items-start gap-2">
