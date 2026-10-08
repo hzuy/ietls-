@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import request from 'supertest'
 import jwt from 'jsonwebtoken'
+import fs from 'fs'
 
 process.env.JWT_SECRET = 'test_secret_key'
 
@@ -88,6 +89,13 @@ describe('Speaking Routes & AI Criterion Logging', () => {
 
   describe('POST /api/speaking/transcribe', () => {
     it('transcribes uploaded audio file via Groq client without throwing "groq is not defined"', async () => {
+      vi.spyOn(fs, 'createReadStream').mockReturnValue({
+        on: vi.fn(),
+        once: vi.fn(),
+        emit: vi.fn(),
+        read: vi.fn(),
+      })
+
       const res = await request(app)
         .post('/api/speaking/transcribe')
         .set('Authorization', `Bearer ${getTestToken()}`)
