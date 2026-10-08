@@ -969,24 +969,6 @@ export default function SpeakingExam() {
               })}
             </div>
 
-            {/* Actions */}
-            <div className="flex flex-col gap-3 mt-2">
-              {fullTestStatus?.isComplete && (
-                <button
-                  onClick={() => navigate(`/full-test/result?seriesId=${fullTestStatus.seriesId}&bookNumber=${fullTestStatus.bookNumber}&testNumber=${fullTestStatus.testNumber}`)}
-                  className="btn-primary w-full h-9 px-5 text-xs sm:text-sm font-medium rounded-full shadow-xs transition-colors cursor-pointer flex items-center justify-center"
-                >
-                  Xem kết quả Full Test →
-                </button>
-              )}
-              <button 
-                type="button"
-                onClick={() => navigate('/speaking')} 
-                className="w-full h-9 px-5 border border-zinc-200 hover:bg-zinc-100 text-zinc-900 bg-white rounded-full text-xs sm:text-sm font-medium shadow-xs transition-colors cursor-pointer flex items-center justify-center"
-              >
-                Làm đề khác
-              </button>
-            </div>
           </div>
         </div>
       </div>
