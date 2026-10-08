@@ -795,11 +795,14 @@ export default function SpeakingExam() {
                 </div>
 
                 {/* Per-Part Scores */}
-                <div className="flex flex-wrap items-center gap-2 mb-3">
+                <div className="flex flex-wrap items-center gap-4 mb-4">
                   {exam.speakingParts.map(p => (
-                     <span key={p.id} className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(results[p.id]?.overall, true)}>
-                       Part {p.number}: {results[p.id]?.overall ?? '–'}
-                     </span>
+                     <div key={p.id} className="flex items-center gap-2">
+                       <span className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider">Part {p.number}</span>
+                       <div className={"w-8 h-8 rounded-full flex items-center justify-center font-bold text-[12px] shadow-sm border border-white/50 " + getScoreColorClass(results[p.id]?.overall, true)}>
+                         {results[p.id]?.overall ?? '–'}
+                       </div>
+                     </div>
                   ))}
                 </div>
 

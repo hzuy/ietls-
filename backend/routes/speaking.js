@@ -93,7 +93,7 @@ router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res
     const answers = await prisma.speakingAnswer.findMany({
       where: { userId, partId: { in: partIds } },
       orderBy: { createdAt: 'desc' },
-      select: { id: true, partId: true, status: true, aiFeedback: true, transcript: true, error: true }
+      select: { id: true, partId: true, status: true, aiFeedback: true, transcript: true, error: true, createdAt: true }
     })
 
     // list đã desc theo createdAt → bản đầu tiên gặp cho mỗi part = mới nhất
