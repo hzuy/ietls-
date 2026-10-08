@@ -238,7 +238,7 @@ export default function SpeakingExam() {
 
   const speakingParts = exam?.speakingParts || []
   const allSubmitted = speakingParts.length > 0 && speakingParts.every(p => results[p.id])
-  const isPartDone = (pid) => !!results[pid] || submittedPartIds.includes(pid)
+  const isPartDone = (pid) => !!results[pid]
 
   const [lastSavedAt, setLastSavedAt] = useState(null) // mốc lưu nháp gần nhất — cho indicator header
 
@@ -546,7 +546,7 @@ export default function SpeakingExam() {
     if (!exam) return
     const p = exam.speakingParts[activePart]
     if (!p) return
-    const done = !!results[p.id] || submittedPartIds.includes(p.id)
+    const done = !!results[p.id]
     if (done || gradingPart === p.id || isRecording || isTranscribing || turnState === 'user_preparing' || turnState === 'ai_speaking' || turnState === 'user_speaking') setMobileView('recording')
   }, [exam, activePart, results, submittedPartIds, gradingPart, isRecording, isTranscribing, turnState])
 

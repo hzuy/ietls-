@@ -7,8 +7,8 @@ export default class ErrorBoundary extends React.Component {
     this.state = { hasError: false }
   }
 
-  static getDerivedStateFromError() {
-    return { hasError: true }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error }
   }
 
   componentDidCatch(error, errorInfo) {
@@ -28,9 +28,14 @@ export default class ErrorBoundary extends React.Component {
             <h1 className="text-xl font-bold text-zinc-900 mb-2">
               Đã xảy ra lỗi ngoài mong muốn
             </h1>
-            <p className="text-sm text-zinc-600 mb-6 leading-relaxed">
+            <p className="text-sm text-zinc-600 mb-2 leading-relaxed">
               Xin lỗi, đã có sự cố xảy ra trong quá trình hiển thị trang. Vui lòng tải lại trang để tiếp tục.
             </p>
+            <pre className="text-left text-xs bg-gray-100 p-2 overflow-auto max-h-64 mb-6 text-red-500 font-mono break-words whitespace-pre-wrap">
+              {this.state.error && this.state.error.message}
+              {"\n"}
+              {this.state.error && this.state.error.stack}
+            </pre>
             <PillButton onClick={() => window.location.reload()} fullWidth>
               Tải lại trang
             </PillButton>

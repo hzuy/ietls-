@@ -277,7 +277,7 @@ export function useSpeechRecording(transcripts, setTranscripts) {
           }
         } catch (e) {
           console.error('Transcription upload error:', e);
-          setTranscribeError('Không thể kết nối dịch giọng nói AI. Vui lòng thử lại.');
+          setTranscribeError(e.response?.data?.message || e.response?.data?.error || e.message || 'Không thể kết nối dịch giọng nói AI. Vui lòng thử lại.');
         } finally {
           setIsTranscribing(false);
         }

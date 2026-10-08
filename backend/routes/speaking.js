@@ -141,6 +141,18 @@ router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res
           transcript: a.transcript,
           createdAt: a.createdAt
         })
+      } else if (a.status === 'pending' || a.status === 'grading') {
+        const age = Date.now() - new Date(a.createdAt).getTime()
+        if (age > 5 * 60 * 1000) { // > 5 phút
+          results.push({
+            partId: a.partId,
+            answerId: a.id,
+            status: 'failed',
+            error: 'Hệ thống AI đang quá tải. Quá trình chấm điểm cho phần này đã bị hủy, vui lòng thử lại.',
+            transcript: a.transcript,
+            createdAt: a.createdAt
+          })
+        }
       }
     }
 
