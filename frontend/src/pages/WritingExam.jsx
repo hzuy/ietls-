@@ -582,15 +582,6 @@ export default function WritingExam() {
                   <h2 className="text-zinc-900 text-[20px] font-extrabold tracking-tight m-0 border-b-2 border-indigo-100 pb-3 mt-4">
                     Task {task.number}
                   </h2>
-                  
-                  {/* Task score overview */}
-                  <div className={"rounded-2xl border-2 shadow-sm p-6 text-center transition-all " + (r.overall >= 7.0 ? 'border-emerald-200 bg-emerald-50/30' : r.overall >= 5.5 ? 'border-amber-200 bg-amber-50/30' : 'border-zinc-200 bg-zinc-50/30')}>
-                    <div className={"text-[56px] font-black font-mono tracking-tighter mb-1 leading-none " + getScoreColorClass(r.overall)}>
-                      {r.overall}
-                    </div>
-                    <div className={"text-xs font-bold uppercase tracking-widest mb-2 " + getScoreColorClass(r.overall)}>Band Score</div>
-                    <div className="text-zinc-500 text-sm font-semibold font-mono bg-white inline-block px-3 py-1 rounded-full border border-zinc-200 shadow-xs">{r.wordCount} từ</div>
-                  </div>
 
                   {/* Essay Display */}
                   <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden mt-2">

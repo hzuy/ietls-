@@ -83,7 +83,9 @@ router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res
           criteria: feedback.criteria,
           strengths: feedback.strengths,
           improvements: feedback.improvements,
-          wordCount: a.wordCount
+          wordCount: a.wordCount,
+          essayText: a.essayText,
+          createdAt: a.createdAt
         })
       } else if (a.status === 'failed') {
         results.push({
