@@ -334,6 +334,12 @@ export default function SpeakingExam() {
       getSpeakingMyResults(id).catch(() => []),
     ])
       .then(([data, myResults]) => {
+        if (data && data.speakingParts) {
+          data.speakingParts = data.speakingParts.map(p => ({
+            ...p,
+            questions: (p.questions || []).filter(q => !q.questionText?.startsWith('##TOPIC##:'))
+          }))
+        }
         setExam(data)
         
         // ── Resume draft cục bộ (logic cũ, dùng functional update để không
@@ -764,7 +770,9 @@ export default function SpeakingExam() {
                     {/* Transcript block */}
                     <div className="flex flex-col gap-4 mb-4">
                       {Array.isArray(transcripts[part.id]) ? (
-                        transcripts[part.id].map((ans, idx) => {
+                        transcripts[part.id].slice(0, part.questions.length).map((ans, idx) => {
+                          // Try to match by questionId first. If the original questionId belonged to a ##TOPIC##
+                          // that was filtered out, this will fallback to index-based mapping.
                           const q = part.questions.find(x => x.id === ans.questionId) || part.questions[idx];
                           return (
                             <div key={idx} className="bg-zinc-50/70 rounded-xl border border-zinc-200/70 p-4">
