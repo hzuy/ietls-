@@ -78,8 +78,8 @@ const roundIeltsScore = (num) => {
 }
 
 function WritingTaskAccordion({ task, r, isCompleted, onRetake }) {
-  const [openQ, setOpenQ] = React.useState(false);
-  const [openA, setOpenA] = React.useState(true);
+  const [openQ, setOpenQ] = useState(false);
+  const [openA, setOpenA] = useState(true);
 
   return (
     <div className="flex flex-col mb-10 w-full font-sans max-w-4xl mx-auto">
