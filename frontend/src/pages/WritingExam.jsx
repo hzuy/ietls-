@@ -187,7 +187,7 @@ function WritingTaskAccordion({ task, r, isCompleted, onRetake }) {
                          <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Điểm mạnh (Strengths)
                        </p>
                        <ul className="space-y-2 text-[14px] text-emerald-700 font-medium">
-                         {(r.strengths || []).map((s, i) => (
+                         {(Array.isArray(r.strengths) ? r.strengths : (typeof r.strengths === 'string' ? r.strengths.split('\n').filter(Boolean) : [])).map((s, i) => (
                            <li key={i} className="flex gap-2"><span className="text-emerald-500 mt-0.5">•</span> <span>{s}</span></li>
                          ))}
                        </ul>
@@ -199,7 +199,7 @@ function WritingTaskAccordion({ task, r, isCompleted, onRetake }) {
                          <span className="w-2 h-2 rounded-full bg-amber-500"></span> Điểm cần cải thiện & Gợi ý (Improvements)
                        </p>
                        <ul className="space-y-2 text-[14px] text-amber-700 font-medium">
-                         {(r.improvements || []).map((s, i) => (
+                         {(Array.isArray(r.improvements) ? r.improvements : (typeof r.improvements === 'string' ? r.improvements.split('\n').filter(Boolean) : [])).map((s, i) => (
                            <li key={i} className="flex gap-2"><span className="text-amber-500 mt-0.5">•</span> <span>{s}</span></li>
                          ))}
                        </ul>
