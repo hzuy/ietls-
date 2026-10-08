@@ -880,11 +880,8 @@ export default function SpeakingExam() {
                     {/* Header Part Card */}
                     <div className="flex items-start justify-between gap-4 mb-3">
                       <div>
-                        <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-1">
+                        <h3 className="text-base font-bold text-zinc-900 m-0 leading-relaxed">
                           {partTitle}
-                        </span>
-                        <h3 className="text-base font-bold text-zinc-900 m-0">
-                          Đánh giá chi tiết Part {part.number}
                         </h3>
                       </div>
                       
