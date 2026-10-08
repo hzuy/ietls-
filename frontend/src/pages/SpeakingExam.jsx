@@ -47,6 +47,126 @@ function HighlightedTranscript({ text }) {
   )
 }
 
+function CustomAudioPlayer({ src }) {
+  const audioRef = useRef(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+
+  const togglePlay = () => {
+    if (!audioRef.current) return
+    if (isPlaying) audioRef.current.pause()
+    else audioRef.current.play()
+    setIsPlaying(!isPlaying)
+  }
+
+  const handleTimeUpdate = () => {
+    if (!audioRef.current) return
+    const time = audioRef.current.currentTime
+    const dur = audioRef.current.duration
+    setCurrentTime(time)
+    setDuration(dur || 0)
+    setProgress(dur ? (time / dur) * 100 : 0)
+  }
+
+  const handleEnded = () => setIsPlaying(false)
+
+  const formatTime = (time) => {
+    if (isNaN(time) || !isFinite(time)) return '0:00'
+    const m = Math.floor(time / 60)
+    const s = Math.floor(time % 60)
+    return `${m}:${s.toString().padStart(2, '0')}`
+  }
+
+  const handleSeek = (e) => {
+    if (!audioRef.current) return
+    const bounds = e.currentTarget.getBoundingClientRect()
+    const x = e.clientX - bounds.left
+    const percent = Math.max(0, Math.min(1, x / bounds.width))
+    const newTime = percent * (audioRef.current.duration || 0)
+    audioRef.current.currentTime = newTime
+    setProgress(percent * 100)
+    setCurrentTime(newTime)
+  }
+
+  return (
+    <div className="flex items-center gap-3 w-full">
+      <audio ref={audioRef} src={src} onTimeUpdate={handleTimeUpdate} onEnded={handleEnded} onLoadedMetadata={handleTimeUpdate} />
+      <button onClick={togglePlay} className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full border-2 border-teal-400 text-teal-500 bg-white shadow-sm hover:bg-teal-50 transition-colors">
+        {isPlaying ? <Pause className="w-5 h-5" fill="currentColor" /> : <Play className="w-5 h-5 ml-1" fill="currentColor" />}
+      </button>
+      <div className="flex-1 h-2 bg-teal-100 rounded-full cursor-pointer relative" onClick={handleSeek}>
+        <div className="absolute left-0 top-0 bottom-0 bg-teal-400 rounded-full" style={{ width: `${progress}%` }} />
+        <div className="absolute w-3 h-3 bg-white border-2 border-teal-400 rounded-full top-1/2 -translate-y-1/2 -ml-1.5" style={{ left: `${progress}%` }} />
+      </div>
+      <div className="text-xs font-mono text-zinc-500 font-medium whitespace-nowrap">
+        {formatTime(currentTime)} / {formatTime(duration)}
+      </div>
+    </div>
+  )
+}
+
+function CustomAudioPlayer({ src }) {
+  const audioRef = useRef(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+
+  const togglePlay = () => {
+    if (!audioRef.current) return
+    if (isPlaying) audioRef.current.pause()
+    else audioRef.current.play()
+    setIsPlaying(!isPlaying)
+  }
+
+  const handleTimeUpdate = () => {
+    if (!audioRef.current) return
+    const time = audioRef.current.currentTime
+    const dur = audioRef.current.duration
+    setCurrentTime(time)
+    setDuration(dur || 0)
+    setProgress(dur ? (time / dur) * 100 : 0)
+  }
+
+  const handleEnded = () => setIsPlaying(false)
+
+  const formatTime = (time) => {
+    if (isNaN(time) || !isFinite(time)) return '0:00'
+    const m = Math.floor(time / 60)
+    const s = Math.floor(time % 60)
+    return `${m}:${s.toString().padStart(2, '0')}`
+  }
+
+  const handleSeek = (e) => {
+    if (!audioRef.current) return
+    const bounds = e.currentTarget.getBoundingClientRect()
+    const x = e.clientX - bounds.left
+    const percent = Math.max(0, Math.min(1, x / bounds.width))
+    const newTime = percent * (audioRef.current.duration || 0)
+    audioRef.current.currentTime = newTime
+    setProgress(percent * 100)
+    setCurrentTime(newTime)
+  }
+
+  return (
+    <div className="flex items-center gap-3 w-full">
+      <audio ref={audioRef} src={src} onTimeUpdate={handleTimeUpdate} onEnded={handleEnded} onLoadedMetadata={handleTimeUpdate} />
+      <button onClick={togglePlay} className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full border-2 border-teal-400 text-teal-500 bg-white shadow-sm hover:bg-teal-50 transition-colors">
+        {isPlaying ? <Pause className="w-5 h-5" fill="currentColor" /> : <Play className="w-5 h-5 ml-1" fill="currentColor" />}
+      </button>
+      <div className="flex-1 h-2 bg-teal-100 rounded-full cursor-pointer relative" onClick={handleSeek}>
+        <div className="absolute left-0 top-0 bottom-0 bg-teal-400 rounded-full" style={{ width: `${progress}%` }} />
+        <div className="absolute w-3 h-3 bg-white border-2 border-teal-400 rounded-full top-1/2 -translate-y-1/2 -ml-1.5" style={{ left: `${progress}%` }} />
+      </div>
+      <div className="text-xs font-mono text-zinc-500 font-medium whitespace-nowrap">
+        {formatTime(currentTime)} / {formatTime(duration)}
+      </div>
+    </div>
+  )
+}
+
 export default function SpeakingExam() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -791,6 +911,38 @@ export default function SpeakingExam() {
                           return ansArray.slice(0, maxAnswers).map((ans, idx) => {
                             // Force index-based mapping to prevent duplicates caused by old questionId offsets.
                             const q = part.questions ? part.questions[idx] : null;
+
+                            if (part.number === 2) {
+                              const partScore = r.score || ((parseFloat(fluencyScore) + parseFloat(vocabScore) + parseFloat(grammarScore) + parseFloat(pronScore))/4).toFixed(1);
+                              return (
+                                <div key={idx} className="bg-[#E9EDFF] rounded-2xl p-5 md:p-6 mb-2 shadow-sm border border-indigo-100/50">
+                                  <div className="flex flex-col md:flex-row md:items-start gap-4 mb-4">
+                                    <div className="flex-1 mt-1">
+                                      <CustomAudioPlayer src={ans.audioUrl?.startsWith('/') ? `${BACKEND_URL}${ans.audioUrl}` : ans.audioUrl} />
+                                    </div>
+                                    <div className="flex items-start gap-4">
+                                      <div className="flex flex-col items-end pt-1">
+                                        <button className="text-teal-600 font-medium text-sm hover:underline hover:text-teal-700 transition-colors">Cải thiện câu này</button>
+                                        <button className="text-indigo-500 text-xs mt-1 hover:underline flex items-center gap-1 opacity-80 hover:opacity-100 transition-opacity">Báo lỗi <AlertCircle className="w-3 h-3"/></button>
+                                      </div>
+                                      <div className="w-14 h-14 bg-amber-400 rounded-full flex items-center justify-center font-bold text-xl shadow-md text-zinc-900 border-2 border-white/50 shrink-0">
+                                        {partScore === 'NaN' ? '–' : partScore}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="text-[15px] leading-relaxed text-zinc-700 font-medium mb-5 bg-white/40 p-4 rounded-xl border border-white/50">
+                                    <HighlightedTranscript text={ans.text} />
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="px-3 py-1 rounded-full bg-amber-400/90 text-zinc-900 text-[11px] font-bold shadow-sm">Trôi chảy: {fluencyScore}</span>
+                                    <span className="px-3 py-1 rounded-full bg-amber-400/90 text-zinc-900 text-[11px] font-bold shadow-sm">Từ vựng: {vocabScore}</span>
+                                    <span className="px-3 py-1 rounded-full bg-amber-400/90 text-zinc-900 text-[11px] font-bold shadow-sm">Ngữ pháp: {grammarScore}</span>
+                                    <span className="px-3 py-1 rounded-full bg-teal-400/90 text-zinc-900 text-[11px] font-bold shadow-sm">Phát âm: {pronScore}</span>
+                                  </div>
+                                </div>
+                              )
+                            }
+
                             return (
                               <div key={idx} className="bg-zinc-50/70 rounded-xl border border-zinc-200/70 p-4">
                                 <h4 className="text-sm font-bold text-zinc-800 mb-3 flex items-start gap-2">
@@ -829,6 +981,7 @@ export default function SpeakingExam() {
                     </div>
 
                     {/* 4 Criteria Badges Row (Pill badges) */}
+                    {part.number !== 2 && (
                     <div className="flex flex-wrap items-center gap-2 mb-4 pb-3 border-b border-zinc-100">
                       <span className="rounded-full px-3 py-1 text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200/80 inline-flex items-center gap-1.5">
                         Trôi chảy: <strong className="font-mono">{fluencyScore}</strong>
@@ -843,6 +996,7 @@ export default function SpeakingExam() {
                         Phát âm: <strong className="font-mono">{pronScore}</strong>
                       </span>
                     </div>
+                    )}
 
                     {/* Feedback notes / Strengths & Improvements */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4 text-xs">
