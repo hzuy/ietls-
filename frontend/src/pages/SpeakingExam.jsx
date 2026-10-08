@@ -47,64 +47,15 @@ function HighlightedTranscript({ text }) {
   )
 }
 
-function CustomAudioPlayer({ src }) {
-  const audioRef = useRef(null)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
 
-  const togglePlay = () => {
-    if (!audioRef.current) return
-    if (isPlaying) audioRef.current.pause()
-    else audioRef.current.play()
-    setIsPlaying(!isPlaying)
-  }
 
-  const handleTimeUpdate = () => {
-    if (!audioRef.current) return
-    const time = audioRef.current.currentTime
-    const dur = audioRef.current.duration
-    setCurrentTime(time)
-    setDuration(dur || 0)
-    setProgress(dur ? (time / dur) * 100 : 0)
-  }
 
-  const handleEnded = () => setIsPlaying(false)
-
-  const formatTime = (time) => {
-    if (isNaN(time) || !isFinite(time)) return '0:00'
-    const m = Math.floor(time / 60)
-    const s = Math.floor(time % 60)
-    return `${m}:${s.toString().padStart(2, '0')}`
-  }
-
-  const handleSeek = (e) => {
-    if (!audioRef.current) return
-    const bounds = e.currentTarget.getBoundingClientRect()
-    const x = e.clientX - bounds.left
-    const percent = Math.max(0, Math.min(1, x / bounds.width))
-    const newTime = percent * (audioRef.current.duration || 0)
-    audioRef.current.currentTime = newTime
-    setProgress(percent * 100)
-    setCurrentTime(newTime)
-  }
-
-  return (
-    <div className="flex items-center gap-3 w-full">
-      <audio ref={audioRef} src={src} onTimeUpdate={handleTimeUpdate} onEnded={handleEnded} onLoadedMetadata={handleTimeUpdate} />
-      <button onClick={togglePlay} className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full border-2 border-teal-400 text-teal-500 bg-white shadow-sm hover:bg-teal-50 transition-colors">
-        {isPlaying ? <Pause className="w-5 h-5" fill="currentColor" /> : <Play className="w-5 h-5 ml-1" fill="currentColor" />}
-      </button>
-      <div className="flex-1 h-2 bg-teal-100 rounded-full cursor-pointer relative" onClick={handleSeek}>
-        <div className="absolute left-0 top-0 bottom-0 bg-teal-400 rounded-full" style={{ width: `${progress}%` }} />
-        <div className="absolute w-3 h-3 bg-white border-2 border-teal-400 rounded-full top-1/2 -translate-y-1/2 -ml-1.5" style={{ left: `${progress}%` }} />
-      </div>
-      <div className="text-xs font-mono text-zinc-500 font-medium whitespace-nowrap">
-        {formatTime(currentTime)} / {formatTime(duration)}
-      </div>
-    </div>
-  )
+function getScoreColorClass(scoreStr, isSolid = false) {
+  const score = parseFloat(scoreStr);
+  if (isNaN(score)) return isSolid ? 'bg-zinc-200 text-zinc-700' : 'bg-zinc-50 text-zinc-800 border-zinc-200';
+  if (score >= 7.0) return isSolid ? 'bg-emerald-400 text-emerald-950' : 'bg-emerald-50 text-emerald-800 border-emerald-200';
+  if (score >= 5.5) return isSolid ? 'bg-amber-400 text-amber-950' : 'bg-amber-50 text-amber-800 border-amber-200';
+  return isSolid ? 'bg-zinc-300 text-zinc-800' : 'bg-zinc-50 text-zinc-800 border-zinc-300';
 }
 
 function CustomAudioPlayer({ src }) {
@@ -113,12 +64,27 @@ function CustomAudioPlayer({ src }) {
   const [progress, setProgress] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
+  const [isDurationHacked, setIsDurationHacked] = useState(false)
 
   const togglePlay = () => {
     if (!audioRef.current) return
-    if (isPlaying) audioRef.current.pause()
-    else audioRef.current.play()
-    setIsPlaying(!isPlaying)
+    if (isPlaying) {
+       audioRef.current.pause()
+       setIsPlaying(false)
+    } else {
+      if (audioRef.current.duration === Infinity && !isDurationHacked) {
+        audioRef.current.currentTime = 1e101;
+        setTimeout(() => {
+           audioRef.current.currentTime = 0;
+           setIsDurationHacked(true);
+           audioRef.current.play();
+           setIsPlaying(true)
+        }, 200);
+      } else {
+        audioRef.current.play()
+        setIsPlaying(true)
+      }
+    }
   }
 
   const handleTimeUpdate = () => {
@@ -126,17 +92,30 @@ function CustomAudioPlayer({ src }) {
     const time = audioRef.current.currentTime
     const dur = audioRef.current.duration
     setCurrentTime(time)
-    setDuration(dur || 0)
-    setProgress(dur ? (time / dur) * 100 : 0)
+    if (dur && dur !== Infinity && !isNaN(dur)) {
+      setDuration(dur)
+      setProgress((time / dur) * 100)
+    }
   }
 
-  const handleEnded = () => setIsPlaying(false)
+  const handleLoadedMetadata = () => {
+    if (!audioRef.current) return;
+    const dur = audioRef.current.duration;
+    if (dur && dur !== Infinity && !isNaN(dur)) {
+      setDuration(dur);
+    }
+  }
+
+  const handleEnded = () => {
+     setIsPlaying(false)
+     setProgress(100)
+  }
 
   const formatTime = (time) => {
     if (isNaN(time) || !isFinite(time)) return '0:00'
     const m = Math.floor(time / 60)
     const s = Math.floor(time % 60)
-    return `${m}:${s.toString().padStart(2, '0')}`
+    return m + ":" + s.toString().padStart(2, '0')
   }
 
   const handleSeek = (e) => {
@@ -144,21 +123,24 @@ function CustomAudioPlayer({ src }) {
     const bounds = e.currentTarget.getBoundingClientRect()
     const x = e.clientX - bounds.left
     const percent = Math.max(0, Math.min(1, x / bounds.width))
-    const newTime = percent * (audioRef.current.duration || 0)
-    audioRef.current.currentTime = newTime
-    setProgress(percent * 100)
-    setCurrentTime(newTime)
+    const dur = duration || audioRef.current.duration || 0;
+    const newTime = percent * dur
+    if (!isNaN(newTime) && isFinite(newTime)) {
+       audioRef.current.currentTime = newTime
+       setCurrentTime(newTime)
+    }
+    if (dur) setProgress(percent * 100)
   }
 
   return (
     <div className="flex items-center gap-3 w-full">
-      <audio ref={audioRef} src={src} onTimeUpdate={handleTimeUpdate} onEnded={handleEnded} onLoadedMetadata={handleTimeUpdate} />
+      <audio ref={audioRef} src={src} onTimeUpdate={handleTimeUpdate} onEnded={handleEnded} onLoadedMetadata={handleLoadedMetadata} />
       <button onClick={togglePlay} className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full border-2 border-teal-400 text-teal-500 bg-white shadow-sm hover:bg-teal-50 transition-colors">
         {isPlaying ? <Pause className="w-5 h-5" fill="currentColor" /> : <Play className="w-5 h-5 ml-1" fill="currentColor" />}
       </button>
       <div className="flex-1 h-2 bg-teal-100 rounded-full cursor-pointer relative" onClick={handleSeek}>
-        <div className="absolute left-0 top-0 bottom-0 bg-teal-400 rounded-full" style={{ width: `${progress}%` }} />
-        <div className="absolute w-3 h-3 bg-white border-2 border-teal-400 rounded-full top-1/2 -translate-y-1/2 -ml-1.5" style={{ left: `${progress}%` }} />
+        <div className="absolute left-0 top-0 bottom-0 bg-teal-400 rounded-full transition-all duration-100" style={{ width: progress + '%' }} />
+        <div className="absolute w-3 h-3 bg-white border-2 border-teal-400 rounded-full top-1/2 -translate-y-1/2 -ml-1.5 transition-all duration-100" style={{ left: progress + '%' }} />
       </div>
       <div className="text-xs font-mono text-zinc-500 font-medium whitespace-nowrap">
         {formatTime(currentTime)} / {formatTime(duration)}
@@ -921,10 +903,7 @@ export default function SpeakingExam() {
                                       <CustomAudioPlayer src={ans.audioUrl?.startsWith('/') ? `${BACKEND_URL}${ans.audioUrl}` : ans.audioUrl} />
                                     </div>
                                     <div className="flex items-start gap-4">
-                                      <div className="flex flex-col items-end pt-1">
-                                        <button className="text-teal-600 font-medium text-sm hover:underline hover:text-teal-700 transition-colors">Cải thiện câu này</button>
-                                        <button className="text-indigo-500 text-xs mt-1 hover:underline flex items-center gap-1 opacity-80 hover:opacity-100 transition-opacity">Báo lỗi <AlertCircle className="w-3 h-3"/></button>
-                                      </div>
+                                      
                                       <div className="w-14 h-14 bg-amber-400 rounded-full flex items-center justify-center font-bold text-xl shadow-md text-zinc-900 border-2 border-white/50 shrink-0">
                                         {partScore === 'NaN' ? '–' : partScore}
                                       </div>
@@ -934,10 +913,10 @@ export default function SpeakingExam() {
                                     <HighlightedTranscript text={ans.text} />
                                   </div>
                                   <div className="flex flex-wrap items-center gap-2">
-                                    <span className="px-3 py-1 rounded-full bg-amber-400/90 text-zinc-900 text-[11px] font-bold shadow-sm">Trôi chảy: {fluencyScore}</span>
-                                    <span className="px-3 py-1 rounded-full bg-amber-400/90 text-zinc-900 text-[11px] font-bold shadow-sm">Từ vựng: {vocabScore}</span>
-                                    <span className="px-3 py-1 rounded-full bg-amber-400/90 text-zinc-900 text-[11px] font-bold shadow-sm">Ngữ pháp: {grammarScore}</span>
-                                    <span className="px-3 py-1 rounded-full bg-teal-400/90 text-zinc-900 text-[11px] font-bold shadow-sm">Phát âm: {pronScore}</span>
+                                    <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(fluencyScore, true)}>Trôi chảy: {fluencyScore}</span>
+                                    <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(vocabScore, true)}>Từ vựng: {vocabScore}</span>
+                                    <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(grammarScore, true)}>Ngữ pháp: {grammarScore}</span>
+                                    <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(pronScore, true)}>Phát âm: {pronScore}</span>
                                   </div>
                                 </div>
                               )
@@ -983,16 +962,16 @@ export default function SpeakingExam() {
                     {/* 4 Criteria Badges Row (Pill badges) */}
                     {part.number !== 2 && (
                     <div className="flex flex-wrap items-center gap-2 mb-4 pb-3 border-b border-zinc-100">
-                      <span className="rounded-full px-3 py-1 text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200/80 inline-flex items-center gap-1.5">
+                      <span className={"rounded-full px-3 py-1 text-xs font-medium inline-flex items-center gap-1.5 border " + getScoreColorClass(fluencyScore, false)}>
                         Trôi chảy: <strong className="font-mono">{fluencyScore}</strong>
                       </span>
-                      <span className="rounded-full px-3 py-1 text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200/80 inline-flex items-center gap-1.5">
+                      <span className={"rounded-full px-3 py-1 text-xs font-medium inline-flex items-center gap-1.5 border " + getScoreColorClass(vocabScore, false)}>
                         Từ vựng: <strong className="font-mono">{vocabScore}</strong>
                       </span>
-                      <span className="rounded-full px-3 py-1 text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200/80 inline-flex items-center gap-1.5">
+                      <span className={"rounded-full px-3 py-1 text-xs font-medium inline-flex items-center gap-1.5 border " + getScoreColorClass(grammarScore, false)}>
                         Ngữ pháp: <strong className="font-mono">{grammarScore}</strong>
                       </span>
-                      <span className="rounded-full px-3 py-1 text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200/80 inline-flex items-center gap-1.5">
+                      <span className={"rounded-full px-3 py-1 text-xs font-medium inline-flex items-center gap-1.5 border " + getScoreColorClass(pronScore, false)}>
                         Phát âm: <strong className="font-mono">{pronScore}</strong>
                       </span>
                     </div>
