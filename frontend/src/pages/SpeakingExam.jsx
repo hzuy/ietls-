@@ -892,57 +892,44 @@ export default function SpeakingExam() {
                         if (Array.isArray(ansArray)) {
                           const maxAnswers = part.questions && part.questions.length > 0 ? part.questions.length : 1;
                           return ansArray.slice(0, maxAnswers).map((ans, idx) => {
-                            // Force index-based mapping to prevent duplicates caused by old questionId offsets.
                             const q = part.questions ? part.questions[idx] : null;
-
-                            if (part.number === 2) {
-                              const partScore = r.score || ((parseFloat(fluencyScore) + parseFloat(vocabScore) + parseFloat(grammarScore) + parseFloat(pronScore))/4).toFixed(1);
-                              return (
-                                <div key={idx} className="bg-[#E9EDFF] rounded-2xl p-5 md:p-6 mb-2 shadow-sm border border-indigo-100/50">
-                                  <div className="flex flex-col md:flex-row md:items-start gap-4 mb-4">
-                                    <div className="flex-1 mt-1">
-                                      <CustomAudioPlayer src={ans.audioUrl?.startsWith('/') ? `${BACKEND_URL}${ans.audioUrl}` : ans.audioUrl} />
-                                    </div>
-                                    <div className="flex items-start gap-4">
-                                      
-                                      <div className="w-14 h-14 bg-amber-400 rounded-full flex items-center justify-center font-bold text-xl shadow-md text-zinc-900 border-2 border-white/50 shrink-0">
-                                        {partScore === 'NaN' ? '–' : partScore}
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div className="text-[15px] leading-relaxed text-zinc-700 font-medium mb-5 bg-white/40 p-4 rounded-xl border border-white/50">
-                                    <HighlightedTranscript text={ans.text} />
-                                  </div>
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(fluencyScore, true)}>Trôi chảy: {fluencyScore}</span>
-                                    <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(vocabScore, true)}>Từ vựng: {vocabScore}</span>
-                                    <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(grammarScore, true)}>Ngữ pháp: {grammarScore}</span>
-                                    <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(pronScore, true)}>Phát âm: {pronScore}</span>
-                                  </div>
-                                </div>
-                              )
+                            const partScore = r.score || ((parseFloat(fluencyScore) + parseFloat(vocabScore) + parseFloat(grammarScore) + parseFloat(pronScore))/4).toFixed(1);
+                            
+                            let questionTitle = q?.questionText || 'Câu hỏi';
+                            if (part.number === 2 && !q?.questionText) {
+                                questionTitle = 'Phần trả lời Cue Card';
                             }
 
                             return (
-                              <div key={idx} className="bg-zinc-50/70 rounded-xl border border-zinc-200/70 p-4">
-                                <h4 className="text-sm font-bold text-zinc-800 mb-3 flex items-start gap-2">
-                                  <span className="w-5 h-5 flex items-center justify-center rounded-full bg-pink-100 text-pink-600 text-[10px] shrink-0 mt-0.5">?</span>
-                                  {part.number === 2 ? 'Phần trả lời Cue Card' : (q?.questionText || 'Câu hỏi')}
-                                </h4>
-                                
-                                {ans.audioUrl && (
-                                  <div className="flex items-center gap-3 bg-white border border-zinc-200 rounded-lg px-3 py-2 mb-3 shadow-xs">
-                                    <audio controls src={ans.audioUrl?.startsWith('/') ? `${BACKEND_URL}${ans.audioUrl}` : ans.audioUrl} className="w-full h-8" />
-                                  </div>
-                                )}
+                                <div key={idx} className="mb-8">
+                                  {/* Title */}
+                                  <h4 className="text-[15px] font-medium text-zinc-600 mb-3 flex items-start gap-2">
+                                    <span className="w-5 h-5 flex items-center justify-center rounded-full border-2 border-zinc-400 text-zinc-500 text-[11px] font-bold shrink-0 mt-0.5">?</span>
+                                    TEST PART {part.number}: {questionTitle}
+                                  </h4>
 
-                                <div className="text-sm text-zinc-600 pl-7">
-                                  <span className="text-[11px] font-mono text-zinc-400 mb-1 block">
-                                    {(ans.text || '').split(/\s+/).filter(Boolean).length} từ
-                                  </span>
-                                  <HighlightedTranscript text={ans.text} />
+                                  <div className="bg-[#E9EDFF] rounded-2xl p-5 md:p-6 shadow-sm border border-indigo-100/50">
+                                    <div className="flex flex-col md:flex-row md:items-start gap-4 mb-4">
+                                      <div className="flex-1 mt-1">
+                                        <CustomAudioPlayer src={ans.audioUrl?.startsWith('/') ? `${BACKEND_URL}${ans.audioUrl}` : ans.audioUrl} />
+                                      </div>
+                                      <div className="flex items-start gap-4">
+                                        <div className={"w-14 h-14 rounded-full flex items-center justify-center font-bold text-xl shadow-md border-2 border-white/50 shrink-0 " + getScoreColorClass(partScore, true)}>
+                                          {partScore === 'NaN' ? '–' : partScore}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="text-[15px] leading-relaxed text-zinc-700 font-medium mb-5 bg-white/40 p-4 rounded-xl border border-white/50">
+                                      <HighlightedTranscript text={ans.text} />
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(fluencyScore, true)}>Trôi chảy: {fluencyScore}</span>
+                                      <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(vocabScore, true)}>Từ vựng: {vocabScore}</span>
+                                      <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(grammarScore, true)}>Ngữ pháp: {grammarScore}</span>
+                                      <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(pronScore, true)}>Phát âm: {pronScore}</span>
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
                             )
                           })
                         }
@@ -959,24 +946,6 @@ export default function SpeakingExam() {
                         )
                       })()}
                     </div>
-
-                    {/* 4 Criteria Badges Row (Pill badges) */}
-                    {part.number !== 2 && (
-                    <div className="flex flex-wrap items-center gap-2 mb-4 pb-3 border-b border-zinc-100">
-                      <span className={"rounded-full px-3 py-1 text-xs font-medium inline-flex items-center gap-1.5 border " + getScoreColorClass(fluencyScore, false)}>
-                        Trôi chảy: <strong className="font-mono">{fluencyScore}</strong>
-                      </span>
-                      <span className={"rounded-full px-3 py-1 text-xs font-medium inline-flex items-center gap-1.5 border " + getScoreColorClass(vocabScore, false)}>
-                        Từ vựng: <strong className="font-mono">{vocabScore}</strong>
-                      </span>
-                      <span className={"rounded-full px-3 py-1 text-xs font-medium inline-flex items-center gap-1.5 border " + getScoreColorClass(grammarScore, false)}>
-                        Ngữ pháp: <strong className="font-mono">{grammarScore}</strong>
-                      </span>
-                      <span className={"rounded-full px-3 py-1 text-xs font-medium inline-flex items-center gap-1.5 border " + getScoreColorClass(pronScore, false)}>
-                        Phát âm: <strong className="font-mono">{pronScore}</strong>
-                      </span>
-                    </div>
-                    )}
 
                     {/* Feedback notes / Strengths & Improvements */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4 text-xs">
