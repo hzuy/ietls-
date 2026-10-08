@@ -743,7 +743,7 @@ export default function SpeakingExam() {
               {exam.speakingParts.map(part => {
                 const r = results[part.id]
                 if (!r) return null
-                const partTitle = part.topic || part.cueCard || (part.questions?.map(q => q.questionText.replace(/^##TOPIC##:/, '')).filter(Boolean).slice(0, 2).join(' · ')) || `Speaking Part ${part.number}`
+                const partTitle = part.topic || part.cueCard || `Speaking Part ${part.number}`
 
                 const fluencyScore = r.criteria?.fluency?.score ?? '–'
                 const vocabScore = r.criteria?.vocabulary?.score ?? '–'
