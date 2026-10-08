@@ -865,7 +865,10 @@ export default function SpeakingExam() {
               {exam.speakingParts.map(part => {
                 const r = results[part.id]
                 if (!r) return null
-                const partTitle = part.topic || part.cueCard || `Speaking Part ${part.number}`
+                let partTitle = part.topic || part.cueCard || `Speaking Part ${part.number}`
+                if (partTitle.includes('\n===\n')) {
+                  partTitle = partTitle.split('\n===\n')[0]
+                }
 
                 const fluencyScore = r.criteria?.fluency?.score ?? '–'
                 const vocabScore = r.criteria?.vocabulary?.score ?? '–'
@@ -878,7 +881,7 @@ export default function SpeakingExam() {
                     <div className="flex items-start justify-between gap-4 mb-3">
                       <div>
                         <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-1">
-                          TEST PART {part.number}: {partTitle}
+                          {partTitle}
                         </span>
                         <h3 className="text-base font-bold text-zinc-900 m-0">
                           Đánh giá chi tiết Part {part.number}
