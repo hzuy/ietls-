@@ -698,16 +698,20 @@ export default function SpeakingExam() {
     try {
       const r = await submitSpeakingExam(id, part.id, transcript)
       setSubmittedPartIds(ids => ids.includes(part.id) ? ids : [...ids, part.id])
+      
+      const currentIndex = exam.speakingParts.findIndex(p => p.id === part.id)
+      if (currentIndex < exam.speakingParts.length - 1) {
+        setActivePart(currentIndex + 1);
+        setTurnState('idle');
+        setActiveQuestionIndex(0);
+      }
+
       if (r.answerId && r.status === 'pending') {
         pollStatus(r.answerId, part)
       } else {
         setResults(prev => ({ ...prev, [part.id]: r }))
         setSubmitting(false)
         setGradingPart(null)
-        const currentIndex = exam.speakingParts.findIndex(p => p.id === part.id)
-        if (currentIndex < exam.speakingParts.length - 1) {
-          { setActivePart(currentIndex + 1); setTurnState('idle'); setActiveQuestionIndex(0); }
-        }
       }
     } catch (e) {
       setGradingErrors(prev => ({ ...prev, [part.id]: { error: e.response?.data?.message || 'Lỗi nộp bài, thử lại nhé!' } }))
