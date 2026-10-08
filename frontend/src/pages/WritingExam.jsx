@@ -7,7 +7,7 @@ import { saveDraft, loadDraft, clearDraft, isDataEmpty, formatSavedAt } from '..
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
-import { Clock, Sparkles, CheckCircle2, RotateCcw, AlertCircle, ChevronRight, X, History } from 'lucide-react'
+import { Clock, Sparkles, CheckCircle2, RotateCcw, AlertCircle, ChevronRight, X, History, ChevronDown, ChevronUp, FileQuestion } from 'lucide-react'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
 import { renderFeedbackList } from '../utils/feedbackList'
@@ -76,6 +76,163 @@ const roundIeltsScore = (num) => {
   if (frac < 0.75) return whole + '.5'
   return (whole + 1) + '.0'
 }
+
+function WritingTaskAccordion({ task, r, isCompleted, onRetake }) {
+  const [openQ, setOpenQ] = React.useState(false);
+  const [openA, setOpenA] = React.useState(true);
+
+  return (
+    <div className="flex flex-col mb-10 w-full font-sans max-w-4xl mx-auto">
+      {/* Header Tab */}
+      <div>
+        <div className="bg-[#284A6A] text-white px-8 py-3 text-[17px] font-bold inline-block rounded-t-md tracking-wide">
+          Task {task.number}
+        </div>
+      </div>
+
+      {/* Accordions Container */}
+      <div className="border border-zinc-200 border-t-0 rounded-b-md rounded-tr-md overflow-hidden bg-white shadow-sm">
+        
+        {/* Question Accordion */}
+        <div className="border-b border-zinc-200">
+          <button 
+            onClick={() => setOpenQ(!openQ)}
+            className={"w-full flex items-center justify-between px-6 py-4 text-left font-bold transition-colors " + (openQ ? "bg-[#F49F2D] text-white" : "bg-white text-[#284A6A] hover:bg-zinc-50")}
+          >
+            <span className="text-[16px]">Question</span>
+            {openQ ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+          </button>
+          
+          {openQ && (
+            <div className="p-6 border border-[#F49F2D] border-t-0 bg-white">
+              <div className="text-sm text-zinc-600 mb-6 font-medium">
+                You should spend about <span className="font-bold text-zinc-800">{task.number === 1 ? '20' : '40'} minutes</span> on this task.
+                <br /><br />
+                <p className="text-zinc-800 text-[14.5px] leading-relaxed whitespace-pre-line m-0 font-medium">
+                  {task.prompt}
+                </p>
+                <br />
+                You should write <span className="font-bold text-zinc-800">at least {task.number === 1 ? '150' : '250'} words.</span>
+              </div>
+              {task.imageUrl && (
+                <div className="mt-6 flex justify-center">
+                  <img src={task.imageUrl} alt="Task image" className="max-w-full rounded-md shadow-sm border border-zinc-200" />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Answer Accordion */}
+        <div>
+          <button 
+            onClick={() => setOpenA(!openA)}
+            className={"w-full flex items-center justify-between px-6 py-4 text-left font-bold transition-colors " + (openA ? "bg-[#F49F2D] text-white" : "bg-white text-[#284A6A] hover:bg-zinc-50")}
+          >
+            <span className="text-[16px]">Answer</span>
+            {openA ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+          </button>
+          
+          {openA && (
+            <div className="p-8 border border-[#F49F2D] border-t-0 bg-white">
+              {isCompleted ? (
+                <>
+                  <div className="text-zinc-700 text-[15px] leading-[1.8] whitespace-pre-wrap">
+                    {r.essayText}
+                  </div>
+                  
+                  {/* Insert 4 Criteria and Strengths here! */}
+                  <div className="mt-12 pt-8 border-t border-zinc-200">
+                     <div className="flex flex-col items-center justify-center mb-8">
+                       <h4 className="text-[20px] font-bold text-[#284A6A] mb-2">Examiner Evaluation</h4>
+                       <div className="w-16 h-1 bg-[#F49F2D] rounded-full"></div>
+                     </div>
+                     
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                        {Object.entries(r.criteria || {}).map(([key, crit]) => {
+                          const labels = {
+                            task_achievement: 'Task Achievement / Response',
+                            coherence_cohesion: 'Coherence & Cohesion',
+                            lexical_resource: 'Lexical Resource',
+                            grammatical_range: 'Grammatical Range & Accuracy'
+                          };
+                          const label = labels[key] || key;
+                          const score = crit?.score || 0;
+                          const comment = crit?.comment || '';
+                          const isGood = score >= 7.0;
+                          const isMid = score >= 5.5;
+
+                          return (
+                            <div key={key} className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-6 flex flex-col justify-between relative overflow-hidden">
+                              <div className={"absolute top-0 left-0 right-0 h-1.5 " + (isGood ? 'bg-emerald-500' : isMid ? 'bg-amber-400' : 'bg-zinc-400')}></div>
+                              <div>
+                                <div className="flex items-start justify-between mb-4 mt-2">
+                                  <span className="text-[#284A6A] text-[14px] font-bold tracking-tight uppercase leading-snug pr-4">{label}</span>
+                                  <span className={"px-3 py-1 rounded-full text-[13px] font-black font-mono shadow-sm shrink-0 text-white " + (isGood ? 'bg-emerald-500' : isMid ? 'bg-amber-400' : 'bg-zinc-400')}>
+                                    {score > 0 ? score : '–'}
+                                  </span>
+                                </div>
+                                <div className="text-zinc-600 text-[13.5px] leading-relaxed font-medium bg-zinc-50 rounded-xl p-4 border border-zinc-100 min-h-[90px]">
+                                  {comment || 'Chưa có nhận xét chi tiết.'}
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                     </div>
+
+                     {/* Strengths */}
+                     <div className="bg-emerald-50/50 rounded-2xl border border-emerald-100 shadow-sm p-6 mt-4">
+                       <p className="text-emerald-800 text-[15px] font-bold mb-4 flex items-center gap-2">
+                         <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Điểm mạnh (Strengths)
+                       </p>
+                       <ul className="space-y-2 text-[14px] text-emerald-700 font-medium">
+                         {(r.strengths || []).map((s, i) => (
+                           <li key={i} className="flex gap-2"><span className="text-emerald-500 mt-0.5">•</span> <span>{s}</span></li>
+                         ))}
+                       </ul>
+                     </div>
+
+                     {/* Improvements */}
+                     <div className="bg-amber-50/50 rounded-2xl border border-amber-100 shadow-sm p-6 mt-4">
+                       <p className="text-amber-800 text-[15px] font-bold mb-4 flex items-center gap-2">
+                         <span className="w-2 h-2 rounded-full bg-amber-500"></span> Điểm cần cải thiện & Gợi ý (Improvements)
+                       </p>
+                       <ul className="space-y-2 text-[14px] text-amber-700 font-medium">
+                         {(r.improvements || []).map((s, i) => (
+                           <li key={i} className="flex gap-2"><span className="text-amber-500 mt-0.5">•</span> <span>{s}</span></li>
+                         ))}
+                       </ul>
+                     </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="mb-4 text-zinc-300">
+                     <FileQuestion className="w-16 h-16 stroke-1" />
+                  </div>
+                  <h3 className="text-[#284A6A] text-[22px] font-bold mb-3">Want to add answer for this task?</h3>
+                  <p className="text-zinc-600 text-[14px] max-w-lg mx-auto mb-8 leading-relaxed font-medium">
+                    It looks like you haven't finished Task {task.number} essay. If you want to complete Task {task.number} and get evaluation for both tasks, you can retake the test and submit again.
+                  </p>
+                  <button 
+                    onClick={onRetake}
+                    className="bg-[#284A6A] hover:bg-[#1E3A54] text-white px-8 py-3 rounded-md font-bold transition-colors shadow-sm text-[15px]"
+                  >
+                    Retake Test
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+      </div>
+    </div>
+  )
+}
+
+
 export default function WritingExam() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -568,78 +725,35 @@ export default function WritingExam() {
               </div>
             </div>
             {/* Per-task results */}
-                        {exam.writingTasks.map(task => {
-              const r = results[task.id]
-              if (!r) return null
+            {exam.writingTasks.map(task => {
+              const r = results[task.id];
+              const isCompleted = r && r.essayText && r.status === 'graded';
+              
+              const handleRetake = () => {
+                if (user) {
+                  clearDraft(user.id || user._id, id, 'writing')
+                  saveDraft({
+                    userId: user.id || user._id,
+                    examId: id,
+                    skillType: 'writing',
+                    data: { essays: {}, submittedTaskIds: [], isRetake: true },
+                    timeRemaining: DEFAULT_WRITING_TIME
+                  })
+                }
+                window.location.href = window.location.pathname
+              };
+
               return (
-                <div key={task.id} className="flex flex-col gap-6">
-                  <h2 className="text-zinc-900 text-[20px] font-extrabold tracking-tight m-0 border-b-2 border-indigo-100 pb-3 mt-4">
-                    Task {task.number}
-                  </h2>
-                  {/* Essay Display */}
-                  <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden mt-2">
-                    <div className="bg-zinc-50 border-b border-zinc-200 p-4">
-                      <h3 className="text-[13px] font-bold text-zinc-800 uppercase tracking-wider mb-3 flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-indigo-500"></span> Đề bài & Bài làm của bạn
-                      </h3>
-                      {task.imageUrl && (
-                        <div className="bg-white p-3 rounded-xl border border-zinc-200 inline-block mb-4 shadow-sm">
-                          <img src={task.imageUrl} alt="Task image" className="max-w-full max-h-[300px] rounded-lg" />
-                        </div>
-                      )}
-                      <p className="text-zinc-700 text-[14.5px] leading-relaxed whitespace-pre-line m-0 font-medium font-serif bg-white p-5 rounded-xl border border-zinc-200 shadow-sm">
-                        {task.prompt}
-                      </p>
-                    </div>
-                    <div className="p-6 bg-[#fcfcfc]">
-                      <div className="text-zinc-800 text-[16px] leading-[1.8] whitespace-pre-wrap font-serif">
-                        {r.essayText || 'Không có dữ liệu bài viết.'}
-                      </div>
-                    </div>
-                  </div>
-                  {/* 4 Criteria Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                    {Object.entries(CRITERIA_LABELS).map(([key, label]) => {
-                      const crit = r.criteria?.[key]
-                      const score = crit?.score || 0
-                      const comment = crit?.comment || ''
-                      const bgClass = getScoreColorClass(score, true)
-                      const textClass = getScoreColorClass(score)
-                      return (
-                        <div key={key} className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-6 flex flex-col justify-between relative overflow-hidden group hover:shadow-md transition-shadow">
-                          <div className={"absolute top-0 left-0 right-0 h-1.5 " + bgClass}></div>
-                          <div>
-                            <div className="flex items-start justify-between mb-4 mt-2">
-                              <span className="text-zinc-900 text-[14px] font-extrabold tracking-tight uppercase leading-snug pr-4">{label}</span>
-                              <span className={"px-3 py-1 rounded-full text-[13px] font-black font-mono shadow-sm shrink-0 text-white " + bgClass}>
-                                {score > 0 ? score : '–'}
-                              </span>
-                            </div>
-                            <div className="text-zinc-600 text-[13.5px] leading-relaxed font-medium bg-zinc-50 rounded-xl p-4 border border-zinc-100 min-h-[90px]">
-                              {comment || 'Chưa có nhận xét chi tiết.'}
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                  {/* Strengths */}
-                  <div className="bg-emerald-50/50 rounded-2xl border border-emerald-100 shadow-sm p-6 mt-2">
-                    <p className="text-emerald-800 text-[15px] font-extrabold mb-4 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Điểm mạnh (Strengths)
-                    </p>
-                    {renderFeedbackList(r.strengths, 'text-emerald-600')}
-                  </div>
-                  {/* Improvements */}
-                  <div className="bg-amber-50/50 rounded-2xl border border-amber-100 shadow-sm p-6 mt-2">
-                    <p className="text-amber-800 text-[15px] font-extrabold mb-4 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-amber-500"></span> Điểm cần cải thiện & Gợi ý (Improvements)
-                    </p>
-                    {renderFeedbackList(r.improvements, 'text-amber-600')}
-                  </div>
-                </div>
+                <WritingTaskAccordion 
+                  key={task.id} 
+                  task={task} 
+                  r={r} 
+                  isCompleted={isCompleted} 
+                  onRetake={handleRetake} 
+                />
               )
             })}
+
           </div>
         </div>
       </div>
