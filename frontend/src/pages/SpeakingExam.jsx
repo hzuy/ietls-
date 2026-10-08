@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
 import { useSpeechRecording } from '../hooks/useSpeechRecording'
-import { Mic, X, Square, Play, Pause, AlertCircle, RotateCcw, Sparkles, Eye, Volume2, History, CheckCircle2 } from 'lucide-react'
+import { Mic, X, Square, Play, Pause, AlertCircle, RotateCcw, Sparkles, Eye, Volume2, History, CheckCircle2, ChevronUp, Share } from 'lucide-react'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
 import { renderFeedbackList } from '../utils/feedbackList'
@@ -770,79 +770,85 @@ export default function SpeakingExam() {
         {/* Content */}
         <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-16">
           <div className="flex flex-col gap-8">
+            
             {/* ── Score Card Hero Section ── */}
-            <div className="w-full max-w-4xl mx-auto bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs mb-8">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-                {/* Cột 1: Vòng tròn Band Score & thông tin tổng quan */}
-                <div className="flex items-center justify-center gap-4">
-                  <div className="w-20 h-20 rounded-full border-4 border-zinc-900 flex items-center justify-center shrink-0">
-                    <span className="text-3xl font-extrabold font-mono tabular-nums text-zinc-900">
-                      {overallBand}
-                    </span>
+            <div className="w-full max-w-4xl mx-auto rounded-2xl shadow-sm border border-indigo-200 overflow-hidden mb-8">
+              {/* Top Section */}
+              <div className="bg-[#E9EDFF] p-5 md:p-6 relative">
+                {/* Header row */}
+                <div className="flex justify-between items-start mb-6">
+                  <div className="text-indigo-600 font-bold text-sm tracking-widest uppercase mt-2">
+                    FULL TEST
                   </div>
-                  <div className="flex flex-col items-start">
-                    <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
-                      Overall Band Score
-                    </span>
-                    <p className="text-sm font-bold text-zinc-900 m-0">
-                      IELTS Speaking Interview
-                    </p>
-                    <p className="text-xs text-zinc-500 m-0 mt-0.5">
-                      Hoàn thành: {exam.speakingParts.length} Parts
-                    </p>
+                  <div className="text-zinc-500 text-[13px] font-medium absolute left-1/2 -translate-x-1/2 top-7">
+                    {new Date().toISOString().slice(0,10)} | {new Date().toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}
+                  </div>
+                  <div className={"w-16 h-16 rounded-full flex items-center justify-center font-extrabold text-2xl shadow-md border-2 border-white/50 shrink-0 " + getScoreColorClass(overallBand, true)}>
+                    {overallBand}
                   </div>
                 </div>
 
-                {/* Cột 2: Điểm từng Part */}
-                <div className="flex flex-col justify-center items-center md:items-start border-t md:border-t-0 md:border-x border-zinc-100 px-6 py-2 gap-2">
-                  <div className="flex items-center justify-between w-full mb-1">
-                    <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
-                      Điểm từng Part
-                    </span>
-                    <span className="text-[11px] text-zinc-400 font-medium">
-                      FC · PR · LR · GRA
-                    </span>
+                {/* Pill Badges Row */}
+                <div className="flex justify-between items-end mt-4">
+                  <div className="flex flex-wrap gap-2">
+                    {(() => {
+                      let totalF = 0, totalV = 0, totalG = 0, totalP = 0;
+                      let validParts = 0;
+                      exam.speakingParts.forEach(p => {
+                         const r = results[p.id];
+                         if (r) {
+                            totalF += parseFloat(r.criteria?.fluency?.score || 0);
+                            totalV += parseFloat(r.criteria?.vocabulary?.score || 0);
+                            totalG += parseFloat(r.criteria?.grammar?.score || 0);
+                            totalP += parseFloat(r.criteria?.pronunciation?.score || 0);
+                            validParts++;
+                         }
+                      });
+                      const avgF = validParts > 0 ? roundIeltsScore(totalF / validParts) : '–';
+                      const avgV = validParts > 0 ? roundIeltsScore(totalV / validParts) : '–';
+                      const avgG = validParts > 0 ? roundIeltsScore(totalG / validParts) : '–';
+                      const avgP = validParts > 0 ? roundIeltsScore(totalP / validParts) : '–';
+                      return (
+                        <>
+                          <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(avgF, true)}>Trôi chảy: {avgF}</span>
+                          <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(avgV, true)}>Từ vựng: {avgV}</span>
+                          <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(avgG, true)}>Ngữ pháp: {avgG}</span>
+                          <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(avgP, true)}>Phát âm: {avgP}</span>
+                        </>
+                      )
+                    })()}
                   </div>
-                  <div className="w-full space-y-1.5">
-                    {exam.speakingParts.map(p => (
-                      <div key={p.id} className="flex items-center justify-between text-xs w-full">
-                        <div className="flex items-center gap-2">
-                          <span className="w-5 h-5 rounded-full bg-zinc-100 font-semibold text-zinc-700 flex items-center justify-center text-[10px]">
-                            P{p.number}
-                          </span>
-                          <span className="font-semibold text-zinc-800">Part {p.number}</span>
-                        </div>
-                        <span className="font-mono font-extrabold text-sm text-zinc-900">
-                          Band {results[p.id]?.overall ?? '–'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Cột 3: Nút hành động */}
-                <div className="flex flex-col gap-2.5 justify-center w-full max-w-[220px] mx-auto">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (user) {
-                        clearDraft(user.id || user._id, id, 'speaking')
-                        saveDraft({
-                          userId: user.id || user._id,
-                          examId: id,
-                          skillType: 'speaking',
-                          data: { transcripts: {}, submittedPartIds: [], isRetake: true },
-                          timeRemaining: null
-                        })
-                      }
-                      window.location.href = window.location.pathname
-                    }}
-                    className="h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer shadow-xs"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Làm lại bài thi</span>
+                  <button className="w-8 h-8 rounded-full border border-indigo-200 bg-white/50 flex items-center justify-center text-indigo-400 hover:bg-white transition-colors shrink-0">
+                    <ChevronUp className="w-5 h-5" />
                   </button>
                 </div>
+              </div>
+              
+              {/* Bottom Section */}
+              <div className="bg-white p-4 px-6 flex justify-between items-center border-t border-indigo-100">
+                <button className="flex items-center gap-1.5 text-indigo-600 font-bold text-[13px] hover:underline">
+                  Chia sẻ <Share className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (user) {
+                      clearDraft(user.id || user._id, id, 'speaking')
+                      saveDraft({
+                        userId: user.id || user._id,
+                        examId: id,
+                        skillType: 'speaking',
+                        data: { transcripts: {}, submittedPartIds: [], isRetake: true },
+                        timeRemaining: null
+                      })
+                    }
+                    window.location.href = window.location.pathname
+                  }}
+                  className="h-10 px-6 rounded-full bg-[#f000ff] hover:bg-[#d000d0] text-white text-[13px] font-bold inline-flex items-center justify-center gap-2 transition-colors whitespace-nowrap cursor-pointer shadow-md"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Thi lại</span>
+                </button>
               </div>
             </div>
 
