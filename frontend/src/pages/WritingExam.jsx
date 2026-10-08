@@ -60,6 +60,25 @@ function ImageLightbox({ src, onClose }) {
   )
 }
 
+
+const getScoreColorClass = (scoreStr, isBg = false) => {
+  const s = parseFloat(scoreStr)
+  if (isNaN(s)) return isBg ? 'bg-zinc-200 text-zinc-500' : 'text-zinc-500'
+  if (s >= 8.0) return isBg ? 'bg-fuchsia-500 text-white' : 'text-fuchsia-600'
+  if (s >= 7.0) return isBg ? 'bg-emerald-500 text-white' : 'text-emerald-600'
+  if (s >= 5.5) return isBg ? 'bg-amber-400 text-amber-900' : 'text-amber-500'
+  return isBg ? 'bg-zinc-200 text-zinc-600' : 'text-zinc-500'
+}
+
+const roundIeltsScore = (num) => {
+  if (isNaN(num)) return 0
+  const whole = Math.floor(num)
+  const frac = num - whole
+  if (frac < 0.25) return whole + '.0'
+  if (frac < 0.75) return whole + '.5'
+  return (whole + 1) + '.0'
+}
+
 export default function WritingExam() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -465,59 +484,71 @@ export default function WritingExam() {
         {/* Content */}
         <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-16">
           <div className="flex flex-col gap-8">
+            
             {/* ── Score Card Hero Section ── */}
-            <div className="w-full max-w-4xl mx-auto bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs mb-8">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-                {/* Cột 1: Vòng tròn Band Score & thông tin tổng quan */}
-                <div className="flex items-center justify-center gap-4">
-                  <div className="w-20 h-20 rounded-full border-4 border-zinc-900 flex items-center justify-center shrink-0">
-                    <span className="text-3xl font-extrabold font-mono tabular-nums text-zinc-900">
-                      {overallBand}
-                    </span>
+            <div className="w-full max-w-4xl mx-auto rounded-2xl shadow-sm border border-indigo-200 overflow-hidden mb-8">
+              {/* Top Section */}
+              <div className="bg-[#E9EDFF] p-5 md:p-6 relative">
+                {/* Header row */}
+                <div className="flex justify-between items-start mb-6">
+                  <div className="text-indigo-600 font-bold text-sm tracking-widest uppercase mt-2">
+                    FULL TEST
                   </div>
-                  <div className="flex flex-col items-start">
-                    <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
-                      Overall Band Score
-                    </span>
-                    <p className="text-sm font-bold text-zinc-900 m-0">
-                      IELTS Writing Academic
-                    </p>
-                    <p className="text-xs text-zinc-500 m-0 mt-0.5">
-                      Hoàn thành: {exam.writingTasks.length} Tasks
-                    </p>
+                  <div className="text-zinc-500 text-[13px] font-medium absolute left-1/2 -translate-x-1/2 top-7">
+                    {(() => {
+                       const firstResult = Object.values(results)[0];
+                       const testDate = firstResult?.createdAt ? new Date(firstResult.createdAt) : new Date();
+                       return testDate.toISOString().slice(0, 10) + ' | ' + testDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                    })()}
+                  </div>
+                  <div className={"w-16 h-16 rounded-full flex items-center justify-center font-extrabold text-2xl shadow-md border-2 border-white/50 shrink-0 " + getScoreColorClass(overallBand, true)}>
+                    {overallBand}
                   </div>
                 </div>
 
-                {/* Cột 2: Điểm thành phần rút gọn (TR, CC, LR, GRA) */}
-                <div className="flex flex-col justify-center items-center md:items-start border-t md:border-t-0 md:border-x border-zinc-100 px-6 py-2 gap-2">
-                  <div className="flex items-center justify-between w-full mb-1">
-                    <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
-                      Điểm từng Task
-                    </span>
-                    <span className="text-[11px] text-zinc-400 font-medium">
-                      TR · CC · LR · GRA
-                    </span>
-                  </div>
-                  <div className="w-full space-y-1.5">
-                    {exam.writingTasks.map(t => (
-                      <div key={t.id} className="flex items-center justify-between text-xs w-full">
-                        <div className="flex items-center gap-2">
-                          <span className="w-5 h-5 rounded-full bg-zinc-100 font-semibold text-zinc-700 flex items-center justify-center text-[10px]">
-                            T{t.number}
-                          </span>
-                          <span className="font-semibold text-zinc-800">Task {t.number}</span>
-                          <span className="text-zinc-400 font-mono text-[11px]">({results[t.id]?.wordCount || 0} từ)</span>
-                        </div>
-                        <span className="font-mono font-extrabold text-sm text-zinc-900">
-                          Band {results[t.id]?.overall ?? '–'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                {/* Per-Task Scores */}
+                <div className="flex flex-wrap items-center gap-4 mb-4">
+                  {exam.writingTasks.map(t => (
+                     <div key={t.id} className="flex items-center gap-2">
+                       <span className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider">Task {t.number}</span>
+                       <div className={"w-8 h-8 rounded-full flex items-center justify-center font-bold text-[12px] shadow-sm border border-white/50 " + getScoreColorClass(results[t.id]?.overall, true)}>
+                         {results[t.id]?.overall ?? '–'}
+                       </div>
+                     </div>
+                  ))}
                 </div>
 
-                {/* Cột 3: Nút hành động */}
-                <div className="flex flex-col gap-2.5 justify-center w-full max-w-[220px] mx-auto">
+                {/* Pill Badges Row */}
+                <div className="flex justify-between items-center mt-2">
+                  <div className="flex flex-wrap gap-2">
+                    {(() => {
+                      let totalTA = 0, totalCC = 0, totalLR = 0, totalGRA = 0;
+                      let weightSum = 0;
+                      exam.writingTasks.forEach(t => {
+                         const r = results[t.id];
+                         if (r && r.criteria) {
+                            const weight = t.number === 2 ? 2 : 1;
+                            totalTA += parseFloat(r.criteria.task_achievement?.score || 0) * weight;
+                            totalCC += parseFloat(r.criteria.coherence_cohesion?.score || 0) * weight;
+                            totalLR += parseFloat(r.criteria.lexical_resource?.score || 0) * weight;
+                            totalGRA += parseFloat(r.criteria.grammatical_range?.score || 0) * weight;
+                            weightSum += weight;
+                         }
+                      });
+                      const avgTA = weightSum > 0 ? roundIeltsScore(totalTA / weightSum) : '–';
+                      const avgCC = weightSum > 0 ? roundIeltsScore(totalCC / weightSum) : '–';
+                      const avgLR = weightSum > 0 ? roundIeltsScore(totalLR / weightSum) : '–';
+                      const avgGRA = weightSum > 0 ? roundIeltsScore(totalGRA / weightSum) : '–';
+                      return (
+                        <>
+                          <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(avgTA, true)}>TA/TR: {avgTA}</span>
+                          <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(avgCC, true)}>CC: {avgCC}</span>
+                          <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(avgLR, true)}>LR: {avgLR}</span>
+                          <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(avgGRA, true)}>GRA: {avgGRA}</span>
+                        </>
+                      )
+                    })()}
+                  </div>
                   <button
                     type="button"
                     onClick={() => {
@@ -533,10 +564,10 @@ export default function WritingExam() {
                       }
                       window.location.href = window.location.pathname
                     }}
-                    className="h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer shadow-xs"
+                    className="h-10 px-6 shrink-0 rounded-full bg-[#f000ff] hover:bg-[#d000d0] text-white text-[13px] font-bold inline-flex items-center justify-center gap-2 transition-colors whitespace-nowrap cursor-pointer shadow-md"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Làm lại bài thi</span>
+                    <span>Thi lại</span>
                   </button>
                 </div>
               </div>
