@@ -772,6 +772,7 @@ export default function SpeakingExam() {
           <div className="flex flex-col gap-8">
             
             
+            
             {/* ── Score Card Hero Section ── */}
             <div className="w-full max-w-4xl mx-auto rounded-2xl shadow-sm border border-indigo-200 overflow-hidden mb-8">
               {/* Top Section */}
@@ -782,15 +783,28 @@ export default function SpeakingExam() {
                     FULL TEST
                   </div>
                   <div className="text-zinc-500 text-[13px] font-medium absolute left-1/2 -translate-x-1/2 top-7">
-                    {new Date().toISOString().slice(0,10)} | {new Date().toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}
+                    {(() => {
+                       const firstResult = Object.values(results)[0];
+                       const testDate = firstResult?.createdAt ? new Date(firstResult.createdAt) : new Date();
+                       return testDate.toISOString().slice(0, 10) + ' | ' + testDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                    })()}
                   </div>
                   <div className={"w-16 h-16 rounded-full flex items-center justify-center font-extrabold text-2xl shadow-md border-2 border-white/50 shrink-0 " + getScoreColorClass(overallBand, true)}>
                     {overallBand}
                   </div>
                 </div>
 
+                {/* Per-Part Scores */}
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  {exam.speakingParts.map(p => (
+                     <span key={p.id} className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(results[p.id]?.overall, true)}>
+                       Part {p.number}: {results[p.id]?.overall ?? '–'}
+                     </span>
+                  ))}
+                </div>
+
                 {/* Pill Badges Row */}
-                <div className="flex justify-between items-center mt-4">
+                <div className="flex justify-between items-center mt-2">
                   <div className="flex flex-wrap gap-2">
                     {(() => {
                       let totalF = 0, totalV = 0, totalG = 0, totalP = 0;
@@ -839,16 +853,6 @@ export default function SpeakingExam() {
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Thi lại</span>
                   </button>
-                </div>
-                
-                {/* Per-Part Scores */}
-                <div className="flex flex-wrap items-center gap-3 mt-5 pt-4 border-t border-indigo-200/50 text-[13px] font-bold text-indigo-800">
-                  <span className="opacity-80">ĐIỂM TỪNG PART:</span>
-                  {exam.speakingParts.map(p => (
-                     <span key={p.id} className="bg-white/60 px-3 py-1 rounded-md border border-indigo-100 flex items-center gap-2 shadow-sm">
-                       Part {p.number}: <span className={"font-black text-[14px] " + (results[p.id]?.overall ? "text-indigo-600" : "text-zinc-400")}>{results[p.id]?.overall ?? '–'}</span>
-                     </span>
-                  ))}
                 </div>
               </div>
             </div>
