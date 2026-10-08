@@ -115,7 +115,8 @@ router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res
           criteria: feedback.criteria,
           strengths: feedback.strengths,
           improvements: feedback.improvements,
-          transcript: a.transcript
+          transcript: a.transcript,
+          createdAt: a.createdAt
         })
       } else if (a.status === 'failed') {
         results.push({
@@ -123,7 +124,8 @@ router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res
           answerId: a.id,
           status: 'failed',
           error: a.error || 'Lỗi nhận xét AI',
-          transcript: a.transcript
+          transcript: a.transcript,
+          createdAt: a.createdAt
         })
       }
     }
