@@ -418,7 +418,7 @@ export default function ListeningExam() {
             )}
           </div>
 
-          <ListeningTranscript section={section} audioRef={audioRef} />
+          {phase === 'viewResult' && <ListeningTranscript section={section} audioRef={audioRef} />}
         </div>
       </div>
 
