@@ -76,6 +76,6 @@ describe('alertUtils', () => {
       screen.getByText('Kích hoạt').click()
     })
 
-    expect(window.alert).toHaveBeenCalledWith('Toast to Alert')
+    expect(screen.getByText('Toast to Alert')).toBeInTheDocument()
   })
 })
