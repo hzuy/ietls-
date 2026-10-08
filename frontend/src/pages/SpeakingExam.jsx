@@ -840,6 +840,16 @@ export default function SpeakingExam() {
                     <span>Thi lại</span>
                   </button>
                 </div>
+                
+                {/* Per-Part Scores */}
+                <div className="flex flex-wrap items-center gap-3 mt-5 pt-4 border-t border-indigo-200/50 text-[13px] font-bold text-indigo-800">
+                  <span className="opacity-80">ĐIỂM TỪNG PART:</span>
+                  {exam.speakingParts.map(p => (
+                     <span key={p.id} className="bg-white/60 px-3 py-1 rounded-md border border-indigo-100 flex items-center gap-2 shadow-sm">
+                       Part {p.number}: <span className={"font-black text-[14px] " + (results[p.id]?.overall ? "text-indigo-600" : "text-zinc-400")}>{results[p.id]?.overall ?? '–'}</span>
+                     </span>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -867,9 +877,7 @@ export default function SpeakingExam() {
                           Đánh giá chi tiết Part {part.number}
                         </h3>
                       </div>
-                      <div className="bg-amber-100 text-amber-800 font-bold rounded-full w-12 h-12 flex items-center justify-center font-mono text-base shrink-0 shadow-2xs border border-amber-200/60" title={`Overall Part ${part.number}: Band ${r.overall}`}>
-                        {r.overall}
-                      </div>
+                      
                     </div>
 
                     {/* Transcript block */}
