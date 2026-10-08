@@ -26,25 +26,8 @@ const PART2_PREP_SECONDS = 60
 const PART2_SPEAK_SECONDS = 120
 
 function HighlightedTranscript({ text }) {
-  if (!text) return <p className="text-zinc-400 italic text-sm m-0">Chưa có bản ghi âm bài nói.</p>
-  const tokens = text.split(/(\s+)/)
-  const fillerRegex = /^(uh|um|ah|er|eh|mm|hmm|like)$/i
-
-  return (
-    <p className="text-zinc-800 text-sm leading-relaxed m-0 font-normal">
-      {tokens.map((token, idx) => {
-        const clean = token.replace(/[.,!?;:"]/g, '').toLowerCase()
-        if (fillerRegex.test(clean)) {
-          return (
-            <span key={idx} className="bg-zinc-100 text-zinc-500 px-1 py-0.5 rounded text-xs mx-0.5 inline-block font-mono" title="Từ đệm / ngập ngừng">
-              {token}
-            </span>
-          )
-        }
-        return <span key={idx}>{token}</span>
-      })}
-    </p>
-  )
+  if (!text) return <p className="text-zinc-400 italic text-[15px] m-0">Chưa có bản ghi âm bài nói.</p>
+  return <p className="text-zinc-800 text-[15px] leading-relaxed m-0 font-normal whitespace-pre-wrap">{text}</p>
 }
 
 
