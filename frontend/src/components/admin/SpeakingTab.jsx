@@ -96,25 +96,6 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
       const p2 = exam.speakingParts.find(p => p.number === 2)
       const p3 = exam.speakingParts.find(p => p.number === 3)
 
-      // Reconstruct Part 3 topic groups from ##TOPIC## markers. Every marker starts
-      // a new topic — including a bare "##TOPIC##:" (empty label), which is a valid
-      // boundary. Questions before the first marker (legacy data) go into an
-      // unlabelled leading topic.
-      const part3Topics = []
-      let currentTopic = null
-      const pushTopic = (t) => part3Topics.push({ ...t, questions: t.questions.length ? t.questions : [''] })
-      for (const q of (p3?.questions || [])) {
-        if (q.questionText.startsWith('##TOPIC##:')) {
-          if (currentTopic) pushTopic(currentTopic)
-          currentTopic = { label: q.questionText.slice('##TOPIC##:'.length), questions: [] }
-        } else {
-          if (!currentTopic) currentTopic = { label: '', questions: [] }
-          currentTopic.questions.push(q.questionText)
-        }
-      }
-      if (currentTopic) pushTopic(currentTopic)
-      if (!part3Topics.length) part3Topics.push({ label: '', questions: [''] })
-
       setForm({
         title: exam.title,
         bookNumber: exam.bookNumber?.toString() || '',
@@ -128,7 +109,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
             ? { instructions: '', cueCard: raw, questions: p2?.questions.map(q => q.questionText) || [''] }
             : { instructions: raw.slice(0, sep), cueCard: raw.slice(sep + 5), questions: p2?.questions.map(q => q.questionText) || [''] }
         })(),
-        part3: { description: p3?.cueCard || '', topics: part3Topics }
+        part3: { description: p3?.cueCard || '', questions: p3?.questions.filter(q => !q.questionText.startsWith('##TOPIC##:')).map(q => q.questionText) || [''] }
       })
       setEditingId(id)
       setEditHighlight(true)
@@ -172,42 +153,12 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
     setForm({ ...form, part2: { ...form.part2, questions: qs.length ? qs : [''] } })
   }
 
-  // ── Part 3 topic helpers ────────────────────────────────────────
-  const updateTopicLabel = (ti, val) => {
-    const topics = [...form.part3.topics]
-    topics[ti] = { ...topics[ti], label: val }
-    setForm({ ...form, part3: { topics } })
-  }
-  const updateTopicQuestion = (ti, qi, val) => {
-    const topics = [...form.part3.topics]
-    const qs = [...topics[ti].questions]; qs[qi] = val
-    topics[ti] = { ...topics[ti], questions: qs }
-    setForm({ ...form, part3: { topics } })
-  }
-  const addTopicQuestion = (ti) => {
-    const topics = [...form.part3.topics]
-    topics[ti] = { ...topics[ti], questions: [...topics[ti].questions, ''] }
-    setForm({ ...form, part3: { topics } })
-  }
-  const removeTopicQuestion = (ti, qi) => {
-    const topics = [...form.part3.topics]
-    const qs = topics[ti].questions.filter((_, i) => i !== qi)
-    topics[ti] = { ...topics[ti], questions: qs.length ? qs : [''] }
-    setForm({ ...form, part3: { topics } })
-  }
-  const addTopic = () =>
-    setForm({ ...form, part3: { topics: [...form.part3.topics, { label: '', questions: ['', ''] }] } })
-  const removeTopic = (ti) => {
-    const topics = form.part3.topics.filter((_, i) => i !== ti)
-    setForm({ ...form, part3: { topics: topics.length ? topics : [{ label: '', questions: [''] }] } })
-  }
-
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
 
     const p1Count = form.part1.questions.filter(q => q.trim()).length
-    const p3Count = form.part3.topics.reduce((n, t) => n + t.questions.filter(q => q.trim()).length, 0)
+    const p3Count = form.part3.questions.filter(q => q.trim()).length
     const problems = []
     if (!form.title.trim()) problems.push('Chưa nhập tên đề')
     if (p1Count === 0 && p3Count === 0) problems.push('Part 1 và Part 3 đều chưa có câu hỏi nào')
@@ -221,15 +172,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
 
     setSubmitting(true)
     try {
-      // Flatten Part 3 topics → questions with a ##TOPIC## marker before each topic.
-      // The marker is ALWAYS emitted (bare "##TOPIC##:" when the label is empty) so
-      // an unlabelled topic keeps its boundary instead of merging into the previous
-      // one. A topic with no questions is dropped entirely.
-      const part3Questions = form.part3.topics.flatMap(t => {
-        const qs = t.questions.filter(q => q.trim())
-        if (qs.length === 0) return []
-        return [`##TOPIC##:${t.label.trim()}`, ...qs]
-      })
+      const part3Questions = form.part3.questions.filter(q => q.trim())
 
       const p2CueCard = form.part2.instructions.trim()
         ? `${form.part2.instructions.trim()}\n===\n${form.part2.cueCard}`
@@ -463,10 +406,9 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
               <div className="w-7 h-7 rounded-full bg-zinc-900 text-white text-xs font-bold flex items-center justify-center">3</div>
               <div>
                 <span className="font-medium text-sm text-zinc-800">Part 3 — Two-way Discussion</span>
-                <p className="text-xs text-zinc-500 mt-0.5">Nhiều chủ đề thảo luận, mỗi chủ đề có nhiều câu hỏi</p>
+                <p className="text-xs text-zinc-500 mt-0.5">Giám khảo hỏi các câu hỏi thảo luận</p>
               </div>
             </div>
-            <button type="button" onClick={addTopic} className="text-xs font-semibold text-zinc-900 hover:text-zinc-700 transition">+ Thêm chủ đề</button>
           </div>
 
           <div className="mb-4">
@@ -477,37 +419,24 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
               onChange={e => setForm({ ...form, part3: { ...form.part3, description: e.target.value } })} />
           </div>
 
-          <div className="space-y-4">
-            {form.part3.topics.map((topic, ti) => (
-              <div key={ti} className="bg-white border border-zinc-200 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <input className={inputCls} placeholder={`VD: School rules`}
-                    value={topic.label} onChange={e => updateTopicLabel(ti, e.target.value)} />
-                  {form.part3.topics.length > 1 && (
-                    <button type="button" onClick={() => removeTopic(ti)}
-                      className="text-red-500 hover:text-red-600 text-xs px-2 py-1 rounded hover:bg-red-50 whitespace-nowrap shrink-0">
-                      Xóa chủ đề
-                    </button>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className={labelCls}>Câu hỏi</label>
+              <button type="button" onClick={() => setForm({ ...form, part3: { ...form.part3, questions: [...form.part3.questions, ''] } })} className="text-xs font-semibold text-zinc-900 hover:text-zinc-700 transition">+ Thêm câu</button>
+            </div>
+            <div className="space-y-2">
+              {form.part3.questions.map((q, idx) => (
+                <div key={idx} className="flex gap-2">
+                  <input className={inputCls}
+                    placeholder={`VD: What kinds of rules are common in a school?`}
+                    value={q} onChange={e => { const qs = [...form.part3.questions]; qs[idx] = e.target.value; setForm({ ...form, part3: { ...form.part3, questions: qs } }) }} />
+                  {form.part3.questions.length > 1 && (
+                    <button type="button" onClick={() => { const qs = form.part3.questions.filter((_, i) => i !== idx); setForm({ ...form, part3: { ...form.part3, questions: qs.length ? qs : [''] } }) }}
+                      className="text-red-400 hover:text-red-600 px-2 flex-shrink-0">×</button>
                   )}
                 </div>
-                <div className="space-y-2">
-                  {topic.questions.map((q, qi) => (
-                    <div key={qi} className="flex gap-2">
-                      <input className={inputCls}
-                        placeholder={`VD: What kinds of rules are common in a school?`}
-                        value={q} onChange={e => updateTopicQuestion(ti, qi, e.target.value)} />
-                      {topic.questions.length > 1 && (
-                        <button type="button" onClick={() => removeTopicQuestion(ti, qi)}
-                          className="text-red-400 hover:text-red-600 px-2 flex-shrink-0">×</button>
-                      )}
-                    </div>
-                  ))}
-                  <button type="button" onClick={() => addTopicQuestion(ti)} className="text-xs font-semibold text-zinc-900 hover:text-zinc-700 transition">
-                    + Thêm câu hỏi
-                  </button>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
 

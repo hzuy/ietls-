@@ -775,7 +775,7 @@ export default function SpeakingExam() {
                               
                               {ans.audioUrl && (
                                 <div className="flex items-center gap-3 bg-white border border-zinc-200 rounded-lg px-3 py-2 mb-3 shadow-xs">
-                                  <audio controls src={ans.audioUrl} className="w-full h-8" />
+                                  <audio controls src={ans.audioUrl?.startsWith('/') ? `${BACKEND_URL}${ans.audioUrl}` : ans.audioUrl} className="w-full h-8" />
                                 </div>
                               )}
 

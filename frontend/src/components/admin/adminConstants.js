@@ -554,7 +554,7 @@ export const emptySpeakingForm = () => ({
   },
   part3: {
     description: '',
-    topics: [{ label: '', questions: ['', ''] }, { label: '', questions: ['', ''] }, { label: '', questions: ['', ''] }]
+    questions: ['', '', '']
   }
 })
 
