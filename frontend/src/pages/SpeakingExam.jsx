@@ -53,6 +53,7 @@ function HighlightedTranscript({ text }) {
 function getScoreColorClass(scoreStr, isSolid = false) {
   const score = parseFloat(scoreStr);
   if (isNaN(score)) return isSolid ? 'bg-zinc-200 text-zinc-700' : 'bg-zinc-50 text-zinc-800 border-zinc-200';
+  if (score >= 8.0) return isSolid ? 'bg-purple-400 text-purple-950' : 'bg-purple-50 text-purple-800 border-purple-200';
   if (score >= 7.0) return isSolid ? 'bg-emerald-400 text-emerald-950' : 'bg-emerald-50 text-emerald-800 border-emerald-200';
   if (score >= 5.5) return isSolid ? 'bg-amber-400 text-amber-950' : 'bg-amber-50 text-amber-800 border-amber-200';
   return isSolid ? 'bg-zinc-300 text-zinc-800' : 'bg-zinc-50 text-zinc-800 border-zinc-300';
