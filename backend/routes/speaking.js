@@ -98,8 +98,15 @@ router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res
 
     // list đã desc theo createdAt → bản đầu tiên gặp cho mỗi part = mới nhất
     const latestByPart = {}
+    const latestTime = answers.length > 0 ? new Date(answers[0].createdAt).getTime() : 0
     for (const a of answers) {
-      if (!latestByPart[a.partId]) latestByPart[a.partId] = a
+      if (!latestByPart[a.partId]) {
+        // Lọc: nếu answer này cách answer mới nhất quá 12 tiếng thì xem như thuộc attempt cũ
+        if (latestTime - new Date(a.createdAt).getTime() > 12 * 60 * 60 * 1000) {
+           continue
+        }
+        latestByPart[a.partId] = a
+      }
     }
 
     const results = []
@@ -177,6 +184,33 @@ async function processSpeakingAI(answerId, partNumber, questionsText, transcript
       where: { id: answerId },
       data: { status: 'grading' }
     })
+
+    const wCount = typeof transcript === 'string' && transcript.startsWith('[') 
+      ? (function(){ try { return JSON.parse(transcript).reduce((a, c) => a + (c.text||'').trim().split(/\s+/).filter(Boolean).length, 0); } catch(e){ return 0; }})()
+      : transcript.trim().split(/\s+/).filter(Boolean).length;
+
+    if (wCount < 5) {
+      const feedback = {
+        overall: '?',
+        criteria: {
+           fluency: { score: '?', comment: 'Câu trả lời quá ngắn hoặc không có nội dung, không ghi nhận được kết quả.' },
+           vocabulary: { score: '?', comment: 'Không có đủ dữ liệu để đánh giá.' },
+           grammar: { score: '?', comment: 'Không có đủ dữ liệu để đánh giá.' },
+           pronunciation: { score: '?', comment: 'Không có đủ dữ liệu để đánh giá.' }
+        },
+        strengths: ['Không có dữ liệu'],
+        improvements: ['Hãy đảm bảo bạn đã trả lời câu hỏi và hệ thống ghi âm hoạt động bình thường.']
+      };
+      await prisma.speakingAnswer.update({
+        where: { id: answerId },
+        data: {
+          status: 'graded',
+          aiFeedback: JSON.stringify(feedback)
+        }
+      });
+      return;
+    }
+
 
     const prompt = `Bạn là giám khảo IELTS Speaking. Đánh giá câu trả lời Part ${partNumber}.
 
