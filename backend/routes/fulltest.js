@@ -3,6 +3,7 @@ const authMiddleware = require('../middleware/auth')
 const { learnerOnly } = require('../lib/roles')
 const prisma = require('../lib/prisma')
 const { ieltsOverall } = require('../lib/scoreUtils')
+const { pickCurrentAttempt, averageBand } = require('../lib/speakingAttempt')
 
 const router = express.Router()
 
@@ -15,7 +16,7 @@ async function getFullTestStatus(userId, seriesId, bookNumber, testNumber) {
     select: {
       id: true, skill: true,
       writingTasks:  { select: { id: true } },
-      speakingParts: { select: { id: true } }
+      speakingParts: { select: { id: true, number: true } }
     }
   })
 
@@ -56,7 +57,7 @@ async function getFullTestStatus(userId, seriesId, bookNumber, testNumber) {
       ? prisma.speakingAnswer.findMany({
           where: { userId, partId: { in: speakingPartIds } },
           orderBy: { createdAt: 'desc' },
-          select: { partId: true, aiScore: true }
+          select: { partId: true, aiScore: true, createdAt: true, part: { select: { number: true } } }
         })
       : [],
   ])
@@ -93,15 +94,9 @@ async function getFullTestStatus(userId, seriesId, bookNumber, testNumber) {
   } else if (speakingPartIds.length === 0) {
     skills.speaking = { available: true, done: false, score: null }
   } else {
-    const latestByPart = {}
-    for (const a of speakingAnswers) {
-      if (!latestByPart[a.partId]) latestByPart[a.partId] = a
-    }
+    const latestByPart = pickCurrentAttempt(speakingAnswers.map(a => ({ ...a, partNumber: a.part?.number })))
     const done = Object.keys(latestByPart).length === speakingPartIds.length
-    const scores = Object.values(latestByPart).map(a => a.aiScore).filter(s => s != null)
-    const score = scores.length > 0
-      ? Math.round(Math.min(9, Math.max(0, scores.reduce((a, b) => a + b, 0) / scores.length)) * 2) / 2
-      : null
+    const score = averageBand(Object.values(latestByPart).map(a => a.aiScore))
     skills.speaking = { available: true, done, score }
   }
 

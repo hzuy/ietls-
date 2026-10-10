@@ -6,6 +6,7 @@ const { learnerOnly } = require('../lib/roles')
 const validate = require('../middleware/validate')
 const { roundBand, ieltsOverall } = require('../lib/scoreUtils')
 const { computeStreak } = require('../lib/streak')
+const { pickCurrentAttempt, averageBand } = require('../lib/speakingAttempt')
 const { historyQuerySchema } = require('../validators/historyValidator')
 
 // GET /api/user/stats — thống kê luyện thi của user đang đăng nhập
@@ -163,7 +164,7 @@ router.get('/history', authMiddleware, learnerOnly, validate(historyQuerySchema,
           partId: true,
           aiScore: true,
           createdAt: true,
-          part: { select: { examId: true } }
+          part: { select: { examId: true, number: true } }
         }
       })
     ])
@@ -193,22 +194,15 @@ router.get('/history', authMiddleware, learnerOnly, validate(historyQuerySchema,
 
     // Tính điểm Speaking gần nhất theo từng exam
     const speakingScoresByExam = {}
-    const speakingByExamPart = {}
+    const speakingAnswersByExam = {}
     for (const a of speakingAnswers) {
       const eId = a.part?.examId
       if (!eId) continue
-      if (!speakingByExamPart[eId]) speakingByExamPart[eId] = {}
-      if (speakingByExamPart[eId][a.partId] === undefined) {
-        speakingByExamPart[eId][a.partId] = a.aiScore
-      }
+      ;(speakingAnswersByExam[eId] ||= []).push({ ...a, partNumber: a.part.number })
     }
-    for (const [eId, partScoresMap] of Object.entries(speakingByExamPart)) {
-      const scores = Object.values(partScoresMap).filter(s => s != null)
-      if (scores.length > 0) {
-        speakingScoresByExam[eId] = Math.round(Math.min(9, Math.max(0, scores.reduce((a, b) => a + b, 0) / scores.length)) * 2) / 2
-      } else {
-        speakingScoresByExam[eId] = 0.0
-      }
+    for (const [eId, list] of Object.entries(speakingAnswersByExam)) {
+      const current = pickCurrentAttempt(list)
+      speakingScoresByExam[eId] = averageBand(Object.values(current).map(a => a.aiScore)) ?? 0.0
     }
 
     res.json({ 

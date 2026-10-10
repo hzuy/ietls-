@@ -8,12 +8,13 @@ const { learnerOnly } = require('../lib/roles')
 const validate = require('../middleware/validate')
 const { aiSubmitLimiter } = require('../middleware/rateLimiter')
 const { speakingSubmitSchema, transcribeSchema } = require('../validators/submissionValidator')
-const { cleanJsonRaw, repairTruncatedJson } = require('../services/json/jsonSanitizer')
+const { sanitizeCorrections } = require('../lib/inlineCorrections')
 const { uploadAudio } = require('../services/storageService')
 
 const router = express.Router()
 const prisma = require('../lib/prisma')
-const { getGroqModel } = require('../lib/groqClient')
+const { requestGradingJson } = require('../lib/groqClient')
+const { analyzeTranscript, isInsufficient, insufficientFeedback, pickCurrentAttempt, readWhisperResult, applyRelevanceCap } = require('../lib/speakingAttempt')
 const getGroqClient = () => new Groq({ apiKey: process.env.GROQ_API_KEY })
 
 // ── Audio upload config (for Whisper transcription) ──────────────────────────
@@ -88,7 +89,7 @@ router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res
     })
     const partIds = parts.map(p => p.id)
     if (partIds.length === 0) return res.json([])
-    const part1Id = parts.find(p => p.number === 1)?.id
+    const partNumberById = Object.fromEntries(parts.map(p => [p.id, p.number]))
 
     // userId trong where clause ngay từ đầu — không thể chạm answer của user khác
     const answers = await prisma.speakingAnswer.findMany({
@@ -97,24 +98,7 @@ router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res
       select: { id: true, partId: true, status: true, aiFeedback: true, transcript: true, error: true, createdAt: true }
     })
 
-    // 1. Tìm timestamp của câu trả lời Part 1 mới nhất (mốc bắt đầu attempt hiện tại)
-    let latestPart1Time = 0
-    if (part1Id) {
-      const latestPart1 = answers.find(a => a.partId === part1Id)
-      if (latestPart1) latestPart1Time = new Date(latestPart1.createdAt).getTime()
-    }
-
-    // 2. Chỉ lấy những câu trả lời thuộc attempt hiện tại (createdAt >= latestPart1Time)
-    // list đã desc theo createdAt → bản đầu tiên gặp cho mỗi part = mới nhất
-    const latestByPart = {}
-    for (const a of answers) {
-      if (!latestByPart[a.partId]) {
-        if (latestPart1Time > 0 && new Date(a.createdAt).getTime() < latestPart1Time) {
-           continue // Bỏ qua các câu trả lời thuộc các attempt cũ (trước khi bắt đầu attempt mới nhất)
-        }
-        latestByPart[a.partId] = a
-      }
-    }
+    const latestByPart = pickCurrentAttempt(answers.map(a => ({ ...a, partNumber: partNumberById[a.partId] })))
 
     const results = []
     for (const a of Object.values(latestByPart)) {
@@ -125,10 +109,11 @@ router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res
           partId: a.partId,
           answerId: a.id,
           status: 'graded',
-          overall: feedback.overall,
+          overall: Number.isFinite(Number(feedback.overall)) ? Number(feedback.overall) : 0,
+          insufficient: feedback.insufficient === true || !Number.isFinite(Number(feedback.overall)),
+          offTopic: feedback.offTopic === true,
           criteria: feedback.criteria,
-          strengths: feedback.strengths,
-          improvements: feedback.improvements,
+          corrections: Array.isArray(feedback.corrections) ? feedback.corrections : [],
           transcript: a.transcript,
           createdAt: a.createdAt
         })
@@ -175,20 +160,28 @@ router.post('/transcribe', authMiddleware, learnerOnly, audioUpload.single('audi
 
     const groq = getGroqClient()
 
-
     const transcription = await groq.audio.transcriptions.create({
       file: fs.createReadStream(filePath),
       model: 'whisper-large-v3',
-      language: 'en',
-      response_format: 'json',
+      response_format: 'verbose_json',
       temperature: 0,
       prompt: promptContext,
     })
 
+    const { text, isEnglish, languageLabel } = readWhisperResult(transcription)
+
+    if (text && !isEnglish) {
+      fs.unlink(filePath, () => {})
+      return res.status(422).json({
+        code: 'NOT_ENGLISH',
+        message: `Hệ thống nhận ra bạn đang nói ${languageLabel}. Bài thi IELTS Speaking chỉ chấm câu trả lời bằng tiếng Anh, vui lòng trả lời lại bằng tiếng Anh.`
+      })
+    }
+
     const uploadRes = await uploadAudio({ path: filePath, filename: req.file.filename }, { subdir: 'user_audio', folder: 'user_audio' })
     const audioUrl = uploadRes.url
 
-    res.json({ transcript: transcription.text || '', audioUrl })
+    res.json({ transcript: text, audioUrl })
   } catch (error) {
     // Clean up file nếu có lỗi xảy ra
     if (filePath) fs.unlink(filePath, () => {})
@@ -197,47 +190,50 @@ router.post('/transcribe', authMiddleware, learnerOnly, audioUpload.single('audi
   }
 })
 
-async function processSpeakingAI(answerId, partNumber, questionsText, transcript) {
+async function processSpeakingAI(answerId, partNumber, partQuestions, transcript) {
   try {
     await prisma.speakingAnswer.update({
       where: { id: answerId },
       data: { status: 'grading' }
     })
 
-    const wCount = typeof transcript === 'string' && transcript.startsWith('[') 
-      ? (function(){ try { return JSON.parse(transcript).reduce((a, c) => a + (c.text||'').trim().split(/\s+/).filter(Boolean).length, 0); } catch(e){ return 0; }})()
-      : transcript.trim().split(/\s+/).filter(Boolean).length;
+    const analysis = analyzeTranscript(transcript)
 
-    if (wCount < 5) {
-      const feedback = {
-        overall: '?',
-        criteria: {
-           fluency: { score: '?', comment: 'Câu trả lời quá ngắn hoặc không có nội dung, không ghi nhận được kết quả.' },
-           vocabulary: { score: '?', comment: 'Không có đủ dữ liệu để đánh giá.' },
-           grammar: { score: '?', comment: 'Không có đủ dữ liệu để đánh giá.' },
-           pronunciation: { score: '?', comment: 'Không có đủ dữ liệu để đánh giá.' }
-        },
-        strengths: ['Không có dữ liệu'],
-        improvements: ['Hãy đảm bảo bạn đã trả lời câu hỏi và hệ thống ghi âm hoạt động bình thường.']
-      };
+    if (isInsufficient(partNumber, analysis)) {
       await prisma.speakingAnswer.update({
         where: { id: answerId },
         data: {
           status: 'graded',
-          aiFeedback: JSON.stringify(feedback)
+          aiScore: 0,
+          aiFeedback: JSON.stringify(insufficientFeedback()),
+          error: null
         }
-      });
-      return;
+      })
+      return
     }
 
+    const questions = (partQuestions || []).filter(q => !String(q.questionText || '').startsWith('##TOPIC##:'))
+    const questionsText = questions.map((q, i) => `${i + 1}. ${q.questionText}`).join('\n')
+    const questionCount = Math.max(questions.length, 1)
+    const answerLines = analysis.spoken.map((e, idx) => {
+      const q = questions.find(x => x.id === e.questionId) || (e.questionId == null ? questions[e.index] : null)
+      const asked = q ? q.questionText : (partNumber === 2 ? 'Cue card ở trên' : 'Không xác định')
+      return `Câu ${idx + 1}\n  Hỏi: ${asked}\n  Trả lời: ${e.text}`
+    }).join('\n')
 
     const prompt = `Bạn là giám khảo IELTS Speaking. Đánh giá câu trả lời Part ${partNumber}.
 
 CÂU HỎI:\n${questionsText}
-CÂU TRẢ LỜI:\n${(function(){ try { const p = JSON.parse(transcript); if(Array.isArray(p)) return p.map((i, idx)=>`Câu ${idx+1}: ${i.text}`).join(`\n`); } catch(e){} return transcript; })()}
+CÂU TRẢ LỜI (mỗi câu kèm đúng câu hỏi mà thí sinh đang trả lời; thí sinh trả lời ${analysis.answeredCount}/${questionCount} câu, các câu bỏ trống đã bị loại):\n${answerLines}
+
+Chỉ chấm dựa trên nội dung thí sinh thực sự nói. Câu bỏ trống hoặc trả lời lạc đề phải làm giảm điểm Fluency and Coherence tương ứng.
+Đếm "on_topic_answers" là số câu trả lời thực sự trả lời đúng câu hỏi tương ứng bằng tiếng Anh có nghĩa. Câu lạc đề, vô nghĩa, nói về chủ đề khác hoặc chỉ là vài từ rời rạc thì KHÔNG được tính.
+
+Sửa lỗi trực tiếp trong câu trả lời: liệt kê các lỗi ngữ pháp, từ vựng, chính tả, dấu câu theo đúng thứ tự xuất hiện. "original" phải chép NGUYÊN VĂN một cụm ngắn (1-6 từ) có thật trong câu trả lời, "corrected" là cụm thay thế đúng, "explanation" giải thích ngắn gọn bằng tiếng Việt vì sao sai và vì sao sửa như vậy. Chỉ sửa lỗi thật, không viết lại câu đã đúng, chấp nhận cả chính tả Anh-Anh và Anh-Mỹ (vd colour/color, cosier/cozier đều đúng). Tối đa 25 lỗi. "answer" là số thứ tự "Câu n" chứa lỗi. Bỏ qua các từ đệm như "um", "uh" vì đây là văn nói.
 
 Trả về JSON (không có gì khác):
 {
+  "on_topic_answers": 3,
   "overall": 6.5,
   "criteria": {
     "fluency": { "score": 6.5, "comment": "..." },
@@ -245,21 +241,12 @@ Trả về JSON (không có gì khác):
     "grammar": { "score": 6.5, "comment": "..." },
     "pronunciation": { "score": 6.5, "comment": "..." }
   },
-  "strengths": "...",
-  "improvements": "..."
+  "corrections": [
+    { "answer": 1, "original": "cụm sai trong câu trả lời", "corrected": "cụm đúng", "type": "grammar|vocabulary|spelling|word_choice", "explanation": "..." }
+  ]
 }`
 
-    const groq = getGroqClient()
-    const completion = await groq.chat.completions.create({
-      messages: [{ role: 'user', content: prompt }],
-      model: getGroqModel(),
-      temperature: 0.3
-    })
-
-    const responseText = completion.choices[0]?.message?.content || ''
-    const finishReason = completion.choices[0]?.finish_reason || null
-    const cleanedJson = repairTruncatedJson(responseText, finishReason)
-    const feedback = JSON.parse(cleanedJson)
+    const feedback = await requestGradingJson(prompt)
 
     // Round all scores to nearest IELTS half-band (0, 0.5, 1, ..., 9)
     const roundBand = s => Math.round(Math.min(9, Math.max(0, parseFloat(s) || 0)) * 2) / 2
@@ -269,6 +256,8 @@ Trả về JSON (không có gì khác):
         if (feedback.criteria[key]) feedback.criteria[key].score = roundBand(feedback.criteria[key].score)
       }
     }
+    applyRelevanceCap(feedback, analysis.answeredCount)
+    feedback.corrections = sanitizeCorrections(feedback.corrections, analysis.entries.map(e => e.text), { indexMap: analysis.spoken.map(e => e.index) })
 
     await prisma.speakingAnswer.update({
       where: { id: answerId },
@@ -337,7 +326,21 @@ router.post('/exams/:id/submit', authMiddleware, learnerOnly, aiSubmitLimiter, v
     if (!part) return res.status(404).json({ message: 'Không tìm thấy part' })
     if (part.examId !== examId) {
       return res.status(400).json({ message: 'Part không thuộc đề thi này' })
-    }    const questionsText = part.questions.map((q, i) => `${i + 1}. ${q.questionText}`).join('\n')
+    }
+
+    if (analyzeTranscript(transcript).spoken.length > 0) {
+      const previous = await prisma.speakingAnswer.findFirst({
+        where: { userId: req.user.userId, partId },
+        orderBy: { createdAt: 'desc' },
+        select: { transcript: true }
+      })
+      if (previous && previous.transcript === transcript) {
+        return res.status(409).json({
+          code: 'DUPLICATE_ANSWER',
+          message: 'Câu trả lời này giống hệt lần nộp trước. Vui lòng ghi âm lại phần này.'
+        })
+      }
+    }
 
     const speakingAnswer = await prisma.speakingAnswer.create({
       data: {
@@ -349,7 +352,7 @@ router.post('/exams/:id/submit', authMiddleware, learnerOnly, aiSubmitLimiter, v
     })
 
     // Fire-and-forget background processing
-    processSpeakingAI(speakingAnswer.id, part.number, questionsText, transcript).catch(err => {
+    processSpeakingAI(speakingAnswer.id, part.number, part.questions, transcript).catch(err => {
       if (process.env.NODE_ENV !== 'production') console.error('[processSpeakingAI Unhandled]', err)
     })
 
@@ -373,10 +376,13 @@ router.get('/answers/:id/status', authMiddleware, learnerOnly, async (req, res) 
     if (answer.status === 'graded') {
       let feedback = {}
       try { feedback = JSON.parse(answer.aiFeedback || '{}') } catch {}
+      const overall = Number(feedback.overall)
       return res.json({
         answerId: answer.id,
         status: 'graded',
-        ...feedback
+        ...feedback,
+        overall: Number.isFinite(overall) ? overall : 0,
+        insufficient: feedback.insufficient === true || !Number.isFinite(overall)
       })
     }
 
@@ -421,8 +427,7 @@ router.post('/answers/:id/retry', authMiddleware, learnerOnly, aiSubmitLimiter, 
       data: { status: 'pending', error: null }
     })
 
-    const questionsText = answer.part.questions.map((q, i) => `${i + 1}. ${q.questionText}`).join('\n')
-    processSpeakingAI(answerId, answer.part.number, questionsText, answer.transcript).catch(err => {
+    processSpeakingAI(answerId, answer.part.number, answer.part.questions, answer.transcript).catch(err => {
       if (process.env.NODE_ENV !== 'production') console.error('[processSpeakingAI Retry Unhandled]', err)
     })
 

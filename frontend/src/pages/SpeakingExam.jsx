@@ -11,7 +11,7 @@ import { useSpeechRecording } from '../hooks/useSpeechRecording'
 import { Mic, X, Square, Play, Pause, AlertCircle, RotateCcw, Sparkles, Eye, Volume2, History, CheckCircle2, ChevronUp, Share } from 'lucide-react'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
-import { renderFeedbackList } from '../utils/feedbackList'
+import InlineCorrections, { CorrectionSummary } from '../components/exam/InlineCorrections'
 import ExitConfirmModal from '../components/common/ExitConfirmModal'
 
 const CRITERIA_LABELS = {
@@ -25,9 +25,9 @@ const CRITERIA_LABELS = {
 const PART2_PREP_SECONDS = 60
 const PART2_SPEAK_SECONDS = 120
 
-function HighlightedTranscript({ text }) {
+function HighlightedTranscript({ text, corrections }) {
   if (!text) return <p className="text-zinc-400 italic text-[15px] m-0">Chưa có bản ghi âm bài nói.</p>
-  return <p className="text-zinc-800 text-[15px] leading-relaxed m-0 font-normal whitespace-pre-wrap">{text}</p>
+  return <InlineCorrections text={text} corrections={corrections} className="text-zinc-800 text-[15px] leading-relaxed font-normal" />
 }
 
 
@@ -50,6 +50,11 @@ function roundIeltsScore(score) {
   if (fraction >= 0.75) return (whole + 1).toFixed(1);
   if (fraction >= 0.25) return (whole + 0.5).toFixed(1);
   return whole.toFixed(1);
+}
+
+function bandNum(value) {
+  const n = parseFloat(value)
+  return Number.isFinite(n) ? n : 0
 }
 
 function CustomAudioPlayer({ src }) {
@@ -258,11 +263,12 @@ export default function SpeakingExam() {
     autosaveRef.current = {
       transcripts, submittedPartIds,
       userId: user ? (user.id || user._id) : null,
+      blocked: viewResultMode || allSubmitted,
     }
   })
   const persistDraftNow = useCallback(() => {
-    const { transcripts, submittedPartIds, userId } = autosaveRef.current
-    if (!userId || !id) return
+    const { transcripts, submittedPartIds, userId, blocked } = autosaveRef.current
+    if (!userId || !id || blocked) return
     const data = { transcripts, submittedPartIds }
     // P3-2: đừng để data rỗng ghi đè một draft cũ không rỗng
     if (isDataEmpty(data)) {
@@ -364,6 +370,7 @@ export default function SpeakingExam() {
   const startInterview = useCallback(() => {
     const p = exam?.speakingParts?.[activePart]
     if (!p) return
+    setTranscripts(prev => ({ ...prev, [p.id]: [] }))
     setTurnState('ai_speaking')
     setActiveQuestionIndex(0)
 
@@ -593,7 +600,7 @@ export default function SpeakingExam() {
   }), [])
 
   const pollStatus = useCallback(async (answerId, part, pollCount = 0) => {
-    if (pollCount >= 30) {
+    if (pollCount >= 60) {
       setGradingErrors(prev => ({ ...prev, [part.id]: { error: 'Hết thời gian chờ nhận xét (90 giây). Vui lòng thử lại.', answerId } }))
       setSubmitting(false)
       setGradingPart(null)
@@ -622,7 +629,7 @@ export default function SpeakingExam() {
         setRetryingPart(null)
       } else {
         // Pending or grading
-        pollTimerRef.current = setTimeout(() => pollStatus(answerId, part, pollCount + 1), 3000)
+        pollTimerRef.current = setTimeout(() => pollStatus(answerId, part, pollCount + 1), 1500)
       }
     } catch (err) {
       setGradingErrors(prev => ({ ...prev, [part.id]: { error: err.response?.data?.message || 'Lỗi kiểm tra kết quả nhận xét', answerId } }))
@@ -714,6 +721,11 @@ export default function SpeakingExam() {
         setGradingPart(null)
       }
     } catch (e) {
+      if (e.response?.data?.code === 'DUPLICATE_ANSWER') {
+        setTranscripts(prev => ({ ...prev, [part.id]: [] }))
+        setTurnState('idle')
+        setActiveQuestionIndex(0)
+      }
       setGradingErrors(prev => ({ ...prev, [part.id]: { error: e.response?.data?.message || 'Lỗi nộp bài, thử lại nhé!' } }))
       setSubmitting(false)
       setGradingPart(null)
@@ -738,7 +750,7 @@ export default function SpeakingExam() {
 
   // ── Result ────────────────────────────────────────────────────────────────
   if (allDone) {
-    const partScores = exam.speakingParts.map(p => results[p.id]?.overall || 0)
+    const partScores = exam.speakingParts.map(p => bandNum(results[p.id]?.overall))
     const avg = partScores.reduce((a, b) => a + b, 0) / partScores.length
     const overallBand = Math.round(Math.min(9, Math.max(0, avg)) * 2) / 2
 
@@ -800,7 +812,7 @@ export default function SpeakingExam() {
                      <div key={p.id} className="flex items-center gap-2">
                        <span className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider">Part {p.number}</span>
                        <div className={"w-8 h-8 rounded-full flex items-center justify-center font-bold text-[12px] shadow-sm border border-white/50 " + getScoreColorClass(results[p.id]?.overall, true)}>
-                         {results[p.id]?.overall ?? '–'}
+                         {results[p.id] ? bandNum(results[p.id].overall) : '–'}
                        </div>
                      </div>
                   ))}
@@ -815,10 +827,10 @@ export default function SpeakingExam() {
                       exam.speakingParts.forEach(p => {
                          const r = results[p.id];
                          if (r) {
-                            totalF += parseFloat(r.criteria?.fluency?.score || 0);
-                            totalV += parseFloat(r.criteria?.vocabulary?.score || 0);
-                            totalG += parseFloat(r.criteria?.grammar?.score || 0);
-                            totalP += parseFloat(r.criteria?.pronunciation?.score || 0);
+                            totalF += bandNum(r.criteria?.fluency?.score);
+                            totalV += bandNum(r.criteria?.vocabulary?.score);
+                            totalG += bandNum(r.criteria?.grammar?.score);
+                            totalP += bandNum(r.criteria?.pronunciation?.score);
                             validParts++;
                          }
                       });
@@ -887,6 +899,20 @@ export default function SpeakingExam() {
                       
                     </div>
 
+                    {r.insufficient && (
+                      <div role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                        Không ghi nhận được câu trả lời đủ dài cho phần này nên điểm là 0. Hãy bấm "Thi lại" và trả lời đầy đủ từng câu hỏi.
+                      </div>
+                    )}
+
+                    {r.offTopic && !r.insufficient && (
+                      <div role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                        Phần lớn câu trả lời chưa đúng trọng tâm câu hỏi nên điểm phần này bị giới hạn. Hãy trả lời trực tiếp từng câu hỏi bằng tiếng Anh.
+                      </div>
+                    )}
+
+                    <CorrectionSummary count={(r.corrections || []).length} />
+
                     {/* Transcript block */}
                     <div className="flex flex-col gap-4 mb-4">
                       {(() => {
@@ -925,7 +951,7 @@ export default function SpeakingExam() {
                                       </div>
                                     </div>
                                     <div className="text-[15px] leading-relaxed text-zinc-700 font-medium mb-5 bg-white/40 p-4 rounded-xl border border-white/50">
-                                      <HighlightedTranscript text={ans.text} />
+                                      <HighlightedTranscript text={ans.text} corrections={(r.corrections || []).filter(c => c.answer === idx)} />
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2">
                                       <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(fluencyScore, true)}>Trôi chảy: {fluencyScore}</span>
@@ -946,27 +972,12 @@ export default function SpeakingExam() {
                                 {typeof transcripts[part.id] === 'string' && transcripts[part.id]?.trim() ? `${transcripts[part.id].trim().split(/\s+/).length} từ` : '0 từ'}
                               </span>
                             </div>
-                            <HighlightedTranscript text={typeof transcripts[part.id] === 'string' ? transcripts[part.id] : ''} />
+                            <HighlightedTranscript text={typeof transcripts[part.id] === 'string' ? transcripts[part.id] : ''} corrections={(r.corrections || []).filter(c => c.answer === 0)} />
                           </div>
                         )
                       })()}
                     </div>
 
-                    {/* Feedback notes / Strengths & Improvements */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4 text-xs">
-                      {r.strengths && (
-                        <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-3">
-                          <span className="text-emerald-800 font-bold block mb-1">Điểm mạnh (Strengths)</span>
-                          {renderFeedbackList(r.strengths, 'text-emerald-600')}
-                        </div>
-                      )}
-                      {r.improvements && (
-                        <div className="bg-orange-50/50 border border-orange-100 rounded-xl p-3">
-                          <span className="text-orange-800 font-bold block mb-1">Cần cải thiện (Improvements)</span>
-                          {renderFeedbackList(r.improvements, 'text-orange-600')}
-                        </div>
-                      )}
-                    </div>
                   </div>
                 )
               })}

@@ -19,4 +19,33 @@ function getGroqModel() {
   return process.env.GROQ_MODEL || 'openai/gpt-oss-120b'
 }
 
-module.exports = { getGroqClient, getGroqModel }
+function gradingParams(model) {
+  const params = { response_format: { type: 'json_object' } }
+  if (/gpt-oss/i.test(model)) params.reasoning_effort = process.env.GROQ_REASONING_EFFORT || 'low'
+  return params
+}
+
+async function requestGradingJson(prompt, { attempts = 2 } = {}) {
+  const { repairTruncatedJson } = require('../services/json/jsonSanitizer')
+  const groq = getGroqClient()
+  const model = getGroqModel()
+  let lastError
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const completion = await groq.chat.completions.create({
+        messages: [{ role: 'user', content: prompt }],
+        model,
+        temperature: 0.3,
+        ...gradingParams(model),
+      })
+      const text = completion.choices[0]?.message?.content || ''
+      return JSON.parse(repairTruncatedJson(text, completion.choices[0]?.finish_reason || null))
+    } catch (err) {
+      lastError = err
+      if (!(err instanceof SyntaxError) && err?.status !== 400) throw err
+    }
+  }
+  throw lastError
+}
+
+module.exports = { getGroqClient, getGroqModel, gradingParams, requestGradingJson }

@@ -1,16 +1,14 @@
 const express = require('express')
-const Groq = require('groq-sdk')
 const authMiddleware = require('../middleware/auth')
 const { learnerOnly } = require('../lib/roles')
 const validate = require('../middleware/validate')
 const { aiSubmitLimiter } = require('../middleware/rateLimiter')
 const { writingSubmitSchema } = require('../validators/submissionValidator')
-const { cleanJsonRaw, repairTruncatedJson } = require('../services/json/jsonSanitizer')
+const { sanitizeCorrections } = require('../lib/inlineCorrections')
 
 const router = express.Router()
 const prisma = require('../lib/prisma')
-const { getGroqModel } = require('../lib/groqClient')
-const getGroqClient = () => new Groq({ apiKey: process.env.GROQ_API_KEY })
+const { requestGradingJson } = require('../lib/groqClient')
 
 router.get('/exams', authMiddleware, async (req, res) => {
   try {
@@ -81,8 +79,7 @@ router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res
           status: 'graded',
           overall: feedback.overall,
           criteria: feedback.criteria,
-          strengths: feedback.strengths,
-          improvements: feedback.improvements,
+          corrections: Array.isArray(feedback.corrections) ? feedback.corrections : [],
           wordCount: a.wordCount,
           essayText: a.essayText,
           createdAt: a.createdAt
@@ -115,6 +112,8 @@ async function processWritingAI(answerId, taskPrompt, taskNumber, essay) {
 ĐỀ BÀI: ${taskPrompt}
 BÀI VIẾT: ${essay}
 
+Sửa lỗi trực tiếp trong bài viết: liệt kê các lỗi ngữ pháp, từ vựng, chính tả, dấu câu theo đúng thứ tự xuất hiện. "original" phải chép NGUYÊN VĂN một cụm ngắn (1-6 từ) có thật trong bài viết, "corrected" là cụm thay thế đúng, "explanation" giải thích ngắn gọn bằng tiếng Việt vì sao sai và vì sao sửa như vậy. Chỉ sửa lỗi thật, không viết lại câu đã đúng, chấp nhận cả chính tả Anh-Anh và Anh-Mỹ (vd colour/color, cosier/cozier đều đúng). Tối đa 25 lỗi.
+
 Trả về JSON (không có gì khác):
 {
   "overall": 6.5,
@@ -124,21 +123,12 @@ Trả về JSON (không có gì khác):
     "lexical_resource": { "score": 6.5, "comment": "..." },
     "grammatical_range": { "score": 6.5, "comment": "..." }
   },
-  "strengths": "...",
-  "improvements": "..."
+  "corrections": [
+    { "original": "cụm sai trong bài", "corrected": "cụm đúng", "type": "grammar|vocabulary|spelling|punctuation|word_choice", "explanation": "..." }
+  ]
 }`
 
-    const groq = getGroqClient()
-    const completion = await groq.chat.completions.create({
-      messages: [{ role: 'user', content: prompt }],
-      model: getGroqModel(),
-      temperature: 0.3
-    })
-
-    const responseText = completion.choices[0]?.message?.content || ''
-    const finishReason = completion.choices[0]?.finish_reason || null
-    const cleanedJson = repairTruncatedJson(responseText, finishReason)
-    const feedback = JSON.parse(cleanedJson)
+    const feedback = await requestGradingJson(prompt)
 
     // Round all scores to nearest IELTS half-band (0, 0.5, 1, ..., 9)
     const roundBand = s => Math.round(Math.min(9, Math.max(0, parseFloat(s) || 0)) * 2) / 2
@@ -148,6 +138,7 @@ Trả về JSON (không có gì khác):
         if (feedback.criteria[key]) feedback.criteria[key].score = roundBand(feedback.criteria[key].score)
       }
     }
+    feedback.corrections = sanitizeCorrections(feedback.corrections, [essay])
 
     await prisma.writingAnswer.update({
       where: { id: answerId },

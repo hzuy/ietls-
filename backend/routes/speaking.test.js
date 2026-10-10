@@ -10,7 +10,7 @@ const mockTranscribe = vi.fn().mockResolvedValue({ text: 'Hello world transcript
 const prismaMock = {
   setting: { findUnique: vi.fn() },
   speakingPart: { findUnique: vi.fn(), findMany: vi.fn() },
-  speakingAnswer: { create: vi.fn(), update: vi.fn(), findUnique: vi.fn(), findMany: vi.fn() },
+  speakingAnswer: { create: vi.fn(), update: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), findFirst: vi.fn() },
   speakingCriterionLog: { createMany: vi.fn() },
   attempt: { count: vi.fn() },
 }
@@ -104,6 +104,27 @@ describe('Speaking Routes & AI Criterion Logging', () => {
       expect(res.status).toBe(200)
       expect(res.body.transcript).toBe('Hello world transcription')
       expect(mockTranscribe).toHaveBeenCalled()
+      expect(mockTranscribe.mock.calls[0][0].language).toBeUndefined()
+      expect(mockTranscribe.mock.calls[0][0].response_format).toBe('verbose_json')
+    })
+
+    it('rejects a recording spoken in Vietnamese instead of translating it', async () => {
+      vi.spyOn(fs, 'createReadStream').mockReturnValue({ on: vi.fn(), once: vi.fn(), emit: vi.fn(), read: vi.fn() })
+      mockTranscribe.mockResolvedValueOnce({
+        language: 'Vietnamese',
+        text: 'Sao không mở cửa còn tắt đèn?',
+        segments: [{ text: 'Sao không mở cửa còn tắt đèn?', no_speech_prob: 0.01 }],
+      })
+
+      const res = await request(app)
+        .post('/api/speaking/transcribe')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+        .attach('audio', Buffer.from('fake audio bytes'), 'test.webm')
+
+      expect(res.status).toBe(422)
+      expect(res.body.code).toBe('NOT_ENGLISH')
+      expect(res.body.message).toContain('tiếng Việt')
+      expect(res.body.transcript).toBeUndefined()
     })
   })
 
@@ -172,6 +193,41 @@ describe('Speaking Routes & AI Criterion Logging', () => {
 
       expect(res.status).toBe(200)
       expect(res.body.status).toBe('pending')
+    })
+
+    it('rejects a transcript identical to the previous submission for the same part', async () => {
+      prismaMock.speakingPart.findUnique.mockResolvedValue({ id: 10, examId: 1, number: 3, questions: [] })
+      prismaMock.speakingAnswer.findFirst.mockResolvedValue({ transcript: sampleTranscript })
+
+      const res = await request(app)
+        .post('/api/speaking/exams/1/submit')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+        .send({ partId: 10, transcript: sampleTranscript })
+
+      expect(res.status).toBe(409)
+      expect(res.body.code).toBe('DUPLICATE_ANSWER')
+      expect(prismaMock.speakingAnswer.create).not.toHaveBeenCalled()
+    })
+
+    it('scores a silent part as 0 without calling the AI', async () => {
+      prismaMock.speakingPart.findUnique.mockResolvedValue({ id: 10, examId: 1, number: 2, questions: [{ questionText: 'Describe a law.' }] })
+      prismaMock.speakingAnswer.findFirst.mockResolvedValue(null)
+      prismaMock.speakingAnswer.create.mockResolvedValue({ id: 83, status: 'pending', userId: 1 })
+      prismaMock.speakingAnswer.update.mockResolvedValue({ id: 83 })
+      const silent = JSON.stringify([{ text: 'Thank you.' }])
+
+      const res = await request(app)
+        .post('/api/speaking/exams/1/submit')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+        .send({ partId: 10, transcript: silent })
+
+      expect(res.status).toBe(200)
+      await vi.waitFor(() => {
+        const graded = prismaMock.speakingAnswer.update.mock.calls.find(c => c[0].data.status === 'graded')
+        expect(graded).toBeDefined()
+        expect(graded[0].data.aiScore).toBe(0)
+        expect(JSON.parse(graded[0].data.aiFeedback).insufficient).toBe(true)
+      })
     })
   })
 

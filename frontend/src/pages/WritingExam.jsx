@@ -10,7 +10,7 @@ import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
 import { Clock, Sparkles, CheckCircle2, RotateCcw, AlertCircle, ChevronRight, X, History, ChevronDown, ChevronUp, FileQuestion } from 'lucide-react'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
-import { renderFeedbackList } from '../utils/feedbackList'
+import InlineCorrections, { CorrectionSummary } from '../components/exam/InlineCorrections'
 import { isTaskComplete, countUnsubmitted } from '../utils/writingTasks'
 import { toImgSrc } from '../utils/media'
 import ExitConfirmModal from '../components/common/ExitConfirmModal'
@@ -137,9 +137,8 @@ function WritingTaskAccordion({ task, r, isCompleted, onRetake }) {
             <div className="p-8 border border-[#F49F2D] border-t-0 bg-white">
               {isCompleted ? (
                 <>
-                  <div className="text-zinc-700 text-[15px] leading-[1.8] whitespace-pre-wrap">
-                    {r.essayText}
-                  </div>
+                  <CorrectionSummary count={(r.corrections || []).length} />
+                  <InlineCorrections text={r.essayText} corrections={r.corrections} className="text-zinc-700 text-[15px] leading-[1.8]" />
                   
                   {/* Insert 4 Criteria and Strengths here! */}
                   <div className="mt-12 pt-8 border-t border-zinc-200">
@@ -181,29 +180,6 @@ function WritingTaskAccordion({ task, r, isCompleted, onRetake }) {
                         })}
                      </div>
 
-                     {/* Strengths */}
-                     <div className="bg-emerald-50/50 rounded-2xl border border-emerald-100 shadow-sm p-6 mt-4">
-                       <p className="text-emerald-800 text-[15px] font-bold mb-4 flex items-center gap-2">
-                         <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Điểm mạnh (Strengths)
-                       </p>
-                       <ul className="space-y-2 text-[14px] text-emerald-700 font-medium">
-                         {(Array.isArray(r.strengths) ? r.strengths : (typeof r.strengths === 'string' ? r.strengths.split('\n').filter(Boolean) : [])).map((s, i) => (
-                           <li key={i} className="flex gap-2"><span className="text-emerald-500 mt-0.5">•</span> <span>{s}</span></li>
-                         ))}
-                       </ul>
-                     </div>
-
-                     {/* Improvements */}
-                     <div className="bg-amber-50/50 rounded-2xl border border-amber-100 shadow-sm p-6 mt-4">
-                       <p className="text-amber-800 text-[15px] font-bold mb-4 flex items-center gap-2">
-                         <span className="w-2 h-2 rounded-full bg-amber-500"></span> Điểm cần cải thiện & Gợi ý (Improvements)
-                       </p>
-                       <ul className="space-y-2 text-[14px] text-amber-700 font-medium">
-                         {(Array.isArray(r.improvements) ? r.improvements : (typeof r.improvements === 'string' ? r.improvements.split('\n').filter(Boolean) : [])).map((s, i) => (
-                           <li key={i} className="flex gap-2"><span className="text-amber-500 mt-0.5">•</span> <span>{s}</span></li>
-                         ))}
-                       </ul>
-                     </div>
                   </div>
                 </>
               ) : (
@@ -467,7 +443,7 @@ export default function WritingExam() {
   })
 
   const pollStatus = async (answerId, task, pollCount = 0) => {
-    if (pollCount >= 30) {
+    if (pollCount >= 60) {
       setGradingErrors(prev => ({ ...prev, [task.id]: { error: 'Hết thời gian chờ chấm bài (90 giây). Vui lòng thử lại.', answerId } }))
       setGradingTask(null)
       setRetryingTask(null)
@@ -487,7 +463,7 @@ export default function WritingExam() {
         setRetryingTask(null)
       } else {
         // Still pending or grading
-        pollTimerRef.current = setTimeout(() => pollStatus(answerId, task, pollCount + 1), 3000)
+        pollTimerRef.current = setTimeout(() => pollStatus(answerId, task, pollCount + 1), 1500)
       }
     } catch (err) {
       setGradingErrors(prev => ({ ...prev, [task.id]: { error: err.response?.data?.message || 'Lỗi kiểm tra kết quả chấm', answerId } }))
@@ -1052,7 +1028,8 @@ export default function WritingExam() {
       {(() => {
         const uncompletedCount = exam.writingTasks.filter(t => !isTaskComplete(t.id, results, submittedTaskIds)).length;
         const isSubmittingLastTask = submitting && uncompletedCount === 1;
-        const isPollingFinalResults = uncompletedCount === 0 && !allDone;
+        const hasGradingError = exam.writingTasks.some(t => gradingErrors[t.id]);
+        const isPollingFinalResults = uncompletedCount === 0 && !allDone && !hasGradingError;
         if (isSubmittingLastTask || isPollingFinalResults) {
           return (
             <div className="fixed inset-0 z-50 bg-white/80 backdrop-blur-xs flex flex-col items-center justify-center gap-3">
