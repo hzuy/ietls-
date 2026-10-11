@@ -168,11 +168,13 @@ export default function SpeakingExam() {
   const [transcripts, setTranscripts] = useState({}) // { partId: text }
   const [results, setResults] = useState({})         // { partId: result }
 
+  const hasAutoAdvancedRef = useRef(false)
   // Auto-advance to first unfinished part on load
   useEffect(() => {
-    if (exam?.speakingParts && Object.keys(results || {}).length > 0) {
+    if (!hasAutoAdvancedRef.current && exam?.speakingParts && Object.keys(results || {}).length > 0) {
       const firstUnfinished = exam.speakingParts.findIndex(p => !(p.id in results))
       if (firstUnfinished !== -1 && activePart === 0) {
+        hasAutoAdvancedRef.current = true
         setActivePart(firstUnfinished)
       }
     }
@@ -192,6 +194,7 @@ export default function SpeakingExam() {
 
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0)
   const [turnState, setTurnState] = useState('idle') // 'idle' | 'ai_speaking' | 'user_preparing' | 'user_speaking'
+  const [waitingForPart2Submit, setWaitingForPart2Submit] = useState(false) // Đang chờ kết thúc ghi âm/transcribe để tự động nộp Part 2
   const [showQuestion, setShowQuestion] = useState(false)
   const [playingAudioId, setPlayingAudioId] = useState(null)
   const ttsAudioRef = useRef(null)
@@ -371,16 +374,16 @@ export default function SpeakingExam() {
     const p = exam?.speakingParts?.[activePart]
     if (!p) return
     setTranscripts(prev => ({ ...prev, [p.id]: [] }))
-    setTurnState('ai_speaking')
     setActiveQuestionIndex(0)
 
     if (p.number === 2) {
+      setTurnState('user_preparing')
+      setPrepSecondsLeft(PART2_PREP_SECONDS)
       if (p.introAudioUrl) {
-        playTTS(p.introAudioUrl, `intro-${p.id}`, onAiAudioEnded)
-      } else {
-        onAiAudioEnded()
+        playTTS(p.introAudioUrl, `intro-${p.id}`)
       }
     } else {
+      setTurnState('ai_speaking')
       const currentQ = p.questions[0]
       if (currentQ?.audioUrl) {
         playTTS(currentQ.audioUrl, `q-${currentQ.id}`, onAiAudioEnded)
@@ -409,6 +412,16 @@ export default function SpeakingExam() {
       stopRecording()
     }
   }, [exam, activePart, activeQuestionIndex, stopRecording, playTTS, onAiAudioEnded])
+
+  const handlePart2Submit = useCallback(() => {
+    const p = exam?.speakingParts?.[activePart]
+    if (!p) return
+    if (isRecording) {
+      stopRecording()
+    }
+    setWaitingForPart2Submit(true)
+    setTurnState('completed')
+  }, [exam, activePart, isRecording, stopRecording])
 
   const skipPrep = useCallback(() => {
     setTurnState('user_speaking')
@@ -540,6 +553,7 @@ export default function SpeakingExam() {
   // ── Stop recording + full cleanup when switching parts ───────────────────────
   useEffect(() => {
     forceCleanupAll()
+    setWaitingForPart2Submit(false)
   }, [activePart, forceCleanupAll])
 
   // ── Đồng bộ mobileView (chỉ ảnh hưởng layout mobile) ────────────────────────
@@ -573,16 +587,20 @@ export default function SpeakingExam() {
     return () => clearInterval(iv)
   }, [turnState, skipPrep])
 
-  // Tự động dừng ghi âm/chuyển câu khi hết thời gian quy định
+  // Tự động dừng ghi âm/chuyển câu khi hết thời gian quy định (Part 2 tự động nộp luôn)
   useEffect(() => {
     if (turnState !== 'user_speaking') return
     const p = exam?.speakingParts?.[activePart]
     if (!p) return
     const limit = getSpeakSecondsLimit(p.number)
     if (recordingSeconds >= limit) {
-      handleNextQuestion()
+      if (p.number === 2) {
+        handlePart2Submit()
+      } else {
+        handleNextQuestion()
+      }
     }
-  }, [turnState, recordingSeconds, activePart, exam, handleNextQuestion, getSpeakSecondsLimit])
+  }, [turnState, recordingSeconds, activePart, exam, handlePart2Submit, handleNextQuestion, getSpeakSecondsLimit])
 
   const handleBack = useCallback(() => {
     if (exam?.seriesId) {
@@ -616,12 +634,6 @@ export default function SpeakingExam() {
         setRetryingPart(null)
         clearPartError(part.id)
         setSubmitting(false)
-
-        // Auto-advance to next part
-        const currentIndex = exam.speakingParts.findIndex(p => p.id === part.id)
-        if (currentIndex < exam.speakingParts.length - 1) {
-          { setActivePart(currentIndex + 1); setTurnState('idle'); setActiveQuestionIndex(0); }
-        }
       } else if (res.status === 'failed') {
         setGradingErrors(prev => ({ ...prev, [part.id]: { error: res.error || 'Lỗi nhận xét AI', answerId: res.answerId ?? answerId } }))
         setSubmitting(false)
@@ -637,7 +649,7 @@ export default function SpeakingExam() {
       setGradingPart(null)
       setRetryingPart(null)
     }
-  }, [exam, clearPartError])
+  }, [clearPartError])
 
   // Chấm lại bài ĐÃ nộp (status='failed') từ transcript đã lưu — không cần ghi âm
   // lại. Khác handleResubmit (Task 3): dùng khi lỗi hạ tầng AI, không phải muốn
@@ -680,15 +692,6 @@ export default function SpeakingExam() {
     setConfirmResubmitId(null)
   }, [clearPartError])
 
-  const redoPart = useCallback((part) => {
-    setTranscripts(prev => {
-      const next = { ...prev }
-      delete next[part.id]
-      return next
-    })
-    setTurnState('idle')
-    setActiveQuestionIndex(0)
-  }, [])
 
     const submitPart = useCallback(async (part) => {
     if (isRecording) stopRecording()
@@ -731,6 +734,25 @@ export default function SpeakingExam() {
       setGradingPart(null)
     }
   }, [transcripts, isRecording, isTranscribing, id, exam, stopRecording, pollStatus, clearPartError])
+
+  // ── Auto-submit Part 2 sau khi hoàn tất ghi âm & nhận dạng giọng nói ─────────
+  useEffect(() => {
+    if (!waitingForPart2Submit) return
+    if (transcribeError) {
+      setWaitingForPart2Submit(false)
+      return
+    }
+    if (isRecording || isTranscribing) return
+
+    const p = exam?.speakingParts?.[activePart]
+    if (!p) {
+      setWaitingForPart2Submit(false)
+      return
+    }
+
+    setWaitingForPart2Submit(false)
+    submitPart(p)
+  }, [waitingForPart2Submit, isRecording, isTranscribing, transcribeError, exam, activePart, submitPart])
 
   if (loading) return <SkeletonExamPage variant="speaking" />
   if (error || !exam) {
@@ -1016,11 +1038,6 @@ export default function SpeakingExam() {
         </div>
         {!previewMode && (
           <div className="flex items-center gap-3 shrink-0">
-            {lastSavedAt && (
-              <span className="text-[11px] text-zinc-400 whitespace-nowrap hidden sm:inline">
-                ✓ Đã lưu {formatSavedAt(lastSavedAt)}
-              </span>
-            )}
             <span className="text-xs text-zinc-500 font-mono tabular-nums">
               {exam.speakingParts.filter(p => isPartDone(p.id)).length}/{exam.speakingParts.length} parts
             </span>
@@ -1048,115 +1065,164 @@ export default function SpeakingExam() {
 
       {/* Body */}
       {part.number === 2 ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-6 bg-zinc-50 overflow-hidden relative">
-          {(() => {
-            const cueText = part.cueCard ? (part.cueCard.indexOf('\n===\n') !== -1 ? part.cueCard.slice(part.cueCard.indexOf('\n===\n') + 5) : part.cueCard) : ''
-            const topic = part.topic || ''
-            return (
-              <div className="flex flex-col w-full max-w-5xl z-10 px-4 h-full py-4">
-                <div className="flex justify-between items-center mb-8 shrink-0">
-                  <div className="w-40 flex justify-start">
-                    {turnState !== 'idle' && (
+        turnState === 'idle' ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 bg-white overflow-hidden relative">
+            <div className="flex justify-between items-center w-full max-w-5xl absolute top-6 px-4 z-20">
+              <div className="w-32"></div>
+              <h2 className="text-xl font-black uppercase tracking-widest text-zinc-900">Part {part.number}</h2>
+              <div className="w-32 text-right">
+                <button onClick={handleBack} className="px-4 py-2 rounded-full border border-zinc-200 text-sm font-semibold text-zinc-600 hover:bg-zinc-100 bg-white cursor-pointer">Thoát</button>
+              </div>
+            </div>
+
+            {/* Center content */}
+            <div className="flex flex-col items-center justify-center flex-1 w-full max-w-3xl pb-24">
+              <p className="text-sm text-zinc-500 italic mb-12 text-center">
+                *Bạn có 1 phút để chuẩn bị và ghi chú cho chủ đề, sau đó có 2 phút để nói.
+              </p>
+
+              <button
+                onClick={startInterview}
+                disabled={partDone || gradingPart === part.id}
+                className="px-8 py-3 rounded-full font-bold text-base bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {(partDone || gradingPart === part.id) ? 'Đã hoàn thành' : `Bắt đầu Part ${part.number}`}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 bg-zinc-50 overflow-hidden relative">
+            {(() => {
+              const cueText = part.cueCard ? (part.cueCard.indexOf('\n===\n') !== -1 ? part.cueCard.slice(part.cueCard.indexOf('\n===\n') + 5) : part.cueCard) : ''
+              const topic = part.topic || ''
+              return (
+                <div className="flex flex-col w-full max-w-5xl z-10 px-4 h-full py-4">
+                  <div className="flex justify-between items-center mb-8 shrink-0">
+                    <div className="w-40 flex justify-start">
                       <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 border-indigo-500 text-indigo-600 font-bold text-sm bg-indigo-50/50">
                         <History className="w-4 h-4" />
-                        {turnState === 'user_preparing' ? formatTime(prepSecondsLeft) : formatTime(Math.max(0, getSpeakSecondsLimit(part.number) - recordingSeconds))}
+                        {turnState === 'user_preparing'
+                          ? formatTime(prepSecondsLeft)
+                          : (turnState === 'completed'
+                            ? '00:00'
+                            : formatTime(Math.max(0, getSpeakSecondsLimit(part.number) - recordingSeconds)))}
                       </span>
-                    )}
-                  </div>
-                  <h2 className="text-2xl font-black uppercase tracking-widest text-zinc-900">Part {part.number}</h2>
-                  <div className="w-40 text-right">
-                    {(turnState === 'idle' || turnState === 'user_preparing') && (
-                      <button onClick={handleBack} className="px-5 py-2 rounded-full border border-zinc-200 text-sm font-semibold text-zinc-600 hover:bg-zinc-100 cursor-pointer transition-colors bg-white">
-                        Thoát
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex flex-col md:flex-row gap-6 mb-8 min-h-[300px] flex-1">
-                  {/* Left: Cue Card */}
-                  <div className="flex-1 bg-white border border-zinc-200 rounded-2xl p-8 shadow-sm text-left overflow-y-auto">
-                    {topic && <h3 className="text-zinc-900 font-bold text-[17px] mb-4 leading-relaxed">{topic}</h3>}
-                    <div className="text-zinc-700 whitespace-pre-wrap leading-relaxed text-base">
-                      {cueText}
+                    </div>
+                    <h2 className="text-2xl font-black uppercase tracking-widest text-zinc-900">Part {part.number}</h2>
+                    <div className="w-40 text-right">
+                      {turnState === 'user_preparing' && (
+                        <button onClick={handleBack} className="px-5 py-2 rounded-full border border-zinc-200 text-sm font-semibold text-zinc-600 hover:bg-zinc-100 cursor-pointer transition-colors bg-white">
+                          Thoát
+                        </button>
+                      )}
                     </div>
                   </div>
-                  
-                  {/* Right: Notes */}
-                  <div className="flex-1">
-                    <textarea 
-                      className="w-full h-full bg-white border border-zinc-200 rounded-2xl p-8 shadow-sm resize-none focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 text-zinc-700 transition-all placeholder:text-zinc-400 text-base"
-                      placeholder="Ghi chú ở đây..."
-                    ></textarea>
-                  </div>
-                </div>
 
-                <div className="flex justify-between items-center px-4 pt-6 border-t border-zinc-200 shrink-0 h-16">
-                  <div className="flex items-center min-w-[200px]">
-                    {turnState === 'idle' && <p className="text-zinc-500 font-medium text-sm">Sẵn sàng để bắt đầu...</p>}
-                    {turnState === 'ai_speaking' && <p className="text-indigo-500 font-medium text-sm animate-pulse">Giám khảo đang đọc hướng dẫn...</p>}
-                    {turnState === 'user_preparing' && <p className="text-indigo-500 font-medium text-sm">Đang có một phút để ghi chú...</p>}
-                    {turnState === 'user_speaking' && <p className="text-red-500 font-medium text-sm animate-pulse">Đang thu âm câu trả lời...</p>}
-                    {turnState === 'completed' && <p className="text-emerald-600 font-medium text-sm">Đã hoàn thành Part 2!</p>}
-                  </div>
-                  
-                  <div className="flex flex-1 items-center justify-center">
-                    {turnState === 'ai_speaking' && (
-                      <div className="flex items-center gap-1.5 h-6">
-                        {[1,2,3].map(n => <span key={n} className="w-1.5 bg-indigo-500 animate-pulse rounded-full h-full" style={{animationDelay: `${n*100}ms`}}/>)}
+                  <div className="flex flex-col md:flex-row gap-6 mb-8 min-h-[300px] flex-1">
+                    {/* Left: Cue Card */}
+                    <div className="flex-1 bg-white border border-zinc-200 rounded-2xl p-8 shadow-sm text-left overflow-y-auto">
+                      {topic && <h3 className="text-zinc-900 font-bold text-[17px] mb-4 leading-relaxed">{topic}</h3>}
+                      <div className="text-zinc-700 whitespace-pre-wrap leading-relaxed text-base">
+                        {cueText}
                       </div>
-                    )}
-                    {turnState === 'user_preparing' && <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-ping"></span>}
-                    {turnState === 'user_speaking' && (
-                      <div className="flex items-end gap-1.5 h-6 justify-center w-32">
-                        {audioLevels.slice(0, 10).map((level, i) => (
-                          <div
-                            key={i}
-                            className="w-1.5 rounded-full bg-red-500 transition-all duration-75"
-                            style={{ height: `${Math.max(4, Math.round(level * 24))}px` }}
-                          />
-                        ))}
-                      </div>
-                    )}
+                    </div>
+                    
+                    {/* Right: Notes */}
+                    <div className="flex-1">
+                      <textarea 
+                        className="w-full h-full bg-white border border-zinc-200 rounded-2xl p-8 shadow-sm resize-none focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 text-zinc-700 transition-all placeholder:text-zinc-400 text-base"
+                        placeholder="Ghi chú ở đây..."
+                      ></textarea>
+                    </div>
                   </div>
 
-                  <div className="min-w-[200px] text-right">
-                    {turnState === 'idle' && (
-                      <button onClick={startInterview} disabled={partDone || gradingPart === part.id} className="px-6 py-2.5 rounded-full font-bold text-sm border-2 border-indigo-500 text-white bg-indigo-500 hover:bg-indigo-600 transition-all cursor-pointer shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
-                        {(partDone || gradingPart === part.id) ? 'Đã hoàn thành' : 'Bắt đầu Part 2'}
-                      </button>
-                    )}
-                    {turnState === 'ai_speaking' && (
-                       <button disabled className="px-6 py-2.5 rounded-full font-bold text-sm border-2 border-zinc-200 text-zinc-400 bg-zinc-50 cursor-not-allowed">
-                         Đang nghe...
-                       </button>
-                    )}
-                    {turnState === 'user_preparing' && (
-                      <button onClick={skipPrep} className="px-6 py-2.5 rounded-full font-bold text-sm border-2 border-indigo-500 text-indigo-600 hover:bg-indigo-50 transition-all cursor-pointer bg-white">
-                        Đã chuẩn bị xong
-                      </button>
-                    )}
-                    {turnState === 'user_speaking' && (
-                      <button onClick={handleNextQuestion} className="px-6 py-2.5 rounded-full font-bold text-sm border-2 border-red-500 text-red-600 hover:bg-red-50 transition-all cursor-pointer bg-white inline-flex items-center gap-2">
-                        <Square className="w-4 h-4" /> Nộp Part 2
-                      </button>
-                    )}
-                    {turnState === 'completed' && (
-                      <div className="flex items-center justify-end gap-3">
-                        <button onClick={() => redoPart(part)} disabled={submitting} className="px-6 py-2.5 rounded-full font-bold text-sm border-2 border-zinc-200 text-zinc-600 bg-white hover:bg-zinc-50 transition-all cursor-pointer inline-flex items-center gap-2">
-                          Làm lại
+                  <div className="flex justify-between items-center px-4 pt-6 border-t border-zinc-200 shrink-0 h-16">
+                    <div className="flex items-center min-w-[200px]">
+                      {turnState === 'ai_speaking' && <p className="text-indigo-500 font-medium text-sm animate-pulse">Giám khảo đang đọc hướng dẫn...</p>}
+                      {turnState === 'user_preparing' && <p className="text-indigo-500 font-medium text-sm">Đang có một phút để ghi chú...</p>}
+                      {turnState === 'user_speaking' && <p className="text-red-500 font-medium text-sm animate-pulse">Đang thu âm câu trả lời...</p>}
+                      {turnState === 'completed' && (
+                        (waitingForPart2Submit || submitting || isTranscribing) ? (
+                          <p className="text-indigo-600 font-medium text-sm animate-pulse flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-indigo-600 animate-ping" />
+                            {isTranscribing ? 'Đang xử lý giọng nói...' : 'Đang nộp Part 2...'}
+                          </p>
+                        ) : (
+                          <p className="text-emerald-600 font-medium text-sm">Đã hoàn thành Part 2!</p>
+                        )
+                      )}
+                    </div>
+                    
+                    <div className="flex flex-1 items-center justify-center">
+                      {turnState === 'ai_speaking' && (
+                        <div className="flex items-center gap-1.5 h-6">
+                          {[1,2,3].map(n => <span key={n} className="w-1.5 bg-indigo-500 animate-pulse rounded-full h-full" style={{animationDelay: `${n*100}ms`}}/>)}
+                        </div>
+                      )}
+                      {turnState === 'user_preparing' && <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-ping"></span>}
+                      {turnState === 'user_speaking' && (
+                        <div className="flex items-end gap-1.5 h-6 justify-center w-32">
+                          {audioLevels.slice(0, 10).map((level, i) => (
+                            <div
+                              key={i}
+                              className="w-1.5 rounded-full bg-red-500 transition-all duration-75"
+                              style={{ height: `${Math.max(4, Math.round(level * 24))}px` }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {turnState === 'completed' && (waitingForPart2Submit || submitting || isTranscribing) && (
+                        <div className="flex items-center gap-1.5 h-6">
+                          {[1,2,3].map(n => <span key={n} className="w-1.5 bg-indigo-500 animate-pulse rounded-full h-full" style={{animationDelay: `${n*100}ms`}}/>)}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="min-w-[200px] text-right">
+                      {turnState === 'ai_speaking' && (
+                        <button disabled className="px-6 py-2.5 rounded-full font-bold text-sm border-2 border-zinc-200 text-zinc-400 bg-zinc-50 cursor-not-allowed">
+                          Đang nghe...
                         </button>
-                        <button onClick={() => submitPart(part)} disabled={submitting} className="px-6 py-2.5 rounded-full font-bold text-sm border-2 border-red-500 text-white bg-red-500 hover:bg-red-600 transition-all cursor-pointer inline-flex items-center gap-2">
-                          {submitting ? 'Đang nộp...' : 'Nộp Part 2'}
+                      )}
+                      {turnState === 'user_preparing' && (
+                        <button onClick={skipPrep} className="px-6 py-2.5 rounded-full font-bold text-sm border-2 border-indigo-500 text-indigo-600 hover:bg-indigo-50 transition-all cursor-pointer bg-white">
+                          Đã chuẩn bị xong
                         </button>
-                      </div>
-                    )}
+                      )}
+                      {turnState === 'user_speaking' && (
+                        <button 
+                          onClick={handlePart2Submit} 
+                          disabled={waitingForPart2Submit || submitting}
+                          className="px-6 py-2.5 rounded-full font-bold text-sm border-2 border-red-500 text-red-600 hover:bg-red-50 transition-all cursor-pointer bg-white inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          <Square className="w-4 h-4" /> Nộp Part 2
+                        </button>
+                      )}
+                      {turnState === 'completed' && (
+                        <div className="flex items-center justify-end">
+                          <button 
+                            onClick={() => submitPart(part)} 
+                            disabled={waitingForPart2Submit || submitting || isTranscribing} 
+                            className="px-6 py-2.5 rounded-full font-bold text-sm border-2 border-red-500 text-white bg-red-500 hover:bg-red-600 transition-all cursor-pointer inline-flex items-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed shadow-md"
+                          >
+                            {(waitingForPart2Submit || submitting || isTranscribing) ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                {isTranscribing ? 'Đang xử lý...' : 'Đang nộp...'}
+                              </>
+                            ) : (
+                              'Nộp Part 2'
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )
-          })()}
-        </div>
+              )
+            })()}
+          </div>
+        )
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center p-6 bg-white overflow-hidden relative">
            <div className="flex justify-between items-center w-full max-w-5xl absolute top-6 px-4 z-20">
@@ -1208,10 +1274,7 @@ export default function SpeakingExam() {
               {turnState === 'completed' && (
                  <div className="flex flex-col items-center justify-center gap-6 w-full">
                     <p className="text-sm font-medium text-zinc-500 text-center max-w-sm leading-relaxed">Bạn đã trả lời xong tất cả câu hỏi. Hãy ấn nút <strong className="text-zinc-700 font-bold">Nộp Part {part.number}</strong> bên dưới để hệ thống chấm điểm nhé!</p>
-                    <div className="flex items-center gap-4">
-                      <button onClick={() => redoPart(part)} disabled={submitting} className="px-6 py-3 rounded-full font-bold text-sm bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors cursor-pointer flex items-center gap-2">
-                        Làm lại
-                      </button>
+                    <div className="flex items-center justify-center">
                       <button onClick={() => submitPart(part)} disabled={submitting} className="px-8 py-3 rounded-full font-bold text-sm bg-red-500 text-white hover:bg-red-600 transition-colors shadow-lg cursor-pointer flex items-center gap-2">
                         {submitting ? 'Đang nộp...' : `Nộp Part ${part.number}`}
                       </button>
