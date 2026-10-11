@@ -382,6 +382,7 @@ model PracticeExam {
   thumbnailUrl String?
   audioUrl     String? // listening only
   passage      String? // passage text (reading) or context (listening)
+  transcript   String?
   isNormalized Boolean   @default(false)
   createdAt    DateTime  @default(now())
   deletedAt    DateTime?

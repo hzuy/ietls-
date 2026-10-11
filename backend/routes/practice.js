@@ -187,7 +187,7 @@ router.get('/admin/:skill/:id', authMiddleware, teacherStrict, async (req, res) 
 // ─── ADMIN: create (FIXED) ────────────────────────────────────────────────────
 router.post('/admin/:skill', authMiddleware, teacherStrict, validate(createPracticeSchema), async (req, res) => {
   const { skill } = req.params
-  const { title, level, thumbnailUrl, audioUrl, passage, questions } = req.body
+  const { title, level, thumbnailUrl, audioUrl, passage, transcript, questions } = req.body
 
   try {
     const exam = await prisma.practiceExam.create({
@@ -198,6 +198,7 @@ router.post('/admin/:skill', authMiddleware, teacherStrict, validate(createPract
         thumbnailUrl: thumbnailUrl || null,
         audioUrl: skill === "listening" ? audioUrl : null,
         passage: passage || null,
+        transcript: skill === 'listening' ? (transcript || null) : null,
         isNormalized: true,
         // ✅ CORRECT: Relation is now named 'questions'
         questions: {
@@ -235,7 +236,7 @@ router.post('/admin/:skill', authMiddleware, teacherStrict, validate(createPract
 // ─── ADMIN: update (FIXED) ────────────────────────────────────────────────────
 router.put('/admin/:skill/:id', authMiddleware, teacherStrict, validate(updatePracticeSchema), async (req, res) => {
   const { id, skill } = req.params
-  const { title, level, thumbnailUrl, audioUrl, passage, questions } = req.body
+  const { title, level, thumbnailUrl, audioUrl, passage, transcript, questions } = req.body
 
   try {
     // Trả về bản ghi sau khi update (kèm questions) để dùng cho audit log bên
@@ -251,6 +252,7 @@ router.put('/admin/:skill/:id', authMiddleware, teacherStrict, validate(updatePr
       if (thumbnailUrl !== undefined) updateData.thumbnailUrl = thumbnailUrl
       if (passage !== undefined) updateData.passage = passage
       if (audioUrl !== undefined) updateData.audioUrl = audioUrl
+      if (transcript !== undefined) updateData.transcript = transcript || null
 
       // ✅ Update main record and manage relation
       return tx.practiceExam.update({

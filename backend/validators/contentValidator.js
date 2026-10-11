@@ -52,6 +52,7 @@ const createPracticeSchema = z.object({
   thumbnailUrl: z.string().nullable().optional(),
   audioUrl: z.string().nullable().optional(),
   passage: z.string().nullable().optional(),
+  transcript: z.string().nullable().optional(),
   questions: z.array(z.any()).optional().default([]),
 }).superRefine((data, ctx) => checkNoDuplicateOptions(data.questions, ctx))
 
@@ -62,6 +63,7 @@ const updatePracticeSchema = z.object({
   thumbnailUrl: z.string().nullable().optional(),
   audioUrl: z.string().nullable().optional(),
   passage: z.string().nullable().optional(),
+  transcript: z.string().nullable().optional(),
   questions: z.array(z.any()).optional(),
 }).superRefine((data, ctx) => checkNoDuplicateOptions(data.questions, ctx))
 

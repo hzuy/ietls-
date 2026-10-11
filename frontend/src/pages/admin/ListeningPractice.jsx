@@ -63,7 +63,7 @@ function ListeningPracticePreviewModal({ form, showAnswers, setShowAnswers, onCl
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 const EMPTY_FORM = {
-  title: '', context: '',
+  title: '', context: '', transcript: '',
   audioUrl: null, audioFile: null, audioName: null,
   questionGroups: [],
   thumbnailUrl: null, thumbPreview: null, thumbFile: null,
@@ -71,7 +71,7 @@ const EMPTY_FORM = {
 
 // Chữ ký nội dung form (bỏ thumbPreview/audioName — phái sinh) để phát hiện thay
 // đổi chưa lưu (derive-snapshot, giống SampleManager).
-const formSig = (f) => JSON.stringify([f.title, f.context, f.questionGroups, f.thumbnailUrl, !!f.thumbFile, f.audioUrl, !!f.audioFile])
+const formSig = (f) => JSON.stringify([f.title, f.context, f.transcript, f.questionGroups, f.thumbnailUrl, !!f.thumbFile, f.audioUrl, !!f.audioFile])
 
 export default function ListeningPractice() {
   const { showToast } = useToast()
@@ -136,6 +136,7 @@ export default function ListeningPractice() {
       const next = {
         title: data.title || '',
         context: data.passage || '',
+        transcript: data.transcript || '',
         audioUrl: data.audioUrl || null,
         audioFile: null,
         audioName: data.audioUrl ? data.audioUrl.split('/').pop() : null,
@@ -221,6 +222,7 @@ export default function ListeningPractice() {
       const body = {
         title: form.title.trim(),
         passage: form.context,
+        transcript: form.transcript || null,
         thumbnailUrl: thumbnailUrl || null,
         audioUrl: audioUrl || null,
         questions: form.questionGroups.map((group, index) => ({ ...group, orderIndex: index }))
@@ -280,6 +282,14 @@ export default function ListeningPractice() {
                 <textarea value={form.context} onChange={e => setForm(f => ({ ...f, context: e.target.value }))}
                   rows={4} placeholder="VD: You will hear a conversation between a student and a library assistant..."
                   className="w-full px-3 py-2 border border-zinc-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 resize-y bg-white text-zinc-900 placeholder:text-zinc-400"
+                  style={{ lineHeight: 1.7 }} />
+              </div>
+
+              <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs">
+                <label className={labelCls}>Transcript (dùng cho giải thích và định vị đáp án)</label>
+                <textarea value={form.transcript} onChange={e => setForm(f => ({ ...f, transcript: e.target.value }))}
+                  rows={8} placeholder="Mỗi đoạn một dòng. Có thể kèm mốc thời gian dạng [00:12 - 00:18] Speaker A"
+                  className="w-full px-3 py-2 border border-zinc-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 resize-y bg-white text-zinc-900 placeholder:text-zinc-400"
                   style={{ lineHeight: 1.7 }} />
               </div>
 

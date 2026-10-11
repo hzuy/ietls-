@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Attempt" ADD COLUMN IF NOT EXISTS "correctCount" INTEGER;
+ALTER TABLE "Attempt" ADD COLUMN IF NOT EXISTS "totalCount" INTEGER;
