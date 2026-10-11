@@ -98,8 +98,8 @@ describe('Home Page Standardization', () => {
     })
 
     // Tên mới sau khi đổi (MỤC 7)
-    expect(screen.getByText('Reading')).toBeInTheDocument()
-    expect(screen.getByText('Listening')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Reading' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Listening' })).toBeInTheDocument()
     expect(screen.getAllByText('Tương tác')).toHaveLength(2)
 
     expect(screen.getByText('Writing mẫu')).toBeInTheDocument()
