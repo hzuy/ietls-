@@ -9,6 +9,7 @@ export default function HighlightPopovers({
   selectionBubble,
   highlightMenu,
   noteEditor,
+  hoveredNote,
   onApplyHighlight,
   onOpenNote,
   onEditNote,
@@ -113,6 +114,35 @@ export default function HighlightPopovers({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 4. Tooltip nhỏ hiển thị nội dung ghi chú khi di chuột (hover) */}
+      {hoveredNote && !selectionBubble && !highlightMenu && !noteEditor && (
+        <div
+          data-highlight-popover
+          data-testid="note-hover-tooltip"
+          className="fixed z-[200] pointer-events-none select-none animate-in fade-in zoom-in-95 duration-100 flex flex-col items-center max-w-[280px] sm:max-w-[320px]"
+          style={{
+            left: Math.max(140, Math.min(typeof window !== 'undefined' ? window.innerWidth - 140 : hoveredNote.x, hoveredNote.x)),
+            top: hoveredNote.y < 60 ? hoveredNote.y + 22 : hoveredNote.y - 6,
+            transform: hoveredNote.y < 60 ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
+          }}
+        >
+          {/* Caret hướng lên nếu hiển thị bên dưới text */}
+          {hoveredNote.y < 60 && (
+            <div className="w-0 h-0 border-x-[5px] border-x-transparent border-b-[5px] border-b-[#1e2530]" />
+          )}
+
+          {/* Hộp nội dung ghi chú nhỏ gọn, tinh tế */}
+          <div className="bg-[#1e2530] text-zinc-100 text-[11px] sm:text-xs font-normal leading-relaxed px-2.5 py-1.5 rounded-md shadow-lg border border-slate-700/70 break-words whitespace-pre-wrap max-h-48 overflow-y-auto">
+            {hoveredNote.note}
+          </div>
+
+          {/* Caret hướng xuống nếu hiển thị bên trên text */}
+          {hoveredNote.y >= 60 && (
+            <div className="w-0 h-0 border-x-[5px] border-x-transparent border-t-[5px] border-t-[#1e2530]" />
+          )}
         </div>
       )}
     </>

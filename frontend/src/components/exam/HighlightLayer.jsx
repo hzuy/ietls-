@@ -41,7 +41,6 @@ export default function HighlightLayer({ text, ranges, onHighlightClick }) {
       <mark
         key={r.id}
         data-highlight-id={r.id}
-        title={r.note || undefined}
         className={
           r.note
             ? "bg-transparent text-red-600 font-semibold underline decoration-red-600 decoration-solid decoration-2 underline-offset-2 cursor-pointer"

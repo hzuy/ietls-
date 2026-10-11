@@ -82,10 +82,11 @@ describe('useTextHighlight hook', () => {
 
   it('dismisses popovers and clears native selection on scroll and wheel', () => {
     const mockRemoveAllRanges = vi.fn()
-    vi.spyOn(window, 'getSelection').mockReturnValue({
+    const spy = vi.spyOn(window, 'getSelection').mockReturnValue({
       removeAllRanges: mockRemoveAllRanges,
       isCollapsed: false,
       rangeCount: 1,
+      toString: () => '',
     })
 
     const { result } = renderHook(() => {
@@ -123,6 +124,93 @@ describe('useTextHighlight hook', () => {
       window.dispatchEvent(new Event('wheel'))
     })
     expect(result.current.highlightMenu).toBeNull()
+    spy.mockRestore()
+  })
+
+  it('tracks hoveredNote on handleMouseMove over mark elements and clears on move away', () => {
+    const { result } = renderHook(() => {
+      const ref = useRef(null)
+      return useTextHighlight({ passageRef: ref, scopeIndex: 0 })
+    })
+
+    act(() => {
+      result.current.setHighlights([
+        { id: 'hl-note', scopeIndex: 0, paraIndex: 0, start: 0, end: 5, note: 'Important Note' },
+        { id: 'hl-plain', scopeIndex: 0, paraIndex: 0, start: 10, end: 15 },
+      ])
+    })
+
+    expect(result.current.hoveredNote).toBeNull()
+
+    // Giả lập DOM mark element có data-highlight-id="hl-note"
+    const markEl = document.createElement('mark')
+    markEl.setAttribute('data-highlight-id', 'hl-note')
+    markEl.getBoundingClientRect = () => ({
+      left: 100, right: 150, top: 200, bottom: 220, width: 50, height: 20
+    })
+
+    // Hover vào mark có note
+    act(() => {
+      result.current.handleMouseMove({
+        target: markEl,
+        clientX: 120,
+        clientY: 210,
+      })
+    })
+
+    expect(result.current.hoveredNote).toEqual({
+      id: 'hl-note',
+      x: 125,
+      y: 200,
+      note: 'Important Note',
+    })
+
+    // Hover ra ngoài (vào div không phải mark)
+    const outsideEl = document.createElement('div')
+    act(() => {
+      result.current.handleMouseMove({
+        target: outsideEl,
+        clientX: 500,
+        clientY: 500,
+      })
+    })
+
+    expect(result.current.hoveredNote).toBeNull()
+  })
+
+  it('clears hoveredNote on wheel or scroll', () => {
+    const { result } = renderHook(() => {
+      const ref = useRef(null)
+      return useTextHighlight({ passageRef: ref, scopeIndex: 0 })
+    })
+
+    act(() => {
+      result.current.setHighlights([
+        { id: 'hl-note', scopeIndex: 0, paraIndex: 0, start: 0, end: 5, note: 'Important Note' },
+      ])
+    })
+
+    const markEl = document.createElement('mark')
+    markEl.setAttribute('data-highlight-id', 'hl-note')
+    markEl.getBoundingClientRect = () => ({
+      left: 100, right: 150, top: 200, bottom: 220, width: 50, height: 20
+    })
+
+    act(() => {
+      result.current.handleMouseMove({
+        target: markEl,
+        clientX: 120,
+        clientY: 210,
+      })
+    })
+
+    expect(result.current.hoveredNote).not.toBeNull()
+
+    act(() => {
+      window.dispatchEvent(new Event('wheel'))
+    })
+
+    expect(result.current.hoveredNote).toBeNull()
   })
 })
 
@@ -199,5 +287,52 @@ describe('HighlightPopovers component', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /lưu/i }))
     expect(onSave).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders small hover tooltip when hoveredNote is present', () => {
+    render(
+      <HighlightPopovers
+        selectionBubble={null}
+        highlightMenu={null}
+        noteEditor={null}
+        hoveredNote={{ id: 'hl-test', x: 250, y: 180, note: 'Ghi chú quan trọng' }}
+      />
+    )
+
+    const tooltip = screen.getByTestId('note-hover-tooltip')
+    expect(tooltip).toBeInTheDocument()
+    expect(tooltip).toHaveTextContent('Ghi chú quan trọng')
+  })
+
+  it('hides hover tooltip when selection bubble, menu, or note editor is active', () => {
+    const { rerender } = render(
+      <HighlightPopovers
+        selectionBubble={{ x: 200, y: 150 }}
+        highlightMenu={null}
+        noteEditor={null}
+        hoveredNote={{ id: 'hl-test', x: 250, y: 180, note: 'Ghi chú' }}
+      />
+    )
+    expect(screen.queryByTestId('note-hover-tooltip')).not.toBeInTheDocument()
+
+    rerender(
+      <HighlightPopovers
+        selectionBubble={null}
+        highlightMenu={{ id: 'hl-test', x: 250, y: 180, note: 'Ghi chú' }}
+        noteEditor={null}
+        hoveredNote={{ id: 'hl-test', x: 250, y: 180, note: 'Ghi chú' }}
+      />
+    )
+    expect(screen.queryByTestId('note-hover-tooltip')).not.toBeInTheDocument()
+
+    rerender(
+      <HighlightPopovers
+        selectionBubble={null}
+        highlightMenu={null}
+        noteEditor={{ x: 250, y: 180, value: 'Ghi chú' }}
+        hoveredNote={{ id: 'hl-test', x: 250, y: 180, note: 'Ghi chú' }}
+      />
+    )
+    expect(screen.queryByTestId('note-hover-tooltip')).not.toBeInTheDocument()
   })
 })

@@ -298,6 +298,7 @@ export default function ListeningExam() {
   // Highlight (toàn bộ giao diện: audio bar, tiêu đề, câu hỏi...)
   const {
     selectionBubble, highlightMenu, noteEditor, setNoteEditor,
+    hoveredNote, handleMouseMove,
     handleMouseUp, handleContainerClick, applyHighlight, openNoteEditorForSelection,
     saveNoteEditor, openHighlightMenu: _openHighlightMenu,
     clearHighlight, editHighlightNote,
@@ -325,6 +326,7 @@ export default function ListeningExam() {
       ref={examContainerRef}
       onClick={handleContainerClick}
       onMouseUp={handleMouseUp}
+      onMouseMove={handleMouseMove}
       className="h-dvh flex flex-col overflow-hidden"
       style={{ backgroundColor: 'var(--surface-raised)' }}
     >
@@ -557,6 +559,7 @@ export default function ListeningExam() {
         selectionBubble={selectionBubble}
         highlightMenu={highlightMenu}
         noteEditor={noteEditor}
+        hoveredNote={hoveredNote}
         onApplyHighlight={applyHighlight}
         onOpenNote={openNoteEditorForSelection}
         onEditNote={editHighlightNote}

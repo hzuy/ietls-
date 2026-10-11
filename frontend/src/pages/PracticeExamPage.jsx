@@ -90,6 +90,8 @@ function ReadingPracticeExam({ exam, onBack }) {
     highlightMenu,
     noteEditor,
     setNoteEditor,
+    hoveredNote,
+    handleMouseMove,
     handleMouseUp,
     handleContainerClick,
     applyHighlight,
@@ -299,6 +301,7 @@ function ReadingPracticeExam({ exam, onBack }) {
       ref={examContainerRef}
       onClick={handleContainerClick}
       onMouseUp={handleMouseUp}
+      onMouseMove={handleMouseMove}
       className="h-screen flex flex-col overflow-hidden bg-zinc-50/50"
     >
       {/* Header */}
@@ -424,6 +427,7 @@ function ReadingPracticeExam({ exam, onBack }) {
         selectionBubble={selectionBubble}
         highlightMenu={highlightMenu}
         noteEditor={noteEditor}
+        hoveredNote={hoveredNote}
         onApplyHighlight={applyHighlight}
         onOpenNote={openNoteEditorForSelection}
         onEditNote={editHighlightNote}
@@ -452,6 +456,8 @@ function ListeningPracticeExam({ exam, onBack }) {
     highlightMenu,
     noteEditor,
     setNoteEditor,
+    hoveredNote,
+    handleMouseMove,
     handleMouseUp,
     handleContainerClick,
     applyHighlight,
@@ -637,6 +643,7 @@ function ListeningPracticeExam({ exam, onBack }) {
       ref={examContainerRef}
       onClick={handleContainerClick}
       onMouseUp={handleMouseUp}
+      onMouseMove={handleMouseMove}
       className="h-screen flex flex-col overflow-hidden bg-zinc-50/50"
     >
       {/* Header */}
@@ -719,6 +726,7 @@ function ListeningPracticeExam({ exam, onBack }) {
         selectionBubble={selectionBubble}
         highlightMenu={highlightMenu}
         noteEditor={noteEditor}
+        hoveredNote={hoveredNote}
         onApplyHighlight={applyHighlight}
         onOpenNote={openNoteEditorForSelection}
         onEditNote={editHighlightNote}

@@ -58,6 +58,7 @@ export function useTextHighlight({ containerRef, passageRef, scopeIndex = 0 }) {
   const [selectionBubble, setSelectionBubble] = useState(null) // { x, y, paraIndex?, start?, end?, range?, text? }
   const [highlightMenu, setHighlightMenu] = useState(null)     // { id, x, y, note? }
   const [noteEditor, setNoteEditor] = useState(null)           // { x, y, paraIndex?, start?, end?, range?, id?, value }
+  const [hoveredNote, setHoveredNote] = useState(null)         // { id, x, y, note }
 
   const closeAll = useCallback(() => {
     const sel = window.getSelection()
@@ -70,6 +71,7 @@ export function useTextHighlight({ containerRef, passageRef, scopeIndex = 0 }) {
     setSelectionBubble(null)
     setHighlightMenu(null)
     setNoteEditor(null)
+    setHoveredNote(null)
   }, [])
 
   // Đóng popover khi đổi scope (passage / section)
@@ -126,7 +128,7 @@ export function useTextHighlight({ containerRef, passageRef, scopeIndex = 0 }) {
 
   // Đóng khi click ra ngoài, nhấn Escape, hoặc khi lăn chuột/cuộn trang
   useEffect(() => {
-    if (!selectionBubble && !highlightMenu && !noteEditor) return
+    if (!selectionBubble && !highlightMenu && !noteEditor && !hoveredNote) return
 
     const onKeyDown = (e) => { if (e.key === 'Escape') closeAll() }
     const onMouseDown = (e) => {
@@ -152,7 +154,7 @@ export function useTextHighlight({ containerRef, passageRef, scopeIndex = 0 }) {
       window.removeEventListener('wheel', onScrollOrWheel)
       window.removeEventListener('touchmove', onScrollOrWheel)
     }
-  }, [selectionBubble, highlightMenu, noteEditor, closeAll])
+  }, [selectionBubble, highlightMenu, noteEditor, hoveredNote, closeAll])
 
   /** Gắn vào onMouseUp của container */
   const handleMouseUp = useCallback(() => {
@@ -264,6 +266,83 @@ export function useTextHighlight({ containerRef, passageRef, scopeIndex = 0 }) {
     }
   }, [highlights, scopeIndex])
 
+  /** Di chuột để hiển thị nội dung note (áp dụng cho cả <mark> và CSS Custom Highlight) */
+  const handleMouseMove = useCallback((e) => {
+    // Không hiện tooltip khi đang mở bất kỳ popover nào hoặc đang bôi đen text
+    if (selectionBubble || highlightMenu || noteEditor) {
+      setHoveredNote(prev => (prev ? null : prev))
+      return
+    }
+
+    const sel = window.getSelection()
+    if (sel && !sel.isCollapsed && typeof sel.toString === 'function' && sel.toString().trim()) {
+      setHoveredNote(prev => (prev ? null : prev))
+      return
+    }
+
+    // 1. Nếu chuột hover trên thẻ <mark> do HighlightLayer render
+    const mark = e.target.closest?.('mark[data-highlight-id]')
+    if (mark) {
+      const id = mark.getAttribute('data-highlight-id')
+      const target = highlights.find(h => h.id === id)
+      if (target && target.note) {
+        const rect = mark.getBoundingClientRect()
+        const newX = rect.left + rect.width / 2
+        const newY = rect.top
+        setHoveredNote(prev => {
+          if (prev?.id === target.id && Math.abs(prev.x - newX) < 1 && Math.abs(prev.y - newY) < 1) return prev
+          return { id: target.id, x: newX, y: newY, note: target.note }
+        })
+        return
+      }
+    }
+
+    // 2. Nếu chuột hover trên vùng text của CSS Custom Highlight (câu hỏi, tiêu đề...)
+    const x = e.clientX
+    const y = e.clientY
+    const active = highlights.filter(h =>
+      !!h.note &&
+      h.paraIndex == null &&
+      (h.scopeIndex ?? h.passageIndex ?? 0) === scopeIndex &&
+      h.range &&
+      h.range.startContainer?.isConnected
+    )
+    for (const h of active) {
+      try {
+        const rects = h.range.getClientRects()
+        for (const r of rects) {
+          if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+            const newX = r.left + r.width / 2
+            const newY = r.top
+            setHoveredNote(prev => {
+              if (prev?.id === h.id && Math.abs(prev.x - newX) < 1 && Math.abs(prev.y - newY) < 1) return prev
+              return { id: h.id, x: newX, y: newY, note: h.note }
+            })
+            return
+          }
+        }
+      } catch {}
+    }
+
+    setHoveredNote(prev => (prev ? null : prev))
+  }, [highlights, scopeIndex, selectionBubble, highlightMenu, noteEditor])
+
+  // Lắng nghe mousemove và mouseleave trên container
+  useEffect(() => {
+    const rootEl = rootRef?.current
+    if (!rootEl) return
+
+    const onMouseLeave = () => setHoveredNote(null)
+
+    rootEl.addEventListener('mousemove', handleMouseMove, { passive: true })
+    rootEl.addEventListener('mouseleave', onMouseLeave)
+
+    return () => {
+      rootEl.removeEventListener('mousemove', handleMouseMove)
+      rootEl.removeEventListener('mouseleave', onMouseLeave)
+    }
+  }, [rootRef, handleMouseMove])
+
   const hasOverlap = useCallback((paraIndex, start, end, ignoreId) => {
     return highlights.some(h =>
       h.id !== ignoreId && (h.scopeIndex ?? h.passageIndex ?? 0) === scopeIndex && h.paraIndex === paraIndex &&
@@ -358,6 +437,7 @@ export function useTextHighlight({ containerRef, passageRef, scopeIndex = 0 }) {
   const clearHighlight = useCallback((highlightId) => {
     setHighlights(prev => prev.filter(h => h.id !== highlightId))
     setHighlightMenu(null)
+    setHoveredNote(prev => (prev?.id === highlightId ? null : prev))
   }, [])
 
   const editHighlightNote = useCallback(() => {
@@ -379,6 +459,9 @@ export function useTextHighlight({ containerRef, passageRef, scopeIndex = 0 }) {
     highlightMenu,
     noteEditor,
     setNoteEditor,
+    hoveredNote,
+    setHoveredNote,
+    handleMouseMove,
     handleMouseUp,
     handleContainerClick,
     applyHighlight,

@@ -96,6 +96,8 @@ export default function ReadingExam() {
     highlightMenu,
     noteEditor,
     setNoteEditor,
+    hoveredNote,
+    handleMouseMove,
     handleMouseUp,
     handleContainerClick,
     applyHighlight,
@@ -455,6 +457,7 @@ export default function ReadingExam() {
       ref={examContainerRef}
       onClick={handleContainerClick}
       onMouseUp={handleMouseUp}
+      onMouseMove={handleMouseMove}
       className="h-dvh flex flex-col overflow-hidden"
       style={{ backgroundColor: 'var(--surface-raised)' }}
     >
@@ -779,6 +782,7 @@ export default function ReadingExam() {
         selectionBubble={selectionBubble}
         highlightMenu={highlightMenu}
         noteEditor={noteEditor}
+        hoveredNote={hoveredNote}
         onApplyHighlight={applyHighlight}
         onOpenNote={openNoteEditorForSelection}
         onEditNote={editHighlightNote}
