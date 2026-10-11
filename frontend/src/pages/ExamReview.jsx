@@ -18,6 +18,7 @@ import ExamErrorState from '../components/exam/ExamErrorState'
 import ExamActionDialog from '../components/common/ExamActionDialog'
 import { getPassageSlots, getSectionSlots } from '../utils/questionCount'
 import { findRange, splitParagraphs } from '../utils/textMatch'
+import { buildLocateSpec, resolveTargets } from '../utils/locateTargets'
 import { parseTranscript } from '../utils/transcriptParser'
 import { examExitPath } from '../utils/submittedExam'
 import { toImgSrc } from '../utils/media'
@@ -77,22 +78,6 @@ function buildAnswersById(parts, reviewMap) {
   return out
 }
 
-function locateTargets(explanation) {
-  if (explanation?.v !== 2) return null
-  const byPara = {}
-  const add = (para, text, kind) => {
-    if (para == null || !text) return
-    ;(byPara[para] ||= []).push({ text, kind })
-  }
-  for (const part of explanation.evidence?.parts || []) add(part.paragraph, part.text, 'evidence')
-  const keywordPara = explanation.locate?.paragraph
-  for (const k of explanation.locate?.keywords || []) {
-    if (keywordPara != null) add(keywordPara, k, 'keyword')
-    for (const part of explanation.evidence?.parts || []) add(part.paragraph, k, 'keyword')
-  }
-  return Object.keys(byPara).length ? byPara : null
-}
-
 function MarkedParagraph({ text, marks }) {
   const ranges = []
   for (const m of marks || []) {
@@ -127,14 +112,15 @@ function MarkedParagraph({ text, marks }) {
 
 function PassageView({ passage, targets }) {
   const paragraphs = useMemo(() => splitParagraphs(passage?.body), [passage])
-  const dimOthers = !!targets
+  const marksByPara = useMemo(() => resolveTargets(targets, paragraphs), [targets, paragraphs])
+  const dimOthers = !!marksByPara
   return (
     <div className="text-zinc-800 text-[15px] leading-relaxed">
       <h2 className="text-lg font-semibold text-zinc-900 mb-1 leading-snug">{passage?.title}</h2>
       {passage?.subtitle && <p className="text-sm text-zinc-500 mb-4 italic">{passage.subtitle}</p>}
       {paragraphs.map((para, i) => {
         const text = para.charAt(0).toUpperCase() + para.slice(1)
-        const marks = targets?.[i]
+        const marks = marksByPara?.[i]
         return (
           <p
             key={i}
@@ -192,7 +178,8 @@ function TranscriptView({ section, targets }) {
   if (!isScript || isMonologue) {
     const textToSplit = isScript ? blocks.map(b => b.text).join('\n\n') : section?.transcript
     const paragraphs = textToSplit ? splitParagraphs(textToSplit) : []
-    const dimOthers = !!targets
+    const marksByPara = resolveTargets(targets, paragraphs)
+    const dimOthers = !!marksByPara
     return (
       <div className="text-zinc-800 text-[15px] leading-relaxed flex flex-col h-full" ref={containerRef}>
         <div className="sticky -top-6 z-10 -mx-1 px-1 pt-6 -mt-6 pb-3 mb-3 bg-white border-b border-zinc-100 shrink-0">
@@ -209,7 +196,7 @@ function TranscriptView({ section, targets }) {
           {paragraphs.length === 0 ? (
             <p className="rounded-xl border border-dashed border-zinc-300 px-4 py-5 text-sm text-zinc-500">Section này chưa có transcript.</p>
           ) : paragraphs.map((para, i) => {
-            const marks = targets?.[i]
+            const marks = marksByPara?.[i]
             
             // Map paragraph index to block index for Monologue if possible
             // Wait, since we joined with \n\n, paragraphs array length matches blocks array length!
@@ -235,7 +222,8 @@ function TranscriptView({ section, targets }) {
   }
 
   // Multi-Speaker Chat bubbles
-  const dimOthers = !!targets
+  const marksByBlock = resolveTargets(targets, blocks.map(b => b.text))
+  const dimOthers = !!marksByBlock
   return (
     <div className="text-zinc-800 text-[15px] leading-relaxed flex flex-col h-full" ref={containerRef}>
       <div className="sticky -top-6 z-10 -mx-1 px-1 pt-6 -mt-6 pb-3 mb-3 bg-white border-b border-zinc-100 shrink-0">
@@ -254,7 +242,7 @@ function TranscriptView({ section, targets }) {
         <div className="space-y-2 pr-1 pb-6 overflow-y-auto">
           {blocks.map((b, i) => {
             const isLeft = b.speaker !== 'Speaker B' && b.speaker !== 'SPEAKER B' && b.speaker !== 'SPEAKER 2'
-            const marks = targets?.[i]
+            const marks = marksByBlock?.[i]
             const showAvatar = i === 0 || blocks[i - 1].speaker !== b.speaker
             const isActive = i === activeIndex
             
@@ -444,8 +432,9 @@ export default function ExamReview({ skill = 'reading' }) {
   const passage = parts[activePassage]
   const activeInfo = reviewMap[activeNumber]
   const explanation = activeInfo?.explanation || null
-  const targets = locate ? locateTargets(explanation) : null
-  const canLocate = explanation?.v === 2 && !!locateTargets(explanation)
+  const locateSpec = useMemo(() => buildLocateSpec(explanation), [explanation])
+  const targets = locate ? locateSpec : null
+  const canLocate = !!locateSpec
 
   const activeGroup = useMemo(
     () => (passage?.questionGroups || []).find(g => activeNumber >= g.qNumberStart && activeNumber <= g.qNumberEnd) || null,
@@ -472,7 +461,7 @@ export default function ExamReview({ skill = 'reading' }) {
     if (next != null) selectNumber(next)
   }
 
-  const targetKey = targets ? `${activeNumber}:${Object.keys(targets).join(',')}` : ''
+  const targetKey = targets ? `${activeNumber}:${activePassage}` : ''
   useEffect(() => {
     if (!targetKey) return
     const timer = setTimeout(() => {
