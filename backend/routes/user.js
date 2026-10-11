@@ -6,7 +6,20 @@ const { learnerOnly } = require('../lib/roles')
 const validate = require('../middleware/validate')
 const { roundBand, ieltsOverall } = require('../lib/scoreUtils')
 const { computeStreak } = require('../lib/streak')
-const { pickCurrentAttempt, averageBand } = require('../lib/speakingAttempt')
+const { averageBand } = require('../lib/speakingAttempt')
+const { speakingAttempts, writingAttempts } = require('../lib/attemptGroups')
+
+function summarizeAttempts(groups, skill, examId, total) {
+  return groups.map(g => ({
+    attemptId: g.id,
+    examId: Number(examId),
+    skill,
+    finishedAt: g.finishedAt,
+    bandScore: averageBand(Object.values(g.items).map(a => a.aiScore)),
+    done: Object.keys(g.items).length,
+    total: total || null,
+  }))
+}
 const { historyQuerySchema } = require('../validators/historyValidator')
 
 // GET /api/user/stats — thống kê luyện thi của user đang đăng nhập
@@ -151,20 +164,24 @@ router.get('/history', authMiddleware, learnerOnly, validate(historyQuerySchema,
         where: { userId },
         orderBy: { createdAt: 'desc' },
         select: {
+          id: true,
           taskId: true,
           aiScore: true,
+          status: true,
           createdAt: true,
-          task: { select: { examId: true } }
+          task: { select: { examId: true, exam: { select: { _count: { select: { writingTasks: true } } } } } }
         }
       }),
       prisma.speakingAnswer.findMany({
         where: { userId },
         orderBy: { createdAt: 'desc' },
         select: {
+          id: true,
           partId: true,
           aiScore: true,
+          status: true,
           createdAt: true,
-          part: { select: { examId: true, number: true } }
+          part: { select: { examId: true, number: true, exam: { select: { _count: { select: { speakingParts: true } } } } } }
         }
       })
     ])
@@ -172,37 +189,30 @@ router.get('/history', authMiddleware, learnerOnly, validate(historyQuerySchema,
     const writingHistoryExamIds = [...new Set(writingAnswers.map(a => a.task.examId))]
     const speakingHistoryExamIds = [...new Set(speakingAnswers.map(a => a.part.examId))]
 
-    // Tính điểm Writing gần nhất theo từng exam
+    const writingAttemptsByExam = {}
     const writingScoresByExam = {}
-    const writingByExamTask = {}
+    const writingByExam = {}
     for (const a of writingAnswers) {
       const eId = a.task?.examId
-      if (!eId) continue
-      if (!writingByExamTask[eId]) writingByExamTask[eId] = {}
-      if (writingByExamTask[eId][a.taskId] === undefined) {
-        writingByExamTask[eId][a.taskId] = a.aiScore
-      }
+      if (eId) (writingByExam[eId] ||= []).push(a)
     }
-    for (const [eId, taskScoresMap] of Object.entries(writingByExamTask)) {
-      const scores = Object.values(taskScoresMap).filter(s => s != null)
-      if (scores.length > 0) {
-        writingScoresByExam[eId] = Math.round(Math.min(9, Math.max(0, scores.reduce((a, b) => a + b, 0) / scores.length)) * 2) / 2
-      } else {
-        writingScoresByExam[eId] = 0.0
-      }
+    for (const [eId, list] of Object.entries(writingByExam)) {
+      const total = list[0].task?.exam?._count?.writingTasks
+      writingAttemptsByExam[eId] = summarizeAttempts(writingAttempts(list), 'writing', eId, total)
+      writingScoresByExam[eId] = writingAttemptsByExam[eId][0]?.bandScore ?? 0.0
     }
 
-    // Tính điểm Speaking gần nhất theo từng exam
+    const speakingAttemptsByExam = {}
     const speakingScoresByExam = {}
-    const speakingAnswersByExam = {}
+    const speakingByExam = {}
     for (const a of speakingAnswers) {
       const eId = a.part?.examId
-      if (!eId) continue
-      ;(speakingAnswersByExam[eId] ||= []).push({ ...a, partNumber: a.part.number })
+      if (eId) (speakingByExam[eId] ||= []).push({ ...a, partNumber: a.part.number })
     }
-    for (const [eId, list] of Object.entries(speakingAnswersByExam)) {
-      const current = pickCurrentAttempt(list)
-      speakingScoresByExam[eId] = averageBand(Object.values(current).map(a => a.aiScore)) ?? 0.0
+    for (const [eId, list] of Object.entries(speakingByExam)) {
+      const total = list[0].part?.exam?._count?.speakingParts
+      speakingAttemptsByExam[eId] = summarizeAttempts(speakingAttempts(list), 'speaking', eId, total)
+      speakingScoresByExam[eId] = speakingAttemptsByExam[eId][0]?.bandScore ?? 0.0
     }
 
     res.json({ 
@@ -213,7 +223,9 @@ router.get('/history', authMiddleware, learnerOnly, validate(historyQuerySchema,
       writingHistoryExamIds,
       speakingHistoryExamIds,
       writingScoresByExam,
-      speakingScoresByExam
+      speakingScoresByExam,
+      writingAttemptsByExam,
+      speakingAttemptsByExam
     })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })

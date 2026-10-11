@@ -346,16 +346,8 @@ function averageBand(values) {
 }
 
 function pickCurrentAttempt(answers) {
-  const sorted = [...answers].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-  const latestPart1 = sorted.find(a => a.partNumber === 1)
-  const since = latestPart1 ? new Date(latestPart1.createdAt).getTime() : 0
-  const byPart = {}
-  for (const a of sorted) {
-    if (byPart[a.partId]) continue
-    if (since && new Date(a.createdAt).getTime() < since) continue
-    byPart[a.partId] = a
-  }
-  return byPart
+  const { speakingAttempts } = require('./attemptGroups')
+  return speakingAttempts(answers)[0]?.items || {}
 }
 
 module.exports = {

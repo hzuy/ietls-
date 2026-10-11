@@ -3,7 +3,8 @@ const authMiddleware = require('../middleware/auth')
 const { learnerOnly } = require('../lib/roles')
 const prisma = require('../lib/prisma')
 const { ieltsOverall } = require('../lib/scoreUtils')
-const { pickCurrentAttempt, averageBand } = require('../lib/speakingAttempt')
+const { averageBand } = require('../lib/speakingAttempt')
+const { speakingAttempts, writingAttempts } = require('../lib/attemptGroups')
 
 const router = express.Router()
 
@@ -50,14 +51,14 @@ async function getFullTestStatus(userId, seriesId, bookNumber, testNumber) {
       ? prisma.writingAnswer.findMany({
           where: { userId, taskId: { in: writingTaskIds } },
           orderBy: { createdAt: 'desc' },
-          select: { taskId: true, aiScore: true }
+          select: { id: true, taskId: true, aiScore: true, status: true, createdAt: true }
         })
       : [],
     speakingPartIds.length > 0
       ? prisma.speakingAnswer.findMany({
           where: { userId, partId: { in: speakingPartIds } },
           orderBy: { createdAt: 'desc' },
-          select: { partId: true, aiScore: true, createdAt: true, part: { select: { number: true } } }
+          select: { id: true, partId: true, aiScore: true, status: true, createdAt: true, part: { select: { number: true } } }
         })
       : [],
   ])
@@ -77,15 +78,9 @@ async function getFullTestStatus(userId, seriesId, bookNumber, testNumber) {
   } else if (writingTaskIds.length === 0) {
     skills.writing = { available: true, done: false, score: null }
   } else {
-    const latestByTask = {}
-    for (const a of writingAnswers) {
-      if (!latestByTask[a.taskId]) latestByTask[a.taskId] = a
-    }
+    const latestByTask = writingAttempts(writingAnswers)[0]?.items || {}
     const done = Object.keys(latestByTask).length === writingTaskIds.length
-    const scores = Object.values(latestByTask).map(a => a.aiScore).filter(s => s != null)
-    const score = scores.length > 0
-      ? Math.round(Math.min(9, Math.max(0, scores.reduce((a, b) => a + b, 0) / scores.length)) * 2) / 2
-      : null
+    const score = averageBand(Object.values(latestByTask).map(a => a.aiScore))
     skills.writing = { available: true, done, score }
   }
 
@@ -94,7 +89,7 @@ async function getFullTestStatus(userId, seriesId, bookNumber, testNumber) {
   } else if (speakingPartIds.length === 0) {
     skills.speaking = { available: true, done: false, score: null }
   } else {
-    const latestByPart = pickCurrentAttempt(speakingAnswers.map(a => ({ ...a, partNumber: a.part?.number })))
+    const latestByPart = speakingAttempts(speakingAnswers.map(a => ({ ...a, partNumber: a.part?.number })))[0]?.items || {}
     const done = Object.keys(latestByPart).length === speakingPartIds.length
     const score = averageBand(Object.values(latestByPart).map(a => a.aiScore))
     skills.speaking = { available: true, done, score }
@@ -205,14 +200,14 @@ router.get('/user-progress', authMiddleware, learnerOnly, async (req, res) => {
         ? prisma.writingAnswer.findMany({
             where: { userId, taskId: { in: writingTaskIds } },
             orderBy: { createdAt: 'desc' },
-            select: { taskId: true, aiScore: true }
+            select: { id: true, taskId: true, aiScore: true, status: true, createdAt: true, task: { select: { examId: true } } }
           })
         : [],
       speakingPartIds.length > 0
         ? prisma.speakingAnswer.findMany({
             where: { userId, partId: { in: speakingPartIds } },
             orderBy: { createdAt: 'desc' },
-            select: { partId: true, aiScore: true }
+            select: { id: true, partId: true, aiScore: true, status: true, createdAt: true, part: { select: { examId: true, number: true } } }
           })
         : [],
     ])
@@ -222,13 +217,14 @@ router.get('/user-progress', authMiddleware, learnerOnly, async (req, res) => {
     for (const a of attempts) {
       if (!latestAttemptByExam[a.examId]) latestAttemptByExam[a.examId] = a
     }
+    const byExam = (list, examOf) => list.reduce((m, a) => ((m[examOf(a)] ||= []).push(a), m), {})
     const latestWritingByTask = {}
-    for (const a of writingAnswers) {
-      if (!latestWritingByTask[a.taskId]) latestWritingByTask[a.taskId] = a
+    for (const list of Object.values(byExam(writingAnswers, a => a.task?.examId))) {
+      Object.assign(latestWritingByTask, writingAttempts(list)[0]?.items || {})
     }
     const latestSpeakingByPart = {}
-    for (const a of speakingAnswers) {
-      if (!latestSpeakingByPart[a.partId]) latestSpeakingByPart[a.partId] = a
+    for (const list of Object.values(byExam(speakingAnswers, a => a.part?.examId))) {
+      Object.assign(latestSpeakingByPart, speakingAttempts(list.map(a => ({ ...a, partNumber: a.part?.number })))[0]?.items || {})
     }
 
     // Step 5: Tính trạng thái hoàn toàn trong bộ nhớ — 0 queries thêm
@@ -245,10 +241,7 @@ router.get('/user-progress', authMiddleware, learnerOnly, async (req, res) => {
         skills.writing = { available: true, done: false, score: null }
       } else {
         const done = taskIds.every(id => latestWritingByTask[id])
-        const scores = taskIds.map(id => latestWritingByTask[id]?.aiScore).filter(s => s != null)
-        const score = scores.length > 0
-          ? Math.round(Math.min(9, Math.max(0, scores.reduce((a, b) => a + b, 0) / scores.length)) * 2) / 2
-          : null
+        const score = averageBand(taskIds.map(id => latestWritingByTask[id]?.aiScore))
         skills.writing = { available: true, done, score }
       }
 
@@ -257,10 +250,7 @@ router.get('/user-progress', authMiddleware, learnerOnly, async (req, res) => {
         skills.speaking = { available: true, done: false, score: null }
       } else {
         const done = partIds.every(id => latestSpeakingByPart[id])
-        const scores = partIds.map(id => latestSpeakingByPart[id]?.aiScore).filter(s => s != null)
-        const score = scores.length > 0
-          ? Math.round(Math.min(9, Math.max(0, scores.reduce((a, b) => a + b, 0) / scores.length)) * 2) / 2
-          : null
+        const score = averageBand(partIds.map(id => latestSpeakingByPart[id]?.aiScore))
         skills.speaking = { available: true, done, score }
       }
 

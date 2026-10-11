@@ -18,6 +18,9 @@ const prismaMock = {
     findUnique: vi.fn(),
     findMany: vi.fn().mockResolvedValue([])
   },
+  practiceQuestion: {
+    findMany: vi.fn().mockResolvedValue([])
+  },
   auditLog: {
     create: vi.fn().mockResolvedValue({})
   },

@@ -11,6 +11,7 @@ import { useSpeechRecording } from '../hooks/useSpeechRecording'
 import { Mic, X, Square, Play, Pause, AlertCircle, RotateCcw, Sparkles, Eye, Volume2, History, CheckCircle2, ChevronUp, Share } from 'lucide-react'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
+import PastAttemptBanner from '../components/exam/PastAttemptBanner'
 import InlineCorrections from '../components/exam/InlineCorrections'
 import ExitConfirmModal from '../components/common/ExitConfirmModal'
 
@@ -175,6 +176,8 @@ export default function SpeakingExam() {
   const previewMode = searchParams.get('preview') === 'true'
   const resumeMode = searchParams.get('resume') === 'true'
   const viewResultMode = searchParams.get('viewResult') === 'true'
+  const viewAttemptId = viewResultMode ? searchParams.get('attemptId') : null
+  const viewFinishedAt = viewResultMode ? searchParams.get('finishedAt') : null
   const { user } = useAuth()
   const { showToast } = useToast()
 
@@ -478,7 +481,7 @@ export default function SpeakingExam() {
       getSpeakingExam(id),
       // Tầng 4: khôi phục kết quả đã chấm từ server — độc lập với resume draft,
       // gọi vô điều kiện. Lỗi ở đây KHÔNG được làm hỏng việc load đề.
-      getSpeakingMyResults(id).catch(() => []),
+      getSpeakingMyResults(id, viewAttemptId).catch(() => []),
     ])
       .then(([data, myResults]) => {
         if (data && data.speakingParts) {
@@ -562,7 +565,7 @@ export default function SpeakingExam() {
         setError(err?.response?.data?.message || err?.message || 'Không tìm thấy đề thi hoặc kết nối bị gián đoạn.')
       })
       .finally(() => setLoading(false))
-  }, [id, resumeMode, user])
+  }, [id, resumeMode, user, viewAttemptId])
 
   useEffect(() => {
     document.title = 'Bài thi Speaking | IELTS Pro'
@@ -805,9 +808,9 @@ export default function SpeakingExam() {
 
 
   // ── Result ────────────────────────────────────────────────────────────────
-  if (allDone) {
-    const partScores = exam.speakingParts.map(p => bandNum(results[p.id]?.overall))
-    const avg = partScores.reduce((a, b) => a + b, 0) / partScores.length
+  if (allDone || (viewAttemptId && exam.speakingParts.some(p => results[p.id]))) {
+    const partScores = exam.speakingParts.filter(p => results[p.id]).map(p => bandNum(results[p.id].overall))
+    const avg = partScores.length ? partScores.reduce((a, b) => a + b, 0) / partScores.length : 0
     const overallBand = Math.round(Math.min(9, Math.max(0, avg)) * 2) / 2
 
     return (
@@ -837,6 +840,7 @@ export default function SpeakingExam() {
 
         {/* Content */}
         <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-16">
+          {viewAttemptId && <PastAttemptBanner finishedAt={viewFinishedAt} />}
           <div className="flex flex-col gap-8">
             
             

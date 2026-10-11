@@ -65,8 +65,8 @@ export const retrySpeakingGrading = (answerId) => api.post(`/speaking/answers/${
 
 // Tầng 4: khôi phục kết quả đã chấm (status 'graded') của chính user cho 1 đề.
 // Trả mảng entry — Writing key theo taskId, Speaking key theo partId.
-export const getWritingMyResults = (id) => api.get(`/writing/exams/${id}/my-results`).then(r => r.data)
-export const getSpeakingMyResults = (id) => api.get(`/speaking/exams/${id}/my-results`).then(r => r.data)
+export const getWritingMyResults = (id, attemptId) => api.get(`/writing/exams/${id}/my-results`, { params: attemptId ? { attemptId } : {} }).then(r => r.data)
+export const getSpeakingMyResults = (id, attemptId) => api.get(`/speaking/exams/${id}/my-results`, { params: attemptId ? { attemptId } : {} }).then(r => r.data)
 
 export const getFullTestStatus = (examId) => api.get(`/full-test/status?examId=${examId}`).then(r => r.data)
 export const getFullTestResult = (seriesId, bookNumber, testNumber) =>

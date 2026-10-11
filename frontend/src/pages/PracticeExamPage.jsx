@@ -10,7 +10,8 @@ import MatchingDragGroup from '../components/MatchingDragGroup'
 import DiagramLabelGroup from '../components/DiagramLabelGroup'
 import MatchingHeadingsGroup from '../components/MatchingHeadingsGroup'
 import TableCompletionRender from '../components/TableCompletionRender'
-import SkillResult from '../components/SkillResult'
+import ExamReview from './ExamReview'
+import { buildPracticeReviewExam } from '../utils/practiceReview'
 import QuestionNavButton from '../components/common/QuestionNavButton'
 import { usePracticeDraft } from '../hooks/usePracticeDraft'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
@@ -246,7 +247,8 @@ function ReadingPracticeExam({ exam, onBack }) {
           userAnswer: answers[qKey] || '',
           correctAnswer: q.correctAnswer,
           options: q.options || null,
-          type: g.type || q.type
+          type: g.type || q.type,
+          explanation: g.explanations?.[q.number] || null
         })
       })
     })
@@ -287,12 +289,7 @@ function ReadingPracticeExam({ exam, onBack }) {
 
   // ── Result screen ───────────────────────────────────────────────────────────
   if (phase === 'result' && result) return (
-    <SkillResult
-      skillType="reading"
-      dataProp={result}
-      isPractice={true}
-      onClose={onBack}
-    />
+    <ExamReview skill="reading" practice={{ exam: buildPracticeReviewExam(exam, 'reading'), result, onClose: onBack }} />
   )
 
   // ── Exam screen ─────────────────────────────────────────────────────────────
@@ -601,7 +598,8 @@ function ListeningPracticeExam({ exam, onBack }) {
           userAnswer: userRaw,
           correctAnswer: correctRaw,
           options: q.options || null,
-          type: g.type || q.type
+          type: g.type || q.type,
+          explanation: g.explanations?.[q.number] || null
         })
       })
     })
@@ -629,12 +627,7 @@ function ListeningPracticeExam({ exam, onBack }) {
 
   // Result screen
   if (phase === 'result' && result) return (
-    <SkillResult
-      skillType="listening"
-      dataProp={result}
-      isPractice={true}
-      onClose={onBack}
-    />
+    <ExamReview skill="listening" practice={{ exam: buildPracticeReviewExam(exam, 'listening'), result, onClose: onBack }} />
   )
 
   // Exam screen

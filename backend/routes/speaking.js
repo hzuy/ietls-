@@ -14,6 +14,7 @@ const { uploadAudio } = require('../services/storageService')
 const router = express.Router()
 const prisma = require('../lib/prisma')
 const { requestGradingJson } = require('../lib/groqClient')
+const { speakingAttempts, pickAttempt } = require('../lib/attemptGroups')
 const {
   analyzeTranscript,
   isInsufficient,
@@ -108,7 +109,8 @@ router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res
       select: { id: true, partId: true, status: true, aiFeedback: true, transcript: true, error: true, createdAt: true }
     })
 
-    const latestByPart = pickCurrentAttempt(answers.map(a => ({ ...a, partNumber: partNumberById[a.partId] })))
+    const groups = speakingAttempts(answers.map(a => ({ ...a, partNumber: partNumberById[a.partId] })))
+    const latestByPart = pickAttempt(groups, req.query.attemptId)?.items || {}
 
     const results = []
     for (const a of Object.values(latestByPart)) {

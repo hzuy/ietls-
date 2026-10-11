@@ -9,6 +9,7 @@ const { sanitizeCorrections } = require('../lib/inlineCorrections')
 const router = express.Router()
 const prisma = require('../lib/prisma')
 const { requestGradingJson } = require('../lib/groqClient')
+const { writingAttempts, pickAttempt } = require('../lib/attemptGroups')
 const { buildWritingGradingPrompt, applyWritingGradingRules, preCheckEssay, resolveImageToDataUri } = require('../lib/writingGrading')
 
 router.get('/exams', authMiddleware, async (req, res) => {
@@ -63,11 +64,7 @@ router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res
       select: { id: true, taskId: true, status: true, aiFeedback: true, wordCount: true, error: true, essayText: true, createdAt: true }
     })
 
-    // list đã desc theo createdAt → bản đầu tiên gặp cho mỗi task = mới nhất
-    const latestByTask = {}
-    for (const a of answers) {
-      if (!latestByTask[a.taskId]) latestByTask[a.taskId] = a
-    }
+    const latestByTask = pickAttempt(writingAttempts(answers), req.query.attemptId)?.items || {}
 
     const results = []
     for (const a of Object.values(latestByTask)) {

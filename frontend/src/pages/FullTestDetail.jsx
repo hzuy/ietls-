@@ -63,11 +63,7 @@ function ActionDropdown({ exam, skill, m, hasDraft, historyInfo = {}, setHistory
       openAuthModal('login', (location?.pathname || '') + (location?.search || ''))
       return
     }
-    if (skill === 'writing' || skill === 'speaking') {
-      navigate(`${m.path}/${exam?.id}?viewResult=true`)
-    } else {
-      setHistoryModal({ skill, skillLabel: m.label, attempts: historyInfo?.[exam?.id] || [] })
-    }
+    setHistoryModal({ skill, skillLabel: m.label, attempts: historyInfo?.[exam?.id] || [] })
   }
   
   useEffect(() => {
@@ -364,16 +360,10 @@ export default function FullTestDetail() {
         historyMap[h.examId].push(h)
       })
 
-      // Nạp điểm Writing và Speaking vào historyMap để hiển thị điểm số gần nhất
-      const writingScores = data.writingScoresByExam || {}
-      for (const [eId, score] of Object.entries(writingScores)) {
-        if (!historyMap[eId]) historyMap[eId] = []
-        historyMap[eId].push({ examId: Number(eId), bandScore: score, skill: 'writing' })
-      }
-      const speakingScores = data.speakingScoresByExam || {}
-      for (const [eId, score] of Object.entries(speakingScores)) {
-        if (!historyMap[eId]) historyMap[eId] = []
-        historyMap[eId].push({ examId: Number(eId), bandScore: score, skill: 'speaking' })
+      for (const byExam of [data.writingAttemptsByExam, data.speakingAttemptsByExam]) {
+        for (const [eId, attempts] of Object.entries(byExam || {})) {
+          historyMap[eId] = [...(historyMap[eId] || []), ...attempts]
+        }
       }
 
       setHistoryInfo({

@@ -341,7 +341,7 @@ function LocateSwitch({ checked, disabled, onChange }) {
   )
 }
 
-export default function ExamReview({ skill = 'reading' }) {
+export default function ExamReview({ skill = 'reading', practice = null }) {
   const isListening = skill === 'listening'
   const skillLabel = isListening ? 'Listening' : 'Reading'
   const partLabel = isListening ? 'Section' : 'Passage'
@@ -351,10 +351,10 @@ export default function ExamReview({ skill = 'reading' }) {
   const [searchParams, setSearchParams] = useSearchParams()
   const attemptId = searchParams.get('attemptId')
 
-  const [exam, setExam] = useState(null)
-  const [result, setResult] = useState(null)
+  const [exam, setExam] = useState(practice?.exam ?? null)
+  const [result, setResult] = useState(practice?.result ?? null)
   const [attempts, setAttempts] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!practice)
   const [error, setError] = useState(null)
   const [activeNumber, setActiveNumber] = useState(null)
   const [locate, setLocate] = useState(false)
@@ -397,14 +397,21 @@ export default function ExamReview({ skill = 'reading' }) {
 
   useEffect(() => {
     document.title = `Chữa bài ${skillLabel} | IELTS Pro`
+    if (practice) {
+      const firstPart = isListening ? practice.exam.listeningSections?.[0] : practice.exam.passages?.[0]
+      const first = (isListening ? getSectionSlots(firstPart) : getPassageSlots(firstPart))[0]?.number ?? null
+      setActiveNumber(n => n ?? first)
+      return
+    }
     load()
-  }, [load, skillLabel])
+  }, [load, skillLabel, practice, isListening])
 
   useEffect(() => {
+    if (practice) return
     getMyHistory({ examId: id, limit: 50 })
       .then(d => setAttempts(d.history || []))
       .catch(() => setAttempts([]))
-  }, [id])
+  }, [id, practice])
 
   useEffect(() => {
     const el = footerRef.current
@@ -497,8 +504,8 @@ export default function ExamReview({ skill = 'reading' }) {
     setSearchParams(next)
   }
 
-  const close = () => navigate(examExitPath(exam, skill), { replace: true })
-  const requestClose = () => setConfirmExit(true)
+  const close = () => (practice ? practice.onClose() : navigate(examExitPath(exam, skill), { replace: true }))
+  const requestClose = () => (practice ? close() : setConfirmExit(true))
 
   if (loading) return <SkeletonExamPage />
   if (error || !exam || !result) {
@@ -522,7 +529,7 @@ export default function ExamReview({ skill = 'reading' }) {
     </select>
   )
 
-  const band = typeof result.bandScore === 'number' ? result.bandScore.toFixed(1) : '–'
+  const band = practice ? `${correctCount}/${allNumbers.length}` : typeof result.bandScore === 'number' ? result.bandScore.toFixed(1) : '–'
 
   return (
     <div className="h-dvh flex flex-col overflow-hidden bg-[var(--surface-raised)]">
@@ -782,6 +789,7 @@ export default function ExamReview({ skill = 'reading' }) {
             <SkillResult
               skillType={skill}
               examId={id}
+              isPractice={!!practice}
               dataProp={result}
               isAnswerSheet={true}
               onClose={() => setShowAnswerSheet(false)}

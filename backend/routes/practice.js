@@ -58,6 +58,36 @@ const { teacherStrict } = require('../lib/roles')
 // ─── PUBLIC: list ─────────────────────────────────────────────────────────────
 // Fetcher + SWR cache nằm ở lib/publicContent.js (chia sẻ cache với /api/home).
 // getQuestionCount cũng import từ đó — còn dùng cho các route /admin bên dưới.
+function practiceGroupsWithExplanations(rows) {
+  return (rows || []).map(pq => {
+    const group = JSON.parse(pq.content)
+    const byNumber = pq.explanation?.byNumber
+    return byNumber ? { ...group, explanations: byNumber } : group
+  })
+}
+
+function carryOverExplanations(oldRows, newGroups) {
+  const old = {}
+  for (const row of oldRows || []) {
+    const byNumber = row.explanation?.byNumber
+    if (!byNumber) continue
+    let group
+    try { group = JSON.parse(row.content) } catch { continue }
+    for (const q of group.questions || []) {
+      if (byNumber[q.number]) old[q.number] = { answer: String(q.correctAnswer ?? ''), explanation: byNumber[q.number] }
+    }
+  }
+  return newGroups.map(g => {
+    const group = typeof g === 'string' ? (() => { try { return JSON.parse(g) } catch { return {} } })() : g
+    const byNumber = {}
+    for (const q of group.questions || []) {
+      const prev = old[q.number]
+      if (prev && prev.answer === String(q.correctAnswer ?? '')) byNumber[q.number] = prev.explanation
+    }
+    return Object.keys(byNumber).length ? { byNumber } : null
+  })
+}
+
 function makePracticeListHandler(skill) {
   return async (req, res) => {
     const limit = req.query.limit !== undefined ? parseInt(req.query.limit) : 4
@@ -78,7 +108,7 @@ router.get('/reading/:id', authMiddleware, async (req, res) => {
       include: { questions: { orderBy: { orderNum: 'asc' } } }
     })
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy' })
-    const groups = (exam.questions || []).map(pq => JSON.parse(pq.content))
+    const groups = practiceGroupsWithExplanations(exam.questions)
     res.json({ ...exam, questions: { groups } })
   } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
 })
@@ -90,7 +120,7 @@ router.get('/listening/:id', authMiddleware, async (req, res) => {
       include: { questions: { orderBy: { orderNum: 'asc' } } }
     })
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy' })
-    const groups = (exam.questions || []).map(pq => JSON.parse(pq.content))
+    const groups = practiceGroupsWithExplanations(exam.questions)
     res.json({ ...exam, questions: { groups } })
   } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
 })
@@ -211,6 +241,10 @@ router.put('/admin/:skill/:id', authMiddleware, teacherStrict, validate(updatePr
     // Trả về bản ghi sau khi update (kèm questions) để dùng cho audit log bên
     // dưới — không đổi response cho client, vẫn chỉ res.json({ ok: true }).
     const updatedExam = await prisma.$transaction(async (tx) => {
+      const oldRows = Array.isArray(questions)
+        ? await tx.practiceQuestion.findMany({ where: { examId: parseInt(id) }, select: { content: true, explanation: true } })
+        : []
+      const keptExplanations = Array.isArray(questions) ? carryOverExplanations(oldRows, questions) : []
       const updateData = { isNormalized: true }
       if (title !== undefined) updateData.title = title.trim()
       if (level !== undefined) updateData.level = level
@@ -230,7 +264,8 @@ router.put('/admin/:skill/:id', authMiddleware, teacherStrict, validate(updatePr
               correctAnswer: q.correctAnswer || '',
               options: q.options ? (typeof q.options === 'string' ? q.options : JSON.stringify(q.options)) : null,
               orderNum: q.orderIndex !== undefined ? q.orderIndex : index,
-              type: q.type || 'group'
+              type: q.type || 'group',
+              ...(keptExplanations[index] ? { explanation: keptExplanations[index] } : {})
             }))
           } : undefined
         },
@@ -355,3 +390,5 @@ router.delete('/admin/:skill/:id', authMiddleware, teacherStrict, async (req, re
 })
 
 module.exports = router
+module.exports.practiceGroupsWithExplanations = practiceGroupsWithExplanations
+module.exports.carryOverExplanations = carryOverExplanations

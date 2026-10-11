@@ -10,6 +10,7 @@ import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
 import { Clock, Sparkles, CheckCircle2, RotateCcw, AlertCircle, ChevronRight, X, History, ChevronDown, ChevronUp, FileQuestion } from 'lucide-react'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
+import PastAttemptBanner from '../components/exam/PastAttemptBanner'
 import InlineCorrections from '../components/exam/InlineCorrections'
 import { isTaskComplete, countUnsubmitted } from '../utils/writingTasks'
 import { toImgSrc, handleImgError } from '../utils/media'
@@ -411,6 +412,8 @@ export default function WritingExam() {
   const [searchParams] = useSearchParams()
   const resumeMode = searchParams.get('resume') === 'true'
   const viewResultMode = searchParams.get('viewResult') === 'true'
+  const viewAttemptId = viewResultMode ? searchParams.get('attemptId') : null
+  const viewFinishedAt = viewResultMode ? searchParams.get('finishedAt') : null
   const { user } = useAuth()
   const { showToast } = useToast()
   const [exam, setExam] = useState(null)
@@ -520,7 +523,7 @@ export default function WritingExam() {
       .catch(() => {})
     Promise.all([
       getWritingExam(id),
-      getWritingMyResults(id).catch(() => []),
+      getWritingMyResults(id, viewAttemptId).catch(() => []),
     ])
       .then(([data, myResults]) => {
         setExam(data)
@@ -577,7 +580,7 @@ export default function WritingExam() {
         setError(err?.response?.data?.message || err?.message || 'Không tìm thấy đề thi hoặc kết nối bị gián đoạn.')
       })
       .finally(() => setLoading(false))
-  }, [id, resumeMode, user])
+  }, [id, resumeMode, user, viewAttemptId])
 
   useEffect(() => {
     document.title = 'Bài thi Writing | IELTS Pro'
@@ -778,7 +781,7 @@ export default function WritingExam() {
 
 
   // ── Result ────────────────────────────────────────────────────
-  if (allDone) {
+  if (allDone || (viewAttemptId && exam.writingTasks.some(t => results[t.id]))) {
     const taskScores = exam.writingTasks.map(t => results[t.id]?.overall).filter(s => s != null)
     const avg = taskScores.length > 0 ? taskScores.reduce((a, b) => a + b, 0) / taskScores.length : 0
     const overallBand = Math.round(Math.min(9, Math.max(0, avg)) * 2) / 2
@@ -809,6 +812,7 @@ export default function WritingExam() {
 
         {/* Content */}
         <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 pb-16">
+          {viewAttemptId && <PastAttemptBanner finishedAt={viewFinishedAt} />}
           <div className="flex flex-col gap-8">
             
             {/* ── Score Card Hero Section ── */}

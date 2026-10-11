@@ -101,7 +101,9 @@ export default function ExamAttemptListModal({
                     </span>
                     {a.total > 0 && (
                       <span className="font-medium">
-                        {a.correct}/{a.total} câu
+                        {skill === 'writing' || skill === 'speaking'
+                          ? `${a.done}/${a.total} ${skill === 'writing' ? 'task' : 'part'}`
+                          : `${a.correct}/${a.total} câu`}
                       </span>
                     )}
                   </div>
