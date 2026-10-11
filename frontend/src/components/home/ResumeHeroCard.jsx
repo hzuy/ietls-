@@ -1,5 +1,5 @@
-import React from 'react'
-import { Clock, Play, Trash2, BookOpen, Headphones, PenTool, Mic } from 'lucide-react'
+import React, { useState } from 'react'
+import { Clock, Play, Trash2, BookOpen, Headphones, PenTool, Mic, AlertTriangle } from 'lucide-react'
 import PillButton from '../common/PillButton'
 
 const SKILL_ICONS = {
@@ -9,6 +9,16 @@ const SKILL_ICONS = {
   speaking: Mic,
   'practice-reading': BookOpen,
   'practice-listening': Headphones,
+}
+
+// Màu sắc & icon theo kỹ năng
+const SKILL_COLORS = {
+  reading:             { bg: 'bg-sky-50',    text: 'text-sky-700',    dot: 'bg-sky-500' },
+  listening:           { bg: 'bg-violet-50', text: 'text-violet-700', dot: 'bg-violet-500' },
+  writing:             { bg: 'bg-emerald-50',text: 'text-emerald-700',dot: 'bg-emerald-500' },
+  speaking:            { bg: 'bg-rose-50',   text: 'text-rose-700',   dot: 'bg-rose-500' },
+  'practice-reading':  { bg: 'bg-sky-50',    text: 'text-sky-700',    dot: 'bg-sky-500' },
+  'practice-listening':{ bg: 'bg-violet-50', text: 'text-violet-700', dot: 'bg-violet-500' },
 }
 
 export function parseDraftDetails(draft) {
@@ -79,57 +89,96 @@ export function parseDraftDetails(draft) {
 }
 
 export default function ResumeHeroCard({ draft, onResume, onDiscard }) {
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
+
   if (!draft) return null
 
   const details = parseDraftDetails(draft)
   if (!details) return null
 
   const SkillIcon = SKILL_ICONS[details.skillType] || BookOpen
+  const colors = SKILL_COLORS[details.skillType] || SKILL_COLORS.reading
+
+  const handleDiscard = () => {
+    setConfirmDiscard(true)
+  }
+
+  const handleConfirmDiscard = () => {
+    setConfirmDiscard(false)
+    onDiscard(draft)
+  }
 
   return (
     <div
       data-testid="resume-hero-card"
       className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-xs transition-all hover:border-zinc-300 relative overflow-hidden"
     >
+      {/* Hộp xác nhận hủy bài */}
+      {confirmDiscard && (
+        <div className="absolute inset-0 z-10 bg-white/95 backdrop-blur-xs rounded-2xl flex flex-col items-center justify-center gap-4 p-6">
+          <div className="flex items-center gap-2 text-amber-600">
+            <AlertTriangle className="w-5 h-5 shrink-0" />
+            <span className="font-semibold text-sm">Hủy bài nháp?</span>
+          </div>
+          <p className="text-xs text-zinc-500 text-center leading-relaxed max-w-xs">
+            Tiến độ bài làm sẽ bị xóa và không thể khôi phục. Bạn chắc chắn muốn hủy?
+          </p>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleConfirmDiscard}
+              className="h-8 px-4 text-sm font-medium text-white rounded-full cursor-pointer inline-flex items-center justify-center"
+              style={{ background: 'var(--error, #ef4444)' }}
+            >
+              Hủy bài
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmDiscard(false)}
+              className="h-8 px-4 text-sm font-medium text-zinc-700 rounded-full border border-zinc-200 bg-white hover:bg-zinc-50 cursor-pointer inline-flex items-center justify-center"
+            >
+              Giữ lại
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Top row: Badge & Status time */}
       <div className="flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-zinc-100 text-zinc-700 font-mono text-[11px] font-semibold tracking-wider uppercase">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-zinc-100 text-zinc-700 text-[11px] font-semibold tracking-wide">
             <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-            TIẾP TỤC BÀI LÀM
+            Tiếp tục bài làm
           </span>
-          <span className="inline-flex items-center gap-1 text-xs text-zinc-500 font-medium">
-            <SkillIcon className="w-3.5 h-3.5" />
+          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium ${colors.bg} ${colors.text}`}>
+            <SkillIcon className="w-3 h-3" />
             {details.skillDisplay}
           </span>
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-mono text-zinc-500">
+        <div className="flex items-center gap-1.5 text-xs font-mono text-zinc-500">
           <Clock className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-          <span>Thời gian còn: <strong className="text-zinc-800 font-semibold">{details.timeLeftFormatted}</strong></span>
+          <span>Còn: <strong className="text-zinc-800 font-semibold">{details.timeLeftFormatted}</strong></span>
           {details.savedAtFormatted && (
             <span className="hidden sm:inline text-zinc-400">
-              · Lưu lúc {details.savedAtFormatted}
+              · Lưu {details.savedAtFormatted}
             </span>
           )}
         </div>
       </div>
 
       {/* Main title */}
-      <div className="mt-3.5 mb-2">
+      <div className="mt-3 mb-3">
         <h2 className="text-lg sm:text-xl font-bold text-zinc-900 tracking-tight truncate">
           {details.title}
         </h2>
       </div>
 
-      {/* Progress section */}
+      {/* Progress section — chỉ hiển thị một lần */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between text-xs text-zinc-600">
           <span>
-            Đã hoàn thành <strong className="font-semibold text-zinc-900 font-mono">{details.answeredCount}/{details.totalQuestions}</strong> câu ({details.percentage}%)
-          </span>
-          <span className="font-mono text-xs font-medium text-zinc-700">
-            {details.percentage}%
+            <strong className="font-semibold text-zinc-900 font-mono">{details.answeredCount}/{details.totalQuestions}</strong> câu đã làm
           </span>
         </div>
         <div className="h-2 w-full bg-zinc-100 rounded-full overflow-hidden">
@@ -141,16 +190,19 @@ export default function ResumeHeroCard({ draft, onResume, onDiscard }) {
       </div>
 
       {/* Actions footer */}
-      <div className="flex flex-wrap items-center gap-3 mt-5 pt-4 border-t border-zinc-100">
+      <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-4 border-t border-zinc-100">
         <PillButton type="button" onClick={() => onResume(draft)}>
           <Play className="w-3.5 h-3.5 fill-current" />
-          <span>Tiếp tục làm bài</span>
+          <span>Tiếp tục</span>
         </PillButton>
 
-        <PillButton type="button" variant="ghost" onClick={() => onDiscard(draft)}>
-          <Trash2 className="w-3.5 h-3.5" />
-          <span>Bỏ qua / Hủy bài nháp</span>
-        </PillButton>
+        <button
+          type="button"
+          onClick={handleDiscard}
+          className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors cursor-pointer underline-offset-2 hover:underline"
+        >
+          Hủy bài nháp
+        </button>
       </div>
     </div>
   )

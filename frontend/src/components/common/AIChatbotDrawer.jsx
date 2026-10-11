@@ -379,17 +379,25 @@ export default function AIChatbotDrawer() {
     <>
       {/* ── 1. Floating Action Button (FAB) ── */}
       {!isOpen && !hideFloatingIcon && (
-        <button
-          type="button"
-          onClick={() => setIsOpen(true)}
-          aria-label="Mở IELTS AI Tutor"
+        <div
+          className="fixed right-6 z-50 group"
           style={{ bottom: 'calc(var(--chat-fab-offset, 0px) + 1.5rem)' }}
-          className="fixed right-6 z-50 w-13 h-13 rounded-full bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xl border border-zinc-200/40 dark:border-zinc-800 hover:scale-105 active:scale-95 transition-all flex items-center justify-center cursor-pointer group"
         >
-          <Sparkles className="w-5 h-5 text-white dark:text-zinc-900 transition-transform group-hover:rotate-12" />
-          {/* Online indicator */}
-          <span className="absolute top-0.5 right-0.5 w-3 h-3 rounded-full bg-success ring-2 ring-white dark:ring-zinc-900" />
-        </button>
+          {/* Tooltip */}
+          <span className="absolute bottom-full right-0 mb-2 px-2.5 py-1 text-xs font-medium text-white bg-zinc-900 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 shadow-md">
+            Hỏi trợ lý AI
+          </span>
+          <button
+            type="button"
+            onClick={() => setIsOpen(true)}
+            aria-label="Mở IELTS AI Tutor"
+            className="w-13 h-13 rounded-full bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xl border border-zinc-200/40 dark:border-zinc-800 hover:scale-105 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+          >
+            <Sparkles className="w-5 h-5 text-white dark:text-zinc-900 transition-transform group-hover:rotate-12" />
+            {/* Online indicator */}
+            <span className="absolute top-0.5 right-0.5 w-3 h-3 rounded-full bg-success ring-2 ring-white dark:ring-zinc-900" />
+          </button>
+        </div>
       )}
 
       {/* ── 2. Chat Drawer / Popover Window ── */}

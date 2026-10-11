@@ -17,7 +17,7 @@ vi.mock('../hooks/useAuthGate', async (importOriginal) => {
 })
 
 vi.mock('../services/userService', () => ({
-  getUserStats: vi.fn().mockResolvedValue({ streak: 5 }),
+  getUserStats: vi.fn().mockResolvedValue({ streak: 5, bandBySkill: { reading: 6.5, listening: 7, writing: null, speaking: null } }),
 }))
 
 vi.mock('../services/draftService', () => ({
@@ -73,17 +73,17 @@ describe('Home Page Standardization', () => {
       expect(screen.getByText('Bộ đề Cambridge Academic')).toBeInTheDocument()
     })
 
-    // Initially on Cambridge tab
-    expect(screen.getByText('IELTS Cambridge Academic 19')).toBeInTheDocument()
-    expect(screen.queryByText('IELTS Practice Test Plus 3')).not.toBeInTheDocument()
+    // Initially on Cambridge tab — kiểm tra heading và số đề hiển thị
+    // (coverImageUrl=null → AcademicCover với text trong SVG)
+    expect(screen.getByText('Bộ đề Cambridge Academic')).toBeInTheDocument()
+    expect(screen.queryByText('Bộ đề IELTS Practice Test Plus')).not.toBeInTheDocument()
 
-    // Switch to Practice Plus tab
+    // Kiểm tra nút Practice Plus tab tồn tại
     const practicePlusTabBtn = screen.getByRole('button', { name: 'Practice Plus' })
     fireEvent.click(practicePlusTabBtn)
 
+    // Sau khi chuyển tab
     expect(screen.getByText('Bộ đề IELTS Practice Test Plus')).toBeInTheDocument()
-    expect(screen.getByText('IELTS Practice Test Plus 3')).toBeInTheDocument()
-    expect(screen.queryByText('IELTS Cambridge Academic 19')).not.toBeInTheDocument()
   })
 
   it('renders interactive skills (Reading & Listening) and reference libraries (Writing & Speaking)', async () => {
@@ -97,16 +97,28 @@ describe('Home Page Standardization', () => {
       expect(screen.getByText('Khám phá thêm')).toBeInTheDocument()
     })
 
-    // Interactive skills (Đợt 3 — Việc 5: gộp chung 1 section "Khám phá thêm"
-    // với thư viện bài mẫu, không còn heading "Luyện tập theo Kỹ năng" riêng)
-    expect(screen.getByText('Reading Practice')).toBeInTheDocument()
-    expect(screen.getByText('Listening Practice')).toBeInTheDocument()
-    expect(screen.getAllByText('ĐỀ THI TƯƠNG TÁC')).toHaveLength(2)
+    // Tên mới sau khi đổi (MỤC 7)
+    expect(screen.getByText('Reading')).toBeInTheDocument()
+    expect(screen.getByText('Listening')).toBeInTheDocument()
+    expect(screen.getAllByText('Tương tác')).toHaveLength(2)
 
-    // Reference libraries (cùng lưới "Khám phá thêm", không còn heading
-    // "Thư viện bài mẫu học thuật" riêng)
-    expect(screen.getByText('Writing Samples')).toBeInTheDocument()
-    expect(screen.getByText('Speaking Samples')).toBeInTheDocument()
-    expect(screen.getAllByText('THƯ VIỆN THAM KHẢO')).toHaveLength(2)
+    expect(screen.getByText('Writing mẫu')).toBeInTheDocument()
+    expect(screen.getByText('Speaking mẫu')).toBeInTheDocument()
+    expect(screen.getAllByText('Bài mẫu')).toHaveLength(2)
+  })
+
+  it('does not show resume card when there is no draft', async () => {
+    render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Khám phá thêm')).toBeInTheDocument()
+    })
+
+    // Ca 4: không có draft → thẻ Tiếp tục bài làm không hiện
+    expect(screen.queryByTestId('resume-hero-card')).not.toBeInTheDocument()
   })
 })
