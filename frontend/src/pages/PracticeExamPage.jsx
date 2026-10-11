@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 
 import Navbar from '../components/Navbar'
 import { getPractice } from '../services/practiceService'
-import { Clock } from 'lucide-react'
+import { Clock, Type } from 'lucide-react'
 import MatchingTickGrid from '../components/MatchingTickGrid'
 import DragWordBankGroup from '../components/DragWordBankGroup'
 import MatchingDragGroup from '../components/MatchingDragGroup'
@@ -23,6 +23,9 @@ import { normalizeGroup, fmt } from '../utils/practiceUtils'
 import ReadingPracticeGroupBlock from '../components/practice/ReadingPracticeGroupBlock'
 import ListeningPracticeGroupBlock from '../components/practice/ListeningPracticeGroupBlock'
 import { resolveImg } from '../utils/media'
+import { useTextHighlight } from '../hooks/useTextHighlight'
+import HighlightLayer from '../components/exam/HighlightLayer'
+import HighlightPopovers from '../components/exam/HighlightPopovers'
 
 const PRACTICE_TIME = 20 * 60
 const LISTENING_TIME = 10 * 60
@@ -72,12 +75,30 @@ function ReadingPracticeExam({ exam, onBack }) {
   const bodyRef = useRef(null)
   const isDraggingRef = useRef(false)
   const [isDragging, setIsDragging] = useState(false)
+  const [fontSize, setFontSize] = useState('base')
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
   const [splitRatio, setSplitRatio] = useState(() => {
     const saved = localStorage.getItem('reading-split-ratio')
     const n = parseFloat(saved)
     return (!isNaN(n) && n >= 25 && n <= 75) ? n : 50
   })
+
+  const examContainerRef = useRef(null)
+  const {
+    scopeHighlights,
+    selectionBubble,
+    highlightMenu,
+    noteEditor,
+    setNoteEditor,
+    handleMouseUp,
+    handleContainerClick,
+    applyHighlight,
+    openNoteEditorForSelection,
+    saveNoteEditor,
+    openHighlightMenu,
+    clearHighlight,
+    editHighlightNote,
+  } = useTextHighlight({ containerRef: examContainerRef, scopeIndex: 0 })
 
   // Autosave 30s + resume — namespace 'practice-reading' để KHÔNG đè draft của bài
   // thi Reading chính có cùng examId (PracticeExam.id trùng dải số với Exam.id).
@@ -274,16 +295,18 @@ function ReadingPracticeExam({ exam, onBack }) {
 
   // ── Exam screen ─────────────────────────────────────────────────────────────
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-zinc-50/50">
+    <div
+      ref={examContainerRef}
+      onClick={handleContainerClick}
+      onMouseUp={handleMouseUp}
+      className="h-screen flex flex-col overflow-hidden bg-zinc-50/50"
+    >
       {/* Header */}
       <header className="h-14 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-3 min-w-0">
           <span className="text-xs sm:text-sm font-semibold text-zinc-900 truncate">{exam.title}</span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          {lastSavedAt && (
-            <span className="text-[11px] text-zinc-400 whitespace-nowrap">✓ Đã lưu {formatSavedAt(lastSavedAt)}</span>
-          )}
           <span className="text-xs text-zinc-500 font-mono tabular-nums">{answered}/{totalSlots} câu</span>
           <div
             className={`tabular-nums text-xs font-semibold px-3 py-1 rounded-full border flex items-center gap-1.5 ${
@@ -303,14 +326,49 @@ function ReadingPracticeExam({ exam, onBack }) {
       {/* Body */}
       <div ref={bodyRef} className={`flex-1 flex flex-col md:flex-row overflow-hidden${isDragging ? ' select-none' : ''}`}>
         {/* Left: Passage */}
-        <div className="overflow-y-auto bg-white px-8 py-6 border-b md:border-b-0 md:border-r border-zinc-200"
+        <div
+          className="overflow-y-auto bg-white px-8 py-6 border-b md:border-b-0 md:border-r border-zinc-200"
           style={{ width: isMobile ? '100%' : `${splitRatio}%` }}>
+          {/* Passage Toolbar — font size control */}
+          <div className="sticky -top-6 -mx-8 px-8 py-2.5 mb-5 bg-white/95 backdrop-blur-xs border-b border-zinc-100 flex items-center justify-between z-10">
+            <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Passage</span>
+            <div className="flex items-center gap-1 bg-zinc-100 p-0.5 rounded-full border border-zinc-200/80">
+              <span className="text-[11px] font-medium text-zinc-400 px-1.5 flex items-center gap-1">
+                <Type className="w-3.5 h-3.5" />
+              </span>
+              {[
+                { label: 'A-', size: 'sm', desc: '14px' },
+                { label: 'A',  size: 'base', desc: '16px' },
+                { label: 'A+', size: 'lg', desc: '18px' },
+              ].map(({ label, size, desc }) => (
+                <button
+                  key={size}
+                  type="button"
+                  onClick={() => setFontSize(size)}
+                  title={`Cỡ chữ ${desc}`}
+                  className={`exam-chip ${
+                    fontSize === size
+                      ? 'bg-white text-zinc-900 shadow-xs font-semibold'
+                      : 'bg-transparent text-zinc-500 hover:text-zinc-900'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
           <h2 className="text-lg font-semibold text-zinc-900 text-center mb-1 leading-snug">{exam.title}</h2>
           <div className="w-16 h-0.5 bg-zinc-900 mx-auto mb-6" />
-          <div className="text-zinc-800 text-sm leading-relaxed font-normal">
-            {(exam.passage || '').split(/\n\s*\n|\n/).map(s => s.trim()).filter(Boolean).map((para, i) => (
-              <p key={i} className="mb-5 indent-6">{para.charAt(0).toUpperCase() + para.slice(1)}</p>
-            ))}
+          <div className={`text-zinc-800 font-normal ${fontSize === 'sm' ? 'text-sm leading-relaxed' : fontSize === 'lg' ? 'text-lg leading-loose' : 'text-base leading-relaxed'}`}>
+            {(exam.passage || '').split(/\n\s*\n|\n/).map(s => s.trim()).filter(Boolean).map((para, i) => {
+              const capitalized = para.charAt(0).toUpperCase() + para.slice(1)
+              const paraHighlights = scopeHighlights.filter(h => h.paraIndex === i)
+              return (
+                <p key={i} data-para-index={i} className="mb-5 indent-6">
+                  <HighlightLayer text={capitalized} ranges={paraHighlights} onHighlightClick={openHighlightMenu} />
+                </p>
+              )
+            })}
           </div>
         </div>
 
@@ -361,6 +419,19 @@ function ReadingPracticeExam({ exam, onBack }) {
       />
       {/* Exit confirmation modal — Back nút trình duyệt hoặc nút Header */}
       <ExitConfirmModal open={showExitModal} onStay={stayInExam} onLeave={() => leaveExam(exitPath)} />
+
+      <HighlightPopovers
+        selectionBubble={selectionBubble}
+        highlightMenu={highlightMenu}
+        noteEditor={noteEditor}
+        onApplyHighlight={applyHighlight}
+        onOpenNote={openNoteEditorForSelection}
+        onEditNote={editHighlightNote}
+        onClearHighlight={clearHighlight}
+        onSaveNote={saveNoteEditor}
+        onCancelNote={() => setNoteEditor(null)}
+        onNoteChange={(v) => setNoteEditor(prev => ({ ...prev, value: v }))}
+      />
     </div>
   )
 }
@@ -373,6 +444,23 @@ function ListeningPracticeExam({ exam, onBack }) {
   const [timeLeft, setTimeLeft] = useState(LISTENING_TIME)
   const [showConfirm, setShowConfirm] = useState(false)
   const [result, setResult] = useState(null)
+
+  const examContainerRef = useRef(null)
+  const {
+    scopeHighlights,
+    selectionBubble,
+    highlightMenu,
+    noteEditor,
+    setNoteEditor,
+    handleMouseUp,
+    handleContainerClick,
+    applyHighlight,
+    openNoteEditorForSelection,
+    saveNoteEditor,
+    openHighlightMenu,
+    clearHighlight,
+    editHighlightNote,
+  } = useTextHighlight({ containerRef: examContainerRef, scopeIndex: 0 })
 
   // Autosave 30s + resume — namespace 'practice-listening' để KHÔNG đè draft của
   // bài thi Listening chính có cùng examId (PracticeExam.id trùng dải số với Exam.id;
@@ -545,16 +633,18 @@ function ListeningPracticeExam({ exam, onBack }) {
 
   // Exam screen
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-zinc-50/50">
+    <div
+      ref={examContainerRef}
+      onClick={handleContainerClick}
+      onMouseUp={handleMouseUp}
+      className="h-screen flex flex-col overflow-hidden bg-zinc-50/50"
+    >
       {/* Header */}
       <header className="h-14 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-3 min-w-0">
           <span className="text-xs sm:text-sm font-semibold text-zinc-900 truncate">{exam.title}</span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          {lastSavedAt && (
-            <span className="text-[11px] text-zinc-400 whitespace-nowrap">✓ Đã lưu {formatSavedAt(lastSavedAt)}</span>
-          )}
           <span className="text-xs text-zinc-500 font-mono tabular-nums">{answered}/{totalSlots} câu</span>
           <div
             className={`tabular-nums text-xs font-semibold px-3 py-1 rounded-full border flex items-center gap-1.5 ${
@@ -583,7 +673,17 @@ function ListeningPracticeExam({ exam, onBack }) {
         {exam.passage && (
           <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-5 mb-5 max-w-2xl mx-auto">
             <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Context / Situation</p>
-            <p className="text-sm text-zinc-800 leading-relaxed font-normal whitespace-pre-wrap">{exam.passage}</p>
+            <div className="text-sm text-zinc-800 leading-relaxed font-normal">
+              {(exam.passage || '').split(/\n\s*\n|\n/).map(s => s.trim()).filter(Boolean).map((para, i) => {
+                const capitalized = para.charAt(0).toUpperCase() + para.slice(1)
+                const paraHighlights = scopeHighlights.filter(h => h.paraIndex === i)
+                return (
+                  <p key={i} data-para-index={i} className="mb-2 whitespace-pre-wrap">
+                    <HighlightLayer text={capitalized} ranges={paraHighlights} onHighlightClick={openHighlightMenu} />
+                  </p>
+                )
+              })}
+            </div>
           </div>
         )}
         <div className="max-w-2xl mx-auto">
@@ -614,6 +714,19 @@ function ListeningPracticeExam({ exam, onBack }) {
       />
       {/* Exit confirmation modal — Back nút trình duyệt hoặc nút Header */}
       <ExitConfirmModal open={showExitModal} onStay={stayInExam} onLeave={() => leaveExam(exitPath)} />
+
+      <HighlightPopovers
+        selectionBubble={selectionBubble}
+        highlightMenu={highlightMenu}
+        noteEditor={noteEditor}
+        onApplyHighlight={applyHighlight}
+        onOpenNote={openNoteEditorForSelection}
+        onEditNote={editHighlightNote}
+        onClearHighlight={clearHighlight}
+        onSaveNote={saveNoteEditor}
+        onCancelNote={() => setNoteEditor(null)}
+        onNoteChange={(v) => setNoteEditor(prev => ({ ...prev, value: v }))}
+      />
     </div>
   )
 }

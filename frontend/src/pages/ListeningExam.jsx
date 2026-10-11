@@ -9,6 +9,8 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
 import { Clock, LayoutGrid, ChevronUp, ChevronDown, ArrowRight } from 'lucide-react'
+import { useTextHighlight } from '../hooks/useTextHighlight'
+import HighlightPopovers from '../components/exam/HighlightPopovers'
 import { getSectionSlots, isSlotAnswered } from '../utils/questionCount'
 import MatchingTickGrid from '../components/MatchingTickGrid'
 import DragWordBankGroup from '../components/DragWordBankGroup'
@@ -69,6 +71,7 @@ export default function ListeningExam() {
   const audioRef = useRef(null)
   const bottomBarRef = useRef(null)
   const questionsScrollRef = useRef(null)
+  const examContainerRef = useRef(null)
   const savedDraftRef = useRef('{}')  // JSON của answers đã ghi vào draft gần nhất
   const [lastSavedAt, setLastSavedAt] = useState(null) // mốc lưu nháp gần nhất — cho indicator header
 
@@ -292,6 +295,14 @@ export default function ListeningExam() {
   }, [section?.questionGroups])
   const legacyGroups = useMemo(() => (section?.questions?.length > 0 ? groupByType(section.questions) : []), [section])
 
+  // Highlight (toàn bộ giao diện: audio bar, tiêu đề, câu hỏi...)
+  const {
+    selectionBubble, highlightMenu, noteEditor, setNoteEditor,
+    handleMouseUp, handleContainerClick, applyHighlight, openNoteEditorForSelection,
+    saveNoteEditor, openHighlightMenu: _openHighlightMenu,
+    clearHighlight, editHighlightNote,
+  } = useTextHighlight({ containerRef: examContainerRef, scopeIndex: activeSection })
+
   if (redirectExit) return null
   if (loading) return <SkeletonExamPage />
   if (error || !exam) {
@@ -310,7 +321,13 @@ export default function ListeningExam() {
   // ── Exam ──────────────────────────────────────────────────────
 
   return (
-    <div className="h-dvh flex flex-col overflow-hidden" style={{ backgroundColor: 'var(--surface-raised)' }}>
+    <div
+      ref={examContainerRef}
+      onClick={handleContainerClick}
+      onMouseUp={handleMouseUp}
+      className="h-dvh flex flex-col overflow-hidden"
+      style={{ backgroundColor: 'var(--surface-raised)' }}
+    >
       {/* Header */}
       <header className="h-14 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-3 min-w-0">
@@ -338,11 +355,6 @@ export default function ListeningExam() {
             </button>
           ) : (
             <>
-              {lastSavedAt && (
-                <span className="text-[11px] text-zinc-400 whitespace-nowrap">
-                  ✓ Đã lưu {formatSavedAt(lastSavedAt)}
-                </span>
-              )}
               <span className="text-xs text-zinc-500 font-mono tabular-nums">
                 {answered}/{allQ.length} câu
               </span>
@@ -540,6 +552,19 @@ export default function ListeningExam() {
       />
       {/* Exit confirmation modal — Back nút trình duyệt hoặc nút Header */}
       <ExitConfirmModal open={showExitModal} onStay={stayInExam} onLeave={() => leaveExam(exitPath)} />
+
+      <HighlightPopovers
+        selectionBubble={selectionBubble}
+        highlightMenu={highlightMenu}
+        noteEditor={noteEditor}
+        onApplyHighlight={applyHighlight}
+        onOpenNote={openNoteEditorForSelection}
+        onEditNote={editHighlightNote}
+        onClearHighlight={clearHighlight}
+        onSaveNote={saveNoteEditor}
+        onCancelNote={() => setNoteEditor(null)}
+        onNoteChange={(v) => setNoteEditor(prev => ({ ...prev, value: v }))}
+      />
 
       {/* Loading overlay khi nộp bài */}
       {submitting && (

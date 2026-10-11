@@ -9,8 +9,10 @@ import { saveDraft, loadDraft, clearDraft, formatSavedAt } from '../services/dra
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
-import { BookOpen, Type, Clock, LayoutGrid, ChevronUp, ChevronDown, Highlighter, StickyNote, Trash2, ArrowRight } from 'lucide-react'
+import { BookOpen, Type, Clock, LayoutGrid, ChevronUp, ChevronDown, ArrowRight } from 'lucide-react'
 import HighlightLayer, { getOffsetWithinElement } from '../components/exam/HighlightLayer'
+import HighlightPopovers from '../components/exam/HighlightPopovers'
+import { useTextHighlight } from '../hooks/useTextHighlight'
 import MatchingTickGrid from '../components/MatchingTickGrid'
 import DragWordBankGroup from '../components/DragWordBankGroup'
 import MatchingDragGroup from '../components/MatchingDragGroup'
@@ -84,12 +86,25 @@ export default function ReadingExam() {
   const [isDragging, setIsDragging] = useState(false)
   const [fontSize, setFontSize] = useState('base')
 
-  // ── Highlight text (kiểu IELTS on Computer) ─────────────────────────────────
-  const passageTextRef = useRef(null)
-  const [highlights, setHighlights] = useState([]) // { id, passageIndex, paraIndex, start, end, note? }
-  const [selectionBubble, setSelectionBubble] = useState(null) // { x, y, paraIndex, start, end }
-  const [highlightMenu, setHighlightMenu] = useState(null) // { id, x, y, note }
-  const [noteEditor, setNoteEditor] = useState(null) // { x, y, paraIndex, start, end, value } | { x, y, id, value } (sửa ghi chú có sẵn)
+  // ── Highlight text (kiểu IELTS on Computer: đoạn văn, câu hỏi, tiêu đề...) ────
+  const examContainerRef = useRef(null)
+  const {
+    highlights,
+    setHighlights,
+    scopeHighlights,
+    selectionBubble,
+    highlightMenu,
+    noteEditor,
+    setNoteEditor,
+    handleMouseUp,
+    handleContainerClick,
+    applyHighlight,
+    openNoteEditorForSelection,
+    saveNoteEditor,
+    openHighlightMenu,
+    clearHighlight,
+    editHighlightNote,
+  } = useTextHighlight({ containerRef: examContainerRef, scopeIndex: activePassage })
 
   // ── Autosave draft ─────────────────────────────────────────────────────────
   // MỘT interval sống suốt phiên (deps [phase, previewMode, id]). KHÔNG đưa
@@ -315,121 +330,7 @@ export default function ReadingExam() {
 
   const onAnswer = useCallback((qId, val) => setAnswers(a => ({ ...a, [qId]: val })), [])
 
-  // ── Highlight text (bôi đen → menu nổi Highlight / Note; click highlight → Xóa) ──
-  const closeHighlightPopovers = useCallback(() => {
-    setSelectionBubble(null)
-    setHighlightMenu(null)
-    setNoteEditor(null)
-  }, [])
 
-  const handlePassageMouseUp = useCallback(() => {
-    const sel = window.getSelection()
-    if (!sel || sel.isCollapsed || sel.rangeCount === 0 || !sel.toString().trim()) {
-      setSelectionBubble(null)
-      return
-    }
-    const range = sel.getRangeAt(0)
-    let node = range.startContainer
-    let paraEl = node.nodeType === 3 ? node.parentElement : node
-    while (paraEl && paraEl.getAttribute?.('data-para-index') == null) paraEl = paraEl.parentElement
-    if (!paraEl || !passageTextRef.current?.contains(paraEl)) { setSelectionBubble(null); return }
-
-    const paraIndex = parseInt(paraEl.getAttribute('data-para-index'), 10)
-    const startRaw = getOffsetWithinElement(paraEl, range.startContainer, range.startOffset)
-    const endRaw = getOffsetWithinElement(paraEl, range.endContainer, range.endOffset)
-    if (startRaw == null || endRaw == null || startRaw === endRaw) { setSelectionBubble(null); return }
-
-    const rect = range.getBoundingClientRect()
-    setHighlightMenu(null)
-    setNoteEditor(null)
-    setSelectionBubble({
-      x: rect.left + rect.width / 2,
-      y: rect.top,
-      paraIndex,
-      start: Math.min(startRaw, endRaw),
-      end: Math.max(startRaw, endRaw),
-    })
-  }, [])
-
-  const hasOverlap = useCallback((paraIndex, start, end, ignoreId) => {
-    return highlights.some(h =>
-      h.id !== ignoreId && h.passageIndex === activePassage && h.paraIndex === paraIndex &&
-      !(end <= h.start || start >= h.end)
-    )
-  }, [highlights, activePassage])
-
-  const applyHighlight = () => {
-    if (!selectionBubble) return
-    const { paraIndex, start, end } = selectionBubble
-    if (!hasOverlap(paraIndex, start, end)) {
-      setHighlights(prev => [...prev, {
-        id: `hl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        passageIndex: activePassage, paraIndex, start, end,
-      }])
-    }
-    window.getSelection()?.removeAllRanges()
-    setSelectionBubble(null)
-  }
-
-  const openNoteEditorForSelection = () => {
-    if (!selectionBubble) return
-    setNoteEditor({ ...selectionBubble, value: '' })
-    setSelectionBubble(null)
-  }
-
-  const saveNoteEditor = () => {
-    if (!noteEditor) return
-    const { paraIndex, start, end, id, value } = noteEditor
-    const note = value.trim() || undefined
-    if (id) {
-      // Sửa ghi chú của highlight có sẵn
-      setHighlights(prev => prev.map(h => (h.id === id ? { ...h, note } : h)))
-    } else if (!hasOverlap(paraIndex, start, end)) {
-      setHighlights(prev => [...prev, {
-        id: `hl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        passageIndex: activePassage, paraIndex, start, end, note,
-      }])
-    }
-    window.getSelection()?.removeAllRanges()
-    setNoteEditor(null)
-  }
-
-  const openHighlightMenu = useCallback((highlight, e) => {
-    setSelectionBubble(null)
-    setNoteEditor(null)
-    setHighlightMenu({ id: highlight.id, x: e.clientX, y: e.clientY, note: highlight.note })
-  }, [])
-
-  const clearHighlight = (highlightId) => {
-    setHighlights(prev => prev.filter(h => h.id !== highlightId))
-    setHighlightMenu(null)
-  }
-
-  const editHighlightNote = () => {
-    if (!highlightMenu) return
-    const target = highlights.find(h => h.id === highlightMenu.id)
-    if (!target) return
-    setNoteEditor({ id: target.id, x: highlightMenu.x, y: highlightMenu.y, value: target.note || '' })
-    setHighlightMenu(null)
-  }
-
-  // Đóng mọi popover khi đổi passage / rời màn hình exam
-  useEffect(() => { closeHighlightPopovers() }, [activePassage, closeHighlightPopovers])
-  useEffect(() => {
-    if (!selectionBubble && !highlightMenu && !noteEditor) return
-    const onKeyDown = (e) => { if (e.key === 'Escape') closeHighlightPopovers() }
-    const onMouseDown = (e) => {
-      if (e.target.closest?.('[data-highlight-popover]')) return
-      if (e.target.closest?.('mark[data-highlight-id]')) return
-      closeHighlightPopovers()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    document.addEventListener('mousedown', onMouseDown)
-    return () => {
-      window.removeEventListener('keydown', onKeyDown)
-      document.removeEventListener('mousedown', onMouseDown)
-    }
-  }, [selectionBubble, highlightMenu, noteEditor, closeHighlightPopovers])
 
   const doSubmit = async () => {
     setSubmitting(true)
@@ -550,7 +451,13 @@ export default function ReadingExam() {
   // ── Exam ──────────────────────────────────────────────────────
 
   return (
-    <div className="h-dvh flex flex-col overflow-hidden" style={{ backgroundColor: 'var(--surface-raised)' }}>
+    <div
+      ref={examContainerRef}
+      onClick={handleContainerClick}
+      onMouseUp={handleMouseUp}
+      className="h-dvh flex flex-col overflow-hidden"
+      style={{ backgroundColor: 'var(--surface-raised)' }}
+    >
       {/* Header */}
       <header className="h-14 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-3 min-w-0">
@@ -578,11 +485,6 @@ export default function ReadingExam() {
             </button>
           ) : (
             <>
-              {lastSavedAt && (
-                <span className="text-[11px] text-zinc-400 whitespace-nowrap">
-                  ✓ Đã lưu {formatSavedAt(lastSavedAt)}
-                </span>
-              )}
               <span className="text-xs text-zinc-500 font-mono tabular-nums">
                 {answered}/{totalSlots} câu
               </span>
@@ -607,8 +509,6 @@ export default function ReadingExam() {
       <div ref={bodyRef} className={`flex-1 flex flex-col md:flex-row overflow-hidden${isDragging ? ' select-none' : ''}`}>
         {/* Left: Passage text */}
         <div
-          ref={passageTextRef}
-          onMouseUp={handlePassageMouseUp}
           className={`overflow-y-auto bg-white px-8 py-6 border-b md:border-b-0 md:border-r border-zinc-200 max-md:flex-1 max-md:min-h-0${isMobile && mobileView !== 'passage' ? ' hidden' : ''}`}
           style={{ width: isMobile ? '100%' : `${splitRatio}%` }}
         >
@@ -652,7 +552,7 @@ export default function ReadingExam() {
                   .filter(Boolean)
                   .map((para, i) => {
                     const capitalized = para.charAt(0).toUpperCase() + para.slice(1)
-                    const paraHighlights = highlights.filter(h => h.passageIndex === activePassage && h.paraIndex === i)
+                    const paraHighlights = scopeHighlights.filter(h => h.paraIndex === i)
                     const content = (
                       <HighlightLayer text={capitalized} ranges={paraHighlights} onHighlightClick={openHighlightMenu} />
                     )
@@ -875,89 +775,18 @@ export default function ReadingExam() {
         />
       )}
 
-      {/* Floating bubble: bôi đen văn bản → Highlight / Note */}
-      {selectionBubble && (
-        <div
-          data-highlight-popover
-          className="fixed z-[200] -translate-x-1/2 -translate-y-full flex items-center gap-0.5 bg-zinc-900 text-white rounded-full shadow-lg p-1"
-          style={{ left: selectionBubble.x, top: selectionBubble.y - 8 }}
-        >
-          <button
-            type="button"
-            onClick={applyHighlight}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full hover:bg-white/15 transition-colors cursor-pointer"
-          >
-            <Highlighter className="w-3.5 h-3.5" /> Highlight
-          </button>
-          <div className="w-px h-4 bg-white/20" />
-          <button
-            type="button"
-            onClick={openNoteEditorForSelection}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full hover:bg-white/15 transition-colors cursor-pointer"
-          >
-            <StickyNote className="w-3.5 h-3.5" /> Note
-          </button>
-        </div>
-      )}
-
-      {/* Menu khi click vào đoạn đã highlight */}
-      {highlightMenu && (
-        <div
-          data-highlight-popover
-          className="fixed z-[200] -translate-x-1/2 flex items-center gap-0.5 bg-white border border-zinc-200 text-zinc-700 rounded-full shadow-lg p-1"
-          style={{ left: highlightMenu.x, top: highlightMenu.y + 12 }}
-        >
-          <button
-            type="button"
-            onClick={editHighlightNote}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full hover:bg-zinc-100 transition-colors cursor-pointer"
-          >
-            <StickyNote className="w-3.5 h-3.5" /> {highlightMenu.note ? 'Sửa ghi chú' : 'Thêm ghi chú'}
-          </button>
-          <div className="w-px h-4 bg-zinc-200" />
-          <button
-            type="button"
-            onClick={() => clearHighlight(highlightMenu.id)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-          >
-            <Trash2 className="w-3.5 h-3.5" /> Xóa highlight
-          </button>
-        </div>
-      )}
-
-      {/* Popover soạn ghi chú */}
-      {noteEditor && (
-        <div
-          data-highlight-popover
-          className="fixed z-[200] -translate-x-1/2 w-64 bg-white border border-zinc-200 rounded-2xl shadow-lg p-3 flex flex-col gap-2"
-          style={{ left: noteEditor.x, top: noteEditor.y + 12 }}
-        >
-          <textarea
-            autoFocus
-            rows={3}
-            value={noteEditor.value}
-            onChange={(e) => setNoteEditor(prev => ({ ...prev, value: e.target.value }))}
-            placeholder="Nhập ghi chú cho đoạn văn này..."
-            className="w-full text-xs text-zinc-800 bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-zinc-400"
-          />
-          <div className="flex justify-end gap-1.5">
-            <button
-              type="button"
-              onClick={() => setNoteEditor(null)}
-              className="h-7 px-3 text-xs font-medium rounded-full text-zinc-600 hover:bg-zinc-100 transition-colors cursor-pointer"
-            >
-              Hủy
-            </button>
-            <button
-              type="button"
-              onClick={saveNoteEditor}
-              className="h-7 px-3 text-xs font-medium rounded-full bg-zinc-900 text-white hover:bg-zinc-800 transition-colors cursor-pointer"
-            >
-              Lưu
-            </button>
-          </div>
-        </div>
-      )}
+      <HighlightPopovers
+        selectionBubble={selectionBubble}
+        highlightMenu={highlightMenu}
+        noteEditor={noteEditor}
+        onApplyHighlight={applyHighlight}
+        onOpenNote={openNoteEditorForSelection}
+        onEditNote={editHighlightNote}
+        onClearHighlight={clearHighlight}
+        onSaveNote={saveNoteEditor}
+        onCancelNote={() => setNoteEditor(null)}
+        onNoteChange={(v) => setNoteEditor(prev => ({ ...prev, value: v }))}
+      />
 
       {/* Confirm submit modal */}
       <ExamActionDialog

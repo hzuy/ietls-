@@ -42,7 +42,11 @@ export default function HighlightLayer({ text, ranges, onHighlightClick }) {
         key={r.id}
         data-highlight-id={r.id}
         title={r.note || undefined}
-        className="bg-amber-200 dark:bg-amber-900/50 text-inherit rounded-xs px-0.5 cursor-pointer"
+        className={
+          r.note
+            ? "bg-transparent text-red-600 font-semibold underline decoration-red-600 decoration-solid decoration-2 underline-offset-2 cursor-pointer"
+            : "bg-amber-200 dark:bg-amber-900/50 text-inherit rounded-xs px-0.5 cursor-pointer"
+        }
         onMouseUp={(e) => e.stopPropagation()}
         onClick={(e) => {
           e.stopPropagation()
