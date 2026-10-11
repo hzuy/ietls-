@@ -1,28 +1,17 @@
-// One-off: resize ảnh BÌA / THUMBNAIL đã upload TRƯỚC khi route upload tự resize
-// (backend/lib/imageResize.js). Chỉ đụng file được tham chiếu trong DB qua 5
-// trường dưới đây — KHÔNG quét thư mục, nên ảnh RichTextEditor / map / chart /
-// diagram (cùng nằm trong uploads/) và audio KHÔNG bị đụng tới.
+// One-off & khôi phục: resize ảnh BÌA / THUMBNAIL từ bản gốc trong _originals/
+// Sử dụng COVER_WIDTH và WEBP_QUALITY mới nhất từ backend/lib/imageResize.js.
 //
-//   bookCover.coverImageUrl      -> uploads/<f>
-//   exam.coverImageUrl           -> uploads/<f>
-//   practiceExam.thumbnailUrl    -> uploads/thumbnails/<f>
-//   writingSample.thumbnailUrl   -> uploads/thumbnails/<f>
-//   speakingSample.thumbnailUrl  -> uploads/thumbnails/<f>
-//
-// An toàn theo mặc định: chạy trơn chỉ PREVIEW, không ghi file, không đụng DB.
-// Pass --apply để thực thi. Khi --apply:
-//   1. copy ảnh gốc -> uploads/_originals/<relpath>   (để rollback)
-//   2. ghi <base>.webp (400px, q80) cùng thư mục
-//   3. nếu đổi tên (.jpg -> .webp): cập nhật trường DB + xoá file cũ
-//   4. nếu vốn đã .webp: ghi đè tại chỗ, DB không đổi
-// Idempotent: ảnh đã là webp & rộng <= 400 sẽ bị bỏ qua ở lần chạy sau.
-//
-//   node scripts/resize-existing-covers.js            # dry-run
-//   node scripts/resize-existing-covers.js --apply    # thực thi
-//
-// LƯU Ý: uploads/ nằm trên volume của server (lab46), KHÔNG có ở máy local.
-// Script này phải chạy TRÊN SERVER (trong container hoặc cùng máy, trỏ đúng
-// backend/.env). DB dùng chung nên bước cập nhật DB có hiệu lực ngay với prod.
+// QUY TẮC:
+// 1. Khi có --apply: nếu tìm thấy bản gốc tương ứng trong uploads/_originals/
+//    thì resize lại từ bản gốc bằng COVER_WIDTH (1200) và WEBP_QUALITY (88).
+// 2. Khi không có bản gốc: bỏ qua ảnh đó, KHÔNG resize lại từ bản 400px đã lưu,
+//    ghi tên vào danh sách "cần upload lại".
+// 3. Chế độ mặc định (không có --apply): chỉ in kế hoạch, không ghi file.
+// 4. Ghi đè: chỉ ghi đè khi bản mới có kích thước pixel lớn hơn bản đang lưu.
+// 5. Đường dẫn trong cơ sở dữ liệu: giữ nguyên coverImageUrl / thumbnailUrl,
+//    không đổi tên file.
+// 6. Cuối script: in bảng gồm tên bộ đề, kích thước trước, kích thước sau,
+//    dung lượng trước, dung lượng sau, trạng thái; và in danh sách cần upload lại.
 
 const fs = require('fs')
 const path = require('path')
@@ -39,158 +28,301 @@ const BACKUP_ROOT = path.join(uploadsDir, '_originals')
 sharp.cache(false)
 
 const TARGETS = [
-  { model: 'bookCover',      delegate: prisma.bookCover,      field: 'coverImageUrl' },
-  { model: 'exam',           delegate: prisma.exam,           field: 'coverImageUrl' },
-  { model: 'practiceExam',   delegate: prisma.practiceExam,   field: 'thumbnailUrl' },
-  { model: 'writingSample',  delegate: prisma.writingSample,  field: 'thumbnailUrl' },
-  { model: 'speakingSample', delegate: prisma.speakingSample, field: 'thumbnailUrl' },
+  {
+    model: 'bookCover',
+    delegate: prisma.bookCover,
+    field: 'coverImageUrl',
+    select: { id: true, bookNumber: true, coverImageUrl: true, series: { select: { name: true } } },
+    getName: (r) => `${r.series?.name || 'Bộ đề'} — Cuốn ${r.bookNumber}`
+  },
+  {
+    model: 'exam',
+    delegate: prisma.exam,
+    field: 'coverImageUrl',
+    select: { id: true, title: true, coverImageUrl: true },
+    getName: (r) => r.title || `Exam #${r.id}`
+  },
+  {
+    model: 'practiceExam',
+    delegate: prisma.practiceExam,
+    field: 'thumbnailUrl',
+    select: { id: true, title: true, thumbnailUrl: true },
+    getName: (r) => r.title || `Practice #${r.id}`
+  },
+  {
+    model: 'writingSample',
+    delegate: prisma.writingSample,
+    field: 'thumbnailUrl',
+    select: { id: true, title: true, thumbnailUrl: true },
+    getName: (r) => r.title || `Writing #${r.id}`
+  },
+  {
+    model: 'speakingSample',
+    delegate: prisma.speakingSample,
+    field: 'thumbnailUrl',
+    select: { id: true, title: true, thumbnailUrl: true },
+    getName: (r) => r.title || `Speaking #${r.id}`
+  },
 ]
 
-const kb = (n) => `${(n / 1024).toFixed(1)}KB`
+const kb = (n) => `${(n / 1024).toFixed(1)} KB`
 
-// URL "/uploads/thumbnails/x.jpg" -> đường dẫn đĩa tuyệt đối (hoặc null nếu không phải local upload)
+// URL "/uploads/covers/x.webp" -> đường dẫn đĩa tuyệt đối
 function urlToPath(url) {
   if (typeof url !== 'string' || !url.startsWith('/uploads/')) return null
-  return path.join(uploadsDir, url.slice('/uploads/'.length))
+  const rel = url.slice('/uploads/'.length)
+  const full = path.join(uploadsDir, rel)
+  if (fs.existsSync(full)) return full
+  const flat = path.join(uploadsDir, path.basename(url))
+  if (fs.existsSync(flat)) return flat
+  return full
+}
+
+// Tìm file gốc trong uploads/_originals/
+function findOriginalFile(url) {
+  const base = path.basename(url, path.extname(url))
+  const exts = ['.jpg', '.jpeg', '.png', '.webp']
+
+  // 1. Kiểm tra theo cấu trúc thư mục con nếu url có
+  if (url.startsWith('/uploads/')) {
+    const rel = url.slice('/uploads/'.length)
+    const relBase = path.join(path.dirname(rel), base)
+    for (const ext of exts) {
+      const p = path.join(BACKUP_ROOT, relBase + ext)
+      if (fs.existsSync(p)) return p
+    }
+  }
+
+  // 2. Kiểm tra phẳng tại gốc _originals/
+  for (const ext of exts) {
+    const p = path.join(BACKUP_ROOT, base + ext)
+    if (fs.existsSync(p)) return p
+  }
+
+  // 3. Kiểm tra trong các thư mục con đã biết
+  for (const sub of ['covers', 'thumbnails']) {
+    for (const ext of exts) {
+      const p = path.join(BACKUP_ROOT, sub, base + ext)
+      if (fs.existsSync(p)) return p
+    }
+  }
+
+  return null
 }
 
 async function run() {
   printDbBanner('resize-existing-covers.js')
-  console.log(`--- Resize ảnh bìa/thumbnail cũ: ${APPLY ? 'APPLY' : 'DRY-RUN (không ghi gì)'} ---`)
-  console.log(`    width=${COVER_WIDTH}px  quality=${WEBP_QUALITY}  backup=${BACKUP_ROOT}\n`)
+  console.log(`=== KHÔI PHỤC & RESIZE ẢNH BÌA/THUMBNAIL TỪ BẢN GỐC ===`)
+  console.log(`    Chế độ: ${APPLY ? '⚡ APPLY (thực thi ghi file)' : '🔍 DRY-RUN (chỉ in kế hoạch, KHÔNG ghi file)'}`)
+  console.log(`    Cấu hình mục tiêu: width=${COVER_WIDTH}px | quality=${WEBP_QUALITY}`)
+  console.log(`    Thư mục bản gốc: ${BACKUP_ROOT}\n`)
 
-  if (APPLY) fs.mkdirSync(BACKUP_ROOT, { recursive: true })
-
-  // Gom mọi (url) cần xử lý -> danh sách trường DB trỏ vào nó (dedupe theo file)
-  const byUrl = new Map() // url -> [{ model, delegate, field, id }]
+  // Thu thập các URL từ DB
+  const byUrl = new Map() // url -> { names: Set, refs: [] }
   for (const t of TARGETS) {
-    const rows = await t.delegate.findMany({ select: { id: true, [t.field]: true } })
+    const rows = await t.delegate.findMany({ select: t.select })
     for (const row of rows) {
       const url = row[t.field]
       if (!url) continue
-      if (!byUrl.has(url)) byUrl.set(url, [])
-      byUrl.get(url).push({ ...t, id: row.id })
+      if (!byUrl.has(url)) byUrl.set(url, { names: new Set(), refs: [] })
+      const entry = byUrl.get(url)
+      entry.names.add(t.getName(row))
+      entry.refs.push({ model: t.model, id: row.id })
     }
   }
 
-  // Chặn thảm hoạ: nếu chạy nhầm chỗ (vd máy local — uploads/ trống) thì phần
-  // lớn file sẽ "missing". KHÔNG cho --apply ghi DB trong tình huống đó, vì đổi
-  // URL sang .webp trong khi file .webp chưa tồn tại = mọi ảnh bìa 404.
-  {
-    const total = byUrl.size
-    let onDisk = 0
-    for (const url of byUrl.keys()) {
-      const p = urlToPath(url)
-      if (p && fs.existsSync(p)) onDisk++
-    }
-    if (APPLY && total > 0 && onDisk / total < 0.5) {
-      console.error(
-        `\n❌ ABORT: chỉ ${onDisk}/${total} file ảnh có trên đĩa. Có vẻ script đang\n` +
-        `   chạy sai chỗ (uploads/ phải là volume của server). Không ghi gì.\n`
-      )
-      process.exitCode = 1
-      return
-    }
-  }
+  const tableRows = []
+  const needsReupload = []
+  let countUpdated = 0
+  let countWouldUpdate = 0
+  let countSkipped = 0
+  let totalBytesBefore = 0
+  let totalBytesAfter = 0
 
-  let processed = 0, skipped = 0, missing = 0, renamedCount = 0, bytesBefore = 0, bytesAfter = 0
-  const errors = []
+  for (const [url, { names, refs }] of byUrl) {
+    const displayName = Array.from(names).join(' | ')
+    const ext = path.extname(url).toLowerCase()
 
-  for (const [url, refs] of byUrl) {
-    const refLabel = refs.map(r => `${r.model}#${r.id}`).join(', ')
-    const srcPath = urlToPath(url)
-    if (!srcPath) { skipped++; continue } // URL tuyệt đối / ngoài uploads
-
-    const ext = path.extname(srcPath).toLowerCase()
-    if (!RESIZABLE_EXT.has(ext)) { skipped++; continue }
-
-    if (!fs.existsSync(srcPath)) {
-      missing++
-      console.log(`  [MISSING] ${url}  <- ${refLabel}`)
+    if (!RESIZABLE_EXT.has(ext)) {
+      countSkipped++
+      tableRows.push({
+        'Tên bộ đề / mục': displayName,
+        'Kích thước trước': 'N/A',
+        'Kích thước sau': 'N/A',
+        'Dung lượng trước': 'N/A',
+        'Dung lượng sau': 'N/A',
+        'Trạng thái': 'Bỏ qua (định dạng không hỗ trợ)'
+      })
       continue
     }
 
-    let meta
-    try {
-      meta = await sharp(fs.readFileSync(srcPath)).metadata()
-    } catch (e) {
-      errors.push(`${url}: ${e.message}`)
-      console.log(`  [ERROR]   ${url}  (${e.message})`)
+    const currentDiskPath = urlToPath(url)
+    const currentExists = currentDiskPath && fs.existsSync(currentDiskPath)
+    let metaCurrent = null
+    let sizeCurrent = 0
+    if (currentExists) {
+      try {
+        metaCurrent = await sharp(fs.readFileSync(currentDiskPath)).metadata()
+        sizeCurrent = fs.statSync(currentDiskPath).size
+      } catch (err) {
+        // Lỗi đọc metadata file hiện tại
+      }
+    }
+
+    const sizeBeforeStr = metaCurrent ? `${metaCurrent.width}x${metaCurrent.height}` : 'N/A'
+    const bytesBeforeStr = sizeCurrent ? kb(sizeCurrent) : '0 KB'
+
+    // Tìm file gốc trong _originals/
+    const origPath = findOriginalFile(url)
+
+    if (!origPath) {
+      // KHÔNG CÓ BẢN GỐC: TUYỆT ĐỐI KHÔNG RESIZE TỪ BẢN 400px ĐÃ LƯU
+      needsReupload.push({
+        name: displayName,
+        url,
+        currentSize: sizeBeforeStr,
+        reason: 'Không tìm thấy file gốc trong _originals/'
+      })
+      tableRows.push({
+        'Tên bộ đề / mục': displayName,
+        'Kích thước trước': sizeBeforeStr,
+        'Kích thước sau': sizeBeforeStr,
+        'Dung lượng trước': bytesBeforeStr,
+        'Dung lượng sau': bytesBeforeStr,
+        'Trạng thái': '⚠️ Cần upload lại (thiếu bản gốc)'
+      })
       continue
     }
 
-    const already = meta.format === 'webp' && (meta.width || 0) <= COVER_WIDTH
-    if (already) { skipped++; continue }
-
-    const beforeSize = fs.statSync(srcPath).size
-    const outName = `${path.basename(srcPath, ext)}.webp`
-    const outPath = path.join(path.dirname(srcPath), outName)
-    const newUrl = `${url.slice(0, url.length - path.basename(url).length)}${outName}`
-    const renamed = outName !== path.basename(srcPath)
-
-    let resized
+    // Đã tìm thấy bản gốc: đọc metadata bản gốc và tiến hành resize thử
+    let origBuffer, metaOrig
     try {
-      resized = await sharp(fs.readFileSync(srcPath))
+      origBuffer = fs.readFileSync(origPath)
+      metaOrig = await sharp(origBuffer).metadata()
+    } catch (err) {
+      needsReupload.push({
+        name: displayName,
+        url,
+        currentSize: sizeBeforeStr,
+        reason: `Lỗi đọc file gốc: ${err.message}`
+      })
+      tableRows.push({
+        'Tên bộ đề / mục': displayName,
+        'Kích thước trước': sizeBeforeStr,
+        'Kích thước sau': 'Lỗi',
+        'Dung lượng trước': bytesBeforeStr,
+        'Dung lượng sau': 'Lỗi',
+        'Trạng thái': '❌ Lỗi đọc file gốc'
+      })
+      continue
+    }
+
+    // Resize từ bản gốc bằng thông số COVER_WIDTH và WEBP_QUALITY mới
+    let resizedBuffer, metaResized
+    try {
+      resizedBuffer = await sharp(origBuffer)
         .rotate()
         .resize({ width: COVER_WIDTH, withoutEnlargement: true })
         .webp({ quality: WEBP_QUALITY })
         .toBuffer()
-    } catch (e) {
-      errors.push(`${url}: ${e.message}`)
-      console.log(`  [ERROR]   ${url}  (${e.message})`)
+      metaResized = await sharp(resizedBuffer).metadata()
+    } catch (err) {
+      tableRows.push({
+        'Tên bộ đề / mục': displayName,
+        'Kích thước trước': sizeBeforeStr,
+        'Kích thước sau': 'Lỗi',
+        'Dung lượng trước': bytesBeforeStr,
+        'Dung lượng sau': 'Lỗi',
+        'Trạng thái': `❌ Lỗi resize: ${err.message}`
+      })
       continue
     }
 
-    processed++
-    bytesBefore += beforeSize
-    bytesAfter += resized.length
-    console.log(
-      `  ${APPLY ? '[DONE]' : '[WOULD]'} ${url}` +
-      (renamed ? ` -> ${newUrl}` : ' (in-place)') +
-      `  ${kb(beforeSize)} -> ${kb(resized.length)}  (${meta.width}px -> <=${COVER_WIDTH})  <- ${refLabel}`
-    )
+    const currentPixels = (metaCurrent?.width || 0) * (metaCurrent?.height || 0)
+    const newPixels = (metaResized.width || 0) * (metaResized.height || 0)
+    const isLarger = newPixels > currentPixels
 
-    if (!APPLY) continue
+    if (!isLarger) {
+      countSkipped++
+      tableRows.push({
+        'Tên bộ đề / mục': displayName,
+        'Kích thước trước': sizeBeforeStr,
+        'Kích thước sau': `${metaResized.width}x${metaResized.height}`,
+        'Dung lượng trước': bytesBeforeStr,
+        'Dung lượng sau': kb(resizedBuffer.length),
+        'Trạng thái': 'Bỏ qua (bản lưu đã >= kích thước mới)'
+      })
+      continue
+    }
 
-    // 1. backup ảnh gốc
-    const rel = path.relative(uploadsDir, srcPath)
-    const backupPath = path.join(BACKUP_ROOT, rel)
-    fs.mkdirSync(path.dirname(backupPath), { recursive: true })
-    if (!fs.existsSync(backupPath)) fs.copyFileSync(srcPath, backupPath)
+    // Bản mới có kích thước lớn hơn bản lưu
+    totalBytesBefore += sizeCurrent
+    totalBytesAfter += resizedBuffer.length
 
-    // 2. ghi .webp
-    fs.writeFileSync(outPath, resized)
+    const sizeAfterStr = `${metaResized.width}x${metaResized.height}`
+    const bytesAfterStr = kb(resizedBuffer.length)
 
-    // 3. cập nhật DB + xoá file cũ nếu đổi tên
-    if (renamed) {
-      renamedCount++
-      for (const r of refs) {
-        await r.delegate.update({ where: { id: r.id }, data: { [r.field]: newUrl } })
+    if (APPLY) {
+      // Thực thi ghi đè: giữ nguyên coverImageUrl, không đổi tên file
+      const rel = url.slice('/uploads/'.length)
+      const targetCanonicalPath = path.join(uploadsDir, rel)
+      fs.mkdirSync(path.dirname(targetCanonicalPath), { recursive: true })
+      fs.writeFileSync(targetCanonicalPath, resizedBuffer)
+
+      // Nếu đĩa local đang lưu phẳng ở uploadsDir thì cũng cập nhật file phẳng
+      if (currentDiskPath && path.resolve(currentDiskPath) !== path.resolve(targetCanonicalPath)) {
+        fs.writeFileSync(currentDiskPath, resizedBuffer)
       }
-      if (fs.existsSync(srcPath)) fs.unlinkSync(srcPath)
+
+      countUpdated++
+      tableRows.push({
+        'Tên bộ đề / mục': displayName,
+        'Kích thước trước': sizeBeforeStr,
+        'Kích thước sau': sizeAfterStr,
+        'Dung lượng trước': bytesBeforeStr,
+        'Dung lượng sau': bytesAfterStr,
+        'Trạng thái': '✅ Đã cập nhật'
+      })
+    } else {
+      countWouldUpdate++
+      tableRows.push({
+        'Tên bộ đề / mục': displayName,
+        'Kích thước trước': sizeBeforeStr,
+        'Kích thước sau': sizeAfterStr,
+        'Dung lượng trước': bytesBeforeStr,
+        'Dung lượng sau': bytesAfterStr,
+        'Trạng thái': '📋 Sẽ cập nhật (kế hoạch)'
+      })
     }
   }
 
-  console.log('\n--- Tổng kết ---')
-  console.log(`  ảnh xử lý:   ${processed}`)
-  console.log(`  bỏ qua:      ${skipped}  (đã tối ưu / không phải ảnh raster / URL ngoài)`)
-  console.log(`  file thiếu:  ${missing}`)
-  console.log(`  lỗi:         ${errors.length}`)
-  if (processed) {
-    console.log(`  dung lượng:  ${kb(bytesBefore)} -> ${kb(bytesAfter)}  (giảm ${kb(bytesBefore - bytesAfter)}, -${Math.round((1 - bytesAfter / bytesBefore) * 100)}%)`)
+  // In bảng kết quả
+  console.log('\n--- BẢNG KẾT QUẢ XỬ LÝ ẢNH BÌA & THUMBNAIL ---')
+  console.table(tableRows)
+
+  // In danh sách cần upload lại
+  console.log('\n--- DANH SÁCH ẢNH CẦN UPLOAD LẠI ---')
+  if (needsReupload.length === 0) {
+    console.log('  Không có ảnh nào cần upload lại.')
+  } else {
+    for (const item of needsReupload) {
+      console.log(`  • ${item.name}`)
+      console.log(`    URL: ${item.url}`)
+      console.log(`    Kích thước hiện tại: ${item.currentSize}`)
+      console.log(`    Lý do: ${item.reason}\n`)
+    }
   }
-  if (!APPLY && processed) {
-    console.log(`\n  Chạy lại với --apply để thực thi:`)
-    console.log(`    node scripts/resize-existing-covers.js --apply`)
-  }
-  if (APPLY && renamedCount > 0) {
-    console.log(`\n  ⚠️  ${renamedCount} URL đã đổi (.jpg/.png -> .webp). Server đang chạy có`)
-    console.log(`     SWR cache in-memory (routes practice/samples/full-tests, TTL 120s) giữ URL`)
-    console.log(`     CŨ → ảnh 404 tới khi cache hết hạn. RESTART backend để xoá cache ngay:`)
-    console.log(`         docker compose restart backend      # hoặc: docker restart ielts-app-backend`)
-  }
+
+  console.log('--- TỔNG KẾT ---')
   if (APPLY) {
-    console.log(`\n  Ảnh gốc đã backup ở ${BACKUP_ROOT} (xoá thủ công sau khi xác nhận OK).`)
+    console.log(`  Số ảnh đã cập nhật thành công: ${countUpdated}`)
+  } else {
+    console.log(`  Số ảnh trong kế hoạch cập nhật: ${countWouldUpdate}`)
+  }
+  console.log(`  Số ảnh bỏ qua / giữ nguyên:    ${countSkipped}`)
+  console.log(`  Số ảnh cần upload lại:         ${needsReupload.length}`)
+  if (totalBytesBefore > 0) {
+    console.log(`  Tổng dung lượng: ${kb(totalBytesBefore)} -> ${kb(totalBytesAfter)}`)
   }
 }
 

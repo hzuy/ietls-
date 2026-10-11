@@ -479,7 +479,7 @@ export default function FullTestDetail() {
               <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
                 <div style={{ width: 80, height: 110, borderRadius: '0.75rem', overflow: 'hidden', flexShrink: 0, background: 'linear-gradient(135deg, var(--ink), var(--ink-soft))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {resolveImg(bookData.coverImageUrl)
-                    ? <img src={resolveImg(bookData.coverImageUrl)} alt={title} loading="lazy" decoding="async" onError={handleImgError} className="img-crisp" style={{ width: '100%', height: '100%', objectFit: 'cover', imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)', backfaceVisibility: 'hidden' }} />
+                    ? <img src={resolveImg(bookData.coverImageUrl)} alt={title} loading="lazy" decoding="async" onError={handleImgError} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     : <AcademicCover title={title} compact={true} />
                   }
                 </div>
@@ -579,7 +579,7 @@ export default function FullTestDetail() {
                   >
                     <div style={{ width: 36, height: 48, borderRadius: '0.75rem', background: 'var(--surface-raised)', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {book.coverImageUrl ? (
-                        <img src={resolveImg(book.coverImageUrl)} alt="" loading="lazy" decoding="async" onError={handleImgError} className="img-crisp" style={{ width: '100%', height: '100%', objectFit: 'cover', imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)', backfaceVisibility: 'hidden' }} />
+                        <img src={resolveImg(book.coverImageUrl)} alt="" loading="lazy" decoding="async" onError={handleImgError} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (
                         <AcademicCover title={`${book.seriesName} ${book.bookNumber}`} compact={true} />
                       )}

@@ -214,13 +214,11 @@ export default function ContentCard({
             loading="lazy"
             decoding="async"
             onError={handleImgError}
-            className="img-crisp w-full h-full object-cover block"
+            className="w-full h-full object-cover block"
             style={{
               width: '100%', height: '100%', objectFit: 'cover', display: 'block',
-              imageRendering: '-webkit-optimize-contrast',
-              backfaceVisibility: 'hidden',
               transition: isShowcase ? 'transform 0.45s cubic-bezier(0.16, 1, 0.3, 1)' : undefined,
-              transform: activeHover ? 'scale(1.06) translateZ(0)' : 'scale(1) translateZ(0)',
+              transform: activeHover ? 'scale(1.02)' : 'scale(1)',
             }}
           />
         ) : placeholder ? (

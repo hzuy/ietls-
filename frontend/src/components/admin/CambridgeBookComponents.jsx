@@ -10,6 +10,7 @@ import { BookOpen, Pencil } from 'lucide-react'
 
 function CoverTab({ bookNumber, seriesId, coverUrl, onCoverUploaded, showToast }) {
   const [uploading, setUploading] = useState(false)
+  const [warning, setWarning] = useState(null)
   const inputRef = useRef(null)
 
   const upload = async (file) => {
@@ -27,6 +28,31 @@ function CoverTab({ bookNumber, seriesId, coverUrl, onCoverUploaded, showToast }
     }
   }
 
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+
+    // Đọc kích thước ảnh để cảnh báo nếu nhỏ hơn 900px hoặc là ảnh ngang
+    const objectUrl = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => {
+      const { naturalWidth, naturalHeight } = img
+      URL.revokeObjectURL(objectUrl)
+      if (naturalWidth < 900 || naturalWidth > naturalHeight) {
+        setWarning('Ảnh có thể bị cắt hoặc mờ trên thẻ hiển thị')
+      } else {
+        setWarning(null)
+      }
+      upload(file)
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      setWarning(null)
+      upload(file)
+    }
+  }
+
   const pick = () => inputRef.current?.click()
 
   return (
@@ -40,14 +66,20 @@ function CoverTab({ bookNumber, seriesId, coverUrl, onCoverUploaded, showToast }
         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick() } }}
       >
         {coverUrl
-          ? <img src={`${SERVER_BASE}${coverUrl}`} alt="" onError={handleImgError} className="img-crisp h-36 mx-auto object-contain rounded-lg mb-3 shadow" style={{ imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)' }} loading="lazy" decoding="async" />
+          ? <img src={`${SERVER_BASE}${coverUrl}`} alt="" onError={handleImgError} className="h-36 mx-auto object-contain rounded-lg mb-3 shadow" loading="lazy" decoding="async" />
           : <BookOpen className="w-12 h-12 mx-auto mb-3 text-zinc-300 stroke-[1.5]" />}
         <p className="text-sm font-semibold text-zinc-700">{coverUrl ? 'Click để đổi ảnh bìa' : 'Click để chọn ảnh bìa'}</p>
         <p className="text-xs text-zinc-400 mt-1">JPG, PNG, WebP — tối đa 20MB</p>
         {uploading && <p className="text-xs text-zinc-500 mt-2 font-medium">Đang upload...</p>}
       </div>
+      <p className="text-xs text-zinc-500 mt-2 text-center">Nên dùng ảnh dọc tỷ lệ 3:4, tối thiểu 900 x 1200 px</p>
+      {warning && (
+        <div className="mt-2.5 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center justify-center gap-1.5">
+          <span>⚠️ {warning}</span>
+        </div>
+      )}
       <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
-        onChange={e => { if (e.target.files[0]) upload(e.target.files[0]); e.target.value = '' }} />
+        onChange={handleFileChange} />
     </div>
   )
 }
@@ -57,7 +89,7 @@ function BookModal({ bookNumber, seriesId, seriesName, coverUrl, onClose, onCove
     <Modal onClose={onClose} title={`${seriesName} ${bookNumber} — Ảnh bìa`} size="lg">
       <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200 shrink-0">
         <div className="flex items-center gap-3">
-          {coverUrl && <img src={`${SERVER_BASE}${coverUrl}`} alt="" onError={handleImgError} className="img-crisp w-8 h-10 rounded object-cover shadow" style={{ imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)' }} loading="lazy" decoding="async" />}
+          {coverUrl && <img src={`${SERVER_BASE}${coverUrl}`} alt="" onError={handleImgError} className="w-8 h-10 rounded object-cover shadow" loading="lazy" decoding="async" />}
           <h2 className="text-sm font-semibold text-zinc-900">{seriesName} {bookNumber} — Ảnh bìa</h2>
         </div>
         <button onClick={onClose} aria-label="Đóng"
@@ -210,7 +242,7 @@ function SeriesDetailView({ series, books, booksError, onBack, onBooksChanged, s
                 className="w-12 h-16 rounded-lg overflow-hidden border-2 border-dashed border-zinc-200 hover:border-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 transition block"
               >
                 {coverMap[b.bookNumber]
-                  ? <img src={`${SERVER_BASE}${coverMap[b.bookNumber]}`} alt="" onError={handleImgError} className="img-crisp w-full h-full object-cover" style={{ imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)' }} loading="lazy" decoding="async" />
+                  ? <img src={`${SERVER_BASE}${coverMap[b.bookNumber]}`} alt="" onError={handleImgError} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                   : <AcademicCover volume={b.bookNumber} seriesName="CAMBRIDGE" compact={true} />}
               </button>
               {editingBook === b.bookNumber ? (

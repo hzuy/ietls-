@@ -7,9 +7,7 @@ import {
   Mic,
 } from 'lucide-react'
 import AcademicCover from '../components/common/AcademicCover'
-import Card from '../components/common/Card'
 import PageHeader from '../components/common/PageHeader'
-import PillButton from '../components/common/PillButton'
 import ResumeHeroCard from '../components/home/ResumeHeroCard'
 import StreakWidget from '../components/home/StreakWidget'
 import BandOverviewWidget from '../components/home/BandOverviewWidget'
@@ -54,17 +52,11 @@ function CompactBookCard({ book, onClick }) {
             src={resolveImg(book.coverImageUrl)}
             alt={book.title}
             onError={() => setImgError(true)}
-            className="img-crisp w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            style={{
-              imageRendering: '-webkit-optimize-contrast',
-              transform: 'translateZ(0)',
-              backfaceVisibility: 'hidden',
-            }}
+            className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
             loading="lazy"
             decoding="async"
           />
         ) : (
-          /* Elegant Minimalist Vector Typography Cover */
           <AcademicCover
             title={book.title}
             seriesName={book.seriesName || 'CAMBRIDGE'}
@@ -75,13 +67,10 @@ function CompactBookCard({ book, onClick }) {
         )}
       </div>
 
-      {/* Book Info — nằm trực tiếp trên nền trang sáng, không phải trong thẻ trắng */}
+      {/* Book Info — chỉ số đề, bỏ title lặp */}
       <div className="mt-2 text-left">
-        <h3 className="text-xs font-semibold truncate text-zinc-900 group-hover:text-zinc-600 transition-colors">
-          {book.title}
-        </h3>
-        <p className="text-[11px] text-zinc-500 font-mono mt-0.5">
-          {book.testCount} đề Full Test
+        <p className="text-[11px] text-zinc-500 font-mono">
+          {book.testCount} đề
         </p>
       </div>
     </div>
@@ -95,8 +84,11 @@ function CompactBookCard({ book, onClick }) {
 // cuộn/xem-thêm nào khác ở đây. Ít sách → lưới tự nhiên không tràn, không cần
 // cap; nhiều sách → chỉ hiện `cap` cuốn đầu, phần còn lại xem ở /cambridge
 // hoặc /practice-plus (SeriesPage, đã dùng cùng dữ liệu, không cap).
-function CompactBookGrid({ books, onBookClick, cap = 6 }) {
+function CompactBookGrid({ books, onBookClick, cap = 6, allCount, onSeeAll }) {
   const visible = books.slice(0, cap)
+  const remaining = allCount != null ? allCount - cap : books.length - cap
+  const showMore = remaining > 0
+
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
       {visible.map((book, i) => (
@@ -106,6 +98,20 @@ function CompactBookGrid({ books, onBookClick, cap = 6 }) {
           onClick={() => onBookClick(book)}
         />
       ))}
+      {showMore && onSeeAll && (
+        <div
+          onClick={onSeeAll}
+          className="group w-full cursor-pointer flex flex-col"
+        >
+          <div className="w-full aspect-[3/4] rounded-xl border-2 border-dashed border-zinc-200 bg-zinc-50 flex flex-col items-center justify-center gap-2 group-hover:border-zinc-400 group-hover:bg-zinc-100 transition-all duration-200">
+            <span className="text-xl font-bold text-zinc-400 group-hover:text-zinc-700 transition-colors">+{remaining}</span>
+            <span className="text-[10px] text-zinc-400 group-hover:text-zinc-600 transition-colors text-center px-2">bộ nữa</span>
+          </div>
+          <div className="mt-2">
+            <p className="text-[11px] text-zinc-500 font-mono">Xem tất cả →</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -269,17 +275,17 @@ export default function Home() {
         <div className="bg-dots" aria-hidden="true" />
         <div className="home-hero-blob home-hero-blob-primary home-hero-blob-pulse" style={{ top: '-10%', right: '4%' }} aria-hidden="true" />
         <div className="home-hero-blob home-hero-blob-accent home-hero-blob-pulse" style={{ bottom: '-12%', left: '2%' }} aria-hidden="true" />
-        <div className="app-container py-12 md:py-16 relative">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-10">
-            <div className="max-w-2xl w-full anim-fade-up">
+        <div className="app-container py-6 md:py-8 relative">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+            <div className="max-w-xl w-full anim-fade-up">
               <PageHeader
-                title="Không gian Luyện thi & Khảo thí IELTS"
-                subtitle="Nền tảng kiểm tra trực tuyến mô phỏng kỳ thi trên máy tính, tích hợp AI phân tích 4 kỹ năng."
+                title={user ? `Chào ${user.name || user.displayName || user.email?.split('@')[0] || 'bạn'}, hôm nay luyện gì nào?` : 'Không gian luyện thi & khảo thí IELTS'}
+                subtitle="Mô phỏng kỳ thi trên máy tính, tích hợp AI phân tích 4 kỹ năng."
                 titleClassName="text-2xl sm:text-3xl font-bold text-zinc-900 tracking-tight"
-                subtitleClassName="text-sm text-zinc-500 max-w-xl leading-relaxed mt-2"
+                subtitleClassName="text-sm text-zinc-500 leading-relaxed mt-1.5"
               />
 
-              <div className="flex flex-wrap items-center gap-3 mt-5">
+              <div className="flex flex-wrap items-center gap-3 mt-4">
                 <button
                   onClick={() => gate('/cambridge')}
                   className="h-9 pointer-coarse:h-11 px-5 text-white text-sm font-medium rounded-full shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
@@ -319,39 +325,18 @@ export default function Home() {
               dưới — thay cho cột phụ hẹp lg:col-span-4 trước đây, nơi 3 thứ giá
               trị nhất bị nhét lép vế so với carousel bìa sách. */}
           <section className="anim-fade-up flex flex-col gap-4">
-            {enrichedDraft ? (
+            {enrichedDraft && (
               <ResumeHeroCard
                 draft={enrichedDraft}
                 onResume={handleResumeDraft}
                 onDiscard={handleDiscardDraft}
               />
-            ) : (
-              <Card className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-base font-semibold text-zinc-900">
-                    Bắt đầu luyện tập hôm nay
-                  </h2>
-                  <p className="text-xs text-zinc-500 mt-1">
-                    Chưa có bài làm dở nào. Chọn một đề để bắt đầu phiên luyện thi.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => gate('/cambridge')}
-                  className="h-9 pointer-coarse:h-11 px-5 text-white text-sm font-medium rounded-full shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none shrink-0"
-                  style={{ background: 'var(--primary)' }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
-                >
-                  Chọn đề luyện tập
-                </button>
-              </Card>
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <StreakWidget streak={userStats?.streak ?? 0} isAuthenticated={!!user} />
               <BandOverviewWidget stats={userStats} isAuthenticated={!!user} />
-              <QuickFullTestWidget books={quickTestBooks} onSelect={handleQuickBookSelect} />
+              <QuickFullTestWidget books={quickTestBooks} onSelect={handleQuickBookSelect} stats={userStats} />
             </div>
           </section>
 
@@ -363,8 +348,8 @@ export default function Home() {
                     <h2 className="text-base font-semibold text-zinc-900">
                       {seriesTab === 'cambridge' ? 'Bộ đề Cambridge Academic' : 'Bộ đề IELTS Practice Test Plus'}
                     </h2>
-                    <p className="text-[11px] font-mono text-zinc-500 mt-0.5">
-                      {seriesTab === 'cambridge' ? '(Đề chuẩn IDP / British Council)' : '(Dòng sách luyện đề chuyên sâu độ khó cao)'}
+                    <p className="text-[11px] text-zinc-500 mt-0.5">
+                      {seriesTab === 'cambridge' ? 'Đề chuẩn IDP / British Council' : 'Dòng sách luyện đề chuyên sâu độ khó cao'}
                     </p>
                   </div>
 
@@ -406,9 +391,9 @@ export default function Home() {
 
                 <button
                   onClick={() => gate(seriesTab === 'cambridge' ? '/cambridge' : '/practice-plus')}
-                  className="tap-pad text-xs font-semibold text-zinc-500 hover:text-zinc-900 transition-colors cursor-pointer self-start sm:self-auto"
+                  className="tap-pad text-xs font-semibold text-zinc-500 hover:text-zinc-900 transition-colors cursor-pointer self-start sm:self-auto whitespace-nowrap"
                 >
-                  {seriesTab === 'cambridge' ? 'Xem trọn bộ Cambridge' : 'Xem trọn bộ Practice Plus'}
+                  Xem tất cả →
                 </button>
               </div>
 
@@ -424,6 +409,8 @@ export default function Home() {
                 <CompactBookGrid
                   books={seriesTab === 'cambridge' ? cambridgeBooks : practicePlusBooks}
                   onBookClick={(book) => navigate(`/full-test/${book.seriesId}?book=${book.bookNumber}`)}
+                  allCount={seriesTab === 'cambridge' ? cambridgeBooks.length : practicePlusBooks.length}
+                  onSeeAll={() => gate(seriesTab === 'cambridge' ? '/cambridge' : '/practice-plus')}
                 />
               )}
             </section>
@@ -438,8 +425,8 @@ export default function Home() {
                   <h2 className="text-base font-semibold shrink-0 text-zinc-900">
                     Khám phá thêm
                   </h2>
-                  <span className="text-[11px] font-mono text-zinc-500">
-                    (Luyện kỹ năng tương tác & thư viện bài mẫu tham khảo)
+                  <span className="text-[11px] text-zinc-500">
+                    Luyện kỹ năng tương tác & thư viện bài mẫu tham khảo
                   </span>
                 </div>
               </div>
@@ -452,10 +439,10 @@ export default function Home() {
                 >
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-3">
-                      <span className="bg-zinc-100 text-zinc-700 font-mono text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full font-medium">
-                        ĐỀ THI TƯƠNG TÁC
+                      <span className="bg-zinc-100 text-zinc-700 text-[10px] px-2.5 py-0.5 rounded-full font-medium">
+                        Tương tác
                       </span>
-                      <span className="text-xs text-zinc-500 font-mono">
+                      <span className="text-xs text-zinc-500 whitespace-nowrap">
                         {Array.isArray(reading) ? `${reading.length} bài luyện tập` : 'T/F/NG, Matching'}
                       </span>
                     </div>
@@ -466,17 +453,17 @@ export default function Home() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <h3 className="text-base font-semibold text-zinc-900 group-hover:text-black transition-colors">
-                          Reading Practice
+                          Reading
                         </h3>
                         <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
-                          3 passage học thuật · 40 câu hỏi trắc nghiệm & điền từ · Bảng phân tích dạng bài chi tiết
+                          3 passage học thuật · 40 câu hỏi trắc nghiệm & điền từ
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-zinc-100 text-xs font-medium text-zinc-900">
-                    <span>Luyện tập Reading</span>
+                  <div className="mt-4 pt-3 border-t border-zinc-100 text-xs font-medium text-zinc-900 group-hover:text-zinc-600 transition-colors">
+                    Luyện tập Reading →
                   </div>
                 </div>
 
@@ -487,10 +474,10 @@ export default function Home() {
                 >
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-3">
-                      <span className="bg-zinc-100 text-zinc-700 font-mono text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full font-medium">
-                        ĐỀ THI TƯƠNG TÁC
+                      <span className="bg-zinc-100 text-zinc-700 text-[10px] px-2.5 py-0.5 rounded-full font-medium">
+                        Tương tác
                       </span>
-                      <span className="text-xs text-zinc-500 font-mono">
+                      <span className="text-xs text-zinc-500 whitespace-nowrap">
                         {Array.isArray(listening) ? `${listening.length} bài luyện tập` : 'Audio & Transcript'}
                       </span>
                     </div>
@@ -501,17 +488,17 @@ export default function Home() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <h3 className="text-base font-semibold text-zinc-900 group-hover:text-black transition-colors">
-                          Listening Practice
+                          Listening
                         </h3>
                         <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
-                          4 section audio kèm transcript đối chiếu · 40 câu hỏi · Tự động phát & kiểm tra kết quả
+                          4 section audio kèm transcript · 40 câu hỏi
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-zinc-100 text-xs font-medium text-zinc-900">
-                    <span>Luyện tập Listening</span>
+                  <div className="mt-4 pt-3 border-t border-zinc-100 text-xs font-medium text-zinc-900 group-hover:text-zinc-600 transition-colors">
+                    Luyện tập Listening →
                   </div>
                 </div>
 
@@ -522,10 +509,10 @@ export default function Home() {
                 >
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-3">
-                      <span className="bg-zinc-100 text-zinc-600 font-mono text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full font-medium">
-                        THƯ VIỆN THAM KHẢO
+                      <span className="bg-zinc-100 text-zinc-600 text-[10px] px-2.5 py-0.5 rounded-full font-medium">
+                        Bài mẫu
                       </span>
-                      <span className="text-xs text-zinc-500 font-mono">
+                      <span className="text-xs text-zinc-500 whitespace-nowrap">
                         {Array.isArray(writingSamples) ? `${writingSamples.length} bài mẫu Band 8+` : 'Task 1 & Task 2'}
                       </span>
                     </div>
@@ -536,17 +523,17 @@ export default function Home() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <h3 className="text-base font-semibold text-zinc-900 group-hover:text-black transition-colors">
-                          Writing Samples
+                          Writing mẫu
                         </h3>
                         <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
-                          Kho bài viết mẫu Task 1 & Task 2 đạt Band 8.0+ kèm phân tích cấu trúc luận điểm và từ vựng học thuật
+                          Bài mẫu Task 1 & Task 2 Band 8.0+ kèm phân tích cấu trúc
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-zinc-100 text-xs font-medium text-zinc-600 group-hover:text-zinc-900">
-                    <span>Khám phá bài mẫu Writing</span>
+                  <div className="mt-4 pt-3 border-t border-zinc-100 text-xs font-medium text-zinc-600 group-hover:text-zinc-900 transition-colors">
+                    Khám phá bài mẫu Writing →
                   </div>
                 </div>
 
@@ -557,10 +544,10 @@ export default function Home() {
                 >
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-3">
-                      <span className="bg-zinc-100 text-zinc-600 font-mono text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full font-medium">
-                        THƯ VIỆN THAM KHẢO
+                      <span className="bg-zinc-100 text-zinc-600 text-[10px] px-2.5 py-0.5 rounded-full font-medium">
+                        Bài mẫu
                       </span>
-                      <span className="text-xs text-zinc-500 font-mono">
+                      <span className="text-xs text-zinc-500 whitespace-nowrap">
                         {Array.isArray(speakingSamples) ? `${speakingSamples.length} bài mẫu Band 8+` : 'Part 1, 2, 3'}
                       </span>
                     </div>
@@ -571,17 +558,17 @@ export default function Home() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <h3 className="text-base font-semibold text-zinc-900 group-hover:text-black transition-colors">
-                          Speaking Samples
+                          Speaking mẫu
                         </h3>
                         <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
-                          Gợi ý câu trả lời mẫu Part 1, 2, 3 kèm audio phát âm chuẩn bản xứ và cấu trúc câu ăn điểm Lexical Resource
+                          Câu trả lời mẫu Part 1, 2, 3 kèm audio phát âm chuẩn
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-zinc-100 text-xs font-medium text-zinc-600 group-hover:text-zinc-900">
-                    <span>Khám phá bài mẫu Speaking</span>
+                  <div className="mt-4 pt-3 border-t border-zinc-100 text-xs font-medium text-zinc-600 group-hover:text-zinc-900 transition-colors">
+                    Khám phá bài mẫu Speaking →
                   </div>
                 </div>
               </div>
