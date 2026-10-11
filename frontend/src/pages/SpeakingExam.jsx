@@ -11,7 +11,7 @@ import { useSpeechRecording } from '../hooks/useSpeechRecording'
 import { Mic, X, Square, Play, Pause, AlertCircle, RotateCcw, Sparkles, Eye, Volume2, History, CheckCircle2, ChevronUp, Share } from 'lucide-react'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
-import InlineCorrections, { CorrectionSummary } from '../components/exam/InlineCorrections'
+import InlineCorrections from '../components/exam/InlineCorrections'
 import ExitConfirmModal from '../components/common/ExitConfirmModal'
 
 const CRITERIA_LABELS = {
@@ -40,6 +40,26 @@ function getScoreColorClass(scoreStr, isSolid = false) {
   if (score >= 7.0) return isSolid ? 'bg-emerald-400 text-emerald-950' : 'bg-emerald-50 text-emerald-800 border-emerald-200';
   if (score >= 5.5) return isSolid ? 'bg-amber-400 text-amber-950' : 'bg-amber-50 text-amber-800 border-amber-200';
   return isSolid ? 'bg-zinc-300 text-zinc-800' : 'bg-zinc-50 text-zinc-800 border-zinc-300';
+}
+
+const getHeroCircleClass = (scoreStr) => {
+  const s = parseFloat(scoreStr)
+  if (isNaN(s)) return 'bg-zinc-300 text-zinc-700'
+  if (s >= 8.0) return 'bg-fuchsia-500 text-white'
+  if (s >= 7.0) return 'bg-emerald-500 text-white'
+  if (s >= 5.5) return 'bg-[#F59E0B] text-zinc-950'
+  if (s >= 4.0) return 'bg-amber-300 text-amber-950'
+  return 'bg-zinc-300 text-zinc-700'
+}
+
+const getHeroBadgeClass = (scoreStr) => {
+  const s = parseFloat(scoreStr)
+  if (isNaN(s)) return 'bg-zinc-200 text-zinc-700'
+  if (s >= 8.0) return 'bg-fuchsia-200 text-fuchsia-950'
+  if (s >= 7.0) return 'bg-emerald-200 text-emerald-950'
+  if (s >= 5.5) return 'bg-[#FCD34D] text-zinc-950'
+  if (s >= 4.0) return 'bg-amber-200 text-amber-950'
+  return 'bg-zinc-200 text-zinc-700'
 }
 
 function roundIeltsScore(score) {
@@ -194,7 +214,8 @@ export default function SpeakingExam() {
 
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0)
   const [turnState, setTurnState] = useState('idle') // 'idle' | 'ai_speaking' | 'user_preparing' | 'user_speaking'
-  const [waitingForPart2Submit, setWaitingForPart2Submit] = useState(false) // Đang chờ kết thúc ghi âm/transcribe để tự động nộp Part 2
+  const [part2PendingSubmit, setPart2PendingSubmit] = useState(null) // { part, wasRecording } đang chờ kết thúc ghi âm/transcribe để tự động nộp Part 2
+  const waitingForPart2Submit = Boolean(part2PendingSubmit)
   const [showQuestion, setShowQuestion] = useState(false)
   const [playingAudioId, setPlayingAudioId] = useState(null)
   const ttsAudioRef = useRef(null)
@@ -414,13 +435,23 @@ export default function SpeakingExam() {
   }, [exam, activePart, activeQuestionIndex, stopRecording, playTTS, onAiAudioEnded])
 
   const handlePart2Submit = useCallback(() => {
-    const p = exam?.speakingParts?.[activePart]
+    const p = exam?.speakingParts?.[activePart] || exam?.speakingParts?.find(sp => sp.number === 2)
     if (!p) return
+    const wasRec = isRecording
     if (isRecording) {
       stopRecording()
     }
-    setWaitingForPart2Submit(true)
-    setTurnState('completed')
+    setPart2PendingSubmit({ part: p, wasRecording: wasRec })
+
+    // Chuyển ngay lập tức sang giao diện chuẩn bị Part 3 (hoặc part kế tiếp)
+    const currentIndex = exam?.speakingParts?.findIndex(sp => sp.id === p.id) ?? activePart
+    if (currentIndex < (exam?.speakingParts?.length ?? 0) - 1) {
+      setActivePart(currentIndex + 1)
+      setTurnState('idle')
+      setActiveQuestionIndex(0)
+    } else {
+      setTurnState('completed')
+    }
   }, [exam, activePart, isRecording, stopRecording])
 
   const skipPrep = useCallback(() => {
@@ -544,16 +575,16 @@ export default function SpeakingExam() {
     if (!exam) return
     const allPartsDone = exam.speakingParts.every(p => results[p.id])
     if (allPartsDone && exam.speakingParts.length > 0) {
-      getFullTestStatus(id)
-        .then(data => { if (data.isComplete) setFullTestStatus(data) })
-        .catch(() => {})
+      const p = getFullTestStatus(id)
+      if (p && typeof p.then === 'function') {
+        p.then(data => { if (data?.isComplete) setFullTestStatus(data) }).catch(() => {})
+      }
     }
   }, [results, exam, id])
 
   // ── Stop recording + full cleanup when switching parts ───────────────────────
   useEffect(() => {
     forceCleanupAll()
-    setWaitingForPart2Submit(false)
   }, [activePart, forceCleanupAll])
 
   // ── Đồng bộ mobileView (chỉ ảnh hưởng layout mobile) ────────────────────────
@@ -694,8 +725,9 @@ export default function SpeakingExam() {
 
 
     const submitPart = useCallback(async (part) => {
-    if (isRecording) stopRecording()
-    if (isTranscribing) {
+    const isCurrentActivePart = exam?.speakingParts?.[activePart]?.id === part.id
+    if (isCurrentActivePart && isRecording) stopRecording()
+    if (isCurrentActivePart && isTranscribing) {
       showToast('Hệ thống đang xử lý giọng nói, vui lòng chờ trong giây lát...', 'info');
       return;
     }
@@ -710,11 +742,14 @@ export default function SpeakingExam() {
       setSubmittedPartIds(ids => ids.includes(part.id) ? ids : [...ids, part.id])
       
       const currentIndex = exam.speakingParts.findIndex(p => p.id === part.id)
-      if (currentIndex < exam.speakingParts.length - 1) {
-        setActivePart(currentIndex + 1);
-        setTurnState('idle');
-        setActiveQuestionIndex(0);
-      }
+      setActivePart(prevPart => {
+        if (prevPart <= currentIndex && currentIndex < exam.speakingParts.length - 1) {
+          setTurnState('idle');
+          setActiveQuestionIndex(0);
+          return currentIndex + 1;
+        }
+        return prevPart;
+      });
 
       if (r.answerId && r.status === 'pending') {
         pollStatus(r.answerId, part)
@@ -726,33 +761,32 @@ export default function SpeakingExam() {
     } catch (e) {
       if (e.response?.data?.code === 'DUPLICATE_ANSWER') {
         setTranscripts(prev => ({ ...prev, [part.id]: [] }))
-        setTurnState('idle')
-        setActiveQuestionIndex(0)
+        if (isCurrentActivePart) {
+          setTurnState('idle')
+          setActiveQuestionIndex(0)
+        }
       }
       setGradingErrors(prev => ({ ...prev, [part.id]: { error: e.response?.data?.message || 'Lỗi nộp bài, thử lại nhé!' } }))
       setSubmitting(false)
       setGradingPart(null)
     }
-  }, [transcripts, isRecording, isTranscribing, id, exam, stopRecording, pollStatus, clearPartError])
+  }, [transcripts, isRecording, isTranscribing, id, exam, activePart, stopRecording, pollStatus, clearPartError, showToast])
 
   // ── Auto-submit Part 2 sau khi hoàn tất ghi âm & nhận dạng giọng nói ─────────
   useEffect(() => {
-    if (!waitingForPart2Submit) return
-    if (transcribeError) {
-      setWaitingForPart2Submit(false)
-      return
-    }
-    if (isRecording || isTranscribing) return
-
-    const p = exam?.speakingParts?.[activePart]
-    if (!p) {
-      setWaitingForPart2Submit(false)
+    if (!part2PendingSubmit) return
+    // Nếu Part 2 đang ghi âm lúc nộp, đợi MediaRecorder dừng và Whisper hoàn tất
+    if (part2PendingSubmit.wasRecording) {
+      if (isTranscribing) return
+      if (isRecording && turnState !== 'user_speaking') return
+    } else if (isTranscribing) {
       return
     }
 
-    setWaitingForPart2Submit(false)
+    const { part: p } = part2PendingSubmit
+    setPart2PendingSubmit(null)
     submitPart(p)
-  }, [waitingForPart2Submit, isRecording, isTranscribing, transcribeError, exam, activePart, submitPart])
+  }, [part2PendingSubmit, isRecording, isTranscribing, turnState, submitPart])
 
   if (loading) return <SkeletonExamPage variant="speaking" />
   if (error || !exam) {
@@ -808,89 +842,100 @@ export default function SpeakingExam() {
             
             
             {/* ── Score Card Hero Section ── */}
-            <div className="w-full max-w-4xl mx-auto rounded-2xl shadow-sm border border-indigo-200 overflow-hidden mb-8">
-              {/* Top Section */}
-              <div className="bg-[#E9EDFF] p-5 md:p-6 relative">
-                {/* Header row */}
-                <div className="flex justify-between items-start mb-6">
-                  <div className="text-indigo-600 font-bold text-sm tracking-widest uppercase mt-2">
+            <div className="w-full max-w-4xl mx-auto rounded-[26px] border border-[#BFDBFE] bg-[#E0EDFF] p-6 sm:p-7 shadow-xs mb-8">
+              {/* Row 1: Header (FULL TEST + Date on left, Retake button on right) */}
+              <div className="flex items-center justify-between gap-4 mb-6">
+                <div className="flex items-center gap-3.5">
+                  <span className="text-[#1D4ED8] font-bold text-sm tracking-wider uppercase">
                     FULL TEST
-                  </div>
-                  <div className="text-zinc-500 text-[13px] font-medium absolute left-1/2 -translate-x-1/2 top-7">
+                  </span>
+                  <span className="text-zinc-600 text-xs font-medium">
                     {(() => {
-                       const firstResult = Object.values(results)[0];
-                       const testDate = firstResult?.createdAt ? new Date(firstResult.createdAt) : new Date();
-                       return testDate.toISOString().slice(0, 10) + ' | ' + testDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                      const firstResult = Object.values(results)[0];
+                      const testDate = firstResult?.createdAt ? new Date(firstResult.createdAt) : new Date();
+                      return testDate.toISOString().slice(0, 10) + ' | ' + testDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
                     })()}
-                  </div>
-                  <div className={"w-16 h-16 rounded-full flex items-center justify-center font-extrabold text-2xl shadow-md border-2 border-white/50 shrink-0 " + getScoreColorClass(overallBand, true)}>
-                    {overallBand}
-                  </div>
+                  </span>
                 </div>
 
-                {/* Per-Part Scores */}
-                <div className="flex flex-wrap items-center gap-4 mb-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (user) {
+                      clearDraft(user.id || user._id, id, 'speaking')
+                      saveDraft({
+                        userId: user.id || user._id,
+                        examId: id,
+                        skillType: 'speaking',
+                        data: { transcripts: {}, submittedPartIds: [], isRetake: true },
+                        timeRemaining: null
+                      })
+                    }
+                    window.location.href = window.location.pathname
+                  }}
+                  className="h-9 px-5 rounded-full bg-white hover:bg-zinc-50 border border-zinc-200/90 text-zinc-700 text-[13px] font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-2xs"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-zinc-600" />
+                  <span>Thi lại</span>
+                </button>
+              </div>
+
+              {/* Row 2: Big Overall Circle + Per-Part Scores */}
+              <div className="flex items-center gap-5 sm:gap-7 mb-6">
+                <div className={"w-16 h-16 rounded-full flex items-center justify-center font-extrabold text-[26px] shadow-xs shrink-0 " + getHeroCircleClass(overallBand)}>
+                  {overallBand}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-5 sm:gap-7">
                   {exam.speakingParts.map(p => (
-                     <div key={p.id} className="flex items-center gap-2">
-                       <span className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider">Part {p.number}</span>
-                       <div className={"w-8 h-8 rounded-full flex items-center justify-center font-bold text-[12px] shadow-sm border border-white/50 " + getScoreColorClass(results[p.id]?.overall, true)}>
-                         {results[p.id] ? bandNum(results[p.id].overall) : '–'}
-                       </div>
-                     </div>
+                    <div key={p.id} className="flex items-center gap-2.5">
+                      <span className="text-xs sm:text-[13px] font-bold text-[#1D4ED8] tracking-wider uppercase">
+                        PART {p.number}
+                      </span>
+                      <span className={"px-3.5 py-0.5 rounded-full text-xs sm:text-[13px] font-extrabold shadow-2xs " + getHeroBadgeClass(results[p.id]?.overall)}>
+                        {results[p.id] ? bandNum(results[p.id].overall) : '–'}
+                      </span>
+                    </div>
                   ))}
                 </div>
+              </div>
 
-                {/* Pill Badges Row */}
-                <div className="flex justify-between items-center mt-2">
-                  <div className="flex flex-wrap gap-2">
-                    {(() => {
-                      let totalF = 0, totalV = 0, totalG = 0, totalP = 0;
-                      let validParts = 0;
-                      exam.speakingParts.forEach(p => {
-                         const r = results[p.id];
-                         if (r) {
-                            totalF += bandNum(r.criteria?.fluency?.score);
-                            totalV += bandNum(r.criteria?.vocabulary?.score);
-                            totalG += bandNum(r.criteria?.grammar?.score);
-                            totalP += bandNum(r.criteria?.pronunciation?.score);
-                            validParts++;
-                         }
-                      });
-                      const avgF = validParts > 0 ? roundIeltsScore(totalF / validParts) : '–';
-                      const avgV = validParts > 0 ? roundIeltsScore(totalV / validParts) : '–';
-                      const avgG = validParts > 0 ? roundIeltsScore(totalG / validParts) : '–';
-                      const avgP = validParts > 0 ? roundIeltsScore(totalP / validParts) : '–';
-                      return (
-                        <>
-                          <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(avgF, true)}>Trôi chảy: {avgF}</span>
-                          <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(avgV, true)}>Từ vựng: {avgV}</span>
-                          <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(avgG, true)}>Ngữ pháp: {avgG}</span>
-                          <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(avgP, true)}>Phát âm: {avgP}</span>
-                        </>
-                      )
-                    })()}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (user) {
-                        clearDraft(user.id || user._id, id, 'speaking')
-                        saveDraft({
-                          userId: user.id || user._id,
-                          examId: id,
-                          skillType: 'speaking',
-                          data: { transcripts: {}, submittedPartIds: [], isRetake: true },
-                          timeRemaining: null
-                        })
-                      }
-                      window.location.href = window.location.pathname
-                    }}
-                    className="h-10 px-6 shrink-0 rounded-full bg-[#f000ff] hover:bg-[#d000d0] text-white text-[13px] font-bold inline-flex items-center justify-center gap-2 transition-colors whitespace-nowrap cursor-pointer shadow-md"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Thi lại</span>
-                  </button>
-                </div>
+              {/* Row 3: 4 Criteria White Pill Badges */}
+              <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+                {(() => {
+                  let totalF = 0, totalV = 0, totalG = 0, totalP = 0;
+                  let validParts = 0;
+                  exam.speakingParts.forEach(p => {
+                     const r = results[p.id];
+                     if (r) {
+                        totalF += bandNum(r.criteria?.fluency?.score);
+                        totalV += bandNum(r.criteria?.vocabulary?.score);
+                        totalG += bandNum(r.criteria?.grammar?.score);
+                        totalP += bandNum(r.criteria?.pronunciation?.score);
+                        validParts++;
+                     }
+                  });
+                  const avgF = validParts > 0 ? roundIeltsScore(totalF / validParts) : '–';
+                  const avgV = validParts > 0 ? roundIeltsScore(totalV / validParts) : '–';
+                  const avgG = validParts > 0 ? roundIeltsScore(totalG / validParts) : '–';
+                  const avgP = validParts > 0 ? roundIeltsScore(totalP / validParts) : '–';
+                  return (
+                    <>
+                      <span className="bg-white text-zinc-800 border border-zinc-200/80 px-4 py-1.5 rounded-full text-[13px] font-semibold shadow-2xs">
+                        Fluency & Coherence: {avgF}
+                      </span>
+                      <span className="bg-white text-zinc-800 border border-zinc-200/80 px-4 py-1.5 rounded-full text-[13px] font-semibold shadow-2xs">
+                        Lexical Resource: {avgV}
+                      </span>
+                      <span className="bg-white text-zinc-800 border border-zinc-200/80 px-4 py-1.5 rounded-full text-[13px] font-semibold shadow-2xs">
+                        Grammatical Range: {avgG}
+                      </span>
+                      <span className="bg-white text-zinc-800 border border-zinc-200/80 px-4 py-1.5 rounded-full text-[13px] font-semibold shadow-2xs">
+                        Pronunciation: {avgP}
+                      </span>
+                    </>
+                  )
+                })()}
               </div>
             </div>
 
@@ -899,9 +944,33 @@ export default function SpeakingExam() {
               {exam.speakingParts.map(part => {
                 const r = results[part.id]
                 if (!r) return null
-                let partTitle = part.topic || part.cueCard || `Speaking Part ${part.number}`
-                if (partTitle.includes('\n===\n')) {
-                  partTitle = partTitle.split('\n===\n')[0]
+                let partTitle = `Speaking Part ${part.number}`
+                if (part.number === 2) {
+                  // Part 2: Mô tả / Hướng dẫn cho thí sinh là phần trước '\n===\n' trong part.cueCard
+                  if (part.cueCard && part.cueCard.includes('\n===\n')) {
+                    const instructions = part.cueCard.split('\n===\n')[0].trim()
+                    if (instructions) {
+                      partTitle = instructions
+                    } else if (part.topic && part.topic.trim()) {
+                      partTitle = part.topic.trim()
+                    }
+                  } else if (part.topic && part.topic.trim()) {
+                    partTitle = part.topic.trim()
+                  }
+                } else {
+                  // Part 1 & 3: Mô tả / Hướng dẫn cho thí sinh được lưu trực tiếp trong part.cueCard
+                  if (part.cueCard && part.cueCard.trim()) {
+                    const desc = part.cueCard.includes('\n===\n')
+                      ? part.cueCard.split('\n===\n')[0].trim()
+                      : part.cueCard.trim()
+                    if (desc) {
+                      partTitle = desc
+                    } else if (part.topic && part.topic.trim()) {
+                      partTitle = part.topic.trim()
+                    }
+                  } else if (part.topic && part.topic.trim()) {
+                    partTitle = part.topic.trim()
+                  }
                 }
 
                 const fluencyScore = r.criteria?.fluency?.score ?? '–'
@@ -921,20 +990,6 @@ export default function SpeakingExam() {
                       
                     </div>
 
-                    {r.insufficient && (
-                      <div role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                        Không ghi nhận được câu trả lời đủ dài cho phần này nên điểm là 0. Hãy bấm "Thi lại" và trả lời đầy đủ từng câu hỏi.
-                      </div>
-                    )}
-
-                    {r.offTopic && !r.insufficient && (
-                      <div role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                        Phần lớn câu trả lời chưa đúng trọng tâm câu hỏi nên điểm phần này bị giới hạn. Hãy trả lời trực tiếp từng câu hỏi bằng tiếng Anh.
-                      </div>
-                    )}
-
-                    <CorrectionSummary count={(r.corrections || []).length} />
-
                     {/* Transcript block */}
                     <div className="flex flex-col gap-4 mb-4">
                       {(() => {
@@ -942,61 +997,111 @@ export default function SpeakingExam() {
                         if (typeof ansArray === 'string') {
                           try { ansArray = JSON.parse(ansArray); } catch(e) {}
                         }
-                        if (Array.isArray(ansArray)) {
-                          const maxAnswers = part.questions && part.questions.length > 0 ? part.questions.length : 1;
-                          return ansArray.slice(0, maxAnswers).map((ans, idx) => {
-                            const q = part.questions ? part.questions[idx] : null;
-                            const partScore = r.score ? roundIeltsScore(r.score) : roundIeltsScore((parseFloat(fluencyScore) + parseFloat(vocabScore) + parseFloat(grammarScore) + parseFloat(pronScore)) / 4);
-                            
-                            let questionTitle = q?.questionText || 'Câu hỏi';
-                            if (part.number === 2 && !q?.questionText) {
-                                questionTitle = 'Phần trả lời Cue Card';
+
+                        // Danh sách câu hỏi cần hiển thị:
+                        // - Part 2: thường là 1 bài nói theo Cue Card (lấy câu hỏi nếu có hoặc 'Phần trả lời Cue Card')
+                        // - Part 1 & Part 3: lấy toàn bộ danh sách câu hỏi trong part.questions
+                        let questionsList = [];
+                        if (part.number === 2) {
+                          const cueCardQ = (part.questions || []).find(q => !q.questionText?.startsWith('##TOPIC##:')) || (part.questions && part.questions[0]) || null;
+                          questionsList = [cueCardQ || { id: null, questionText: 'Phần trả lời Cue Card' }];
+                        } else if (Array.isArray(part.questions) && part.questions.length > 0) {
+                          questionsList = [...part.questions];
+                        } else {
+                          const count = Array.isArray(ansArray) && ansArray.length > 0 ? ansArray.length : 1;
+                          questionsList = Array.from({ length: count }, (_, i) => ({ id: null, questionText: `Câu hỏi ${i + 1}` }));
+                        }
+
+                        // Nếu số câu trả lời trong ansArray nhiều hơn questionsList thì đưa thêm vào để không sót
+                        if (Array.isArray(ansArray) && ansArray.length > questionsList.length) {
+                          for (let i = questionsList.length; i < ansArray.length; i++) {
+                            questionsList.push({ id: null, questionText: `Câu hỏi ${i + 1}` });
+                          }
+                        }
+
+                        return questionsList.map((q, idx) => {
+                          let ans = null;
+                          let ansIdx = -1;
+                          if (Array.isArray(ansArray)) {
+                            if (q && q.id != null) {
+                              const foundIdx = ansArray.findIndex(a => a && a.questionId === q.id);
+                              if (foundIdx >= 0) {
+                                ans = ansArray[foundIdx];
+                                ansIdx = foundIdx;
+                              }
                             }
+                            if (!ans && !ansArray.some(a => a && a.questionId != null)) {
+                              ans = ansArray[idx] || null;
+                              ansIdx = ans ? idx : -1;
+                            }
+                          } else if (typeof ansArray === 'string' && ansArray.trim()) {
+                            ans = { text: ansArray, audioUrl: null };
+                            ansIdx = 0;
+                          }
 
-                            return (
-                                <div key={idx} className="mb-8">
-                                  {/* Title */}
-                                  <h4 className="text-[15px] font-medium text-zinc-600 mb-3 flex items-start gap-2">
-                                    <span className="w-5 h-5 flex items-center justify-center rounded-full border-2 border-zinc-400 text-zinc-500 text-[11px] font-bold shrink-0 mt-0.5">?</span>
-                                    {questionTitle}
-                                  </h4>
+                          let questionTitle = q?.questionText || `Câu hỏi ${idx + 1}`;
+                          if (part.number === 2 && (!q?.questionText || q.questionText.startsWith('##TOPIC##:'))) {
+                            questionTitle = 'Phần trả lời Cue Card';
+                          }
 
-                                  <div className="bg-[#E9EDFF] rounded-2xl p-5 md:p-6 shadow-sm border border-indigo-100/50">
-                                    <div className="flex flex-col md:flex-row md:items-start gap-4 mb-4">
-                                      <div className="flex-1 mt-1">
-                                        <CustomAudioPlayer src={ans.audioUrl?.startsWith('/') ? `${BACKEND_URL}${ans.audioUrl}` : ans.audioUrl} />
+                          const hasAnswer = Boolean(ans && ((ans.text && ans.text.trim()) || ans.audioUrl));
+                          const isGraded = hasAnswer && !r.insufficient;
+
+                          const partAvgScore = r.score
+                            ? roundIeltsScore(r.score)
+                            : roundIeltsScore((parseFloat(fluencyScore) + parseFloat(vocabScore) + parseFloat(grammarScore) + parseFloat(pronScore)) / 4);
+
+                          const questionScore = isGraded ? (partAvgScore === 'NaN' ? '–' : partAvgScore) : '0';
+                          const qFluency = isGraded ? fluencyScore : '0';
+                          const qVocab = isGraded ? vocabScore : '0';
+                          const qGrammar = isGraded ? grammarScore : '0';
+                          const qPron = isGraded ? pronScore : '0';
+
+                          return (
+                            <div key={q?.id ?? idx} className="mb-8 last:mb-2">
+                              {/* Title */}
+                              <h4 className="text-[15px] font-medium text-zinc-600 mb-3 flex items-start gap-2">
+                                <span className="w-5 h-5 flex items-center justify-center rounded-full border-2 border-zinc-400 text-zinc-500 text-[11px] font-bold shrink-0 mt-0.5">?</span>
+                                {questionTitle}
+                              </h4>
+
+                              <div className="bg-[#E9EDFF] rounded-2xl p-5 md:p-6 shadow-sm border border-indigo-100/50">
+                                <div className="flex flex-col md:flex-row md:items-start gap-4 mb-4">
+                                  <div className="flex-1 mt-1">
+                                    {ans?.audioUrl ? (
+                                      <CustomAudioPlayer src={ans.audioUrl.startsWith('/') ? `${BACKEND_URL}${ans.audioUrl}` : ans.audioUrl} />
+                                    ) : (
+                                      <div className="flex items-center gap-3 w-full opacity-60">
+                                        <button disabled className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full border-2 border-zinc-200 text-zinc-300 bg-zinc-50 cursor-not-allowed">
+                                          <Play className="w-5 h-5 ml-0.5" fill="currentColor" />
+                                        </button>
+                                        <div className="flex-1 h-2 bg-zinc-200/60 rounded-full" />
+                                        <span className="text-xs font-mono text-zinc-400 whitespace-nowrap">0:00 / 0:00</span>
                                       </div>
-                                      <div className="flex items-start gap-4">
-                                        <div className={"w-14 h-14 rounded-full flex items-center justify-center font-bold text-xl shadow-md border-2 border-white/50 shrink-0 " + getScoreColorClass(partScore, true)}>
-                                          {partScore === 'NaN' ? '–' : partScore}
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <div className="text-[15px] leading-relaxed text-zinc-700 font-medium mb-5 bg-white/40 p-4 rounded-xl border border-white/50">
-                                      <HighlightedTranscript text={ans.text} corrections={(r.corrections || []).filter(c => c.answer === idx)} />
-                                    </div>
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(fluencyScore, true)}>Trôi chảy: {fluencyScore}</span>
-                                      <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(vocabScore, true)}>Từ vựng: {vocabScore}</span>
-                                      <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(grammarScore, true)}>Ngữ pháp: {grammarScore}</span>
-                                      <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(pronScore, true)}>Phát âm: {pronScore}</span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-start gap-4">
+                                    <div className={"w-14 h-14 rounded-full flex items-center justify-center font-bold text-xl shadow-md border-2 border-white/50 shrink-0 " + getScoreColorClass(questionScore, true)}>
+                                      {questionScore}
                                     </div>
                                   </div>
                                 </div>
-                            )
-                          })
-                        }
-                        return (
-                          <div className="bg-zinc-50/70 rounded-xl border border-zinc-200/70 p-3.5">
-                            <div className="flex items-center justify-between mb-1.5 text-xs text-zinc-500 font-medium">
-                              <span>Transcript bài nói của bạn:</span>
-                              <span className="text-[11px] font-mono text-zinc-400">
-                                {typeof transcripts[part.id] === 'string' && transcripts[part.id]?.trim() ? `${transcripts[part.id].trim().split(/\s+/).length} từ` : '0 từ'}
-                              </span>
+                                <div className="text-[15px] leading-relaxed text-zinc-700 font-medium mb-5 bg-white/40 p-4 rounded-xl border border-white/50">
+                                  <HighlightedTranscript
+                                    text={ans?.text || ''}
+                                    corrections={ansIdx >= 0 ? (r.corrections || []).filter(c => c.answer === ansIdx) : []}
+                                  />
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(qFluency, true)}>Trôi chảy: {qFluency}</span>
+                                  <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(qVocab, true)}>Từ vựng: {qVocab}</span>
+                                  <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(qGrammar, true)}>Ngữ pháp: {qGrammar}</span>
+                                  <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(qPron, true)}>Phát âm: {qPron}</span>
+                                </div>
+                              </div>
                             </div>
-                            <HighlightedTranscript text={typeof transcripts[part.id] === 'string' ? transcripts[part.id] : ''} corrections={(r.corrections || []).filter(c => c.answer === 0)} />
-                          </div>
-                        )
+                          );
+                        });
                       })()}
                     </div>
 

@@ -4,6 +4,41 @@ const TYPES = new Set(['grammar', 'vocabulary', 'spelling', 'punctuation', 'word
 const MAX_CORRECTIONS = 40
 const MAX_ORIGINAL_LENGTH = 120
 
+function isPunctuationOrCasingOnly(a, b) {
+  const normA = String(a || '').toLowerCase().replace(/[.,/#!$%^&*;:{}=\-_`~()?"'’“”\s]+/g, '')
+  const normB = String(b || '').toLowerCase().replace(/[.,/#!$%^&*;:{}=\-_`~()?"'’“”\s]+/g, '')
+  return normA === normB
+}
+
+function normalizeBrAm(word) {
+  if (typeof word !== 'string') return ''
+  let s = word.trim().toLowerCase()
+  s = s.replace(/isation\b/gi, 'ization')
+  s = s.replace(/ise\b/gi, 'ize')
+  s = s.replace(/our\b/gi, 'or')
+  s = s.replace(/re\b/gi, 'er')
+  s = s.replace(/yse\b/gi, 'yze')
+  s = s.replace(/ogue\b/gi, 'og')
+  return s
+}
+
+function isBritishAmericanVariant(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false
+  const normA = normalizeBrAm(a)
+  const normB = normalizeBrAm(b)
+  return normA.length > 0 && normA === normB
+}
+
+function isExcessiveRewrite(original, corrected) {
+  const oWords = String(original || '').trim().split(/\s+/).filter(Boolean)
+  const cWords = String(corrected || '').trim().split(/\s+/).filter(Boolean)
+  // Nếu cụm gốc ngắn (<= 4 từ) nhưng câu sửa dài gấp hơn 2 lần và >= 7 từ -> viết lại văn mẫu
+  if (oWords.length <= 4 && cWords.length >= 7 && cWords.length > oWords.length * 2) {
+    return true
+  }
+  return false
+}
+
 function locate(text, original, cursor) {
   let at = text.indexOf(original, cursor)
   if (at >= 0) return { at, original }
@@ -27,7 +62,7 @@ function trimSharedWords(original, corrected) {
   return { offset, original: o.slice(pre, o.length - suf).join(' '), corrected: c.slice(pre, c.length - suf).join(' ') }
 }
 
-function sanitizeCorrections(raw, texts, { indexMap } = {}) {
+function sanitizeCorrections(raw, texts, { indexMap, isSpeaking = false } = {}) {
   if (!Array.isArray(raw) || !Array.isArray(texts)) return []
   const cursors = {}
   const taken = {}
@@ -38,6 +73,18 @@ function sanitizeCorrections(raw, texts, { indexMap } = {}) {
     const original = String(item.original || '').trim()
     const corrected = String(item.corrected ?? '').trim()
     if (!original || original.length > MAX_ORIGINAL_LENGTH || original === corrected) continue
+
+    // Trong Speaking, loại bỏ hoàn toàn lỗi dấu câu (văn nói không có dấu câu)
+    if (isSpeaking && item.type === 'punctuation') continue
+
+    // Loại bỏ lỗi chỉ khác dấu câu hoặc chữ hoa/thường (vd "food" -> "food,", "month" -> "month.")
+    if (isPunctuationOrCasingOnly(original, corrected)) continue
+
+    // Loại bỏ biến thể chính tả Anh-Anh / Anh-Mỹ (vd colour -> color)
+    if (isBritishAmericanVariant(original, corrected)) continue
+
+    // Trong Speaking, loại bỏ việc viết lại cả câu văn mẫu (rewriting / ghostwriting)
+    if (isSpeaking && isExcessiveRewrite(original, corrected)) continue
 
     let answer = 0
     if (indexMap) {
@@ -52,6 +99,9 @@ function sanitizeCorrections(raw, texts, { indexMap } = {}) {
     if (!found) continue
     const trimmed = trimSharedWords(found.original, corrected)
     if (!trimmed.original || trimmed.original === trimmed.corrected) continue
+    if (isPunctuationOrCasingOnly(trimmed.original, trimmed.corrected)) continue
+    if (isBritishAmericanVariant(trimmed.original, trimmed.corrected)) continue
+    if (isSpeaking && isExcessiveRewrite(trimmed.original, trimmed.corrected)) continue
     const start = found.at + trimmed.offset
     const end = start + trimmed.original.length
     const ranges = taken[answer] || (taken[answer] = [])
@@ -73,4 +123,11 @@ function sanitizeCorrections(raw, texts, { indexMap } = {}) {
   return out.sort((a, b) => a.answer - b.answer || a.start - b.start)
 }
 
-module.exports = { sanitizeCorrections, TYPES, MAX_CORRECTIONS }
+module.exports = {
+  sanitizeCorrections,
+  TYPES,
+  MAX_CORRECTIONS,
+  isPunctuationOrCasingOnly,
+  isBritishAmericanVariant,
+  isExcessiveRewrite
+}

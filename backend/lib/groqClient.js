@@ -19,24 +19,40 @@ function getGroqModel() {
   return process.env.GROQ_MODEL || 'openai/gpt-oss-120b'
 }
 
+function getGroqVisionModel() {
+  return process.env.GROQ_VISION_MODEL || 'qwen/qwen3.8-27b'
+}
+
 function gradingParams(model) {
   const params = { response_format: { type: 'json_object' } }
   if (/gpt-oss/i.test(model)) params.reasoning_effort = process.env.GROQ_REASONING_EFFORT || 'low'
   return params
 }
 
-async function requestGradingJson(prompt, { attempts = 2 } = {}) {
+async function requestGradingJson(prompt, { attempts = 2, image = null, model = null } = {}) {
   const { repairTruncatedJson } = require('../services/json/jsonSanitizer')
   const groq = getGroqClient()
-  const model = getGroqModel()
+  const targetModel = model || (image ? getGroqVisionModel() : getGroqModel())
   let lastError
   for (let i = 0; i < attempts; i++) {
     try {
+      const messages = image
+        ? [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: prompt },
+                { type: 'image_url', image_url: { url: image } },
+              ],
+            },
+          ]
+        : [{ role: 'user', content: prompt }]
+
       const completion = await groq.chat.completions.create({
-        messages: [{ role: 'user', content: prompt }],
-        model,
-        temperature: 0.3,
-        ...gradingParams(model),
+        messages,
+        model: targetModel,
+        temperature: 0.1,
+        ...gradingParams(targetModel),
       })
       const text = completion.choices[0]?.message?.content || ''
       return JSON.parse(repairTruncatedJson(text, completion.choices[0]?.finish_reason || null))
@@ -48,4 +64,4 @@ async function requestGradingJson(prompt, { attempts = 2 } = {}) {
   throw lastError
 }
 
-module.exports = { getGroqClient, getGroqModel, gradingParams, requestGradingJson }
+module.exports = { getGroqClient, getGroqModel, getGroqVisionModel, gradingParams, requestGradingJson }

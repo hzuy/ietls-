@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { getWritingExam, submitWritingExam, getWritingStatus, getFullTestStatus, getWritingMyResults, retryWritingGrading } from '../services/examService'
@@ -67,6 +67,26 @@ const getScoreColorClass = (scoreStr, isBg = false) => {
   if (s >= 7.0) return isBg ? 'bg-emerald-500 text-white' : 'text-emerald-600'
   if (s >= 5.5) return isBg ? 'bg-amber-400 text-amber-900' : 'text-amber-500'
   return isBg ? 'bg-zinc-200 text-zinc-600' : 'text-zinc-500'
+}
+
+const getHeroCircleClass = (scoreStr) => {
+  const s = parseFloat(scoreStr)
+  if (isNaN(s)) return 'bg-zinc-300 text-zinc-700'
+  if (s >= 8.0) return 'bg-fuchsia-500 text-white'
+  if (s >= 7.0) return 'bg-emerald-500 text-white'
+  if (s >= 5.5) return 'bg-[#F59E0B] text-zinc-950'
+  if (s >= 4.0) return 'bg-amber-300 text-amber-950'
+  return 'bg-zinc-300 text-zinc-700'
+}
+
+const getHeroBadgeClass = (scoreStr) => {
+  const s = parseFloat(scoreStr)
+  if (isNaN(s)) return 'bg-zinc-200 text-zinc-700'
+  if (s >= 8.0) return 'bg-fuchsia-200 text-fuchsia-950'
+  if (s >= 7.0) return 'bg-emerald-200 text-emerald-950'
+  if (s >= 5.5) return 'bg-[#FCD34D] text-zinc-950'
+  if (s >= 4.0) return 'bg-amber-200 text-amber-950'
+  return 'bg-zinc-200 text-zinc-700'
 }
 const roundIeltsScore = (num) => {
   if (isNaN(num)) return 0
@@ -141,7 +161,7 @@ function WritingTaskAccordion({ task, r, isCompleted, onRetake }) {
     } else if (key === 'lexical_resource') {
       label = 'Lexical Resource';
     } else if (key === 'grammatical_range') {
-      label = 'Grammatical Range & Accuracy';
+      label = 'Grammatical Range';
     }
     const scoreNum = parseFloat(crit?.score || 0);
     const score = scoreNum > 0 ? (scoreNum % 1 === 0 ? scoreNum.toFixed(1) : scoreNum.toString()) : '–';
@@ -154,142 +174,232 @@ function WritingTaskAccordion({ task, r, isCompleted, onRetake }) {
     };
   });
 
+  const errorCounts = useMemo(() => {
+    const counts = { grammar: 0, vocabulary: 0, punctuation: 0, spelling: 0, other: 0 };
+    const items = Array.isArray(r?.corrections) ? r.corrections : [];
+    for (const c of items) {
+      const t = c?.type;
+      if (t === 'grammar') counts.grammar++;
+      else if (t === 'vocabulary' || t === 'word_choice') counts.vocabulary++;
+      else if (t === 'punctuation') counts.punctuation++;
+      else if (t === 'spelling') counts.spelling++;
+      else counts.other++;
+    }
+    return counts;
+  }, [r?.corrections]);
+
+  const totalCorrections = Array.isArray(r?.corrections) ? r.corrections.length : 0;
+
+  const improvementSuggestion = useMemo(() => {
+    if (typeof r?.improvements === 'string' && r.improvements.trim()) return r.improvements.trim();
+    if (Array.isArray(r?.improvements) && r.improvements.length > 0) return r.improvements.join('\n');
+    if (typeof r?.feedback === 'string' && r.feedback.trim()) return r.feedback.trim();
+    if (typeof r?.generalFeedback === 'string' && r.generalFeedback.trim()) return r.generalFeedback.trim();
+
+    if (r?.criteria) {
+      const sortedCrits = Object.values(r.criteria)
+        .filter(c => c && c.comment)
+        .sort((a, b) => parseFloat(a.score || 0) - parseFloat(b.score || 0));
+      if (sortedCrits.length > 0 && sortedCrits[0].comment) {
+        return sortedCrits[0].comment.replace(/^[•\-\*✓]\s*/gm, '').trim();
+      }
+    }
+    return task.number === 1
+      ? 'Bám sát biểu đồ và thêm từ nối giữa các đoạn.'
+      : 'Phát triển luận điểm rõ ràng, bổ sung dẫn chứng và cân đối dung lượng giữa các đoạn.';
+  }, [r, task.number]);
+
   return (
-    <div className="flex flex-col lg:flex-row gap-8 items-start mb-10 w-full font-sans">
-      {/* Cột trái: Khung Task (Tab Task 1, Question, Answer chỉ chứa bài viết) */}
-      <div className="flex-1 min-w-0 w-full flex flex-col">
-        {/* Header Tab */}
-        <div>
-          <div className="bg-[#284A6A] text-white px-8 py-3 text-[17px] font-bold inline-block rounded-t-md tracking-wide">
-            Task {task.number}
-          </div>
-        </div>
-
-        {/* Accordions Container */}
-        <div className="border border-zinc-200 border-t-0 rounded-b-md rounded-tr-md overflow-hidden bg-white shadow-sm">
-          
-          {/* Question Accordion */}
-          <div className="border-b border-zinc-200">
-            <button 
-              onClick={() => setOpenQ(!openQ)}
-              className={"w-full flex items-center justify-between px-6 py-4 text-left font-bold transition-colors " + (openQ ? "bg-[#F49F2D] text-white" : "bg-white text-[#284A6A] hover:bg-zinc-50")}
-            >
-              <span className="text-[16px]">Question</span>
-              {openQ ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-            </button>
-            
-            {openQ && (
-              <div className="p-6 border border-[#F49F2D] border-t-0 bg-white">
-                <div className="text-sm text-zinc-600 mb-6 font-medium">
-                  You should spend about <span className="font-bold text-zinc-800">{task.number === 1 ? '20' : '40'} minutes</span> on this task.
-                  <br /><br />
-                  <p className="text-zinc-800 text-[14.5px] leading-relaxed whitespace-pre-line m-0 font-medium">
-                    {task.prompt}
-                  </p>
-                  <br />
-                  You should write <span className="font-bold text-zinc-800">at least {task.number === 1 ? '150' : '250'} words.</span>
-                </div>
-                {task.imageUrl && (
-                  <div className="mt-6 flex justify-center">
-                    <div
-                      onClick={() => setLightbox(toImgSrc(task.imageUrl))}
-                      className="relative cursor-pointer group max-w-full rounded-md overflow-hidden border border-zinc-200 shadow-sm"
-                      title="Bấm để phóng to ảnh"
-                    >
-                      <img
-                        src={toImgSrc(task.imageUrl)}
-                        alt={`Hình ảnh minh họa Task ${task.number}`}
-                        onError={handleImgError}
-                        className="max-w-full block"
-                      />
-                      <div className="absolute bottom-2.5 right-2.5 bg-black/60 text-white rounded-lg px-2.5 py-1 text-xs flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        Phóng to
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {lightbox && <ImageLightbox src={lightbox} onClose={() => setLightbox(null)} />}
-              </div>
-            )}
-          </div>
-
-          {/* Answer Accordion */}
-          <div>
-            <button 
-              onClick={() => setOpenA(!openA)}
-              className={"w-full flex items-center justify-between px-6 py-4 text-left font-bold transition-colors " + (openA ? "bg-[#F49F2D] text-white" : "bg-white text-[#284A6A] hover:bg-zinc-50")}
-            >
-              <span className="text-[16px]">Answer</span>
-              {openA ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-            </button>
-            
-            {openA && (
-              <div className="p-6 sm:p-8 border border-[#F49F2D] border-t-0 bg-white">
-                {isCompleted ? (
-                  <InlineCorrections text={r.essayText} corrections={r.corrections} className="text-zinc-800 text-[15.5px] leading-[2.0]" />
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <div className="mb-4 text-zinc-300">
-                       <FileQuestion className="w-16 h-16 stroke-1" />
-                    </div>
-                    <h3 className="text-[#284A6A] text-[22px] font-bold mb-3">Want to add answer for this task?</h3>
-                    <p className="text-zinc-600 text-[14px] max-w-lg mx-auto mb-8 leading-relaxed font-medium">
-                      It looks like you haven't finished Task {task.number} essay. If you want to complete Task {task.number} and get evaluation for both tasks, you can retake the test and submit again.
-                    </p>
-                    <button 
-                      onClick={onRetake}
-                      className="bg-[#284A6A] hover:bg-[#1E3A54] text-white px-8 py-3 rounded-md font-bold transition-colors shadow-sm text-[15px]"
-                    >
-                      Retake Test
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
+    <div className="flex flex-col mb-10 w-full font-sans">
+      {/* Header Tab */}
+      <div>
+        <div className="bg-[#284A6A] text-white px-8 py-3 text-[17px] font-bold inline-block rounded-t-md tracking-wide">
+          Task {task.number}
         </div>
       </div>
 
-      {/* Cột phải: Bảng điểm và tiêu chí đánh giá bên cạnh (nằm ngoài khung) */}
-      {isCompleted && (
-        <div className="w-full lg:w-[360px] xl:w-[380px] shrink-0 bg-white rounded-2xl border border-zinc-200/90 p-6 shadow-sm flex flex-col gap-5 lg:sticky lg:top-6 lg:mt-[46px]">
-          {/* 1. Header stats: Số đoạn & Số từ */}
-          <div className="flex items-center justify-between text-xs font-semibold text-emerald-600 border-b border-zinc-100 pb-3">
-            <span>{paragraphCount} {paragraphCount === 1 ? 'paragraph' : 'paragraphs'}</span>
-            <span>{wordCount} words</span>
-          </div>
-
-          {/* 2. Điểm số to ở đầu */}
-          <div className="flex flex-col items-center justify-center text-center py-1">
-            <div className="text-6xl font-black tracking-tight text-zinc-900 leading-none">
-              {taskScore}
-            </div>
-            <div className="text-xs font-semibold text-zinc-500 mt-2">
-              Task {task.number} Band Score
-            </div>
-          </div>
-
-          {/* Đường phân cách nét đứt */}
-          <div className="border-t border-dashed border-zinc-200" />
-
-          {/* 3. Danh sách 4 tiêu chí đánh giá xếp theo chiều dọc */}
-          <div className="flex flex-col">
-            {criteriaList.map((critItem, idx) => (
-              <div key={critItem.key}>
-                {idx > 0 && <div className="border-t border-dashed border-zinc-200/80 my-4" />}
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[14px] font-bold text-zinc-900 tracking-tight">
-                    {critItem.label}: {critItem.score}
-                  </span>
-                </div>
-                {renderCriterionComment(critItem.comment, critItem.scoreNum >= 6.5)}
+      {/* Accordions Container */}
+      <div className="border border-zinc-200 border-t-0 rounded-b-md rounded-tr-md overflow-hidden bg-white shadow-sm">
+        
+        {/* Question Accordion */}
+        <div className="border-b border-zinc-200">
+          <button 
+            type="button"
+            onClick={() => setOpenQ(!openQ)}
+            className={"w-full flex items-center justify-between px-6 py-4 text-left font-bold transition-colors cursor-pointer " + (openQ ? "bg-[#F49F2D] text-white" : "bg-white text-[#284A6A] hover:bg-zinc-50")}
+          >
+            <span className="text-[16px]">Question</span>
+            {openQ ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+          </button>
+          
+          {openQ && (
+            <div className="p-6 border border-[#F49F2D] border-t-0 bg-white">
+              <div className="text-sm text-zinc-600 mb-6 font-medium">
+                You should spend about <span className="font-bold text-zinc-800">{task.number === 1 ? '20' : '40'} minutes</span> on this task.
+                <br /><br />
+                <p className="text-zinc-800 text-[14.5px] leading-relaxed whitespace-pre-line m-0 font-medium">
+                  {task.prompt}
+                </p>
+                <br />
+                You should write <span className="font-bold text-zinc-800">at least {task.number === 1 ? '150' : '250'} words.</span>
               </div>
-            ))}
-          </div>
+              {task.imageUrl && (
+                <div className="mt-6 flex justify-center">
+                  <div
+                    onClick={() => setLightbox(toImgSrc(task.imageUrl))}
+                    className="relative cursor-pointer group max-w-full rounded-md overflow-hidden border border-zinc-200 shadow-sm"
+                    title="Bấm để phóng to ảnh"
+                  >
+                    <img
+                      src={toImgSrc(task.imageUrl)}
+                      alt={`Hình ảnh minh họa Task ${task.number}`}
+                      onError={handleImgError}
+                      className="max-w-full block"
+                    />
+                    <div className="absolute bottom-2.5 right-2.5 bg-black/60 text-white rounded-lg px-2.5 py-1 text-xs flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      Phóng to
+                    </div>
+                  </div>
+                </div>
+              )}
+              {lightbox && <ImageLightbox src={lightbox} onClose={() => setLightbox(null)} />}
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Answer Accordion */}
+        <div>
+          <button 
+            type="button"
+            onClick={() => setOpenA(!openA)}
+            className={"w-full flex items-center justify-between px-6 py-4 text-left font-bold transition-colors cursor-pointer " + (openA ? "bg-[#F49F2D] text-white" : "bg-white text-[#284A6A] hover:bg-zinc-50")}
+          >
+            <span className="text-[16px]">Answer</span>
+            {openA ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+          </button>
+          
+          {openA && (
+            <div className="p-4 sm:p-6 lg:p-7 border border-[#F49F2D] border-t-0 bg-[#F8FAFC]">
+              {isCompleted ? (
+                <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-6 items-stretch lg:min-h-[320px]">
+                  {/* Cột trái: Khung bài viết */}
+                  <div className="relative bg-white rounded-2xl border border-zinc-200/90 shadow-2xs max-h-[60vh] lg:max-h-none overflow-hidden flex flex-col">
+                    <div className="p-5 sm:p-6 lg:absolute lg:inset-0 flex flex-col min-h-0">
+                      {/* Vùng bài viết cuộn dọc */}
+                      <div className="flex-1 min-h-0 overflow-y-auto pr-3 custom-scrollbar text-zinc-800 text-[15.5px] leading-[2.0]">
+                        <InlineCorrections text={r.essayText} corrections={r.corrections} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Cột phải: Khung điểm và nhận xét */}
+                  <div className="bg-white rounded-2xl border border-zinc-200/90 p-5 sm:p-6 shadow-2xs flex flex-col gap-4 h-auto">
+                    {/* 1. Điểm số to & thông số đoạn/từ */}
+                    <div className="text-center pt-1">
+                      <div className="text-5xl font-black text-zinc-900 tracking-tight leading-none">
+                        {taskScore}
+                      </div>
+                      <div className="text-xs font-semibold text-zinc-500 mt-2">
+                        Task {task.number} band score
+                      </div>
+                      <div className="mt-2.5">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full bg-zinc-100 text-zinc-600 text-xs font-semibold">
+                          {paragraphCount} đoạn · {wordCount} từ
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 2. 4 tiêu chí với thanh tiến trình xanh */}
+                    <div className="space-y-3 pt-1">
+                      {criteriaList.map((critItem) => (
+                        <div key={critItem.key} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs font-bold text-zinc-800">
+                            <span>{critItem.label}</span>
+                            <span className="font-extrabold">{critItem.score}</span>
+                          </div>
+                          <div className="w-full bg-zinc-100 rounded-full h-1.5 overflow-hidden">
+                            <div 
+                              className="bg-[#2563EB] h-1.5 rounded-full transition-all duration-500" 
+                              style={{ width: `${Math.min(100, Math.max(0, (critItem.scoreNum / 9) * 100))}%` }} 
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* 3. Lỗi đã sửa & badges (nằm hết trên 1 dòng) */}
+                    <div className="pt-3 border-t border-zinc-100">
+                      <div className="text-xs font-bold text-zinc-800 mb-2">
+                        {totalCorrections} lỗi đã sửa
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-nowrap overflow-x-auto custom-scrollbar pb-1">
+                        {errorCounts.grammar > 0 && (
+                          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#FEE2E2] text-[#DC2626] whitespace-nowrap shrink-0">
+                            Ngữ pháp {errorCounts.grammar}
+                          </span>
+                        )}
+                        {errorCounts.vocabulary > 0 && (
+                          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#FEF3C7] text-[#D97706] whitespace-nowrap shrink-0">
+                            Từ vựng {errorCounts.vocabulary}
+                          </span>
+                        )}
+                        {errorCounts.punctuation > 0 && (
+                          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#DBEAFE] text-[#2563EB] whitespace-nowrap shrink-0">
+                            Dấu câu {errorCounts.punctuation}
+                          </span>
+                        )}
+                        {errorCounts.spelling > 0 && (
+                          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#F3E8FF] text-[#9333EA] whitespace-nowrap shrink-0">
+                            Chính tả {errorCounts.spelling}
+                          </span>
+                        )}
+                        {errorCounts.other > 0 && (
+                          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-zinc-100 text-zinc-700 whitespace-nowrap shrink-0">
+                            Khác {errorCounts.other}
+                          </span>
+                        )}
+                        {totalCorrections === 0 && (
+                          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 whitespace-nowrap shrink-0">
+                            Không có lỗi nào
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 4. Gợi ý cải thiện (hiển thị đầy đủ nhận xét, không bị cắt bằng line-clamp) */}
+                    <div className="pt-3 border-t border-zinc-100">
+                      <div className="text-xs font-bold text-zinc-900 mb-1.5">
+                        Gợi ý cải thiện
+                      </div>
+                      <p className="text-xs text-zinc-600 leading-relaxed m-0 whitespace-pre-line text-justify">
+                        {improvementSuggestion}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-center bg-white rounded-2xl border border-zinc-200/80 p-8 shadow-2xs">
+                  <div className="mb-4 text-zinc-300">
+                     <FileQuestion className="w-16 h-16 stroke-1" />
+                  </div>
+                  <h3 className="text-[#284A6A] text-[22px] font-bold mb-3">Want to add answer for this task?</h3>
+                  <p className="text-zinc-600 text-[14px] max-w-lg mx-auto mb-8 leading-relaxed font-medium">
+                    It looks like you haven't finished Task {task.number} essay. If you want to complete Task {task.number} and get evaluation for both tasks, you can retake the test and submit again.
+                  </p>
+                  <button 
+                    onClick={onRetake}
+                    className="bg-[#284A6A] hover:bg-[#1E3A54] text-white px-8 py-3 rounded-md font-bold transition-colors shadow-sm text-[15px] cursor-pointer"
+                  >
+                    Retake Test
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+      </div>
     </div>
   )
 }
@@ -702,88 +812,101 @@ export default function WritingExam() {
           <div className="flex flex-col gap-8">
             
             {/* ── Score Card Hero Section ── */}
-            <div className="w-full max-w-6xl mx-auto rounded-2xl shadow-sm border border-indigo-200 overflow-hidden mb-8">
-              {/* Top Section */}
-              <div className="bg-[#E9EDFF] p-5 md:p-6 relative">
-                {/* Header row */}
-                <div className="flex justify-between items-start mb-6">
-                  <div className="text-indigo-600 font-bold text-sm tracking-widest uppercase mt-2">
+            <div className="w-full max-w-6xl mx-auto rounded-[26px] border border-[#BFDBFE] bg-[#E0EDFF] p-6 sm:p-7 shadow-xs mb-8">
+              {/* Row 1: Header (FULL TEST + Date on left, Retake button on right) */}
+              <div className="flex items-center justify-between gap-4 mb-6">
+                <div className="flex items-center gap-3.5">
+                  <span className="text-[#1D4ED8] font-bold text-sm tracking-wider uppercase">
                     FULL TEST
-                  </div>
-                  <div className="text-zinc-500 text-[13px] font-medium absolute left-1/2 -translate-x-1/2 top-7">
+                  </span>
+                  <span className="text-zinc-600 text-xs font-medium">
                     {(() => {
-                       const firstResult = Object.values(results)[0];
-                       const testDate = firstResult?.createdAt ? new Date(firstResult.createdAt) : new Date();
-                       return testDate.toISOString().slice(0, 10) + ' | ' + testDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                      const firstResult = Object.values(results)[0];
+                      const testDate = firstResult?.createdAt ? new Date(firstResult.createdAt) : new Date();
+                      return testDate.toISOString().slice(0, 10) + ' | ' + testDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
                     })()}
-                  </div>
-                  <div className={"w-16 h-16 rounded-full flex items-center justify-center font-extrabold text-2xl shadow-md border-2 border-white/50 shrink-0 " + getScoreColorClass(overallBand, true)}>
-                    {overallBand}
-                  </div>
+                  </span>
                 </div>
-                {/* Per-Task Scores */}
-                <div className="flex flex-wrap items-center gap-4 mb-4">
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (user) {
+                      clearDraft(user.id || user._id, id, 'writing')
+                      saveDraft({
+                        userId: user.id || user._id,
+                        examId: id,
+                        skillType: 'writing',
+                        data: { essays: {}, submittedTaskIds: [], isRetake: true },
+                        timeRemaining: DEFAULT_WRITING_TIME
+                      })
+                    }
+                    window.location.href = window.location.pathname
+                  }}
+                  className="h-9 px-5 rounded-full bg-white hover:bg-zinc-50 border border-zinc-200/90 text-zinc-700 text-[13px] font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-2xs"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-zinc-600" />
+                  <span>Thi lại</span>
+                </button>
+              </div>
+
+              {/* Row 2: Big Overall Circle + Per-Task Scores */}
+              <div className="flex items-center gap-5 sm:gap-7 mb-6">
+                <div className={"w-16 h-16 rounded-full flex items-center justify-center font-extrabold text-[26px] shadow-xs shrink-0 " + getHeroCircleClass(overallBand)}>
+                  {overallBand}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-5 sm:gap-7">
                   {exam.writingTasks.map(t => (
-                     <div key={t.id} className="flex items-center gap-2">
-                       <span className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider">Task {t.number}</span>
-                       <div className={"w-8 h-8 rounded-full flex items-center justify-center font-bold text-[12px] shadow-sm border border-white/50 " + getScoreColorClass(results[t.id]?.overall, true)}>
-                         {results[t.id]?.overall ?? '–'}
-                       </div>
-                     </div>
+                    <div key={t.id} className="flex items-center gap-2.5">
+                      <span className="text-xs sm:text-[13px] font-bold text-[#1D4ED8] tracking-wider uppercase">
+                        TASK {t.number}
+                      </span>
+                      <span className={"px-3.5 py-0.5 rounded-full text-xs sm:text-[13px] font-extrabold shadow-2xs " + getHeroBadgeClass(results[t.id]?.overall)}>
+                        {results[t.id]?.overall ?? '–'}
+                      </span>
+                    </div>
                   ))}
                 </div>
-                {/* Pill Badges Row */}
-                <div className="flex justify-between items-center mt-2">
-                  <div className="flex flex-wrap gap-2">
-                    {(() => {
-                      let totalTA = 0, totalCC = 0, totalLR = 0, totalGRA = 0;
-                      let weightSum = 0;
-                      exam.writingTasks.forEach(t => {
-                         const r = results[t.id];
-                         if (r && r.criteria) {
-                            const weight = t.number === 2 ? 2 : 1;
-                            totalTA += parseFloat(r.criteria.task_achievement?.score || 0) * weight;
-                            totalCC += parseFloat(r.criteria.coherence_cohesion?.score || 0) * weight;
-                            totalLR += parseFloat(r.criteria.lexical_resource?.score || 0) * weight;
-                            totalGRA += parseFloat(r.criteria.grammatical_range?.score || 0) * weight;
-                            weightSum += weight;
-                         }
-                      });
-                      const avgTA = weightSum > 0 ? roundIeltsScore(totalTA / weightSum) : '–';
-                      const avgCC = weightSum > 0 ? roundIeltsScore(totalCC / weightSum) : '–';
-                      const avgLR = weightSum > 0 ? roundIeltsScore(totalLR / weightSum) : '–';
-                      const avgGRA = weightSum > 0 ? roundIeltsScore(totalGRA / weightSum) : '–';
-                      return (
-                        <>
-                          <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(avgTA, true)}>Task Achievement / Response: {avgTA}</span>
-                          <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(avgCC, true)}>Coherence & Cohesion: {avgCC}</span>
-                          <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(avgLR, true)}>Lexical Resource: {avgLR}</span>
-                          <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(avgGRA, true)}>Grammatical Range & Accuracy: {avgGRA}</span>
-                        </>
-                      )
-                    })()}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (user) {
-                        clearDraft(user.id || user._id, id, 'writing')
-                        saveDraft({
-                          userId: user.id || user._id,
-                          examId: id,
-                          skillType: 'writing',
-                          data: { essays: {}, submittedTaskIds: [], isRetake: true },
-                          timeRemaining: DEFAULT_WRITING_TIME
-                        })
-                      }
-                      window.location.href = window.location.pathname
-                    }}
-                    className="h-10 px-6 shrink-0 rounded-full bg-[#f000ff] hover:bg-[#d000d0] text-white text-[13px] font-bold inline-flex items-center justify-center gap-2 transition-colors whitespace-nowrap cursor-pointer shadow-md"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Thi lại</span>
-                  </button>
-                </div>
+              </div>
+
+              {/* Row 3: 4 Criteria White Pill Badges */}
+              <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+                {(() => {
+                  let totalTA = 0, totalCC = 0, totalLR = 0, totalGRA = 0;
+                  let weightSum = 0;
+                  exam.writingTasks.forEach(t => {
+                     const r = results[t.id];
+                     if (r && r.criteria) {
+                        const weight = t.number === 2 ? 2 : 1;
+                        totalTA += parseFloat(r.criteria.task_achievement?.score || 0) * weight;
+                        totalCC += parseFloat(r.criteria.coherence_cohesion?.score || 0) * weight;
+                        totalLR += parseFloat(r.criteria.lexical_resource?.score || 0) * weight;
+                        totalGRA += parseFloat(r.criteria.grammatical_range?.score || 0) * weight;
+                        weightSum += weight;
+                     }
+                  });
+                  const avgTA = weightSum > 0 ? roundIeltsScore(totalTA / weightSum) : '–';
+                  const avgCC = weightSum > 0 ? roundIeltsScore(totalCC / weightSum) : '–';
+                  const avgLR = weightSum > 0 ? roundIeltsScore(totalLR / weightSum) : '–';
+                  const avgGRA = weightSum > 0 ? roundIeltsScore(totalGRA / weightSum) : '–';
+                  return (
+                    <>
+                      <span className="bg-white text-zinc-800 border border-zinc-200/80 px-4 py-1.5 rounded-full text-[13px] font-semibold shadow-2xs">
+                        Task Achievement: {avgTA}
+                      </span>
+                      <span className="bg-white text-zinc-800 border border-zinc-200/80 px-4 py-1.5 rounded-full text-[13px] font-semibold shadow-2xs">
+                        Coherence & Cohesion: {avgCC}
+                      </span>
+                      <span className="bg-white text-zinc-800 border border-zinc-200/80 px-4 py-1.5 rounded-full text-[13px] font-semibold shadow-2xs">
+                        Lexical Resource: {avgLR}
+                      </span>
+                      <span className="bg-white text-zinc-800 border border-zinc-200/80 px-4 py-1.5 rounded-full text-[13px] font-semibold shadow-2xs">
+                        Grammatical Range: {avgGRA}
+                      </span>
+                    </>
+                  )
+                })()}
               </div>
             </div>
             {/* Per-task results */}

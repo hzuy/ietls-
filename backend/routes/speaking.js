@@ -14,7 +14,17 @@ const { uploadAudio } = require('../services/storageService')
 const router = express.Router()
 const prisma = require('../lib/prisma')
 const { requestGradingJson } = require('../lib/groqClient')
-const { analyzeTranscript, isInsufficient, insufficientFeedback, pickCurrentAttempt, readWhisperResult, applyRelevanceCap } = require('../lib/speakingAttempt')
+const {
+  analyzeTranscript,
+  isInsufficient,
+  insufficientFeedback,
+  pickCurrentAttempt,
+  readWhisperResult,
+  applyRelevanceCap,
+  roundBand,
+  buildSpeakingGradingPrompt,
+  applySpeakingGradingRules,
+} = require('../lib/speakingAttempt')
 const getGroqClient = () => new Groq({ apiKey: process.env.GROQ_API_KEY })
 
 // ── Audio upload config (for Whisper transcription) ──────────────────────────
@@ -212,52 +222,31 @@ async function processSpeakingAI(answerId, partNumber, partQuestions, transcript
       return
     }
 
-    const questions = (partQuestions || []).filter(q => !String(q.questionText || '').startsWith('##TOPIC##:'))
-    const questionsText = questions.map((q, i) => `${i + 1}. ${q.questionText}`).join('\n')
-    const questionCount = Math.max(questions.length, 1)
-    const answerLines = analysis.spoken.map((e, idx) => {
-      const q = questions.find(x => x.id === e.questionId) || (e.questionId == null ? questions[e.index] : null)
-      const asked = q ? q.questionText : (partNumber === 2 ? 'Cue card ở trên' : 'Không xác định')
-      return `Câu ${idx + 1}\n  Hỏi: ${asked}\n  Trả lời: ${e.text}`
-    }).join('\n')
-
-    const prompt = `Bạn là giám khảo IELTS Speaking. Đánh giá câu trả lời Part ${partNumber}.
-
-CÂU HỎI:\n${questionsText}
-CÂU TRẢ LỜI (mỗi câu kèm đúng câu hỏi mà thí sinh đang trả lời; thí sinh trả lời ${analysis.answeredCount}/${questionCount} câu, các câu bỏ trống đã bị loại):\n${answerLines}
-
-Chỉ chấm dựa trên nội dung thí sinh thực sự nói. Câu bỏ trống hoặc trả lời lạc đề phải làm giảm điểm Fluency and Coherence tương ứng.
-Đếm "on_topic_answers" là số câu trả lời thực sự trả lời đúng câu hỏi tương ứng bằng tiếng Anh có nghĩa. Câu lạc đề, vô nghĩa, nói về chủ đề khác hoặc chỉ là vài từ rời rạc thì KHÔNG được tính.
-
-Sửa lỗi trực tiếp trong câu trả lời: liệt kê các lỗi ngữ pháp, từ vựng, chính tả, dấu câu theo đúng thứ tự xuất hiện. "original" phải chép NGUYÊN VĂN một cụm ngắn (1-6 từ) có thật trong câu trả lời, "corrected" là cụm thay thế đúng, "explanation" giải thích ngắn gọn bằng tiếng Việt vì sao sai và vì sao sửa như vậy. Chỉ sửa lỗi thật, không viết lại câu đã đúng, chấp nhận cả chính tả Anh-Anh và Anh-Mỹ (vd colour/color, cosier/cozier đều đúng). Tối đa 25 lỗi. "answer" là số thứ tự "Câu n" chứa lỗi. Bỏ qua các từ đệm như "um", "uh" vì đây là văn nói.
-
-Trả về JSON (không có gì khác):
-{
-  "on_topic_answers": 3,
-  "overall": 6.5,
-  "criteria": {
-    "fluency": { "score": 6.5, "comment": "..." },
-    "vocabulary": { "score": 6.5, "comment": "..." },
-    "grammar": { "score": 6.5, "comment": "..." },
-    "pronunciation": { "score": 6.5, "comment": "..." }
-  },
-  "corrections": [
-    { "answer": 1, "original": "cụm sai trong câu trả lời", "corrected": "cụm đúng", "type": "grammar|vocabulary|spelling|word_choice", "explanation": "..." }
-  ]
-}`
+    const prompt = buildSpeakingGradingPrompt({ partNumber, partQuestions, analysis })
 
     const feedback = await requestGradingJson(prompt)
 
-    // Round all scores to nearest IELTS half-band (0, 0.5, 1, ..., 9)
-    const roundBand = s => Math.round(Math.min(9, Math.max(0, parseFloat(s) || 0)) * 2) / 2
-    feedback.overall = roundBand(feedback.overall)
-    if (feedback.criteria) {
-      for (const key of Object.keys(feedback.criteria)) {
-        if (feedback.criteria[key]) feedback.criteria[key].score = roundBand(feedback.criteria[key].score)
-      }
+    applySpeakingGradingRules(feedback, analysis, { partNumber })
+
+    feedback.corrections = sanitizeCorrections(
+      feedback.corrections,
+      analysis.entries.map(e => e.text),
+      { indexMap: analysis.spoken.map(e => e.index), isSpeaking: true }
+    )
+
+    // Preserve retryCount if previously set on answer
+    const prevAnswer = await prisma.speakingAnswer.findUnique({
+      where: { id: answerId },
+      select: { aiFeedback: true }
+    }).catch(() => null)
+    if (prevAnswer?.aiFeedback) {
+      try {
+        const prevMeta = JSON.parse(prevAnswer.aiFeedback)
+        if (prevMeta.retryCount != null) {
+          feedback.retryCount = prevMeta.retryCount
+        }
+      } catch {}
     }
-    applyRelevanceCap(feedback, analysis.answeredCount)
-    feedback.corrections = sanitizeCorrections(feedback.corrections, analysis.entries.map(e => e.text), { indexMap: analysis.spoken.map(e => e.index) })
 
     await prisma.speakingAnswer.update({
       where: { id: answerId },
@@ -422,9 +411,22 @@ router.post('/answers/:id/retry', authMiddleware, learnerOnly, aiSubmitLimiter, 
       return res.status(400).json({ message: 'Chỉ có thể chấm lại bài đang ở trạng thái lỗi' })
     }
 
+    let meta = {}
+    try {
+      meta = typeof answer.aiFeedback === 'string' ? JSON.parse(answer.aiFeedback || '{}') : (answer.aiFeedback || {})
+    } catch {}
+    const retryCount = Number(meta?.retryCount) || 0
+    if (retryCount >= 3) {
+      return res.status(400).json({ message: 'Đã đạt giới hạn tối đa 3 lần thử lại cho bài làm này' })
+    }
+
     await prisma.speakingAnswer.update({
       where: { id: answerId },
-      data: { status: 'pending', error: null }
+      data: {
+        status: 'pending',
+        error: null,
+        aiFeedback: JSON.stringify({ ...meta, retryCount: retryCount + 1 })
+      }
     })
 
     processSpeakingAI(answerId, answer.part.number, answer.part.questions, answer.transcript).catch(err => {

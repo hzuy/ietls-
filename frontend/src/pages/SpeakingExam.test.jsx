@@ -11,7 +11,7 @@ vi.mock('../services/examService', () => ({
   getSpeakingMyResults: vi.fn(),
   submitSpeakingExam: vi.fn(),
   getSpeakingStatus: vi.fn(),
-  getFullTestStatus: vi.fn(),
+  getFullTestStatus: vi.fn(() => Promise.resolve({ isComplete: false })),
   retrySpeakingGrading: vi.fn(),
 }))
 
@@ -236,11 +236,18 @@ describe('SpeakingExam Part 2 flow', () => {
     // mockStopRecording is called
     expect(mockStopRecording).toHaveBeenCalled()
 
+    // Screen transitions immediately to Part 3 preparation interface!
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /Part 3/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Bắt đầu Part 3' })).toBeInTheDocument()
+      expect(screen.queryByText(/Đã hoàn thành Part 2!/i)).not.toBeInTheDocument()
+    })
+
     // simulate recording & whisper finishing
     mockRecordingState.isRecording = false
     mockRecordingState.isTranscribing = false
 
-    // auto-submit triggers submitSpeakingExam and advances to Part 3
+    // auto-submit triggers submitSpeakingExam in the background
     await waitFor(() => {
       expect(examService.submitSpeakingExam).toHaveBeenCalledWith('40', 202, expect.anything())
       expect(screen.getByRole('heading', { name: /Part 3/i })).toBeInTheDocument()
@@ -284,9 +291,12 @@ describe('SpeakingExam Part 2 flow', () => {
       </MemoryRouter>
     )
 
-    // Stop recording should be triggered automatically
+    // Stop recording should be triggered automatically and screen switches immediately to Part 3
     await waitFor(() => {
       expect(mockStopRecording).toHaveBeenCalled()
+      expect(screen.getByRole('heading', { name: /Part 3/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Bắt đầu Part 3' })).toBeInTheDocument()
+      expect(screen.queryByText(/Đã hoàn thành Part 2!/i)).not.toBeInTheDocument()
     })
 
     // Finish recording & transcription
@@ -306,4 +316,147 @@ describe('SpeakingExam Part 2 flow', () => {
       expect(screen.getByRole('heading', { name: /Part 3/i })).toBeInTheDocument()
     })
   })
+
+  it('renders result view: omits CorrectionSummary text and displays unanswered questions with score 0', async () => {
+    examService.getSpeakingExam.mockResolvedValue({
+      id: 40,
+      title: 'Cambridge 19 Test 1 Speaking',
+      speakingParts: [
+        {
+          id: 201,
+          number: 1,
+          topic: 'Hometown',
+          questions: [
+            { id: 1, questionText: 'Where are you from?' },
+            { id: 2, questionText: 'What do you like about it?' },
+          ],
+        },
+      ],
+    })
+    examService.getSpeakingMyResults.mockResolvedValue([
+      {
+        partId: 201,
+        status: 'graded',
+        overall: 6.0,
+        criteria: {
+          fluency: { score: 6.0 },
+          vocabulary: { score: 6.0 },
+          grammar: { score: 6.0 },
+          pronunciation: { score: 6.0 },
+        },
+        corrections: [{ start: 0, end: 5, original: 'hello', corrected: 'hi', answer: 0 }],
+        transcript: JSON.stringify([
+          { questionId: 1, text: 'I am from Hanoi capital.', audioUrl: '/uploads/audio.webm' },
+        ]),
+      },
+    ])
+
+    render(
+      <MemoryRouter initialEntries={['/speaking/40?viewResult=true']}>
+        <Routes>
+          <Route path="/speaking/:id" element={<SpeakingExam />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Where are you from?')).toBeInTheDocument()
+    })
+
+    // Question 1 (answered) is rendered with its transcript
+    expect(screen.getByText('I am from Hanoi capital.')).toBeInTheDocument()
+
+    // Question 2 (unanswered) is also rendered with score 0!
+    expect(screen.getByText('What do you like about it?')).toBeInTheDocument()
+    expect(screen.getByText('Chưa có bản ghi âm bài nói.')).toBeInTheDocument()
+    expect(screen.getByText('Trôi chảy: 0')).toBeInTheDocument()
+    expect(screen.getByText('Từ vựng: 0')).toBeInTheDocument()
+    expect(screen.getByText('Ngữ pháp: 0')).toBeInTheDocument()
+    // "Đã sửa ... lỗi. Bấm vào từng chỗ sửa để xem giải thích." does NOT exist anywhere
+    expect(screen.queryByText(/Bấm vào từng chỗ sửa để xem giải thích/i)).not.toBeInTheDocument()
+  })
+
+  it('displays correct part title on result page: instructions if entered, otherwise Speaking Part 1/2/3 instead of Cue Card content', async () => {
+    examService.getSpeakingExam.mockResolvedValue({
+      id: 40,
+      title: 'Cambridge 19 Test 1 Speaking',
+      speakingParts: [
+        {
+          id: 201,
+          number: 1,
+          cueCard: null, // No description entered
+          questions: [{ id: 1, questionText: 'Where are you from?' }],
+        },
+        {
+          id: 202,
+          number: 2,
+          // Admin only pasted the Cue Card, did NOT enter instructions (no \n===\n)
+          cueCard: 'Describe a law that was introduced in your country...\nYou should say:\nWhat the law was',
+          questions: [],
+        },
+        {
+          id: 203,
+          number: 3,
+          cueCard: 'Discussion topics about laws and rules', // Has description
+          questions: [{ id: 3, questionText: 'Why do we need laws?' }],
+        },
+      ],
+    })
+    examService.getSpeakingMyResults.mockResolvedValue([
+      { partId: 201, status: 'graded', overall: 6.0, criteria: {} },
+      { partId: 202, status: 'graded', overall: 6.5, criteria: {} },
+      { partId: 203, status: 'graded', overall: 7.0, criteria: {} },
+    ])
+
+    render(
+      <MemoryRouter initialEntries={['/speaking/40?viewResult=true']}>
+        <Routes>
+          <Route path="/speaking/:id" element={<SpeakingExam />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      // Part 1: No description -> "Speaking Part 1"
+      expect(screen.getByText('Speaking Part 1')).toBeInTheDocument()
+      // Part 2: No instructions entered (only cue card) -> "Speaking Part 2"
+      expect(screen.getByText('Speaking Part 2')).toBeInTheDocument()
+      // Part 2 Cue card text must NOT be shown as part title!
+      expect(screen.queryByTitle(/Describe a law that was introduced in your country/i)).not.toBeInTheDocument()
+      // Part 3: Has description -> shows description
+      expect(screen.getByText('Discussion topics about laws and rules')).toBeInTheDocument()
+    })
+  })
+
+  it('displays Part 2 instructions as title when instructions are provided before \\n===\\n', async () => {
+    examService.getSpeakingExam.mockResolvedValue({
+      id: 41,
+      title: 'Cambridge 19 Test 2 Speaking',
+      speakingParts: [
+        {
+          id: 302,
+          number: 2,
+          cueCard: 'Describe a memorable journey that you made.\n===\nYou should say:\nWhere you went\nWho you went with',
+          questions: [],
+        },
+      ],
+    })
+    examService.getSpeakingMyResults.mockResolvedValue([
+      { partId: 302, status: 'graded', overall: 6.5, criteria: {} },
+    ])
+
+    render(
+      <MemoryRouter initialEntries={['/speaking/41?viewResult=true']}>
+        <Routes>
+          <Route path="/speaking/:id" element={<SpeakingExam />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Describe a memorable journey that you made.')).toBeInTheDocument()
+      expect(screen.queryByTitle(/You should say:/i)).not.toBeInTheDocument()
+    })
+  })
 })
+

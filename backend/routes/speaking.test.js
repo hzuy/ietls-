@@ -23,6 +23,29 @@ require.cache[prismaPath] = {
   exports: prismaMock,
 }
 
+const defaultAiResponse = () => ({
+  choices: [
+    {
+      finish_reason: 'stop',
+      message: {
+        content: JSON.stringify({
+          answers_relevance: [{ answer: 1, on_topic: true, reason: 'ok' }],
+          criteria: {
+            fluency: { score: 6.0, comment: 'Tốt' },
+            vocabulary: { score: 6.5, comment: 'Đa dạng' },
+            grammar: { score: 6.0, comment: 'Đúng cấu trúc' },
+            pronunciation: { score: 7.0, comment: 'Rõ ràng' },
+          },
+          strengths: 'Phát âm tốt',
+          improvements: 'Cần trôi chảy hơn',
+        }),
+      },
+    },
+  ],
+})
+
+const mockChatCompletion = vi.fn().mockImplementation(() => Promise.resolve(defaultAiResponse()))
+
 // Mock Groq SDK for Speaking AI tests & Transcribe
 class MockGroq {
   constructor() {
@@ -33,26 +56,7 @@ class MockGroq {
     }
     this.chat = {
       completions: {
-        create: vi.fn().mockResolvedValue({
-          choices: [
-            {
-              finish_reason: 'stop',
-              message: {
-                content: JSON.stringify({
-                  overall: 6.5,
-                  criteria: {
-                    fluency: { score: 6.0, comment: 'Tốt' },
-                    vocabulary: { score: 6.5, comment: 'Đa dạng' },
-                    grammar: { score: 6.0, comment: 'Đúng cấu trúc' },
-                    pronunciation: { score: 7.0, comment: 'Rõ ràng' },
-                  },
-                  strengths: 'Phát âm tốt',
-                  improvements: 'Cần trôi chảy hơn',
-                }),
-              },
-            },
-          ],
-        }),
+        create: mockChatCompletion,
       },
     }
   }
@@ -84,6 +88,7 @@ describe('Speaking Routes & AI Criterion Logging', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockChatCompletion.mockImplementation(() => Promise.resolve(defaultAiResponse()))
     process.env.JWT_SECRET = 'test_secret_key'
   })
 
@@ -392,13 +397,72 @@ describe('Speaking Routes & AI Criterion Logging', () => {
       expect(res.body).toEqual({ answerId: 33, status: 'pending' })
       expect(prismaMock.speakingAnswer.update).toHaveBeenCalledWith({
         where: { id: 33 },
-        data: { status: 'pending', error: null },
+        data: {
+          status: 'pending',
+          error: null,
+          aiFeedback: JSON.stringify({ retryCount: 1 }),
+        },
       })
+    })
+
+    it('Ca 10: retry lần thứ 4 trên cùng một bài bị từ chối (400)', async () => {
+      prismaMock.speakingAnswer.findUnique.mockResolvedValue({
+        ...failedAnswer,
+        aiFeedback: JSON.stringify({ retryCount: 3 }),
+      })
+
+      const res = await request(app)
+        .post('/api/speaking/answers/33/retry')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+
+      expect(res.status).toBe(400)
+      expect(res.body.message).toContain('giới hạn tối đa 3 lần thử lại')
+      expect(prismaMock.speakingAnswer.update).not.toHaveBeenCalled()
     })
 
     it('returns 401 without a token', async () => {
       const res = await request(app).post('/api/speaking/answers/33/retry')
       expect(res.status).toBe(401)
+    })
+  })
+
+  describe('Kiểm thử bắt buộc IELTS Speaking (Ca 9)', () => {
+    it('Ca 9: JSON hỏng thì bài chuyển failed, không lưu điểm', async () => {
+      mockChatCompletion.mockResolvedValue({
+        choices: [
+          {
+            finish_reason: 'stop',
+            message: { content: 'MALFORMED INVALID JSON <<<' },
+          },
+        ],
+      })
+
+      prismaMock.speakingPart.findUnique.mockResolvedValue({
+        id: 10,
+        examId: 1,
+        number: 1,
+        questions: [{ text: 'Tell me about yourself.' }],
+      })
+      prismaMock.speakingAnswer.findFirst.mockResolvedValue(null)
+      prismaMock.speakingAnswer.create.mockResolvedValue({ id: 99, status: 'pending', userId: 1 })
+      prismaMock.speakingAnswer.update.mockResolvedValue({})
+
+      const res = await request(app)
+        .post('/api/speaking/exams/1/submit')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+        .send({ partId: 10, transcript: sampleTranscript })
+
+      expect(res.status).toBe(200)
+
+      // Chờ background processSpeakingAI xử lý xong
+      await new Promise(resolve => setTimeout(resolve, 80))
+
+      const failedCall = prismaMock.speakingAnswer.update.mock.calls.find(
+        c => c[0]?.where?.id === 99 && c[0]?.data?.status === 'failed'
+      )
+      expect(failedCall).toBeDefined()
+      expect(failedCall[0].data.status).toBe('failed')
+      expect(failedCall[0].data.aiScore).toBeUndefined()
     })
   })
 })

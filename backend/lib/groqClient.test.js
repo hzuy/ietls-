@@ -9,7 +9,7 @@ class MockGroq {
 const groqPath = require.resolve('groq-sdk')
 require.cache[groqPath] = { id: groqPath, filename: groqPath, loaded: true, exports: MockGroq }
 
-const { requestGradingJson, gradingParams } = require('./groqClient')
+const { requestGradingJson, gradingParams, getGroqVisionModel } = require('./groqClient')
 
 const reply = content => ({ choices: [{ message: { content }, finish_reason: 'stop' }] })
 
@@ -17,6 +17,7 @@ describe('requestGradingJson', () => {
   beforeEach(() => {
     create.mockReset()
     delete process.env.GROQ_REASONING_EFFORT
+    delete process.env.GROQ_VISION_MODEL
   })
 
   it('asks for JSON mode and low reasoning on gpt-oss models', () => {
@@ -24,6 +25,27 @@ describe('requestGradingJson', () => {
     expect(gradingParams('llama-3.1-8b-instant')).toEqual({ response_format: { type: 'json_object' } })
     process.env.GROQ_REASONING_EFFORT = 'medium'
     expect(gradingParams('openai/gpt-oss-120b').reasoning_effort).toBe('medium')
+  })
+
+  it('selects vision model and formats messages when image is provided', async () => {
+    create.mockResolvedValue(reply('{"overall": 7}'))
+    const res = await requestGradingJson('p', { image: 'data:image/png;base64,abc' })
+    expect(res).toEqual({ overall: 7 })
+    expect(getGroqVisionModel()).toBe('qwen/qwen3.8-27b')
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: 'qwen/qwen3.8-27b',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: 'p' },
+              { type: 'image_url', image_url: { url: 'data:image/png;base64,abc' } }
+            ]
+          }
+        ]
+      })
+    )
   })
 
   it('returns the parsed feedback', async () => {

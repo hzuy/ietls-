@@ -396,5 +396,29 @@ describe('Writing Submission Routes', () => {
       const res = await request(app).post('/api/writing/answers/59/retry')
       expect(res.status).toBe(401)
     })
+
+    it('submits Task 1 with imageUrl successfully', async () => {
+      prismaMock.writingTask.findUnique.mockResolvedValue({
+        id: 11,
+        examId: 1,
+        prompt: 'Task 1 prompt with chart',
+        number: 1,
+        imageUrl: '/uploads/questions/chart.png'
+      })
+      prismaMock.setting.findUnique.mockResolvedValue(null)
+      prismaMock.writingAnswer.create.mockResolvedValue({ id: 88, status: 'pending', userId: 1 })
+      prismaMock.writingAnswer.findUnique.mockResolvedValue({ id: 88, userId: 1 })
+      prismaMock.writingAnswer.update.mockResolvedValue({ id: 88, status: 'graded' })
+      prismaMock.writingCriterionLog.createMany.mockResolvedValue({ count: 4 })
+
+      const res = await request(app)
+        .post('/api/writing/exams/1/submit')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+        .send({ taskId: 11, essay: sampleEssay })
+
+      expect(res.status).toBe(200)
+      expect(res.body.status).toBe('pending')
+      expect(res.body.answerId).toBe(88)
+    })
   })
 })

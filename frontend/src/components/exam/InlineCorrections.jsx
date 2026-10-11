@@ -9,10 +9,22 @@ const TYPE_LABELS = {
   coherence: 'Mạch lạc',
 }
 
+function isPunctuationOrCasingOnly(a, b) {
+  const normA = String(a || '').toLowerCase().replace(/[.,/#!$%^&*;:{}=\-_`~()?"'’“”\s]+/g, '')
+  const normB = String(b || '').toLowerCase().replace(/[.,/#!$%^&*;:{}=\-_`~()?"'’“”\s]+/g, '')
+  return normA === normB
+}
+
 function validCorrections(text, corrections) {
   if (!text || !Array.isArray(corrections)) return []
   const sorted = corrections
-    .filter(c => Number.isInteger(c?.start) && Number.isInteger(c?.end) && c.start >= 0 && c.end <= text.length && c.end > c.start && text.slice(c.start, c.end) === c.original)
+    .filter(c => {
+      if (!Number.isInteger(c?.start) || !Number.isInteger(c?.end)) return false
+      if (c.start < 0 || c.end > text.length || c.end <= c.start) return false
+      if (text.slice(c.start, c.end) !== c.original) return false
+      if (isPunctuationOrCasingOnly(c.original, c.corrected)) return false
+      return true
+    })
     .sort((a, b) => a.start - b.start)
   const out = []
   for (const c of sorted) {

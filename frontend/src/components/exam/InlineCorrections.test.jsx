@@ -40,6 +40,18 @@ describe('InlineCorrections', () => {
     expect(container.textContent).toBe(text)
   })
 
+  it('ignores corrections that only differ by punctuation or casing (e.g. food -> food,)', () => {
+    const sample = 'I eat typical food sometimes.'
+    const { container } = render(
+      <InlineCorrections
+        text={sample}
+        corrections={[{ start: 14, end: 18, original: 'food', corrected: 'food,', type: 'punctuation' }]}
+      />
+    )
+    expect(container.querySelector('del')).toBeNull()
+    expect(container.textContent).toBe(sample)
+  })
+
   it('summarises the number of corrections', () => {
     const { rerender, container } = render(<CorrectionSummary count={3} />)
     expect(container.textContent).toContain('Đã sửa 3 lỗi')

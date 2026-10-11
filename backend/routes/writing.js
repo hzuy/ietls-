@@ -9,6 +9,7 @@ const { sanitizeCorrections } = require('../lib/inlineCorrections')
 const router = express.Router()
 const prisma = require('../lib/prisma')
 const { requestGradingJson } = require('../lib/groqClient')
+const { buildWritingGradingPrompt, applyWritingGradingRules, preCheckEssay, resolveImageToDataUri } = require('../lib/writingGrading')
 
 router.get('/exams', authMiddleware, async (req, res) => {
   try {
@@ -100,44 +101,66 @@ router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res
   }
 })
 
-async function processWritingAI(answerId, taskPrompt, taskNumber, essay) {
+async function processWritingAI(answerId, taskPrompt, taskNumber, essay, imageUrl = null) {
   try {
     await prisma.writingAnswer.update({
       where: { id: answerId },
       data: { status: 'grading' }
     })
 
-    const prompt = `Bạn là giám khảo IELTS. Chấm bài Writing Task ${taskNumber}.
+    const minWords = taskNumber === 1 ? 150 : 250
+    const preCheck = preCheckEssay(essay, taskPrompt, minWords)
+    const wordCount = preCheck.wordCount
 
-ĐỀ BÀI: ${taskPrompt}
-BÀI VIẾT: ${essay}
+    // MỤC 5: Kiểm tra gibberish trước khi gọi AI — trả 1.0 cho cả 4 tiêu chí, KHÔNG gọi AI
+    if (preCheck.isGibberish) {
+      const feedback = {
+        relevance_reason: preCheck.reason,
+        relevance: 'gibberish',
+        criteria: {
+          task_achievement: { score: 1.0, comment: `Bài viết không hợp lệ: ${preCheck.reason}.` },
+          coherence_cohesion: { score: 1.0, comment: 'Không đủ dữ liệu đánh giá tính mạch lạc.' },
+          lexical_resource: { score: 1.0, comment: 'Không đủ dữ liệu đánh giá vốn từ vựng.' },
+          grammatical_range: { score: 1.0, comment: 'Không đủ dữ liệu đánh giá ngữ pháp.' },
+        },
+        overall: 1.0,
+        corrections: [],
+        offTopic: true,
+      }
 
-Sửa lỗi trực tiếp trong bài viết: liệt kê các lỗi ngữ pháp, từ vựng, chính tả, dấu câu theo đúng thứ tự xuất hiện. "original" phải chép NGUYÊN VĂN một cụm ngắn (1-6 từ) có thật trong bài viết, "corrected" là cụm thay thế đúng, "explanation" giải thích ngắn gọn bằng tiếng Việt vì sao sai và vì sao sửa như vậy. Chỉ sửa lỗi thật, không viết lại câu đã đúng, chấp nhận cả chính tả Anh-Anh và Anh-Mỹ (vd colour/color, cosier/cozier đều đúng). Tối đa 25 lỗi.
+      await prisma.writingAnswer.update({
+        where: { id: answerId },
+        data: {
+          aiFeedback: JSON.stringify(feedback),
+          aiScore: 1.0,
+          status: 'graded',
+          error: null
+        }
+      })
+      return
+    }
 
-Trả về JSON (không có gì khác):
-{
-  "overall": 6.5,
-  "criteria": {
-    "task_achievement": { "score": 6.5, "comment": "..." },
-    "coherence_cohesion": { "score": 6.5, "comment": "..." },
-    "lexical_resource": { "score": 6.5, "comment": "..." },
-    "grammatical_range": { "score": 6.5, "comment": "..." }
-  },
-  "corrections": [
-    { "original": "cụm sai trong bài", "corrected": "cụm đúng", "type": "grammar|vocabulary|spelling|punctuation|word_choice", "explanation": "..." }
-  ]
-}`
-
-    const feedback = await requestGradingJson(prompt)
-
-    // Round all scores to nearest IELTS half-band (0, 0.5, 1, ..., 9)
-    const roundBand = s => Math.round(Math.min(9, Math.max(0, parseFloat(s) || 0)) * 2) / 2
-    feedback.overall = roundBand(feedback.overall)
-    if (feedback.criteria) {
-      for (const key of Object.keys(feedback.criteria)) {
-        if (feedback.criteria[key]) feedback.criteria[key].score = roundBand(feedback.criteria[key].score)
+    let imageDataUri = null
+    if (taskNumber === 1 && imageUrl) {
+      try {
+        imageDataUri = await resolveImageToDataUri(imageUrl)
+      } catch (imgErr) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('[processWritingAI resolveImageToDataUri warning]', imgErr.message)
+        }
       }
     }
+
+    const prompt = buildWritingGradingPrompt({
+      taskPrompt,
+      taskNumber,
+      essay,
+      wordCount,
+      hasImage: Boolean(imageDataUri)
+    })
+
+    const rawFeedback = await requestGradingJson(prompt, { image: imageDataUri })
+    const feedback = applyWritingGradingRules(rawFeedback, wordCount, minWords, essay)
     feedback.corrections = sanitizeCorrections(feedback.corrections, [essay])
 
     await prisma.writingAnswer.update({
@@ -261,7 +284,7 @@ router.post('/exams/:id/submit', authMiddleware, learnerOnly, aiSubmitLimiter, v
     })
 
     // Fire-and-forget background processing
-    processWritingAI(writingAnswer.id, task.prompt, task.number, essay).catch(err => {
+    processWritingAI(writingAnswer.id, task.prompt, task.number, essay, task.imageUrl).catch(err => {
       if (process.env.NODE_ENV !== 'production') console.error('[processWritingAI Unhandled]', err)
     })
 
@@ -336,7 +359,7 @@ router.post('/answers/:id/retry', authMiddleware, learnerOnly, aiSubmitLimiter, 
       data: { status: 'pending', error: null }
     })
 
-    processWritingAI(answerId, answer.task.prompt, answer.task.number, answer.essayText).catch(err => {
+    processWritingAI(answerId, answer.task.prompt, answer.task.number, answer.essayText, answer.task.imageUrl).catch(err => {
       if (process.env.NODE_ENV !== 'production') console.error('[processWritingAI Retry Unhandled]', err)
     })
 

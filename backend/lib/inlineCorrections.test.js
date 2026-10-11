@@ -69,4 +69,39 @@ describe('sanitizeCorrections', () => {
     expect(sanitizeCorrections(null, [essay])).toEqual([])
     expect(sanitizeCorrections('x', [essay])).toEqual([])
   })
+
+  it('filters out punctuation-only corrections (e.g. food -> food, or month -> month.)', () => {
+    const text = 'I eat typical food sometimes about once a month.'
+    const raw = [
+      { original: 'food', corrected: 'food,', type: 'punctuation' },
+      { original: 'month', corrected: 'month.', type: 'punctuation' },
+      { original: 'typical', corrected: 'traditional', type: 'word_choice' },
+    ]
+    const out = sanitizeCorrections(raw, [text])
+    expect(out).toHaveLength(1)
+    expect(out[0].original).toBe('typical')
+    expect(out[0].corrected).toBe('traditional')
+  })
+
+  it('filters out UK/US spelling variants (e.g. colour -> color)', () => {
+    const text = 'I like this colour very much.'
+    const raw = [{ original: 'colour', corrected: 'color', type: 'spelling' }]
+    expect(sanitizeCorrections(raw, [text])).toHaveLength(0)
+  })
+
+  it('in Speaking mode, filters out punctuation errors and ghostwritten rewrites', () => {
+    const texts = ['I just eat typical food.', "I don't know."]
+    const raw = [
+      { answer: 1, original: 'food', corrected: 'food,', type: 'punctuation' },
+      { answer: 2, original: "I don't know.", corrected: "No, I haven't tried making food from another country.", type: 'word_choice' },
+      { answer: 2, original: "don't", corrected: "do not", type: 'grammar' },
+    ]
+    const out = sanitizeCorrections(raw, texts, { indexMap: [0, 1], isSpeaking: true })
+    // food -> food, (bị lọc do punctuation/casing)
+    // I don't know -> No, I haven't... (bị lọc do excessive rewrite)
+    // don't -> do not (được giữ lại nếu cần)
+    expect(out).toHaveLength(1)
+    expect(out[0].original).toBe("don't")
+    expect(out[0].corrected).toBe("do not")
+  })
 })
