@@ -7,7 +7,7 @@ const validate = require('../middleware/validate')
 const prisma = require('../lib/prisma')
 const { invalidate } = require('../lib/swrCache')
 const { getQuestionCount, getPracticeListCached } = require('../lib/publicContent')
-const { createPracticeSchema, updatePracticeSchema } = require('../validators/contentValidator')
+const { createPracticeSchema, updatePracticeSchema, practiceAttemptSchema } = require('../validators/contentValidator')
 const { uploadAudio, uploadOptimizedCover } = require('../services/storageService')
 const { logAuditEvent } = require('../lib/auditLog')
 const { AUDIT_ACTIONS } = require('../lib/auditActions')
@@ -53,7 +53,7 @@ const audioUpload = multer({
   limits: { fileSize: 50 * 1024 * 1024 }
 })
 
-const { teacherStrict } = require('../lib/roles')
+const { teacherStrict, learnerOnly } = require('../lib/roles')
 
 // ─── PUBLIC: list ─────────────────────────────────────────────────────────────
 // Fetcher + SWR cache nằm ở lib/publicContent.js (chia sẻ cache với /api/home).
@@ -96,6 +96,57 @@ function makePracticeListHandler(skill) {
     } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
   }
 }
+
+const PRACTICE_SKILLS = new Set(['reading', 'listening'])
+
+function attemptSummary(a, skill) {
+  return { attemptId: a.id, examId: a.practiceExamId, skill, finishedAt: a.createdAt, correct: a.correct, total: a.total, bandScore: null }
+}
+
+router.get('/attempts/:skill', authMiddleware, learnerOnly, async (req, res) => {
+  const { skill } = req.params
+  if (!PRACTICE_SKILLS.has(skill)) return res.status(400).json({ message: 'Kỹ năng không hợp lệ' })
+  try {
+    const rows = await prisma.practiceAttempt.findMany({
+      where: { userId: req.user.userId, practiceExam: { skill } },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, practiceExamId: true, correct: true, total: true, createdAt: true },
+    })
+    const byExam = {}
+    for (const a of rows) (byExam[a.practiceExamId] ||= []).push(attemptSummary(a, skill))
+    res.json(byExam)
+  } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
+})
+
+router.post('/attempts/:skill/:id', authMiddleware, learnerOnly, validate(practiceAttemptSchema), async (req, res) => {
+  const { skill } = req.params
+  const examId = parseInt(req.params.id)
+  if (!PRACTICE_SKILLS.has(skill) || !Number.isInteger(examId)) return res.status(400).json({ message: 'Yêu cầu không hợp lệ' })
+  try {
+    const exam = await prisma.practiceExam.findFirst({ where: { id: examId, skill, deletedAt: null }, select: { id: true } })
+    if (!exam) return res.status(404).json({ message: 'Không tìm thấy bài luyện tập' })
+    const { answers, correct, total } = req.body
+    const created = await prisma.practiceAttempt.create({
+      data: { userId: req.user.userId, practiceExamId: examId, answers, correct, total },
+      select: { id: true, practiceExamId: true, correct: true, total: true, createdAt: true },
+    })
+    res.status(201).json(attemptSummary(created, skill))
+  } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
+})
+
+router.get('/attempts/:skill/:id/:attemptId', authMiddleware, learnerOnly, async (req, res) => {
+  const { skill } = req.params
+  const examId = parseInt(req.params.id)
+  const attemptId = parseInt(req.params.attemptId)
+  if (!PRACTICE_SKILLS.has(skill) || !Number.isInteger(examId) || !Number.isInteger(attemptId)) return res.status(400).json({ message: 'Yêu cầu không hợp lệ' })
+  try {
+    const attempt = await prisma.practiceAttempt.findFirst({
+      where: { id: attemptId, practiceExamId: examId, userId: req.user.userId },
+    })
+    if (!attempt) return res.status(404).json({ message: 'Không tìm thấy lượt làm bài' })
+    res.json({ ...attemptSummary(attempt, skill), answers: attempt.answers })
+  } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
+})
 
 router.get('/reading', makePracticeListHandler('reading'))
 router.get('/listening', makePracticeListHandler('listening'))

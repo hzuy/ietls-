@@ -21,13 +21,15 @@ export default function ExamAttemptListModal({
   onClose,
   skill,
   skillLabel,
-  attempts = []
+  attempts = [],
+  onReview,
 }) {
   const navigate = useNavigate()
 
   if (!open) return null
 
   const handleReview = (h) => {
+    if (onReview) return onReview(h)
     const params = new URLSearchParams({ attemptId: h.attemptId })
     if (h.finishedAt) params.set('finishedAt', h.finishedAt)
 

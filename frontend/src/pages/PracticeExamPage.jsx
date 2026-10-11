@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 
 import Navbar from '../components/Navbar'
-import { getPractice } from '../services/practiceService'
+import { getPractice, savePracticeAttempt, getPracticeAttempt } from '../services/practiceService'
+import { gradePractice } from '../utils/practiceGrading'
 import { Clock, Type } from 'lucide-react'
 import MatchingTickGrid from '../components/MatchingTickGrid'
 import DragWordBankGroup from '../components/DragWordBankGroup'
@@ -204,72 +205,12 @@ function ReadingPracticeExam({ exam, onBack }) {
   const onAnswer = (qId, val) => setAnswers(a => ({ ...a, [qId]: val }))
 
   const doSubmit = async () => {
-    const questions = []
-    const typeStats = {}
-    
-    const formatType = (type) => {
-      if (!type) return 'Unknown'
-      return type.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-    }
-
-    groups.forEach(g => {
-      const typeName = formatType(g.type)
-      if (!typeStats[typeName]) {
-        typeStats[typeName] = { name: typeName, total: 0, correct: 0, wrong: 0, missed: 0 }
-      }
-      
-      g.questions.forEach(q => {
-        const qKey = q.id ?? q.number
-        const userAns = (answers[qKey] || '').trim().toLowerCase()
-        const correctAns = (q.correctAnswer || '').trim().toLowerCase()
-        const isCorrect = g.type === 'mcq_multi'
-          ? userAns.split(',').map(x => x.trim()).filter(Boolean).sort().join(',') === correctAns.split(',').map(x => x.trim()).filter(Boolean).sort().join(',')
-          : correctAns.split('/').map(x => x.trim()).filter(Boolean).includes(userAns)
-        
-        let status = 'missed'
-        if ((answers[qKey] || '').trim()) {
-          status = isCorrect ? 'correct' : 'wrong'
-        }
-        
-        if (isCorrect) {
-          typeStats[typeName].correct++
-        } else if ((answers[qKey] || '').trim()) {
-          typeStats[typeName].wrong++
-        } else {
-          typeStats[typeName].missed++
-        }
-        typeStats[typeName].total++
-        
-        questions.push({
-          number: q.number,
-          grouped: false,
-          status,
-          userAnswer: answers[qKey] || '',
-          correctAnswer: q.correctAnswer,
-          options: q.options || null,
-          type: g.type || q.type,
-          explanation: g.explanations?.[q.number] || null
-        })
-      })
-    })
-
-    const formattedData = {
-      title: exam.title,
-      timeSpent: 0,
-      bandScore: 0,
-      questionTypes: Object.values(typeStats),
-      sections: [
-        {
-          number: 1,
-          from: 1,
-          to: totalSlots,
-          questions
-        }
-      ]
-    }
+    const { result: graded, correct, total } = gradePractice('reading', exam, answers)
     clearDraft()
-    setResult(formattedData)
+    setResult(graded)
     setPhase('result')
+    const stored = Object.fromEntries(Object.entries(answers).filter(([, v]) => v != null && String(v).trim()).map(([k, v]) => [k, String(v)]))
+    savePracticeAttempt('reading', exam.id, { answers: stored, correct, total }).catch(() => {})
   }
 
   const jumpToQuestion = (qNumber) => {
@@ -548,79 +489,12 @@ function ListeningPracticeExam({ exam, onBack }) {
   }
 
   const doSubmit = async () => {
-    const questions = []
-    const typeStats = {}
-    
-    const formatType = (type) => {
-      if (!type) return 'Unknown'
-      return type.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-    }
-
-    groups.forEach(g => {
-      const typeName = formatType(g.type)
-      if (!typeStats[typeName]) {
-        typeStats[typeName] = { name: typeName, total: 0, correct: 0, wrong: 0, missed: 0 }
-      }
-      
-      ;(g.questions || []).forEach(q => {
-        const userRaw = (answers[q.number] || '').trim()
-        const correctRaw = (q.correctAnswer || '').trim()
-        let isCorrect = false
-        if (LISTENING_FILL_TYPES.includes(g.type)) {
-          const alts = correctRaw.split('/').map(a => a.trim().toLowerCase()).filter(Boolean)
-          isCorrect = alts.length > 0 && alts.includes(userRaw.toLowerCase())
-        } else if (g.type === 'mcq_multi') {
-          const userList = userRaw.split(',').map(s => s.trim()).filter(Boolean).sort()
-          const correctList = correctRaw.split(',').map(s => s.trim()).filter(Boolean).sort()
-          isCorrect = userList.join(',') === correctList.join(',')
-        } else {
-          isCorrect = userRaw.toLowerCase() === correctRaw.toLowerCase()
-        }
-        
-        let status = 'missed'
-        if (userRaw) {
-          status = isCorrect ? 'correct' : 'wrong'
-        }
-        
-        if (isCorrect) {
-          typeStats[typeName].correct++
-        } else if (userRaw) {
-          typeStats[typeName].wrong++
-        } else {
-          typeStats[typeName].missed++
-        }
-        typeStats[typeName].total++
-        
-        questions.push({
-          number: q.number,
-          grouped: false,
-          status,
-          userAnswer: userRaw,
-          correctAnswer: correctRaw,
-          options: q.options || null,
-          type: g.type || q.type,
-          explanation: g.explanations?.[q.number] || null
-        })
-      })
-    })
-
-    const formattedData = {
-      title: exam.title,
-      timeSpent: 0,
-      bandScore: 0,
-      questionTypes: Object.values(typeStats),
-      sections: [
-        {
-          number: 1,
-          from: 1,
-          to: totalSlots,
-          questions
-        }
-      ]
-    }
+    const { result: graded, correct, total } = gradePractice('listening', exam, answers)
     clearDraft()
-    setResult(formattedData)
+    setResult(graded)
     setPhase('result')
+    const stored = Object.fromEntries(Object.entries(answers).filter(([, v]) => v != null && String(v).trim()).map(([k, v]) => [k, String(v)]))
+    savePracticeAttempt('listening', exam.id, { answers: stored, correct, total }).catch(() => {})
   }
 
 
@@ -736,15 +610,26 @@ function ListeningPracticeExam({ exam, onBack }) {
 export default function PracticeExamPage({ skill }) {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const attemptId = searchParams.get('attemptId')
   const [exam, setExam] = useState(null)
+  const [pastResult, setPastResult] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    setLoading(true)
+    setPastResult(null)
     getPractice(skill, id)
-      .then(data => setExam(data))
+      .then(async data => {
+        setExam(data)
+        if (attemptId) {
+          const attempt = await getPracticeAttempt(skill, id, attemptId)
+          setPastResult(gradePractice(skill, data, attempt.answers || {}).result)
+        }
+      })
       .catch(() => navigate(`/practice/${skill}`, { replace: true }))
       .finally(() => setLoading(false))
-  }, [id, skill])
+  }, [id, skill, attemptId, navigate])
 
   if (loading) return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)' }}><Navbar />
@@ -756,6 +641,10 @@ export default function PracticeExamPage({ skill }) {
       <div className="max-w-4xl mx-auto px-6 py-16 text-center text-gray-400">Không tìm thấy bài luyện tập.</div>
     </div>
   )
+
+  if (attemptId && pastResult) {
+    return <ExamReview skill={skill} practice={{ exam: buildPracticeReviewExam(exam, skill), result: pastResult, onClose: () => navigate(`/practice/${skill}`) }} />
+  }
 
   // Reading: full exam UI
   if (skill === 'reading') {

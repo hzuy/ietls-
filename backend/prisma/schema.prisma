@@ -31,6 +31,7 @@ model User {
   // không phải field nghiệp vụ, không dùng để join lấy lịch sử log của user này.
   auditLogs              AuditLog[]
   emailVerificationCodes EmailVerificationCode[]
+  practiceAttempts       PracticeAttempt[]
 
   @@index([role])
   @@index([createdAt])
@@ -388,6 +389,7 @@ model PracticeExam {
   deletedAt    DateTime?
 
   questions PracticeQuestion[]
+  attempts  PracticeAttempt[]
 
   @@index([skill])
   @@index([createdAt])
@@ -517,4 +519,19 @@ model EmailVerificationCode {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model PracticeAttempt {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  practiceExamId Int
+  answers        Json
+  correct        Int
+  total          Int
+  createdAt      DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  practiceExam PracticeExam @relation(fields: [practiceExamId], references: [id], onDelete: Cascade)
+
+  @@index([userId, practiceExamId])
 }

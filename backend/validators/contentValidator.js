@@ -90,7 +90,14 @@ const updateBookNumberSchema = z.object({
   bookNumber: z.coerce.number({ message: 'Số cuốn không hợp lệ' }).int({ message: 'Số cuốn phải là số nguyên' }).positive({ message: 'Số cuốn không hợp lệ' }),
 })
 
+const practiceAttemptSchema = z.object({
+  answers: z.record(z.string(), z.string().max(500)).refine(a => Object.keys(a).length <= 200, { message: 'Quá nhiều câu trả lời' }),
+  correct: z.number().int().min(0),
+  total: z.number().int().min(0).max(200),
+}).refine(d => d.correct <= d.total, { message: 'Số câu đúng không hợp lệ' })
+
 module.exports = {
+  practiceAttemptSchema,
   createSampleSchema,
   updateSampleSchema,
   createPracticeSchema,

@@ -10,6 +10,10 @@ import { UserCardGridSkeleton } from '../components/skeletons'
 import { CONTENT_CARD_CONFIG } from '../components/common/contentCardConfig'
 import { getTypesBySkill } from '../utils/questionTypes'
 import { API_BASE, resolveImg } from '../utils/media'
+import { History } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
+import { getPracticeAttempts } from '../services/practiceService'
+import ExamAttemptListModal from '../components/exam/ExamAttemptListModal'
 
 const SKILL_META = {
   reading: {
@@ -40,6 +44,14 @@ export default function PracticeList({ skill: skillKey }) {
   const skill = SKILL_META[skillKey] ? skillKey : 'reading'
   const meta = SKILL_META[skill]
   const availableTypes = getTypesBySkill(skill)
+  const { user } = useAuth()
+  const [attemptsByExam, setAttemptsByExam] = useState({})
+  const [historyFor, setHistoryFor] = useState(null)
+
+  useEffect(() => {
+    if (!user || user.role !== 'user') { setAttemptsByExam({}); return }
+    getPracticeAttempts(skill).then(setAttemptsByExam).catch(() => setAttemptsByExam({}))
+  }, [skill, user])
 
   useEffect(() => {
     setLoading(true)
@@ -61,8 +73,11 @@ export default function PracticeList({ skill: skillKey }) {
 
   const otherExams = exams.filter(e => !availableTypes.some(t => t.key === e.type))
 
-  const renderCard = (item, idx) => (
-    <div key={item.id} className={`anim-fade-up delay-${Math.min(idx + 1, 8)}`}>
+  const renderCard = (item, idx) => {
+    const attempts = attemptsByExam[item.id] || []
+    const latest = attempts[0]
+    return (
+    <div key={item.id} className={`anim-fade-up delay-${Math.min(idx + 1, 8)} flex flex-col gap-2`}>
       <ContentCard
         className="h-full"
         image={resolveImg(item.thumbnailUrl)}
@@ -82,8 +97,25 @@ export default function PracticeList({ skill: skillKey }) {
         hoverStyle="subtle"
         onClick={() => navigate(`/practice/${skill}/${item.id}`)}
       />
+      {latest && (
+        <div className="flex items-center justify-between gap-2 px-1 text-xs text-zinc-500">
+          <span>
+            Đã làm {attempts.length} lần · Gần nhất <strong className="font-mono text-emerald-600">{latest.correct}/{latest.total}</strong>
+          </span>
+          <button
+            type="button"
+            onClick={() => setHistoryFor(item)}
+            style={{ fontSize: 12 }}
+            className="tap-pad inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-white px-3 h-7 font-medium text-zinc-700 hover:bg-zinc-100 cursor-pointer"
+          >
+            <History className="w-3.5 h-3.5" />
+            Lịch sử
+          </button>
+        </div>
+      )}
     </div>
-  )
+    )
+  }
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
@@ -148,6 +180,14 @@ export default function PracticeList({ skill: skillKey }) {
           </>
         )}
       </div>
+      <ExamAttemptListModal
+        open={!!historyFor}
+        onClose={() => setHistoryFor(null)}
+        skill={skill}
+        skillLabel={historyFor?.title || ''}
+        attempts={historyFor ? attemptsByExam[historyFor.id] || [] : []}
+        onReview={a => navigate(`/practice/${skill}/${a.examId}?attemptId=${a.attemptId}`)}
+      />
     </div>
   )
 }

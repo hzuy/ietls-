@@ -43,3 +43,6 @@ export const uploadListeningAudioFile = (formData) =>
 
 // ─── Practice (public-facing) ─────────────────────────────────────────────────
 export const getPractice = (skill, id) => api.get(`/practice/${skill}/${id}`).then(r => r.data)
+export const savePracticeAttempt = (skill, id, payload) => api.post(`/practice/attempts/${skill}/${id}`, payload).then(r => r.data)
+export const getPracticeAttempts = (skill) => api.get(`/practice/attempts/${skill}`).then(r => r.data)
+export const getPracticeAttempt = (skill, id, attemptId) => api.get(`/practice/attempts/${skill}/${id}/${attemptId}`).then(r => r.data)
