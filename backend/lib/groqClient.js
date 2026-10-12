@@ -29,7 +29,7 @@ function gradingParams(model) {
   return params
 }
 
-async function requestGradingJson(prompt, { attempts = 2, image = null, model = null } = {}) {
+async function requestGradingJson(prompt, { attempts = 2, image = null, model = null, temperature = 0.1, max_tokens = 4096 } = {}) {
   const { repairTruncatedJson } = require('../services/json/jsonSanitizer')
   const groq = getGroqClient()
   const targetModel = model || (image ? getGroqVisionModel() : getGroqModel())
@@ -51,7 +51,8 @@ async function requestGradingJson(prompt, { attempts = 2, image = null, model = 
       const completion = await groq.chat.completions.create({
         messages,
         model: targetModel,
-        temperature: 0.1,
+        temperature,
+        max_tokens,
         ...gradingParams(targetModel),
       })
       const text = completion.choices[0]?.message?.content || ''

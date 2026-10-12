@@ -10,7 +10,15 @@ const router = express.Router()
 const prisma = require('../lib/prisma')
 const { requestGradingJson } = require('../lib/groqClient')
 const { writingAttempts, pickAttempt } = require('../lib/attemptGroups')
-const { buildWritingGradingPrompt, applyWritingGradingRules, preCheckEssay, resolveImageToDataUri } = require('../lib/writingGrading')
+const {
+  buildWritingGradingPrompt,
+  applyWritingGradingRules,
+  preCheckEssay,
+  resolveImageToDataUri,
+  buildModelEssayPrompt,
+  validateModelEssay,
+  roundBand
+} = require('../lib/writingGrading')
 
 router.get('/exams', authMiddleware, async (req, res) => {
   try {
@@ -80,7 +88,13 @@ router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res
           corrections: Array.isArray(feedback.corrections) ? feedback.corrections : [],
           wordCount: a.wordCount,
           essayText: a.essayText,
-          createdAt: a.createdAt
+          createdAt: a.createdAt,
+          model_essay: feedback.model_essay || null,
+          overall_summary: feedback.overall_summary || '',
+          top_priorities: feedback.top_priorities || [],
+          appliedCaps: feedback.appliedCaps || [],
+          relevance: feedback.relevance || 'on_topic',
+          relevance_reason: feedback.relevance_reason || ''
         })
       } else if (a.status === 'failed') {
         results.push({
@@ -156,9 +170,54 @@ async function processWritingAI(answerId, taskPrompt, taskNumber, essay, imageUr
       hasImage: Boolean(imageDataUri)
     })
 
-    const rawFeedback = await requestGradingJson(prompt, { image: imageDataUri })
+    const rawFeedback = await requestGradingJson(prompt, { image: imageDataUri, temperature: 0.1 })
     const feedback = applyWritingGradingRules(rawFeedback, wordCount, minWords, essay)
     feedback.corrections = sanitizeCorrections(feedback.corrections, [essay])
+
+    // MỤC 4: Bài mẫu nâng band (Lượt gọi AI thứ 2 sau khi có điểm cuối cùng đã hậu kiểm)
+    feedback.model_essay = null
+    if (feedback.overall < 8.0 && feedback.relevance !== 'gibberish' && feedback.relevance !== 'completely_off_topic') {
+      try {
+        const targetBand = roundBand(Math.min(feedback.overall + 1.0, 8.0))
+        const weaknesses = []
+        if (feedback.criteria) {
+          for (const crit of Object.values(feedback.criteria)) {
+            if (Array.isArray(crit?.weaknesses)) {
+              weaknesses.push(...crit.weaknesses)
+            }
+          }
+        }
+
+        const modelPrompt = buildModelEssayPrompt({
+          taskPrompt,
+          taskNumber,
+          essay,
+          overall: feedback.overall,
+          targetBand,
+          weaknesses,
+          minWords
+        })
+
+        const rawModel = await requestGradingJson(modelPrompt, { attempts: 2, temperature: 0.3 })
+        const validation = validateModelEssay(rawModel, minWords, wordCount)
+        if (validation.valid) {
+          feedback.model_essay = {
+            target_band: targetBand,
+            paragraphs: validation.modelEssay.paragraphs,
+            key_changes: validation.modelEssay.key_changes
+          }
+        } else {
+          feedback.model_essay = null
+          feedback.modelEssayDropped = true
+        }
+      } catch (modelErr) {
+        // Lượt gọi thứ hai lỗi: vẫn lưu kết quả chấm, model_essay = null, KHÔNG làm hỏng kết quả chính
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('[processWritingAI modelEssay error non-fatal]', modelErr.message)
+        }
+        feedback.model_essay = null
+      }
+    }
 
     await prisma.writingAnswer.update({
       where: { id: answerId },

@@ -58,4 +58,25 @@ describe('InlineCorrections', () => {
     rerender(<CorrectionSummary count={0} />)
     expect(container.textContent).toBe('')
   })
+
+  it('renders type upgrade without del tag and with blue dotted styling', () => {
+    const textSample = 'Car production increased very fast in 2010.'
+    const upgradeCorrection = [
+      { start: 25, end: 34, original: 'very fast', corrected: 'rapidly', type: 'upgrade', explanation: 'Nâng cấp từ vựng học thuật.' },
+    ]
+    const { container } = render(<InlineCorrections text={textSample} corrections={upgradeCorrection} />)
+    // KHÔNG dùng <del> vì cụm từ gốc không sai
+    expect(container.querySelector('del')).toBeNull()
+    // Cụm gốc gạch chân chấm màu xanh
+    const origSpan = container.querySelector('.border-dotted')
+    expect(origSpan).not.toBeNull()
+    expect(origSpan.textContent).toBe('very fast')
+    // Cụm gợi ý có màu xanh
+    expect(container.textContent).toContain('rapidly')
+
+    const btn = screen.getByRole('button', { name: /nâng cấp "very fast" thành "rapidly"/ })
+    fireEvent.click(btn)
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Nâng cấp từ vựng học thuật.')
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Gợi ý nâng cấp')
+  })
 })

@@ -4,8 +4,10 @@ const TYPE_LABELS = {
   grammar: 'Ngữ pháp',
   vocabulary: 'Từ vựng',
   word_choice: 'Dùng từ',
+  collocation: 'Kết hợp từ',
   spelling: 'Chính tả',
   punctuation: 'Dấu câu',
+  upgrade: 'Gợi ý nâng cấp',
   coherence: 'Mạch lạc',
 }
 
@@ -66,6 +68,7 @@ export default function InlineCorrections({ text, corrections, className = '' })
   for (const c of items) {
     if (c.start > cursor) nodes.push(text.slice(cursor, c.start))
     const open = openStart === c.start
+    const isUpgrade = c.type === 'upgrade'
     const label = TYPE_LABELS[c.type] || 'Lỗi'
     nodes.push(
       <span key={c.start} className="relative">
@@ -78,13 +81,32 @@ export default function InlineCorrections({ text, corrections, className = '' })
             setOpenStart(open ? null : c.start)
           }}
           aria-expanded={open}
-          aria-label={`${label}: sửa "${c.original}" thành "${c.corrected}"`}
+          aria-label={isUpgrade ? `${label}: nâng cấp "${c.original}" thành "${c.corrected}"` : `${label}: sửa "${c.original}" thành "${c.corrected}"`}
           className="inline p-0 m-0 border-0 bg-transparent text-left cursor-pointer align-baseline"
           style={{ font: 'inherit', lineHeight: 'inherit' }}
         >
-          <del className="rounded px-0.5 bg-red-100 text-red-700 decoration-red-500 decoration-2">{c.original}</del>
-          {c.corrected && (
-            <ins className="ml-1 rounded px-0.5 bg-emerald-100 text-emerald-800 no-underline">{c.corrected}</ins>
+          {isUpgrade ? (
+            <>
+              <span className="rounded px-0.5 border-b-2 border-dotted border-blue-400 bg-blue-50/70 text-blue-900">
+                {c.original}
+              </span>
+              {c.corrected && (
+                <ins className="ml-1 rounded px-0.5 bg-blue-100 text-blue-800 no-underline font-medium">
+                  {c.corrected}
+                </ins>
+              )}
+            </>
+          ) : (
+            <>
+              <del className="rounded px-0.5 bg-red-100 text-red-700 decoration-red-500 decoration-2">
+                {c.original}
+              </del>
+              {c.corrected && (
+                <ins className="ml-1 rounded px-0.5 bg-emerald-100 text-emerald-800 no-underline">
+                  {c.corrected}
+                </ins>
+              )}
+            </>
           )}
         </button>
         {open && (
@@ -93,10 +115,21 @@ export default function InlineCorrections({ text, corrections, className = '' })
             style={{ left: shift }}
             className="absolute top-full z-30 mt-1.5 block w-72 max-w-[calc(100vw-32px)] rounded-xl border border-zinc-200 bg-white p-3 text-left shadow-lg whitespace-normal"
           >
-            <span className="block text-[11px] font-bold uppercase tracking-wide text-zinc-500">{label}</span>
+            <span className={`block text-[11px] font-bold uppercase tracking-wide ${isUpgrade ? 'text-blue-600' : 'text-zinc-500'}`}>
+              {label}
+            </span>
             <span className="mt-1 block text-sm leading-snug text-zinc-800">
-              <del className="text-red-600">{c.original}</del>
-              {c.corrected ? <> → <span className="font-semibold text-emerald-700">{c.corrected}</span></> : null}
+              {isUpgrade ? (
+                <span>
+                  {c.original}
+                  {c.corrected ? <> → <span className="font-semibold text-blue-700">{c.corrected}</span></> : null}
+                </span>
+              ) : (
+                <span>
+                  <del className="text-red-600">{c.original}</del>
+                  {c.corrected ? <> → <span className="font-semibold text-emerald-700">{c.corrected}</span></> : null}
+                </span>
+              )}
             </span>
             {c.explanation && <span className="mt-1.5 block text-[13px] leading-relaxed text-zinc-600">{c.explanation}</span>}
           </span>

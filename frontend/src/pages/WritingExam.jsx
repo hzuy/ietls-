@@ -131,6 +131,8 @@ function WritingTaskAccordion({ task, r, isCompleted, onRetake }) {
   const [openA, setOpenA] = useState(true);
   const [lightbox, setLightbox] = useState(null);
 
+  const [activeTab, setActiveTab] = useState('corrected'); // 'corrected' | 'original' | 'model'
+
   const paragraphCount = (r?.essayText || '').split(/\n\s*\n|\n/).map(s => s.trim()).filter(Boolean).length;
   const wordCount = wc(r?.essayText || '');
 
@@ -170,25 +172,36 @@ function WritingTaskAccordion({ task, r, isCompleted, onRetake }) {
       label,
       score,
       scoreNum,
-      comment: crit?.comment || '',
+      summary: crit?.summary || crit?.comment || '',
+      comment: crit?.comment || crit?.summary || '',
+      strengths: Array.isArray(crit?.strengths) ? crit.strengths : [],
+      weaknesses: Array.isArray(crit?.weaknesses) ? crit.weaknesses : [],
+      how_to_improve: Array.isArray(crit?.how_to_improve) ? crit.how_to_improve : [],
     };
   });
 
   const errorCounts = useMemo(() => {
-    const counts = { grammar: 0, vocabulary: 0, punctuation: 0, spelling: 0, other: 0 };
+    const counts = { grammar: 0, vocabulary: 0, punctuation: 0, spelling: 0, upgrade: 0, other: 0 };
     const items = Array.isArray(r?.corrections) ? r.corrections : [];
     for (const c of items) {
       const t = c?.type;
       if (t === 'grammar') counts.grammar++;
-      else if (t === 'vocabulary' || t === 'word_choice') counts.vocabulary++;
+      else if (t === 'vocabulary' || t === 'word_choice' || t === 'collocation') counts.vocabulary++;
       else if (t === 'punctuation') counts.punctuation++;
       else if (t === 'spelling') counts.spelling++;
+      else if (t === 'upgrade') counts.upgrade++;
       else counts.other++;
     }
     return counts;
   }, [r?.corrections]);
 
-  const totalCorrections = Array.isArray(r?.corrections) ? r.corrections.length : 0;
+  const realErrorsCount = useMemo(() => {
+    const items = Array.isArray(r?.corrections) ? r.corrections : [];
+    return items.filter(c => c?.type !== 'upgrade').length;
+  }, [r?.corrections]);
+
+  const upgradesCount = errorCounts.upgrade;
+  const spellingPunctuationCount = errorCounts.spelling + errorCounts.punctuation;
 
   const improvementSuggestion = useMemo(() => {
     if (typeof r?.improvements === 'string' && r.improvements.trim()) return r.improvements.trim();
@@ -282,102 +295,276 @@ function WritingTaskAccordion({ task, r, isCompleted, onRetake }) {
           {openA && (
             <div className="p-4 sm:p-6 lg:p-7 border border-[#F49F2D] border-t-0 bg-[#F8FAFC]">
               {isCompleted ? (
-                <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-6 items-stretch lg:min-h-[320px]">
-                  {/* Cột trái: Khung bài viết */}
-                  <div className="relative bg-white rounded-2xl border border-zinc-200/90 shadow-2xs max-h-[60vh] lg:max-h-none overflow-hidden flex flex-col">
-                    <div className="p-5 sm:p-6 lg:absolute lg:inset-0 flex flex-col min-h-0">
-                      {/* Vùng bài viết cuộn dọc */}
-                      <div className="flex-1 min-h-0 overflow-y-auto pr-3 custom-scrollbar text-zinc-800 text-[15.5px] leading-[2.0]">
-                        <InlineCorrections text={r.essayText} corrections={r.corrections} />
+                <>
+                  <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-6 items-stretch lg:min-h-[320px]">
+                    {/* Cột trái: Khung bài viết với 3 tabs */}
+                    <div className="relative bg-white rounded-2xl border border-zinc-200/90 shadow-2xs max-h-[60vh] lg:max-h-none overflow-hidden flex flex-col">
+                      <div className="p-5 sm:p-6 lg:absolute lg:inset-0 flex flex-col min-h-0">
+                        {/* Tab header */}
+                        <div className="flex items-center gap-1.5 pb-3 mb-3 border-b border-zinc-100 shrink-0 overflow-x-auto custom-scrollbar">
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab('corrected')}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 ${
+                              activeTab === 'corrected'
+                                ? 'bg-blue-50 text-blue-700 shadow-2xs'
+                                : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
+                            }`}
+                          >
+                            Đã sửa
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab('original')}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 ${
+                              activeTab === 'original'
+                                ? 'bg-blue-50 text-blue-700 shadow-2xs'
+                                : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
+                            }`}
+                          >
+                            Bản gốc
+                          </button>
+                          {r?.model_essay?.paragraphs && (
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab('model')}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 ${
+                                activeTab === 'model'
+                                  ? 'bg-blue-600 text-white shadow-2xs'
+                                  : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
+                              }`}
+                            >
+                              Bài mẫu band {r.model_essay.target_band}
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Vùng bài viết cuộn dọc */}
+                        <div className="flex-1 min-h-0 overflow-y-auto pr-3 custom-scrollbar text-zinc-800 text-[15.5px] leading-[2.0]">
+                          {activeTab === 'corrected' && (
+                            <InlineCorrections text={r.essayText} corrections={r.corrections} />
+                          )}
+                          {activeTab === 'original' && (
+                            <div className="whitespace-pre-wrap font-serif sm:font-sans">
+                              {r.essayText}
+                            </div>
+                          )}
+                          {activeTab === 'model' && r?.model_essay && (
+                            <div className="space-y-4">
+                              {r.model_essay.paragraphs.map((para, idx) => (
+                                <p key={idx} className="m-0 leading-relaxed text-zinc-800 text-justify">
+                                  {para}
+                                </p>
+                              ))}
+                              {Array.isArray(r.model_essay.key_changes) && r.model_essay.key_changes.length > 0 && (
+                                <div className="mt-6 pt-5 border-t border-zinc-200">
+                                  <h4 className="text-xs font-bold uppercase tracking-wider text-blue-700 mb-3">
+                                    Các thay đổi chính giúp nâng band
+                                  </h4>
+                                  <ul className="space-y-2 m-0 p-0 list-none">
+                                    {r.model_essay.key_changes.map((item, idx) => (
+                                      <li key={idx} className="text-xs text-zinc-700 bg-blue-50/60 border border-blue-100 rounded-xl p-3 leading-relaxed">
+                                        <span className="font-bold text-blue-600 mr-1.5">•</span>
+                                        {item}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Cột phải: Khung điểm và nhận xét */}
+                    <div className="bg-white rounded-2xl border border-zinc-200/90 p-5 sm:p-6 shadow-2xs flex flex-col gap-4 h-auto">
+                      {/* 1. Điểm số to & thông số đoạn/từ + ±0.5 */}
+                      <div className="text-center pt-1">
+                        <div className="text-5xl font-black text-zinc-900 tracking-tight leading-none">
+                          {taskScore}
+                        </div>
+                        <div
+                          title="Điểm do AI ước lượng, có thể chênh khoảng ±0.5 so với giám khảo thật."
+                          className="text-[11px] font-bold text-zinc-400 mt-1 cursor-help select-none inline-block"
+                        >
+                          ±0.5
+                        </div>
+                        <div className="text-xs font-semibold text-zinc-500 mt-1">
+                          Task {task.number} band score
+                        </div>
+                        <div className="mt-2.5">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full bg-zinc-100 text-zinc-600 text-xs font-semibold">
+                            {paragraphCount} đoạn · {wordCount} từ
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 2. 4 tiêu chí với thanh tiến trình xanh */}
+                      <div className="space-y-3 pt-1">
+                        {criteriaList.map((critItem) => (
+                          <div key={critItem.key} className="space-y-1">
+                            <div className="flex items-center justify-between text-xs font-bold text-zinc-800">
+                              <span>{critItem.label}</span>
+                              <span className="font-extrabold">{critItem.score}</span>
+                            </div>
+                            <div className="w-full bg-zinc-100 rounded-full h-1.5 overflow-hidden">
+                              <div 
+                                className="bg-[#2563EB] h-1.5 rounded-full transition-all duration-500" 
+                                style={{ width: `${Math.min(100, Math.max(0, (critItem.scoreNum / 9) * 100))}%` }} 
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* 3. Lỗi đã sửa & badges */}
+                      <div className="pt-3 border-t border-zinc-100">
+                        <div className="flex items-baseline justify-between mb-2">
+                          <span className="text-xs font-bold text-zinc-800">
+                            {realErrorsCount} lỗi đã sửa
+                          </span>
+                          {upgradesCount > 0 && (
+                            <span className="text-xs font-semibold text-blue-600">
+                              {upgradesCount} gợi ý nâng cấp
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-nowrap overflow-x-auto custom-scrollbar pb-1">
+                          {errorCounts.grammar > 0 && (
+                            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#FEE2E2] text-[#DC2626] whitespace-nowrap shrink-0">
+                              Ngữ pháp {errorCounts.grammar}
+                            </span>
+                          )}
+                          {errorCounts.vocabulary > 0 && (
+                            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#FEF3C7] text-[#D97706] whitespace-nowrap shrink-0">
+                              Từ vựng {errorCounts.vocabulary}
+                            </span>
+                          )}
+                          {spellingPunctuationCount > 0 && (
+                            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#DBEAFE] text-[#2563EB] whitespace-nowrap shrink-0">
+                              Chính tả và dấu câu {spellingPunctuationCount}
+                            </span>
+                          )}
+                          {errorCounts.upgrade > 0 && (
+                            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap shrink-0">
+                              Nâng cấp {errorCounts.upgrade}
+                            </span>
+                          )}
+                          {realErrorsCount === 0 && upgradesCount === 0 && (
+                            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 whitespace-nowrap shrink-0">
+                              Không có lỗi nào
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 4. Top priorities (thay cho Gợi ý cải thiện nếu có) */}
+                      <div className="pt-3 border-t border-zinc-100">
+                        <div className="text-xs font-bold text-zinc-900 mb-1.5">
+                          {Array.isArray(r?.top_priorities) && r.top_priorities.length > 0 ? 'Ưu tiên cải thiện hàng đầu' : 'Gợi ý cải thiện'}
+                        </div>
+                        {Array.isArray(r?.top_priorities) && r.top_priorities.length > 0 ? (
+                          <ol className="m-0 p-0 list-decimal list-inside space-y-1 text-xs text-zinc-600 leading-relaxed text-justify">
+                            {r.top_priorities.slice(0, 3).map((pri, idx) => (
+                              <li key={idx} className="font-medium">
+                                {pri}
+                              </li>
+                            ))}
+                          </ol>
+                        ) : (
+                          <p className="text-xs text-zinc-600 leading-relaxed m-0 whitespace-pre-line text-justify">
+                            {improvementSuggestion}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
 
-                  {/* Cột phải: Khung điểm và nhận xét */}
-                  <div className="bg-white rounded-2xl border border-zinc-200/90 p-5 sm:p-6 shadow-2xs flex flex-col gap-4 h-auto">
-                    {/* 1. Điểm số to & thông số đoạn/từ */}
-                    <div className="text-center pt-1">
-                      <div className="text-5xl font-black text-zinc-900 tracking-tight leading-none">
-                        {taskScore}
-                      </div>
-                      <div className="text-xs font-semibold text-zinc-500 mt-2">
-                        Task {task.number} band score
-                      </div>
-                      <div className="mt-2.5">
-                        <span className="inline-flex items-center px-3 py-1 rounded-full bg-zinc-100 text-zinc-600 text-xs font-semibold">
-                          {paragraphCount} đoạn · {wordCount} từ
-                        </span>
-                      </div>
+                  {/* 5. Khối Nhận xét chi tiết từng tiêu chí (nằm DƯỚI hai cột, rộng toàn khung) */}
+                  <div className="w-full mt-8 pt-6 border-t border-zinc-200/90">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Sparkles className="w-4 h-4 text-blue-600" />
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-900 m-0">
+                        Nhận xét chi tiết
+                      </h3>
                     </div>
-
-                    {/* 2. 4 tiêu chí với thanh tiến trình xanh */}
-                    <div className="space-y-3 pt-1">
+                    {r?.overall_summary && (
+                      <p className="text-xs text-zinc-600 leading-relaxed mb-5 bg-white p-4 rounded-xl border border-zinc-200/80 text-justify">
+                        <strong className="text-zinc-800">Tổng kết: </strong>
+                        {r.overall_summary}
+                      </p>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                       {criteriaList.map((critItem) => (
-                        <div key={critItem.key} className="space-y-1">
-                          <div className="flex items-center justify-between text-xs font-bold text-zinc-800">
-                            <span>{critItem.label}</span>
-                            <span className="font-extrabold">{critItem.score}</span>
+                        <div key={critItem.key} className="bg-white rounded-2xl border border-zinc-200/90 p-5 shadow-2xs flex flex-col gap-3.5">
+                          <div className="flex items-center justify-between pb-2 border-b border-zinc-100">
+                            <span className="font-bold text-sm text-zinc-900">{critItem.label}</span>
+                            <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
+                              Band {critItem.score}
+                            </span>
                           </div>
-                          <div className="w-full bg-zinc-100 rounded-full h-1.5 overflow-hidden">
-                            <div 
-                              className="bg-[#2563EB] h-1.5 rounded-full transition-all duration-500" 
-                              style={{ width: `${Math.min(100, Math.max(0, (critItem.scoreNum / 9) * 100))}%` }} 
-                            />
-                          </div>
+                          {(critItem.summary || critItem.comment) && (
+                            <p className="text-xs text-zinc-700 leading-relaxed m-0 text-justify">
+                              {critItem.summary || critItem.comment}
+                            </p>
+                          )}
+                          {/* Ưu điểm */}
+                          {critItem.strengths && critItem.strengths.length > 0 && (
+                            <div className="bg-emerald-50/70 border border-emerald-200/70 rounded-xl p-3">
+                              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 mb-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                Ưu điểm
+                              </div>
+                              <ul className="m-0 p-0 list-none space-y-1 text-xs text-emerald-900 leading-relaxed">
+                                {critItem.strengths.map((str, idx) => (
+                                  <li key={idx} className="flex items-start gap-1.5">
+                                    <span className="font-bold text-emerald-600 shrink-0">•</span>
+                                    <span>{str}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {/* Nhược điểm */}
+                          {critItem.weaknesses && critItem.weaknesses.length > 0 && (
+                            <div className="bg-amber-50/70 border border-amber-200/70 rounded-xl p-3">
+                              <div className="flex items-center gap-1.5 text-xs font-bold text-amber-800 mb-1.5">
+                                <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                                Nhược điểm
+                              </div>
+                              <ul className="m-0 p-0 list-none space-y-1 text-xs text-amber-900 leading-relaxed">
+                                {critItem.weaknesses.map((w, idx) => (
+                                  <li key={idx} className="flex items-start gap-1.5">
+                                    <span className="font-bold text-amber-600 shrink-0">•</span>
+                                    <span>{w}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {/* Cách cải thiện */}
+                          {critItem.how_to_improve && critItem.how_to_improve.length > 0 && (
+                            <div className="bg-blue-50/70 border border-blue-200/70 rounded-xl p-3">
+                              <div className="flex items-center gap-1.5 text-xs font-bold text-blue-800 mb-1.5">
+                                <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                                Cách cải thiện
+                              </div>
+                              <ul className="m-0 p-0 list-none space-y-1 text-xs text-blue-900 leading-relaxed">
+                                {critItem.how_to_improve.map((h, idx) => (
+                                  <li key={idx} className="flex items-start gap-1.5">
+                                    <span className="font-bold text-blue-600 shrink-0">•</span>
+                                    <span>{h}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
-
-                    {/* 3. Lỗi đã sửa & badges (nằm hết trên 1 dòng) */}
-                    <div className="pt-3 border-t border-zinc-100">
-                      <div className="text-xs font-bold text-zinc-800 mb-2">
-                        {totalCorrections} lỗi đã sửa
-                      </div>
-                      <div className="flex items-center gap-1.5 flex-nowrap overflow-x-auto custom-scrollbar pb-1">
-                        {errorCounts.grammar > 0 && (
-                          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#FEE2E2] text-[#DC2626] whitespace-nowrap shrink-0">
-                            Ngữ pháp {errorCounts.grammar}
-                          </span>
-                        )}
-                        {errorCounts.vocabulary > 0 && (
-                          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#FEF3C7] text-[#D97706] whitespace-nowrap shrink-0">
-                            Từ vựng {errorCounts.vocabulary}
-                          </span>
-                        )}
-                        {errorCounts.punctuation > 0 && (
-                          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#DBEAFE] text-[#2563EB] whitespace-nowrap shrink-0">
-                            Dấu câu {errorCounts.punctuation}
-                          </span>
-                        )}
-                        {errorCounts.spelling > 0 && (
-                          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#F3E8FF] text-[#9333EA] whitespace-nowrap shrink-0">
-                            Chính tả {errorCounts.spelling}
-                          </span>
-                        )}
-                        {errorCounts.other > 0 && (
-                          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-zinc-100 text-zinc-700 whitespace-nowrap shrink-0">
-                            Khác {errorCounts.other}
-                          </span>
-                        )}
-                        {totalCorrections === 0 && (
-                          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 whitespace-nowrap shrink-0">
-                            Không có lỗi nào
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* 4. Gợi ý cải thiện (hiển thị đầy đủ nhận xét, không bị cắt bằng line-clamp) */}
-                    <div className="pt-3 border-t border-zinc-100">
-                      <div className="text-xs font-bold text-zinc-900 mb-1.5">
-                        Gợi ý cải thiện
-                      </div>
-                      <p className="text-xs text-zinc-600 leading-relaxed m-0 whitespace-pre-line text-justify">
-                        {improvementSuggestion}
-                      </p>
-                    </div>
                   </div>
-                </div>
+                </>
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 text-center bg-white rounded-2xl border border-zinc-200/80 p-8 shadow-2xs">
                   <div className="mb-4 text-zinc-300">
@@ -854,8 +1041,18 @@ export default function WritingExam() {
 
               {/* Row 2: Big Overall Circle + Per-Task Scores */}
               <div className="flex items-center gap-5 sm:gap-7 mb-6">
-                <div className={"w-16 h-16 rounded-full flex items-center justify-center font-extrabold text-[26px] shadow-xs shrink-0 " + getHeroCircleClass(overallBand)}>
-                  {overallBand}
+                <div className="flex flex-col items-center shrink-0">
+                  <div className={"w-16 h-16 rounded-full flex items-center justify-center font-extrabold text-[26px] shadow-xs " + getHeroCircleClass(overallBand)}>
+                    {overallBand}
+                  </div>
+                  {overallBand !== '–' && (
+                    <span
+                      className="text-[11px] text-zinc-500 font-medium cursor-help mt-1 leading-none text-center select-none"
+                      title="Điểm do AI ước lượng, có thể chênh khoảng ±0.5 so với giám khảo thật."
+                    >
+                      ±0.5
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap items-center gap-5 sm:gap-7">
@@ -864,9 +1061,19 @@ export default function WritingExam() {
                       <span className="text-xs sm:text-[13px] font-bold text-[#1D4ED8] tracking-wider uppercase">
                         TASK {t.number}
                       </span>
-                      <span className={"px-3.5 py-0.5 rounded-full text-xs sm:text-[13px] font-extrabold shadow-2xs " + getHeroBadgeClass(results[t.id]?.overall)}>
-                        {results[t.id]?.overall ?? '–'}
-                      </span>
+                      <div className="flex flex-col items-center">
+                        <span className={"px-3.5 py-0.5 rounded-full text-xs sm:text-[13px] font-extrabold shadow-2xs " + getHeroBadgeClass(results[t.id]?.overall)}>
+                          {results[t.id]?.overall ?? '–'}
+                        </span>
+                        {results[t.id]?.overall != null && results[t.id]?.overall !== '–' && (
+                          <span
+                            className="text-[10px] text-zinc-500 font-medium cursor-help mt-1 leading-none text-center select-none"
+                            title="Điểm do AI ước lượng, có thể chênh khoảng ±0.5 so với giám khảo thật."
+                          >
+                            ±0.5
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
