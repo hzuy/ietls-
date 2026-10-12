@@ -121,4 +121,40 @@ describe('Home Page Standardization', () => {
     // Ca 4: không có draft → thẻ Tiếp tục bài làm không hiện
     expect(screen.queryByTestId('resume-hero-card')).not.toBeInTheDocument()
   })
+
+  it('renders dynamic tabs and heading when series is renamed to IELTS Mock Test', async () => {
+    window.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        fullTests: [
+          {
+            id: 1,
+            seriesId: 1,
+            seriesName: 'IELTS Mock Test',
+            bookNumber: 19,
+            testNumber: 1,
+            exams: { reading: { id: 101, title: 'Mock 19 Test 1 Reading' } },
+            coverImageUrl: null,
+          },
+        ],
+        reading: [],
+        listening: [],
+        writingSamples: [],
+        speakingSamples: [],
+      }),
+    })
+
+    render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Bộ đề IELTS Mock Test')).toBeInTheDocument()
+    })
+
+    expect(screen.getByRole('button', { name: 'IELTS Mock Test' })).toBeInTheDocument()
+  })
 })
+

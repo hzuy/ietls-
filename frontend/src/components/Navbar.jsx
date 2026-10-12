@@ -7,6 +7,8 @@ import GatedLink from './common/GatedLink'
 import NavDropdown from './nav/NavDropdown'
 import LogoutConfirmModal from './nav/LogoutConfirmModal'
 import PillButton from './common/PillButton'
+import { API_BASE } from '../utils/media'
+import { toSeriesSlug } from '../utils/slug'
 
 function NavBtn({ children, active, onClick, hasDropdown }) {
   return (
@@ -75,9 +77,33 @@ export default function Navbar() {
   const [announcement] = useState(() => sessionStorage.getItem('__announcement__') || '')
   const [announcementDismissed, setAnnouncementDismissed] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [navSeries, setNavSeries] = useState(null)
+  const [navSeriesList, setNavSeriesList] = useState([])
 
   const closeTimer = useRef(null)
   const userMenuRef = useRef(null)
+
+  useEffect(() => {
+    fetch(`${API_BASE}/home`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.fullTests && Array.isArray(d.fullTests)) {
+          const map = {}
+          const list = []
+          const seen = new Set()
+          d.fullTests.forEach(item => {
+            if (item.seriesId && !seen.has(item.seriesId)) {
+              seen.add(item.seriesId)
+              map[item.seriesId] = item.seriesName
+              list.push({ id: item.seriesId, name: item.seriesName })
+            }
+          })
+          setNavSeries(map)
+          setNavSeriesList(list)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
@@ -120,6 +146,7 @@ export default function Navbar() {
 
   const isFullTestActive =
     location.pathname.startsWith('/full-test') ||
+    location.pathname.startsWith('/series') ||
     location.pathname === '/cambridge' ||
     location.pathname === '/practice-plus'
 
@@ -156,13 +183,47 @@ export default function Navbar() {
 
             <NavDropdown name="fulltest" isOpen={openDropdown === 'fulltest'} onOpen={openMenu} onClose={scheduleClose}
               dropdownStyle={{ minWidth: 260 }}
-              trigger={<NavBtn active={isFullTestActive} onClick={() => gate('/cambridge')} hasDropdown>Phòng thi chuẩn hóa</NavBtn>}
+              trigger={
+                <NavBtn
+                  active={isFullTestActive}
+                  onClick={() => {
+                    const primarySlug = toSeriesSlug(navSeries?.[1] || navSeriesList[0]?.name)
+                    gate(primarySlug ? `/series/${primarySlug}` : '/full-test')
+                  }}
+                  hasDropdown
+                >
+                  Phòng thi chuẩn hóa
+                </NavBtn>
+              }
             >
               <div style={{ padding: '4px 0' }}>
                 <CustomDropItem to="/full-test" label="Tất cả bộ đề Full Test" bold active={location.pathname === '/full-test'} />
                 <NavDivider />
-                <CustomDropItem to="/cambridge" label="IELTS Cambridge Academic" active={location.pathname === '/cambridge'} />
-                <CustomDropItem to="/practice-plus" label="IELTS Practice Test Plus" active={location.pathname === '/practice-plus'} />
+                {navSeriesList.length > 0 ? (
+                  navSeriesList.map(s => {
+                    const sSlug = toSeriesSlug(s.name)
+                    const sPath = `/series/${sSlug}`
+                    const isActive = location.pathname === sPath ||
+                      (s.id === 1 && location.pathname === '/cambridge') ||
+                      (s.id === 4 && location.pathname === '/practice-plus')
+                    return (
+                      <CustomDropItem key={s.id} to={sPath} label={s.name} active={isActive} />
+                    )
+                  })
+                ) : (
+                  <>
+                    <CustomDropItem
+                      to="/series/ielts-cambridge-academic"
+                      label={navSeries?.[1] || 'IELTS Cambridge Academic'}
+                      active={location.pathname === '/cambridge' || location.pathname === '/series/ielts-cambridge-academic'}
+                    />
+                    <CustomDropItem
+                      to="/series/ielts-practice-test-plus"
+                      label={navSeries?.[4] || 'IELTS Practice Test Plus'}
+                      active={location.pathname === '/practice-plus' || location.pathname === '/series/ielts-practice-test-plus'}
+                    />
+                  </>
+                )}
               </div>
             </NavDropdown>
 
@@ -194,28 +255,46 @@ export default function Navbar() {
                   <Link to="/writing-samples" style={{ textDecoration: 'none' }}>
                     <div style={{ padding: '8px 16px', fontSize: 'var(--fs-sm)', fontWeight: 700, color: 'var(--skill-w-color)' }}>Writing</div>
                   </Link>
-                  {[['task1', 'Task 1'], ['task2', 'Task 2']].map(([v, l]) => (
-                    <Link key={v} to={`/writing-samples?task=${v}`} style={{ textDecoration: 'none' }}>
-                      <div style={{ padding: '7px 16px 7px 24px', fontSize: 'var(--fs-sm)', color: 'var(--muted)', transition: 'background var(--transition)' }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-raised)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                      >{l}</div>
-                    </Link>
-                  ))}
+                  {[['task1', 'Task 1'], ['task2', 'Task 2']].map(([v, l]) => {
+                    const active = location.pathname === '/writing-samples' && location.search.includes(`task=${v}`)
+                    return (
+                      <Link key={v} to={`/writing-samples?task=${v}`} className="block no-underline">
+                        <div
+                          className={`mx-1 px-4 py-1.5 rounded-full transition-colors duration-200 cursor-pointer ${
+                            active
+                              ? 'bg-zinc-100 text-zinc-900 font-semibold'
+                              : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+                          }`}
+                          style={{ fontSize: 'var(--fs-sm)' }}
+                        >
+                          {l}
+                        </div>
+                      </Link>
+                    )
+                  })}
                 </div>
                 <div style={{ width: 1, background: 'var(--border-soft)', margin: '6px 0' }} />
                 <div style={{ flex: 1 }}>
                   <Link to="/speaking-samples" style={{ textDecoration: 'none' }}>
                     <div style={{ padding: '8px 16px', fontSize: 'var(--fs-sm)', fontWeight: 700, color: 'var(--skill-s-color)' }}>Speaking</div>
                   </Link>
-                  {[['task1', 'Part 1'], ['task2', 'Part 2'], ['task3', 'Part 3']].map(([v, l]) => (
-                    <Link key={v} to={`/speaking-samples?part=${v}`} style={{ textDecoration: 'none' }}>
-                      <div style={{ padding: '7px 16px 7px 24px', fontSize: 'var(--fs-sm)', color: 'var(--muted)', transition: 'background var(--transition)' }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-raised)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                      >{l}</div>
-                    </Link>
-                  ))}
+                  {[['task1', 'Part 1'], ['task2', 'Part 2'], ['task3', 'Part 3']].map(([v, l]) => {
+                    const active = location.pathname === '/speaking-samples' && location.search.includes(`part=${v}`)
+                    return (
+                      <Link key={v} to={`/speaking-samples?part=${v}`} className="block no-underline">
+                        <div
+                          className={`mx-1 px-4 py-1.5 rounded-full transition-colors duration-200 cursor-pointer ${
+                            active
+                              ? 'bg-zinc-100 text-zinc-900 font-semibold'
+                              : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+                          }`}
+                          style={{ fontSize: 'var(--fs-sm)' }}
+                        >
+                          {l}
+                        </div>
+                      </Link>
+                    )
+                  })}
                 </div>
               </div>
             </NavDropdown>
@@ -379,12 +458,29 @@ export default function Navbar() {
           <MobileNavLink to="/full-test" active={location.pathname === '/full-test'} onClick={closeMobile}>
             <span className="ml-2">Tất cả đề Full Test</span>
           </MobileNavLink>
-          <MobileNavLink to="/cambridge" active={location.pathname === '/cambridge'} onClick={closeMobile}>
-            <span className="ml-2">Cambridge Academic</span>
-          </MobileNavLink>
-          <MobileNavLink to="/practice-plus" active={location.pathname === '/practice-plus'} onClick={closeMobile}>
-            <span className="ml-2">Practice Test Plus</span>
-          </MobileNavLink>
+          {navSeriesList.length > 0 ? (
+            navSeriesList.map(s => {
+              const sSlug = toSeriesSlug(s.name)
+              const sPath = `/series/${sSlug}`
+              const isActive = location.pathname === sPath ||
+                (s.id === 1 && location.pathname === '/cambridge') ||
+                (s.id === 4 && location.pathname === '/practice-plus')
+              return (
+                <MobileNavLink key={s.id} to={sPath} active={isActive} onClick={closeMobile}>
+                  <span className="ml-2">{s.name}</span>
+                </MobileNavLink>
+              )
+            })
+          ) : (
+            <>
+              <MobileNavLink to="/series/ielts-cambridge-academic" active={location.pathname === '/cambridge' || location.pathname === '/series/ielts-cambridge-academic'} onClick={closeMobile}>
+                <span className="ml-2">{navSeries?.[1] || 'Cambridge Academic'}</span>
+              </MobileNavLink>
+              <MobileNavLink to="/series/ielts-practice-test-plus" active={location.pathname === '/practice-plus' || location.pathname === '/series/ielts-practice-test-plus'} onClick={closeMobile}>
+                <span className="ml-2">{navSeries?.[4] || 'Practice Test Plus'}</span>
+              </MobileNavLink>
+            </>
+          )}
 
           <div className="px-3 pt-2.5 pb-1 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Luyện tập kỹ năng</div>
           <MobileNavLink to="/practice/reading" active={location.pathname.startsWith('/practice/reading')} onClick={closeMobile}>

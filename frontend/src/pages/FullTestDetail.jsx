@@ -83,7 +83,7 @@ function ActionDropdown({ exam, skill, m, hasDraft, historyInfo = {}, setHistory
       <button
         type="button"
         onClick={handleClickMain}
-        className="inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 shadow-2xs hover:border-zinc-300 dark:hover:border-zinc-600 hover:text-zinc-900 dark:hover:text-white text-zinc-700 dark:text-zinc-200 text-[12px] font-normal transition-colors cursor-pointer select-none"
+        className="inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 shadow-2xs hover:border-zinc-300 dark:hover:border-zinc-600 hover:text-zinc-900 dark:hover:text-white text-zinc-800 dark:text-zinc-100 text-[12px] font-medium transition-colors cursor-pointer select-none"
       >
         <Icon className={`w-3.5 h-3.5 shrink-0 ${iconColor}`} />
         <span className="whitespace-nowrap">{btnText}</span>
@@ -102,7 +102,7 @@ function ActionDropdown({ exam, skill, m, hasDraft, historyInfo = {}, setHistory
         <button
           type="button"
           onClick={handleClickMain}
-          className="h-full flex items-center gap-1.5 pl-2.5 pr-1 text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white text-[12px] font-normal transition-colors cursor-pointer select-none"
+          className="h-full flex items-center gap-1.5 pl-2.5 pr-1 text-zinc-800 dark:text-zinc-100 hover:text-zinc-900 dark:hover:text-white text-[12px] font-medium transition-colors cursor-pointer select-none"
         >
           <Icon className={`w-3.5 h-3.5 shrink-0 ${iconColor}`} />
           <span className="whitespace-nowrap">{btnText}</span>
@@ -164,12 +164,12 @@ function SkillCell({ exam, skill, testNumber, draftInfo = {}, historyInfo = {}, 
       openAuthModal('login', (location?.pathname || '') + (location?.search || ''))
       return
     }
-    if (hasHistory) {
+    if (hasDraft) {
+      navigate(`${m.path}/${exam.id}?resume=true`)
+    } else if (hasHistory) {
       if (skill === 'reading') navigate(`/reading/${exam.id}/explanation`)
       else if (skill === 'listening') navigate(`/listening/${exam.id}/explanation`)
       else navigate(`${m.path}/${exam.id}?viewResult=true`)
-    } else if (hasDraft) {
-      navigate(`${m.path}/${exam.id}?resume=true`)
     } else {
       navigate(`${m.path}/${exam.id}`)
     }
@@ -178,7 +178,16 @@ function SkillCell({ exam, skill, testNumber, draftInfo = {}, historyInfo = {}, 
   return (
     <div className="flex flex-col items-center gap-3 py-1">
       {/* Circle Icon / Score matching DOL */}
-      {hasHistory ? (
+      {hasDraft ? (
+        <button
+          type="button"
+          onClick={handleCircleClick}
+          title="Đang làm dở bài thi — Bấm để làm tiếp"
+          className="w-12 h-12 rounded-full border-2 border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 flex items-center justify-center shadow-xs cursor-pointer hover:border-blue-400 hover:scale-105 transition-all text-blue-600 dark:text-blue-400"
+        >
+          <m.Icon className="w-6 h-6 stroke-[1.75]" />
+        </button>
+      ) : hasHistory ? (
         <button
           type="button"
           onClick={handleCircleClick}
@@ -189,15 +198,6 @@ function SkillCell({ exam, skill, testNumber, draftInfo = {}, historyInfo = {}, 
           <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 font-mono tabular-nums leading-none">
             {band ?? '0.0'}
           </span>
-        </button>
-      ) : hasDraft ? (
-        <button
-          type="button"
-          onClick={handleCircleClick}
-          title="Đang làm dở bài thi — Bấm để làm tiếp"
-          className="w-12 h-12 rounded-full border-2 border-amber-500 bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center shadow-xs cursor-pointer hover:scale-105 transition-transform"
-        >
-          <m.Icon className="w-5 h-5 text-amber-600 dark:text-amber-400 stroke-[1.75]" />
         </button>
       ) : (
         <button

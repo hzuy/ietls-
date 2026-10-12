@@ -26,6 +26,7 @@ coverage/
 # Uploads (audio/images - không commit lên git)
 backend/uploads/*
 !backend/uploads/.gitkeep
+backend/uploads_backup_*/
 
 # Prisma generated client
 backend/node_modules/.prisma/

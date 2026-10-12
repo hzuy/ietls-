@@ -179,6 +179,8 @@ export default function App() {
                     <Route path="/full-test/:id" element={<FullTestDetail />} />
                     <Route path="/cambridge" element={<LearnerRoute><SeriesPage filterPattern="Cambridge" title="IELTS Cambridge Academic" description="Trọn bộ đề thi IELTS từ NXB Cambridge (cuốn 10 - 20)" /></LearnerRoute>} />
                     <Route path="/practice-plus" element={<LearnerRoute><SeriesPage filterPattern="Practice" title="IELTS Practice Test Plus" description="Dòng sách luyện đề chuyên sâu với độ khó cao" /></LearnerRoute>} />
+                    <Route path="/series/:slug" element={<LearnerRoute><SeriesPage /></LearnerRoute>} />
+                    <Route path="/series/:id" element={<LearnerRoute><SeriesPage /></LearnerRoute>} />
                     <Route path="/practice/reading" element={<LearnerRoute><PracticeList skill="reading" /></LearnerRoute>} />
                     <Route path="/practice/listening" element={<LearnerRoute><PracticeList skill="listening" /></LearnerRoute>} />
                     <Route path="/writing-samples" element={<SamplesPage skill="writing" />} />

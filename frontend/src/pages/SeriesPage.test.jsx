@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import SeriesPage from './SeriesPage'
 
@@ -102,4 +102,105 @@ describe('SeriesPage', () => {
     expect(screen.queryByText('IELTS Cambridge Academic 19')).not.toBeInTheDocument()
     expect(screen.queryByText('IELTS Cambridge Academic 18')).not.toBeInTheDocument()
   })
+
+  it('renders correctly and resolves dynamic title when series is renamed to IELTS Mock Test', async () => {
+    const mockRenamedBooks = [
+      {
+        id: 1,
+        seriesId: 1,
+        seriesName: 'IELTS Mock Test',
+        bookNumber: 19,
+        testNumber: 1,
+        coverImageUrl: null,
+        exams: { reading: { id: 101, title: 'Mock 19 Test 1' } },
+      },
+    ]
+
+    window.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => mockRenamedBooks,
+    })
+
+    render(
+      <MemoryRouter>
+        <SeriesPage
+          filterPattern="Cambridge"
+          title="IELTS Cambridge Academic"
+          description="Trọn bộ đề thi"
+        />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('IELTS Mock Test 19')).toBeInTheDocument()
+    })
+
+    expect(screen.getByRole('heading', { name: 'IELTS Mock Test' })).toBeInTheDocument()
+  })
+
+  it('renders correctly when accessing via dynamic slug route', async () => {
+    const mockRenamedBooks = [
+      {
+        id: 1,
+        seriesId: 1,
+        seriesName: 'IELTS Mock Test',
+        bookNumber: 19,
+        testNumber: 1,
+        coverImageUrl: null,
+        exams: { reading: { id: 101, title: 'Mock 19 Test 1' } },
+      },
+    ]
+
+    window.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => mockRenamedBooks,
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/series/ielts-mock-test']}>
+        <Routes>
+          <Route path="/series/:slug" element={<SeriesPage />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('IELTS Mock Test 19')).toBeInTheDocument()
+    })
+    expect(screen.getByRole('heading', { name: 'IELTS Mock Test' })).toBeInTheDocument()
+  })
+
+  it('syncs address bar URL to dynamic slug when accessing legacy /cambridge route', async () => {
+    const replaceStateSpy = vi.spyOn(window.history, 'replaceState')
+    const mockRenamedBooks = [
+      {
+        id: 1,
+        seriesId: 1,
+        seriesName: 'IELTS Mock Test',
+        bookNumber: 19,
+        testNumber: 1,
+        coverImageUrl: null,
+        exams: { reading: { id: 101, title: 'Mock 19 Test 1' } },
+      },
+    ]
+
+    window.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => mockRenamedBooks,
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/cambridge']}>
+        <Routes>
+          <Route path="/cambridge" element={<SeriesPage filterPattern="Cambridge" />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(replaceStateSpy).toHaveBeenCalledWith(null, '', '/series/ielts-mock-test')
+    })
+    replaceStateSpy.mockRestore()
+  })
 })
+

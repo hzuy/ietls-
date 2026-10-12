@@ -1,27 +1,24 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import Breadcrumb from '../components/common/Breadcrumb'
-import ContentCard from '../components/common/ContentCard'
-import AcademicCover from '../components/common/AcademicCover'
+import BookCard from '../components/common/BookCard'
 import Card from '../components/common/Card'
 import PageHeader from '../components/common/PageHeader'
 import PillButton from '../components/common/PillButton'
 import { UserCardGridSkeleton } from '../components/skeletons'
-import { Headphones, BookOpen, PenTool, Mic, AlertCircle, RefreshCw, FolderArchive } from 'lucide-react'
-import { BACKEND_URL, resolveImg } from '../utils/media'
+import { AlertCircle, RefreshCw, FolderArchive } from 'lucide-react'
+import { BACKEND_URL } from '../utils/media'
+import { toSeriesSlug } from '../utils/slug'
 
-const SKILL_ICONS = {
-  listening: Headphones,
-  reading: BookOpen,
-  writing: PenTool,
-  speaking: Mic,
-}
-
-export default function SeriesPage({ filterPattern, title }) {
+export default function SeriesPage({ filterPattern, title = 'Bộ đề thi' }) {
   const navigate = useNavigate()
+  const location = useLocation()
+  const { slug, id } = useParams()
+  const param = slug || id
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [books, setBooks] = useState([])
+  const [resolvedTitle, setResolvedTitle] = useState(title)
 
   const fetchBooks = useCallback(() => {
     setLoading(true)
@@ -34,7 +31,7 @@ export default function SeriesPage({ filterPattern, title }) {
         return r.json()
       })
       .then(data => {
-        // Normalize
+        // Gom nhóm các bài test theo bộ sách (seriesId - bookNumber)
         const booksMap = (data || []).reduce((acc, item) => {
           const bKey = `${item.seriesId}-${item.bookNumber}`
           if (!acc[bKey]) {
@@ -44,48 +41,110 @@ export default function SeriesPage({ filterPattern, title }) {
               bookNumber: item.bookNumber,
               coverImageUrl: item.coverImageUrl,
               testNumbers: new Set(),
-              skills: new Set()
+              skills: new Set(),
+              skillTestCount: 0,
+              attemptCount: 0
             }
           }
           acc[bKey].testNumbers.add(item.testNumber)
           if (item.exams) {
             Object.keys(item.exams).forEach(skill => acc[bKey].skills.add(skill))
+            acc[bKey].skillTestCount += Object.keys(item.exams).length
+            Object.values(item.exams).forEach(e => {
+              acc[bKey].attemptCount += (e.attemptCount || 0)
+            })
+          }
+          if (item.attemptCount && !item.exams) {
+            acc[bKey].attemptCount += item.attemptCount
           }
           return acc
         }, {})
 
         const normalized = Object.values(booksMap).map(b => ({
           ...b,
-          testCount: b.testNumbers.size,
+          testCount: b.skillTestCount > 0 ? b.skillTestCount : b.testNumbers.size,
+          attemptCount: b.attemptCount || 0,
           title: `${b.seriesName} ${b.bookNumber}`
         }))
 
-        // Filter strictly by series name pattern
-        const filtered = normalized.filter(b => {
-          const sName = (b.seriesName || '').toLowerCase()
-          const pattern = (filterPattern || '').toLowerCase()
-          if (pattern === 'cambridge') {
-            return sName.includes('cambridge') && !sName.includes('practice') && !sName.includes('plus')
+        // Gom nhóm theo từng series trong database
+        const seriesMap = {}
+        normalized.forEach(b => {
+          if (!seriesMap[b.seriesId]) {
+            seriesMap[b.seriesId] = {
+              seriesId: b.seriesId,
+              seriesName: b.seriesName,
+              books: []
+            }
           }
-          if (pattern === 'practice') {
-            return sName.includes('practice') || sName.includes('plus')
-          }
-          return sName.includes(pattern)
-        }).sort((a, b) => b.bookNumber - a.bookNumber)
+          seriesMap[b.seriesId].books.push(b)
+        })
+        const seriesList = Object.values(seriesMap)
 
-        setBooks(filtered)
+        const pattern = (filterPattern || '').toLowerCase()
+        let targetSeries = null
+
+        if (param) {
+          // Route xem series theo slug hoặc ID động: /series/:slug hoặc /series/:id
+          targetSeries =
+            seriesList.find(s => toSeriesSlug(s.seriesName) === param) ||
+            seriesList.find(s => String(s.seriesId) === String(param)) ||
+            seriesList.find(s => (s.seriesName || '').toLowerCase().includes(param)) ||
+            null
+        } else if (pattern === 'cambridge') {
+          // Route bộ đề chính (/cambridge): lấy seriesId === 1 hoặc series đầu tiên trong database
+          targetSeries =
+            seriesList.find(s => s.seriesId === 1) ||
+            seriesList[0] ||
+            null
+        } else if (pattern === 'practice') {
+          // Route bộ đề thứ 2 (/practice-plus): lấy seriesId === 4 hoặc series thứ 2 trong database
+          targetSeries =
+            seriesList.find(s => s.seriesId === 4) ||
+            seriesList[1] ||
+            null
+        } else if (pattern) {
+          targetSeries = seriesList.find(s => (s.seriesName || '').toLowerCase().includes(pattern)) || null
+        }
+
+        let filteredBooks = []
+        let currentTitle = title
+
+        if (targetSeries) {
+          filteredBooks = [...targetSeries.books].sort((a, b) => b.bookNumber - a.bookNumber)
+          currentTitle = targetSeries.seriesName || title
+          // Tự động đồng bộ URL trên thanh địa chỉ nếu đang ở route alias cũ (/cambridge hoặc /practice-plus)
+          if (location.pathname === '/cambridge' || location.pathname === '/practice-plus') {
+            const seriesSlug = toSeriesSlug(targetSeries.seriesName)
+            if (seriesSlug && typeof window !== 'undefined' && window.history?.replaceState) {
+              window.history.replaceState(null, '', `/series/${seriesSlug}`)
+            }
+          }
+        } else {
+          filteredBooks = normalized.filter(b => {
+            const sName = (b.seriesName || '').toLowerCase()
+            return sName.includes(pattern)
+          }).sort((a, b) => b.bookNumber - a.bookNumber)
+        }
+
+        setBooks(filteredBooks)
+        setResolvedTitle(currentTitle)
+        if (currentTitle) {
+          document.title = `${currentTitle} — IELTS Platform`
+        }
         setLoading(false)
       })
       .catch(err => {
         setError(err.message || 'Không thể tải danh sách bộ đề.')
         setLoading(false)
       })
-  }, [filterPattern])
+  }, [param, filterPattern, title, location.pathname])
 
   useEffect(() => {
     fetchBooks()
   }, [fetchBooks])
 
+  const displayTitle = resolvedTitle || title
 
   return (
     <div className="min-h-screen bg-[var(--bg)] dark:bg-zinc-950 flex flex-col">
@@ -96,15 +155,15 @@ export default function SeriesPage({ filterPattern, title }) {
           items={[
             { label: 'Trang chủ', to: '/' },
             { label: 'Phòng thi chuẩn hóa', to: '/full-test' },
-            { label: title }
+            { label: displayTitle }
           ]}
         />
-        <PageHeader title={title} titleClassName="text-2xl font-bold mt-3 text-zinc-900" />
+        <PageHeader title={displayTitle} titleClassName="text-2xl font-bold mt-3 text-zinc-900" />
       </div>
 
       <div className="app-container py-6 flex-1">
         {loading ? (
-          <UserCardGridSkeleton aspect="3/4" count={5} />
+          <UserCardGridSkeleton aspect="3/2" count={5} />
         ) : error ? (
           <Card className="text-center py-16 px-6 flex flex-col items-center">
             <div className="w-14 h-14 rounded-2xl bg-error-bg border border-error-border flex items-center justify-center mb-4 text-error shadow-xs">
@@ -126,79 +185,16 @@ export default function SeriesPage({ filterPattern, title }) {
             <p className="text-zinc-500 text-sm mt-1">Hiện chưa có bộ đề nào trong danh mục này</p>
           </Card>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
-            {books.map((book, idx) => {
-              const hasTests = book.testCount > 0
-              const skills = Array.from(book.skills || [])
-              return (
-                <ContentCard
-                  key={`${book.seriesId}-${book.bookNumber}`}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+            {books.map((book, idx) => (
+              <div key={`${book.seriesId}-${book.bookNumber}`} className="w-full max-w-[252px]">
+                <BookCard
+                  book={book}
                   className={`anim-fade-up delay-${Math.min(idx + 1, 8)}`}
-                  image={book.coverImageUrl ? resolveImg(book.coverImageUrl) : null}
-                  imageAlt={book.title}
-                  academicCover={
-                    <AcademicCover
-                      title={book.title}
-                      seriesName={book.seriesName}
-                      volume={book.bookNumber}
-                      subtitle={`${book.testCount} Full Tests`}
-                      skill="fullTest"
-                    />
-                  }
-                  thumbAspect="3/4"
-                  thumbOverlay={
-                    <>
-                      {!hasTests && (
-                        <>
-                          <div style={{ position: 'absolute', inset: 0, background: 'rgba(253,251,245,0.55)', zIndex: 5 }} />
-                          <span
-                            style={{
-                              position: 'absolute', top: 10, left: 10, zIndex: 6,
-                              background: 'var(--surface)', color: 'var(--muted)',
-                              padding: '4px 10px', borderRadius: 9999,
-                              fontSize: 11, fontWeight: 600,
-                              border: '1px solid var(--border)',
-                            }}
-                          >
-                            Đang cập nhật
-                          </span>
-                        </>
-                      )}
-                      {skills.length > 0 && (
-                        <div style={{ position: 'absolute', bottom: 10, left: 10, display: 'flex', gap: 6, flexWrap: 'wrap', zIndex: 10 }}>
-                          {skills.map(s => {
-                            const skillKey = String(s).toLowerCase()
-                            const IconComp = SKILL_ICONS[skillKey] || BookOpen
-                            return (
-                              <span
-                                key={s}
-                                title={String(s).toUpperCase()}
-                                className="w-6 h-6 rounded-full bg-white/90 backdrop-blur-sm border border-zinc-200 shadow-xs flex items-center justify-center text-zinc-700"
-                              >
-                                <IconComp className="w-3.5 h-3.5 text-zinc-700 stroke-[1.75]" />
-                              </span>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </>
-                  }
-                  title={book.title}
-                  meta={
-                    <p className="text-xs text-zinc-500 font-medium mb-3">
-                      {hasTests ? `${book.testCount} bài test hoàn chỉnh` : 'Đang cập nhật đề thi'}
-                    </p>
-                  }
-                  action={{
-                    label: 'Chi tiết bộ đề',
-                    disabled: !hasTests,
-                    disabledLabel: 'Đang cập nhật',
-                  }}
-                  hoverStyle="showcase"
-                  onClick={hasTests ? () => navigate(`/full-test/${book.seriesId}?book=${book.bookNumber}`) : undefined}
+                  onClick={() => navigate(`/full-test/${book.seriesId}?book=${book.bookNumber}`)}
                 />
-              )
-            })}
+              </div>
+            ))}
           </div>
         )}
       </div>

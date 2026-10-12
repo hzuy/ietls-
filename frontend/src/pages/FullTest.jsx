@@ -2,67 +2,11 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Breadcrumb from '../components/common/Breadcrumb'
 import { FolderArchive } from 'lucide-react'
-import ContentCard from '../components/common/ContentCard'
-import AcademicCover from '../components/common/AcademicCover'
+import BookCard from '../components/common/BookCard'
 import Card from '../components/common/Card'
 import PillButton from '../components/common/PillButton'
 import { UserCardGridSkeleton } from '../components/skeletons'
-import { CONTENT_CARD_CONFIG } from '../components/common/contentCardConfig'
-import { BACKEND_URL, resolveImg } from '../utils/media'
-
-// Wrapper mỏng quanh <ContentCard>: phần thân (thumb / title / meta / action) do
-// ContentCard lo; wrapper tự xử lý trạng thái "sắp có bài" khi !hasTests —
-// overlay badge, ảnh grayscale (qua .ft-series-card--soon .cc-thumb img), khoá click.
-function SeriesCard({ item, onClick }) {
-  const hasTests = item.testCount > 0
-
-  return (
-    <div
-      className={hasTests ? '' : 'ft-series-card--soon opacity-80 pointer-events-none'}
-      style={{ position: 'relative' }}
-    >
-      <ContentCard
-        hoverStyle="subtle"
-        image={resolveImg(item.coverImageUrl)}
-        imageAlt={item.title}
-        academicCover={
-          <AcademicCover
-            title={item.title}
-            seriesName={item.seriesName}
-            volume={item.bookNumber}
-            subtitle={hasTests ? `${item.testCount} bài test` : 'Đang cập nhật'}
-            skill="fullTest"
-          />
-        }
-        thumbAspect="4/5"
-        title={item.title}
-        titleClamp={2}
-        meta={{ type: 'count', text: hasTests ? `${item.testCount} bài test` : 'Đang cập nhật' }}
-        action={hasTests
-          ? { label: 'Chi tiết đề thi' }
-          : { label: 'Chi tiết đề thi', disabled: true, disabledLabel: 'Đang cập nhật' }}
-        onClick={hasTests ? onClick : undefined}
-      />
-
-      {!hasTests && (
-        <div
-          style={{
-            position: 'absolute', top: 0, left: 0, right: 0, aspectRatio: '4 / 5',
-            borderTopLeftRadius: '1rem', borderTopRightRadius: '1rem', overflow: 'hidden',
-            background: 'rgba(253,251,245,0.55)',
-          }}
-        >
-          <span style={{
-            position: 'absolute', top: 10, left: 10,
-            background: 'var(--surface)', color: 'var(--muted)',
-            fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 9999,
-            border: '1px solid var(--border)',
-          }}>Đang cập nhật</span>
-        </div>
-      )}
-    </div>
-  )
-}
+import { BACKEND_URL } from '../utils/media'
 
 
 
@@ -106,16 +50,28 @@ export default function FullTest() {
               seriesName: item.seriesName,
               bookNumber: item.bookNumber,
               coverImageUrl: item.coverImageUrl,
-              testNumbers: new Set()
+              testNumbers: new Set(),
+              skillTestCount: 0,
+              attemptCount: 0
             }
           }
           acc[bKey].testNumbers.add(item.testNumber)
+          if (item.exams) {
+            acc[bKey].skillTestCount += Object.keys(item.exams).length
+            Object.values(item.exams).forEach(e => {
+              acc[bKey].attemptCount += (e.attemptCount || 0)
+            })
+          }
+          if (item.attemptCount && !item.exams) {
+            acc[bKey].attemptCount += item.attemptCount
+          }
           return acc
         }, {})
 
         const normalizedBooks = Object.values(booksMap).map(b => ({
           ...b,
-          testCount: b.testNumbers.size,
+          testCount: b.skillTestCount > 0 ? b.skillTestCount : b.testNumbers.size,
+          attemptCount: b.attemptCount || 0,
           title: `${b.seriesName} ${b.bookNumber}`
         }))
 
@@ -166,7 +122,7 @@ export default function FullTest() {
             {[1, 2].map(i => (
               <div key={i}>
                 <div className="h-7 w-48 bg-zinc-200/90 animate-pulse rounded-md mb-6" />
-                <UserCardGridSkeleton aspect="4/5" count={5} />
+                <UserCardGridSkeleton aspect="3/2" count={5} />
               </div>
             ))}
           </div>
@@ -184,21 +140,17 @@ export default function FullTest() {
               count={`${series.books.length} cuốn`}
             >
               {series.books.map(book => (
-                <SeriesCard
-                  key={`${book.seriesId}-${book.bookNumber}`}
-                  item={book}
-                  onClick={() => navigate(`/full-test/${book.seriesId}?book=${book.bookNumber}`)}
-                />
+                <div key={`${book.seriesId}-${book.bookNumber}`} className="w-full max-w-[252px]">
+                  <BookCard
+                    book={book}
+                    onClick={() => navigate(`/full-test/${book.seriesId}?book=${book.bookNumber}`)}
+                  />
+                </div>
               ))}
             </SeriesSection>
           ))
         )}
       </div>
-
-      <style dangerouslySetInnerHTML={{ __html: `
-        /* Card "sắp có bài" — chỉ làm xám ảnh thumb, không ảnh hưởng title/nút */
-        .ft-series-card--soon .cc-thumb img { filter: grayscale(0.5); }
-      `}} />
     </div>
   )
 }

@@ -1,17 +1,19 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   BookOpen,
   Headphones,
   FileText,
   Mic,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import AcademicCover from '../components/common/AcademicCover'
+import BookCard from '../components/common/BookCard'
 import PageHeader from '../components/common/PageHeader'
 import ResumeHeroCard from '../components/home/ResumeHeroCard'
 import StreakWidget from '../components/home/StreakWidget'
 import BandOverviewWidget from '../components/home/BandOverviewWidget'
-import QuickFullTestWidget from '../components/home/QuickFullTestWidget'
 import HeroBandOrbit from '../components/home/HeroBandOrbit'
 import { UserCardGridSkeleton } from '../components/skeletons'
 import { getLatestDraft, clearDraft } from '../services/draftService'
@@ -19,6 +21,7 @@ import { useAuth } from '../context/AuthContext'
 import { useAuthGate } from '../hooks/useAuthGate'
 import { getUserStats } from '../services/userService'
 import { API_BASE, resolveImg } from '../utils/media'
+import { toSeriesSlug } from '../utils/slug'
 
 function HomeSectionError({ onRetry }) {
   return (
@@ -36,82 +39,59 @@ function HomeSectionError({ onRetry }) {
   )
 }
 
-function CompactBookCard({ book, onClick }) {
-  const [imgError, setImgError] = useState(false)
-  const hasImage = book.coverImageUrl && !imgError
+function CompactBookScrollList({ books, onBookClick }) {
+  const scrollRef = useRef(null)
+
+  const scroll = (direction) => {
+    if (scrollRef.current) {
+      const scrollAmount = 420
+      scrollRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth',
+      })
+    }
+  }
 
   return (
-    <div
-      onClick={onClick}
-      className="group w-full cursor-pointer flex flex-col transition-all duration-200"
-    >
-      {/* Book Cover */}
-      <div className="w-full aspect-[3/4] rounded-xl overflow-hidden border border-zinc-200 bg-zinc-100 shadow-2xs group-hover:shadow-md group-hover:border-zinc-400 transition-all duration-300 relative flex flex-col justify-between">
-        {hasImage ? (
-          <img
-            src={resolveImg(book.coverImageUrl)}
-            alt={book.title}
-            onError={() => setImgError(true)}
-            className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
-            loading="lazy"
-            decoding="async"
-          />
-        ) : (
-          <AcademicCover
-            title={book.title}
-            seriesName={book.seriesName || 'CAMBRIDGE'}
-            volume={book.bookNumber}
-            subtitle={`${book.testCount || 4} Full Tests`}
-            skill="fullTest"
-          />
-        )}
+    <div className="relative group/scroll">
+      {/* Nút bấm trượt nhanh trái */}
+      <button
+        type="button"
+        onClick={() => scroll('left')}
+        aria-label="Cuộn sang trái"
+        className="hidden sm:flex absolute -left-3.5 top-[40%] -translate-y-1/2 w-8 h-8 rounded-full bg-white/95 border border-zinc-200 shadow-md text-zinc-700 hover:text-zinc-950 hover:bg-white hover:scale-105 items-center justify-center transition-all z-10 cursor-pointer opacity-0 group-hover/scroll:opacity-100"
+      >
+        <ChevronLeft className="w-4 h-4" />
+      </button>
+
+      {/* Thanh trượt ngang 1 hàng */}
+      <div
+        ref={scrollRef}
+        className="flex items-stretch gap-4 overflow-x-auto pb-3 pt-1 scroll-smooth scrollbar-thin scrollbar-thumb-zinc-200 scrollbar-track-transparent snap-x snap-mandatory"
+        style={{ scrollbarWidth: 'thin' }}
+      >
+        {books.map((book, i) => (
+          <div
+            key={`${book.seriesId}-${book.bookNumber}-${i}`}
+            className="w-[252px] shrink-0 snap-start"
+          >
+            <BookCard
+              book={book}
+              onClick={() => onBookClick(book)}
+            />
+          </div>
+        ))}
       </div>
 
-      {/* Book Info — chỉ số đề, bỏ title lặp */}
-      <div className="mt-2 text-left">
-        <p className="text-[11px] text-zinc-500 font-mono">
-          {book.testCount} đề
-        </p>
-      </div>
-    </div>
-  )
-}
-
-// Đợt 3 — Việc 4: thay băng chuyền cuộn ngang (nút mũi tên tròn nổi bóng —
-// cảm giác kệ trưng bày) bằng lưới co giãn, giới hạn tối đa `cap` cuốn. Link
-// "Xem trọn bộ Cambridge/Practice Plus" ở header section đã có sẵn phía trên
-// đóng vai trò "Xem tất cả" khi số bộ đề vượt cap — không cần thêm affordance
-// cuộn/xem-thêm nào khác ở đây. Ít sách → lưới tự nhiên không tràn, không cần
-// cap; nhiều sách → chỉ hiện `cap` cuốn đầu, phần còn lại xem ở /cambridge
-// hoặc /practice-plus (SeriesPage, đã dùng cùng dữ liệu, không cap).
-function CompactBookGrid({ books, onBookClick, cap = 6, allCount, onSeeAll }) {
-  const visible = books.slice(0, cap)
-  const remaining = allCount != null ? allCount - cap : books.length - cap
-  const showMore = remaining > 0
-
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-      {visible.map((book, i) => (
-        <CompactBookCard
-          key={`${book.seriesId}-${book.bookNumber}-${i}`}
-          book={book}
-          onClick={() => onBookClick(book)}
-        />
-      ))}
-      {showMore && onSeeAll && (
-        <div
-          onClick={onSeeAll}
-          className="group w-full cursor-pointer flex flex-col"
-        >
-          <div className="w-full aspect-[3/4] rounded-xl border-2 border-dashed border-zinc-200 bg-zinc-50 flex flex-col items-center justify-center gap-2 group-hover:border-zinc-400 group-hover:bg-zinc-100 transition-all duration-200">
-            <span className="text-xl font-bold text-zinc-400 group-hover:text-zinc-700 transition-colors">+{remaining}</span>
-            <span className="text-[10px] text-zinc-400 group-hover:text-zinc-600 transition-colors text-center px-2">bộ nữa</span>
-          </div>
-          <div className="mt-2">
-            <p className="text-[11px] text-zinc-500 font-mono">Xem tất cả →</p>
-          </div>
-        </div>
-      )}
+      {/* Nút bấm trượt nhanh phải */}
+      <button
+        type="button"
+        onClick={() => scroll('right')}
+        aria-label="Cuộn sang phải"
+        className="hidden sm:flex absolute -right-3.5 top-[40%] -translate-y-1/2 w-8 h-8 rounded-full bg-white/95 border border-zinc-200 shadow-md text-zinc-700 hover:text-zinc-950 hover:bg-white hover:scale-105 items-center justify-center transition-all z-10 cursor-pointer opacity-0 group-hover/scroll:opacity-100"
+      >
+        <ChevronRight className="w-4 h-4" />
+      </button>
     </div>
   )
 }
@@ -164,19 +144,41 @@ export default function Home() {
     }
   }, [user])
 
-  const [seriesTab, setSeriesTab] = useState('cambridge')
+  const [selectedSeriesId, setSelectedSeriesId] = useState(null)
 
   const groupedFullTests = useMemo(() => {
     if (!fullTestsData || fullTestsData === 'error') return []
     const booksMap = fullTestsData.reduce((acc, item) => {
       const bKey = `${item.seriesId}-${item.bookNumber}`
       if (!acc[bKey]) {
-        acc[bKey] = { seriesId: item.seriesId, seriesName: item.seriesName, bookNumber: item.bookNumber, coverImageUrl: item.coverImageUrl, testNumbers: new Set() }
+        acc[bKey] = {
+          seriesId: item.seriesId,
+          seriesName: item.seriesName,
+          bookNumber: item.bookNumber,
+          coverImageUrl: item.coverImageUrl,
+          testNumbers: new Set(),
+          skillTestCount: 0,
+          attemptCount: 0
+        }
       }
       acc[bKey].testNumbers.add(item.testNumber)
+      if (item.exams) {
+        acc[bKey].skillTestCount += Object.keys(item.exams).length
+        Object.values(item.exams).forEach(e => {
+          acc[bKey].attemptCount += (e.attemptCount || 0)
+        })
+      }
+      if (item.attemptCount && !item.exams) {
+        acc[bKey].attemptCount += item.attemptCount
+      }
       return acc
     }, {})
-    const normalizedBooks = Object.values(booksMap).map(b => ({ ...b, testCount: b.testNumbers.size, title: `${b.seriesName} ${b.bookNumber}` }))
+    const normalizedBooks = Object.values(booksMap).map(b => ({
+      ...b,
+      testCount: b.skillTestCount > 0 ? b.skillTestCount : b.testNumbers.size,
+      attemptCount: b.attemptCount || 0,
+      title: `${b.seriesName} ${b.bookNumber}`
+    }))
     const rows = normalizedBooks.reduce((acc, book) => {
       const sId = book.seriesId
       if (!acc[sId]) acc[sId] = { seriesId: sId, seriesName: book.seriesName, books: [] }
@@ -186,27 +188,18 @@ export default function Home() {
     return Object.values(rows).map(r => ({ ...r, books: r.books.sort((a, b) => b.bookNumber - a.bookNumber) }))
   }, [fullTestsData])
 
-  const cambridgeBooks = useMemo(() => {
-    return groupedFullTests
-      .filter(s => {
-        const name = (s.seriesName || '').toLowerCase()
-        return name.includes('cambridge') && !name.includes('practice') && !name.includes('plus')
-      })
-      .flatMap(s => s.books)
-  }, [groupedFullTests])
-
-  const practicePlusBooks = useMemo(() => {
-    return groupedFullTests
-      .filter(s => {
-        const name = (s.seriesName || '').toLowerCase()
-        return name.includes('practice') || name.includes('plus')
-      })
-      .flatMap(s => s.books)
-  }, [groupedFullTests])
+  const currentSeries = useMemo(() => {
+    if (!groupedFullTests.length) return null
+    if (selectedSeriesId !== null) {
+      const found = groupedFullTests.find(s => String(s.seriesId) === String(selectedSeriesId))
+      if (found) return found
+    }
+    return groupedFullTests[0]
+  }, [groupedFullTests, selectedSeriesId])
 
   const quickTestBooks = useMemo(() => {
-    return [...cambridgeBooks, ...practicePlusBooks]
-  }, [cambridgeBooks, practicePlusBooks])
+    return groupedFullTests.flatMap(s => s.books)
+  }, [groupedFullTests])
 
   const handleQuickBookSelect = (book) => {
     navigate(`/full-test/${book.seriesId}?book=${book.bookNumber}`)
@@ -256,7 +249,7 @@ export default function Home() {
       ? `/practice/reading/${d.examId}`
       : skill === 'practice-listening'
       ? `/practice/listening/${d.examId}`
-      : `/cambridge`
+      : `/full-test`
     navigate(path)
   }
 
@@ -275,25 +268,31 @@ export default function Home() {
         <div className="bg-dots" aria-hidden="true" />
         <div className="home-hero-blob home-hero-blob-primary home-hero-blob-pulse" style={{ top: '-10%', right: '4%' }} aria-hidden="true" />
         <div className="home-hero-blob home-hero-blob-accent home-hero-blob-pulse" style={{ bottom: '-12%', left: '2%' }} aria-hidden="true" />
-        <div className="app-container py-6 md:py-8 relative">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-            <div className="max-w-xl w-full anim-fade-up">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 md:py-12 relative w-full">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-8 lg:gap-12">
+            <div className="max-w-xl lg:max-w-2xl flex-1 w-full anim-fade-up">
               <PageHeader
                 title={user ? `Chào ${user.name || user.displayName || user.email?.split('@')[0] || 'bạn'}, hôm nay luyện gì nào?` : 'Không gian luyện thi & khảo thí IELTS'}
                 subtitle="Mô phỏng kỳ thi trên máy tính, tích hợp AI phân tích 4 kỹ năng."
-                titleClassName="text-2xl sm:text-3xl font-bold text-zinc-900 tracking-tight"
-                subtitleClassName="text-sm text-zinc-500 leading-relaxed mt-1.5"
+                titleClassName="text-3xl sm:text-4xl lg:text-[40px] font-bold text-zinc-900 tracking-tight leading-[1.2]"
+                subtitleClassName="text-base sm:text-lg text-zinc-500 leading-relaxed mt-2.5 sm:mt-3"
               />
 
-              <div className="flex flex-wrap items-center gap-3 mt-4">
+              <div className="flex flex-wrap items-center gap-3.5 sm:gap-4 mt-6 sm:mt-7">
                 <button
-                  onClick={() => gate('/cambridge')}
-                  className="h-9 pointer-coarse:h-11 px-5 text-white text-sm font-medium rounded-full shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center leading-none"
+                  onClick={() => {
+                    const firstSeries = groupedFullTests[0]
+                    const slug = firstSeries ? toSeriesSlug(firstSeries.seriesName) : ''
+                    gate(slug ? `/series/${slug}` : '/cambridge')
+                  }}
+                  className="h-11 pointer-coarse:h-12 px-6 sm:px-7 text-white text-sm sm:text-base font-medium rounded-full shadow-xs transition-all cursor-pointer inline-flex items-center justify-center leading-none hover:shadow-md hover:scale-[1.01]"
                   style={{ background: 'var(--primary)' }}
                   onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
                 >
-                  Vào phòng thi Cambridge
+                  {groupedFullTests[0]?.seriesName
+                    ? `Vào phòng thi ${groupedFullTests[0].seriesName}`
+                    : 'Vào phòng thi Cambridge'}
                 </button>
                 <button
                   onClick={() => {
@@ -301,7 +300,7 @@ export default function Home() {
                     if (el) el.scrollIntoView({ behavior: 'smooth' })
                     else gate('/practice/reading')
                   }}
-                  className="h-9 pointer-coarse:h-11 px-5 text-zinc-700 text-sm font-medium rounded-full border border-zinc-300 bg-white transition-colors cursor-pointer inline-flex items-center justify-center leading-none hover:bg-zinc-50 hover:border-zinc-400"
+                  className="h-11 pointer-coarse:h-12 px-6 sm:px-7 text-zinc-700 text-sm sm:text-base font-medium rounded-full border border-zinc-300 bg-white transition-all cursor-pointer inline-flex items-center justify-center leading-none hover:bg-zinc-50 hover:border-zinc-400 hover:scale-[1.01]"
                 >
                   Luyện tập kỹ năng
                 </button>
@@ -315,15 +314,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── 2. Nội dung chính (Đợt 3 — Việc 5: 1 cột, tiến độ học tập lên đầu,
-           thay cho cột phụ hẹp trước đây) ──────────────────────────────── */}
+      {/* ── 2. Nội dung chính ─────────────────────────────────────────────────── */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
         <div className="flex flex-col gap-9">
 
-          {/* Dải "Tiến độ của bạn": khối resume bài dở (rộng, nội dung dày) ở
-              trên, 3 widget thống kê (streak/band/lối tắt) xếp hàng ngang bên
-              dưới — thay cho cột phụ hẹp lg:col-span-4 trước đây, nơi 3 thứ giá
-              trị nhất bị nhét lép vế so với carousel bìa sách. */}
+          {/* Dải "Tiến độ của bạn": khối resume bài dở (nếu có) + Streak & Band điểm cùng hàng */}
           <section className="anim-fade-up flex flex-col gap-4">
             {enrichedDraft && (
               <ResumeHeroCard
@@ -333,52 +328,68 @@ export default function Home() {
               />
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <StreakWidget streak={userStats?.streak ?? 0} isAuthenticated={!!user} />
-              <BandOverviewWidget stats={userStats} isAuthenticated={!!user} />
-              <QuickFullTestWidget books={quickTestBooks} onSelect={handleQuickBookSelect} stats={userStats} />
+            {/* Chuỗi ngày luyện tập (trái) & Band điểm hiện tại (phải) trên cùng 1 hàng */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+              <div className="lg:col-span-7 xl:col-span-8 flex flex-col h-full">
+                <StreakWidget
+                  streak={userStats?.streak ?? 0}
+                  activityMap={userStats?.activityMap}
+                  isAuthenticated={!!user}
+                  className="flex-1"
+                />
+              </div>
+              <div className="lg:col-span-5 xl:col-span-4 flex flex-col h-full">
+                <BandOverviewWidget
+                  stats={userStats}
+                  isAuthenticated={!!user}
+                  className="flex-1"
+                />
+              </div>
             </div>
           </section>
 
-          {/* Section 1: Bộ đề Cambridge Academic & IELTS Practice Plus */}
+          {/* Section 1: Bộ đề thi chuẩn hóa (Thanh trượt ngang 1 hàng) */}
             <section className="flex flex-col gap-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-200">
                 <div className="flex items-center gap-3 flex-wrap">
                   <div>
                     <h2 className="text-base font-semibold text-zinc-900">
-                      {seriesTab === 'cambridge' ? 'Bộ đề Cambridge Academic' : 'Bộ đề IELTS Practice Test Plus'}
+                      {currentSeries?.seriesName === 'IELTS Cambridge Academic'
+                        ? 'Bộ đề Cambridge Academic'
+                        : currentSeries?.seriesName === 'IELTS Practice Test Plus'
+                        ? 'Bộ đề IELTS Practice Test Plus'
+                        : `Bộ đề ${currentSeries?.seriesName || 'luyện thi'}`}
                     </h2>
                     <p className="text-[11px] text-zinc-500 mt-0.5">
-                      {seriesTab === 'cambridge' ? 'Đề chuẩn IDP / British Council' : 'Dòng sách luyện đề chuyên sâu độ khó cao'}
+                      {currentSeries?.seriesName?.toLowerCase().includes('practice')
+                        ? 'Dòng sách luyện đề chuyên sâu độ khó cao'
+                        : 'Tuyển tập đề thi chuẩn format quốc tế'}
                     </p>
                   </div>
 
-                  {/* Segmented Switcher: Cambridge | Practice Plus | Luyện kỹ năng */}
+                  {/* Segmented Switcher: Render động theo các series trong DB */}
                   <div className="seg-scroller p-1 bg-zinc-100 rounded-full border border-zinc-200 sm:ml-2">
-                    <button
-                      type="button"
-                      onClick={() => setSeriesTab('cambridge')}
-                      className={`px-4 py-1.5 pointer-coarse:min-h-11 text-xs rounded-full transition-all cursor-pointer ${
-                        seriesTab === 'cambridge'
-                          ? 'bg-white text-zinc-900 font-semibold shadow-2xs'
-                          : 'text-zinc-500 hover:text-zinc-900'
-                      }`}
-                    >
-                      Cambridge Academic
-                    </button>
-                    {practicePlusBooks.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setSeriesTab('practice-plus')}
-                        className={`px-4 py-1.5 pointer-coarse:min-h-11 text-xs rounded-full transition-all cursor-pointer ${
-                          seriesTab === 'practice-plus'
-                            ? 'bg-white text-zinc-900 font-semibold shadow-2xs'
-                            : 'text-zinc-500 hover:text-zinc-900'
-                        }`}
-                      >
-                        Practice Plus
-                      </button>
-                    )}
+                    {groupedFullTests.map(s => {
+                      const isActive = currentSeries?.seriesId === s.seriesId
+                      let tabLabel = s.seriesName
+                      if (s.seriesName === 'IELTS Cambridge Academic') tabLabel = 'Cambridge Academic'
+                      else if (s.seriesName === 'IELTS Practice Test Plus') tabLabel = 'Practice Plus'
+
+                      return (
+                        <button
+                          key={s.seriesId}
+                          type="button"
+                          onClick={() => setSelectedSeriesId(s.seriesId)}
+                          className={`px-4 py-1.5 pointer-coarse:min-h-11 text-xs rounded-full transition-all cursor-pointer ${
+                            isActive
+                              ? 'bg-white text-zinc-900 font-semibold shadow-2xs'
+                              : 'text-zinc-500 hover:text-zinc-900'
+                          }`}
+                        >
+                          {tabLabel}
+                        </button>
+                      )
+                    })}
                     <button
                       type="button"
                       onClick={() => document.getElementById('quick-skills-section')?.scrollIntoView({ behavior: 'smooth' })}
@@ -390,7 +401,16 @@ export default function Home() {
                 </div>
 
                 <button
-                  onClick={() => gate(seriesTab === 'cambridge' ? '/cambridge' : '/practice-plus')}
+                  onClick={() => {
+                    const slug = toSeriesSlug(currentSeries?.seriesName)
+                    if (slug) {
+                      gate(`/series/${slug}`)
+                    } else if (currentSeries?.seriesId) {
+                      gate(`/series/${currentSeries.seriesId}`)
+                    } else {
+                      gate('/full-test')
+                    }
+                  }}
                   className="tap-pad text-xs font-semibold text-zinc-500 hover:text-zinc-900 transition-colors cursor-pointer self-start sm:self-auto whitespace-nowrap"
                 >
                   Xem tất cả →
@@ -400,17 +420,15 @@ export default function Home() {
               {fullTestsData === 'error' ? (
                 <HomeSectionError onRetry={loadData} />
               ) : fullTestsData === null ? (
-                <UserCardGridSkeleton
-                  aspect="3/4"
-                  count={6}
-                  gridClassName="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4"
-                />
+                <div className="flex gap-4 overflow-hidden py-1">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="w-[252px] shrink-0 aspect-[3/2] rounded-xl bg-[#E3E7ED] animate-pulse" />
+                  ))}
+                </div>
               ) : (
-                <CompactBookGrid
-                  books={seriesTab === 'cambridge' ? cambridgeBooks : practicePlusBooks}
+                <CompactBookScrollList
+                  books={currentSeries?.books || []}
                   onBookClick={(book) => navigate(`/full-test/${book.seriesId}?book=${book.bookNumber}`)}
-                  allCount={seriesTab === 'cambridge' ? cambridgeBooks.length : practicePlusBooks.length}
-                  onSeeAll={() => gate(seriesTab === 'cambridge' ? '/cambridge' : '/practice-plus')}
                 />
               )}
             </section>
@@ -421,14 +439,9 @@ export default function Home() {
                 và bộ đề Cambridge/Practice Plus ở trên. */}
             <section id="quick-skills-section" className="flex flex-col gap-4">
               <div className="flex items-center justify-between pb-3 border-b border-zinc-200">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-base font-semibold shrink-0 text-zinc-900">
-                    Khám phá thêm
-                  </h2>
-                  <span className="text-[11px] text-zinc-500">
-                    Luyện kỹ năng tương tác & thư viện bài mẫu tham khảo
-                  </span>
-                </div>
+                <h2 className="text-base font-semibold text-zinc-900">
+                  Khám phá thêm
+                </h2>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

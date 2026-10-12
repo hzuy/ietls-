@@ -21,6 +21,8 @@ export default function UserCardGridSkeleton({
     switch (aspect) {
       case '3/4':
         return 'aspect-[3/4]'
+      case '3/2':
+        return 'aspect-[3/2]'
       case '4/5':
         return 'aspect-[4/5]'
       case '16/9':

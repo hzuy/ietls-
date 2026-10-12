@@ -86,7 +86,15 @@ async function buildFullTests() {
   const [exams, covers, series] = await Promise.all([
     prisma.exam.findMany({
       where: { bookNumber: { not: null }, testNumber: { not: null }, deletedAt: null },
-      select: { id: true, title: true, skill: true, bookNumber: true, testNumber: true, seriesId: true },
+      select: {
+        id: true,
+        title: true,
+        skill: true,
+        bookNumber: true,
+        testNumber: true,
+        seriesId: true,
+        _count: { select: { attempts: true } }
+      },
       orderBy: [{ seriesId: 'asc' }, { bookNumber: 'asc' }, { testNumber: 'asc' }, { skill: 'asc' }]
     }),
     prisma.bookCover.findMany({ where: { deletedAt: null } }),
@@ -113,10 +121,13 @@ async function buildFullTests() {
         bookNumber: e.bookNumber,
         testNumber: e.testNumber,
         exams: {},
-        coverImageUrl: coverMap[`${e.seriesId}-${e.bookNumber}`] || null
+        coverImageUrl: coverMap[`${e.seriesId}-${e.bookNumber}`] || null,
+        attemptCount: 0
       }
     }
-    grouped[key].exams[e.skill] = { id: e.id, title: e.title }
+    const attempts = e._count?.attempts || 0
+    grouped[key].exams[e.skill] = { id: e.id, title: e.title, attemptCount: attempts }
+    grouped[key].attemptCount = (grouped[key].attemptCount || 0) + attempts
   }
   return Object.values(grouped)
 }
