@@ -26,7 +26,7 @@
 | **Domain** | `https://hzuy.net`, đứng sau **Cloudflare proxy**. Cloudflare che IP origin → **KHÔNG SSH được qua `hzuy.net`**, phải SSH thẳng vào `lab46` / `10.100.200.126`. |
 | **Backend** | Docker container `ielts-app-backend` (`docker-compose.yml` ở root repo, `/home/huuduy/ielts-app`). Bind `127.0.0.1:5001` (không mở ra Internet). Nginx trên cùng máy reverse-proxy `/api` và `/uploads` vào container. `PORT=5001`, `NODE_ENV=production`, biến môi trường nạp từ `./backend/.env` trên server. |
 | **Frontend** | Static build. Nginx serve trực tiếp từ `/var/www/hzuy`. Không chạy qua Node. |
-| **Database** | Supabase PostgreSQL managed, project ref `qtuzysaqftzmveyvrzxz`. **Local dev VÀ prod trỏ CHUNG một database này** — không có DB riêng cho local. Migration chạy từ máy local lúc dev thường đã áp lên đúng cái DB mà prod dùng. Xem [bước 3.10](#bước-310--migration-kiểm-tra-trước-đừng-tự-động-chạy). |
+| **Database** | Supabase PostgreSQL managed, project ref `geonqaqynpfkgojqlmbi` (Singapore). **Local dev VÀ prod trỏ CHUNG một database này** — không có DB riêng cho local. Migration chạy từ máy local lúc dev thường đã áp lên đúng cái DB mà prod dùng. Xem [bước 3.10](#bước-310--migration-kiểm-tra-trước-đừng-tự-động-chạy). |
 | **CI/CD** | Không có. GitHub Actions chỉ chạy test trên push/PR to `main`, **không tự deploy**. Mọi bước dưới đây là thủ công. |
 
 ### Quyền trên web root — đọc trước khi chạy bất kỳ lệnh nào ở mục 3
