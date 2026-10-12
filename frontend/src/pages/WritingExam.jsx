@@ -1020,15 +1020,15 @@ export default function WritingExam() {
                 </button>
               </div>
 
-              {/* Row 2: Overall Score (pill cùng hàng) + Per-Task Scores */}
+              {/* Row 2: Overall Score (vòng tròn riêng + ±0.5 bên cạnh) + Per-Task Scores */}
               <div className="flex items-center gap-5 sm:gap-7 mb-6">
-                <div className={"h-14 sm:h-16 px-4.5 min-w-[64px] rounded-full flex items-center justify-center gap-1.5 shadow-xs shrink-0 " + getHeroCircleClass(overallBand)}>
-                  <span className="font-extrabold text-[26px] sm:text-[28px] leading-none">
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className={"w-16 h-16 rounded-full flex items-center justify-center font-extrabold text-[26px] shadow-xs shrink-0 " + getHeroCircleClass(overallBand)}>
                     {overallBand}
-                  </span>
+                  </div>
                   {overallBand !== '–' && (
                     <span
-                      className="text-xs sm:text-[13px] font-bold opacity-90 leading-none select-none cursor-help tracking-tight"
+                      className="text-xs sm:text-[13px] font-bold text-zinc-600 select-none cursor-help tracking-tight"
                       title="Điểm do AI ước lượng, có thể chênh khoảng ±0.5 so với giám khảo thật."
                     >
                       ±0.5
