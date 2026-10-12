@@ -1042,7 +1042,7 @@ export default function WritingExam() {
                       <span className="text-xs sm:text-[13px] font-bold text-[#1D4ED8] tracking-wider uppercase">
                         TASK {t.number}
                       </span>
-                      <span className={"px-3 py-0.5 rounded-full text-xs sm:text-[13px] font-extrabold shadow-2xs " + getHeroBadgeClass(results[t.id]?.overall)}>
+                      <span className={"w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-xs sm:text-[13px] font-extrabold leading-none shadow-2xs shrink-0 " + getHeroBadgeClass(results[t.id]?.overall)}>
                         {results[t.id]?.overall ?? '–'}
                       </span>
                       {results[t.id]?.overall != null && results[t.id]?.overall !== '–' && (
