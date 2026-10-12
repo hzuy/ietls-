@@ -1038,23 +1038,21 @@ export default function WritingExam() {
 
                 <div className="flex flex-wrap items-center gap-5 sm:gap-7">
                   {exam.writingTasks.map(t => (
-                    <div key={t.id} className="flex items-center gap-2.5">
+                    <div key={t.id} className="flex items-center gap-2">
                       <span className="text-xs sm:text-[13px] font-bold text-[#1D4ED8] tracking-wider uppercase">
                         TASK {t.number}
                       </span>
-                      <div className="flex flex-col items-center">
-                        <span className={"px-3.5 py-0.5 rounded-full text-xs sm:text-[13px] font-extrabold shadow-2xs " + getHeroBadgeClass(results[t.id]?.overall)}>
-                          {results[t.id]?.overall ?? '–'}
+                      <span className={"px-3 py-0.5 rounded-full text-xs sm:text-[13px] font-extrabold shadow-2xs " + getHeroBadgeClass(results[t.id]?.overall)}>
+                        {results[t.id]?.overall ?? '–'}
+                      </span>
+                      {results[t.id]?.overall != null && results[t.id]?.overall !== '–' && (
+                        <span
+                          className="text-xs sm:text-[13px] font-bold text-zinc-600 select-none cursor-help tracking-tight"
+                          title="Điểm do AI ước lượng, có thể chênh khoảng ±0.5 so với giám khảo thật."
+                        >
+                          ±0.5
                         </span>
-                        {results[t.id]?.overall != null && results[t.id]?.overall !== '–' && (
-                          <span
-                            className="text-xs font-bold text-zinc-600 mt-1 leading-none text-center select-none cursor-help"
-                            title="Điểm do AI ước lượng, có thể chênh khoảng ±0.5 so với giám khảo thật."
-                          >
-                            ±0.5
-                          </span>
-                        )}
-                      </div>
+                      )}
                     </div>
                   ))}
                 </div>
