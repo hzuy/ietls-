@@ -6,7 +6,8 @@ import { useCollapsibleGroups } from '../../hooks/useCollapsibleGroups'
 import { validateAudioFile } from '../../utils/fileValidation'
 import { ConfirmDeleteModal, DraftBanner, DraftSavedHint, AdminListHeader, ThumbnailPicker } from '../../components/admin/contentPageUI'
 import { useToast } from '../../context/ToastContext'
-import { Volume2, Eye } from 'lucide-react'
+import { Volume2, Eye, Sparkles, Upload } from 'lucide-react'
+import api from '../../utils/axios'
 import PracticeGroupCard from '../../components/admin/PracticeGroupCard'
 import {
   getListeningPracticeList, getListeningPractice,
@@ -14,7 +15,7 @@ import {
   deleteListeningPractice, uploadListeningThumbnailFile, uploadListeningAudioFile,
 } from '../../services/practiceService'
 import {
-  resolveImg, recalcGroups,
+  resolveImg, toImgSrc, recalcGroups,
   LISTENING_GROUP_TYPES, emptyListeningGroupOf,
   inputCls, labelCls, btnPrimary, btnSecondary,
 } from '../../utils/practiceConfig'
@@ -30,10 +31,12 @@ function ListeningPracticePreviewModal({ form, showAnswers, setShowAnswers, onCl
     window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h)
   }, [onClose])
 
+  const audioSrc = form.audioBlobUrl || (form.audioUrl ? toImgSrc(form.audioUrl) : null)
+
   return (
     <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
-        style={{ width: '90vw', maxWidth: 800, height: '90vh' }}
+        style={{ width: '90vw', maxWidth: 860, height: '90vh' }}
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-3 bg-zinc-50 border-b border-zinc-200 shrink-0">
           <div className="flex items-center gap-3">
@@ -49,9 +52,16 @@ function ListeningPracticePreviewModal({ form, showAnswers, setShowAnswers, onCl
           </button>
         </div>
         <div className="flex-1 overflow-y-auto bg-zinc-50 px-6 py-6">
+          {audioSrc && (
+            <div className="bg-white p-3 rounded-xl border border-zinc-200 shadow-xs mb-5">
+              <audio controls src={audioSrc} key={audioSrc} className="w-full h-10 rounded-lg" />
+            </div>
+          )}
+
           {form.context && (
             <p className="text-xs text-zinc-500 italic mb-5 border-l-2 border-zinc-300 pl-3">{form.context}</p>
           )}
+
           {form.questionGroups.length > 0
             ? form.questionGroups.map((g, gi) => <AdminGroupPreview key={gi} group={g} showAnswers={showAnswers} />)
             : <p className="text-sm text-zinc-400 italic text-center mt-10">Chưa có câu hỏi</p>}
@@ -64,12 +74,12 @@ function ListeningPracticePreviewModal({ form, showAnswers, setShowAnswers, onCl
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 const EMPTY_FORM = {
   title: '', context: '', transcript: '',
-  audioUrl: null, audioFile: null, audioName: null,
+  audioUrl: null, audioBlobUrl: null, audioFile: null, audioName: null,
   questionGroups: [],
   thumbnailUrl: null, thumbPreview: null, thumbFile: null,
 }
 
-// Chữ ký nội dung form (bỏ thumbPreview/audioName — phái sinh) để phát hiện thay
+// Chữ ký nội dung form (bỏ thumbPreview/audioName/audioBlobUrl — phái sinh) để phát hiện thay
 // đổi chưa lưu (derive-snapshot, giống SampleManager).
 const formSig = (f) => JSON.stringify([f.title, f.context, f.transcript, f.questionGroups, f.thumbnailUrl, !!f.thumbFile, f.audioUrl, !!f.audioFile])
 
@@ -85,6 +95,9 @@ export default function ListeningPractice() {
   const [editing, setEditing]         = useState(null)
   const [form, setForm]               = useState(EMPTY_FORM)
   const [saving, setSaving]           = useState(false)
+  const [uploadingAudio, setUploadingAudio] = useState(false)
+  const [transcribing, setTranscribing]     = useState(false)
+  const [showTranscriptBox, setShowTranscriptBox] = useState(false)
   const [delConfirm, setDelConfirm]   = useState(null)
   const [deleting, setDeleting]       = useState(false)
   const [loadingEditId, setLoadingEditId] = useState(null)
@@ -122,6 +135,7 @@ export default function ListeningPractice() {
   const openAdd = () => {
     pristineRef.current = formSig(EMPTY_FORM)
     groupCollapse.setAll([])
+    setShowTranscriptBox(false)
     setForm(EMPTY_FORM); setEditing(null); setIsDirty(false); setView('form')
   }
 
@@ -138,6 +152,7 @@ export default function ListeningPractice() {
         context: data.passage || '',
         transcript: data.transcript || '',
         audioUrl: data.audioUrl || null,
+        audioBlobUrl: null,
         audioFile: null,
         audioName: data.audioUrl ? data.audioUrl.split('/').pop() : null,
         questionGroups: qData.groups || [],
@@ -145,6 +160,7 @@ export default function ListeningPractice() {
         thumbPreview: resolveImg(data.thumbnailUrl),
         thumbFile: null,
       }
+      setShowTranscriptBox(Boolean(data.transcript))
       pristineRef.current = formSig(next)
       groupCollapse.setAll([])
       setForm(next)
@@ -174,12 +190,58 @@ export default function ListeningPractice() {
     groupCollapse.reveal(newGroup._id)
   }
 
-  const handleAudioPick = (e) => {
-    const file = e.target.files[0]
+  const handleAudioPick = async (e) => {
+    const file = e.target.files?.[0]
     if (!file) return
     const v = validateAudioFile(file)
     if (!v.ok) { showToast(v.error, 'error'); e.target.value = ''; return }
-    setForm(prev => ({ ...prev, audioFile: file, audioName: file.name }))
+    const blobUrl = URL.createObjectURL(file)
+    setForm(prev => ({
+      ...prev,
+      audioBlobUrl: blobUrl,
+      audioName: file.name,
+    }))
+    setUploadingAudio(true)
+    try {
+      const fd = new FormData()
+      fd.append('audio', file)
+      const res = await uploadListeningAudioFile(fd)
+      setForm(prev => ({
+        ...prev,
+        audioUrl: res.url || res.audioUrl,
+        audioName: file.name,
+        audioFile: null,
+      }))
+      showToast('Đã tải lên audio thành công', 'success')
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Lỗi tải audio lên — kiểm tra định dạng và dung lượng (≤ 50MB)', 'error')
+    } finally {
+      setUploadingAudio(false)
+      if (e.target) e.target.value = ''
+    }
+  }
+
+  const handleTranscribeAudio = async () => {
+    if (!form.audioUrl) {
+      showToast('Vui lòng tải lên file audio trước khi phiên âm', 'error')
+      return
+    }
+    setTranscribing(true)
+    try {
+      const res = await api.post('/admin/transcribe', { audioUrl: form.audioUrl })
+      if (res.data?.transcript) {
+        setForm(f => ({ ...f, transcript: res.data.transcript }))
+        setShowTranscriptBox(true)
+        showToast('Phiên âm AI thành công!', 'success')
+      } else {
+        showToast('Không có kết quả phiên âm từ audio', 'error')
+      }
+    } catch (err) {
+      const errMsg = err?.response?.data?.message || err?.message || 'Lỗi phiên âm audio — thử lại sau'
+      showToast(errMsg, 'error')
+    } finally {
+      setTranscribing(false)
+    }
   }
 
   const handleSave = async () => {
@@ -286,11 +348,57 @@ export default function ListeningPractice() {
               </div>
 
               <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs">
-                <label className={labelCls}>Transcript (dùng cho giải thích và định vị đáp án)</label>
-                <textarea value={form.transcript} onChange={e => setForm(f => ({ ...f, transcript: e.target.value }))}
-                  rows={8} placeholder="Mỗi đoạn một dòng. Có thể kèm mốc thời gian dạng [00:12 - 00:18] Speaker A"
-                  className="w-full px-3 py-2 border border-zinc-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 resize-y bg-white text-zinc-900 placeholder:text-zinc-400"
-                  style={{ lineHeight: 1.7 }} />
+                <div className="flex items-center justify-between mb-1">
+                  <label className={labelCls + ' mb-0'}>Transcript</label>
+                  <button
+                    type="button"
+                    onClick={handleTranscribeAudio}
+                    disabled={!form.audioUrl || transcribing}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition border ${
+                      form.audioUrl && !transcribing
+                        ? 'bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border-zinc-300 cursor-pointer shadow-2xs'
+                        : 'bg-zinc-50 text-zinc-400 border-zinc-200 cursor-not-allowed'
+                    }`}
+                  >
+                    {transcribing ? (
+                      <>
+                        <svg className="animate-spin w-3.5 h-3.5 text-zinc-600" viewBox="0 0 24 24" fill="none">
+                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70" />
+                        </svg>
+                        <span>Đang phiên âm...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5 text-zinc-700" />
+                        <span>AI Phiên âm</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {!form.transcript && !showTranscriptBox ? (
+                  <div className="mt-2.5 p-3 bg-zinc-50 rounded-xl border border-dashed border-zinc-200 flex items-center justify-between text-xs text-zinc-500">
+                    <span>{form.audioUrl ? 'Nhấn "AI Phiên âm" để tự động sinh transcript từ audio.' : 'Upload file audio để dùng tính năng AI phiên âm.'}</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowTranscriptBox(true)}
+                      className="text-zinc-600 hover:text-zinc-900 underline text-xs font-medium shrink-0 ml-2 cursor-pointer"
+                    >
+                      Nhập thủ công
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-2.5">
+                    <textarea
+                      value={form.transcript}
+                      onChange={e => setForm(f => ({ ...f, transcript: e.target.value }))}
+                      rows={8}
+                      placeholder={form.audioUrl ? 'Nhấn "AI Phiên âm" hoặc nhập thủ công...' : 'Upload audio để dùng AI phiên âm...'}
+                      className="w-full px-3 py-2 border border-zinc-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 resize-y bg-white text-zinc-900 placeholder:text-zinc-400"
+                      style={{ lineHeight: 1.7 }}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs">
@@ -353,42 +461,99 @@ export default function ListeningPractice() {
               </div>
 
               <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs">
-                <label className={labelCls}>File Audio</label>
-                {form.audioName || form.audioUrl ? (
+                <div className="flex items-center justify-between mb-2">
+                  <label className={labelCls + ' mb-0'}>File Audio</label>
+                  {(form.audioName || form.audioUrl) && (
+                    <button
+                      type="button"
+                      onClick={() => audioRef.current?.click()}
+                      disabled={uploadingAudio}
+                      className="text-xs text-blue-600 hover:text-blue-700 font-semibold cursor-pointer"
+                    >
+                      Đổi file
+                    </button>
+                  )}
+                </div>
+
+                {uploadingAudio ? (
+                  <div className="p-4 bg-zinc-50 rounded-xl border border-zinc-200 text-center flex flex-col items-center justify-center gap-2">
+                    <svg className="animate-spin w-5 h-5 text-zinc-700" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70" />
+                    </svg>
+                    <span className="text-xs text-zinc-600 font-medium">Đang tải audio lên hệ thống...</span>
+                  </div>
+                ) : form.audioName || form.audioUrl ? (
                   <>
                     <div className="flex items-center gap-2 p-2.5 bg-emerald-50 rounded-lg border border-emerald-200">
                       <Volume2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span className="text-xs text-emerald-800 font-medium flex-1 truncate">{form.audioName || 'Audio đã upload'}</span>
-                      <button onClick={() => setForm(f => ({ ...f, audioFile: null, audioName: null, audioUrl: null }))}
+                      <span className="text-xs text-emerald-800 font-medium flex-1 truncate">{form.audioName || form.audioUrl?.split('/').pop() || 'Audio đã tải lên'}</span>
+                      <button
+                        type="button"
+                        onClick={() => setForm(f => ({ ...f, audioFile: null, audioBlobUrl: null, audioName: null, audioUrl: null }))}
                         aria-label="Xóa file audio"
-                        className="text-zinc-400 hover:text-red-500 text-sm shrink-0 font-bold transition">×</button>
+                        className="text-zinc-400 hover:text-red-500 text-sm shrink-0 font-bold transition p-1 cursor-pointer"
+                      >
+                        ×
+                      </button>
                     </div>
-                    {form.audioUrl && (
-                      <audio controls
-                        src={form.audioUrl.startsWith('http') ? form.audioUrl : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3001'}${form.audioUrl}`}
-                        className="w-full mt-2 rounded-lg" style={{ height: '40px' }} />
+
+                    {(form.audioBlobUrl || form.audioUrl) && (
+                      <div className="mt-2.5">
+                        <audio
+                          controls
+                          src={form.audioBlobUrl || toImgSrc(form.audioUrl)}
+                          key={form.audioBlobUrl || form.audioUrl}
+                          className="w-full rounded-lg"
+                          style={{ height: '38px' }}
+                        />
+                      </div>
                     )}
                   </>
                 ) : (
-                  <button onClick={() => audioRef.current.click()}
-                    className="w-full border-2 border-dashed border-zinc-200 rounded-xl bg-zinc-50 hover:border-zinc-400 hover:bg-zinc-100/50 transition flex flex-col items-center justify-center gap-1.5 text-zinc-500 text-xs cursor-pointer py-4">
-                    <Volume2 className="w-6 h-6 text-zinc-400" />
-                    <span>Chọn file audio (mp3, m4a...)</span>
+                  <button
+                    type="button"
+                    onClick={() => audioRef.current?.click()}
+                    className="w-full border-2 border-dashed border-zinc-200 rounded-xl bg-zinc-50 hover:border-zinc-400 hover:bg-zinc-100/50 transition flex flex-col items-center justify-center gap-2 text-zinc-500 text-xs cursor-pointer py-5"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500">
+                      <Upload className="w-5 h-5" />
+                    </div>
+                    <span className="font-medium text-zinc-700">Chọn file audio (mp3, wav, m4a...)</span>
+                    <span className="text-[11px] text-zinc-400">Tối đa 50MB</span>
                   </button>
                 )}
-                <input ref={audioRef} type="file" accept=".mp3,.wav,.ogg,.m4a,.aac" className="hidden"
-                  onChange={handleAudioPick} />
+                <input
+                  ref={audioRef}
+                  type="file"
+                  accept=".mp3,.wav,.ogg,.m4a,.aac"
+                  className="hidden"
+                  onChange={handleAudioPick}
+                />
               </div>
 
-              <button type="button" onClick={() => setShowPreview(true)}
-                className={btnSecondary + ' w-full flex items-center justify-center gap-1.5'}>
-                <Eye className="w-3.5 h-3.5 text-zinc-500" />
+              <button
+                type="button"
+                onClick={() => setShowPreview(true)}
+                className="w-full h-10 rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50 hover:border-zinc-400 hover:text-zinc-900 text-sm font-semibold transition shadow-2xs flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Eye className="w-4 h-4 text-zinc-500" />
                 <span>Xem trước nội dung đề</span>
               </button>
 
               <div className="flex gap-2">
-                <button type="button" onClick={handleCancelOrBack} className={btnSecondary + ' flex-1 justify-center'}>Hủy</button>
-                <button onClick={handleSave} disabled={saving} className={btnPrimary + ' flex-1 justify-center'}>
+                <button
+                  type="button"
+                  onClick={handleCancelOrBack}
+                  className="flex-1 h-10 rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50 text-sm font-semibold transition shadow-2xs flex items-center justify-center cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="flex-1 h-10 rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 text-sm font-semibold transition shadow-xs flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   {saving ? 'Đang lưu...' : 'Lưu bài'}
                 </button>
               </div>

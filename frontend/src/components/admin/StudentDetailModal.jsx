@@ -1,5 +1,4 @@
-import { useNavigate } from 'react-router-dom'
-import { X, Award, Activity, TrendingUp, AlertCircle, ArrowUpRight, Calendar, Mail } from 'lucide-react'
+import { X, Calendar, Mail } from 'lucide-react'
 import Modal from '../common/Modal'
 import { formatBand } from '../../utils/ielts'
 import { SKILL_LABEL } from '../../utils/adminSkillColors'
@@ -55,20 +54,12 @@ export default function StudentDetailModal({
   detailData,
   loading = false,
 }) {
-  const navigate = useNavigate()
-
   if (!isOpen || !student) return null
 
   const user = detailData?.user || student
   const skillStats = detailData?.skillStats || {}
   const attempts = detailData?.attempts || []
   const totalAttempts = detailData?.totalAttempts ?? student.attemptCount ?? 0
-
-  // Phân tích kỹ năng thế mạnh & cần cải thiện
-  const validSkills = Object.entries(skillStats).filter(([, score]) => score != null)
-  validSkills.sort((a, b) => b[1] - a[1])
-  const strongest = validSkills.length > 0 ? validSkills[0] : null
-  const needsImprovement = validSkills.length > 1 ? validSkills[validSkills.length - 1] : null
 
   const initialLetter = (user.name || student.name || 'S').trim().charAt(0).toUpperCase()
 
@@ -116,7 +107,7 @@ export default function StudentDetailModal({
           <button
             onClick={onClose}
             aria-label="Đóng"
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200/60 transition"
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200/60 transition cursor-pointer"
           >
             <X size={18} />
           </button>
@@ -124,7 +115,7 @@ export default function StudentDetailModal({
       </div>
 
       {/* Body Content */}
-      <div className="p-5 space-y-5 overflow-y-auto max-h-[calc(90vh-140px)]">
+      <div className="p-5 pb-6 space-y-5 overflow-y-auto max-h-[calc(90vh-90px)]">
         {loading ? (
           <div className="py-12 flex flex-col items-center justify-center gap-3 text-zinc-400">
             <div className="w-8 h-8 border-2 border-zinc-300 border-t-zinc-900 rounded-full animate-spin" />
@@ -134,11 +125,11 @@ export default function StudentDetailModal({
           <>
             {/* 1. Mini Bento: Điểm 4 kỹ năng */}
             <div>
-              <div className="flex items-center justify-between mb-2.5">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
-                  Điểm trung bình theo kỹ năng
+              <div className="flex items-center justify-between gap-3 mb-2.5">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500 whitespace-nowrap">
+                  Điểm trung bình
                 </h3>
-                <span className="text-xs text-zinc-500 font-mono">
+                <span className="text-xs text-zinc-500 font-mono whitespace-nowrap">
                   {totalAttempts} lượt thi hoàn thành
                 </span>
               </div>
@@ -166,45 +157,10 @@ export default function StudentDetailModal({
               </div>
             </div>
 
-            {/* 2. Insights: Điểm mạnh & Cần cải thiện */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-200">
-                  <TrendingUp size={18} />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
-                    Kỹ năng thế mạnh
-                  </div>
-                  <div className="text-xs font-bold text-zinc-900 truncate">
-                    {strongest
-                      ? `${SKILL_LABEL[strongest[0]]} (Band ${formatBand(strongest[1])})`
-                      : 'Đang cập nhật'}
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center shrink-0 border border-amber-200">
-                  <AlertCircle size={18} />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
-                    Cần rèn luyện thêm
-                  </div>
-                  <div className="text-xs font-bold text-zinc-900 truncate">
-                    {needsImprovement
-                      ? `${SKILL_LABEL[needsImprovement[0]]} (Band ${formatBand(needsImprovement[1])})`
-                      : 'Đồng đều 4 kỹ năng'}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* 3. Lịch sử bài thi gần nhất */}
+            {/* 2. Lịch sử bài thi gần nhất */}
             <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-2.5">
-                Lịch sử bài thi gần nhất (Mới nhất)
+              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-2.5 whitespace-nowrap">
+                Lịch sử bài thi gần nhất
               </h3>
               {attempts.length === 0 ? (
                 <p className="text-xs text-zinc-400 italic py-4 text-center border border-dashed border-zinc-200 rounded-xl">
@@ -250,29 +206,6 @@ export default function StudentDetailModal({
               )}
             </div>
           </>
-        )}
-      </div>
-
-      {/* Footer */}
-      <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-3 bg-zinc-50/70 dark:bg-zinc-900/50">
-        <button
-          onClick={onClose}
-          className="h-9 px-5 rounded-full text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/70 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 transition cursor-pointer"
-        >
-          Đóng
-        </button>
-
-        {user.id && (
-          <button
-            onClick={() => {
-              onClose()
-              navigate(`/admin/users/${user.id}`)
-            }}
-            className="h-9 px-5 rounded-full flex items-center gap-1.5 text-xs font-semibold text-white bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 transition shadow-xs cursor-pointer"
-          >
-            <span>Xem hồ sơ đầy đủ</span>
-            <ArrowUpRight size={14} />
-          </button>
         )}
       </div>
     </Modal>

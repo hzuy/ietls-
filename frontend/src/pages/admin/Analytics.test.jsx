@@ -182,12 +182,12 @@ describe('Admin Analytics Component', () => {
     })
 
     // Modal contents
-    expect(screen.getByText('Điểm trung bình theo kỹ năng')).toBeInTheDocument()
+    expect(screen.getByText('Điểm trung bình')).toBeInTheDocument()
     expect(screen.getByText('Cambridge 19 Test 2 Reading')).toBeInTheDocument()
-    expect(screen.getByText('Kỹ năng thế mạnh')).toBeInTheDocument()
+    expect(screen.getByText('Lịch sử bài thi gần nhất')).toBeInTheDocument()
 
     // Close modal
-    const closeBtn = screen.getByText('Đóng')
+    const closeBtn = screen.getByRole('button', { name: 'Đóng' })
     fireEvent.click(closeBtn)
 
     await waitFor(() => {

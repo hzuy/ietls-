@@ -25,7 +25,11 @@ function CambridgeTab({ initialSeriesList = [], onExamsChanged }) {
   const [addingSeries, setAddingSeries] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
 
-  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3500) }
+  const showToast = (msg, type = 'success') => {
+    setToast(msg)
+    showAlert(msg, type)
+    setTimeout(() => setToast(''), 3500)
+  }
 
   const fetchSeries = (silent = false) => {
     if (!silent && !cachedSeriesList && seriesList.length === 0) {
@@ -79,7 +83,7 @@ function CambridgeTab({ initialSeriesList = [], onExamsChanged }) {
       setNewName(''); setShowAdd(false)
       fetchSeries(true)
       onExamsChanged?.()
-      showToast('✅ Đã tạo bộ đề')
+      showToast('Đã tạo bộ đề')
     } catch { showToast('Lỗi tạo bộ đề') }
     setAddingSeries(false)
   }
@@ -97,7 +101,7 @@ function CambridgeTab({ initialSeriesList = [], onExamsChanged }) {
       if (activeSeries?.id === id) setActiveSeries(s => ({ ...s, name: updated.data.name }))
       setEditId(null)
       onExamsChanged?.()
-      showToast('✅ Đã đổi tên bộ đề')
+      showToast('Đã đổi tên bộ đề')
     } catch { showToast('Lỗi sửa tên bộ đề') }
     setSavingEdit(false)
   }
@@ -109,7 +113,7 @@ function CambridgeTab({ initialSeriesList = [], onExamsChanged }) {
       onExamsChanged?.()
       if (activeSeries?.id === id) setActiveSeries(null)
       fetchSeries(true)
-      showToast('✅ Đã xóa bộ đề')
+      showToast('Đã xóa bộ đề')
     } catch { showToast('Lỗi xóa bộ đề') }
   }
 

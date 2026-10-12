@@ -203,14 +203,16 @@ export default function AdminLayout() {
         }}
         role="button"
         tabIndex={0}
-        className={navCls(false)}
+        className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors group text-red-600 hover:bg-red-50 hover:text-red-700"
+        style={{ color: '#dc2626' }}
       >
         <LogOut
           size={18}
           strokeWidth={2}
-          className={navIconCls(false)}
+          className="shrink-0 transition-colors text-red-600 group-hover:text-red-700"
+          style={{ color: '#dc2626' }}
         />
-        <span className="flex-1">Đăng xuất</span>
+        <span className="flex-1 font-medium">Đăng xuất</span>
       </a>
     </nav>
   )
@@ -321,10 +323,10 @@ export default function AdminLayout() {
       {showLogout && (
         <Modal onClose={() => setShowLogout(false)} title="Đăng xuất" size="sm" className="p-6">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center">
-              <LogOut className="w-5 h-5 text-zinc-600" strokeWidth={2} />
+            <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
+              <LogOut className="w-5 h-5 text-red-600" strokeWidth={2} style={{ color: '#dc2626' }} />
             </div>
-            <h3 className="font-bold text-zinc-900 text-base">Đăng xuất</h3>
+            <h3 className="font-bold text-red-600 text-base" style={{ color: '#dc2626' }}>Đăng xuất</h3>
           </div>
           <p className="text-sm text-zinc-600 mb-6">
             Bạn có chắc muốn đăng xuất không?
@@ -338,7 +340,8 @@ export default function AdminLayout() {
             </button>
             <button
               onClick={handleLogout}
-              className="h-9 px-5 rounded-full bg-zinc-900 text-white text-xs sm:text-sm font-semibold hover:bg-zinc-800 transition-colors shadow-xs cursor-pointer"
+              style={{ backgroundColor: '#dc2626', color: '#ffffff' }}
+              className="h-9 px-5 rounded-full bg-red-600 text-white text-xs sm:text-sm font-semibold hover:bg-red-700 transition-colors shadow-xs cursor-pointer"
             >
               Xác nhận
             </button>

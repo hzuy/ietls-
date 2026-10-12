@@ -11,7 +11,6 @@ import { useSpeechRecording } from '../hooks/useSpeechRecording'
 import { Mic, X, Square, Play, Pause, AlertCircle, RotateCcw, Sparkles, Eye, Volume2, History, CheckCircle2, ChevronUp, Share } from 'lucide-react'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
-import PastAttemptBanner from '../components/exam/PastAttemptBanner'
 import InlineCorrections from '../components/exam/InlineCorrections'
 import ExitConfirmModal from '../components/common/ExitConfirmModal'
 
@@ -840,7 +839,6 @@ export default function SpeakingExam() {
 
         {/* Content */}
         <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-16">
-          {viewAttemptId && <PastAttemptBanner finishedAt={viewFinishedAt} />}
           <div className="flex flex-col gap-8">
             
             

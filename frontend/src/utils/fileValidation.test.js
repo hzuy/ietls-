@@ -41,6 +41,12 @@ describe('validateImageFile', () => {
     expect(validateImageFile(fakeFile('', IMAGE_MAX_BYTES + 1)).ok).toBe(false)
   })
 
+  it('rejects macOS metadata file starting with ._', () => {
+    const r = validateImageFile({ name: '._photo.png', type: 'image/png', size: 500 })
+    expect(r.ok).toBe(false)
+    expect(r.error).toBe('File không hợp lệ')
+  })
+
   it('rejects a missing file', () => {
     expect(validateImageFile(null)).toEqual({ ok: false, error: 'Chưa chọn file' })
     expect(validateImageFile(undefined).ok).toBe(false)
@@ -78,6 +84,12 @@ describe('validateAudioFile', () => {
   it('allows an empty file.type, size still enforced', () => {
     expect(validateAudioFile(fakeFile('', 1000)).ok).toBe(true)
     expect(validateAudioFile(fakeFile('', AUDIO_MAX_BYTES + 1)).ok).toBe(false)
+  })
+
+  it('rejects macOS metadata audio file starting with ._', () => {
+    const r = validateAudioFile({ name: '._T1S1.m4a', type: 'audio/x-m4a', size: 345 })
+    expect(r.ok).toBe(false)
+    expect(r.error).toBe('File không hợp lệ')
   })
 
   it('rejects a missing file', () => {

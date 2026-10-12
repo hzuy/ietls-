@@ -209,7 +209,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
            nút Google sẽ co giãn theo chiều rộng thực của hộp thoại (max 400px)
            thay vì cố định 320px. GoogleLogin render trong iframe sandbox riêng
            nên chỉ có thể đồng bộ chiều rộng qua prop width, không qua CSS. */}
-      <div className="flex justify-center overflow-hidden">
+      <div className="flex justify-center rounded-full overflow-hidden [&_iframe]:rounded-full [&_iframe]:outline-none [&_*]:outline-none">
         <GoogleLogin
           onSuccess={handleGoogleSuccess}
           onError={() => setGoogleError('Đăng nhập Google thất bại')}

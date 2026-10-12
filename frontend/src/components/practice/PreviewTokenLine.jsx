@@ -1,7 +1,7 @@
 export function PreviewTokenLine({ content, questions, showAnswers, tokenNumMap = {} }) {
   const parts = (content || '').split(/(\[Q:\d+\])/)
   return (
-    <p className="text-sm leading-8 text-slate-800">
+    <p className="text-sm leading-8 text-zinc-900">
       {parts.map((part, i) => {
         const match = part.match(/\[Q:(\d+)\]/)
         if (match) {
@@ -12,7 +12,7 @@ export function PreviewTokenLine({ content, questions, showAnswers, tokenNumMap 
           return (
             <span key={i} className="inline-flex items-center gap-1 mx-1">
               <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-zinc-100 text-zinc-900 border border-zinc-200 font-bold text-xs shrink-0">{displayNum}</span>
-              <span className={`inline-block min-w-20 border-b-2 ${showAnswers ? 'border-zinc-900 text-zinc-900 font-semibold' : 'border-zinc-300 text-zinc-400'} px-1 text-sm text-center`}>
+              <span className={`inline-block min-w-20 border-b-2 ${showAnswers ? 'border-emerald-600 text-emerald-700 font-semibold' : 'border-zinc-300 text-zinc-400'} px-1 text-sm text-center`}>
                 {val || (showAnswers ? '?' : '___')}
               </span>
             </span>

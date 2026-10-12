@@ -16,6 +16,9 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
+    if (file.originalname && file.originalname.startsWith('._')) {
+      return cb(Object.assign(new Error('File không hợp lệ'), { code: 'INVALID_FILE_TYPE' }))
+    }
     const allowed = ['.mp3', '.wav', '.ogg', '.m4a', '.aac']
     const ext = path.extname(file.originalname).toLowerCase()
     if (allowed.includes(ext)) cb(null, true)
@@ -27,6 +30,9 @@ const upload = multer({
 const imageUpload = multer({
   storage,
   fileFilter: (req, file, cb) => {
+    if (file.originalname && file.originalname.startsWith('._')) {
+      return cb(Object.assign(new Error('File không hợp lệ'), { code: 'INVALID_FILE_TYPE' }))
+    }
     const allowed = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg']
     const ext = path.extname(file.originalname).toLowerCase()
     if (allowed.includes(ext)) cb(null, true)

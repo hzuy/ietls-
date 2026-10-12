@@ -59,7 +59,7 @@ export default function Modal({ onClose, title, size = 'md', zIndex = 'z-50', cl
         aria-modal="true"
         aria-label={title}
         tabIndex={-1}
-        className={`relative w-full ${SIZES[size] || SIZES.md} rounded-2xl border border-zinc-200 bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-150 my-auto max-h-[90vh] overflow-y-auto outline-none flex flex-col ${className}`}
+        className={`relative w-full ${SIZES[size] || SIZES.md} rounded-2xl border border-zinc-200 bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-150 my-auto max-h-[90vh] ${className.includes('overflow-') ? '' : 'overflow-y-auto'} outline-none flex flex-col ${className}`}
       >
         {children}
       </div>

@@ -16,6 +16,7 @@ import {
   READING_GROUP_TYPES, emptyReadingGroupOf,
   inputCls, labelCls, btnPrimary, btnSecondary,
 } from '../../utils/practiceConfig'
+import { Eye } from 'lucide-react'
 import AdminGroupPreview from '../../components/practice/AdminGroupPreview'
 import ImageWithFallback from '../../components/common/ImageWithFallback'
 import Select from '../../components/admin/Select'
@@ -338,14 +339,29 @@ export default function ReadingPractice() {
                 />
               </div>
 
-              <button type="button" onClick={() => setShowPreview(true)}
-                className={btnSecondary + ' w-full text-center'}>
-                👁 Xem trước nội dung đề
+              <button
+                type="button"
+                onClick={() => setShowPreview(true)}
+                className="w-full h-10 rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50 hover:border-zinc-400 hover:text-zinc-900 text-sm font-semibold transition shadow-2xs flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Eye className="w-4 h-4 text-zinc-500" />
+                <span>Xem trước nội dung đề</span>
               </button>
 
               <div className="flex gap-2">
-                <button type="button" onClick={handleCancelOrBack} className={btnSecondary + ' flex-1 justify-center'}>Hủy</button>
-                <button onClick={handleSave} disabled={saving} className={btnPrimary + ' flex-1 justify-center'}>
+                <button
+                  type="button"
+                  onClick={handleCancelOrBack}
+                  className="flex-1 h-10 rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50 text-sm font-semibold transition shadow-2xs flex items-center justify-center cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="flex-1 h-10 rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 text-sm font-semibold transition shadow-xs flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   {saving ? 'Đang lưu...' : 'Lưu bài'}
                 </button>
               </div>

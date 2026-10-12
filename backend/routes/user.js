@@ -5,7 +5,7 @@ const authMiddleware = require('../middleware/auth')
 const { learnerOnly } = require('../lib/roles')
 const validate = require('../middleware/validate')
 const { roundBand, ieltsOverall } = require('../lib/scoreUtils')
-const { computeStreak } = require('../lib/streak')
+const { computeStreak, vnDateKey } = require('../lib/streak')
 const { averageBand } = require('../lib/speakingAttempt')
 const { speakingAttempts, writingAttempts } = require('../lib/attemptGroups')
 
@@ -72,7 +72,16 @@ router.get('/stats', authMiddleware, learnerOnly, async (req, res) => {
 
     const streak = computeStreak(finishedDates.map(a => a.finishedAt))
 
-    res.json({ totalAttempts, avgBand, streak, bandBySkill })
+    // Thống kê số lượt bài hoàn thành theo ngày lịch VN cho heatmap
+    const activityMap = {}
+    for (const a of finishedDates) {
+      if (a.finishedAt) {
+        const key = vnDateKey(a.finishedAt)
+        activityMap[key] = (activityMap[key] || 0) + 1
+      }
+    }
+
+    res.json({ totalAttempts, avgBand, streak, bandBySkill, activityMap, freezeCount: 0 })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
   }

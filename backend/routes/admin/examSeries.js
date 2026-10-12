@@ -140,6 +140,7 @@ router.put('/exam-series/:seriesId/books/:bookNumber', authMiddleware, teacherOn
     // Update associated Exams
     await prisma.exam.updateMany({ where: { seriesId, bookNumber: oldNumber }, data: { bookNumber: newNumber } })
     invalidate('fulltests:')
+    invalidateExamCaches()
     res.json({ ok: true, bookNumber: newNumber })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
@@ -156,6 +157,7 @@ router.delete('/exam-series/:seriesId/books/:bookNumber', authMiddleware, teache
     // Soft-delete the book cover
     await prisma.bookCover.updateMany({ where: { seriesId, bookNumber }, data: { deletedAt: now } })
     invalidate('fulltests:')
+    invalidateExamCaches()
     res.json({ ok: true })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
@@ -174,6 +176,7 @@ router.post('/exam-series/:seriesId/covers/:bookNumber', authMiddleware, teacher
       update: { coverImageUrl }
     })
     invalidate('fulltests:')
+    invalidateExamCaches()
     res.json({ seriesId, bookNumber, coverImageUrl })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi lưu ảnh bìa', error: error.message })

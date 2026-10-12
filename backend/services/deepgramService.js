@@ -36,8 +36,26 @@ async function transcribeAudio(audioPathOrUrl) {
         throw new Error(`Không tìm thấy file audio tại: ${fullPath}`)
       }
       
+      const ext = path.extname(fullPath).toLowerCase()
+      const MIME_MAP = {
+        '.mp3': 'audio/mpeg',
+        '.wav': 'audio/wav',
+        '.ogg': 'audio/ogg',
+        '.m4a': 'audio/mp4',
+        '.aac': 'audio/aac',
+        '.webm': 'audio/webm',
+        '.flac': 'audio/flac',
+      }
+      const contentType = MIME_MAP[ext] || 'audio/mpeg'
       const buffer = fs.readFileSync(fullPath)
-      const response = await deepgram.listen.v1.media.transcribeFile(buffer, options)
+      const response = await deepgram.listen.v1.media.transcribeFile(
+        {
+          data: buffer,
+          filename: path.basename(fullPath),
+          contentType,
+        },
+        options
+      )
       result = response.result || response.data || response
     }
 

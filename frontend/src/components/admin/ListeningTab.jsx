@@ -3,6 +3,7 @@ import { queryClient } from '../../lib/queryClient'
 import api from '../../utils/axios'
 import { showAlert } from '../../utils/alertUtils'
 import { notifyTrashChanged } from '../../services/adminService'
+import { validateAudioFile } from '../../utils/fileValidation'
 import {
   GROUP_TYPES, GROUP_INSTRUCTIONS, SECTION_HINTS,
   emptyListeningForm, emptyGroupOf,
@@ -317,13 +318,20 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   }
 
   const uploadAudio = async (si, file) => {
+    if (file) {
+      const v = validateAudioFile(file)
+      if (!v.ok) { showToast(v.error); return }
+    }
     setUploading(u => ({ ...u, [si]: true }))
     try {
       const formData = new FormData()
       formData.append('audio', file)
       const res = await api.post('/admin/upload-audio', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
       updateSection(si, 'audioUrl', res.data.audioUrl)
-    } catch { showToast('Lỗi upload audio — kiểm tra định dạng (mp3/wav/ogg/m4a/aac) và dung lượng (≤ 100MB)') }
+    } catch (err) {
+      const errMsg = err?.response?.data?.message || 'Lỗi upload audio — kiểm tra định dạng (mp3/wav/ogg/m4a/aac) và dung lượng (≤ 50MB)'
+      showToast(errMsg)
+    }
     finally { setUploading(u => ({ ...u, [si]: false })) }
   }
 
@@ -455,7 +463,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       if (editingId) {
         await api.put(`/admin/exams/${editingId}`, payload)
         localStorage.removeItem(`draft_listening_${editingId}`)
-        showToast('✅ Cập nhật đề thành công!')
+        showToast('Cập nhật đề thành công!')
         queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
         queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
         // Log audit vừa ghi ở backend — invalidate để khối "Lịch sử thay đổi" hiện ngay, không đợi hết staleTime.
@@ -464,7 +472,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       } else {
         await api.post('/admin/exams/listening', payload)
         localStorage.removeItem('draft_listening_new')
-        showToast('✅ Tạo đề thành công!')
+        showToast('Tạo đề thành công!')
         setForm(emptyListeningForm())
         setOpenSection(0)
         queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
@@ -750,19 +758,23 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
           ))}
         </div>
 
-        <button type="submit" disabled={submitting || loadingEdit} className={btnPrimary + ' w-full'}>
+        <button
+          type="submit"
+          disabled={submitting || loadingEdit}
+          className="w-full h-10 rounded-xl bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-800 transition shadow-xs flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           {submitting ? 'Đang lưu...' : editingId ? 'Cập nhật đề Listening' : 'Tạo đề Listening'}
         </button>
         <button
           type="button"
           onClick={() => setShowPreview(v => !v)}
-          className={`w-full py-2 px-3 rounded-lg border text-xs font-medium transition flex items-center justify-center gap-1.5 ${
+          className={`w-full h-10 rounded-xl border text-sm font-semibold transition flex items-center justify-center gap-2 cursor-pointer shadow-2xs ${
             showPreview
               ? 'border-zinc-400 bg-zinc-100 text-zinc-900'
-              : 'border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50 text-zinc-600 hover:text-zinc-900'
+              : 'border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50 text-zinc-700 hover:text-zinc-900'
           }`}
         >
-          <Eye className="w-3.5 h-3.5" />
+          <Eye className="w-4 h-4" />
           <span>{showPreview ? 'Thu gọn preview' : 'Xem trước nội dung đề'}</span>
         </button>
       </form>

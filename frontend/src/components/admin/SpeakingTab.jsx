@@ -180,7 +180,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
       if (editingId) {
         await api.put(`/admin/exams/${editingId}`, speakingPayload)
         localStorage.removeItem(`draft_speaking_${editingId}`)
-        showToast('✅ Cập nhật đề thành công!')
+        showToast('Cập nhật đề thành công!')
         queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
         queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
         // Log audit vừa ghi ở backend — invalidate để khối "Lịch sử thay đổi" hiện ngay, không đợi hết staleTime.
@@ -189,7 +189,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
       } else {
         await api.post('/admin/exams/speaking', speakingPayload)
         localStorage.removeItem('draft_speaking_new')
-        showToast('✅ Tạo đề thành công!')
+        showToast('Tạo đề thành công!')
         setForm(emptySpeakingForm())
         queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
         queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
@@ -413,19 +413,23 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
           </div>
         </div>
 
-        <button type="submit" disabled={submitting || loadingEdit} className={btnPrimary + ' w-full'}>
+        <button
+          type="submit"
+          disabled={submitting || loadingEdit}
+          className="w-full h-10 rounded-xl bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-800 transition shadow-xs flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           {submitting ? 'Đang lưu...' : editingId ? 'Cập nhật đề Speaking' : 'Tạo đề Speaking'}
         </button>
         <button
           type="button"
           onClick={() => setShowPreview(v => !v)}
-          className={`w-full py-2 px-3 rounded-lg border text-xs font-medium transition flex items-center justify-center gap-1.5 ${
+          className={`w-full h-10 rounded-xl border text-sm font-semibold transition flex items-center justify-center gap-2 cursor-pointer shadow-2xs ${
             showPreview
               ? 'border-zinc-400 bg-zinc-100 text-zinc-900'
-              : 'border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50 text-zinc-600 hover:text-zinc-900'
+              : 'border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50 text-zinc-700 hover:text-zinc-900'
           }`}
         >
-          <Eye className="w-3.5 h-3.5" />
+          <Eye className="w-4 h-4" />
           <span>{showPreview ? 'Thu gọn preview' : 'Xem trước nội dung đề'}</span>
         </button>
       </form>

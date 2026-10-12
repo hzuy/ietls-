@@ -21,6 +21,9 @@ const sizeMB = (bytes) => (bytes / MB).toFixed(1)
 
 function validateFile(file, { types, maxBytes, typeError, maxLabel }) {
   if (!file) return { ok: false, error: 'Chưa chọn file' }
+  if (file.name && file.name.startsWith('._')) {
+    return { ok: false, error: 'File không hợp lệ' }
+  }
   if (file.type && !types.includes(file.type)) {
     return { ok: false, error: typeError }
   }

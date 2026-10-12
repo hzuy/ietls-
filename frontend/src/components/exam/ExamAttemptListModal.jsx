@@ -58,22 +58,25 @@ export default function ExamAttemptListModal({
     <Modal
       onClose={onClose}
       size="md"
+      className="overflow-hidden"
     >
-      <div className="p-6 max-h-[70vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-5 sticky top-0 bg-[var(--surface)] z-10 pb-2 border-b border-zinc-100">
-          <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--ink)', margin: 0 }}>
-            Lịch sử làm bài <span style={{ color: skillColor }}>{skillLabel}</span>
-          </h3>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Đóng"
-            className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-colors font-bold cursor-pointer border-none bg-transparent"
-          >
-            ✕
-          </button>
-        </div>
-        
+      {/* Header cố định — không bao giờ bị cuộn */}
+      <div className="flex items-center justify-between px-6 py-4.5 border-b border-zinc-100 bg-white shrink-0">
+        <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--ink)', margin: 0 }}>
+          Lịch sử làm bài <span style={{ color: skillColor }}>{skillLabel}</span>
+        </h3>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Đóng"
+          className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-colors font-bold cursor-pointer border-none bg-transparent"
+        >
+          ✕
+        </button>
+      </div>
+
+      {/* Body danh sách có vùng cuộn riêng biệt */}
+      <div className="p-6 overflow-y-auto max-h-[65vh]">
         {attempts.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-zinc-500 text-sm">Bạn chưa có lượt làm bài nào cho đề này.</p>

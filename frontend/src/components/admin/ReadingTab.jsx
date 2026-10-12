@@ -16,7 +16,7 @@ import ExamList from './ExamList'
 import ExamAuditHistory from './ExamAuditHistory'
 import AdminGroupPreview from '../practice/AdminGroupPreview'
 import ReadingGroupEditor from './editors/ReadingGroupEditor'
-import { Eye, ChevronDown } from 'lucide-react'
+import { Eye, ChevronDown, Volume2, History } from 'lucide-react'
 
 // ─── TAB: READING ─────────────────────────────────────────────────────────────
 
@@ -121,138 +121,197 @@ function ReadingFormPreview({ form, showAnswers }) {
   )
 }
 
-function SpeakingRecordMockup() {
-  return (
-    <div className="flex flex-col items-center gap-4 bg-white rounded-2xl border border-[#bfdbfe] p-5 h-full min-h-[260px] justify-center">
-      {/* Waveform placeholder */}
-      <div className="flex items-end gap-0.5 h-10 mb-1">
-        {[3,6,4,8,5,9,4,7,3,6,5,8,4,6,3].map((h, i) => (
-          <div key={i} style={{ height: `${h * 4}px`, width: 3, borderRadius: 2, background: '#d4d4d8' }} />
-        ))}
-      </div>
-      {/* Record button */}
-      <button type="button" disabled
-        className="w-14 h-14 rounded-full bg-zinc-900 flex items-center justify-center shadow-lg opacity-60 cursor-default">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <rect x="9" y="2" width="6" height="12" rx="3" fill="white"/>
-          <path d="M5 11a7 7 0 0 0 14 0" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-          <line x1="12" y1="18" x2="12" y2="22" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-          <line x1="9" y1="22" x2="15" y2="22" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-        </svg>
-      </button>
-      <p className="text-xs text-zinc-400 font-medium">Sẵn sàng ghi âm</p>
-      {/* Play back */}
-      <div className="flex items-center gap-2 w-full mt-1">
-        <button type="button" disabled
-          className="w-8 h-8 rounded-full border border-zinc-200 flex items-center justify-center opacity-40 cursor-default">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="#18181b"><polygon points="4,2 14,8 4,14"/></svg>
-        </button>
-        <div className="flex-1 h-1.5 rounded-full bg-zinc-100" />
-        <span className="text-xs text-zinc-400 font-mono">0:00</span>
-      </div>
-      <p className="text-[10px] text-zinc-400 italic text-center mt-1">Giao diện ghi âm — chỉ xem trước, không hoạt động trong preview</p>
-    </div>
-  )
-}
-
 function SpeakingFormPreview({ form }) {
   const [activePart, setActivePart] = useState(1)
+  const [activeQIdx, setActiveQIdx] = useState(0)
+
+  const handlePartChange = (p) => {
+    setActivePart(p)
+    setActiveQIdx(0)
+  }
+
+  const p1Questions = (form.part1?.questions || []).filter(q => typeof q === 'string' && q.trim())
+  const p3Questions = (form.part3?.questions || []).filter(q => typeof q === 'string' && q.trim()).length > 0
+    ? (form.part3?.questions || []).filter(q => typeof q === 'string' && q.trim())
+    : (form.part3?.topics || []).flatMap(t => t.questions || []).filter(q => typeof q === 'string' && q.trim())
+
   const PART_META = {
-    1: { title: 'Part 1 — Introduction & Interview' },
+    1: { title: 'Part 1 — Introduction & Interview', questions: p1Questions, description: form.part1?.description },
     2: { title: 'Part 2 — Individual Long Turn' },
-    3: { title: 'Part 3 — Two-way Discussion' },
+    3: { title: 'Part 3 — Two-way Discussion', questions: p3Questions, description: form.part3?.description },
   }
 
-  const renderContent = () => {
-    if (activePart === 1) return (
-      <div className="flex gap-4">
-        <div className="flex-1 min-w-0">
-          {form.part1.description && <p className="text-sm text-zinc-600 italic mb-3 border-l-2 border-zinc-300 pl-3">{form.part1.description}</p>}
-          <div className="space-y-2">
-            {form.part1.questions.filter(q => q.trim()).map((q, i) => (
-              <div key={i} className="flex gap-2.5">
-                <span className="w-6 h-6 shrink-0 rounded-full bg-zinc-100 text-zinc-900 font-bold text-xs flex items-center justify-center border border-zinc-200">{i + 1}</span>
-                <p className="text-sm text-zinc-700">{q}</p>
-              </div>
-            ))}
-            {form.part1.questions.filter(q => q.trim()).length === 0 && <p className="text-sm text-zinc-400 italic">Chưa có câu hỏi</p>}
-          </div>
-        </div>
-        <div className="w-52 shrink-0"><SpeakingRecordMockup /></div>
-      </div>
-    )
-
-    if (activePart === 2) return (
-      <div className="flex gap-4">
-        <div className="flex-1 min-w-0">
-          {form.part2.instructions && <p className="text-sm text-zinc-500 italic mb-3">{form.part2.instructions}</p>}
-          {form.part2.cueCard ? (
-            <div className="bg-white border-l-4 border-zinc-900 border border-zinc-200 rounded-r-xl p-4 shadow-xs">
-              <p className="text-xs font-bold text-zinc-900 uppercase tracking-wide mb-2">Cue Card</p>
-              <p className="text-sm text-zinc-800 leading-7 whitespace-pre-wrap font-medium">{form.part2.cueCard}</p>
-            </div>
-          ) : (
-            <p className="text-sm text-zinc-400 italic">Chưa có Cue Card</p>
-          )}
-        </div>
-        <div className="w-52 shrink-0"><SpeakingRecordMockup /></div>
-      </div>
-    )
-
-    if (activePart === 3) {
-      const realTopics = form.part3.topics.filter(t => t.label.trim() || t.questions.some(q => q.trim()))
-      return (
-        <div className="flex gap-4">
-          <div className="flex-1 min-w-0">
-            {form.part3.description && <p className="text-sm text-zinc-500 italic mb-3 border-l-2 border-zinc-300 pl-3">{form.part3.description}</p>}
-            {realTopics.length === 0 ? (
-              <p className="text-sm text-zinc-400 italic">Chưa có chủ đề nào</p>
-            ) : (
-              <div className="space-y-3">
-                {realTopics.map((topic, ti) => (
-                  <div key={ti} className="bg-white rounded-xl border border-zinc-200 p-3 shadow-xs">
-                    {topic.label && <p className="text-xs font-bold text-zinc-900 uppercase tracking-wide mb-2 pb-1.5 border-b border-zinc-200">{topic.label}</p>}
-                    <div className="space-y-1.5">
-                      {topic.questions.filter(q => q.trim()).map((q, qi) => (
-                        <div key={qi} className="flex gap-2 text-sm text-zinc-700">
-                          <span className="w-5 h-5 shrink-0 rounded-full bg-zinc-100 text-zinc-900 font-bold text-xs flex items-center justify-center border border-zinc-200 mt-0.5">{qi + 1}</span>
-                          <span>{q}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="w-52 shrink-0"><SpeakingRecordMockup /></div>
-        </div>
-      )
-    }
-  }
+  const currentQuestions = PART_META[activePart]?.questions || []
+  const safeQIdx = Math.min(activeQIdx, Math.max(0, currentQuestions.length - 1))
+  const activeQuestionText = currentQuestions[safeQIdx] || ''
 
   return (
-    <div>
+    <div className="space-y-4">
       {/* Part tabs */}
-      <div className="flex gap-1.5 mb-4">
+      <div className="flex gap-2">
         {[1, 2, 3].map(p => (
-          <button key={p} type="button" onClick={() => setActivePart(p)}
-            style={{
-              background: activePart === p ? '#18181b' : '#fff',
-              color: activePart === p ? '#fff' : '#18181b',
-              borderColor: activePart === p ? '#18181b' : '#e4e4e7',
-            }}
-            className="px-4 py-1.5 rounded-xl border text-sm font-medium transition shadow-2xs">
+          <button
+            key={p}
+            type="button"
+            onClick={() => handlePartChange(p)}
+            className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition cursor-pointer border ${
+              activePart === p
+                ? 'bg-zinc-900 text-white border-zinc-900 shadow-2xs'
+                : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50'
+            }`}
+          >
             Part {p}
           </button>
         ))}
       </div>
-      {/* Active part content */}
-      <div className="border border-zinc-200 rounded-2xl overflow-hidden shadow-xs">
-        <div className="bg-zinc-900 text-white px-4 py-2.5 font-semibold text-sm">{PART_META[activePart].title}</div>
-        <div className="p-4 bg-zinc-50">
-          {renderContent()}
-        </div>
+
+      {/* Main card simulating SpeakingExam UI */}
+      <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-xs">
+        {activePart === 2 ? (
+          <div className="space-y-4">
+            {/* Header info */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-100">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-indigo-500 text-indigo-600 font-bold text-xs bg-indigo-50/50">
+                  <History className="w-3.5 h-3.5" /> 01:00 Chuẩn bị
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-zinc-300 text-zinc-600 font-bold text-xs bg-zinc-50">
+                  02:00 Nói
+                </span>
+              </div>
+              <p className="text-xs text-zinc-500 italic">
+                *Bạn có 1 phút để chuẩn bị và ghi chú cho chủ đề, sau đó có 2 phút để nói.
+              </p>
+            </div>
+
+            {form.part2?.instructions && (
+              <p className="text-xs text-zinc-600 italic bg-zinc-50 p-3 rounded-xl border border-zinc-200">
+                {form.part2.instructions}
+              </p>
+            )}
+
+            {/* Split Cue Card & Notes */}
+            <div className="flex flex-col md:flex-row gap-4 min-h-[260px]">
+              {/* Left: Cue Card */}
+              <div className="flex-1 bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs text-left">
+                <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-zinc-100">
+                  <span className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Cue Card</span>
+                  <span className="text-[11px] font-medium text-zinc-400">Đề bài</span>
+                </div>
+                {form.part2?.cueCard ? (
+                  <div className="text-sm text-zinc-800 leading-relaxed whitespace-pre-wrap font-medium">
+                    {form.part2.cueCard}
+                  </div>
+                ) : (
+                  <p className="text-sm text-zinc-400 italic">Chưa có nội dung Cue Card</p>
+                )}
+              </div>
+
+              {/* Right: Candidate Notes */}
+              <div className="flex-1 bg-white border border-zinc-200 rounded-2xl p-6 shadow-xs flex flex-col">
+                <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-zinc-100">
+                  <span className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Ghi chú của thí sinh</span>
+                  <span className="text-[11px] font-medium text-zinc-400">Nháp</span>
+                </div>
+                <div className="flex-1 rounded-xl bg-zinc-50/70 border border-dashed border-zinc-200 p-4 text-xs text-zinc-400 italic flex items-center justify-center text-center">
+                  Ghi chú ở đây... (Khu vực thí sinh nháp ý tưởng trong thời gian chuẩn bị 1 phút)
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Bar Part 2 */}
+            <div className="w-full rounded-2xl border border-zinc-200 bg-white px-5 py-3.5 flex items-center justify-between shadow-2xs mt-2">
+              <p className="text-xs sm:text-sm text-indigo-600 font-medium flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-indigo-500 animate-ping" />
+                Đang có 1 phút để ghi chú...
+              </p>
+              <button
+                type="button"
+                disabled
+                className="px-6 py-2 rounded-full font-bold text-xs sm:text-sm border-2 border-indigo-500 text-indigo-600 bg-white opacity-90 cursor-default"
+              >
+                Đã chuẩn bị xong
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {/* Top subtitle */}
+            <div className="text-center">
+              <h2 className="text-base sm:text-lg font-black uppercase tracking-widest text-zinc-900 mb-1">
+                {PART_META[activePart].title}
+              </h2>
+              <p className="text-xs text-zinc-500 italic">
+                *Trả lời câu hỏi, sau đó nhấn Ghi nhận câu trả lời để sang câu tiếp theo.
+              </p>
+              {PART_META[activePart].description && (
+                <p className="text-xs text-zinc-600 italic bg-zinc-50 p-2.5 rounded-xl border border-zinc-200 max-w-xl mx-auto mt-2.5">
+                  {PART_META[activePart].description}
+                </p>
+              )}
+            </div>
+
+            {/* Question selector tabs */}
+            {currentQuestions.length > 0 && (
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {currentQuestions.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setActiveQIdx(idx)}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold transition cursor-pointer border ${
+                      safeQIdx === idx
+                        ? 'bg-zinc-900 text-white border-zinc-900 shadow-2xs'
+                        : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50'
+                    }`}
+                  >
+                    Câu {idx + 1}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Hero active question box (SpeakingExam signature styling) */}
+            <div className="flex flex-col items-center justify-center p-8 bg-zinc-50/50 rounded-2xl border border-zinc-200 text-center">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-3">
+                {currentQuestions.length > 0 ? `Câu hỏi ${safeQIdx + 1} / ${currentQuestions.length}` : 'Chưa có câu hỏi'}
+              </div>
+              <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-[#c026d3] flex items-center justify-center gap-3 text-center leading-relaxed max-w-3xl px-4 mb-4">
+                <span className="w-8 h-8 flex items-center justify-center rounded-full border-[2.5px] border-[#c026d3] text-[#c026d3] shrink-0 font-bold bg-white text-sm">?</span>
+                <span>{activeQuestionText || 'Chưa nhập nội dung câu hỏi cho phần này'}</span>
+              </h3>
+              <div className="w-12 h-12 flex items-center justify-center rounded-full bg-blue-50 text-blue-500 shadow-inner border border-blue-100">
+                <Volume2 className="w-6 h-6" />
+              </div>
+            </div>
+
+
+            {/* Bottom Bar: Voice recording mockup */}
+            <div className="w-full rounded-2xl border border-zinc-200 bg-white px-5 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-2xs">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                <span className="text-cyan-600 font-bold text-xs sm:text-sm">Đang ghi âm (Mô phỏng)...</span>
+              </div>
+              <div className="flex items-center gap-6">
+                <div className="flex items-end gap-1.5 h-8 w-24 justify-center">
+                  {[10, 18, 28, 20, 14, 26, 16].map((h, i) => (
+                    <div key={i} className="w-1.5 bg-cyan-400 rounded-full" style={{ height: `${h}px` }} />
+                  ))}
+                </div>
+                <div className="w-11 h-11 rounded-full flex items-center justify-center shadow-2xs relative bg-white border-2 border-indigo-500">
+                  <span className="text-xs font-bold text-indigo-900 font-mono">00:00</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled
+                className="px-6 py-2.5 rounded-full font-bold text-xs sm:text-sm bg-indigo-700 text-white opacity-90 cursor-default"
+              >
+                Ghi nhận câu trả lời
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -512,7 +571,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       if (editingId) {
         await api.put(`/admin/exams/${editingId}`, payload)
         localStorage.removeItem(`draft_reading_${editingId}`)
-        showToast('✅ Cập nhật đề thành công!')
+        showToast('Cập nhật đề thành công!')
         queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
         queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
         // Log audit vừa ghi ở backend — invalidate để khối "Lịch sử thay đổi" hiện ngay, không đợi hết staleTime.
@@ -521,7 +580,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       } else {
         await api.post('/admin/exams/reading', payload)
         localStorage.removeItem('draft_reading_new')
-        showToast('✅ Tạo đề thành công!')
+        showToast('Tạo đề thành công!')
         setForm(emptyReadingForm())
         setOpenPassage(0)
         queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
@@ -754,19 +813,23 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
           })}
         </div>
 
-        <button type="submit" disabled={submitting || loadingEdit} className={btnPrimary + ' w-full'}>
+        <button
+          type="submit"
+          disabled={submitting || loadingEdit}
+          className="w-full h-10 rounded-xl bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-800 transition shadow-xs flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           {submitting ? 'Đang lưu...' : editingId ? 'Cập nhật đề Reading' : 'Tạo đề Reading'}
         </button>
         <button
           type="button"
           onClick={() => setShowPreview(v => !v)}
-          className={`w-full py-2 px-3 rounded-lg border text-xs font-medium transition flex items-center justify-center gap-1.5 ${
+          className={`w-full h-10 rounded-xl border text-sm font-semibold transition flex items-center justify-center gap-2 cursor-pointer shadow-2xs ${
             showPreview
               ? 'border-zinc-400 bg-zinc-100 text-zinc-900'
-              : 'border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50 text-zinc-600 hover:text-zinc-900'
+              : 'border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50 text-zinc-700 hover:text-zinc-900'
           }`}
         >
-          <Eye className="w-3.5 h-3.5" />
+          <Eye className="w-4 h-4" />
           <span>{showPreview ? 'Thu gọn preview' : 'Xem trước nội dung đề'}</span>
         </button>
       </form>

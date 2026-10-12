@@ -10,7 +10,8 @@ import { UserCardGridSkeleton } from '../components/skeletons'
 import { CONTENT_CARD_CONFIG } from '../components/common/contentCardConfig'
 import { getTypesBySkill } from '../utils/questionTypes'
 import { API_BASE, resolveImg } from '../utils/media'
-import { History } from 'lucide-react'
+import { History, ArrowRight, Feather, Headphones } from 'lucide-react'
+import { handleImgError } from '../utils/media'
 import { useAuth } from '../context/AuthContext'
 import { getPracticeAttempts } from '../services/practiceService'
 import ExamAttemptListModal from '../components/exam/ExamAttemptListModal'
@@ -73,47 +74,96 @@ export default function PracticeList({ skill: skillKey }) {
 
   const otherExams = exams.filter(e => !availableTypes.some(t => t.key === e.type))
 
-  const renderCard = (item, idx) => {
+    const renderCard = (item, idx) => {
     const attempts = attemptsByExam[item.id] || []
     const latest = attempts[0]
+    const hasImage = Boolean(item.thumbnailUrl)
+
     return (
-    <div key={item.id} className={`anim-fade-up delay-${Math.min(idx + 1, 8)} flex flex-col gap-2`}>
-      <ContentCard
-        className="h-full"
-        image={resolveImg(item.thumbnailUrl)}
-        imageAlt={item.title}
-        academicCover={
-          <AcademicCover
-            title={item.title}
-            subtitle={`${item.questionCount || 0} câu hỏi`}
-            skill={skill}
-          />
-        }
-        thumbAspect="160px"
-        title={item.title}
-        titleClamp={2}
-        meta={item.questionCount > 0 ? { type: 'count', text: `${item.questionCount} câu hỏi` } : undefined}
-        action={{ label: 'Làm bài' }}
-        hoverStyle="subtle"
+      <div
+        key={item.id}
         onClick={() => navigate(`/practice/${skill}/${item.id}`)}
-      />
-      {latest && (
-        <div className="flex items-center justify-between gap-2 px-1 text-xs text-zinc-500">
-          <span>
-            Đã làm {attempts.length} lần · Gần nhất <strong className="font-mono text-emerald-600">{latest.correct}/{latest.total}</strong>
-          </span>
-          <button
-            type="button"
-            onClick={() => setHistoryFor(item)}
-            style={{ fontSize: 12 }}
-            className="tap-pad inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-white px-3 h-7 font-medium text-zinc-700 hover:bg-zinc-100 cursor-pointer"
-          >
-            <History className="w-3.5 h-3.5" />
-            Lịch sử
-          </button>
+        className={`anim-fade-up delay-${Math.min(idx + 1, 8)} group rounded-2xl border border-zinc-200 bg-white overflow-hidden shadow-xs hover:shadow-md hover:border-zinc-300 transition-all duration-200 flex flex-col justify-between h-full cursor-pointer`}
+      >
+        {/* Top Thumbnail / Illustration */}
+        <div className="w-full aspect-[16/10] overflow-hidden relative flex items-center justify-center bg-zinc-100">
+          {hasImage ? (
+            <img
+              src={resolveImg(item.thumbnailUrl)}
+              alt={item.title}
+              onError={handleImgError}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              loading="lazy"
+              decoding="async"
+            />
+          ) : skill === 'reading' ? (
+            <div className="w-full h-full bg-[#84b74e] flex items-center justify-center">
+              <Feather className="w-12 h-12 text-[#3b5e19]" strokeWidth={2} />
+            </div>
+          ) : (
+            <div className="w-full h-full bg-[#7c69c9] flex items-center justify-center">
+              <Headphones className="w-12 h-12 text-[#2f2066]" strokeWidth={2} />
+            </div>
+          )}
         </div>
-      )}
-    </div>
+
+        {/* Content Body */}
+        <div className="p-5 flex-1 flex flex-col justify-between">
+          <div>
+            <h3 className="font-bold text-base text-zinc-900 line-clamp-2 leading-snug group-hover:text-zinc-950 transition-colors">
+              {item.title}
+            </h3>
+
+            {/* Question count & Status badge */}
+            <div className="flex items-center justify-between gap-2 mt-2">
+              <span className="text-xs text-zinc-500 font-medium">
+                {item.questionCount || 0} câu hỏi
+              </span>
+
+              {latest ? (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200/60 font-mono">
+                  Gần nhất {latest.correct}/{latest.total}
+                </span>
+              ) : (
+                <span className="text-xs text-zinc-400 font-medium">
+                  Chưa làm
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Action buttons at bottom-right */}
+          <div className="flex items-center justify-end gap-2 mt-4 pt-1">
+            {latest && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setHistoryFor(item)
+                }}
+                title="Lịch sử làm bài"
+                aria-label="Lịch sử làm bài"
+                className="w-9 h-9 rounded-full border border-zinc-200 bg-white hover:bg-zinc-100 hover:border-zinc-300 text-zinc-700 flex items-center justify-center transition shadow-2xs cursor-pointer hover:scale-105"
+              >
+                <History className="w-4 h-4" />
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                navigate(`/practice/${skill}/${item.id}`)
+              }}
+              title="Làm bài"
+              aria-label="Làm bài"
+              className="w-9 h-9 rounded-full border border-zinc-200 bg-white hover:bg-zinc-100 hover:border-zinc-300 text-zinc-700 flex items-center justify-center transition shadow-2xs cursor-pointer hover:scale-105"
+            >
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
     )
   }
 
@@ -122,7 +172,7 @@ export default function PracticeList({ skill: skillKey }) {
 
       {/* Breadcrumb */}
       <div className="app-container pt-4 pb-0">
-        <Breadcrumb items={[{ label: 'Trang chủ', to: '/' }, { label: 'Practice' }, { label: meta?.label || 'Reading' }]} />
+        <Breadcrumb items={[{ label: 'Trang chủ', to: '/' }, { label: meta?.label || 'Reading Practice' }]} />
         <PageHeader title={meta?.label || 'Reading Practice'} titleClassName="text-2xl font-bold mt-3 text-zinc-900" />
       </div>
 
@@ -150,32 +200,32 @@ export default function PracticeList({ skill: skillKey }) {
           </Card>
         ) : (
           <>
-            {groupedExams.map((group) => (
-              <section key={group.key}>
-                <div className="flex items-center gap-3 mb-6">
-                  <h2 className="text-lg font-semibold text-zinc-900 m-0">{group.label}</h2>
-                  <span className="font-mono font-semibold bg-white text-zinc-600 border border-zinc-200 px-2.5 py-0.5 rounded-full shadow-xs text-xs">
-                    {group.items.length} bài
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
-                  {group.items.map((item, idx) => renderCard(item, idx))}
-                </div>
-              </section>
-            ))}
+            {groupedExams.length > 0 ? (
+              <>
+                {groupedExams.map((group) => (
+                  <section key={group.key}>
+                    <div className="flex items-center gap-3 mb-6">
+                      <h2 className="text-lg font-semibold text-zinc-900 m-0">{group.label}</h2>
+                      <span className="font-mono font-semibold bg-white text-zinc-600 border border-zinc-200 px-2.5 py-0.5 rounded-full shadow-xs text-xs">
+                        {group.items.length} bài
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
+                      {group.items.map((item, idx) => renderCard(item, idx))}
+                    </div>
+                  </section>
+                ))}
 
-            {otherExams.length > 0 && (
-              <section>
-                <div className="flex items-center gap-3 mb-6">
-                  <h2 className="text-lg font-semibold text-zinc-900 m-0">Dạng bài khác</h2>
-                  <span className="font-mono font-semibold bg-white text-zinc-600 border border-zinc-200 px-2.5 py-0.5 rounded-full shadow-xs text-xs">
-                    {otherExams.length} bài
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
-                  {otherExams.map((item, idx) => renderCard(item, idx))}
-                </div>
-              </section>
+                {otherExams.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
+                    {otherExams.map((item, idx) => renderCard(item, idx))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
+                {exams.map((item, idx) => renderCard(item, idx))}
+              </div>
             )}
           </>
         )}

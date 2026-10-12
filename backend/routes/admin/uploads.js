@@ -17,6 +17,10 @@ const {
 // ─── UPLOAD AUDIO ────────────────────────────────────────────────────────────
 router.post('/upload-audio', authMiddleware, teacherOnly, upload.single('audio'), async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
+  if (req.file.size < 4096) {
+    try { if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path) } catch {}
+    return res.status(400).json({ message: 'File audio quá nhỏ hoặc bị hỏng (dung lượng dưới 4KB). Vui lòng chọn file audio hợp lệ.' })
+  }
   try {
     const { url: audioUrl, filename } = await uploadAudio(req.file, { subdir: 'audio', folder: 'audio' })
     res.json({ audioUrl, filename })
@@ -36,7 +40,7 @@ router.post('/upload-image', authMiddleware, teacherOnly, imageUpload.single('im
   }
 })
 
-// ─── TRANSCRIBE AUDIO (Groq Whisper) ────────────────────────────────────────
+// ─── TRANSCRIBE AUDIO (Deepgram) ───────────────────────────────────────────
 router.post('/transcribe', authMiddleware, teacherOnly, validate(transcribeUploadSchema), async (req, res) => {
   let audioResolution = null
   try {
@@ -44,6 +48,15 @@ router.post('/transcribe', authMiddleware, teacherOnly, validate(transcribeUploa
 
     audioResolution = await resolveAudioForTranscription(audioUrl)
     const { filePath } = audioResolution
+
+    if (fs.existsSync(filePath)) {
+      const stat = fs.statSync(filePath)
+      if (stat.size < 4096) {
+        return res.status(400).json({
+          message: 'File audio quá nhỏ (dưới 4KB) hoặc bị hỏng, không chứa dữ liệu âm thanh hợp lệ.'
+        })
+      }
+    }
 
     if (process.env.NODE_ENV !== 'production') console.log('[Transcribe] Bắt đầu phiên âm Deepgram:', path.basename(filePath))
     
@@ -54,7 +67,11 @@ router.post('/transcribe', authMiddleware, teacherOnly, validate(transcribeUploa
     res.json({ transcript: utterances })
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') console.error('[Transcribe] Lỗi:', error.message)
-    res.status(500).json({ message: 'Lỗi phiên âm: ' + error.message })
+    let userMsg = error.message
+    if (userMsg.includes('failed to process audio') || userMsg.includes('corrupt or unsupported data')) {
+      userMsg = 'File audio bị hỏng hoặc không đúng định dạng âm thanh chuẩn. Vui lòng kiểm tra lại file audio.'
+    }
+    res.status(500).json({ message: 'Lỗi phiên âm: ' + userMsg })
   } finally {
     if (audioResolution?.cleanup) audioResolution.cleanup()
   }

@@ -145,7 +145,13 @@ async function resolveAudioForTranscription(audioUrl) {
   if (audioUrl.startsWith('http://') || audioUrl.startsWith('https://')) {
     const tmpDir = path.join(uploadsDir, 'tmp')
     if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true })
-    const tempFilePath = path.join(tmpDir, `transcribe-${Date.now()}-${Math.round(Math.random() * 1e9)}.mp3`)
+    let ext = '.mp3'
+    try {
+      ext = path.extname(new URL(audioUrl).pathname) || '.mp3'
+    } catch {
+      // fallback
+    }
+    const tempFilePath = path.join(tmpDir, `transcribe-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`)
 
     const response = await fetch(audioUrl)
     if (!response.ok) {

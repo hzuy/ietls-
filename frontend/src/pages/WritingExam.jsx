@@ -10,7 +10,6 @@ import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
 import { Clock, Sparkles, CheckCircle2, RotateCcw, AlertCircle, ChevronRight, X, History, ChevronDown, ChevronUp, FileQuestion } from 'lucide-react'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
-import PastAttemptBanner from '../components/exam/PastAttemptBanner'
 import InlineCorrections from '../components/exam/InlineCorrections'
 import { isTaskComplete, countUnsubmitted } from '../utils/writingTasks'
 import { toImgSrc, handleImgError } from '../utils/media'
@@ -812,7 +811,6 @@ export default function WritingExam() {
 
         {/* Content */}
         <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 pb-16">
-          {viewAttemptId && <PastAttemptBanner finishedAt={viewFinishedAt} />}
           <div className="flex flex-col gap-8">
             
             {/* ── Score Card Hero Section ── */}
