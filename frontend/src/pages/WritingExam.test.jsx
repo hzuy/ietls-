@@ -107,13 +107,13 @@ describe('WritingExam - KIỂM THỬ BẮT BUỘC: Ca 9 đến Ca 12', () => {
     expect(screen.queryByText('Nhược điểm')).toBeNull()
     expect(screen.queryByText('Cách cải thiện')).toBeNull()
 
-    // Ẩn tab Bài mẫu nâng band vì không có model_essay
+    // Ẩn tab Bài mẫu nâng band vì không có model_essay, không có tab Bản gốc hay Đã sửa
     expect(screen.queryByText(/Bài mẫu band/)).toBeNull()
-    expect(screen.getByText('Đã sửa')).toBeInTheDocument()
-    expect(screen.getByText('Bản gốc')).toBeInTheDocument()
+    expect(screen.queryByText('Đã sửa')).toBeNull()
+    expect(screen.queryByText('Bản gốc')).toBeNull()
   })
 
-  it('Ca 10: trang kết quả có ba tab "Đã sửa", "Bản gốc", "Bài mẫu band X", hai cột vẫn cao bằng nhau, cột trái vẫn cuộn riêng', async () => {
+  it('Ca 10: trang kết quả sửa thẳng lỗi vào bản gốc, có chuyển đổi "Bài làm" và "Bài mẫu band X", hai cột cao bằng nhau, cột trái cuộn riêng', async () => {
     examService.getWritingExam.mockResolvedValue({
       id: 'exam-1',
       title: 'IELTS Academic Writing Test 1',
@@ -193,9 +193,10 @@ describe('WritingExam - KIỂM THỬ BẮT BUỘC: Ca 9 đến Ca 12', () => {
       expect(screen.getByText('Task 1 band score')).toBeInTheDocument()
     })
 
-    // 1. Kiểm tra đủ 3 tabs: "Đã sửa", "Bản gốc", "Bài mẫu band 7.5"
-    expect(screen.getByText('Đã sửa')).toBeInTheDocument()
-    expect(screen.getByText('Bản gốc')).toBeInTheDocument()
+    // 1. Kiểm tra: không có tab "Đã sửa" hay "Bản gốc", chỉ có "Bài làm" và "Bài mẫu band 7.5"
+    expect(screen.queryByText('Đã sửa')).toBeNull()
+    expect(screen.queryByText('Bản gốc')).toBeNull()
+    expect(screen.getByText('Bài làm')).toBeInTheDocument()
     expect(screen.getByText('Bài mẫu band 7.5')).toBeInTheDocument()
 
     // 2. Chuyển sang tab "Bài mẫu band 7.5" và kiểm tra nội dung + key_changes
