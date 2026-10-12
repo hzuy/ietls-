@@ -211,20 +211,32 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
            nên chỉ có thể đồng bộ chiều rộng qua prop width, không qua CSS. */}
       <div className="flex justify-center w-full">
         <div
-          className="w-fit flex justify-center rounded-full overflow-hidden [&_iframe]:rounded-full [&_iframe]:border-0 [&_iframe]:outline-none [&_*]:outline-none"
-          style={{ borderRadius: 9999, overflow: 'hidden' }}
+          className="relative flex justify-center items-center rounded-full overflow-hidden"
+          style={{
+            borderRadius: 9999,
+            overflow: 'hidden',
+            height: 40,
+            maxWidth: googleBtnWidth,
+            width: '100%',
+          }}
         >
-          <GoogleLogin
-            containerProps={{
-              className: 'rounded-full overflow-hidden',
-              style: { borderRadius: 9999, overflow: 'hidden' },
+          <div
+            className="flex justify-center items-center [&_iframe]:border-0 [&_iframe]:outline-none [&_*]:outline-none"
+            style={{
+              width: '100%',
+              height: '100%',
+              transform: 'scale(1.025)',
+              transformOrigin: 'center center',
             }}
-            onSuccess={handleGoogleSuccess}
-            onError={() => setGoogleError('Đăng nhập Google thất bại')}
-            text={tab === 'register' ? 'signup_with' : 'signin_with'}
-            shape="pill"
-            width={String(googleBtnWidth)}
-          />
+          >
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => setGoogleError('Đăng nhập Google thất bại')}
+              text={tab === 'register' ? 'signup_with' : 'signin_with'}
+              shape="pill"
+              width={String(googleBtnWidth)}
+            />
+          </div>
         </div>
       </div>
     </>
