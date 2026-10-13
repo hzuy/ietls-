@@ -93,4 +93,58 @@ describe('POST /api/auth/google — soft-delete guard', () => {
     expect(res.body.token).toBeTruthy()
     expect(res.body.user.email).toBe('active@example.com')
   })
+
+  it('đăng nhập thành công với accessToken hợp lệ từ Google UserInfo API', async () => {
+    const originalFetch = global.fetch
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        sub: 'google-sub-access',
+        email: 'access@example.com',
+        name: 'Access User',
+      }),
+    })
+
+    try {
+      prismaMock.user.findUnique.mockResolvedValueOnce({
+        id: 4, name: 'Access User', email: 'access@example.com', role: 'user', isLocked: false, deletedAt: null, requirePasswordChange: false
+      })
+
+      const res = await request(app)
+        .post('/api/auth/google')
+        .send({ accessToken: 'valid-access-token' })
+        .expect(200)
+
+      expect(res.body.token).toBeTruthy()
+      expect(res.body.user.email).toBe('access@example.com')
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://www.googleapis.com/oauth2/v3/userinfo',
+        expect.objectContaining({
+          headers: { Authorization: 'Bearer valid-access-token' },
+        })
+      )
+    } finally {
+      global.fetch = originalFetch
+    }
+  })
+
+  it('từ chối 401 khi accessToken không hợp lệ hoặc Google UserInfo trả lỗi', async () => {
+    const originalFetch = global.fetch
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+    })
+
+    try {
+      const res = await request(app)
+        .post('/api/auth/google')
+        .send({ accessToken: 'invalid-access-token' })
+        .expect(401)
+
+      expect(res.body.message).toContain('thất bại')
+    } finally {
+      global.fetch = originalFetch
+    }
+  })
 })
+

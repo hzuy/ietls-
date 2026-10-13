@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { GoogleLogin } from '@react-oauth/google'
+import { useGoogleLogin } from '@react-oauth/google'
 import { login, register, googleAuth, verifyEmail, resendVerification } from '../services/userService'
 import { showAlert } from '../utils/alertUtils'
 import { AlertCircle, MailCheck, ArrowLeft } from 'lucide-react'
@@ -22,6 +22,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
 
   // Google Sign-In state (dùng chung cho cả 2 tab)
   const [googleError, setGoogleError] = useState('')
+  const [googleLoading, setGoogleLoading] = useState(false)
 
   const [verifyFor, setVerifyFor]         = useState(null)
   const [verifyCode, setVerifyCode]       = useState('')
@@ -97,31 +98,13 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
     }
   }
 
-  // Đo width của modal content để truyền vào GoogleLogin.width (responsive)
-  // Khởi tạo sát kích thước thực tế (400px trên desktop) để tránh re-render giật/nhảy cỡ chữ nút Google
-  const modalBodyRef = useRef(null)
-  const [googleBtnWidth, setGoogleBtnWidth] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return Math.min(400, Math.max(200, window.innerWidth - 96))
-    }
-    return 400
-  })
-  useEffect(() => {
-    const el = modalBodyRef.current
-    if (!el) return
-    const observer = new ResizeObserver(([entry]) => {
-      const w = Math.min(400, Math.max(200, Math.floor(entry.contentRect.width)))
-      setGoogleBtnWidth(prev => (prev !== w ? w : prev))
-    })
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
-
-  // Xử lý y hệt handleLogin/handleRegister: lưu token/user, theo dõi requirePasswordChange, gọi onSuccess
-  const handleGoogleSuccess = async (credentialResponse) => {
+  // Xử lý đăng nhập / đăng ký qua Google OAuth2 popup:
+  // Nhận access_token từ Google popup -> gửi backend xác thực qua Google UserInfo API.
+  const handleGoogleSuccess = async (tokenResponse) => {
     setGoogleError('')
+    setGoogleLoading(true)
     try {
-      const data = await googleAuth(credentialResponse.credential)
+      const data = await googleAuth({ accessToken: tokenResponse.access_token })
       localStorage.setItem('token', data.token)
       localStorage.setItem('user', JSON.stringify(data.user))
       if (data.requirePasswordChange) {
@@ -136,8 +119,18 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
       const msg = err.response?.data?.message || 'Đăng nhập Google thất bại'
       setGoogleError(msg)
       showAlert(msg, 'error')
+    } finally {
+      setGoogleLoading(false)
     }
   }
+
+  const triggerGoogleLogin = useGoogleLogin({
+    onSuccess: handleGoogleSuccess,
+    onError: () => {
+      setGoogleError('Đăng nhập Google thất bại')
+      showAlert('Đăng nhập Google thất bại', 'error')
+    },
+  })
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -212,36 +205,45 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
         <span className="text-xs font-medium" style={{ color: 'var(--subtle)' }}>hoặc</span>
         <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
       </div>
-      {/* GoogleLogin tự render nút dạng pill hoàn chỉnh với viền tròn và hiệu ứng riêng.
-           Tách riêng 2 nút đăng nhập/đăng ký với text cố định, ẩn hiện qua display để
-           tránh re-render hủy iframe khi chuyển tab gây giật / nhảy chữ. */}
-      <div className="flex justify-center w-full">
-        <div
-          className="w-full flex justify-center items-center [&_iframe]:border-0 [&_iframe]:outline-none [&_*]:outline-none"
+      {/* Nút Google Native — chuẩn branding Google với SVG logo 4 màu và font chữ Inter của hệ sinh thái.
+          Render 0ms, không dùng iframe cross-origin nên tuyệt đối KHÔNG có hiện tượng FOUT (nhảy/đổi cỡ chữ sau 1s)
+          hay chênh lệch giao diện giữa các trình duyệt. */}
+      <div className="w-full">
+        <button
+          type="button"
+          onClick={() => triggerGoogleLogin()}
+          disabled={googleLoading || loginLoading || regLoading}
+          aria-label={tab === 'login' ? 'Đăng nhập bằng Google' : 'Đăng ký bằng Google'}
+          className="w-full flex items-center justify-center gap-3 h-10 px-4 rounded-full border transition-all text-sm font-medium hover:bg-zinc-50 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
           style={{
-            maxWidth: googleBtnWidth,
-            minHeight: 40,
+            borderColor: 'var(--border)',
+            background: 'var(--surface)',
+            color: 'var(--ink)',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
           }}
         >
-          <div className={tab === 'login' ? 'w-full flex justify-center' : 'hidden'} aria-hidden={tab !== 'login'}>
-            <GoogleLogin
-              onSuccess={handleGoogleSuccess}
-              onError={() => setGoogleError('Đăng nhập Google thất bại')}
-              text="signin_with"
-              shape="pill"
-              width={String(googleBtnWidth)}
+          <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              fill="#4285F4"
+              d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.66v3.04h3.88c2.27-2.09 3.66-5.17 3.66-9.14z"
             />
-          </div>
-          <div className={tab === 'register' ? 'w-full flex justify-center' : 'hidden'} aria-hidden={tab !== 'register'}>
-            <GoogleLogin
-              onSuccess={handleGoogleSuccess}
-              onError={() => setGoogleError('Đăng nhập Google thất bại')}
-              text="signup_with"
-              shape="pill"
-              width={String(googleBtnWidth)}
+            <path
+              fill="#34A853"
+              d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.04c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.13C3.26 21.36 7.36 24 12 24z"
             />
-          </div>
-        </div>
+            <path
+              fill="#FBBC05"
+              d="M5.28 14.28c-.25-.72-.38-1.49-.38-2.28s.13-1.56.38-2.28V6.59H1.26C.46 8.19 0 9.99 0 12s.46 3.81 1.26 5.41l4.02-3.13z"
+            />
+            <path
+              fill="#EA4335"
+              d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.36 0 3.26 2.64 1.26 6.59l4.02 3.13c.95-2.83 3.6-4.97 6.72-4.97z"
+            />
+          </svg>
+          <span className="font-medium text-sm tracking-normal">
+            {googleLoading ? 'Đang kết nối Google...' : tab === 'login' ? 'Đăng nhập với Google' : 'Đăng ký với Google'}
+          </span>
+        </button>
       </div>
     </>
   )
@@ -253,7 +255,6 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
     >
       <div
         onClick={e => e.stopPropagation()}
-        ref={modalBodyRef}
         className="w-full max-w-md rounded-2xl p-6 relative"
         style={{ backgroundColor: 'var(--surface)', boxShadow: 'var(--shadow-lg)', border: '1px solid var(--border)' }}
       >

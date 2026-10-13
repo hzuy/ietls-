@@ -2,7 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
-vi.mock('@react-oauth/google', () => ({ GoogleLogin: () => null }))
+vi.mock('@react-oauth/google', () => ({
+  GoogleLogin: () => null,
+  useGoogleLogin: (opts) => () => opts?.onSuccess?.({ access_token: 'fake-google-token' }),
+}))
 vi.mock('../utils/alertUtils', () => ({ showAlert: vi.fn() }))
 vi.mock('../services/userService', () => ({
   login: vi.fn(),
@@ -106,4 +109,25 @@ describe('AuthModal email verification', () => {
     expect(await screen.findByText('Xác thực email')).toBeInTheDocument()
     expect(screen.getByText('Email chưa được xác thực')).toBeInTheDocument()
   })
+
+  it('renders native Google button and handles google login', async () => {
+    const { googleAuth } = await import('../services/userService')
+    googleAuth.mockResolvedValueOnce({
+      token: 'jwt-google-token',
+      user: { id: 10, email: 'google@example.com' },
+      requirePasswordChange: false,
+    })
+
+    const { onSuccess } = setup('login')
+    const googleBtn = screen.getByRole('button', { name: 'Đăng nhập bằng Google' })
+    expect(googleBtn).toBeInTheDocument()
+
+    fireEvent.click(googleBtn)
+    await waitFor(() => {
+      expect(googleAuth).toHaveBeenCalledWith({ accessToken: 'fake-google-token' })
+      expect(onSuccess).toHaveBeenCalledWith({ id: 10, email: 'google@example.com' })
+      expect(localStorage.getItem('token')).toBe('jwt-google-token')
+    })
+  })
 })
+

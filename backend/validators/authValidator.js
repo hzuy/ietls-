@@ -13,9 +13,12 @@ const loginSchema = z.object({
   password: z.string({ message: 'Mật khẩu là bắt buộc' }).min(1, { message: 'Mật khẩu không được để trống' }),
 })
 
-// 3. Đăng nhập / đăng ký bằng Google (Google Identity Services)
+// 3. Đăng nhập / đăng ký bằng Google (Google Identity Services ID Token hoặc OAuth2 Access Token)
 const googleAuthSchema = z.object({
-  credential: z.string({ message: 'Thiếu credential từ Google' }).min(1, { message: 'Credential không hợp lệ' }),
+  credential: z.string().min(1, { message: 'Credential không hợp lệ' }).optional(),
+  accessToken: z.string().min(1, { message: 'AccessToken không hợp lệ' }).optional(),
+}).refine(data => Boolean(data.credential || data.accessToken), {
+  message: 'Cần credential hoặc accessToken từ Google',
 })
 
 const verifyEmailSchema = z.object({

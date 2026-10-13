@@ -89,20 +89,36 @@ router.post('/register', authLimiter, validate(registerSchema), async (req, res)
   }
 })
 
-// Đăng nhập / đăng ký bằng Google Identity Services (ID token do frontend lấy được)
+// Đăng nhập / đăng ký bằng Google (ID token hoặc OAuth2 access token)
 router.post('/google', validate(googleAuthSchema), async (req, res) => {
   try {
-    const { credential } = req.body
+    const { credential, accessToken } = req.body
 
     let payload
-    try {
-      const ticket = await getGoogleClient().verifyIdToken({
-        idToken: credential,
-        audience: process.env.GOOGLE_CLIENT_ID,
-      })
-      payload = ticket.getPayload()
-    } catch {
-      return res.status(401).json({ message: 'Xác thực Google thất bại' })
+    if (credential) {
+      try {
+        const ticket = await getGoogleClient().verifyIdToken({
+          idToken: credential,
+          audience: process.env.GOOGLE_CLIENT_ID,
+        })
+        payload = ticket.getPayload()
+      } catch {
+        return res.status(401).json({ message: 'Xác thực Google thất bại' })
+      }
+    } else if (accessToken) {
+      try {
+        const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        if (!response.ok) {
+          return res.status(401).json({ message: 'Xác thực Google thất bại' })
+        }
+        payload = await response.json()
+      } catch {
+        return res.status(401).json({ message: 'Xác thực Google thất bại' })
+      }
+    } else {
+      return res.status(400).json({ message: 'Thiếu credential hoặc accessToken từ Google' })
     }
 
     const { sub: googleId, email, name } = payload

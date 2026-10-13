@@ -3,7 +3,10 @@ import api from '../utils/axios'
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 export const login = (email, password) => api.post('/auth/login', { email, password }).then(r => r.data)
 export const register = (form) => api.post('/auth/register', form).then(r => r.data)
-export const googleAuth = (credential) => api.post('/auth/google', { credential }).then(r => r.data)
+export const googleAuth = (payload) => {
+  const body = typeof payload === 'string' ? { credential: payload } : payload
+  return api.post('/auth/google', body).then(r => r.data)
+}
 export const verifyEmail = (email, code) => api.post('/auth/verify-email', { email, code }).then(r => r.data)
 export const resendVerification = (email) => api.post('/auth/resend-verification', { email }).then(r => r.data)
 export const getMe = () => api.get('/auth/me').then(r => r.data)
