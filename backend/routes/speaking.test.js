@@ -464,5 +464,41 @@ describe('Speaking Routes & AI Criterion Logging', () => {
       expect(failedCall[0].data.status).toBe('failed')
       expect(failedCall[0].data.aiScore).toBeUndefined()
     })
+
+    it('generates speaking sample answer successfully via /api/speaking/sample-answer', async () => {
+      mockChatCompletion.mockResolvedValueOnce({
+        choices: [
+          {
+            finish_reason: 'stop',
+            message: {
+              content: JSON.stringify({
+                sampleAnswer: 'Certainly, food from various regions is easily accessible in my hometown.',
+                keyVocabulary: [
+                  { phrase: 'easily accessible', meaning: 'dễ tiếp cận' },
+                  { phrase: 'culinary diversity', meaning: 'sự đa dạng ẩm thực' },
+                ],
+              }),
+            },
+          },
+        ],
+      })
+
+      const res = await request(app)
+        .post('/api/speaking/sample-answer')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+        .send({
+          questionText: 'Can you find food from many different countries where you live?',
+          partNumber: 1,
+        })
+
+      expect(res.status).toBe(200)
+      expect(res.body.sampleAnswer).toContain('food from various regions')
+      expect(res.body.keyVocabulary).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ phrase: 'culinary diversity', meaning: 'sự đa dạng ẩm thực' }),
+        ])
+      )
+    })
   })
 })
+

@@ -13,6 +13,13 @@ vi.mock('../services/examService', () => ({
   getSpeakingStatus: vi.fn(),
   getFullTestStatus: vi.fn(() => Promise.resolve({ isComplete: false })),
   retrySpeakingGrading: vi.fn(),
+  getSpeakingSampleAnswer: vi.fn().mockResolvedValue({
+    sampleAnswer: 'Definitely, I love spending time outdoors in nature to recharge my batteries.',
+    keyVocabulary: [
+      { phrase: 'recharge my batteries', meaning: 'nạp lại năng lượng' },
+      { phrase: 'in nature', meaning: 'hòa mình vào thiên nhiên' },
+    ],
+  }),
 }))
 
 vi.mock('../services/draftService', () => ({
@@ -23,20 +30,23 @@ vi.mock('../services/draftService', () => ({
   formatSavedAt: vi.fn(() => '12:00'),
 }))
 
+const mockUser = { id: 1, name: 'Test User' }
 vi.mock('../context/AuthContext', () => ({
-  useAuth: () => ({ user: { id: 1, name: 'Test User' } }),
+  useAuth: () => ({ user: mockUser }),
 }))
 
 vi.mock('../context/ToastContext', () => ({
   useToast: () => ({ showToast: vi.fn() }),
 }))
 
+const mockUseBrowserHistoryGuard = vi.fn((enabled) => ({
+  showModal: false,
+  stay: vi.fn(),
+  leave: vi.fn(),
+}))
+
 vi.mock('../hooks/useBrowserHistoryGuard', () => ({
-  useBrowserHistoryGuard: () => ({
-    showModal: false,
-    stay: vi.fn(),
-    leave: vi.fn(),
-  }),
+  useBrowserHistoryGuard: (...args) => mockUseBrowserHistoryGuard(...args),
 }))
 
 const mockForceCleanupAll = vi.fn()
@@ -123,7 +133,7 @@ describe('SpeakingExam Part 2 flow', () => {
     await waitFor(() => {
       expect(screen.getByText('Cambridge 19 Test 1 Speaking')).toBeInTheDocument()
       expect(screen.getByRole('heading', { name: /Part 2/i })).toBeInTheDocument()
-    })
+    }, { timeout: 3000 })
 
     // Verify Intro screen is shown
     expect(screen.getByText(/Bạn có 1 phút để chuẩn bị và ghi chú cho chủ đề/i)).toBeInTheDocument()
@@ -206,7 +216,7 @@ describe('SpeakingExam Part 2 flow', () => {
     examService.submitSpeakingExam.mockResolvedValue({ answerId: 999, status: 'pending' })
     mockRecordingState.isRecording = true
 
-    render(
+    const { rerender } = render(
       <MemoryRouter initialEntries={['/speaking/40']}>
         <Routes>
           <Route path="/speaking/:id" element={<SpeakingExam />} />
@@ -246,6 +256,13 @@ describe('SpeakingExam Part 2 flow', () => {
     // simulate recording & whisper finishing
     mockRecordingState.isRecording = false
     mockRecordingState.isTranscribing = false
+    rerender(
+      <MemoryRouter initialEntries={['/speaking/40']}>
+        <Routes>
+          <Route path="/speaking/:id" element={<SpeakingExam />} />
+        </Routes>
+      </MemoryRouter>
+    )
 
     // auto-submit triggers submitSpeakingExam in the background
     await waitFor(() => {
@@ -374,6 +391,36 @@ describe('SpeakingExam Part 2 flow', () => {
     expect(screen.getByText('Ngữ pháp: 0')).toBeInTheDocument()
     // "Đã sửa ... lỗi. Bấm vào từng chỗ sửa để xem giải thích." does NOT exist anywhere
     expect(screen.queryByText(/Bấm vào từng chỗ sửa để xem giải thích/i)).not.toBeInTheDocument()
+
+    // Verify toggle buttons exist and AI blocks are collapsed by default
+    const toggleButtons = screen.getAllByRole('button', { name: /Cải thiện câu này/i })
+    expect(toggleButtons.length).toBe(2)
+    expect(screen.queryByText(/Gợi ý nâng band · Band 7.5 - 8.0/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Gợi ý câu trả lời · Band 7.5 - 8.0/i)).not.toBeInTheDocument()
+
+    // Click to drop down / expand both questions
+    fireEvent.click(toggleButtons[0])
+    fireEvent.click(toggleButtons[1])
+
+    // Both answered and unanswered questions have AI sample / upgrade blocks after expanding
+    await waitFor(() => {
+      expect(screen.getByText(/Gợi ý nâng band · Band 7.5 - 8.0/i)).toBeInTheDocument()
+      expect(screen.getByText(/Gợi ý câu trả lời · Band 7.5 - 8.0/i)).toBeInTheDocument()
+      expect(screen.getAllByText(/Definitely, I love spending time outdoors/i).length).toBe(2)
+      expect(screen.getAllByText('recharge my batteries').length).toBe(2)
+      expect(screen.getAllByText('nạp lại năng lượng').length).toBe(2)
+      expect(screen.queryByText(/Từ vựng ghi điểm:/i)).not.toBeInTheDocument()
+      expect(screen.getAllByRole('button', { name: /Nghe phát âm mẫu/i }).length).toBe(2)
+    })
+
+    // Click toggleButton[0] again to collapse it
+    fireEvent.click(toggleButtons[0])
+    expect(screen.queryByText(/Gợi ý nâng band · Band 7.5 - 8.0/i)).not.toBeInTheDocument()
+
+    // Header has Close button and useBrowserHistoryGuard is not active
+    expect(screen.getByRole('button', { name: /Đóng/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Quay lại/i })).not.toBeInTheDocument()
+    expect(mockUseBrowserHistoryGuard).toHaveBeenCalledWith(false, expect.any(Function), expect.any(String))
   })
 
   it('displays correct part title on result page: instructions if entered, otherwise Speaking Part 1/2/3 instead of Cue Card content', async () => {

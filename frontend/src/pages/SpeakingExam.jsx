@@ -2,13 +2,13 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { BACKEND_URL } from '../utils/media'
 
-import { getSpeakingExam, submitSpeakingExam, getSpeakingStatus, getFullTestStatus, getSpeakingMyResults, retrySpeakingGrading } from '../services/examService'
+import { getSpeakingExam, submitSpeakingExam, getSpeakingStatus, getFullTestStatus, getSpeakingMyResults, retrySpeakingGrading, getSpeakingSampleAnswer } from '../services/examService'
 import { saveDraft, loadDraft, clearDraft, isDataEmpty, formatSavedAt } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
 import { useSpeechRecording } from '../hooks/useSpeechRecording'
-import { Mic, X, Square, Play, Pause, AlertCircle, RotateCcw, Sparkles, Eye, Volume2, History, CheckCircle2, ChevronUp, Share } from 'lucide-react'
+import { Mic, X, Square, Play, Pause, AlertCircle, RotateCcw, Sparkles, Eye, Volume2, History, CheckCircle2, ChevronUp, ChevronDown, Share } from 'lucide-react'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
 import InlineCorrections from '../components/exam/InlineCorrections'
@@ -29,6 +29,260 @@ function HighlightedTranscript({ text, corrections }) {
   if (!text) return <p className="text-zinc-400 italic text-[15px] m-0">Chưa có bản ghi âm bài nói.</p>
   return <InlineCorrections text={text} corrections={corrections} className="text-zinc-800 text-[15px] leading-relaxed font-normal" />
 }
+
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function renderHighlightedSampleAnswer(text, keyVocabulary) {
+  if (!text || typeof text !== 'string') return text || null
+
+  const items = Array.isArray(keyVocabulary)
+    ? keyVocabulary
+        .map(item => {
+          if (!item) return null
+          if (typeof item === 'string') {
+            const trimmed = item.trim()
+            return trimmed ? { phrase: trimmed, meaning: '' } : null
+          }
+          if (typeof item === 'object') {
+            const phrase = String(item.phrase || item.word || '').trim()
+            const meaning = String(item.meaning || item.vi || '').trim()
+            return phrase ? { phrase, meaning } : null
+          }
+          return null
+        })
+        .filter(Boolean)
+    : []
+
+  if (items.length === 0) {
+    return text
+  }
+
+  // Sort by length descending to match longer multi-word phrases first
+  const sorted = [...items].sort((a, b) => b.phrase.length - a.phrase.length)
+  const meaningMap = new Map()
+  const patterns = []
+
+  for (const item of sorted) {
+    const lower = item.phrase.toLowerCase()
+    if (!meaningMap.has(lower)) {
+      meaningMap.set(lower, item.meaning)
+      patterns.push(escapeRegExp(item.phrase))
+    }
+  }
+
+  if (patterns.length === 0) {
+    return text
+  }
+
+  const regex = new RegExp(`(${patterns.join('|')})`, 'gi')
+  const parts = text.split(regex)
+
+  return parts.map((part, idx) => {
+    const meaning = meaningMap.get(part.toLowerCase())
+    if (meaning !== undefined) {
+      return (
+        <span
+          key={idx}
+          className="relative group/vocab inline-block font-semibold text-purple-900 bg-purple-100/90 hover:bg-purple-200/90 px-1.5 py-0.5 mx-0.5 rounded-md border border-purple-300/80 transition-colors cursor-help not-italic select-text"
+        >
+          <span>{part}</span>
+          {meaning && (
+            <span
+              role="tooltip"
+              className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/vocab:flex flex-col items-center pointer-events-none z-30 transition-all duration-150 animate-in fade-in"
+            >
+              <span className="px-2.5 py-1 rounded-md bg-slate-900 text-white text-[11px] font-medium shadow-xl max-w-[260px] text-center leading-tight whitespace-normal sm:whitespace-nowrap sm:max-w-none">
+                {meaning}
+              </span>
+              <span className="w-1.5 h-1.5 bg-slate-900 rotate-45 -mt-1 shrink-0" />
+            </span>
+          )}
+        </span>
+      )
+    }
+    return part
+  })
+}
+
+function SpeakingSampleAnswerBlock({ questionText, partNumber, cueCard, originalAnswer, existingSample, staggerIndex = 0 }) {
+  const [data, setData] = useState(existingSample || null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const hasTriggeredRef = useRef(false)
+
+  const textToPrompt = (questionText || cueCard || '').trim()
+  const origText = (originalAnswer || '').trim()
+  const hasOriginal = Boolean(origText)
+
+  const loadSample = useCallback((force = false) => {
+    if (existingSample?.sampleAnswer) {
+      setData(existingSample)
+      return
+    }
+    if (!textToPrompt) return
+    if (!force && hasTriggeredRef.current) return
+    hasTriggeredRef.current = true
+
+    const cacheKey = `ielts_spk_sample_v3_${partNumber}_${textToPrompt.slice(0, 60)}_${origText.slice(0, 40)}`
+    try {
+      const cached = localStorage.getItem(cacheKey)
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (parsed?.sampleAnswer) {
+          setData(parsed)
+          return
+        }
+      }
+    } catch {}
+
+    setLoading(true)
+    setError(null)
+    getSpeakingSampleAnswer({ questionText: textToPrompt, partNumber, cueCard, originalAnswer: origText })
+      .then(res => {
+        setData(res)
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(res))
+        } catch {}
+      })
+      .catch(err => {
+        setError(err?.response?.data?.message || err?.message || 'Không thể tải câu trả lời gợi ý.')
+      })
+      .finally(() => setLoading(false))
+  }, [textToPrompt, origText, partNumber, cueCard, existingSample])
+
+  useEffect(() => {
+    if (existingSample?.sampleAnswer) return
+
+    const cacheKey = `ielts_spk_sample_v3_${partNumber}_${textToPrompt.slice(0, 60)}_${origText.slice(0, 40)}`
+    const isCached = (() => {
+      try {
+        const cached = localStorage.getItem(cacheKey)
+        return Boolean(cached && JSON.parse(cached)?.sampleAnswer)
+      } catch {
+        return false
+      }
+    })()
+
+    if (isCached) {
+      loadSample()
+      return
+    }
+
+    const timer = setTimeout(() => {
+      loadSample()
+    }, Math.min(staggerIndex * 250, 2500))
+
+    return () => clearTimeout(timer)
+  }, [loadSample, staggerIndex, partNumber, textToPrompt, origText, existingSample])
+
+  const toggleAudio = () => {
+    if (!data?.sampleAnswer) return
+    if (!('speechSynthesis' in window)) return
+
+    if (isPlaying) {
+      window.speechSynthesis.cancel()
+      setIsPlaying(false)
+      return
+    }
+
+    window.speechSynthesis.cancel()
+    const utter = new SpeechSynthesisUtterance(data.sampleAnswer)
+    utter.lang = 'en-US'
+    utter.rate = 0.95
+    utter.onend = () => setIsPlaying(false)
+    utter.onerror = () => setIsPlaying(false)
+    setIsPlaying(true)
+    window.speechSynthesis.speak(utter)
+  }
+
+  useEffect(() => {
+    return () => {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel()
+      }
+    }
+  }, [])
+
+  if (loading) {
+    return (
+      <div data-testid="speaking-sample-loading" className="mt-4 bg-white/90 rounded-xl p-4 border border-indigo-200/80 shadow-xs animate-pulse">
+        <div className="flex items-center justify-between mb-3">
+          <div className="h-5 w-48 bg-indigo-100 rounded-full" />
+          <div className="h-6 w-32 bg-zinc-100 rounded-full" />
+        </div>
+        <div className="h-4 bg-zinc-200/60 rounded w-full mb-2" />
+        <div className="h-4 bg-zinc-200/60 rounded w-5/6 mb-3" />
+        <div className="h-3 bg-zinc-100 rounded w-1/2" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="mt-4 bg-white/90 rounded-xl p-3.5 border border-amber-200/80 shadow-xs flex items-center justify-between">
+        <span className="text-xs text-amber-700">{error}</span>
+        <button
+          type="button"
+          onClick={() => {
+            setError(null)
+            loadSample(true)
+          }}
+          className="text-xs text-indigo-600 font-semibold hover:underline cursor-pointer"
+        >
+          Thử lại
+        </button>
+      </div>
+    )
+  }
+
+  if (!data?.sampleAnswer) return null
+
+  return (
+    <div data-testid="speaking-sample-answer-block" className="mt-4 bg-white/95 rounded-xl p-4 sm:p-5 border border-indigo-200/90 shadow-2xs space-y-3">
+      {/* Header: Badge & Listen Button */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200/80 text-indigo-700 text-xs font-bold tracking-tight shadow-3xs">
+            <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+            {hasOriginal ? 'Gợi ý nâng band · Band 7.5 - 8.0' : 'Gợi ý câu trả lời · Band 7.5 - 8.0'}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={toggleAudio}
+          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer shadow-3xs ${
+            isPlaying
+              ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'
+              : 'bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 hover:text-indigo-600 hover:border-indigo-200'
+          }`}
+        >
+          {isPlaying ? (
+            <>
+              <Square className="w-3.5 h-3.5 fill-current" />
+              <span>Dừng đọc</span>
+            </>
+          ) : (
+            <>
+              <Volume2 className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Nghe phát âm mẫu</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Sample Answer Text with inline purple highlighted vocabulary */}
+      <div className="bg-zinc-50/80 rounded-lg p-3.5 border border-zinc-200/60">
+        <p className="text-[14px] sm:text-[15px] leading-relaxed text-zinc-800 font-normal m-0 italic select-text">
+          "{renderHighlightedSampleAnswer(String(data.sampleAnswer || '').replace(/^["“]\s*/, '').replace(/\s*["”]$/, ''), data.keyVocabulary)}"
+        </p>
+      </div>
+    </div>
+  )
+}
+
 
 
 
@@ -168,6 +422,115 @@ function CustomAudioPlayer({ src }) {
   )
 }
 
+function SpeakingResultQuestionCard({
+  q,
+  idx,
+  ans,
+  ansIdx,
+  r,
+  part,
+  questionTitle,
+  hasAnswer,
+  isGraded,
+  questionScore,
+  qFluency,
+  qVocab,
+  qGrammar,
+  qPron,
+}) {
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  return (
+    <div className="mb-8 last:mb-2">
+      {/* Title */}
+      <h4 className="text-[15px] font-medium text-zinc-600 mb-3 flex items-start gap-2">
+        <span className="w-5 h-5 flex items-center justify-center rounded-full border-2 border-zinc-400 text-zinc-500 text-[11px] font-bold shrink-0 mt-0.5">
+          ?
+        </span>
+        {questionTitle}
+      </h4>
+
+      <div className="bg-[#E9EDFF] rounded-2xl p-5 md:p-6 shadow-sm border border-indigo-100/50">
+        <div className="flex flex-col md:flex-row md:items-start gap-4 mb-4">
+          <div className="flex-1 mt-1">
+            {ans?.audioUrl ? (
+              <CustomAudioPlayer src={ans.audioUrl.startsWith('/') ? `${BACKEND_URL}${ans.audioUrl}` : ans.audioUrl} />
+            ) : (
+              <div className="flex items-center gap-3 w-full opacity-60">
+                <button disabled className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full border-2 border-zinc-200 text-zinc-300 bg-zinc-50 cursor-not-allowed">
+                  <Play className="w-5 h-5 ml-0.5" fill="currentColor" />
+                </button>
+                <div className="flex-1 h-2 bg-zinc-200/60 rounded-full" />
+                <span className="text-xs font-mono text-zinc-400 whitespace-nowrap">0:00 / 0:00</span>
+              </div>
+            )}
+          </div>
+          <div className="flex items-start gap-4">
+            <div className={"w-14 h-14 rounded-full flex items-center justify-center font-bold text-xl shadow-md border-2 border-white/50 shrink-0 " + getScoreColorClass(questionScore, true)}>
+              {questionScore}
+            </div>
+          </div>
+        </div>
+
+        <div className="text-[15px] leading-relaxed text-zinc-700 font-medium mb-5 bg-white/40 p-4 rounded-xl border border-white/50">
+          <HighlightedTranscript
+            text={ans?.text || ''}
+            corrections={ansIdx >= 0 ? (r.corrections || []).filter(c => c.answer === ansIdx) : []}
+          />
+        </div>
+
+        {/* Row 4 criteria pill badges on left + Toggle V button on right */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(qFluency, true)}>Trôi chảy: {qFluency}</span>
+            <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(qVocab, true)}>Từ vựng: {qVocab}</span>
+            <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(qGrammar, true)}>Ngữ pháp: {qGrammar}</span>
+            <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(qPron, true)}>Phát âm: {qPron}</span>
+          </div>
+
+          {/* Toggle V button (trỏ xuống dưới) + Tooltip "Cải thiện câu này" */}
+          <div className="relative group shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsExpanded(prev => !prev)}
+              aria-label="Cải thiện câu này"
+              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white flex items-center justify-center transition-all cursor-pointer shadow-3xs ${
+                isExpanded
+                  ? 'border-2 border-purple-600 text-purple-600 bg-purple-50/40 shadow-xs'
+                  : 'border border-slate-300 text-slate-400 hover:border-purple-600 hover:text-purple-600 hover:shadow-xs'
+              }`}
+            >
+              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Tooltip khi di chuột vào - căn giữa chuẩn trực tiếp dưới nút */}
+            <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 hidden group-hover:flex flex-col items-center pointer-events-none z-30">
+              <span className="w-2 h-2 bg-slate-900 rotate-45 -mb-1 shrink-0" />
+              <span className="px-2.5 py-1 rounded-md bg-slate-900 text-white text-[11px] font-medium shadow-lg whitespace-nowrap">
+                {isExpanded ? 'Thu gọn gợi ý' : 'Cải thiện câu này'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* AI Suggested / Upgraded Answer Block (thả xuống khi bấm nút) */}
+        {isExpanded && (
+          <div className="pt-1 transition-all duration-200">
+            <SpeakingSampleAnswerBlock
+              questionText={q?.questionText || questionTitle}
+              partNumber={part.number}
+              cueCard={part.number === 2 ? part.cueCard : null}
+              originalAnswer={hasAnswer ? (ans?.text || '') : null}
+              existingSample={r?.suggestedAnswers?.[q?.id] || r?.suggestedAnswers?.[idx]}
+              staggerIndex={idx}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function SpeakingExam() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -178,6 +541,7 @@ export default function SpeakingExam() {
   const viewAttemptId = viewResultMode ? searchParams.get('attemptId') : null
   const viewFinishedAt = viewResultMode ? searchParams.get('finishedAt') : null
   const { user } = useAuth()
+  const userId = user?.id || user?._id || null
   const { showToast } = useToast()
 
   const [exam, setExam] = useState(null)
@@ -327,9 +691,16 @@ export default function SpeakingExam() {
     return () => clearInterval(interval)
   }, [phase, previewMode, id, persistDraftNow])
 
+  const exitPath = exam?.seriesId ? `/full-test/${exam.seriesId}?book=${exam.bookNumber}` : '/speaking-samples'
+  const isResultView = Boolean(
+    viewResultMode ||
+    (speakingParts.length > 0 && speakingParts.every(p => results[p.id])) ||
+    (viewAttemptId && speakingParts.some(p => results[p.id]))
+  )
+
   // Cảnh báo trình duyệt (beforeunload) khi thí sinh đóng tab/F5 trong lúc làm bài
   useEffect(() => {
-    if (phase !== 'exam' || previewMode || allSubmitted) return
+    if (phase !== 'exam' || previewMode || allSubmitted || isResultView) return
     const handleBeforeUnload = (e) => {
       persistDraftNow()
       e.preventDefault()
@@ -337,16 +708,19 @@ export default function SpeakingExam() {
     }
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [phase, previewMode, allSubmitted, persistDraftNow])
+  }, [phase, previewMode, allSubmitted, isResultView, persistDraftNow])
 
-  const exitPath = exam?.seriesId ? `/full-test/${exam.seriesId}?book=${exam.bookNumber}` : '/speaking-samples'
-  const { showModal: showExitModal, stay: stayInExam, leave: leaveExam } = useBrowserHistoryGuard(phase === 'exam' && !previewMode && !allSubmitted, persistDraftNow, exitPath)
+  const { showModal: showExitModal, stay: stayInExam, leave: leaveExam } = useBrowserHistoryGuard(
+    phase === 'exam' && !previewMode && !allSubmitted && !isResultView,
+    persistDraftNow,
+    exitPath
+  )
 
   // Nộp + chấm xong hết → xoá draft
   useEffect(() => {
     if (!allSubmitted) return
-    if (user && id) clearDraft(user.id || user._id, id, 'speaking')
-  }, [allSubmitted, user, id])
+    if (userId && id) clearDraft(userId, id, 'speaking')
+  }, [allSubmitted, userId, id])
 
   // ── Centralized Speech Recording Hook ──────────────────────────────────────
   const {
@@ -513,8 +887,7 @@ export default function SpeakingExam() {
         let draftTranscripts = null
         let draftIds = []
         let activeDraft = false
-        if (user) {
-          const userId = user.id || user._id
+        if (userId) {
           const draft = loadDraft(userId, id, 'speaking')
           // Cho phép tự động load draft kể cả không có ?resume=true
           if (draft) {
@@ -592,7 +965,7 @@ export default function SpeakingExam() {
         setError(err?.response?.data?.message || err?.message || 'Không tìm thấy đề thi hoặc kết nối bị gián đoạn.')
       })
       .finally(() => setLoading(false))
-  }, [id, resumeMode, user, viewAttemptId])
+  }, [id, resumeMode, userId, viewAttemptId, viewResultMode, previewMode])
 
   useEffect(() => {
     document.title = 'Bài thi Speaking | IELTS Pro'
@@ -670,6 +1043,14 @@ export default function SpeakingExam() {
       navigate('/speaking')
     }
   }, [exam, navigate])
+
+  const handleExitResult = useCallback(() => {
+    if (window.history.length > 1 && window.history.state?.idx > 0) {
+      navigate(-1)
+    } else {
+      handleBack()
+    }
+  }, [handleBack, navigate])
 
   const clearPartError = useCallback((partId) => setGradingErrors(prev => {
     if (!(partId in prev)) return prev
@@ -856,7 +1237,7 @@ export default function SpeakingExam() {
           <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
             <button
               type="button"
-              onClick={() => navigate('/')}
+              onClick={handleExitResult}
               aria-label="Đóng"
               className="w-8 h-8 rounded-full border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-bold cursor-pointer flex items-center justify-center transition"
             >
@@ -1112,48 +1493,23 @@ export default function SpeakingExam() {
                           const qPron = isGraded ? pronScore : '0';
 
                           return (
-                            <div key={q?.id ?? idx} className="mb-8 last:mb-2">
-                              {/* Title */}
-                              <h4 className="text-[15px] font-medium text-zinc-600 mb-3 flex items-start gap-2">
-                                <span className="w-5 h-5 flex items-center justify-center rounded-full border-2 border-zinc-400 text-zinc-500 text-[11px] font-bold shrink-0 mt-0.5">?</span>
-                                {questionTitle}
-                              </h4>
-
-                              <div className="bg-[#E9EDFF] rounded-2xl p-5 md:p-6 shadow-sm border border-indigo-100/50">
-                                <div className="flex flex-col md:flex-row md:items-start gap-4 mb-4">
-                                  <div className="flex-1 mt-1">
-                                    {ans?.audioUrl ? (
-                                      <CustomAudioPlayer src={ans.audioUrl.startsWith('/') ? `${BACKEND_URL}${ans.audioUrl}` : ans.audioUrl} />
-                                    ) : (
-                                      <div className="flex items-center gap-3 w-full opacity-60">
-                                        <button disabled className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full border-2 border-zinc-200 text-zinc-300 bg-zinc-50 cursor-not-allowed">
-                                          <Play className="w-5 h-5 ml-0.5" fill="currentColor" />
-                                        </button>
-                                        <div className="flex-1 h-2 bg-zinc-200/60 rounded-full" />
-                                        <span className="text-xs font-mono text-zinc-400 whitespace-nowrap">0:00 / 0:00</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="flex items-start gap-4">
-                                    <div className={"w-14 h-14 rounded-full flex items-center justify-center font-bold text-xl shadow-md border-2 border-white/50 shrink-0 " + getScoreColorClass(questionScore, true)}>
-                                      {questionScore}
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="text-[15px] leading-relaxed text-zinc-700 font-medium mb-5 bg-white/40 p-4 rounded-xl border border-white/50">
-                                  <HighlightedTranscript
-                                    text={ans?.text || ''}
-                                    corrections={ansIdx >= 0 ? (r.corrections || []).filter(c => c.answer === ansIdx) : []}
-                                  />
-                                </div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(qFluency, true)}>Trôi chảy: {qFluency}</span>
-                                  <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(qVocab, true)}>Từ vựng: {qVocab}</span>
-                                  <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(qGrammar, true)}>Ngữ pháp: {qGrammar}</span>
-                                  <span className={"px-3 py-1 rounded-full text-[11px] font-bold shadow-sm " + getScoreColorClass(qPron, true)}>Phát âm: {qPron}</span>
-                                </div>
-                              </div>
-                            </div>
+                            <SpeakingResultQuestionCard
+                              key={q?.id ?? idx}
+                              q={q}
+                              idx={idx}
+                              ans={ans}
+                              ansIdx={ansIdx}
+                              r={r}
+                              part={part}
+                              questionTitle={questionTitle}
+                              hasAnswer={hasAnswer}
+                              isGraded={isGraded}
+                              questionScore={questionScore}
+                              qFluency={qFluency}
+                              qVocab={qVocab}
+                              qGrammar={qGrammar}
+                              qPron={qPron}
+                            />
                           );
                         });
                       })()}

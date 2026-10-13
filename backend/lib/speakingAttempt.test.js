@@ -10,6 +10,8 @@ const {
   roundBand,
   buildSpeakingGradingPrompt,
   applySpeakingGradingRules,
+  buildSpeakingSampleAnswerPrompt,
+  validateSpeakingSampleAnswer,
 } = require('./speakingAttempt')
 
 const t = (...texts) => JSON.stringify(texts.map(text => ({ text })))
@@ -247,5 +249,55 @@ describe('speakingAttempt', () => {
       expect(roundBand(null)).toBeNull()
       expect(roundBand('invalid')).toBeNull()
     })
+
+    it('builds speaking sample answer prompt for Part 1, 2, 3', () => {
+      const p1 = buildSpeakingSampleAnswerPrompt({ questionText: 'Do you like reading?', partNumber: 1 })
+      expect(p1).toContain('Do you like reading?')
+      expect(p1).toContain('Part 1')
+
+      const p2 = buildSpeakingSampleAnswerPrompt({ cueCard: 'Describe a memorable journey', partNumber: 2 })
+      expect(p2).toContain('Describe a memorable journey')
+      expect(p2).toContain('Part 2')
+
+      const p3 = buildSpeakingSampleAnswerPrompt({ questionText: 'How has travel changed?', partNumber: 3 })
+      expect(p3).toContain('How has travel changed?')
+      expect(p3).toContain('Part 3')
+
+      const pUpgrade = buildSpeakingSampleAnswerPrompt({ questionText: 'Do you work or study?', partNumber: 1, originalAnswer: 'i dont know' })
+      expect(pUpgrade).toContain('The candidate gave the following original spoken response:')
+      expect(pUpgrade).toContain('i dont know')
+      expect(pUpgrade).toContain('Directly upgrade and elevate')
+    })
+
+    it('validates speaking sample answer correctly', () => {
+      expect(validateSpeakingSampleAnswer(null).valid).toBe(false)
+      expect(validateSpeakingSampleAnswer({}).valid).toBe(false)
+      expect(validateSpeakingSampleAnswer({ sampleAnswer: '   ' }).valid).toBe(false)
+
+      const valid = validateSpeakingSampleAnswer({
+        sampleAnswer: 'Definitely, I am an avid reader.',
+        keyVocabulary: ['avid reader', 'page-turner'],
+      })
+      expect(valid.valid).toBe(true)
+      expect(valid.sampleAnswer).toBe('Definitely, I am an avid reader.')
+      expect(valid.keyVocabulary).toEqual([
+        { phrase: 'avid reader', meaning: '' },
+        { phrase: 'page-turner', meaning: '' },
+      ])
+
+      const validWithMeaning = validateSpeakingSampleAnswer({
+        sampleAnswer: 'Definitely, I am an avid reader.',
+        keyVocabulary: [
+          { phrase: 'avid reader', meaning: 'người ham đọc sách' },
+          { phrase: 'page-turner', meaning: 'cuốn sách hấp dẫn' },
+        ],
+      })
+      expect(validWithMeaning.valid).toBe(true)
+      expect(validWithMeaning.keyVocabulary).toEqual([
+        { phrase: 'avid reader', meaning: 'người ham đọc sách' },
+        { phrase: 'page-turner', meaning: 'cuốn sách hấp dẫn' },
+      ])
+    })
   })
 })
+

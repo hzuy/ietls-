@@ -57,6 +57,7 @@ export const submitSpeakingExam = (id, partId, transcript) => api.post(`/speakin
 
 export const getWritingStatus = (answerId) => api.get(`/writing/answers/${answerId}/status`).then(r => r.data)
 export const getSpeakingStatus = (answerId) => api.get(`/speaking/answers/${answerId}/status`).then(r => r.data)
+export const getSpeakingSampleAnswer = (payload) => api.post('/speaking/sample-answer', payload).then(r => r.data)
 
 // Chấm lại 1 answer đang status='failed', dùng lại essayText/transcript đã lưu —
 // không cần người dùng viết/ghi âm lại.

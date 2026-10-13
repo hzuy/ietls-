@@ -25,7 +25,10 @@ const {
   roundBand,
   buildSpeakingGradingPrompt,
   applySpeakingGradingRules,
+  buildSpeakingSampleAnswerPrompt,
+  validateSpeakingSampleAnswer,
 } = require('../lib/speakingAttempt')
+const { getOrSet } = require('../utils/cache')
 const getGroqClient = () => new Groq({ apiKey: process.env.GROQ_API_KEY })
 
 // ── Audio upload config (for Whisper transcription) ──────────────────────────
@@ -156,6 +159,47 @@ router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res
     res.json(results)
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
+// ── POST /speaking/sample-answer — Gợi ý câu trả lời mẫu Band 7.5 - 8.0 ────────
+router.post('/sample-answer', authMiddleware, async (req, res) => {
+  try {
+    const { questionText, partNumber, cueCard, originalAnswer } = req.body
+    const qText = String(questionText || cueCard || '').trim()
+    if (!qText) {
+      return res.status(400).json({ message: 'Thiếu nội dung câu hỏi hoặc Cue Card' })
+    }
+
+    const pNum = Number(partNumber) || 1
+    const origText = String(originalAnswer || '').trim()
+    const crypto = require('crypto')
+    const hash = crypto.createHash('md5').update(`${qText}__${origText}`).digest('hex')
+    const cacheKey = `speaking_sample_v3_${pNum}_${hash}`
+
+    const result = await getOrSet(cacheKey, async () => {
+      const prompt = buildSpeakingSampleAnswerPrompt({ questionText: qText, partNumber: pNum, cueCard, originalAnswer: origText })
+      let raw
+      try {
+        raw = await requestGradingJson(prompt, { model: 'qwen/qwen3.8-27b', attempts: 2, temperature: 0.3 })
+      } catch (primaryErr) {
+        console.warn('[Speaking sample-answer] Qwen failed, falling back to gpt-oss-20b:', primaryErr.message)
+        raw = await requestGradingJson(prompt, { model: 'openai/gpt-oss-20b', attempts: 2, temperature: 0.3 })
+      }
+      const validated = validateSpeakingSampleAnswer(raw)
+      if (!validated.valid) {
+        throw new Error('Dữ liệu câu trả lời mẫu không hợp lệ')
+      }
+      return {
+        sampleAnswer: validated.sampleAnswer,
+        keyVocabulary: validated.keyVocabulary,
+      }
+    }, 86400 * 7) // Cache 7 ngày
+
+    res.json(result)
+  } catch (error) {
+    console.error('[Speaking sample-answer error]', error.message)
+    res.status(500).json({ message: 'Lỗi sinh câu trả lời gợi ý', error: error.message })
   }
 })
 

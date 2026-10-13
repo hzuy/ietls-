@@ -350,6 +350,105 @@ function pickCurrentAttempt(answers) {
   return speakingAttempts(answers)[0]?.items || {}
 }
 
+function buildSpeakingSampleAnswerPrompt({ questionText, partNumber, cueCard, originalAnswer }) {
+  let promptDetails = ''
+  const pNum = Number(partNumber) || 1
+  const origText = String(originalAnswer || '').trim()
+
+  if (pNum === 2) {
+    promptDetails = `IELTS Speaking Part 2 (Long Turn):
+Cue Card topic and cues:
+${cueCard || questionText}
+
+Requirements:
+- A complete, natural, and coherent response of around 150-180 words, demonstrating Band 7.5 - 8.0 speaking style.
+- Address all bullet points in the Cue Card with natural progression (introduction, key details/story, personal feelings).
+- Use natural spoken connectors (e.g. "To kick things off", "What really stood out to me was", "All in all").
+- Provide 4-6 high-impact key vocabulary items or collocations.`
+  } else if (pNum === 3) {
+    promptDetails = `IELTS Speaking Part 3 (Discussion):
+Discussion Question: "${questionText}"
+
+Requirements:
+- An insightful, analytical response of around 60-80 words (3-4 well-developed sentences) demonstrating Band 7.5 - 8.0 level.
+- Provide a clear stance, sound reasoning, and a real-world perspective or contrast.
+- Use natural discourse markers (e.g. "From my perspective", "One plausible reason is that", "Conversely").
+- Provide 3-5 high-impact key vocabulary items or collocations.`
+  } else {
+    promptDetails = `IELTS Speaking Part 1 (Interview):
+Question: "${questionText}"
+
+Requirements:
+- A direct, natural, and expanded answer of around 35-55 words (3-4 sentences), demonstrating Band 7.5 - 8.0 speaking style.
+- Do not just say yes/no; expand naturally with personal reasons, frequency, or everyday examples.
+- Sound conversational and fluent.
+- Provide 3-4 high-impact key vocabulary items or collocations.`
+  }
+
+  const upgradeInstruction = origText
+    ? `The candidate gave the following original spoken response:
+"${origText}"
+
+CRITICAL UPGRADE INSTRUCTIONS:
+- Directly upgrade and elevate the candidate's original answer into an exemplary Band 7.5 - 8.0 spoken English response.
+- Preserve the candidate's core viewpoint, intent, or sentiment, but transform simple, informal, hesitant, or fragmented expressions (for instance, if the candidate expressed uncertainty like "i dont know", elevate it into fluent, natural IELTS Band 7.5+ phrasing such as "Honestly, to be quite candid, it's difficult to give a definitive answer because...").
+- Enrich the answer with natural spoken discourse markers, sophisticated collocations, and idiomatic phrasing while keeping it authentic and conversational.
+- Length should adhere to the part requirements specified above.`
+    : `Generate an exemplary IELTS Speaking Band 7.5 - 8.0 sample answer for the candidate based on the prompt below.`
+
+  return `You are an expert IELTS Speaking examiner and native English language coach.
+${upgradeInstruction}
+
+${promptDetails}
+
+CRITICAL INSTRUCTIONS:
+- The sampleAnswer MUST be in natural spoken English suitable for the IELTS Speaking test.
+- Do NOT use markdown asterisks or bullet points inside the sampleAnswer.
+- Pick 3-6 high-impact key vocabulary items (idiomatic collocations, phrasal verbs, advanced topic phrases) that appear directly in sampleAnswer.
+- For each vocabulary item, provide the exact English "phrase" as used in sampleAnswer and a concise Vietnamese "meaning" (nghĩa tiếng Việt ngắn gọn, súc tích theo ngữ cảnh).
+
+RESPOND ONLY IN VALID JSON FORMAT:
+{
+  "sampleAnswer": "<model spoken response text>",
+  "keyVocabulary": [
+    { "phrase": "<exact phrase from sampleAnswer>", "meaning": "<nghĩa tiếng Việt ngắn gọn>" }
+  ]
+}`
+}
+
+function validateSpeakingSampleAnswer(data) {
+  if (!data || typeof data !== 'object') {
+    return { valid: false, sampleAnswer: null, keyVocabulary: [] }
+  }
+  const text = typeof data.sampleAnswer === 'string' ? data.sampleAnswer.trim() : ''
+  if (!text) {
+    return { valid: false, sampleAnswer: null, keyVocabulary: [] }
+  }
+  const vocab = Array.isArray(data.keyVocabulary)
+    ? data.keyVocabulary
+        .map(v => {
+          if (!v) return null
+          if (typeof v === 'string') {
+            const trimmed = v.trim()
+            return trimmed ? { phrase: trimmed, meaning: '' } : null
+          }
+          if (typeof v === 'object') {
+            const phrase = String(v.phrase || v.word || '').trim()
+            const meaning = String(v.meaning || v.vi || '').trim()
+            return phrase ? { phrase, meaning } : null
+          }
+          return null
+        })
+        .filter(Boolean)
+        .slice(0, 8)
+    : []
+  return {
+    valid: true,
+    sampleAnswer: text,
+    keyVocabulary: vocab,
+  }
+}
+
 module.exports = {
   analyzeTranscript,
   isInsufficient,
@@ -364,5 +463,8 @@ module.exports = {
   roundBand,
   buildSpeakingGradingPrompt,
   applySpeakingGradingRules,
+  buildSpeakingSampleAnswerPrompt,
+  validateSpeakingSampleAnswer,
   MIN_WORDS_BY_PART,
 }
+
