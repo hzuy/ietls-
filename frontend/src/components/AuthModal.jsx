@@ -98,13 +98,20 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
   }
 
   // Đo width của modal content để truyền vào GoogleLogin.width (responsive)
+  // Khởi tạo sát kích thước thực tế (400px trên desktop) để tránh re-render giật/nhảy cỡ chữ nút Google
   const modalBodyRef = useRef(null)
-  const [googleBtnWidth, setGoogleBtnWidth] = useState(360)
+  const [googleBtnWidth, setGoogleBtnWidth] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return Math.min(400, Math.max(200, window.innerWidth - 96))
+    }
+    return 400
+  })
   useEffect(() => {
     const el = modalBodyRef.current
     if (!el) return
     const observer = new ResizeObserver(([entry]) => {
-      setGoogleBtnWidth(Math.min(400, Math.max(200, Math.floor(entry.contentRect.width))))
+      const w = Math.min(400, Math.max(200, Math.floor(entry.contentRect.width)))
+      setGoogleBtnWidth(prev => (prev !== w ? w : prev))
     })
     observer.observe(el)
     return () => observer.disconnect()
@@ -205,38 +212,23 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
         <span className="text-xs font-medium" style={{ color: 'var(--subtle)' }}>hoặc</span>
         <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
       </div>
-      {/* width truyền từ googleBtnWidth (đo ResizeObserver trên modal container):
-           nút Google sẽ co giãn theo chiều rộng thực của hộp thoại (max 400px)
-           thay vì cố định 320px. GoogleLogin render trong iframe sandbox riêng
-           nên chỉ có thể đồng bộ chiều rộng qua prop width, không qua CSS. */}
+      {/* GoogleLogin tự render nút dạng pill hoàn chỉnh với viền tròn và hiệu ứng riêng.
+           Không bọc overflow-hidden hay scale vì sẽ làm xén mất viền bo tròn 2 bên và viền trên/dưới. */}
       <div className="flex justify-center w-full">
         <div
-          className="relative flex justify-center items-center rounded-full overflow-hidden"
+          className="w-full flex justify-center items-center [&_iframe]:border-0 [&_iframe]:outline-none [&_*]:outline-none"
           style={{
-            borderRadius: 9999,
-            overflow: 'hidden',
-            height: 40,
             maxWidth: googleBtnWidth,
-            width: '100%',
+            minHeight: 40,
           }}
         >
-          <div
-            className="flex justify-center items-center [&_iframe]:border-0 [&_iframe]:outline-none [&_*]:outline-none"
-            style={{
-              width: '100%',
-              height: '100%',
-              transform: 'scale(1.025)',
-              transformOrigin: 'center center',
-            }}
-          >
-            <GoogleLogin
-              onSuccess={handleGoogleSuccess}
-              onError={() => setGoogleError('Đăng nhập Google thất bại')}
-              text={tab === 'register' ? 'signup_with' : 'signin_with'}
-              shape="pill"
-              width={String(googleBtnWidth)}
-            />
-          </div>
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => setGoogleError('Đăng nhập Google thất bại')}
+            text={tab === 'register' ? 'signup_with' : 'signin_with'}
+            shape="pill"
+            width={String(googleBtnWidth)}
+          />
         </div>
       </div>
     </>
