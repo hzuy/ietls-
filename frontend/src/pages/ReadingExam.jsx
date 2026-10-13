@@ -128,7 +128,16 @@ export default function ReadingExam() {
     // (vd reload KHÔNG kèm ?resume=true → vào 'exam' với answers = {})
     if (Object.keys(answers).length === 0) {
       const existing = loadDraft(userId, id, 'reading')
-      if (existing?.data && Object.keys(existing.data).length > 0) return
+      if (existing?.data && Object.keys(existing.data).length > 0) {
+        existing.timeRemaining = timeLeft
+        existing.savedAt = new Date().toISOString()
+        existing.highlights = highlights
+        try {
+          localStorage.setItem(`ielts_draft_${userId}_${id}_reading`, JSON.stringify(existing))
+          setLastSavedAt(new Date())
+        } catch {}
+        return
+      }
     }
     const examTitle = exam?.title || (exam?.seriesName ? `${exam.seriesName} · Test ${exam.testNumber} Reading` : 'IELTS Reading')
     saveDraft({ userId, examId: id, skillType: 'reading', data: answers, timeRemaining: timeLeft, examTitle, totalQuestions: draftTotalSlots || 40, highlights })
@@ -182,16 +191,31 @@ export default function ReadingExam() {
     })
       .then(data => {
         setExam(data)
-        // Resume draft if ?resume=true
-        if (resumeMode && user) {
+        const shouldResume = resumeMode || (!previewMode && !viewResultMode)
+        if (shouldResume && user) {
           const userId = user.id || user._id
           const draft = loadDraft(userId, id, 'reading')
-          if (draft?.data && Object.keys(draft.data).length > 0) {
-            setAnswers(draft.data)
-            savedDraftRef.current = JSON.stringify(draft.data)
+          if (draft) {
+            if (draft.data && Object.keys(draft.data).length > 0) {
+              setAnswers(draft.data)
+              savedDraftRef.current = JSON.stringify(draft.data)
+            }
             if (draft.timeRemaining != null) setTimeLeft(draft.timeRemaining)
             if (draft.savedAt) setLastSavedAt(new Date(draft.savedAt))
             if (Array.isArray(draft.highlights)) setHighlights(draft.highlights)
+          } else if (!previewMode && !viewResultMode) {
+            const examTitle = data?.title || (data?.seriesName ? `${data.seriesName} · Test ${data.testNumber} Reading` : 'IELTS Reading')
+            saveDraft({
+              userId,
+              examId: id,
+              skillType: 'reading',
+              data: {},
+              timeRemaining: DEFAULT_READING_TIME,
+              examTitle,
+              totalQuestions: 40,
+              highlights: [],
+            })
+            setLastSavedAt(new Date())
           }
           setPhase('exam')
         }

@@ -18,7 +18,7 @@ import { usePracticeDraft } from '../hooks/usePracticeDraft'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
 import ExitConfirmModal from '../components/common/ExitConfirmModal'
 import ExamActionDialog from '../components/common/ExamActionDialog'
-import { formatSavedAt } from '../services/draftService'
+import { formatSavedAt, loadDraft } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
 
 import { normalizeGroup, fmt } from '../utils/practiceUtils'
@@ -116,18 +116,22 @@ function ReadingPracticeExam({ exam, onBack }) {
     timeLeft,
     userId,
     enabled: phase === 'exam',
+    examTitle: exam.title,
+    totalQuestions: exam.questionCount || 40,
   })
 
   // Mount: nếu có draft chưa nộp thì tự động khôi phục answers và timeLeft
   useEffect(() => {
     if (!userId) return
     const d = checkDraftOnMount()
-    if (d.hasDraft && d.data) {
-      setAnswers(d.data)
+    if (d.hasDraft) {
+      if (d.data) setAnswers(d.data)
       setTimeLeft(Math.max(1, d.timeRemaining ?? PRACTICE_TIME))
-      markSaved(d.data, d.savedAt)
+      markSaved(d.data || {}, d.savedAt)
+    } else {
+      persistDraftNow()
     }
-  }, [userId, checkDraftOnMount, markSaved])
+  }, [userId, checkDraftOnMount, markSaved, persistDraftNow])
 
   // Cảnh báo trình duyệt (beforeunload) khi thí sinh đóng tab/F5 trong lúc làm bài
   useEffect(() => {
@@ -386,8 +390,43 @@ function ListeningPracticeExam({ exam, onBack }) {
   const [timeLeft, setTimeLeft] = useState(LISTENING_TIME)
   const [showConfirm, setShowConfirm] = useState(false)
   const [result, setResult] = useState(null)
+  const audioRef = useRef(null)
+  const pendingSeekTimeRef = useRef(null)
+  const lastAudioSaveRef = useRef(0)
 
   const examContainerRef = useRef(null)
+
+  const applyPendingSeek = () => {
+    if (pendingSeekTimeRef.current != null && audioRef.current && audioRef.current.readyState >= 1) {
+      audioRef.current.currentTime = pendingSeekTimeRef.current
+      pendingSeekTimeRef.current = null
+    }
+  }
+
+  useEffect(() => {
+    if (phase !== 'exam' || !exam?.audioUrl) return
+    const audioEl = audioRef.current
+    if (!audioEl) return
+
+    applyPendingSeek()
+    audioEl.play().catch(() => {})
+
+    const onUserGesture = () => {
+      applyPendingSeek()
+      if (audioEl.paused) {
+        audioEl.play().catch(() => {})
+      }
+      window.removeEventListener('pointerdown', onUserGesture)
+      window.removeEventListener('keydown', onUserGesture)
+    }
+    window.addEventListener('pointerdown', onUserGesture)
+    window.addEventListener('keydown', onUserGesture)
+
+    return () => {
+      window.removeEventListener('pointerdown', onUserGesture)
+      window.removeEventListener('keydown', onUserGesture)
+    }
+  }, [phase, exam?.audioUrl])
   const {
     scopeHighlights,
     selectionBubble,
@@ -419,18 +458,28 @@ function ListeningPracticeExam({ exam, onBack }) {
     timeLeft,
     userId,
     enabled: phase === 'exam',
+    examTitle: exam.title,
+    totalQuestions: exam.questionCount || 40,
+    getAudioProgress: () => ({
+      currentTime: audioRef.current ? Math.floor(audioRef.current.currentTime) : 0,
+    }),
   })
 
-  // Mount: nếu có draft chưa nộp thì tự động khôi phục answers và timeLeft
+  // Mount: nếu có draft chưa nộp thì tự động khôi phục answers, timeLeft và audio progress
   useEffect(() => {
     if (!userId) return
     const d = checkDraftOnMount()
-    if (d.hasDraft && d.data) {
-      setAnswers(d.data)
+    if (d.hasDraft) {
+      if (d.data) setAnswers(d.data)
       setTimeLeft(Math.max(1, d.timeRemaining ?? LISTENING_TIME))
-      markSaved(d.data, d.savedAt)
+      markSaved(d.data || {}, d.savedAt)
+      if (d.audioProgress?.currentTime != null) {
+        pendingSeekTimeRef.current = d.audioProgress.currentTime
+      }
+    } else {
+      persistDraftNow()
     }
-  }, [userId, checkDraftOnMount, markSaved])
+  }, [userId, checkDraftOnMount, markSaved, persistDraftNow])
 
   // Cảnh báo trình duyệt (beforeunload) khi thí sinh đóng tab/F5 trong lúc làm bài
   useEffect(() => {
@@ -489,6 +538,9 @@ function ListeningPracticeExam({ exam, onBack }) {
   }
 
   const doSubmit = async () => {
+    if (audioRef.current) {
+      audioRef.current.pause()
+    }
     const { result: graded, correct, total } = gradePractice('listening', exam, answers)
     clearDraft()
     setResult(graded)
@@ -535,11 +587,32 @@ function ListeningPracticeExam({ exam, onBack }) {
         </div>
       </header>
 
-      {/* Sticky audio player */}
+      {/* Background audio element for practice listening — không hiển thị thanh tua khi làm bài */}
       {exam.audioUrl && (
-        <div className="bg-zinc-50 border-b border-zinc-200 px-6 py-3 shrink-0">
-          <audio controls src={resolveImg(exam.audioUrl)} className="w-full h-10 rounded-full accent-zinc-900" />
-        </div>
+        <audio
+          ref={audioRef}
+          src={resolveImg(exam.audioUrl)}
+          className="hidden"
+          onLoadedMetadata={applyPendingSeek}
+          onCanPlay={applyPendingSeek}
+          onTimeUpdate={() => {
+            const now = Date.now()
+            if (now - lastAudioSaveRef.current > 5000) {
+              lastAudioSaveRef.current = now
+              if (userId && exam?.id && audioRef.current) {
+                const draft = loadDraft(userId, exam.id, 'practice-listening')
+                if (draft) {
+                  draft.audioProgress = {
+                    currentTime: Math.floor(audioRef.current.currentTime),
+                  }
+                  try {
+                    localStorage.setItem(`ielts_draft_${userId}_${exam.id}_practice-listening`, JSON.stringify(draft))
+                  } catch {}
+                }
+              }
+            }
+          }}
+        />
       )}
 
       {/* Scrollable questions */}

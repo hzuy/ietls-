@@ -50,24 +50,25 @@ export function isDataEmpty(data) {
 
 /**
  * Save a draft.
- * @param {{ userId, examId, skillType, data, timeRemaining, examTitle, totalQuestions, highlights }} payload
- * `highlights` (Reading) — optional list of text-highlight ranges the thí sinh đã tô,
- * đồng bộ cùng answers/timeRemaining ở mỗi lần autosave. Field độc lập với `data` nên
- * không ảnh hưởng isDataEmpty() / các skill khác không gửi field này.
+ * @param {{ userId, examId, skillType, data, timeRemaining, examTitle, totalQuestions, highlights, audioProgress }} payload
+ * `highlights` (Reading) — optional list of text-highlight ranges the thí sinh đã tô.
+ * `audioProgress` (Listening) — optional { sectionIndex, currentTime } để tự động tua tiếp khi resume.
  */
-export function saveDraft({ userId, examId, skillType, data, timeRemaining, examTitle, totalQuestions, highlights }) {
+export function saveDraft({ userId, examId, skillType, data, timeRemaining, examTitle, totalQuestions, highlights, audioProgress }) {
   if (!userId || !examId || !skillType) return
   const key = draftKey(userId, examId, skillType)
+  const existing = loadDraft(userId, examId, skillType)
   const payload = {
     userId,
     examId,
     skillType,
     data: data || {},
-    timeRemaining: timeRemaining ?? null,
+    timeRemaining: timeRemaining !== undefined ? timeRemaining : (existing?.timeRemaining ?? null),
     savedAt: new Date().toISOString(),
-    examTitle: examTitle ?? null,
-    totalQuestions: totalQuestions ?? null,
-    highlights: highlights ?? [],
+    examTitle: (examTitle !== undefined && examTitle !== null) ? examTitle : (existing?.examTitle ?? null),
+    totalQuestions: (totalQuestions !== undefined && totalQuestions !== null) ? totalQuestions : (existing?.totalQuestions ?? null),
+    highlights: highlights !== undefined ? highlights : (existing?.highlights ?? []),
+    audioProgress: audioProgress !== undefined ? audioProgress : (existing?.audioProgress ?? null),
   }
   try {
     localStorage.setItem(key, JSON.stringify(payload))
@@ -91,7 +92,7 @@ export function getLatestDraft(userId) {
       if (!item) continue
       try {
         const d = JSON.parse(item)
-        if (d && !isExpired(d) && !isDataEmpty(d.data)) {
+        if (d && !isExpired(d)) {
           if (!best || Date.parse(d.savedAt) > Date.parse(best.savedAt)) {
             best = d
           }
@@ -179,7 +180,7 @@ export function formatSavedAt(value) {
  */
 export function checkDraft(userId, examId, skillType) {
   const draft = loadDraft(userId, examId, skillType)
-  if (!draft || isDataEmpty(draft.data)) return { hasDraft: false }
+  if (!draft) return { hasDraft: false }
   return {
     hasDraft: true,
     savedAt: draft.savedAt,

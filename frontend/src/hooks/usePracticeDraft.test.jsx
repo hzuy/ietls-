@@ -117,11 +117,11 @@ describe('usePracticeDraft — persistDraftNow + guard P3-2', () => {
     expect(d.timeRemaining).toBe(800)
   })
 
-  it('đáp án rỗng + KHÔNG có draft cũ → vẫn không tạo draft "ma"', async () => {
+  it('đáp án rỗng + KHÔNG có draft cũ → vẫn ghi nhận draft đang làm dở khi đã bấm làm bài', async () => {
     let api
     await act(async () => { render(<Harness answers={{}} onState={a => { api = a }} />) })
     act(() => { api.persistDraftNow() })
-    expect(api.checkDraftOnMount().hasDraft).toBe(false)
+    expect(api.checkDraftOnMount().hasDraft).toBe(true)
   })
 })
 
@@ -163,11 +163,11 @@ describe('usePracticeDraft — checkDraftOnMount / hasUnsavedChanges / markSaved
     expect(typeof d.savedAt).toBe('string')
   })
 
-  it('checkDraftOnMount → hasDraft:false khi draft rỗng nội dung', async () => {
+  it('checkDraftOnMount → hasDraft:true khi draft tồn tại dù chưa chọn đáp án', async () => {
     saveDraft({ userId: 'u1', examId: 16, skillType: 'practice-reading', data: {}, timeRemaining: 100 })
     let api
     await act(async () => { render(<Harness onState={a => { api = a }} />) })
-    expect(api.checkDraftOnMount().hasDraft).toBe(false)
+    expect(api.checkDraftOnMount().hasDraft).toBe(true)
   })
 
   it('hasUnsavedChanges: false lúc đầu → true khi answers đổi → false sau persist', async () => {

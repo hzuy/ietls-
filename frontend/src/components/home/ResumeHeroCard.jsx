@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { Clock, Play, Trash2, BookOpen, Headphones, PenTool, Mic, AlertTriangle } from 'lucide-react'
+import React from 'react'
+import { Clock, Play, BookOpen, Headphones, PenTool, Mic } from 'lucide-react'
 import PillButton from '../common/PillButton'
 
 const SKILL_ICONS = {
@@ -88,9 +88,7 @@ export function parseDraftDetails(draft) {
   }
 }
 
-export default function ResumeHeroCard({ draft, onResume, onDiscard }) {
-  const [confirmDiscard, setConfirmDiscard] = useState(false)
-
+export default function ResumeHeroCard({ draft, onResume }) {
   if (!draft) return null
 
   const details = parseDraftDetails(draft)
@@ -99,50 +97,11 @@ export default function ResumeHeroCard({ draft, onResume, onDiscard }) {
   const SkillIcon = SKILL_ICONS[details.skillType] || BookOpen
   const colors = SKILL_COLORS[details.skillType] || SKILL_COLORS.reading
 
-  const handleDiscard = () => {
-    setConfirmDiscard(true)
-  }
-
-  const handleConfirmDiscard = () => {
-    setConfirmDiscard(false)
-    onDiscard(draft)
-  }
-
   return (
     <div
       data-testid="resume-hero-card"
       className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-xs transition-all hover:border-zinc-300 relative overflow-hidden"
     >
-      {/* Hộp xác nhận hủy bài */}
-      {confirmDiscard && (
-        <div className="absolute inset-0 z-10 bg-white/95 backdrop-blur-xs rounded-2xl flex flex-col items-center justify-center gap-4 p-6">
-          <div className="flex items-center gap-2 text-amber-600">
-            <AlertTriangle className="w-5 h-5 shrink-0" />
-            <span className="font-semibold text-sm">Hủy bài nháp?</span>
-          </div>
-          <p className="text-xs text-zinc-500 text-center leading-relaxed max-w-xs">
-            Tiến độ bài làm sẽ bị xóa và không thể khôi phục. Bạn chắc chắn muốn hủy?
-          </p>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleConfirmDiscard}
-              className="h-8 px-4 text-sm font-medium text-white rounded-full cursor-pointer inline-flex items-center justify-center"
-              style={{ background: 'var(--error, #ef4444)' }}
-            >
-              Hủy bài
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirmDiscard(false)}
-              className="h-8 px-4 text-sm font-medium text-zinc-700 rounded-full border border-zinc-200 bg-white hover:bg-zinc-50 cursor-pointer inline-flex items-center justify-center"
-            >
-              Giữ lại
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Top row: Badge & Status time */}
       <div className="flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex items-center gap-2">
@@ -190,19 +149,11 @@ export default function ResumeHeroCard({ draft, onResume, onDiscard }) {
       </div>
 
       {/* Actions footer */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-4 border-t border-zinc-100">
+      <div className="flex items-center gap-3 mt-4 pt-4 border-t border-zinc-100">
         <PillButton type="button" onClick={() => onResume(draft)}>
           <Play className="w-3.5 h-3.5 fill-current" />
           <span>Tiếp tục</span>
         </PillButton>
-
-        <button
-          type="button"
-          onClick={handleDiscard}
-          className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors cursor-pointer underline-offset-2 hover:underline"
-        >
-          Hủy bài nháp
-        </button>
       </div>
     </div>
   )

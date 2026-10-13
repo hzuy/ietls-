@@ -10,10 +10,11 @@ import { UserCardGridSkeleton } from '../components/skeletons'
 import { CONTENT_CARD_CONFIG } from '../components/common/contentCardConfig'
 import { getTypesBySkill } from '../utils/questionTypes'
 import { API_BASE, resolveImg } from '../utils/media'
-import { History, ArrowRight, Feather, Headphones } from 'lucide-react'
+import { History, ArrowRight, Feather, Headphones, PauseCircle, RotateCcw } from 'lucide-react'
 import { handleImgError } from '../utils/media'
 import { useAuth } from '../context/AuthContext'
 import { getPracticeAttempts } from '../services/practiceService'
+import { checkDraft, clearDraft } from '../services/draftService'
 import ExamAttemptListModal from '../components/exam/ExamAttemptListModal'
 
 const SKILL_META = {
@@ -47,12 +48,33 @@ export default function PracticeList({ skill: skillKey }) {
   const availableTypes = getTypesBySkill(skill)
   const { user } = useAuth()
   const [attemptsByExam, setAttemptsByExam] = useState({})
+  const [draftInfo, setDraftInfo] = useState({})
   const [historyFor, setHistoryFor] = useState(null)
 
   useEffect(() => {
     if (!user || user.role !== 'user') { setAttemptsByExam({}); return }
     getPracticeAttempts(skill).then(setAttemptsByExam).catch(() => setAttemptsByExam({}))
   }, [skill, user])
+
+  useEffect(() => {
+    const updateDrafts = () => {
+      if (!user || user.role !== 'user' || !exams.length) {
+        setDraftInfo({})
+        return
+      }
+      const userId = user.id || user._id
+      const skillType = skill === 'reading' ? 'practice-reading' : 'practice-listening'
+      const info = {}
+      for (const exam of exams) {
+        info[exam.id] = checkDraft(userId, exam.id, skillType)
+      }
+      setDraftInfo(info)
+    }
+
+    updateDrafts()
+    window.addEventListener('focus', updateDrafts)
+    return () => window.removeEventListener('focus', updateDrafts)
+  }, [skill, user, exams])
 
   useEffect(() => {
     setLoading(true)
@@ -74,16 +96,30 @@ export default function PracticeList({ skill: skillKey }) {
 
   const otherExams = exams.filter(e => !availableTypes.some(t => t.key === e.type))
 
-    const renderCard = (item, idx) => {
+  const handleRetakePractice = (item) => {
+    const skillType = skill === 'reading' ? 'practice-reading' : 'practice-listening'
+    if (user) {
+      const userId = user.id || user._id
+      clearDraft(userId, item.id, skillType)
+      setDraftInfo(prev => ({
+        ...prev,
+        [item.id]: { hasDraft: false }
+      }))
+    }
+    navigate(`/practice/${skill}/${item.id}`)
+  }
+
+  const renderCard = (item, idx) => {
     const attempts = attemptsByExam[item.id] || []
     const latest = attempts[0]
     const hasImage = Boolean(item.thumbnailUrl)
+    const hasDraft = Boolean(draftInfo[item.id]?.hasDraft)
 
     return (
       <div
         key={item.id}
         onClick={() => navigate(`/practice/${skill}/${item.id}`)}
-        className={`anim-fade-up delay-${Math.min(idx + 1, 8)} group rounded-2xl border border-zinc-200 bg-white overflow-hidden shadow-xs hover:shadow-md hover:border-zinc-300 transition-all duration-200 flex flex-col justify-between h-full cursor-pointer`}
+        className={`anim-fade-up delay-${Math.min(idx + 1, 8)} group rounded-2xl border ${hasDraft ? 'border-blue-200/90 hover:border-blue-300' : 'border-zinc-200 hover:border-zinc-300'} bg-white overflow-hidden shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between h-full cursor-pointer`}
       >
         {/* Top Thumbnail / Illustration */}
         <div className="w-full aspect-[16/10] overflow-hidden relative flex items-center justify-center bg-zinc-100">
@@ -124,7 +160,7 @@ export default function PracticeList({ skill: skillKey }) {
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200/60 font-mono">
                   Gần nhất {latest.correct}/{latest.total}
                 </span>
-              ) : (
+              ) : hasDraft ? null : (
                 <span className="text-xs text-zinc-400 font-medium">
                   Chưa làm
                 </span>
@@ -149,18 +185,48 @@ export default function PracticeList({ skill: skillKey }) {
               </button>
             )}
 
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                navigate(`/practice/${skill}/${item.id}`)
-              }}
-              title="Làm bài"
-              aria-label="Làm bài"
-              className="w-9 h-9 rounded-full border border-zinc-200 bg-white hover:bg-zinc-100 hover:border-zinc-300 text-zinc-700 flex items-center justify-center transition shadow-2xs cursor-pointer hover:scale-105"
-            >
-              <ArrowRight className="w-4 h-4" />
-            </button>
+            {hasDraft && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleRetakePractice(item)
+                }}
+                title="Làm lại từ đầu"
+                aria-label="Làm lại từ đầu"
+                className="w-9 h-9 rounded-full border border-zinc-200 bg-white hover:bg-zinc-100 hover:border-zinc-300 text-zinc-700 flex items-center justify-center transition shadow-2xs cursor-pointer hover:scale-105"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+            )}
+
+            {hasDraft ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  navigate(`/practice/${skill}/${item.id}`)
+                }}
+                title="Làm tiếp"
+                aria-label="Làm tiếp"
+                className="w-9 h-9 rounded-full border border-blue-200 bg-blue-50/90 hover:bg-blue-100 hover:border-blue-300 text-blue-600 flex items-center justify-center transition shadow-2xs cursor-pointer hover:scale-105"
+              >
+                <PauseCircle className="w-4 h-4 text-blue-600" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  navigate(`/practice/${skill}/${item.id}`)
+                }}
+                title={latest ? "Làm lại" : "Làm bài"}
+                aria-label={latest ? "Làm lại" : "Làm bài"}
+                className="w-9 h-9 rounded-full border border-zinc-200 bg-white hover:bg-zinc-100 hover:border-zinc-300 text-zinc-700 flex items-center justify-center transition shadow-2xs cursor-pointer hover:scale-105"
+              >
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       </div>

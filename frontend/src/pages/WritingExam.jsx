@@ -297,40 +297,126 @@ function WritingTaskAccordion({ task, r, isCompleted, onRetake }) {
               {isCompleted ? (
                 <>
                   <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-6 items-stretch lg:min-h-[320px]">
-                    {/* Cột trái: Khung bài viết (sửa thẳng lỗi vào bản gốc) */}
+                    {/* Cột trái: Khung bài viết / Chi tiết nhận xét / Bài mẫu (lăn chuột cuộn riêng) */}
                     <div className="relative bg-white rounded-2xl border border-zinc-200/90 shadow-2xs max-h-[60vh] lg:max-h-none overflow-hidden flex flex-col">
                       <div className="p-5 sm:p-6 lg:absolute lg:inset-0 flex flex-col min-h-0">
-                        {/* Tab switch chỉ xuất hiện khi có bài mẫu nâng band */}
-                        {r?.model_essay?.paragraphs && (
-                          <div className="flex items-center gap-1.5 pb-3 mb-3 border-b border-zinc-100 shrink-0 overflow-x-auto custom-scrollbar">
-                            <button
-                              type="button"
-                              onClick={() => setActiveTab('essay')}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 ${
-                                activeTab === 'essay'
-                                  ? 'bg-blue-50 text-blue-700 shadow-2xs'
-                                  : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
-                              }`}
-                            >
-                              Bài làm
-                            </button>
+                        {/* Tab header đồng bộ style & hover */}
+                        <div className="flex items-center gap-1.5 pb-3 mb-3 border-b border-zinc-100 shrink-0 overflow-x-auto custom-scrollbar">
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab('essay')}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 ${
+                              activeTab === 'essay'
+                                ? 'bg-blue-50 text-blue-700 shadow-2xs'
+                                : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
+                            }`}
+                          >
+                            Bài làm
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab('criteria')}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 ${
+                              activeTab === 'criteria'
+                                ? 'bg-blue-50 text-blue-700 shadow-2xs'
+                                : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
+                            }`}
+                          >
+                            Chi tiết nhận xét
+                          </button>
+                          {r?.model_essay?.paragraphs && (
                             <button
                               type="button"
                               onClick={() => setActiveTab('model')}
                               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 ${
                                 activeTab === 'model'
-                                  ? 'bg-blue-600 text-white shadow-2xs'
+                                  ? 'bg-blue-50 text-blue-700 shadow-2xs'
                                   : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
                               }`}
                             >
                               Bài mẫu band {r.model_essay.target_band}
                             </button>
-                          </div>
-                        )}
+                          )}
+                        </div>
 
-                        {/* Vùng bài viết cuộn dọc */}
+                        {/* Vùng nội dung cuộn dọc riêng ở cột trái */}
                         <div className="flex-1 min-h-0 overflow-y-auto pr-3 custom-scrollbar text-zinc-800 text-[15.5px] leading-[2.0]">
-                          {activeTab === 'model' && r?.model_essay ? (
+                          {activeTab === 'essay' && (
+                            <InlineCorrections text={r.essayText} corrections={r.corrections} />
+                          )}
+
+                          {activeTab === 'criteria' && (
+                            <div className="space-y-4 text-left">
+                              {criteriaList.map((critItem) => (
+                                <div key={critItem.key} className="bg-zinc-50/80 rounded-2xl border border-zinc-200/90 p-4.5 sm:p-5 shadow-2xs flex flex-col gap-3">
+                                  <div className="flex items-center justify-between pb-2 border-b border-zinc-200/70">
+                                    <span className="font-bold text-sm text-zinc-900">{critItem.label}</span>
+                                    <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
+                                      Band {critItem.score}
+                                    </span>
+                                  </div>
+                                  {(critItem.summary || critItem.comment) && (
+                                    <p className="text-xs sm:text-[13px] text-zinc-700 leading-relaxed m-0 text-justify">
+                                      {critItem.summary || critItem.comment}
+                                    </p>
+                                  )}
+                                  {/* Ưu điểm */}
+                                  {critItem.strengths && critItem.strengths.length > 0 && (
+                                    <div className="bg-emerald-50/70 border border-emerald-200/70 rounded-xl p-3">
+                                      <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 mb-1.5">
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                        Ưu điểm
+                                      </div>
+                                      <ul className="m-0 p-0 list-none space-y-1 text-xs text-emerald-900 leading-relaxed">
+                                        {critItem.strengths.map((str, idx) => (
+                                          <li key={idx} className="flex items-start gap-1.5">
+                                            <span className="font-bold text-emerald-600 shrink-0">•</span>
+                                            <span>{str}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                  {/* Nhược điểm */}
+                                  {critItem.weaknesses && critItem.weaknesses.length > 0 && (
+                                    <div className="bg-amber-50/70 border border-amber-200/70 rounded-xl p-3">
+                                      <div className="flex items-center gap-1.5 text-xs font-bold text-amber-800 mb-1.5">
+                                        <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                                        Nhược điểm
+                                      </div>
+                                      <ul className="m-0 p-0 list-none space-y-1 text-xs text-amber-900 leading-relaxed">
+                                        {critItem.weaknesses.map((w, idx) => (
+                                          <li key={idx} className="flex items-start gap-1.5">
+                                            <span className="font-bold text-amber-600 shrink-0">•</span>
+                                            <span>{w}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                  {/* Cách cải thiện */}
+                                  {critItem.how_to_improve && critItem.how_to_improve.length > 0 && (
+                                    <div className="bg-blue-50/70 border border-blue-200/70 rounded-xl p-3">
+                                      <div className="flex items-center gap-1.5 text-xs font-bold text-blue-800 mb-1.5">
+                                        <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                                        Cách cải thiện
+                                      </div>
+                                      <ul className="m-0 p-0 list-none space-y-1 text-xs text-blue-900 leading-relaxed">
+                                        {critItem.how_to_improve.map((h, idx) => (
+                                          <li key={idx} className="flex items-start gap-1.5">
+                                            <span className="font-bold text-blue-600 shrink-0">•</span>
+                                            <span>{h}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {activeTab === 'model' && r?.model_essay && (
                             <div className="space-y-4">
                               {r.model_essay.paragraphs.map((para, idx) => (
                                 <p key={idx} className="m-0 leading-relaxed text-zinc-800 text-justify">
@@ -353,14 +439,12 @@ function WritingTaskAccordion({ task, r, isCompleted, onRetake }) {
                                 </div>
                               )}
                             </div>
-                          ) : (
-                            <InlineCorrections text={r.essayText} corrections={r.corrections} />
                           )}
                         </div>
                       </div>
                     </div>
 
-                    {/* Cột phải: Khung điểm và nhận xét */}
+                    {/* Cột phải: Khung điểm và Tổng quan (gọn gàng, cố định) */}
                     <div className="bg-white rounded-2xl border border-zinc-200/90 p-5 sm:p-6 shadow-2xs flex flex-col gap-4 h-auto">
                       {/* 1. Điểm số to & thông số đoạn/từ + ±0.5 */}
                       <div className="text-center pt-1">
@@ -444,88 +528,23 @@ function WritingTaskAccordion({ task, r, isCompleted, onRetake }) {
                         </div>
                       </div>
 
-                      {/* 4. Khối Nhận xét chi tiết (thay thế hoàn toàn phần Gợi ý cải thiện, nằm gọn ở cột bên phải) */}
+                      {/* 4. Khối Tổng quan (ở ngoài cột phải, gọn gàng, không kéo dài) */}
                       <div className="pt-4 border-t border-zinc-100 flex flex-col gap-3.5">
                         <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-900">
                           <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                          <span>Nhận xét chi tiết</span>
+                          <span>Tổng quan</span>
                         </div>
 
-                        {r?.overall_summary && (
+                        {r?.overall_summary ? (
                           <div className="text-xs text-zinc-700 bg-blue-50/60 border border-blue-100 rounded-xl p-3 leading-relaxed text-justify">
                             <strong className="text-blue-900">Tổng kết: </strong>
                             {r.overall_summary}
                           </div>
+                        ) : (
+                          <p className="text-xs text-zinc-600 leading-relaxed m-0 whitespace-pre-line text-justify">
+                            {improvementSuggestion}
+                          </p>
                         )}
-
-                        <div className="flex flex-col gap-3">
-                          {criteriaList.map((critItem) => (
-                            <div key={critItem.key} className="bg-zinc-50/70 rounded-xl border border-zinc-200/80 p-3.5 flex flex-col gap-2.5">
-                              <div className="flex items-center justify-between pb-1.5 border-b border-zinc-200/60">
-                                <span className="font-bold text-xs text-zinc-900">{critItem.label}</span>
-                                <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
-                                  Band {critItem.score}
-                                </span>
-                              </div>
-                              {(critItem.summary || critItem.comment) && (
-                                <p className="text-xs text-zinc-700 leading-relaxed m-0 text-justify">
-                                  {critItem.summary || critItem.comment}
-                                </p>
-                              )}
-                              {/* Ưu điểm */}
-                              {critItem.strengths && critItem.strengths.length > 0 && (
-                                <div className="bg-emerald-50/70 border border-emerald-200/70 rounded-lg p-2.5">
-                                  <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-800 mb-1">
-                                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                    Ưu điểm
-                                  </div>
-                                  <ul className="m-0 p-0 list-none space-y-1 text-[11.5px] text-emerald-900 leading-relaxed">
-                                    {critItem.strengths.map((str, idx) => (
-                                      <li key={idx} className="flex items-start gap-1.5">
-                                        <span className="font-bold text-emerald-600 shrink-0">•</span>
-                                        <span>{str}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-                              {/* Nhược điểm */}
-                              {critItem.weaknesses && critItem.weaknesses.length > 0 && (
-                                <div className="bg-amber-50/70 border border-amber-200/70 rounded-lg p-2.5">
-                                  <div className="flex items-center gap-1 text-[11px] font-bold text-amber-800 mb-1">
-                                    <AlertCircle className="w-3 h-3 text-amber-600" />
-                                    Nhược điểm
-                                  </div>
-                                  <ul className="m-0 p-0 list-none space-y-1 text-[11.5px] text-amber-900 leading-relaxed">
-                                    {critItem.weaknesses.map((w, idx) => (
-                                      <li key={idx} className="flex items-start gap-1.5">
-                                        <span className="font-bold text-amber-600 shrink-0">•</span>
-                                        <span>{w}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-                              {/* Cách cải thiện */}
-                              {critItem.how_to_improve && critItem.how_to_improve.length > 0 && (
-                                <div className="bg-blue-50/70 border border-blue-200/70 rounded-lg p-2.5">
-                                  <div className="flex items-center gap-1 text-[11px] font-bold text-blue-800 mb-1">
-                                    <Sparkles className="w-3 h-3 text-blue-600" />
-                                    Cách cải thiện
-                                  </div>
-                                  <ul className="m-0 p-0 list-none space-y-1 text-[11.5px] text-blue-900 leading-relaxed">
-                                    {critItem.how_to_improve.map((h, idx) => (
-                                      <li key={idx} className="flex items-start gap-1.5">
-                                        <span className="font-bold text-blue-600 shrink-0">•</span>
-                                        <span>{h}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
 
                         {/* Ưu tiên cải thiện hàng đầu nếu có */}
                         {Array.isArray(r?.top_priorities) && r.top_priorities.length > 0 ? (
@@ -638,18 +657,36 @@ export default function WritingExam() {
     autosaveRef.current = {
       essays, submittedTaskIds, timeLeft,
       userId: user ? (user.id || user._id) : null,
+      exam,
     }
   })
   const persistDraftNow = useCallback(() => {
-    const { essays, submittedTaskIds, timeLeft, userId } = autosaveRef.current
+    const { essays, submittedTaskIds, timeLeft, userId, exam: curExam } = autosaveRef.current
     if (!userId || !id) return
     const data = { essays, submittedTaskIds }
     // P3-2: đừng để data rỗng ghi đè một draft cũ không rỗng
     if (isDataEmpty(data)) {
       const existing = loadDraft(userId, id, 'writing')
-      if (existing && !isDataEmpty(existing.data)) return
+      if (existing && !isDataEmpty(existing.data)) {
+        existing.timeRemaining = timeLeft
+        existing.savedAt = new Date().toISOString()
+        try {
+          localStorage.setItem(`ielts_draft_${userId}_${id}_writing`, JSON.stringify(existing))
+          setLastSavedAt(new Date())
+        } catch {}
+        return
+      }
     }
-    saveDraft({ userId, examId: id, skillType: 'writing', data, timeRemaining: timeLeft })
+    const examTitle = curExam?.title || (curExam?.seriesName ? `${curExam.seriesName} · Test ${curExam.testNumber} Writing` : 'IELTS Writing')
+    saveDraft({
+      userId,
+      examId: id,
+      skillType: 'writing',
+      data,
+      timeRemaining: timeLeft,
+      examTitle,
+      totalQuestions: 2,
+    })
     setLastSavedAt(new Date())
   }, [id])
   useEffect(() => {
@@ -702,14 +739,26 @@ export default function WritingExam() {
           const userId = user.id || user._id
           const draft = loadDraft(userId, id, 'writing')
           // Cho phép resume tự động nếu có draft, kể cả không có ?resume=true
-          if (draft?.data && !isDataEmpty(draft.data)) {
-            draftEssays = draft.data.essays || {}
-            draftIds = Array.isArray(draft.data.submittedTaskIds) ? draft.data.submittedTaskIds : []
+          if (draft) {
+            draftEssays = draft.data?.essays || {}
+            draftIds = Array.isArray(draft.data?.submittedTaskIds) ? draft.data.submittedTaskIds : []
             activeDraft = true
             setEssays(draftEssays)
             setSubmittedTaskIds(prev => Array.from(new Set([...prev, ...draftIds])))
             if (draft.timeRemaining != null) setTimeLeft(draft.timeRemaining)
             if (draft.savedAt) setLastSavedAt(new Date(draft.savedAt))
+          } else if (!viewResultMode) {
+            const examTitle = data?.title || (data?.seriesName ? `${data.seriesName} · Test ${data.testNumber} Writing` : 'IELTS Writing')
+            saveDraft({
+              userId,
+              examId: id,
+              skillType: 'writing',
+              data: { essays: {}, submittedTaskIds: [] },
+              timeRemaining: DEFAULT_WRITING_TIME,
+              examTitle,
+              totalQuestions: 2,
+            })
+            setLastSavedAt(new Date())
           }
         }
 
@@ -1003,12 +1052,15 @@ export default function WritingExam() {
                   onClick={() => {
                     if (user) {
                       clearDraft(user.id || user._id, id, 'writing')
+                      const examTitle = exam?.title || (exam?.seriesName ? `${exam.seriesName} · Test ${exam.testNumber} Writing` : 'IELTS Writing')
                       saveDraft({
                         userId: user.id || user._id,
                         examId: id,
                         skillType: 'writing',
                         data: { essays: {}, submittedTaskIds: [], isRetake: true },
-                        timeRemaining: DEFAULT_WRITING_TIME
+                        timeRemaining: DEFAULT_WRITING_TIME,
+                        examTitle,
+                        totalQuestions: 2,
                       })
                     }
                     window.location.href = window.location.pathname
@@ -1105,12 +1157,15 @@ export default function WritingExam() {
               const handleRetake = () => {
                 if (user) {
                   clearDraft(user.id || user._id, id, 'writing')
+                  const examTitle = exam?.title || (exam?.seriesName ? `${exam.seriesName} · Test ${exam.testNumber} Writing` : 'IELTS Writing')
                   saveDraft({
                     userId: user.id || user._id,
                     examId: id,
                     skillType: 'writing',
                     data: { essays: {}, submittedTaskIds: [], isRetake: true },
-                    timeRemaining: DEFAULT_WRITING_TIME
+                    timeRemaining: DEFAULT_WRITING_TIME,
+                    examTitle,
+                    totalQuestions: 2,
                   })
                 }
                 window.location.href = window.location.pathname

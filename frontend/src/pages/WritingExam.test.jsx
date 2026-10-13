@@ -98,8 +98,11 @@ describe('WritingExam - KIỂM THỬ BẮT BUỘC: Ca 9 đến Ca 12', () => {
       expect(screen.getByText('Task 1 band score')).toBeInTheDocument()
     })
 
-    // Hiển thị comment bình thường
+    // Hiển thị gợi ý tổng quan bình thường ở cột phải
     expect(screen.getAllByText('Đã hoàn thành các yêu cầu cơ bản của đề bài.').length).toBeGreaterThanOrEqual(1)
+
+    // Bấm tab "Chi tiết nhận xét" để xem chi tiết các tiêu chí bản ghi cũ
+    fireEvent.click(screen.getByText('Chi tiết nhận xét'))
     expect(screen.getByText('Bài viết có tính liên kết tương đối tốt.')).toBeInTheDocument()
 
     // Ẩn các nhóm Ưu điểm, Nhược điểm, Cách cải thiện vì bản ghi cũ không có
@@ -193,10 +196,11 @@ describe('WritingExam - KIỂM THỬ BẮT BUỘC: Ca 9 đến Ca 12', () => {
       expect(screen.getByText('Task 1 band score')).toBeInTheDocument()
     })
 
-    // 1. Kiểm tra: không có tab "Đã sửa" hay "Bản gốc", chỉ có "Bài làm" và "Bài mẫu band 7.5"
+    // 1. Kiểm tra: có các tab "Bài làm", "Chi tiết nhận xét", và "Bài mẫu band 7.5"
     expect(screen.queryByText('Đã sửa')).toBeNull()
     expect(screen.queryByText('Bản gốc')).toBeNull()
     expect(screen.getByText('Bài làm')).toBeInTheDocument()
+    expect(screen.getByText('Chi tiết nhận xét')).toBeInTheDocument()
     expect(screen.getByText('Bài mẫu band 7.5')).toBeInTheDocument()
 
     // 2. Chuyển sang tab "Bài mẫu band 7.5" và kiểm tra nội dung + key_changes
@@ -209,7 +213,7 @@ describe('WritingExam - KIỂM THỬ BẮT BUỘC: Ca 9 đến Ca 12', () => {
     expect(leftColumnScroll).not.toBeNull()
   })
 
-  it('Ca 11: khối "Nhận xét chi tiết" hiển thị đủ 4 thẻ với Ưu điểm, Nhược điểm, Cách cải thiện', async () => {
+  it('Ca 11: tab "Chi tiết nhận xét" hiển thị đủ 4 thẻ với Ưu điểm, Nhược điểm, Cách cải thiện; cột phải có tiêu đề "Tổng quan"', async () => {
     examService.getWritingExam.mockResolvedValue({
       id: 'exam-1',
       title: 'IELTS Academic Writing Test 1',
@@ -267,11 +271,15 @@ describe('WritingExam - KIỂM THỬ BẮT BUỘC: Ca 9 đến Ca 12', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText('Nhận xét chi tiết')).toBeInTheDocument()
+      expect(screen.getByText('Tổng quan')).toBeInTheDocument()
     })
 
-    // Khối Nhận xét chi tiết có tiêu đề và lưới 4 thẻ
-    expect(screen.getByText('Nhận xét chi tiết')).toBeInTheDocument()
+    // Khối Tổng quan có ở cột phải
+    expect(screen.getByText('Tổng quan')).toBeInTheDocument()
+
+    // Bấm tab "Chi tiết nhận xét" ở cột trái để xem 4 tiêu chí
+    fireEvent.click(screen.getByText('Chi tiết nhận xét'))
+
     expect(screen.getAllByText('Ưu điểm')).toHaveLength(4)
     expect(screen.getAllByText('Nhược điểm')).toHaveLength(4)
     expect(screen.getAllByText('Cách cải thiện')).toHaveLength(4)

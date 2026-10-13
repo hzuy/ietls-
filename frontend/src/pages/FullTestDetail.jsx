@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'
 import Breadcrumb from '../components/common/Breadcrumb'
 
 import { useAuth } from '../context/AuthContext'
-import { checkDraft } from '../services/draftService'
+import { checkDraft, clearDraft } from '../services/draftService'
 import { getMyHistory } from '../services/historyService'
 import { Headphones, BookOpen, PenTool, Mic, AlertCircle, RefreshCw, FolderArchive, PlayCircle, ChevronDown, History, PauseCircle, RotateCcw, Lightbulb, FileText } from 'lucide-react'
 import { BACKEND_URL, resolveImg, handleImgError } from '../utils/media'
@@ -21,7 +21,7 @@ const SKILL_META = {
 }
 const SKILL_ORDER = ['listening', 'reading', 'writing', 'speaking']
 
-function ActionDropdown({ exam, skill, m, hasDraft, historyInfo = {}, setHistoryModal, navigate, user, openAuthModal, location, isLastRow }) {
+function ActionDropdown({ exam, skill, testNumber, m, hasDraft, historyInfo = {}, setHistoryModal, navigate, user, openAuthModal, location, isLastRow, onClearDraft }) {
   const [open, setOpen] = useState(false)
   const dropdownRef = useRef(null)
   
@@ -57,6 +57,18 @@ function ActionDropdown({ exam, skill, m, hasDraft, historyInfo = {}, setHistory
     else navigate(`${m.path}/${exam?.id}`)
   }
 
+  const handleRetake = () => {
+    setOpen(false)
+    if (!user) {
+      openAuthModal('login', (location?.pathname || '') + (location?.search || ''))
+      return
+    }
+    const userId = user.id || user._id
+    clearDraft(userId, exam?.id, skill)
+    onClearDraft?.(testNumber, skill)
+    navigate(`${m.path}/${exam?.id}`)
+  }
+
   const handleOpenHistory = () => {
     setOpen(false)
     if (!user) {
@@ -77,8 +89,9 @@ function ActionDropdown({ exam, skill, m, hasDraft, historyInfo = {}, setHistory
     return () => document.removeEventListener('click', handleClick)
   }, [open])
 
-  // Bài nào chưa làm (chưa có lịch sử) thì chỉ hiện nút thường, không có mũi tên xổ xuống
-  if (!hasHistory) {
+  // Không có nháp và chưa có lịch sử thì chỉ hiện nút thường, không có mũi tên xổ xuống
+  const hasDropdown = hasHistory || hasDraft
+  if (!hasDropdown) {
     return (
       <button
         type="button"
@@ -91,7 +104,7 @@ function ActionDropdown({ exam, skill, m, hasDraft, historyInfo = {}, setHistory
     )
   }
 
-  // Bài đã làm rồi (có lịch sử) thì có nút và tam giác xổ xuống xem "Lịch sử"
+  // Bài có lịch sử HOẶC có nháp (đang làm dở) thì có nút và tam giác xổ xuống
   return (
     <div
       ref={dropdownRef}
@@ -111,7 +124,7 @@ function ActionDropdown({ exam, skill, m, hasDraft, historyInfo = {}, setHistory
         <button
           type="button"
           onClick={() => setOpen(!open)}
-          aria-label="Xem lịch sử"
+          aria-label="Tùy chọn"
           className="h-full pl-0.5 pr-2 flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors cursor-pointer"
         >
           <ChevronDown className={`w-3 h-3 shrink-0 transition-transform ${open ? 'rotate-180 text-zinc-600 dark:text-zinc-300' : ''}`} />
@@ -119,22 +132,34 @@ function ActionDropdown({ exam, skill, m, hasDraft, historyInfo = {}, setHistory
       </div>
 
       {open && (
-        <div className={`absolute ${isLastRow ? 'bottom-[calc(100%+4px)]' : 'top-[calc(100%+4px)]'} left-0 w-full bg-white dark:bg-zinc-800 rounded-lg shadow-md border border-zinc-200 dark:border-zinc-700 p-0.5 z-50 animate-in fade-in zoom-in-95 duration-100`}>
-          <button
-            type="button"
-            onClick={handleOpenHistory}
-            className="w-full h-7 flex items-center justify-center gap-1.5 px-2 text-[12px] font-normal text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 hover:text-zinc-900 dark:hover:text-white rounded-md transition-colors cursor-pointer"
-          >
-            <History className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-            <span className="whitespace-nowrap">Lịch sử</span>
-          </button>
+        <div className={`absolute ${isLastRow ? 'bottom-[calc(100%+4px)]' : 'top-[calc(100%+4px)]'} left-0 w-full min-w-[100px] bg-white dark:bg-zinc-800 rounded-lg shadow-md border border-zinc-200 dark:border-zinc-700 p-0.5 z-50 animate-in fade-in zoom-in-95 duration-100`}>
+          {hasDraft && (
+            <button
+              type="button"
+              onClick={handleRetake}
+              className="w-full h-7 flex items-center justify-center gap-1.5 px-2 text-[12px] font-normal text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 hover:text-zinc-900 dark:hover:text-white rounded-md transition-colors cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+              <span className="whitespace-nowrap">Làm lại</span>
+            </button>
+          )}
+          {hasHistory && (
+            <button
+              type="button"
+              onClick={handleOpenHistory}
+              className="w-full h-7 flex items-center justify-center gap-1.5 px-2 text-[12px] font-normal text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 hover:text-zinc-900 dark:hover:text-white rounded-md transition-colors cursor-pointer"
+            >
+              <History className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+              <span className="whitespace-nowrap">Lịch sử</span>
+            </button>
+          )}
         </div>
       )}
     </div>
   )
 }
 
-function SkillCell({ exam, skill, testNumber, draftInfo = {}, historyInfo = {}, setHistoryModal, navigate, user, openAuthModal, location, isLastRow }) {
+function SkillCell({ exam, skill, testNumber, draftInfo = {}, historyInfo = {}, setHistoryModal, navigate, user, openAuthModal, location, isLastRow, onClearDraft }) {
   const m = SKILL_META[skill]
   const hasDraft = draftInfo?.[`${testNumber}-${skill}`]?.hasDraft
   const examId = exam?.id
@@ -214,6 +239,7 @@ function SkillCell({ exam, skill, testNumber, draftInfo = {}, historyInfo = {}, 
       <ActionDropdown
         exam={exam}
         skill={skill}
+        testNumber={testNumber}
         m={m}
         hasDraft={hasDraft}
         historyInfo={historyInfo}
@@ -223,6 +249,7 @@ function SkillCell({ exam, skill, testNumber, draftInfo = {}, historyInfo = {}, 
         openAuthModal={openAuthModal}
         location={location}
         isLastRow={isLastRow}
+        onClearDraft={onClearDraft}
       />
     </div>
   )
@@ -243,6 +270,13 @@ export default function FullTestDetail() {
   const [draftInfo, setDraftInfo] = useState({}) // { [testNumber-skill]: checkDraft result }
   const [historyInfo, setHistoryInfo] = useState({}) // { [examId]: [attempts] }
   const [historyModal, setHistoryModal] = useState(null) // { skill, skillLabel, attempts }
+
+  const handleClearDraft = useCallback((testNumber, skill) => {
+    setDraftInfo(prev => ({
+      ...prev,
+      [`${testNumber}-${skill}`]: { hasDraft: false }
+    }))
+  }, [])
 
   const fetchBookData = useCallback(() => {
     if (!bookNumber) return
@@ -512,7 +546,6 @@ export default function FullTestDetail() {
                   <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
                     {bookData.tests.map((test, idx) => {
                       const isLastRow = idx === bookData.tests.length - 1
-                      const hasAnyDraft = SKILL_ORDER.some(s => draftInfo?.[`${test.testNumber}-${s}`]?.hasDraft)
 
                       return (
                         <tr key={test.testNumber} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
@@ -520,14 +553,6 @@ export default function FullTestDetail() {
                             <div className="font-bold text-base text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
                               Test {test.testNumber}
                             </div>
-                            {hasAnyDraft && (
-                              <div className="mt-1.5 flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
-                                <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400 whitespace-nowrap">
-                                  Đang làm dở
-                                </span>
-                              </div>
-                            )}
                           </td>
                           {SKILL_ORDER.map(skill => (
                             <td key={skill} className="py-6 px-2 text-center align-middle">
@@ -543,6 +568,7 @@ export default function FullTestDetail() {
                                 openAuthModal={openAuthModal}
                                 location={location}
                                 isLastRow={isLastRow}
+                                onClearDraft={handleClearDraft}
                               />
                             </td>
                           ))}

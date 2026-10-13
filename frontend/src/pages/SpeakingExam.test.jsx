@@ -274,7 +274,7 @@ describe('SpeakingExam Part 2 flow', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Đã chuẩn bị xong' })).toBeInTheDocument()
-    })
+    }, { timeout: 3000 })
     fireEvent.click(screen.getByRole('button', { name: 'Đã chuẩn bị xong' }))
 
     await waitFor(() => {

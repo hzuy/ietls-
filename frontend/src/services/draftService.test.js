@@ -113,10 +113,54 @@ describe('draftService — getLatestDraft', () => {
     expect(latest.totalQuestions).toBe(40)
   })
 
-  it('bỏ qua draft quá hạn hoặc rỗng', () => {
-    writeDraftWithAge('u1', '1', 'reading', DRAFT_TTL_MS + 10_000, { 1: 'A' }) // quá hạn
-    saveDraft({ userId: 'u1', examId: '2', skillType: 'listening', data: {} }) // rỗng
+  it('kế thừa examTitle và totalQuestions từ draft trước nếu lần save tiếp theo không truyền', () => {
+    saveDraft({
+      userId: 'u1',
+      examId: '15',
+      skillType: 'writing',
+      data: { essays: {} },
+      timeRemaining: 3600,
+      examTitle: 'IELTS Writting Practices Test 1 Cam19',
+      totalQuestions: 2,
+    })
 
+    // Lần save thứ 2 (vd autosave định kỳ) chỉ gửi answers và timeLeft
+    saveDraft({
+      userId: 'u1',
+      examId: '15',
+      skillType: 'writing',
+      data: { essays: { 1: 'My essay paragraph' } },
+      timeRemaining: 3500,
+    })
+
+    const draft = loadDraft('u1', '15', 'writing')
+    expect(draft.examTitle).toBe('IELTS Writting Practices Test 1 Cam19')
+    expect(draft.totalQuestions).toBe(2)
+    expect(draft.timeRemaining).toBe(3500)
+    expect(draft.data.essays[1]).toBe('My essay paragraph')
+  })
+
+  it('bỏ qua draft quá hạn, nhưng vẫn nhận diện draft hợp lệ kể cả khi chưa chọn đáp án', () => {
+    writeDraftWithAge('u1', '1', 'reading', DRAFT_TTL_MS + 10_000, { 1: 'A' }) // quá hạn
     expect(getLatestDraft('u1')).toBeNull()
+
+    saveDraft({ userId: 'u1', examId: '2', skillType: 'listening', data: {}, timeRemaining: 1800 })
+    expect(getLatestDraft('u1')).not.toBeNull()
+    expect(checkDraft('u1', '2', 'listening').hasDraft).toBe(true)
+  })
+
+  it('lưu và nạp audioProgress chính xác cho bài thi listening', () => {
+    saveDraft({
+      userId: 'u1',
+      examId: '14',
+      skillType: 'listening',
+      data: { 1: 'A' },
+      timeRemaining: 1800,
+      audioProgress: { sectionIndex: 2, currentTime: 135 },
+    })
+
+    const draft = loadDraft('u1', '14', 'listening')
+    expect(draft).not.toBeNull()
+    expect(draft.audioProgress).toEqual({ sectionIndex: 2, currentTime: 135 })
   })
 })

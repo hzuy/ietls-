@@ -42,41 +42,16 @@ describe('ResumeHeroCard Component', () => {
     expect(progressEls.length).toBeGreaterThan(0)
     expect(screen.getByText('30:00')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Tiếp tục/i })).toBeInTheDocument()
-    // MỤC 2: nút Hủy bài nháp là chữ nhỏ (không phải PillButton)
-    expect(screen.getByText('Hủy bài nháp')).toBeInTheDocument()
+    // Không còn nút Hủy bài nháp theo yêu cầu người dùng
+    expect(screen.queryByText('Hủy bài nháp')).not.toBeInTheDocument()
   })
 
   it('triggers onResume callback when "Tiếp tục" button is clicked', () => {
     const onResume = vi.fn()
-    render(<ResumeHeroCard draft={mockDraft} onResume={onResume} onDiscard={vi.fn()} />)
+    render(<ResumeHeroCard draft={mockDraft} onResume={onResume} />)
 
     fireEvent.click(screen.getByRole('button', { name: /Tiếp tục/i }))
     expect(onResume).toHaveBeenCalledWith(mockDraft)
-  })
-
-  it('shows confirmation dialog before discarding draft', () => {
-    const onDiscard = vi.fn()
-    render(<ResumeHeroCard draft={mockDraft} onResume={vi.fn()} onDiscard={onDiscard} />)
-
-    // MỤC 2: bấm hủy → hiện hộp xác nhận, chưa gọi onDiscard
-    fireEvent.click(screen.getByText('Hủy bài nháp'))
-    expect(screen.getByText('Hủy bài nháp?')).toBeInTheDocument()
-    expect(onDiscard).not.toHaveBeenCalled()
-
-    // Bấm xác nhận → gọi onDiscard
-    fireEvent.click(screen.getByRole('button', { name: 'Hủy bài' }))
-    expect(onDiscard).toHaveBeenCalledWith(mockDraft)
-  })
-
-  it('cancels discard when user clicks "Giữ lại"', () => {
-    const onDiscard = vi.fn()
-    render(<ResumeHeroCard draft={mockDraft} onResume={vi.fn()} onDiscard={onDiscard} />)
-
-    fireEvent.click(screen.getByText('Hủy bài nháp'))
-    fireEvent.click(screen.getByRole('button', { name: 'Giữ lại' }))
-    expect(onDiscard).not.toHaveBeenCalled()
-    // Hộp xác nhận đóng lại
-    expect(screen.queryByText('Hủy bài nháp?')).not.toBeInTheDocument()
   })
 
   it('returns null when draft is null or empty', () => {

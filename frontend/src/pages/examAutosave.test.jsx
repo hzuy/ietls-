@@ -270,10 +270,10 @@ describe('persistDraftNow — P3-2 khi lưu-ngay-khi-thoát', () => {
     expect(loadDraft('u1', '10', 'writing').data.essays).toEqual({ 5: 'MỚI' })
   })
 
-  it('content rỗng + KHÔNG có draft cũ → checkDraft vẫn hasDraft:false', () => {
+  it('content rỗng + KHÔNG có draft cũ → checkDraft ghi nhận hasDraft:true khi đã lưu draft', () => {
     const persist = makeWritingPersist(() => ({ essays: {}, submittedTaskIds: [] }), 'u1', '10')
     persist()
-    expect(checkDraft('u1', '10', 'writing').hasDraft).toBe(false)
+    expect(checkDraft('u1', '10', 'writing').hasDraft).toBe(true)
   })
 })
 

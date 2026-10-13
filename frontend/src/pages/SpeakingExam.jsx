@@ -290,18 +290,35 @@ export default function SpeakingExam() {
       transcripts, submittedPartIds,
       userId: user ? (user.id || user._id) : null,
       blocked: viewResultMode || allSubmitted,
+      exam,
     }
   })
   const persistDraftNow = useCallback(() => {
-    const { transcripts, submittedPartIds, userId, blocked } = autosaveRef.current
+    const { transcripts, submittedPartIds, userId, blocked, exam: curExam } = autosaveRef.current
     if (!userId || !id || blocked) return
     const data = { transcripts, submittedPartIds }
     // P3-2: đừng để data rỗng ghi đè một draft cũ không rỗng
     if (isDataEmpty(data)) {
       const existing = loadDraft(userId, id, 'speaking')
-      if (existing && !isDataEmpty(existing.data)) return
+      if (existing && !isDataEmpty(existing.data)) {
+        existing.savedAt = new Date().toISOString()
+        try {
+          localStorage.setItem(`ielts_draft_${userId}_${id}_speaking`, JSON.stringify(existing))
+          setLastSavedAt(new Date())
+        } catch {}
+        return
+      }
     }
-    saveDraft({ userId, examId: id, skillType: 'speaking', data, timeRemaining: null })
+    const examTitle = curExam?.title || (curExam?.seriesName ? `${curExam.seriesName} · Test ${curExam.testNumber} Speaking` : 'IELTS Speaking')
+    saveDraft({
+      userId,
+      examId: id,
+      skillType: 'speaking',
+      data,
+      timeRemaining: null,
+      examTitle,
+      totalQuestions: 3,
+    })
     setLastSavedAt(new Date())
   }, [id])
   useEffect(() => {
@@ -500,13 +517,24 @@ export default function SpeakingExam() {
           const userId = user.id || user._id
           const draft = loadDraft(userId, id, 'speaking')
           // Cho phép tự động load draft kể cả không có ?resume=true
-          if (draft?.data && !isDataEmpty(draft.data)) {
-            draftTranscripts = draft.data.transcripts || {}
-            draftIds = Array.isArray(draft.data.submittedPartIds) ? draft.data.submittedPartIds : []
+          if (draft) {
+            draftTranscripts = draft.data?.transcripts || {}
+            draftIds = Array.isArray(draft.data?.submittedPartIds) ? draft.data.submittedPartIds : []
             activeDraft = true
             setTranscripts(prev => ({ ...prev, ...draftTranscripts }))
             setSubmittedPartIds(prev => Array.from(new Set([...prev, ...draftIds])))
             if (draft.savedAt) setLastSavedAt(new Date(draft.savedAt))
+          } else if (!viewResultMode && !previewMode) {
+            const examTitle = data?.title || (data?.seriesName ? `${data.seriesName} · Test ${data.testNumber} Speaking` : 'IELTS Speaking')
+            saveDraft({
+              userId,
+              examId: id,
+              skillType: 'speaking',
+              data: { transcripts: {}, submittedPartIds: [] },
+              examTitle,
+              totalQuestions: 3,
+            })
+            setLastSavedAt(new Date())
           }
         }
 
@@ -865,12 +893,15 @@ export default function SpeakingExam() {
                   onClick={() => {
                     if (user) {
                       clearDraft(user.id || user._id, id, 'speaking')
+                      const examTitle = exam?.title || (exam?.seriesName ? `${exam.seriesName} · Test ${exam.testNumber} Speaking` : 'IELTS Speaking')
                       saveDraft({
                         userId: user.id || user._id,
                         examId: id,
                         skillType: 'speaking',
                         data: { transcripts: {}, submittedPartIds: [], isRetake: true },
-                        timeRemaining: null
+                        timeRemaining: null,
+                        examTitle,
+                        totalQuestions: 3,
                       })
                     }
                     window.location.href = window.location.pathname
@@ -882,23 +913,44 @@ export default function SpeakingExam() {
                 </button>
               </div>
 
-              {/* Row 2: Big Overall Circle + Per-Part Scores */}
+              {/* Row 2: Overall Score (vòng tròn riêng + ±0.5 bên cạnh) + Per-Part Scores */}
               <div className="flex items-center gap-5 sm:gap-7 mb-6">
-                <div className={"w-16 h-16 rounded-full flex items-center justify-center font-extrabold text-[26px] shadow-xs shrink-0 " + getHeroCircleClass(overallBand)}>
-                  {overallBand}
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className={"w-16 h-16 rounded-full flex items-center justify-center font-extrabold text-[26px] shadow-xs shrink-0 " + getHeroCircleClass(overallBand)}>
+                    {overallBand}
+                  </div>
+                  {overallBand !== '–' && overallBand != null && (
+                    <span
+                      className="text-xs sm:text-[13px] font-bold text-zinc-600 select-none cursor-help tracking-tight"
+                      title="Điểm do AI ước lượng, có thể chênh khoảng ±0.5 so với giám khảo thật."
+                    >
+                      ±0.5
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap items-center gap-5 sm:gap-7">
-                  {exam.speakingParts.map(p => (
-                    <div key={p.id} className="flex items-center gap-2.5">
-                      <span className="text-xs sm:text-[13px] font-bold text-[#1D4ED8] tracking-wider uppercase">
-                        PART {p.number}
-                      </span>
-                      <span className={"px-3.5 py-0.5 rounded-full text-xs sm:text-[13px] font-extrabold shadow-2xs " + getHeroBadgeClass(results[p.id]?.overall)}>
-                        {results[p.id] ? bandNum(results[p.id].overall) : '–'}
-                      </span>
-                    </div>
-                  ))}
+                  {exam.speakingParts.map(p => {
+                    const partScore = results[p.id]?.overall != null ? bandNum(results[p.id].overall) : '–'
+                    return (
+                      <div key={p.id} className="flex items-center gap-2">
+                        <span className="text-xs sm:text-[13px] font-bold text-[#1D4ED8] tracking-wider uppercase">
+                          PART {p.number}
+                        </span>
+                        <span className={"w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-xs sm:text-[13px] font-extrabold leading-none shadow-2xs shrink-0 " + getHeroBadgeClass(results[p.id]?.overall)}>
+                          {partScore}
+                        </span>
+                        {partScore !== '–' && partScore != null && (
+                          <span
+                            className="text-xs sm:text-[13px] font-bold text-zinc-600 select-none cursor-help tracking-tight"
+                            title="Điểm do AI ước lượng, có thể chênh khoảng ±0.5 so với giám khảo thật."
+                          >
+                            ±0.5
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
 

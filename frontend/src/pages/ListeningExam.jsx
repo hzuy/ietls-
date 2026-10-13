@@ -58,6 +58,7 @@ export default function ListeningExam() {
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [activeSection, setActiveSection] = useState(0)
+  const [playingSectionIndex, setPlayingSectionIndex] = useState(0)
   const [timeLeft, setTimeLeft] = useState(DEFAULT_LISTENING_TIME)
   const [phase, setPhase] = useState('exam')
   const [showAnswers, setShowAnswers] = useState(false)
@@ -74,6 +75,8 @@ export default function ListeningExam() {
   const examContainerRef = useRef(null)
   const savedDraftRef = useRef('{}')  // JSON của answers đã ghi vào draft gần nhất
   const [lastSavedAt, setLastSavedAt] = useState(null) // mốc lưu nháp gần nhất — cho indicator header
+  const pendingSeekTimeRef = useRef(null)
+  const lastAudioSaveRef = useRef(0)
 
   // ── Autosave draft ─────────────────────────────────────────────────────────
   // MỘT interval sống suốt phiên (deps [phase, previewMode, id]). KHÔNG đưa
@@ -86,19 +89,46 @@ export default function ListeningExam() {
       answers, timeLeft,
       userId: user ? (user.id || user._id) : null,
       totalSlots: allQ.length,
+      playingSectionIndex,
     }
   })
   const persistDraftNow = useCallback(() => {
-    const { answers, timeLeft, userId, totalSlots: draftTotalSlots } = autosaveRef.current
+    const { answers, timeLeft, userId, totalSlots: draftTotalSlots, playingSectionIndex: curSec } = autosaveRef.current
     if (!userId || !id) return
     // P3-2: đừng để answers rỗng ghi đè một draft cũ không rỗng
     // (vd reload KHÔNG kèm ?resume=true → vào 'exam' với answers = {})
     if (Object.keys(answers).length === 0) {
       const existing = loadDraft(userId, id, 'listening')
-      if (existing?.data && Object.keys(existing.data).length > 0) return
+      if (existing?.data && Object.keys(existing.data).length > 0) {
+        existing.timeRemaining = timeLeft
+        existing.savedAt = new Date().toISOString()
+        const curTime = audioRef.current ? Math.floor(audioRef.current.currentTime) : (existing.audioProgress?.currentTime || 0)
+        existing.audioProgress = {
+          sectionIndex: curSec ?? existing.audioProgress?.sectionIndex ?? 0,
+          currentTime: curTime,
+        }
+        try {
+          localStorage.setItem(`ielts_draft_${userId}_${id}_listening`, JSON.stringify(existing))
+          setLastSavedAt(new Date())
+        } catch {}
+        return
+      }
     }
     const examTitle = exam?.title || (exam?.seriesName ? `${exam.seriesName} · Test ${exam.testNumber} Listening` : 'IELTS Listening')
-    saveDraft({ userId, examId: id, skillType: 'listening', data: answers, timeRemaining: timeLeft, examTitle, totalQuestions: draftTotalSlots || 40 })
+    const curTime = audioRef.current ? Math.floor(audioRef.current.currentTime) : 0
+    saveDraft({
+      userId,
+      examId: id,
+      skillType: 'listening',
+      data: answers,
+      timeRemaining: timeLeft,
+      examTitle,
+      totalQuestions: draftTotalSlots || 40,
+      audioProgress: {
+        sectionIndex: curSec ?? 0,
+        currentTime: curTime,
+      },
+    })
     savedDraftRef.current = JSON.stringify(answers)
     setLastSavedAt(new Date())
   }, [id, exam])
@@ -149,14 +179,38 @@ export default function ListeningExam() {
     })
       .then(data => {
         setExam(data)
-        if (resumeMode && user) {
+        const shouldResume = resumeMode || (!previewMode && !viewResultMode)
+        if (shouldResume && user) {
           const userId = user.id || user._id
           const draft = loadDraft(userId, id, 'listening')
-          if (draft?.data && Object.keys(draft.data).length > 0) {
-            setAnswers(draft.data)
-            savedDraftRef.current = JSON.stringify(draft.data)
+          if (draft) {
+            if (draft.data && Object.keys(draft.data).length > 0) {
+              setAnswers(draft.data)
+              savedDraftRef.current = JSON.stringify(draft.data)
+            }
             if (draft.timeRemaining != null) setTimeLeft(draft.timeRemaining)
             if (draft.savedAt) setLastSavedAt(new Date(draft.savedAt))
+            if (draft.audioProgress) {
+              const maxSec = (data?.listeningSections?.length || 1) - 1
+              const sec = Math.max(0, Math.min(draft.audioProgress.sectionIndex ?? 0, maxSec))
+              const time = Math.max(0, draft.audioProgress.currentTime ?? 0)
+              setPlayingSectionIndex(sec)
+              setActiveSection(sec)
+              pendingSeekTimeRef.current = time
+            }
+          } else if (!previewMode && !viewResultMode) {
+            const examTitle = data?.title || (data?.seriesName ? `${data.seriesName} · Test ${data.testNumber} Listening` : 'IELTS Listening')
+            saveDraft({
+              userId,
+              examId: id,
+              skillType: 'listening',
+              data: {},
+              timeRemaining: DEFAULT_LISTENING_TIME,
+              examTitle,
+              totalQuestions: 40,
+              audioProgress: { sectionIndex: 0, currentTime: 0 },
+            })
+            setLastSavedAt(new Date())
           }
           setPhase('exam')
         }
@@ -182,11 +236,11 @@ export default function ListeningExam() {
   }, [phase, timeLeft, previewMode, redirectExit])
 
   useEffect(() => {
-    if (audioRef.current) {
+    if (previewMode && audioRef.current) {
       audioRef.current.pause()
       audioRef.current.currentTime = 0
     }
-  }, [activeSection])
+  }, [activeSection, previewMode])
 
   useEffect(() => {
     if (!showConfirm) return
@@ -222,6 +276,9 @@ export default function ListeningExam() {
   const onAnswer = useCallback((qId, val) => setAnswers(a => ({ ...a, [qId]: val })), [])
 
   const doSubmit = async () => {
+    if (audioRef.current) {
+      audioRef.current.pause()
+    }
     setSubmitting(true)
     try {
       await submitListeningExam(id, answers)
@@ -279,6 +336,54 @@ export default function ListeningExam() {
     setActiveSection(idx)
     requestAnimationFrame(() => questionsScrollRef.current?.scrollTo({ top: 0 }))
   }, [])
+
+  const handleAudioEnded = useCallback(() => {
+    if (previewMode || !exam?.listeningSections) return
+    setPlayingSectionIndex(curr => {
+      const next = curr + 1
+      if (next < exam.listeningSections.length) {
+        goToSection(next)
+        return next
+      }
+      return curr
+    })
+  }, [exam?.listeningSections, previewMode, goToSection])
+
+  const applyPendingSeek = useCallback(() => {
+    if (pendingSeekTimeRef.current != null && audioRef.current && audioRef.current.readyState >= 1) {
+      audioRef.current.currentTime = pendingSeekTimeRef.current
+      pendingSeekTimeRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    if (phase !== 'exam' || previewMode || !exam?.listeningSections) return
+    const audioEl = audioRef.current
+    if (!audioEl) return
+
+    applyPendingSeek()
+    const tryPlay = () => {
+      applyPendingSeek()
+      audioEl.play().catch(() => {})
+    }
+    tryPlay()
+
+    const onUserGesture = () => {
+      applyPendingSeek()
+      if (audioEl.paused) {
+        audioEl.play().catch(() => {})
+      }
+      window.removeEventListener('pointerdown', onUserGesture)
+      window.removeEventListener('keydown', onUserGesture)
+    }
+    window.addEventListener('pointerdown', onUserGesture)
+    window.addEventListener('keydown', onUserGesture)
+
+    return () => {
+      window.removeEventListener('pointerdown', onUserGesture)
+      window.removeEventListener('keydown', onUserGesture)
+    }
+  }, [phase, previewMode, playingSectionIndex, exam?.listeningSections, applyPendingSeek])
 
   const section = exam?.listeningSections?.[activeSection] || null
   const startIdx = useMemo(() => {
@@ -377,26 +482,59 @@ export default function ListeningExam() {
         </div>
       </header>
 
-      {/* Sticky Audio Player Bar — Pinned right below top bar */}
-      <div className="shrink-0 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 py-2.5 shadow-xs z-20">
-        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-zinc-100 text-zinc-800 border border-zinc-200 shrink-0">
-              Section {section.number}
-            </span>
-            <span className="text-xs font-medium text-zinc-600 truncate">
-              {section.context || 'Listening Section'}
-            </span>
-          </div>
-          <div className="w-full sm:w-auto flex-1 max-w-xl flex items-center justify-end">
-            {section.audioUrl ? (
-              <audio ref={audioRef} controls className="w-full h-9 rounded-full" src={toImgSrc(section.audioUrl)} />
-            ) : (
-              <div className="w-full py-1.5 px-3 rounded-full bg-zinc-100 text-xs text-zinc-400 text-center">Chưa có file audio cho section này</div>
-            )}
+      {/* Sticky Audio Player Bar — chỉ hiển thị trong Preview Mode (Admin) */}
+      {previewMode && (
+        <div className="shrink-0 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 py-2.5 shadow-xs z-20">
+          <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-zinc-100 text-zinc-800 border border-zinc-200 shrink-0">
+                Section {section?.number}
+              </span>
+              <span className="text-xs font-medium text-zinc-600 truncate">
+                {section?.context || 'Listening Section'}
+              </span>
+            </div>
+            <div className="w-full sm:w-auto flex-1 max-w-xl flex items-center justify-end">
+              {section?.audioUrl ? (
+                <audio ref={audioRef} controls className="w-full h-9 rounded-full" src={toImgSrc(section.audioUrl)} />
+              ) : (
+                <div className="w-full py-1.5 px-3 rounded-full bg-zinc-100 text-xs text-zinc-400 text-center">Chưa có file audio cho section này</div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Audio chạy ngầm tuần tự theo từng section cho thí sinh khi làm bài — không hiển thị thanh tua */}
+      {!previewMode && (
+        <audio
+          ref={audioRef}
+          className="hidden"
+          src={toImgSrc(exam?.listeningSections?.[playingSectionIndex]?.audioUrl)}
+          onLoadedMetadata={applyPendingSeek}
+          onCanPlay={applyPendingSeek}
+          onTimeUpdate={() => {
+            const now = Date.now()
+            if (now - lastAudioSaveRef.current > 5000) {
+              lastAudioSaveRef.current = now
+              const userId = user ? (user.id || user._id) : null
+              if (userId && id && audioRef.current) {
+                const draft = loadDraft(userId, id, 'listening')
+                if (draft) {
+                  draft.audioProgress = {
+                    sectionIndex: playingSectionIndex,
+                    currentTime: Math.floor(audioRef.current.currentTime),
+                  }
+                  try {
+                    localStorage.setItem(`ielts_draft_${userId}_${id}_listening`, JSON.stringify(draft))
+                  } catch {}
+                }
+              }
+            }
+          }}
+          onEnded={handleAudioEnded}
+        />
+      )}
 
       {/* Body: Scrollable Question Area */}
       <div ref={questionsScrollRef} className="flex-1 overflow-y-auto">
