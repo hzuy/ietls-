@@ -1100,13 +1100,9 @@ input:focus, textarea:focus, select:focus {
   background: #94a3b8;
 }
 
-/* ─── Google Sign-In button pill clipping & outline reset ─── */
-iframe[src*="accounts.google.com"],
-div:has(> iframe[src*="accounts.google.com"]) {
-  border: none !important;
+/* ─── Google Sign-In button outline reset ─── */
+iframe[src*="accounts.google.com"] {
   outline: none !important;
-  border-radius: 9999px !important;
-  overflow: hidden !important;
 }
 
 

@@ -213,7 +213,8 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
         <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
       </div>
       {/* GoogleLogin tự render nút dạng pill hoàn chỉnh với viền tròn và hiệu ứng riêng.
-           Không bọc overflow-hidden hay scale vì sẽ làm xén mất viền bo tròn 2 bên và viền trên/dưới. */}
+           Tách riêng 2 nút đăng nhập/đăng ký với text cố định, ẩn hiện qua display để
+           tránh re-render hủy iframe khi chuyển tab gây giật / nhảy chữ. */}
       <div className="flex justify-center w-full">
         <div
           className="w-full flex justify-center items-center [&_iframe]:border-0 [&_iframe]:outline-none [&_*]:outline-none"
@@ -222,13 +223,24 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
             minHeight: 40,
           }}
         >
-          <GoogleLogin
-            onSuccess={handleGoogleSuccess}
-            onError={() => setGoogleError('Đăng nhập Google thất bại')}
-            text={tab === 'register' ? 'signup_with' : 'signin_with'}
-            shape="pill"
-            width={String(googleBtnWidth)}
-          />
+          <div className={tab === 'login' ? 'w-full flex justify-center' : 'hidden'} aria-hidden={tab !== 'login'}>
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => setGoogleError('Đăng nhập Google thất bại')}
+              text="signin_with"
+              shape="pill"
+              width={String(googleBtnWidth)}
+            />
+          </div>
+          <div className={tab === 'register' ? 'w-full flex justify-center' : 'hidden'} aria-hidden={tab !== 'register'}>
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => setGoogleError('Đăng nhập Google thất bại')}
+              text="signup_with"
+              shape="pill"
+              width={String(googleBtnWidth)}
+            />
+          </div>
         </div>
       </div>
     </>
