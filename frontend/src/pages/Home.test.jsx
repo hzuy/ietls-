@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { getLatestDraft } from '../services/draftService'
 import Home from './Home'
 
 // Mock dependencies
@@ -55,6 +56,7 @@ describe('Home Page Standardization', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(getLatestDraft).mockReturnValue(null)
     window.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => mockHomeData,
@@ -70,23 +72,22 @@ describe('Home Page Standardization', () => {
 
     // Wait for data load
     await waitFor(() => {
-      expect(screen.getByText('Bộ đề Cambridge Academic')).toBeInTheDocument()
+      expect(screen.getByText('Bộ đề IELTS')).toBeInTheDocument()
     })
 
-    // Initially on Cambridge tab — kiểm tra heading và số đề hiển thị
-    // (coverImageUrl=null → AcademicCover với text trong SVG)
-    expect(screen.getByText('Bộ đề Cambridge Academic')).toBeInTheDocument()
-    expect(screen.queryByText('Bộ đề IELTS Practice Test Plus')).not.toBeInTheDocument()
+    // Initially on Cambridge tab — hiển thị sách Cambridge 19
+    expect(screen.getAllByText('IELTS Cambridge Academic 19').length).toBeGreaterThan(0)
+    expect(screen.queryByText('IELTS Practice Test Plus 3')).not.toBeInTheDocument()
 
     // Kiểm tra nút Practice Plus tab tồn tại
     const practicePlusTabBtn = screen.getByRole('button', { name: 'Practice Plus' })
     fireEvent.click(practicePlusTabBtn)
 
-    // Sau khi chuyển tab
-    expect(screen.getByText('Bộ đề IELTS Practice Test Plus')).toBeInTheDocument()
+    // Sau khi chuyển tab — hiển thị sách Practice Plus 3
+    expect(screen.getAllByText('IELTS Practice Test Plus 3').length).toBeGreaterThan(0)
   })
 
-  it('renders interactive skills (Reading & Listening) and reference libraries (Writing & Speaking)', async () => {
+  it('renders Luyện đề (Reading & Listening) and Tham khảo (Writing & Speaking) with tab switchers', async () => {
     render(
       <MemoryRouter>
         <Home />
@@ -94,17 +95,23 @@ describe('Home Page Standardization', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText('Khám phá thêm')).toBeInTheDocument()
+      expect(screen.getByText('Luyện đề')).toBeInTheDocument()
+      expect(screen.getByText('Tham khảo')).toBeInTheDocument()
     })
 
-    // Tên mới sau khi đổi (MỤC 7)
-    expect(screen.getByRole('heading', { name: 'Reading' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Listening' })).toBeInTheDocument()
-    expect(screen.getAllByText('Tương tác')).toHaveLength(2)
+    // Luyện đề: mặc định Reading hiển thị
+    expect(screen.getAllByText('Climate Change Passage').length).toBeGreaterThan(0)
+    // Chuyển tab sang Listening
+    const listeningTabBtn = screen.getByRole('button', { name: 'Listening' })
+    fireEvent.click(listeningTabBtn)
+    expect(screen.getAllByText('University Library Audio').length).toBeGreaterThan(0)
 
-    expect(screen.getByText('Writing mẫu')).toBeInTheDocument()
-    expect(screen.getByText('Speaking mẫu')).toBeInTheDocument()
-    expect(screen.getAllByText('Bài mẫu')).toHaveLength(2)
+    // Tham khảo: mặc định Writing hiển thị
+    expect(screen.getAllByText('Writing Task 2 Essay').length).toBeGreaterThan(0)
+    // Chuyển tab sang Speaking
+    const speakingTabBtn = screen.getByRole('button', { name: 'Speaking' })
+    fireEvent.click(speakingTabBtn)
+    expect(screen.getAllByText('Speaking Part 2 Cue Card').length).toBeGreaterThan(0)
   })
 
   it('does not show resume card when there is no draft', async () => {
@@ -115,14 +122,38 @@ describe('Home Page Standardization', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText('Khám phá thêm')).toBeInTheDocument()
+      expect(screen.getByText('Luyện đề')).toBeInTheDocument()
     })
 
     // Ca 4: không có draft → thẻ Tiếp tục bài làm không hiện
     expect(screen.queryByTestId('resume-hero-card')).not.toBeInTheDocument()
   })
 
-  it('renders dynamic tabs and heading when series is renamed to IELTS Mock Test', async () => {
+  it('enriches draft title from fullTestsData when draft has generic or missing title', async () => {
+    vi.mocked(getLatestDraft).mockReturnValue({
+      userId: 'user-1',
+      examId: 101,
+      skillType: 'reading',
+      examTitle: 'IELTS Reading · Đề #101',
+      totalQuestions: 40,
+      timeRemaining: 1200,
+      savedAt: '2026-10-13T09:00:00.000Z',
+      data: { 1: 'A' },
+    })
+
+    render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Cam 19 Test 1 Reading')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('IELTS Reading · Đề #101')).not.toBeInTheDocument()
+  })
+
+  it('renders dynamic tabs when series is renamed to IELTS Mock Test', async () => {
     window.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -151,10 +182,11 @@ describe('Home Page Standardization', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText('Bộ đề IELTS Mock Test')).toBeInTheDocument()
+      expect(screen.getByText('Bộ đề IELTS')).toBeInTheDocument()
     })
 
     expect(screen.getByRole('button', { name: 'IELTS Mock Test' })).toBeInTheDocument()
+    expect(screen.getAllByText('IELTS Mock Test 19').length).toBeGreaterThan(0)
   })
 })
 

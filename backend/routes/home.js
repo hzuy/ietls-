@@ -18,10 +18,10 @@ router.get('/', async (req, res) => {
   try {
     const [fullTests, reading, listening, writingSamples, speakingSamples] = await Promise.all([
       getFullTestsCached(),
-      getPracticeListCached('reading', 4),
-      getPracticeListCached('listening', 4),
-      getSampleListCached('writing', 4),
-      getSampleListCached('speaking', 4),
+      getPracticeListCached('reading', 10),
+      getPracticeListCached('listening', 10),
+      getSampleListCached('writing', 10),
+      getSampleListCached('speaking', 10),
     ])
     res.json({ fullTests, reading, listening, writingSamples, speakingSamples })
   } catch (err) {

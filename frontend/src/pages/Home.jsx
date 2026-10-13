@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import AcademicCover from '../components/common/AcademicCover'
 import BookCard from '../components/common/BookCard'
+import PillButton from '../components/common/PillButton'
 import PageHeader from '../components/common/PageHeader'
 import ResumeHeroCard from '../components/home/ResumeHeroCard'
 import StreakWidget from '../components/home/StreakWidget'
@@ -96,6 +97,137 @@ function CompactBookScrollList({ books, onBookClick }) {
   )
 }
 
+function ItemCoverCard({
+  title,
+  subtitle,
+  actionText = 'Xem bài test',
+  coverImageUrl,
+  fallbackSkill,
+  onClick,
+}) {
+  const [imgError, setImgError] = useState(false)
+  const hasImage = coverImageUrl && !imgError
+
+  return (
+    <div
+      onClick={onClick}
+      className="group w-full max-w-[252px] flex flex-col transition-all duration-200 cursor-pointer"
+    >
+      {/* Cover — chuẩn tỷ lệ 3:2 kích thước 252x168 px, nền #E3E7ED */}
+      <div className="w-full aspect-[3/2] rounded-xl overflow-hidden border border-zinc-200/90 bg-[#E3E7ED] dark:bg-zinc-800 shadow-2xs group-hover:shadow-md group-hover:border-zinc-400 transition-all duration-300 relative flex items-center justify-center">
+        {hasImage ? (
+          <img
+            src={resolveImg(coverImageUrl)}
+            alt={title}
+            onError={() => setImgError(true)}
+            className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
+            loading="lazy"
+            decoding="async"
+          />
+        ) : (
+          <AcademicCover
+            title={title}
+            seriesName={
+              fallbackSkill === 'reading' || fallbackSkill === 'listening'
+                ? 'PRACTICE'
+                : 'BAND 8.0+'
+            }
+            subtitle={
+              fallbackSkill === 'reading'
+                ? 'Reading Test'
+                : fallbackSkill === 'listening'
+                ? 'Listening Test'
+                : fallbackSkill === 'writing'
+                ? 'Writing Sample'
+                : 'Speaking Sample'
+            }
+            skill={fallbackSkill}
+          />
+        )}
+      </div>
+
+      {/* Info — tên bài, thông tin tóm tắt và link hành động đồng bộ BookCard */}
+      <div className="mt-2.5 text-left flex flex-col">
+        <h3
+          className="text-sm sm:text-[15px] font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-zinc-700 transition-colors line-clamp-1"
+          title={title}
+        >
+          {title}
+        </h3>
+        <p className="text-[13px] sm:text-[13.5px] font-medium text-zinc-500 dark:text-zinc-400 mt-1 flex items-center gap-1.5 flex-wrap">
+          {subtitle}
+        </p>
+        <div className="mt-1.5 text-[13px] sm:text-[13.5px] font-semibold text-rose-600 dark:text-rose-400 group-hover:text-rose-700 flex items-center gap-1">
+          <span>{actionText}</span>
+          <span className="transition-transform duration-200 group-hover:translate-x-0.5 font-bold">›</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CompactItemScrollList({ items, renderItem, emptyText = 'Chưa có nội dung' }) {
+  const scrollRef = useRef(null)
+
+  const scroll = (direction) => {
+    if (scrollRef.current) {
+      const scrollAmount = 420
+      scrollRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth',
+      })
+    }
+  }
+
+  if (!items || items.length === 0) {
+    return (
+      <div className="py-8 text-center text-xs text-zinc-400 bg-zinc-50 rounded-xl border border-zinc-100">
+        {emptyText}
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative group/scroll">
+      {/* Nút bấm trượt nhanh trái */}
+      <button
+        type="button"
+        onClick={() => scroll('left')}
+        aria-label="Cuộn sang trái"
+        className="hidden sm:flex absolute -left-3.5 top-[40%] -translate-y-1/2 w-8 h-8 rounded-full bg-white/95 border border-zinc-200 shadow-md text-zinc-700 hover:text-zinc-950 hover:bg-white hover:scale-105 items-center justify-center transition-all z-10 cursor-pointer opacity-0 group-hover/scroll:opacity-100"
+      >
+        <ChevronLeft className="w-4 h-4" />
+      </button>
+
+      {/* Thanh trượt ngang 1 hàng */}
+      <div
+        ref={scrollRef}
+        className="flex items-stretch gap-4 overflow-x-auto pb-3 pt-1 scroll-smooth scrollbar-thin scrollbar-thumb-zinc-200 scrollbar-track-transparent snap-x snap-mandatory"
+        style={{ scrollbarWidth: 'thin' }}
+      >
+        {items.map((item, i) => (
+          <div
+            key={item.id ?? i}
+            className="w-[252px] shrink-0 snap-start"
+          >
+            {renderItem(item, i)}
+          </div>
+        ))}
+      </div>
+
+      {/* Nút bấm trượt nhanh phải */}
+      <button
+        type="button"
+        onClick={() => scroll('right')}
+        aria-label="Cuộn sang phải"
+        className="hidden sm:flex absolute -right-3.5 top-[40%] -translate-y-1/2 w-8 h-8 rounded-full bg-white/95 border border-zinc-200 shadow-md text-zinc-700 hover:text-zinc-950 hover:bg-white hover:scale-105 items-center justify-center transition-all z-10 cursor-pointer opacity-0 group-hover/scroll:opacity-100"
+      >
+        <ChevronRight className="w-4 h-4" />
+      </button>
+    </div>
+  )
+}
+
 export default function Home() {
   const { user } = useAuth()
   const gate = useAuthGate()
@@ -108,6 +240,8 @@ export default function Home() {
   const [speakingSamples, setSpeakingSamples] = useState(null)
   const [userStats, setUserStats] = useState(null)
   const [latestDraft, setLatestDraft] = useState(null)
+  const [practiceSkillTab, setPracticeSkillTab] = useState('reading')
+  const [referenceTab, setReferenceTab] = useState('writing')
 
   const loadData = () => {
     fetch(API_BASE + '/home')
@@ -207,24 +341,38 @@ export default function Home() {
 
   const enrichedDraft = useMemo(() => {
     if (!latestDraft) return null
-    if (latestDraft.examTitle) return latestDraft
 
-    let title = null
-    const eId = String(latestDraft.examId)
+    let title = latestDraft.examTitle
+    const isGeneric = !title || /·\s*Đề\s*#\d+/i.test(title)
 
-    if (Array.isArray(fullTestsData)) {
-      const match = fullTestsData.find(f => String(f.id) === eId)
-      if (match) {
-        title = `${match.seriesName || 'Cambridge'} ${match.bookNumber ? `· Test ${match.testNumber || match.bookNumber}` : ''}`
+    if (isGeneric) {
+      const eId = String(latestDraft.examId)
+
+      if (Array.isArray(fullTestsData)) {
+        for (const f of fullTestsData) {
+          if (f.exams) {
+            for (const [skillKey, skillExam] of Object.entries(f.exams)) {
+              if (String(skillExam?.id) === eId) {
+                const sName = f.seriesName || 'IELTS'
+                const bNum = f.bookNumber ? ` ${f.bookNumber}` : ''
+                const tNum = f.testNumber ? ` · Test ${f.testNumber}` : ''
+                const skillLabel = skillKey === 'reading' ? 'Reading' : skillKey === 'listening' ? 'Listening' : skillKey === 'writing' ? 'Writing' : skillKey === 'speaking' ? 'Speaking' : ''
+                title = skillExam.title || `${sName}${bNum}${tNum} ${skillLabel}`.trim()
+                break
+              }
+            }
+          }
+          if (title && !/·\s*Đề\s*#\d+/i.test(title)) break
+        }
       }
-    }
-    if (!title && Array.isArray(reading)) {
-      const match = reading.find(r => String(r.id) === eId)
-      if (match?.title) title = match.title
-    }
-    if (!title && Array.isArray(listening)) {
-      const match = listening.find(l => String(l.id) === eId)
-      if (match?.title) title = match.title
+      if ((!title || isGeneric) && Array.isArray(reading)) {
+        const match = reading.find(r => String(r.id) === eId)
+        if (match?.title) title = match.title
+      }
+      if ((!title || isGeneric) && Array.isArray(listening)) {
+        const match = listening.find(l => String(l.id) === eId)
+        if (match?.title) title = match.title
+      }
     }
 
     return {
@@ -324,7 +472,6 @@ export default function Home() {
               <ResumeHeroCard
                 draft={enrichedDraft}
                 onResume={handleResumeDraft}
-                onDiscard={handleDiscardDraft}
               />
             )}
 
@@ -352,20 +499,9 @@ export default function Home() {
             <section className="flex flex-col gap-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-200">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <div>
-                    <h2 className="text-base font-semibold text-zinc-900">
-                      {currentSeries?.seriesName === 'IELTS Cambridge Academic'
-                        ? 'Bộ đề Cambridge Academic'
-                        : currentSeries?.seriesName === 'IELTS Practice Test Plus'
-                        ? 'Bộ đề IELTS Practice Test Plus'
-                        : `Bộ đề ${currentSeries?.seriesName || 'luyện thi'}`}
-                    </h2>
-                    <p className="text-[11px] text-zinc-500 mt-0.5">
-                      {currentSeries?.seriesName?.toLowerCase().includes('practice')
-                        ? 'Dòng sách luyện đề chuyên sâu độ khó cao'
-                        : 'Tuyển tập đề thi chuẩn format quốc tế'}
-                    </p>
-                  </div>
+                  <h2 className="text-base font-semibold text-zinc-900">
+                    Bộ đề IELTS
+                  </h2>
 
                   {/* Segmented Switcher: Render động theo các series trong DB */}
                   <div className="seg-scroller p-1 bg-zinc-100 rounded-full border border-zinc-200 sm:ml-2">
@@ -390,13 +526,6 @@ export default function Home() {
                         </button>
                       )
                     })}
-                    <button
-                      type="button"
-                      onClick={() => document.getElementById('quick-skills-section')?.scrollIntoView({ behavior: 'smooth' })}
-                      className="px-4 py-1.5 pointer-coarse:min-h-11 text-xs rounded-full transition-all cursor-pointer text-zinc-500 hover:text-zinc-900"
-                    >
-                      Luyện kỹ năng
-                    </button>
                   </div>
                 </div>
 
@@ -433,158 +562,182 @@ export default function Home() {
               )}
             </section>
 
-            {/* Section 2 (Đợt 3 — Việc 5): gộp "Luyện tập theo Kỹ năng" +
-                "Thư viện bài mẫu học thuật" thành 1 lưới 4 ô "Khám phá thêm" —
-                giảm chiều cao trang, hạ độ ưu tiên thị giác so với dải tiến độ
-                và bộ đề Cambridge/Practice Plus ở trên. */}
+            {/* Section 2: Luyện đề (Reading & Listening) — giao diện đồng bộ BookCard & CompactBookScrollList */}
             <section id="quick-skills-section" className="flex flex-col gap-4">
-              <div className="flex items-center justify-between pb-3 border-b border-zinc-200">
-                <h2 className="text-base font-semibold text-zinc-900">
-                  Khám phá thêm
-                </h2>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-200">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h2 className="text-base font-semibold text-zinc-900">
+                    Luyện đề
+                  </h2>
+
+                  {/* Segmented Switcher */}
+                  <div className="seg-scroller p-1 bg-zinc-100 rounded-full border border-zinc-200 sm:ml-2">
+                    <button
+                      type="button"
+                      onClick={() => setPracticeSkillTab('reading')}
+                      className={`px-4 py-1.5 pointer-coarse:min-h-11 text-xs rounded-full transition-all cursor-pointer ${
+                        practiceSkillTab === 'reading'
+                          ? 'bg-white text-zinc-900 font-semibold shadow-2xs'
+                          : 'text-zinc-500 hover:text-zinc-900'
+                      }`}
+                    >
+                      Reading
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPracticeSkillTab('listening')}
+                      className={`px-4 py-1.5 pointer-coarse:min-h-11 text-xs rounded-full transition-all cursor-pointer ${
+                        practiceSkillTab === 'listening'
+                          ? 'bg-white text-zinc-900 font-semibold shadow-2xs'
+                          : 'text-zinc-500 hover:text-zinc-900'
+                      }`}
+                    >
+                      Listening
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    if (practiceSkillTab === 'reading') {
+                      gate('/practice/reading')
+                    } else {
+                      gate('/practice/listening')
+                    }
+                  }}
+                  className="tap-pad text-xs font-semibold text-zinc-500 hover:text-zinc-900 transition-colors cursor-pointer self-start sm:self-auto whitespace-nowrap"
+                >
+                  Xem tất cả →
+                </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Reading */}
-                <div
-                  onClick={() => gate('/practice/reading')}
-                  className="group relative flex flex-col justify-between p-5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 hover:shadow-xs transition-all cursor-pointer"
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                      <span className="bg-zinc-100 text-zinc-700 text-[10px] px-2.5 py-0.5 rounded-full font-medium">
-                        Tương tác
-                      </span>
-                      <span className="text-xs text-zinc-500 whitespace-nowrap">
-                        {Array.isArray(reading) ? `${reading.length} bài luyện tập` : 'T/F/NG, Matching'}
-                      </span>
-                    </div>
+              {(practiceSkillTab === 'reading' ? reading : listening) === 'error' ? (
+                <HomeSectionError onRetry={loadData} />
+              ) : (practiceSkillTab === 'reading' ? reading : listening) === null ? (
+                <div className="flex gap-4 overflow-hidden py-1">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="w-[252px] shrink-0 aspect-[3/2] rounded-xl bg-[#E3E7ED] animate-pulse" />
+                  ))}
+                </div>
+              ) : (
+                <CompactItemScrollList
+                  items={practiceSkillTab === 'reading' ? reading : listening}
+                  renderItem={(item) => (
+                    <ItemCoverCard
+                      title={item.title}
+                      subtitle={
+                        <>
+                          <span>{item.questionCount ? `${item.questionCount} câu hỏi` : 'Luyện tập'}</span>
+                          <span className="text-zinc-300 dark:text-zinc-600">·</span>
+                          <span>{item.level || (practiceSkillTab === 'reading' ? 'Reading' : 'Listening')}</span>
+                        </>
+                      }
+                      actionText="Xem bài test"
+                      coverImageUrl={item.thumbnailUrl}
+                      fallbackSkill={practiceSkillTab}
+                      onClick={() => gate(`/practice/${practiceSkillTab}/${item.id}`)}
+                    />
+                  )}
+                  emptyText={`Chưa có bài luyện tập ${practiceSkillTab === 'reading' ? 'Reading' : 'Listening'}`}
+                />
+              )}
+            </section>
 
-                    <div className="flex items-start gap-3.5">
-                      <div className="w-11 h-11 rounded-2xl bg-zinc-100 flex items-center justify-center text-zinc-700 group-hover:bg-zinc-900 group-hover:text-white transition-colors shrink-0">
-                        <BookOpen className="w-5 h-5 stroke-[1.75]" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-base font-semibold text-zinc-900 group-hover:text-black transition-colors">
-                          Reading
-                        </h3>
-                        <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
-                          3 passage học thuật · 40 câu hỏi trắc nghiệm & điền từ
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+            {/* Section 3: Tham khảo (Writing & Speaking) — giao diện đồng bộ BookCard & CompactBookScrollList */}
+            <section id="reference-samples-section" className="flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-200">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h2 className="text-base font-semibold text-zinc-900">
+                    Tham khảo
+                  </h2>
 
-                  <div className="mt-4 pt-3 border-t border-zinc-100 text-xs font-medium text-zinc-900 group-hover:text-zinc-600 transition-colors">
-                    Luyện tập Reading →
+                  {/* Segmented Switcher */}
+                  <div className="seg-scroller p-1 bg-zinc-100 rounded-full border border-zinc-200 sm:ml-2">
+                    <button
+                      type="button"
+                      onClick={() => setReferenceTab('writing')}
+                      className={`px-4 py-1.5 pointer-coarse:min-h-11 text-xs rounded-full transition-all cursor-pointer ${
+                        referenceTab === 'writing'
+                          ? 'bg-white text-zinc-900 font-semibold shadow-2xs'
+                          : 'text-zinc-500 hover:text-zinc-900'
+                      }`}
+                    >
+                      Writing
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setReferenceTab('speaking')}
+                      className={`px-4 py-1.5 pointer-coarse:min-h-11 text-xs rounded-full transition-all cursor-pointer ${
+                        referenceTab === 'speaking'
+                          ? 'bg-white text-zinc-900 font-semibold shadow-2xs'
+                          : 'text-zinc-500 hover:text-zinc-900'
+                      }`}
+                    >
+                      Speaking
+                    </button>
                   </div>
                 </div>
 
-                {/* Listening */}
-                <div
-                  onClick={() => gate('/practice/listening')}
-                  className="group relative flex flex-col justify-between p-5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 hover:shadow-xs transition-all cursor-pointer"
+                <button
+                  onClick={() => {
+                    if (referenceTab === 'writing') {
+                      navigate('/writing-samples')
+                    } else {
+                      navigate('/speaking-samples')
+                    }
+                  }}
+                  className="tap-pad text-xs font-semibold text-zinc-500 hover:text-zinc-900 transition-colors cursor-pointer self-start sm:self-auto whitespace-nowrap"
                 >
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                      <span className="bg-zinc-100 text-zinc-700 text-[10px] px-2.5 py-0.5 rounded-full font-medium">
-                        Tương tác
-                      </span>
-                      <span className="text-xs text-zinc-500 whitespace-nowrap">
-                        {Array.isArray(listening) ? `${listening.length} bài luyện tập` : 'Audio & Transcript'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-start gap-3.5">
-                      <div className="w-11 h-11 rounded-2xl bg-zinc-100 flex items-center justify-center text-zinc-700 group-hover:bg-zinc-900 group-hover:text-white transition-colors shrink-0">
-                        <Headphones className="w-5 h-5 stroke-[1.75]" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-base font-semibold text-zinc-900 group-hover:text-black transition-colors">
-                          Listening
-                        </h3>
-                        <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
-                          4 section audio kèm transcript · 40 câu hỏi
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-zinc-100 text-xs font-medium text-zinc-900 group-hover:text-zinc-600 transition-colors">
-                    Luyện tập Listening →
-                  </div>
-                </div>
-
-                {/* Writing Samples */}
-                <div
-                  onClick={() => navigate('/writing-samples')}
-                  className="group relative flex flex-col justify-between p-5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 hover:shadow-xs transition-all cursor-pointer"
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                      <span className="bg-zinc-100 text-zinc-600 text-[10px] px-2.5 py-0.5 rounded-full font-medium">
-                        Bài mẫu
-                      </span>
-                      <span className="text-xs text-zinc-500 whitespace-nowrap">
-                        {Array.isArray(writingSamples) ? `${writingSamples.length} bài mẫu Band 8+` : 'Task 1 & Task 2'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-start gap-3.5">
-                      <div className="w-11 h-11 rounded-2xl bg-zinc-100 flex items-center justify-center text-zinc-700 group-hover:bg-zinc-900 group-hover:text-white transition-colors shrink-0">
-                        <FileText className="w-5 h-5 stroke-[1.75]" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-base font-semibold text-zinc-900 group-hover:text-black transition-colors">
-                          Writing mẫu
-                        </h3>
-                        <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
-                          Bài mẫu Task 1 & Task 2 Band 8.0+ kèm phân tích cấu trúc
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-zinc-100 text-xs font-medium text-zinc-600 group-hover:text-zinc-900 transition-colors">
-                    Khám phá bài mẫu Writing →
-                  </div>
-                </div>
-
-                {/* Speaking Samples */}
-                <div
-                  onClick={() => navigate('/speaking-samples')}
-                  className="group relative flex flex-col justify-between p-5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-400 hover:shadow-xs transition-all cursor-pointer"
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                      <span className="bg-zinc-100 text-zinc-600 text-[10px] px-2.5 py-0.5 rounded-full font-medium">
-                        Bài mẫu
-                      </span>
-                      <span className="text-xs text-zinc-500 whitespace-nowrap">
-                        {Array.isArray(speakingSamples) ? `${speakingSamples.length} bài mẫu Band 8+` : 'Part 1, 2, 3'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-start gap-3.5">
-                      <div className="w-11 h-11 rounded-2xl bg-zinc-100 flex items-center justify-center text-zinc-700 group-hover:bg-zinc-900 group-hover:text-white transition-colors shrink-0">
-                        <Mic className="w-5 h-5 stroke-[1.75]" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-base font-semibold text-zinc-900 group-hover:text-black transition-colors">
-                          Speaking mẫu
-                        </h3>
-                        <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
-                          Câu trả lời mẫu Part 1, 2, 3 kèm audio phát âm chuẩn
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-zinc-100 text-xs font-medium text-zinc-600 group-hover:text-zinc-900 transition-colors">
-                    Khám phá bài mẫu Speaking →
-                  </div>
-                </div>
+                  Xem tất cả →
+                </button>
               </div>
+
+              {(referenceTab === 'writing' ? writingSamples : speakingSamples) === 'error' ? (
+                <HomeSectionError onRetry={loadData} />
+              ) : (referenceTab === 'writing' ? writingSamples : speakingSamples) === null ? (
+                <div className="flex gap-4 overflow-hidden py-1">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="w-[252px] shrink-0 aspect-[3/2] rounded-xl bg-[#E3E7ED] animate-pulse" />
+                  ))}
+                </div>
+              ) : (
+                <CompactItemScrollList
+                  items={referenceTab === 'writing' ? writingSamples : speakingSamples}
+                  renderItem={(item) => (
+                    <ItemCoverCard
+                      title={item.title}
+                      subtitle={
+                        referenceTab === 'writing' ? (
+                          <>
+                            <span>
+                              {item.level
+                                ? item.level.toLowerCase() === 'task1'
+                                  ? 'Task 1'
+                                  : item.level.toLowerCase() === 'task2'
+                                  ? 'Task 2'
+                                  : item.level
+                                : 'Writing'}
+                            </span>
+                            <span className="text-zinc-300 dark:text-zinc-600">·</span>
+                            <span>{item.examType || 'Band 8.0+'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>{item.examType || 'Part 1, 2, 3'}</span>
+                            <span className="text-zinc-300 dark:text-zinc-600">·</span>
+                            <span>Band 8.0+</span>
+                          </>
+                        )
+                      }
+                      actionText="Xem bài mẫu"
+                      coverImageUrl={item.thumbnailUrl}
+                      fallbackSkill={referenceTab}
+                      onClick={() => navigate(`/samples/${referenceTab}/${item.id}`)}
+                    />
+                  )}
+                  emptyText={`Chưa có bài mẫu ${referenceTab === 'writing' ? 'Writing' : 'Speaking'}`}
+                />
+              )}
             </section>
 
         </div>

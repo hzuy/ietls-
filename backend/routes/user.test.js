@@ -9,6 +9,12 @@ const prismaMock = {
     count: vi.fn().mockResolvedValue(0),
     findMany: vi.fn().mockResolvedValue([]),
   },
+  writingAnswer: {
+    findMany: vi.fn().mockResolvedValue([]),
+  },
+  speakingAnswer: {
+    findMany: vi.fn().mockResolvedValue([]),
+  },
 }
 
 const prismaPath = require.resolve('../lib/prisma')
@@ -31,6 +37,8 @@ describe('GET /api/user/stats — streak theo ngày lịch Việt Nam', () => {
     vi.clearAllMocks()
     prismaMock.attempt.count.mockResolvedValue(0)
     prismaMock.attempt.findMany.mockResolvedValue([])
+    prismaMock.writingAnswer.findMany.mockResolvedValue([])
+    prismaMock.speakingAnswer.findMany.mockResolvedValue([])
   })
 
   afterEach(() => {
@@ -98,5 +106,24 @@ describe('GET /api/user/stats — streak theo ngày lịch Việt Nam', () => {
       .expect(200)
 
     expect(res.body.streak).toBe(0)
+  })
+
+  it('tính band và streak từ bài thi writing & speaking', async () => {
+    prismaMock.writingAnswer.findMany.mockResolvedValue([
+      { id: 1, taskId: 1, aiScore: 6.5, status: 'graded', createdAt: new Date('2026-09-16T02:00:00.000Z'), task: { examId: 10, exam: { _count: { writingTasks: 1 } } } }
+    ])
+    prismaMock.speakingAnswer.findMany.mockResolvedValue([
+      { id: 2, partId: 1, aiScore: 5.5, status: 'graded', createdAt: new Date('2026-09-16T03:00:00.000Z'), part: { examId: 20, number: 1, exam: { _count: { speakingParts: 1 } } } }
+    ])
+
+    const res = await request(app)
+      .get('/api/user/stats')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200)
+
+    expect(res.body.bandBySkill.writing).toBe(6.5)
+    expect(res.body.bandBySkill.speaking).toBe(5.5)
+    expect(res.body.avgBand).toBe(6.0)
+    expect(res.body.totalAttempts).toBe(2)
   })
 })

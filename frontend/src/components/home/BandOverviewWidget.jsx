@@ -12,8 +12,8 @@ const SKILLS = [
 
 function SkillRow({ skill, band }) {
   const Icon = skill.icon
-  const pct = band != null ? Math.min((band / 9) * 100, 100) : 0
-  const hasScore = band != null
+  const hasScore = band != null && band > 0
+  const pct = hasScore ? Math.min((band / 9) * 100, 100) : 0
 
   return (
     <div>
@@ -44,7 +44,8 @@ function SkillRow({ skill, band }) {
 export default function BandOverviewWidget({ stats, isAuthenticated, className = '' }) {
   const navigate = useNavigate()
   const bandBySkill = isAuthenticated ? (stats?.bandBySkill ?? null) : null
-  const hasAnyScore = bandBySkill && Object.values(bandBySkill).some(v => v !== null)
+  const hasAnyScore = bandBySkill && Object.values(bandBySkill).some(v => v != null && v > 0)
+  const hasOverall = hasAnyScore && stats?.avgBand != null && stats?.avgBand > 0
 
   return (
     <div className={`rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-xs h-full flex flex-col justify-between min-h-[220px] ${className}`}>
@@ -54,7 +55,7 @@ export default function BandOverviewWidget({ stats, isAuthenticated, className =
             Band điểm hiện tại
           </h3>
           <span className="font-mono text-xs font-semibold text-zinc-900">
-            {hasAnyScore ? formatBand(stats?.avgBand) : '—'}
+            {hasOverall ? formatBand(stats?.avgBand) : '—'}
           </span>
         </div>
 
