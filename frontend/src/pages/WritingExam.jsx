@@ -126,6 +126,114 @@ const renderCriterionComment = (comment, isGood) => {
   )
 }
 
+function WritingCriterionCard({ critItem }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  return (
+    <div className="bg-zinc-50/80 rounded-2xl border border-zinc-200/90 p-4 sm:p-5 shadow-2xs flex flex-col gap-3 transition-all">
+      <div
+        onClick={() => setIsExpanded(prev => !prev)}
+        className={`flex items-center justify-between gap-3 cursor-pointer select-none transition-colors ${
+          isExpanded ? 'pb-2.5 border-b border-zinc-200/70' : ''
+        }`}
+      >
+        <span className="font-bold text-sm text-zinc-900">{critItem.label}</span>
+        <div className="flex items-center gap-2.5 shrink-0">
+          <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
+            Band {critItem.score}
+          </span>
+          <div className="relative group shrink-0">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setIsExpanded(prev => !prev)
+              }}
+              aria-label={isExpanded ? `Thu gọn nhận xét ${critItem.label}` : `Chi tiết nhận xét ${critItem.label}`}
+              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white flex items-center justify-center transition-all cursor-pointer shadow-3xs ${
+                isExpanded
+                  ? 'border-2 border-purple-600 text-purple-600 bg-purple-50/40 shadow-xs'
+                  : 'border border-slate-300 text-slate-400 hover:border-purple-600 hover:text-purple-600 hover:shadow-xs'
+              }`}
+            >
+              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Tooltip khi di chuột vào - căn giữa chuẩn trực tiếp dưới nút */}
+            <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 hidden group-hover:flex flex-col items-center pointer-events-none z-30">
+              <span className="w-2 h-2 bg-slate-900 rotate-45 -mb-1 shrink-0" />
+              <span className="px-2.5 py-1 rounded-md bg-slate-900 text-white text-[11px] font-medium shadow-lg whitespace-nowrap">
+                {isExpanded ? 'Thu gọn nhận xét' : 'Chi tiết nhận xét'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {isExpanded && (
+        <div className="space-y-3 pt-0.5 animate-in fade-in duration-150">
+          {(critItem.summary || critItem.comment) && (
+            <p className="text-xs sm:text-[13px] text-zinc-700 leading-relaxed m-0 text-justify">
+              {critItem.summary || critItem.comment}
+            </p>
+          )}
+          {/* Ưu điểm */}
+          {critItem.strengths && critItem.strengths.length > 0 && (
+            <div className="bg-emerald-50/70 border border-emerald-200/70 rounded-xl p-3">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 mb-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                Ưu điểm
+              </div>
+              <ul className="m-0 p-0 list-none space-y-1 text-xs text-emerald-900 leading-relaxed">
+                {critItem.strengths.map((str, idx) => (
+                  <li key={idx} className="flex items-start gap-1.5">
+                    <span className="font-bold text-emerald-600 shrink-0">•</span>
+                    <span>{str}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {/* Nhược điểm */}
+          {critItem.weaknesses && critItem.weaknesses.length > 0 && (
+            <div className="bg-amber-50/70 border border-amber-200/70 rounded-xl p-3">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-amber-800 mb-1.5">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                Nhược điểm
+              </div>
+              <ul className="m-0 p-0 list-none space-y-1 text-xs text-amber-900 leading-relaxed">
+                {critItem.weaknesses.map((w, idx) => (
+                  <li key={idx} className="flex items-start gap-1.5">
+                    <span className="font-bold text-amber-600 shrink-0">•</span>
+                    <span>{w}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {/* Cách cải thiện */}
+          {critItem.how_to_improve && critItem.how_to_improve.length > 0 && (
+            <div className="bg-blue-50/70 border border-blue-200/70 rounded-xl p-3">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-blue-800 mb-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                Cách cải thiện
+              </div>
+              <ul className="m-0 p-0 list-none space-y-1 text-xs text-blue-900 leading-relaxed">
+                {critItem.how_to_improve.map((h, idx) => (
+                  <li key={idx} className="flex items-start gap-1.5">
+                    <span className="font-bold text-blue-600 shrink-0">•</span>
+                    <span>{h}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function WritingTaskAccordion({ task, r, isCompleted, onRetake }) {
   const [openQ, setOpenQ] = useState(false);
   const [openA, setOpenA] = useState(true);
@@ -348,70 +456,7 @@ function WritingTaskAccordion({ task, r, isCompleted, onRetake }) {
                           {activeTab === 'criteria' && (
                             <div className="space-y-4 text-left">
                               {criteriaList.map((critItem) => (
-                                <div key={critItem.key} className="bg-zinc-50/80 rounded-2xl border border-zinc-200/90 p-4.5 sm:p-5 shadow-2xs flex flex-col gap-3">
-                                  <div className="flex items-center justify-between pb-2 border-b border-zinc-200/70">
-                                    <span className="font-bold text-sm text-zinc-900">{critItem.label}</span>
-                                    <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
-                                      Band {critItem.score}
-                                    </span>
-                                  </div>
-                                  {(critItem.summary || critItem.comment) && (
-                                    <p className="text-xs sm:text-[13px] text-zinc-700 leading-relaxed m-0 text-justify">
-                                      {critItem.summary || critItem.comment}
-                                    </p>
-                                  )}
-                                  {/* Ưu điểm */}
-                                  {critItem.strengths && critItem.strengths.length > 0 && (
-                                    <div className="bg-emerald-50/70 border border-emerald-200/70 rounded-xl p-3">
-                                      <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 mb-1.5">
-                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                        Ưu điểm
-                                      </div>
-                                      <ul className="m-0 p-0 list-none space-y-1 text-xs text-emerald-900 leading-relaxed">
-                                        {critItem.strengths.map((str, idx) => (
-                                          <li key={idx} className="flex items-start gap-1.5">
-                                            <span className="font-bold text-emerald-600 shrink-0">•</span>
-                                            <span>{str}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  )}
-                                  {/* Nhược điểm */}
-                                  {critItem.weaknesses && critItem.weaknesses.length > 0 && (
-                                    <div className="bg-amber-50/70 border border-amber-200/70 rounded-xl p-3">
-                                      <div className="flex items-center gap-1.5 text-xs font-bold text-amber-800 mb-1.5">
-                                        <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-                                        Nhược điểm
-                                      </div>
-                                      <ul className="m-0 p-0 list-none space-y-1 text-xs text-amber-900 leading-relaxed">
-                                        {critItem.weaknesses.map((w, idx) => (
-                                          <li key={idx} className="flex items-start gap-1.5">
-                                            <span className="font-bold text-amber-600 shrink-0">•</span>
-                                            <span>{w}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  )}
-                                  {/* Cách cải thiện */}
-                                  {critItem.how_to_improve && critItem.how_to_improve.length > 0 && (
-                                    <div className="bg-blue-50/70 border border-blue-200/70 rounded-xl p-3">
-                                      <div className="flex items-center gap-1.5 text-xs font-bold text-blue-800 mb-1.5">
-                                        <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                                        Cách cải thiện
-                                      </div>
-                                      <ul className="m-0 p-0 list-none space-y-1 text-xs text-blue-900 leading-relaxed">
-                                        {critItem.how_to_improve.map((h, idx) => (
-                                          <li key={idx} className="flex items-start gap-1.5">
-                                            <span className="font-bold text-blue-600 shrink-0">•</span>
-                                            <span>{h}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  )}
-                                </div>
+                                <WritingCriterionCard key={critItem.key} critItem={critItem} />
                               ))}
                             </div>
                           )}
@@ -695,9 +740,16 @@ export default function WritingExam() {
     return () => clearInterval(interval)
   }, [phase, id, persistDraftNow])
 
+  const exitPath = exam?.seriesId ? `/full-test/${exam.seriesId}?book=${exam.bookNumber}` : '/writing-samples'
+  const isResultView = Boolean(
+    viewResultMode ||
+    (writingTasks.length > 0 && writingTasks.every(t => results[t.id])) ||
+    (viewAttemptId && writingTasks.some(t => results[t.id]))
+  )
+
   // Cảnh báo trình duyệt (beforeunload) khi thí sinh đóng tab/F5 trong lúc làm bài
   useEffect(() => {
-    if (phase !== 'exam' || allSubmitted) return
+    if (phase !== 'exam' || allSubmitted || isResultView) return
     const handleBeforeUnload = (e) => {
       persistDraftNow()
       e.preventDefault()
@@ -705,10 +757,13 @@ export default function WritingExam() {
     }
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [phase, allSubmitted, persistDraftNow])
+  }, [phase, allSubmitted, isResultView, persistDraftNow])
 
-  const exitPath = exam?.seriesId ? `/full-test/${exam.seriesId}?book=${exam.bookNumber}` : '/writing-samples'
-  const { showModal: showExitModal, stay: stayInExam, leave: leaveExam } = useBrowserHistoryGuard(phase === 'exam' && !allSubmitted, persistDraftNow, exitPath)
+  const { showModal: showExitModal, stay: stayInExam, leave: leaveExam } = useBrowserHistoryGuard(
+    phase === 'exam' && !allSubmitted && !isResultView,
+    persistDraftNow,
+    exitPath
+  )
 
   // Khi đã nộp hết cả 2 task (hoặc bài chỉ có 1 task và đã nộp) → clear draft
   useEffect(() => {
@@ -813,13 +868,21 @@ export default function WritingExam() {
     }
   }, [results, exam])
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     if (exam?.seriesId) {
       navigate(`/full-test/${exam.seriesId}?book=${exam.bookNumber}`)
     } else {
       navigate('/writing')
     }
-  }
+  }, [exam, navigate])
+
+  const handleExitResult = useCallback(() => {
+    if (window.history.length > 1 && window.history.state?.idx > 0) {
+      navigate(-1)
+    } else {
+      handleBack()
+    }
+  }, [handleBack, navigate])
 
   useEffect(() => {
     if (phase !== 'exam') return
@@ -1017,7 +1080,7 @@ export default function WritingExam() {
           <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
             <button
               type="button"
-              onClick={() => navigate('/')}
+              onClick={handleExitResult}
               aria-label="Đóng"
               className="w-8 h-8 rounded-full border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-bold cursor-pointer flex items-center justify-center transition"
             >
@@ -1204,21 +1267,6 @@ export default function WritingExam() {
           <span className="text-xs sm:text-sm font-semibold text-zinc-900 truncate">
             {exam.title}
           </span>
-          {hasPastResults && !viewResultMode && !allDone && (
-            <button
-              type="button"
-              onClick={() => {
-                const params = new URLSearchParams(searchParams)
-                params.set('viewResult', 'true')
-                navigate(`?${params.toString()}`, { replace: true })
-                window.location.reload()
-              }}
-              className="ml-2 h-7 px-3 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border border-zinc-200 text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs whitespace-nowrap shrink-0"
-            >
-              <History className="w-3 h-3" />
-              Xem kết quả cũ
-            </button>
-          )}
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <div

@@ -34,12 +34,14 @@ vi.mock('../context/ToastContext', () => ({
   useToast: () => ({ showToast: vi.fn() }),
 }))
 
+const mockUseBrowserHistoryGuard = vi.fn((enabled) => ({
+  showModal: false,
+  stay: vi.fn(),
+  leave: vi.fn(),
+}))
+
 vi.mock('../hooks/useBrowserHistoryGuard', () => ({
-  useBrowserHistoryGuard: () => ({
-    showModal: false,
-    stay: vi.fn(),
-    leave: vi.fn(),
-  }),
+  useBrowserHistoryGuard: (...args) => mockUseBrowserHistoryGuard(...args),
 }))
 
 const mockTask1 = {
@@ -103,6 +105,9 @@ describe('WritingExam - KIỂM THỬ BẮT BUỘC: Ca 9 đến Ca 12', () => {
 
     // Bấm tab "Chi tiết nhận xét" để xem chi tiết các tiêu chí bản ghi cũ
     fireEvent.click(screen.getByText('Chi tiết nhận xét'))
+    const toggleBtns = screen.getAllByRole('button', { name: /^Chi tiết nhận xét .+/i })
+    expect(toggleBtns).toHaveLength(4)
+    fireEvent.click(toggleBtns[1])
     expect(screen.getByText('Bài viết có tính liên kết tương đối tốt.')).toBeInTheDocument()
 
     // Ẩn các nhóm Ưu điểm, Nhược điểm, Cách cải thiện vì bản ghi cũ không có
@@ -114,6 +119,11 @@ describe('WritingExam - KIỂM THỬ BẮT BUỘC: Ca 9 đến Ca 12', () => {
     expect(screen.queryByText(/Bài mẫu band/)).toBeNull()
     expect(screen.queryByText('Đã sửa')).toBeNull()
     expect(screen.queryByText('Bản gốc')).toBeNull()
+
+    // Header có nút Đóng và useBrowserHistoryGuard không kích hoạt trong trang kết quả
+    expect(screen.getByRole('button', { name: /Đóng/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Quay lại/i })).not.toBeInTheDocument()
+    expect(mockUseBrowserHistoryGuard).toHaveBeenCalledWith(false, expect.any(Function), expect.any(String))
   })
 
   it('Ca 10: trang kết quả sửa thẳng lỗi vào bản gốc, có chuyển đổi "Bài làm" và "Bài mẫu band X", hai cột cao bằng nhau, cột trái cuộn riêng', async () => {
@@ -280,6 +290,14 @@ describe('WritingExam - KIỂM THỬ BẮT BUỘC: Ca 9 đến Ca 12', () => {
     // Bấm tab "Chi tiết nhận xét" ở cột trái để xem 4 tiêu chí
     fireEvent.click(screen.getByText('Chi tiết nhận xét'))
 
+    // Mặc định 4 tiêu chí được thu gọn, có 4 nút V với tooltip/aria-label "Chi tiết nhận xét [Tiêu chí]"
+    const toggleBtns = screen.getAllByRole('button', { name: /^Chi tiết nhận xét .+/i })
+    expect(toggleBtns).toHaveLength(4)
+    expect(screen.queryByText('Ưu điểm')).toBeNull()
+
+    // Bấm mở cả 4 tiêu chí
+    toggleBtns.forEach(btn => fireEvent.click(btn))
+
     expect(screen.getAllByText('Ưu điểm')).toHaveLength(4)
     expect(screen.getAllByText('Nhược điểm')).toHaveLength(4)
     expect(screen.getAllByText('Cách cải thiện')).toHaveLength(4)
@@ -287,6 +305,12 @@ describe('WritingExam - KIỂM THỬ BẮT BUỘC: Ca 9 đến Ca 12', () => {
     expect(screen.getByText('Nêu đủ số liệu chính.')).toBeInTheDocument()
     expect(screen.getByText('Thiếu phân tích một số năm.')).toBeInTheDocument()
     expect(screen.getByText('Bổ sung thêm mốc 2005.')).toBeInTheDocument()
+
+    // Bấm thu gọn lại thẻ đầu tiên
+    const collapseBtns = screen.getAllByRole('button', { name: /^Thu gọn nhận xét .+/i })
+    expect(collapseBtns).toHaveLength(4)
+    fireEvent.click(collapseBtns[0])
+    expect(screen.queryByText('Nêu đủ số liệu chính.')).toBeNull()
   })
 
   it('Ca 12: ±0.5 xuất hiện dưới điểm Task, điểm Overall, điểm TASK 1 và TASK 2 ở thẻ tổng quan, KHÔNG xuất hiện dưới điểm 4 tiêu chí', async () => {
