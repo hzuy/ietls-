@@ -386,6 +386,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
                 <PillInput
                   id="login-email"
                   type="email"
+                  autoComplete="email"
                   placeholder="example@gmail.com"
                   value={loginForm.email}
                   onChange={e => setLoginForm({ ...loginForm, email: e.target.value })}
@@ -398,6 +399,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
                 <PillInput
                   id="login-password"
                   type="password"
+                  autoComplete="current-password"
                   placeholder="••••••••"
                   value={loginForm.password}
                   onChange={e => setLoginForm({ ...loginForm, password: e.target.value })}
@@ -436,6 +438,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
                 <PillInput
                   id="reg-name"
                   type="text"
+                  autoComplete="name"
                   placeholder="Nguyễn Văn A"
                   value={regForm.name}
                   onChange={e => setRegForm({ ...regForm, name: e.target.value })}
@@ -448,6 +451,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
                 <PillInput
                   id="reg-email"
                   type="email"
+                  autoComplete="email"
                   placeholder="example@gmail.com"
                   value={regForm.email}
                   onChange={e => setRegForm({ ...regForm, email: e.target.value })}
@@ -459,6 +463,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
                 <PillInput
                   id="reg-password"
                   type="password"
+                  autoComplete="new-password"
                   placeholder="Tối thiểu 8 ký tự"
                   value={regForm.password}
                   onChange={e => setRegForm({ ...regForm, password: e.target.value })}

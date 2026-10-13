@@ -13,7 +13,7 @@ export default function PillInput({ className = '', ...props }) {
   return (
     <input
       className={[
-        'w-full h-9 pointer-coarse:h-11 px-4 rounded-full border border-zinc-200 bg-white text-zinc-900',
+        'w-full h-9 pointer-coarse:h-11 px-4 rounded-full border border-zinc-200 bg-white text-zinc-900 text-sm',
         'outline-none transition-all placeholder:text-zinc-400 placeholder:text-sm',
         'focus:border-zinc-900 focus:outline-none focus:ring-0',
         'disabled:bg-zinc-50 disabled:text-zinc-500 disabled:cursor-not-allowed',

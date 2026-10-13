@@ -1105,4 +1105,13 @@ iframe[src*="accounts.google.com"] {
   outline: none !important;
 }
 
+/* ─── Đồng bộ cỡ chữ & kiểu chữ cho browser autofill ─── */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  font-size: 14px !important;
+  font-family: inherit !important;
+}
+
 
