@@ -585,6 +585,7 @@ button.chatbot-chip { font-size: 0.875rem; line-height: 1.25rem; }
 input[type="text"].rounded-full,
 input.rounded-full {
   outline: none !important;
+  font-size: 14px !important;
 }
 input[type="text"].rounded-full:focus,
 input.rounded-full:focus {
@@ -1112,6 +1113,14 @@ input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
+  font-size: 14px !important;
+  font-family: inherit !important;
+  -webkit-text-fill-color: #18181b !important;
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  transition: background-color 5000s ease-in-out 0s !important;
+}
+
+input:-webkit-autofill::first-line {
   font-size: 14px !important;
   font-family: inherit !important;
 }
