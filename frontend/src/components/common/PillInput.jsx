@@ -1,24 +1,20 @@
-// Ô nhập pill dùng chung cho khu vực người dùng — chiều cao theo chuẩn gọn
-// admin (h-9), bo góc pill (khác admin, vốn dùng rounded-md — bản sắc riêng
-// phía người dùng). Cỡ chữ CỐ TÌNH giữ ~16px (var(--fs-base), mặc định của
-// input/textarea/select/button trong index.css) thay vì thu nhỏ theo admin:
-// input <16px khiến iOS Safari tự động zoom khi focus — admin không bị ảnh
-// hưởng vì admin desktop-only, phía người dùng thì có traffic mobile thật.
-//
-// placeholder:text-sm: thu nhỏ chữ gợi ý xuống ~14px cho hài hòa với các text
-// khác trong hộp thoại. Rule `input { font-size: --fs-base }` trong index.css
-// không áp dụng cho ::placeholder pseudo-element nên class này không bị override,
-// và font-size của input vẫn giữ nguyên ≥16px (iOS Safari zoom-safe).
-export default function PillInput({ className = '', ...props }) {
+// Ô nhập pill dùng chung cho khu vực người dùng.
+// Chiều cao theo chuẩn gọn (h-9), bo góc pill.
+// fontSize được cố định bằng inline style (14px) thay vì chỉ dùng class Tailwind:
+// index.css có rule không-layer `input, textarea, select, button { font-size: var(--fs-base) }`
+// (16→17px) luôn đè utility class trên thẻ input nếu không dùng inline style
+// (tương tự cơ chế ở PillButton.jsx).
+export default function PillInput({ className = '', style, ...props }) {
   return (
     <input
       className={[
-        'w-full h-9 pointer-coarse:h-11 px-4 rounded-full border border-zinc-200 bg-white text-zinc-900 text-sm',
+        'w-full h-9 pointer-coarse:h-11 px-4 rounded-full border border-zinc-200 bg-white text-zinc-900',
         'outline-none transition-all placeholder:text-zinc-400 placeholder:text-sm',
         'focus:border-zinc-900 focus:outline-none focus:ring-0',
         'disabled:bg-zinc-50 disabled:text-zinc-500 disabled:cursor-not-allowed',
         className,
       ].filter(Boolean).join(' ')}
+      style={{ fontSize: '14px', ...style }}
       {...props}
     />
   )
