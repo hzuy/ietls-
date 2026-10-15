@@ -4,10 +4,10 @@ const prisma = require('../lib/prisma')
 const authMiddleware = require('../middleware/auth')
 const { learnerOnly } = require('../lib/roles')
 const validate = require('../middleware/validate')
-const { roundBand, ieltsOverall } = require('../lib/scoreUtils')
 const { computeStreak, vnDateKey } = require('../lib/streak')
 const { averageBand } = require('../lib/speakingAttempt')
 const { speakingAttempts, writingAttempts } = require('../lib/attemptGroups')
+const { collectSubmissions, currentBands, RECENT_COUNT } = require('../lib/currentBand')
 
 function summarizeAttempts(groups, skill, examId, total) {
   return groups.map(g => ({
@@ -27,146 +27,40 @@ router.get('/stats', authMiddleware, learnerOnly, async (req, res) => {
   try {
     const userId = req.user.userId
 
-    // Tổng số bài đã hoàn thành từ Reading & Listening attempts
-    const totalReadingListeningAttempts = await prisma.attempt.count({
-      where: { userId, finishedAt: { not: null } },
-    })
-
-    // Tất cả bài có điểm, kèm kỹ năng từ exam (tối đa 500 bài gần nhất)
-    const attempts = await prisma.attempt.findMany({
-      where: { userId, finishedAt: { not: null }, score: { not: null } },
-      select: { score: true, exam: { select: { skill: true } } },
-      orderBy: { createdAt: 'desc' },
-      take: 500,
-    })
-
-    // Lấy bài làm Writing & Speaking thực tế của user (nếu có model)
-    const [writingAnswers, speakingAnswers] = await Promise.all([
-      prisma.writingAnswer?.findMany ? prisma.writingAnswer.findMany({
+    const [attempts, writingAnswers, speakingAnswers] = await Promise.all([
+      prisma.attempt.findMany({
+        where: { userId, finishedAt: { not: null } },
+        select: { score: true, correctCount: true, finishedAt: true, exam: { select: { skill: true } } },
+        orderBy: { finishedAt: 'desc' },
+        take: 500,
+      }),
+      prisma.writingAnswer.findMany({
         where: { userId },
+        select: { id: true, taskId: true, aiScore: true, status: true, createdAt: true, task: { select: { examId: true } } },
         orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          taskId: true,
-          aiScore: true,
-          status: true,
-          createdAt: true,
-          task: { select: { examId: true, exam: { select: { _count: { select: { writingTasks: true } } } } } }
-        }
-      }) : Promise.resolve([]),
-      prisma.speakingAnswer?.findMany ? prisma.speakingAnswer.findMany({
+        take: 500,
+      }),
+      prisma.speakingAnswer.findMany({
         where: { userId },
+        select: { id: true, partId: true, aiScore: true, status: true, createdAt: true, part: { select: { examId: true, number: true } } },
         orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          partId: true,
-          aiScore: true,
-          status: true,
-          createdAt: true,
-          part: { select: { examId: true, number: true, exam: { select: { _count: { select: { speakingParts: true } } } } } }
-        }
-      }) : Promise.resolve([]),
+        take: 500,
+      }),
     ])
 
-    const writingByExam = {}
-    for (const a of writingAnswers) {
-      const eId = a.task?.examId
-      if (eId) (writingByExam[eId] ||= []).push(a)
-    }
-    let totalWritingAttempts = 0
-    const writingBands = []
-    const writingFinishedDates = []
-    for (const [eId, list] of Object.entries(writingByExam)) {
-      const total = list[0].task?.exam?._count?.writingTasks
-      const groups = summarizeAttempts(writingAttempts(list), 'writing', eId, total)
-      totalWritingAttempts += groups.length
-      for (const g of groups) {
-        if (g.bandScore != null && g.bandScore > 0) writingBands.push(g.bandScore)
-        if (g.finishedAt) writingFinishedDates.push(g.finishedAt)
-      }
-    }
-    if (writingBands.length === 0) {
-      for (const a of writingAnswers) {
-        if (a.aiScore != null && a.aiScore > 0) writingBands.push(a.aiScore)
-        if (a.createdAt) writingFinishedDates.push(a.createdAt)
-      }
-      totalWritingAttempts = writingAnswers.length
-    }
+    const submissions = collectSubmissions({ attempts, writingAnswers, speakingAnswers })
+    const { bandBySkill, sampleBySkill, avgBand } = currentBands(submissions)
+    const totalAttempts = submissions.length
 
-    const speakingByExam = {}
-    for (const a of speakingAnswers) {
-      const eId = a.part?.examId
-      if (eId) (speakingByExam[eId] ||= []).push({ ...a, partNumber: a.part.number })
-    }
-    let totalSpeakingAttempts = 0
-    const speakingBands = []
-    const speakingFinishedDates = []
-    for (const [eId, list] of Object.entries(speakingByExam)) {
-      const total = list[0].part?.exam?._count?.speakingParts
-      const groups = summarizeAttempts(speakingAttempts(list), 'speaking', eId, total)
-      totalSpeakingAttempts += groups.length
-      for (const g of groups) {
-        if (g.bandScore != null && g.bandScore > 0) speakingBands.push(g.bandScore)
-        if (g.finishedAt) speakingFinishedDates.push(g.finishedAt)
-      }
-    }
-    if (speakingBands.length === 0) {
-      for (const a of speakingAnswers) {
-        if (a.aiScore != null && a.aiScore > 0) speakingBands.push(a.aiScore)
-        if (a.createdAt) speakingFinishedDates.push(a.createdAt)
-      }
-      totalSpeakingAttempts = speakingAnswers.length
-    }
+    const streak = computeStreak(submissions.map(x => x.finishedAt))
 
-    // Band theo kỹ năng
-    const skillScores = { reading: [], listening: [], writing: [], speaking: [] }
-    for (const a of attempts) {
-      const skill = a.exam?.skill
-      if (skill && skillScores[skill] !== undefined && a.score > 0) {
-        skillScores[skill].push(a.score)
-      }
-    }
-    for (const b of writingBands) skillScores.writing.push(b)
-    for (const b of speakingBands) skillScores.speaking.push(b)
-
-    const avg = arr => arr.length ? roundBand(arr.reduce((s, v) => s + v, 0) / arr.length) : null
-    const bandBySkill = {
-      reading:   avg(skillScores.reading),
-      listening: avg(skillScores.listening),
-      writing:   avg(skillScores.writing),
-      speaking:  avg(skillScores.speaking),
-    }
-
-    const activeBands = Object.values(bandBySkill).filter(v => v !== null && v > 0)
-    const avgBand = activeBands.length ? ieltsOverall(activeBands) : 0
-
-    // Streak — số ngày liên tiếp có bài hoàn thành (tính từ hôm nay hoặc hôm qua
-    // theo NGÀY LỊCH VIỆT NAM, xem lib/streak.js + lib/vnDate.js)
-    const finishedDates = await prisma.attempt.findMany({
-      where: { userId, finishedAt: { not: null } },
-      select: { finishedAt: true },
-      orderBy: { finishedAt: 'desc' },
-      take: 366,
-    })
-
-    const allFinishedDates = [
-      ...finishedDates.map(a => a.finishedAt),
-      ...writingFinishedDates,
-      ...speakingFinishedDates,
-    ].filter(Boolean)
-
-    const streak = computeStreak(allFinishedDates)
-
-    // Thống kê số lượt bài hoàn thành theo ngày lịch VN cho heatmap
     const activityMap = {}
-    for (const d of allFinishedDates) {
-      const key = vnDateKey(d)
+    for (const x of submissions) {
+      const key = vnDateKey(x.finishedAt)
       activityMap[key] = (activityMap[key] || 0) + 1
     }
 
-    const totalAttempts = totalReadingListeningAttempts + totalWritingAttempts + totalSpeakingAttempts
-
-    res.json({ totalAttempts, avgBand, streak, bandBySkill, activityMap, freezeCount: 0 })
+    res.json({ totalAttempts, avgBand, streak, bandBySkill, sampleBySkill, recentCount: RECENT_COUNT, activityMap, freezeCount: 0 })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
   }

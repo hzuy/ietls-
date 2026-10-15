@@ -9,8 +9,9 @@ import { ADMIN_SKILL_COLORS, SKILL_LABEL } from '../../utils/adminSkillColors'
 import Modal from '../../components/common/Modal'
 import Select from '../../components/admin/Select'
 import { MobileFilterToggle } from '../../components/admin/contentPageUI'
+import Pagination from '../../components/admin/Pagination'
 
-import { Download, RotateCcw, Eye, Search, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react'
+import { Download, RotateCcw, Eye, Search, ArrowUpDown } from 'lucide-react'
 import { useDebounce } from '../../hooks/useDebounce'
 
 const CRITERION_LABEL = {
@@ -102,8 +103,8 @@ function AttemptDetailModal({ attempt: a, onClose }) {
 }
 
 function getBandPill(score) {
-  if (score == null) return <span className="font-mono text-xs px-2.5 py-1 rounded-md bg-zinc-100 text-zinc-400 border border-zinc-200">Đang chấm</span>
-  return <span className="font-mono text-xs px-2.5 py-1 rounded-md bg-zinc-100 text-zinc-800 border border-zinc-200">BAND {score.toFixed(1)}</span>
+  if (score == null) return <span className="font-mono text-xs px-2.5 py-1 rounded-full bg-zinc-100 text-zinc-400 border border-zinc-200">Đang chấm</span>
+  return <span className="font-mono text-xs px-2.5 py-1 rounded-full bg-zinc-100 text-zinc-800 border border-zinc-200">BAND {score.toFixed(1)}</span>
 }
 
 export default function Attempts() {
@@ -313,6 +314,7 @@ export default function Attempts() {
           <div className="flex items-center gap-2 flex-wrap">
             {/* Sắp xếp — server-side, áp dụng trên toàn bộ kết quả */}
             <Select
+              pill
               className="w-[160px]"
               icon={ArrowUpDown}
               ariaLabel="Sắp xếp"
@@ -329,7 +331,7 @@ export default function Attempts() {
               onClick={handleExportExcel}
               disabled={exporting || selectedAttemptIds.length === 0}
               title={selectedAttemptIds.length === 0 ? 'Tích chọn ít nhất 1 bài thi để Download' : `Tải ${selectedAttemptIds.length} bài thi đã chọn`}
-              className={`flex items-center gap-2 px-3.5 h-9 rounded-md border border-zinc-200 bg-white text-zinc-700 text-xs font-medium transition shadow-2xs ${
+              className={`flex items-center gap-2 px-3.5 h-9 rounded-full border border-zinc-200 bg-white text-zinc-700 text-xs font-medium transition shadow-2xs ${
                 selectedAttemptIds.length === 0 || exporting
                   ? 'opacity-50 cursor-not-allowed pointer-events-none'
                   : 'cursor-pointer hover:bg-zinc-50 hover:border-zinc-300'
@@ -348,7 +350,7 @@ export default function Attempts() {
         </div>
 
         {/* Filter Card — lưới 4 cột đồng nhất: mọi hàng phủ đủ chiều ngang, nút Đặt lại là ô cuối lưới */}
-        <div className="bg-white rounded-xl border border-zinc-200 p-4 sm:p-5 shadow-xs mb-6 w-full">
+        <div className="bg-white rounded-2xl border border-zinc-200 p-4 sm:p-5 shadow-xs mb-6 w-full">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
 
             {/* Tìm kiếm — 2/4 cột (rộng gấp đôi các ô còn lại) */}
@@ -362,7 +364,7 @@ export default function Attempts() {
                     placeholder="Tìm theo tên hoặc email học viên..."
                     value={search}
                     onChange={e => { setSearch(e.target.value); setPage(1) }}
-                    className="w-full h-9 pl-8 pr-3 text-xs border border-zinc-200 rounded-md text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition shadow-2xs bg-zinc-50"
+                    className="w-full h-9 pl-8 pr-3 text-xs border border-zinc-200 rounded-full text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition shadow-2xs bg-zinc-50"
                   />
                 </div>
                 <MobileFilterToggle
@@ -378,6 +380,7 @@ export default function Attempts() {
             <div id="attempts-more-filters" className={moreFiltersCls}>
               <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Kỹ năng</label>
               <Select
+                pill
                 buttonClassName="bg-zinc-50"
                 ariaLabel="Kỹ năng"
                 value={skill}
@@ -393,6 +396,7 @@ export default function Attempts() {
             <div className={moreFiltersCls}>
               <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Bộ đề</label>
               <Select
+                pill
                 buttonClassName="bg-zinc-50"
                 ariaLabel="Bộ đề"
                 value={seriesId}
@@ -407,7 +411,7 @@ export default function Attempts() {
             {/* Khoảng ngày — 2/4 cột, thẳng hàng dưới ô Tìm kiếm */}
             <div className={`md:col-span-2 ${moreFiltersCls}`}>
               <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Khoảng ngày</label>
-              <div className="flex items-center border border-zinc-200 rounded-md h-9 bg-zinc-50 w-full hover:border-zinc-300 focus-within:ring-2 focus-within:ring-zinc-200 focus-within:border-zinc-900 transition shadow-2xs">
+              <div className="flex items-center border border-zinc-200 rounded-full h-9 px-1 bg-zinc-50 w-full hover:border-zinc-300 focus-within:ring-2 focus-within:ring-zinc-200 focus-within:border-zinc-900 transition shadow-2xs">
                 <input
                   type="date"
                   value={dateFrom}
@@ -432,7 +436,7 @@ export default function Attempts() {
             {/* Khoảng Band — cùng style với Khoảng ngày */}
             <div className={moreFiltersCls}>
               <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Khoảng Band</label>
-              <div className="flex items-center gap-2 border border-zinc-200 rounded-md px-3 h-9 bg-zinc-50 w-full hover:border-zinc-300 focus-within:ring-2 focus-within:ring-zinc-200 focus-within:border-zinc-900 transition shadow-2xs">
+              <div className="flex items-center gap-2 border border-zinc-200 rounded-full px-3.5 h-9 bg-zinc-50 w-full hover:border-zinc-300 focus-within:ring-2 focus-within:ring-zinc-200 focus-within:border-zinc-900 transition shadow-2xs">
                 <input
                   type="number" min="0" max="9" step="0.5" placeholder="Từ" value={scoreMin}
                   onChange={handleScoreMinChange} onBlur={handleScoreMinBlur}
@@ -452,7 +456,7 @@ export default function Attempts() {
               <button
                 type="button"
                 onClick={reset}
-                className="w-full h-9 justify-center border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 hover:border-zinc-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-200 focus-visible:border-zinc-900 px-3.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+                className="w-full h-9 justify-center border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 hover:border-zinc-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-200 focus-visible:border-zinc-900 px-3.5 rounded-full text-xs font-medium flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
               >
                 <RotateCcw className="w-3.5 h-3.5 text-zinc-500" />
                 <span>Đặt lại</span>
@@ -466,15 +470,15 @@ export default function Attempts() {
           <AdminTableSkeleton firstColType="checkbox" rows={8} cols={7} />
         ) : (
         <FetchingDim isFetching={isFetching}>
-        <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden w-full flex-1 shadow-xs">
+        <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden w-full flex-1 shadow-xs">
           {attempts.length === 0 ? (
             <p className="text-center text-zinc-400 py-16 text-xs font-medium">Không có lượt thi nào khớp bộ lọc</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="rtable w-full text-xs">
+              <table className="rtable w-full text-xs table-fixed">
                 <thead>
                   <tr className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 bg-zinc-50 border-b border-zinc-200">
-                    <th className="rt-select px-4 py-3 text-center w-10">
+                    <th className="rt-select px-4 py-3 text-center w-12">
                       <label className="inline-flex items-center gap-2 cursor-pointer">
                         <input
                           type="checkbox"
@@ -486,18 +490,18 @@ export default function Attempts() {
                         <span className="sm:hidden">Chọn tất cả</span>
                       </label>
                     </th>
-                    <th className="px-5 py-3 text-left">Học viên</th>
-                    <th className="px-4 py-3 text-left">Kỹ năng</th>
+                    <th className="w-[24%] px-5 py-3 text-left">Học viên</th>
+                    <th className="w-[112px] px-4 py-3 text-left">Kỹ năng</th>
                     <th className="px-4 py-3 text-left">Đề thi</th>
-                    <th className="px-4 py-3 text-left">Band Score</th>
-                    <th className="px-4 py-3 text-left">Ngày làm bài</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-slate-400">HÀNH ĐỘNG</th>
+                    <th className="w-[120px] px-4 py-3 text-left">Band Score</th>
+                    <th className="w-[130px] px-4 py-3 text-left">Ngày làm bài</th>
+                    <th className="w-[130px] px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-slate-400">HÀNH ĐỘNG</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
                   {displayedAttempts.map(a => (
                     <tr key={a.id} className="odd:bg-zinc-50/40 hover:bg-zinc-50 transition-colors">
-                      <td className="rt-select px-4 py-3 text-center w-10">
+                      <td className="rt-select px-4 py-3 text-center w-12">
                         <label className="cursor-pointer">
                           <input
                             type="checkbox"
@@ -508,9 +512,9 @@ export default function Attempts() {
                           />
                         </label>
                       </td>
-                      <td className="rt-main px-5 py-3">
-                        <p className="font-medium text-zinc-900 text-xs">{a.user?.name}</p>
-                        <p className="text-[11px] text-zinc-500">{a.user?.email}</p>
+                      <td className="rt-main px-5 py-3 min-w-0">
+                        <p className="font-medium text-zinc-900 text-xs truncate" title={a.user?.name}>{a.user?.name}</p>
+                        <p className="text-[11px] text-zinc-500 truncate" title={a.user?.email}>{a.user?.email}</p>
                       </td>
                       <td data-label="Kỹ năng" className="px-4 py-3">
                         <span
@@ -519,7 +523,7 @@ export default function Attempts() {
                           {SKILL_LABEL[a.exam?.skill]}
                         </span>
                       </td>
-                      <td data-label="Đề thi" className="rt-wide px-4 py-3 text-zinc-700 font-medium max-w-[240px] truncate text-xs">{a.exam?.title}</td>
+                      <td data-label="Đề thi" className="rt-wide px-4 py-3 text-zinc-700 font-medium truncate text-xs" title={a.exam?.title}>{a.exam?.title}</td>
                       <td data-label="Band" className="px-4 py-3">
                         {getBandPill(a.score)}
                       </td>
@@ -546,25 +550,12 @@ export default function Attempts() {
 
           {/* Pagination */}
           {pages > 1 && (
-            <div className="flex items-center justify-between px-5 py-3.5 border-t border-zinc-200 bg-zinc-50/50">
-              <span className="text-xs font-medium text-zinc-500">Trang {page} / {pages}</span>
-              <div className="flex items-center gap-1.5">
-                <button
-                  disabled={page <= 1}
-                  onClick={() => setPage(p => p - 1)}
-                  className="p-1.5 text-xs rounded-xl border border-zinc-200 bg-white text-zinc-600 disabled:opacity-40 hover:bg-zinc-50 transition cursor-pointer flex items-center justify-center"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button
-                  disabled={page >= pages}
-                  onClick={() => setPage(p => p + 1)}
-                  className="p-1.5 text-xs rounded-xl border border-zinc-200 bg-white text-zinc-600 disabled:opacity-40 hover:bg-zinc-50 transition cursor-pointer flex items-center justify-center"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
+            <Pagination
+              page={page}
+              pages={pages}
+              onChange={setPage}
+              summary={`Trang ${page} / ${pages} · ${total} lượt thi`}
+            />
           )}
         </div>
         </FetchingDim>

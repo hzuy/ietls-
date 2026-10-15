@@ -7,6 +7,8 @@ import Card from '../components/common/Card'
 import PillButton from '../components/common/PillButton'
 import { UserCardGridSkeleton } from '../components/skeletons'
 import { BACKEND_URL } from '../utils/media'
+import { queryClient } from '../lib/queryClient'
+import { fullTestsQueryOptions } from '../hooks/useCatalog'
 
 
 
@@ -37,10 +39,7 @@ export default function FullTest() {
 
   useEffect(() => {
     document.title = 'Đề thi Full Test | IELTS Pro'
-    fetch(`${BACKEND_URL}/api/admin/full-tests`, {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    })
-      .then(r => r.ok ? r.json() : [])
+    queryClient.fetchQuery(fullTestsQueryOptions)
       .then(data => {
         const booksMap = data.reduce((acc, item) => {
           const bKey = `${item.seriesId}-${item.bookNumber}`

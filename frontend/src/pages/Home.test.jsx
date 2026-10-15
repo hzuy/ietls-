@@ -1,8 +1,13 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render as rtlRender, screen, fireEvent, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { getLatestDraft } from '../services/draftService'
 import Home from './Home'
+
+const render = ui => rtlRender(
+  <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{ui}</QueryClientProvider>
+)
 
 // Mock dependencies
 vi.mock('../context/AuthContext', () => ({
@@ -76,7 +81,7 @@ describe('Home Page Standardization', () => {
     })
 
     // Initially on Cambridge tab — hiển thị sách Cambridge 19
-    expect(screen.getAllByText('IELTS Cambridge Academic 19').length).toBeGreaterThan(0)
+    expect((await screen.findAllByText('IELTS Cambridge Academic 19')).length).toBeGreaterThan(0)
     expect(screen.queryByText('IELTS Practice Test Plus 3')).not.toBeInTheDocument()
 
     // Kiểm tra nút Practice Plus tab tồn tại
@@ -100,7 +105,7 @@ describe('Home Page Standardization', () => {
     })
 
     // Luyện đề: mặc định Reading hiển thị
-    expect(screen.getAllByText('Climate Change Passage').length).toBeGreaterThan(0)
+    expect((await screen.findAllByText('Climate Change Passage')).length).toBeGreaterThan(0)
     // Chuyển tab sang Listening
     const listeningTabBtn = screen.getByRole('button', { name: 'Listening' })
     fireEvent.click(listeningTabBtn)
@@ -185,7 +190,7 @@ describe('Home Page Standardization', () => {
       expect(screen.getByText('Bộ đề IELTS')).toBeInTheDocument()
     })
 
-    expect(screen.getByRole('button', { name: 'IELTS Mock Test' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'IELTS Mock Test' })).toBeInTheDocument()
     expect(screen.getAllByText('IELTS Mock Test 19').length).toBeGreaterThan(0)
   })
 })

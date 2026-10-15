@@ -118,12 +118,12 @@ describe('AuditLogs page — bảng + modal chi tiết', () => {
     })
   })
 
-  it('re-queries with the selected action when "Loại hành động" dropdown changes', async () => {
+  it('re-queries with every action of the selected kind when "Loại hành động" dropdown changes', async () => {
     renderAuditLogs()
     await waitFor(() => expect(adminService.getAdminAuditLogs).toHaveBeenCalled())
 
     fireEvent.click(screen.getByRole('button', { name: 'Loại hành động' }))
-    fireEvent.click(await screen.findByRole('option', { name: 'Xóa bài mẫu' }))
+    fireEvent.click(await screen.findByRole('option', { name: 'Xóa (vào thùng rác)' }))
 
     await waitFor(() => {
       expect(adminService.getAdminAuditLogs).toHaveBeenCalledWith(

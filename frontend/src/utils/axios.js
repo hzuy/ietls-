@@ -1,4 +1,7 @@
 import axios from 'axios'
+import { queryClient } from '../lib/queryClient'
+
+const PROGRESS_KEYS = [['userStats'], ['myHistory'], ['practiceAttempts']]
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001/api',
@@ -15,7 +18,11 @@ api.interceptors.request.use((config) => {
 
 // Xử lý lỗi 401 (token hết hạn / không hợp lệ)
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const method = (response.config?.method || 'get').toLowerCase()
+    if (method !== 'get') PROGRESS_KEYS.forEach(queryKey => queryClient.removeQueries({ queryKey }))
+    return response
+  },
   (error) => {
     const status = error.response?.status
     const url = error.config?.url || ''

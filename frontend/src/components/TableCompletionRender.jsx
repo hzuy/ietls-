@@ -1,3 +1,4 @@
+import { lineText } from '../utils/noteLine'
 // Shared render component for table_completion groups
 // Used by both ReadingExam and ListeningExam
 
@@ -40,7 +41,7 @@ export default function TableCompletionRender({ group, answers, onAnswer, previe
   const headerLine = lines.find(l => l.lineType === 'heading')
   const dataLines = lines.filter(l => l.lineType !== 'heading')
   const headers = headerLine
-    ? (headerLine.contentWithTokens || headerLine.content || '').split('|')
+    ? lineText(headerLine).split('|')
     : []
   const questions = group.questions || []
 
@@ -68,7 +69,7 @@ export default function TableCompletionRender({ group, answers, onAnswer, previe
           )}
           <tbody>
             {dataLines.map((line, li) => {
-              const cells = (line.contentWithTokens || line.content || '').split('|')
+              const cells = lineText(line).split('|')
               return (
                 <tr key={li} className={li % 2 === 1 ? 'bg-zinc-50/40' : 'bg-white'}>
                   {cells.map((cell, ci) => (

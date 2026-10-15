@@ -4,7 +4,7 @@ const router = express.Router()
 const prisma = require('../../lib/prisma')
 const authMiddleware = require('../../middleware/auth')
 const validate = require('../../middleware/validate')
-const { roundBand } = require('../../lib/scoreUtils')
+const { loadSubmissionsByUser, bandSummary } = require('../../lib/currentBand')
 const { adminOnly, teacherOrAdmin } = require('../../lib/roles')
 const { invalidateAuthUser } = require('../../lib/authUser')
 const {
@@ -80,27 +80,18 @@ router.get('/users', authMiddleware, adminOnly, async (req, res) => {
       prisma.user.count({ where: { role: 'user', isLocked: true, deletedAt: null } }),
     ])
 
-    const userIds = users.map(u => u.id)
-    const [avgScores, lastAttempts] = await Promise.all([
-      prisma.attempt.groupBy({
-        by: ['userId'],
-        where: { userId: { in: userIds }, score: { not: null } },
-        _avg: { score: true }
-      }),
-      prisma.attempt.groupBy({
-        by: ['userId'],
-        where: { userId: { in: userIds } },
-        _max: { createdAt: true }
-      })
-    ])
-    const avgMap = Object.fromEntries(avgScores.map(a => [a.userId, roundBand(a._avg.score)]))
-    const lastMap = Object.fromEntries(lastAttempts.map(a => [a.userId, a._max.createdAt]))
+    const submissionsByUser = await loadSubmissionsByUser(prisma, users.map(u => u.id))
 
-    let mergedUsers = users.map(u => ({
-      ...u,
-      avgScore: avgMap[u.id] ?? null,
-      lastAttemptAt: lastMap[u.id] ?? null,
-    }))
+    let mergedUsers = users.map(u => {
+      const summary = bandSummary(submissionsByUser[u.id] || [])
+      return {
+        ...u,
+        avgScore: summary.avgBand,
+        bandBySkill: summary.bandBySkill,
+        submissionCount: summary.submissionCount,
+        lastAttemptAt: summary.lastSubmittedAt,
+      }
+    })
 
     // Band sort: sort merged array by avgScore descending
     if (sort === 'band') {
@@ -129,37 +120,20 @@ router.get('/users/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
     })
     if (!user) return res.status(404).json({ message: 'Không tìm thấy user' })
 
-    const [attempts, skillAvg, totalAttemptsCount] = await Promise.all([
+    const [attempts, submissionsByUser, totalAttemptsCount] = await Promise.all([
       prisma.attempt.findMany({
         where: { userId: id },
         orderBy: { createdAt: 'desc' },
         take: 50,
         include: { exam: { select: { title: true, skill: true } } }
       }),
-      prisma.attempt.groupBy({
-        by: ['examId'],
-        where: { userId: id, score: { not: null } },
-        _avg: { score: true }
-      }),
+      loadSubmissionsByUser(prisma, [id]),
       prisma.attempt.count({ where: { userId: id } }),
     ])
+    const summary = bandSummary(submissionsByUser[id] || [])
+    const skillStats = summary.bandBySkill
 
-    // Build skill lookup from already-fetched attempts — no extra DB query needed
-    const skillLookup = Object.fromEntries(
-      attempts.filter(a => a.exam).map(a => [a.examId, a.exam.skill])
-    )
-    const bySkill = { reading: [], listening: [], writing: [], speaking: [] }
-    skillAvg.forEach(a => {
-      const s = skillLookup[a.examId]
-      if (s && s in bySkill) bySkill[s].push(a._avg.score)
-    })
-    const skillStats = Object.fromEntries(
-      Object.entries(bySkill).map(([s, scores]) => [
-        s, scores.length > 0 ? roundBand(scores.reduce((a,b) => a+b, 0) / scores.length) : null
-      ])
-    )
-
-    res.json({ user, attempts, skillStats, totalAttempts: totalAttemptsCount, shownAttempts: attempts.length })
+    res.json({ user, attempts, skillStats, avgBand: summary.avgBand, submissionCount: summary.submissionCount, totalAttempts: totalAttemptsCount, shownAttempts: attempts.length })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
   }

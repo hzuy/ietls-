@@ -33,7 +33,7 @@ export default function SummaryCompletionEditorSimple({ group, onChange }) {
     const oldContent = noteSections[nsi].lines[li].content || ''
     const newContent = oldContent.slice(0, pos) + token + oldContent.slice(pos)
     const sections = noteSections.map((ns, i) => i !== nsi ? ns : {
-      ...ns, lines: ns.lines.map((l, j) => j !== li ? l : { ...l, content: newContent })
+      ...ns, lines: ns.lines.map((l, j) => j !== li ? l : { ...l, content: newContent, contentWithTokens: newContent })
     })
     const existingNums = new Set((group.questions || []).map(q => q.number))
     const newQuestions = existingNums.has(nextQNum) ? (group.questions || [])
@@ -43,7 +43,7 @@ export default function SummaryCompletionEditorSimple({ group, onChange }) {
 
   const updateLine = (nsi, li, val) => {
     const sections = noteSections.map((ns, i) => i !== nsi ? ns : {
-      ...ns, lines: ns.lines.map((l, j) => j !== li ? l : { ...l, content: val })
+      ...ns, lines: ns.lines.map((l, j) => j !== li ? l : { ...l, content: val, contentWithTokens: val })
     })
     onChange({ ...group, noteSections: sections })
   }

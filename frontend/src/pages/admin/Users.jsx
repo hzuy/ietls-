@@ -8,6 +8,7 @@ import FetchingDim from '../../components/admin/FetchingDim'
 import { Pencil, Lock, Unlock, Trash2, SearchX } from 'lucide-react'
 import Modal from '../../components/common/Modal'
 import Select from '../../components/admin/Select'
+import Pagination from '../../components/admin/Pagination'
 
 import { roundIELTS } from '../../utils/ielts'
 
@@ -124,12 +125,17 @@ export default function Users() {
 
         {/* ── Topbar ─────────────────────────────────────── */}
         <div className="mb-6">
-          <h1 className="text-xl font-semibold text-zinc-900 tracking-tight flex items-baseline gap-2">
+          <h1 className="text-xl font-semibold text-zinc-900 tracking-tight flex items-center gap-2.5">
             Người dùng
-            <span className="text-xs font-normal text-zinc-500">
-              {isPending && !data ? '' : `(${total} người)`}
-            </span>
+            {isPending && !data ? (
+              <span className="inline-block w-16 h-5 rounded-full bg-zinc-100 animate-pulse border border-zinc-200" />
+            ) : (
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200">
+                {total} người
+              </span>
+            )}
           </h1>
+          <p className="text-xs text-zinc-500 mt-1">Quản lý tài khoản học viên trên hệ thống</p>
         </div>
 
         {/* ── Stats row ──────────────────────────────────── */}
@@ -162,9 +168,10 @@ export default function Users() {
               placeholder="Tìm tên / email..."
               value={search}
               onChange={e => { setSearch(e.target.value); setPage(1) }}
-              className="w-full sm:w-[220px] px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 bg-white text-zinc-900 placeholder:text-zinc-400"
+              className="w-full sm:w-[220px] h-9 px-3.5 text-xs border border-zinc-200 rounded-full focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 bg-white text-zinc-900 placeholder:text-zinc-400"
             />
             <Select
+              pill
               className="flex-1 min-w-0 sm:flex-none sm:w-[168px]"
               ariaLabel="Lọc theo trạng thái"
               value={statusFilter}
@@ -176,6 +183,7 @@ export default function Users() {
               ]}
             />
             <Select
+              pill
               className="flex-1 min-w-0 sm:flex-none sm:w-[152px]"
               ariaLabel="Sắp xếp"
               value={sortBy}
@@ -207,15 +215,15 @@ export default function Users() {
             )
           ) : (
             <div className="overflow-x-auto">
-              <table className="rtable w-full text-xs">
+              <table className="rtable w-full text-xs table-fixed">
                 <thead>
-                  <tr className="text-[11px] text-zinc-500 bg-zinc-50 border-b border-zinc-200">
+                  <tr className="text-[11px] text-zinc-500 bg-zinc-50 border-b border-zinc-200 whitespace-nowrap">
                     <th className="px-5 py-3 text-left font-medium">Người dùng</th>
-                    <th className="px-4 py-3 text-left font-medium">Trạng thái</th>
-                    <th className="px-4 py-3 text-right font-medium hidden sm:table-cell">Lượt thi</th>
-                    <th className="px-4 py-3 text-right font-medium hidden md:table-cell">Band TB</th>
-                    <th className="px-4 py-3 text-left font-medium hidden lg:table-cell">Ngày tham gia</th>
-                    <th className="px-5 py-3 text-right font-medium text-[11px] uppercase tracking-wider text-zinc-500">Hành động</th>
+                    <th className="w-[130px] px-4 py-3 text-left font-medium">Trạng thái</th>
+                    <th className="w-[96px] px-4 py-3 text-right font-medium hidden sm:table-cell">Lượt thi</th>
+                    <th className="w-[96px] px-4 py-3 text-right font-medium hidden md:table-cell" title="Trung bình 3 bài gần nhất mỗi kỹ năng, giống trang chủ học viên">Band</th>
+                    <th className="w-[150px] px-4 py-3 text-left font-medium hidden lg:table-cell">Ngày tham gia</th>
+                    <th className="w-[140px] px-5 py-3 text-right font-medium text-[11px] uppercase tracking-wider text-zinc-500">Hành động</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -233,9 +241,9 @@ export default function Users() {
                             <div className="w-8 h-8 rounded-full bg-zinc-900 text-white text-xs font-bold flex items-center justify-center shrink-0">
                               {avatarInitials(u.name)}
                             </div>
-                            <div>
-                              <p className="font-medium text-zinc-900 text-xs">{u.name}</p>
-                              <p className="text-[11px] text-zinc-500">{u.email}</p>
+                            <div className="min-w-0">
+                              <p className="font-medium text-zinc-900 text-xs truncate" title={u.name}>{u.name}</p>
+                              <p className="text-[11px] text-zinc-500 truncate" title={u.email}>{u.email}</p>
                             </div>
                           </div>
                         </td>
@@ -250,11 +258,11 @@ export default function Users() {
 
                         {/* Lượt thi */}
                         <td data-label="Lượt thi" className="px-4 py-3 text-right tabular-nums text-zinc-700 font-medium hidden sm:table-cell">
-                          {u._count?.attempts ?? 0}
+                          {u.submissionCount ?? u._count?.attempts ?? 0}
                         </td>
 
                         {/* Band TB */}
-                        <td data-label="Band TB" className="px-4 py-3 text-right tabular-nums hidden md:table-cell">
+                        <td data-label="Band" className="px-4 py-3 text-right tabular-nums hidden md:table-cell">
                           {band != null
                             ? <span className="font-semibold text-zinc-900">
                                 {band.toFixed(1)}
@@ -312,28 +320,12 @@ export default function Users() {
 
           {/* Pagination */}
           {total > 0 && (
-            <div className="flex items-center justify-between px-5 py-3 border-t border-zinc-100">
-              <span className="text-xs text-zinc-500">
-                Hiển thị {startIdx}–{endIdx} / {total} người dùng
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  disabled={page <= 1}
-                  onClick={() => setPage(p => p - 1)}
-                  className="px-3 py-1.5 text-xs rounded-lg border border-zinc-200 disabled:opacity-40 hover:bg-zinc-50 font-medium transition shadow-2xs">
-                  ←
-                </button>
-                <span className="text-xs text-zinc-600 font-semibold">
-                  {page} / {pages}
-                </span>
-                <button
-                  disabled={page >= pages}
-                  onClick={() => setPage(p => p + 1)}
-                  className="px-3 py-1.5 text-xs rounded-lg border border-zinc-200 disabled:opacity-40 hover:bg-zinc-50 font-medium transition shadow-2xs">
-                  →
-                </button>
-              </div>
-            </div>
+            <Pagination
+              page={page}
+              pages={pages}
+              onChange={setPage}
+              summary={`Hiển thị ${startIdx}–${endIdx} / ${total} người dùng`}
+            />
           )}
         </div>
         </FetchingDim>

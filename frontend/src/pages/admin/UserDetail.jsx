@@ -32,7 +32,7 @@ export default function UserDetail() {
 
   if (!data) return <div className="p-8 text-zinc-400">Không tìm thấy người dùng.</div>
 
-  const { user, attempts, skillStats, totalAttempts, shownAttempts } = data
+  const { user, attempts, skillStats, submissionCount, totalAttempts, shownAttempts } = data
   const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
 
   // BUG-07: Action handlers
@@ -121,15 +121,15 @@ export default function UserDetail() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
           <div className="bg-white rounded-2xl p-4 border border-zinc-200 shadow-xs">
-            <div className="text-2xl font-bold text-zinc-900">{totalAttempts}</div>
-            <div className="text-xs text-zinc-500 mt-0.5">Tổng lượt thi</div>
+            <div className="text-2xl font-bold text-zinc-900">{submissionCount ?? totalAttempts}</div>
+            <div className="text-xs text-zinc-500 mt-0.5">Bài đã nộp (4 kỹ năng)</div>
           </div>
           {SKILL_ORDER.map(skill => {
             const score = skillStats[skill]
             return (
               <div key={skill} className="bg-white rounded-2xl p-4 border border-zinc-200 shadow-xs">
                 <div className="text-2xl font-bold text-zinc-900">{formatBand(score)}</div>
-                <div className="text-xs text-zinc-500 mt-0.5">Band TB {SKILL_LABEL[skill]}</div>
+                <div className="text-xs text-zinc-500 mt-0.5">Band hiện tại {SKILL_LABEL[skill]}</div>
               </div>
             )
           })}

@@ -6,39 +6,25 @@ import { AdminTableSkeleton } from '../../components/skeletons'
 import FetchingDim from '../../components/admin/FetchingDim'
 import Select from '../../components/admin/Select'
 import { MobileFilterToggle } from '../../components/admin/contentPageUI'
+import Pagination from '../../components/admin/Pagination'
 import { useDebounce } from '../../hooks/useDebounce'
 import { AuditLogDetailModal, ENTITY_TYPE_LABEL, fmtDateTime } from '../../components/admin/AuditLogDetailModal'
 
-import { Search, RotateCcw, Eye, ChevronLeft, ChevronRight, ScrollText, Bot, UserX, X } from 'lucide-react'
+import { Search, RotateCcw, Eye, ScrollText, Bot, UserX, X } from 'lucide-react'
 
-// Nhóm hiển thị cho Select "Loại hành động" — thuần trình bày UI, suy ra từ tiền
-// tố trước dấu chấm của action.value (vd "exam.create" → nhóm "Đề thi"). Không
-// đổi danh sách hành động thực tế (actionOptions vẫn nguyên từ API), chỉ tổ chức
-// lại cách hiển thị cho dễ tìm giữa hơn 30 mục. Khớp AUDIT_ACTIONS ở
-// backend/lib/auditActions.js.
-const ACTION_GROUP_LABEL = {
-  exam: 'Đề thi',
-  series: 'Bộ đề',
-  book: 'Cuốn sách',
-  practice: 'Đề luyện tập',
-  sample: 'Bài mẫu',
-  user: 'Người dùng',
-  staff: 'Nhân sự',
-  trash: 'Thùng rác',
-  setting: 'Cài đặt',
-  auditlog: 'Hệ thống',
-}
-const ACTION_GROUP_ORDER = Object.keys(ACTION_GROUP_LABEL)
+const ACTION_KINDS = [
+  { value: 'create', label: 'Tạo mới', match: a => a.endsWith('.create') },
+  { value: 'update', label: 'Chỉnh sửa', match: a => /\.(update|role_change|password_reset)$/.test(a) },
+  { value: 'delete', label: 'Xóa (vào thùng rác)', match: a => a.endsWith('.delete') },
+  { value: 'restore', label: 'Khôi phục', match: a => a.endsWith('.restore') },
+  { value: 'purge', label: 'Xóa vĩnh viễn', match: a => a.includes('purge') },
+  { value: 'lock', label: 'Khóa / mở khóa tài khoản', match: a => a === 'user.lock' || a === 'user.unlock' },
+]
 
-function groupActionOptions(actionOptions) {
-  const byPrefix = {}
-  for (const opt of actionOptions) {
-    const prefix = opt.value.split('.')[0]
-    ;(byPrefix[prefix] ||= []).push(opt)
-  }
-  return ACTION_GROUP_ORDER
-    .filter(prefix => byPrefix[prefix]?.length)
-    .map(prefix => ({ group: ACTION_GROUP_LABEL[prefix], options: byPrefix[prefix] }))
+function actionsForKind(kind, actionOptions) {
+  const def = ACTION_KINDS.find(k => k.value === kind)
+  if (!def) return []
+  return actionOptions.map(o => o.value).filter(def.match)
 }
 
 function ActorCell({ log }) {
@@ -61,9 +47,9 @@ function ActorCell({ log }) {
   // formatLog) — tránh in trùng cùng 1 chuỗi ở cả 2 dòng trong trường hợp đó.
   const showEmailLine = log.actorEmail && log.actorEmail !== log.actorDisplayName
   return (
-    <div>
-      <p className="font-medium text-zinc-900 text-xs flex items-center gap-1.5">
-        <span>{log.actorDisplayName || '—'}</span>
+    <div className="min-w-0">
+      <p className="font-medium text-zinc-900 text-xs flex items-center gap-1.5 min-w-0">
+        <span className="truncate" title={log.actorDisplayName || ''}>{log.actorDisplayName || '—'}</span>
         {accountGone && (
           <span
             title="Tài khoản này không còn tồn tại"
@@ -74,7 +60,7 @@ function ActorCell({ log }) {
           </span>
         )}
       </p>
-      {showEmailLine && <p className="text-[11px] text-zinc-500">{log.actorEmail}</p>}
+      {showEmailLine && <p className="text-[11px] text-zinc-500 truncate" title={log.actorEmail}>{log.actorEmail}</p>}
     </div>
   )
 }
@@ -91,7 +77,7 @@ export default function AuditLogs() {
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 400)
   const [actorUserId, setActorUserId] = useState('')
-  const [action, setAction] = useState('')
+  const [actionKind, setActionKind] = useState('')
   const [entityType, setEntityType] = useState(initialEntityType)
   const [entityId, setEntityId] = useState(initialEntityId)
   const [dateFrom, setDateFrom] = useState('')
@@ -116,12 +102,15 @@ export default function AuditLogs() {
     isLoading: loading,
     isFetching,
   } = useQuery({
-    queryKey: ['admin', 'auditLogs', { page, limit: 20, search: debouncedSearch, actorUserId, action, entityType, entityId, dateFrom, dateTo }],
+    queryKey: ['admin', 'auditLogs', { page, limit: 20, search: debouncedSearch, actorUserId, actionKind, entityType, entityId, dateFrom, dateTo }],
     queryFn: () => {
       const params = { page, limit: 20 }
       if (debouncedSearch) params.search = debouncedSearch
       if (actorUserId) params.actorUserId = actorUserId
-      if (action) params.action = action
+      if (actionKind) {
+        const actions = actionsForKind(actionKind, actionOptions)
+        if (actions.length) params.action = actions.join(',')
+      }
       if (entityType) params.entityType = entityType
       if (entityId) params.entityId = entityId
       if (dateFrom) params.from = dateFrom
@@ -135,10 +124,10 @@ export default function AuditLogs() {
   const logs = data.logs || []
   const total = data.total || 0
   const pages = data.pages || 1
-  const hasActiveFilters = !!(debouncedSearch || actorUserId || action || entityType || entityId || dateFrom || dateTo)
+  const hasActiveFilters = !!(debouncedSearch || actorUserId || actionKind || entityType || entityId || dateFrom || dateTo)
 
   const reset = () => {
-    setSearch(''); setActorUserId(''); setAction(''); setEntityType(''); setEntityId(''); setDateFrom(''); setDateTo(''); setPage(1)
+    setSearch(''); setActorUserId(''); setActionKind(''); setEntityType(''); setEntityId(''); setDateFrom(''); setDateTo(''); setPage(1)
   }
 
   const handleDateFrom = (e) => {
@@ -184,7 +173,7 @@ export default function AuditLogs() {
         )}
 
         {/* Filter bar */}
-        <div className="bg-white rounded-xl border border-zinc-200 p-4 sm:p-5 shadow-xs mb-6 w-full">
+        <div className="bg-white rounded-2xl border border-zinc-200 p-4 sm:p-5 shadow-xs mb-6 w-full">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
 
             <div className="md:col-span-2">
@@ -197,13 +186,13 @@ export default function AuditLogs() {
                     placeholder="Tìm theo tên đối tượng hoặc email người thực hiện..."
                     value={search}
                     onChange={e => { setSearch(e.target.value); setPage(1) }}
-                    className="w-full h-9 pl-8 pr-3 text-xs border border-zinc-200 rounded-md text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition shadow-2xs bg-zinc-50"
+                    className="w-full h-9 pl-8 pr-3 text-xs border border-zinc-200 rounded-full text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition shadow-2xs bg-zinc-50"
                   />
                 </div>
                 <MobileFilterToggle
                   open={filtersOpen}
                   onToggle={() => setFiltersOpen(o => !o)}
-                  activeCount={[actorUserId, action, dateFrom || dateTo, entityType].filter(Boolean).length}
+                  activeCount={[actorUserId, actionKind, dateFrom || dateTo, entityType].filter(Boolean).length}
                   controlsId="audit-more-filters"
                 />
               </div>
@@ -212,6 +201,7 @@ export default function AuditLogs() {
             <div id="audit-more-filters" className={moreFiltersCls}>
               <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Người thực hiện</label>
               <Select
+                pill
                 buttonClassName="bg-zinc-50"
                 ariaLabel="Người thực hiện"
                 value={actorUserId}
@@ -226,20 +216,21 @@ export default function AuditLogs() {
             <div className={moreFiltersCls}>
               <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Loại hành động</label>
               <Select
+                pill
                 buttonClassName="bg-zinc-50"
                 ariaLabel="Loại hành động"
-                value={action}
-                onChange={v => { setAction(v); setPage(1) }}
+                value={actionKind}
+                onChange={v => { setActionKind(v); setPage(1) }}
                 options={[
                   { value: '', label: 'Tất cả hành động' },
-                  ...groupActionOptions(actionOptions),
+                  ...ACTION_KINDS.map(k => ({ value: k.value, label: k.label })),
                 ]}
               />
             </div>
 
             <div className={`md:col-span-2 ${moreFiltersCls}`}>
               <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Khoảng ngày</label>
-              <div className="flex items-center border border-zinc-200 rounded-md h-9 bg-zinc-50 w-full hover:border-zinc-300 focus-within:ring-2 focus-within:ring-zinc-200 focus-within:border-zinc-900 transition shadow-2xs">
+              <div className="flex items-center border border-zinc-200 rounded-full h-9 px-1 bg-zinc-50 w-full hover:border-zinc-300 focus-within:ring-2 focus-within:ring-zinc-200 focus-within:border-zinc-900 transition shadow-2xs">
                 <input
                   type="date"
                   value={dateFrom}
@@ -264,6 +255,7 @@ export default function AuditLogs() {
             <div className={moreFiltersCls}>
               <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Nhóm đối tượng</label>
               <Select
+                pill
                 buttonClassName="bg-zinc-50"
                 ariaLabel="Nhóm đối tượng"
                 value={entityType}
@@ -279,7 +271,7 @@ export default function AuditLogs() {
               <button
                 type="button"
                 onClick={reset}
-                className="w-full h-9 justify-center border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 hover:border-zinc-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-200 focus-visible:border-zinc-900 px-3.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+                className="w-full h-9 justify-center border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 hover:border-zinc-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-200 focus-visible:border-zinc-900 px-3.5 rounded-full text-xs font-medium flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
               >
                 <RotateCcw className="w-3.5 h-3.5 text-zinc-500" />
                 <span>Đặt lại</span>
@@ -295,11 +287,11 @@ export default function AuditLogs() {
           <FetchingDim isFetching={isFetching}>
           {logs.length === 0 ? (
           hasActiveFilters ? (
-            <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden w-full flex-1 shadow-xs">
+            <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden w-full flex-1 shadow-xs">
               <p className="text-center text-zinc-400 py-16 text-xs font-medium">Không có nhật ký nào khớp bộ lọc</p>
             </div>
           ) : (
-            <div className="w-full min-h-[340px] flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-white/50 p-8 text-center">
+            <div className="w-full min-h-[340px] flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 bg-white/50 p-8 text-center">
               <div className="w-12 h-12 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-400 mb-3">
                 <ScrollText size={20} strokeWidth={1.5} />
               </div>
@@ -310,16 +302,16 @@ export default function AuditLogs() {
             </div>
           )
         ) : (
-          <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden w-full flex-1 shadow-xs">
+          <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden w-full flex-1 shadow-xs">
             <div className="overflow-x-auto">
-              <table className="rtable w-full text-xs">
+              <table className="rtable w-full text-xs table-fixed">
                 <thead>
                   <tr className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 bg-zinc-50 border-b border-zinc-200">
-                    <th className="px-5 py-3 text-left">Thời gian</th>
-                    <th className="px-4 py-3 text-left">Người thực hiện</th>
-                    <th className="px-4 py-3 text-left">Hành động</th>
+                    <th className="w-[150px] px-5 py-3 text-left">Thời gian</th>
+                    <th className="w-[24%] px-4 py-3 text-left">Người thực hiện</th>
+                    <th className="w-[190px] px-4 py-3 text-left">Hành động</th>
                     <th className="px-4 py-3 text-left">Đối tượng</th>
-                    <th className="px-4 py-3 text-right">HÀNH ĐỘNG</th>
+                    <th className="w-[130px] px-4 py-3 text-right">HÀNH ĐỘNG</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
@@ -328,16 +320,16 @@ export default function AuditLogs() {
                       <td data-label="Thời gian" className="px-5 py-3 text-[11px] text-zinc-600 font-mono whitespace-nowrap align-top">
                         {fmtDateTime(log.createdAt)}
                       </td>
-                      <td className="rt-main px-4 py-3 align-top">
+                      <td className="rt-main px-4 py-3 align-top min-w-0">
                         <ActorCell log={log} />
                       </td>
                       <td data-label="Hành động" className="px-4 py-3 align-top">
-                        <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-100 text-zinc-800 border border-zinc-200 whitespace-nowrap">
+                        <span title={log.actionLabel} className="inline-block max-w-full truncate align-top px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-100 text-zinc-800 border border-zinc-200 whitespace-nowrap">
                           {log.actionLabel}
                         </span>
                       </td>
                       <td data-label="Đối tượng" className="rt-wide px-4 py-3 align-top">
-                        <p className="text-zinc-700 font-medium text-xs max-w-[220px] truncate">{log.entityLabel || '—'}</p>
+                        <p className="text-zinc-700 font-medium text-xs truncate" title={log.entityLabel || ''}>{log.entityLabel || '—'}</p>
                         <p className="text-[11px] text-zinc-500">{ENTITY_TYPE_LABEL[log.entityType] || log.entityType}</p>
                       </td>
                       <td className="rt-actions px-4 py-3 text-right align-top">
@@ -359,25 +351,12 @@ export default function AuditLogs() {
 
             {/* Pagination */}
             {pages > 1 && (
-              <div className="flex items-center justify-between px-5 py-3.5 border-t border-zinc-200 bg-zinc-50/50">
-                <span className="text-xs font-medium text-zinc-500">Trang {page} / {pages}</span>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    disabled={page <= 1}
-                    onClick={() => setPage(p => p - 1)}
-                    className="p-1.5 text-xs rounded-xl border border-zinc-200 bg-white text-zinc-600 disabled:opacity-40 hover:bg-zinc-50 transition cursor-pointer flex items-center justify-center"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <button
-                    disabled={page >= pages}
-                    onClick={() => setPage(p => p + 1)}
-                    className="p-1.5 text-xs rounded-xl border border-zinc-200 bg-white text-zinc-600 disabled:opacity-40 hover:bg-zinc-50 transition cursor-pointer flex items-center justify-center"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
+              <Pagination
+                page={page}
+                pages={pages}
+                onChange={setPage}
+                summary={`Trang ${page} / ${pages} · ${total} bản ghi`}
+              />
             )}
           </div>
           )}

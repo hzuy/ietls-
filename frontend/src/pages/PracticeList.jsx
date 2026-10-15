@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import Breadcrumb from '../components/common/Breadcrumb'
 import ContentCard from '../components/common/ContentCard'
@@ -38,23 +39,37 @@ const SKILL_META = {
   },
 }
 
+const NO_EXAMS = []
+
 export default function PracticeList({ skill: skillKey }) {
   const navigate = useNavigate()
-  const [exams, setExams] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
   const skill = SKILL_META[skillKey] ? skillKey : 'reading'
   const meta = SKILL_META[skill]
   const availableTypes = getTypesBySkill(skill)
   const { user } = useAuth()
-  const [attemptsByExam, setAttemptsByExam] = useState({})
   const [draftInfo, setDraftInfo] = useState({})
   const [historyFor, setHistoryFor] = useState(null)
+  const isLearner = user?.role === 'user'
 
-  useEffect(() => {
-    if (!user || user.role !== 'user') { setAttemptsByExam({}); return }
-    getPracticeAttempts(skill).then(setAttemptsByExam).catch(() => setAttemptsByExam({}))
-  }, [skill, user])
+  const examsQuery = useQuery({
+    queryKey: ['practiceList', skill],
+    queryFn: async () => {
+      const r = await fetch(`${API_BASE}/practice/${skill}?limit=0`)
+      if (!r.ok) throw new Error('API Error')
+      return r.json()
+    },
+    staleTime: 1000 * 60 * 5,
+  })
+  const attemptsQuery = useQuery({
+    queryKey: ['practiceAttempts', skill, user?.id],
+    queryFn: () => getPracticeAttempts(skill),
+    enabled: isLearner,
+    staleTime: 1000 * 30,
+  })
+  const exams = examsQuery.data ?? NO_EXAMS
+  const attemptsByExam = (isLearner && attemptsQuery.data) || {}
+  const loading = examsQuery.isPending || (isLearner && attemptsQuery.isPending && !attemptsQuery.isError)
+  const error = examsQuery.isError
 
   useEffect(() => {
     const updateDrafts = () => {
@@ -77,17 +92,8 @@ export default function PracticeList({ skill: skillKey }) {
   }, [skill, user, exams])
 
   useEffect(() => {
-    setLoading(true)
-    setError(false)
     document.title = 'Luyện tập Kỹ năng | IELTS Pro'
-    fetch(`${API_BASE}/practice/${skill}?limit=0`)
-      .then(r => {
-        if (!r.ok) throw new Error('API Error')
-        return r.json()
-      })
-      .then(data => { setExams(data); setLoading(false) })
-      .catch(() => { setError(true); setLoading(false) })
-  }, [skill])
+  }, [])
 
   const groupedExams = availableTypes.map(type => ({
     ...type,

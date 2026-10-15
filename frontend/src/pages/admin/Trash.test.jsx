@@ -40,18 +40,42 @@ describe('Trash page — P3 modal + a11y + error handling', () => {
     expect(screen.getAllByText(/tự dọn sau|sắp được dọn/).length).toBeGreaterThan(0)
   })
 
-  it('type-filter Select exposes all 11 categories grouped, and filters on selection', async () => {
+  it('type filter only lists types present in the trash, with counts, and filters on selection', async () => {
     render(<Trash />)
     await screen.findByText('Đề Reading A')
 
     fireEvent.click(screen.getByRole('button', { name: 'Lọc theo loại' }))
     const options = await screen.findAllByRole('option')
-    expect(options.length).toBe(11)
-    expect(options.some(o => o.textContent.startsWith('Tất cả'))).toBe(true)
+    expect(options.map(o => o.textContent)).toEqual(['Tất cả (2)', 'Bộ đề (1)', 'Đề Reading (1)'])
 
     fireEvent.click(options.find(o => o.textContent === 'Bộ đề (1)'))
     expect(screen.getByText('Bộ đề X')).toBeInTheDocument()
     expect(screen.queryByText('Đề Reading A')).not.toBeInTheDocument()
+
+    fireEvent.change(screen.getByPlaceholderText('Tìm theo tên mục đã xóa...'), { target: { value: 'không có' } })
+    expect(screen.getByText('Không có mục nào khớp bộ lọc')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Đặt lại'))
+    expect(screen.getByText('Bộ đề X')).toBeInTheDocument()
+    expect(screen.getByText('Đề Reading A')).toBeInTheDocument()
+  })
+
+  it('sorts by most recently deleted by default and can show the oldest first', async () => {
+    render(<Trash />)
+    await screen.findByText('Đề Reading A')
+    const titles = () => screen.getAllByText(/^(Đề Reading A|Bộ đề X)$/).map(el => el.textContent)
+
+    expect(titles()).toEqual(['Bộ đề X', 'Đề Reading A'])
+    fireEvent.click(screen.getByRole('button', { name: 'Sắp xếp' }))
+    fireEvent.click((await screen.findAllByRole('option')).find(o => o.textContent === 'Cũ nhất'))
+    expect(titles()).toEqual(['Đề Reading A', 'Bộ đề X'])
+  })
+
+  it('hides the filter bar when the trash is empty', async () => {
+    adminService.getAdminTrash.mockResolvedValue([])
+    render(<Trash />)
+    expect(await screen.findByText('Thùng rác trống')).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('Tìm theo tên mục đã xóa...')).not.toBeInTheDocument()
   })
 
   it('P3-4: opening the delete confirm mounts a role="dialog"; Escape closes it', async () => {

@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import SeriesPage from './SeriesPage'
+import { queryClient } from '../lib/queryClient'
 
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({ user: { id: 'user-1', name: 'Test User' }, openAuthModal: vi.fn() }),
@@ -40,6 +41,7 @@ describe('SeriesPage', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    queryClient.clear()
     window.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => mockBooks,

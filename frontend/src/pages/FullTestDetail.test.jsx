@@ -1,9 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render as rtlRender, screen, waitFor, fireEvent } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { queryClient as appQueryClient } from '../lib/queryClient'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import FullTestDetail from './FullTestDetail'
 import * as draftService from '../services/draftService'
 import * as historyService from '../services/historyService'
+
+const render = ui => {
+  appQueryClient.clear()
+  return rtlRender(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{ui}</QueryClientProvider>
+  )
+}
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
@@ -74,17 +83,18 @@ describe('FullTestDetail — ActionDropdown with "Làm tiếp" and "Làm lại"'
     expect(continueBtn).toBeInTheDocument()
 
     // Clicking the dropdown chevron next to "Làm tiếp"
-    const dropdownToggle = screen.getByRole('button', { name: 'Tùy chọn' })
+    const dropdownToggle = screen.getByRole('button', { name: 'Tùy chọn khác' })
     fireEvent.click(dropdownToggle)
 
-    // Both "Làm lại" and "Lịch sử" should now be present in the dropdown menu
-    const retakeOption = screen.getByText('Làm lại')
-    const historyOption = screen.getByText('Lịch sử')
+    // Both "Làm lại từ đầu" and history should now be present in the dropdown menu
+    const retakeOption = screen.getByRole('menuitem', { name: 'Làm lại từ đầu' })
     expect(retakeOption).toBeInTheDocument()
-    expect(historyOption).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Lịch sử các lần làm' })).toBeInTheDocument()
 
-    // Clicking "Làm lại" should clear draft and navigate without resume
+    // "Làm lại từ đầu" asks for confirmation before clearing the draft
     fireEvent.click(retakeOption)
+    expect(clearDraftSpy).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Làm lại' }))
     expect(clearDraftSpy).toHaveBeenCalledWith(123, 101, 'listening')
     expect(mockNavigate).toHaveBeenCalledWith('/listening/101')
   })

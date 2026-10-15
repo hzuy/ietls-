@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 
 import Navbar from '../components/Navbar'
 import { getPractice, savePracticeAttempt, getPracticeAttempt } from '../services/practiceService'
+import { queryClient } from '../lib/queryClient'
 import { gradePractice } from '../utils/practiceGrading'
 import { Clock, Type } from 'lucide-react'
 import MatchingTickGrid from '../components/MatchingTickGrid'
@@ -214,7 +215,9 @@ function ReadingPracticeExam({ exam, onBack }) {
     setResult(graded)
     setPhase('result')
     const stored = Object.fromEntries(Object.entries(answers).filter(([, v]) => v != null && String(v).trim()).map(([k, v]) => [k, String(v)]))
-    savePracticeAttempt('reading', exam.id, { answers: stored, correct, total }).catch(() => {})
+    savePracticeAttempt('reading', exam.id, { answers: stored, correct, total })
+      .then(() => queryClient.invalidateQueries({ queryKey: ['practiceAttempts', 'reading'] }))
+      .catch(() => {})
   }
 
   const jumpToQuestion = (qNumber) => {
@@ -546,7 +549,9 @@ function ListeningPracticeExam({ exam, onBack }) {
     setResult(graded)
     setPhase('result')
     const stored = Object.fromEntries(Object.entries(answers).filter(([, v]) => v != null && String(v).trim()).map(([k, v]) => [k, String(v)]))
-    savePracticeAttempt('listening', exam.id, { answers: stored, correct, total }).catch(() => {})
+    savePracticeAttempt('listening', exam.id, { answers: stored, correct, total })
+      .then(() => queryClient.invalidateQueries({ queryKey: ['practiceAttempts', 'listening'] }))
+      .catch(() => {})
   }
 
 

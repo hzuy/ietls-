@@ -1,3 +1,4 @@
+import { lineText } from './noteLine'
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 // URL ảnh/asset: nguồn chân lý ở ./media. Re-export giữ tên cũ để các editor +
 // trang admin đang import { BACKEND_URL, resolveImg, toImgSrc } từ đây không phải sửa.
@@ -27,7 +28,7 @@ export const recalcGroups = (groups) => {
       const tokenOrder = []
       ;(g.noteSections || []).forEach(ns => {
         ;(ns.lines || []).forEach(l => {
-          const text = l.contentWithTokens || l.content || ''
+          const text = lineText(l)
           for (const m of text.matchAll(/\[Q:(\d+)\]/g)) {
             const num = parseInt(m[1], 10)
             if (!seenTokens.has(num)) {

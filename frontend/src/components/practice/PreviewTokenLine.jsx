@@ -1,3 +1,4 @@
+import { lineText } from '../../utils/noteLine'
 export function PreviewTokenLine({ content, questions, showAnswers, tokenNumMap = {} }) {
   const parts = (content || '').split(/(\[Q:\d+\])/)
   return (
@@ -29,7 +30,7 @@ export function buildTokenNumMap(group) {
   let idx = 0
   ;(group.noteSections || []).forEach(ns => {
     ;(ns.lines || []).forEach(line => {
-      const content = line.contentWithTokens || line.content || ''
+      const content = lineText(line)
       const tokens = [...content.matchAll(/\[Q:(\d+)\]/g)]
       tokens.forEach(m => {
         const num = parseInt(m[1])

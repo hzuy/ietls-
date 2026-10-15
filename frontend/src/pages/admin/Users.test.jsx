@@ -67,7 +67,7 @@ describe('Users page — TanStack Query & Skeleton caching', () => {
 
     expect(await screen.findByText('Nguyen Van A')).toBeInTheDocument()
     expect(screen.getByText('Tran Thi B')).toBeInTheDocument()
-    expect(screen.getByText('(2 người)')).toBeInTheDocument()
+    expect(screen.getByText('2 người')).toBeInTheDocument()
     expect(screen.getByText('userA@test.com')).toBeInTheDocument()
     expect(screen.getByText('userB@test.com')).toBeInTheDocument()
   })

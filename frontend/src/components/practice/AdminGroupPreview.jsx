@@ -1,6 +1,7 @@
 import { PreviewTokenLine, buildTokenNumMap } from './PreviewTokenLine'
 import { toImgSrc } from '../../utils/practiceConfig'
 import { deriveCorrectIndices } from '../../utils/mcqAnswer'
+import { lineText } from '../../utils/noteLine'
 
 // Unified neutral preview for all question group types (Reading + Listening admin)
 // Matches the user-side clean black & white / zinc design system.
@@ -261,7 +262,7 @@ export default function AdminGroupPreview({ group, showAnswers }) {
             {ns.title && <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide mb-2">{ns.title}</p>}
             <div className="rounded-xl p-3.5 space-y-1 bg-zinc-50/60 border border-zinc-200">
               {(ns.lines || []).map((line, li) => {
-                const content = line.contentWithTokens || line.content || ''
+                const content = lineText(line)
                 const parts   = content.split(/(\[Q:\d+\])/)
                 return (
                   <p key={li} className="text-sm leading-8 text-zinc-900">

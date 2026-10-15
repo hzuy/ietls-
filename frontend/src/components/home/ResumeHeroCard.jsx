@@ -1,6 +1,7 @@
 import React from 'react'
 import { Clock, Play, BookOpen, Headphones, PenTool, Mic } from 'lucide-react'
 import PillButton from '../common/PillButton'
+import { skillTheme } from '../../utils/skillTheme'
 
 const SKILL_ICONS = {
   reading: BookOpen,
@@ -11,15 +12,6 @@ const SKILL_ICONS = {
   'practice-listening': Headphones,
 }
 
-// Màu sắc & icon theo kỹ năng
-const SKILL_COLORS = {
-  reading:             { bg: 'bg-sky-50',    text: 'text-sky-700',    dot: 'bg-sky-500' },
-  listening:           { bg: 'bg-violet-50', text: 'text-violet-700', dot: 'bg-violet-500' },
-  writing:             { bg: 'bg-emerald-50',text: 'text-emerald-700',dot: 'bg-emerald-500' },
-  speaking:            { bg: 'bg-rose-50',   text: 'text-rose-700',   dot: 'bg-rose-500' },
-  'practice-reading':  { bg: 'bg-sky-50',    text: 'text-sky-700',    dot: 'bg-sky-500' },
-  'practice-listening':{ bg: 'bg-violet-50', text: 'text-violet-700', dot: 'bg-violet-500' },
-}
 
 export function parseDraftDetails(draft) {
   if (!draft || !draft.data) return null
@@ -95,7 +87,7 @@ export default function ResumeHeroCard({ draft, onResume }) {
   if (!details) return null
 
   const SkillIcon = SKILL_ICONS[details.skillType] || BookOpen
-  const colors = SKILL_COLORS[details.skillType] || SKILL_COLORS.reading
+  const colors = skillTheme(details.skillType)
 
   return (
     <div

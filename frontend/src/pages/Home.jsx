@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import {
   BookOpen,
   Headphones,
@@ -23,6 +24,7 @@ import { useAuthGate } from '../hooks/useAuthGate'
 import { getUserStats } from '../services/userService'
 import { API_BASE, resolveImg } from '../utils/media'
 import { toSeriesSlug } from '../utils/slug'
+import { useHomeData } from '../hooks/useCatalog'
 
 function HomeSectionError({ onRetry }) {
   return (
@@ -233,50 +235,42 @@ export default function Home() {
   const gate = useAuthGate()
   const navigate = useNavigate()
 
-  const [fullTestsData, setFullTestsData] = useState(null)
-  const [reading, setReading] = useState(null)
-  const [listening, setListening] = useState(null)
-  const [writingSamples, setWritingSamples] = useState(null)
-  const [speakingSamples, setSpeakingSamples] = useState(null)
-  const [userStats, setUserStats] = useState(null)
   const [latestDraft, setLatestDraft] = useState(null)
   const [practiceSkillTab, setPracticeSkillTab] = useState('reading')
   const [referenceTab, setReferenceTab] = useState('writing')
+  const userId = user?.id || user?._id
 
-  const loadData = () => {
-    fetch(API_BASE + '/home')
-      .then(r => { if (!r.ok) throw new Error('API Error'); return r.json() })
-      .then(d => {
-        setFullTestsData(d.fullTests ?? 'error')
-        setReading(d.reading ?? 'error')
-        setListening(d.listening ?? 'error')
-        setWritingSamples(d.writingSamples ?? 'error')
-        setSpeakingSamples(d.speakingSamples ?? 'error')
-      })
-      .catch(() => {
-        setFullTestsData('error')
-        setReading('error')
-        setListening('error')
-        setWritingSamples('error')
-        setSpeakingSamples('error')
-      })
+  const homeQuery = useHomeData()
+
+  const statsQuery = useQuery({
+    queryKey: ['userStats', userId],
+    queryFn: getUserStats,
+    enabled: !!userId,
+    staleTime: 1000 * 30,
+  })
+  const userStats = statsQuery.data ?? null
+  const pageLoading = homeQuery.isPending || (!!userId && statsQuery.isPending)
+
+  const homeSection = key => {
+    if (homeQuery.isError) return 'error'
+    if (pageLoading || !homeQuery.data) return null
+    return homeQuery.data[key] ?? 'error'
   }
+  const fullTestsData = homeSection('fullTests')
+  const reading = homeSection('reading')
+  const listening = homeSection('listening')
+  const writingSamples = homeSection('writingSamples')
+  const speakingSamples = homeSection('speakingSamples')
+  const loadData = () => homeQuery.refetch()
+  const statsLoading = pageLoading
 
   useEffect(() => {
     document.title = 'IELTS Platform — Không gian Luyện thi & Khảo thí IELTS'
-    loadData()
+  }, [])
 
-    if (user) {
-      getUserStats()
-        .then(data => setUserStats(data))
-        .catch(() => setUserStats(null))
-
-      const draft = getLatestDraft(user.id || user._id)
-      setLatestDraft(draft)
-    } else {
-      setLatestDraft(null)
-    }
-  }, [user])
+  useEffect(() => {
+    setLatestDraft(userId ? getLatestDraft(userId) : null)
+  }, [userId])
 
   const [selectedSeriesId, setSelectedSeriesId] = useState(null)
 
@@ -468,12 +462,19 @@ export default function Home() {
 
           {/* Dải "Tiến độ của bạn": khối resume bài dở (nếu có) + Streak & Band điểm cùng hàng */}
           <section className="anim-fade-up flex flex-col gap-4">
-            {enrichedDraft && (
+            {enrichedDraft && (pageLoading ? (
+              <div aria-hidden="true" className="h-[214px] rounded-2xl border border-zinc-200 bg-white p-6 shadow-xs flex flex-col gap-3">
+                <div className="h-5 w-40 rounded-full bg-zinc-100 animate-pulse" />
+                <div className="h-7 w-2/3 rounded-lg bg-zinc-100 animate-pulse" />
+                <div className="h-2 w-full rounded-full bg-zinc-100 animate-pulse mt-2" />
+                <div className="h-10 w-28 rounded-full bg-zinc-100 animate-pulse mt-auto" />
+              </div>
+            ) : (
               <ResumeHeroCard
                 draft={enrichedDraft}
                 onResume={handleResumeDraft}
               />
-            )}
+            ))}
 
             {/* Chuỗi ngày luyện tập (trái) & Band điểm hiện tại (phải) trên cùng 1 hàng */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
@@ -482,6 +483,7 @@ export default function Home() {
                   streak={userStats?.streak ?? 0}
                   activityMap={userStats?.activityMap}
                   isAuthenticated={!!user}
+                  loading={statsLoading}
                   className="flex-1"
                 />
               </div>
@@ -489,6 +491,7 @@ export default function Home() {
                 <BandOverviewWidget
                   stats={userStats}
                   isAuthenticated={!!user}
+                  loading={statsLoading}
                   className="flex-1"
                 />
               </div>

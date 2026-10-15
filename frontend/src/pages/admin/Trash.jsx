@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Modal from '../../components/common/Modal'
-import Select from '../../components/admin/Select'
 import { AdminTableSkeleton } from '../../components/skeletons'
+import Select from '../../components/admin/Select'
+import { MobileFilterToggle } from '../../components/admin/contentPageUI'
 
 import { getAdminTrash, restoreTrashItem, permanentDeleteTrashItem, purgeTrash, notifyTrashChanged } from '../../services/adminService'
-import { Trash2, RotateCcw, AlertTriangle } from 'lucide-react'
+import { Trash2, RotateCcw, AlertTriangle, Search } from 'lucide-react'
 import { showAlert } from '../../utils/alertUtils'
 
 const PURGE_DAYS = 30
@@ -25,25 +26,32 @@ const TYPE_LABEL = {
 
 // One neutral tone for every type badge — the type is told apart by its icon + label,
 // not by colour (matches Attempts.jsx).
-const BADGE_CLS = 'text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-700 border border-zinc-200'
+const BADGE_CLS = 'text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-700 border border-zinc-200'
 
-// Nhóm hiển thị cho Select "Lọc theo loại" — thuần trình bày UI (gom 11 danh mục
-// theo loại đối tượng), không đổi danh mục/khóa lọc thực tế. Khớp cách nhóm
-// "Loại hành động" ở AuditLogs.jsx (groupActionOptions).
-const GROUP_LABEL = { practice: 'Đề luyện tập', exam: 'Đề thi Cambridge', sample: 'Bài mẫu' }
-const GROUP_ORDER = ['practice', 'exam', 'sample']
+const TYPE_GROUPS = [
+  { label: 'Bộ đề & cuốn sách', types: [
+    { value: 'exam_series', label: 'Bộ đề' },
+    { value: 'book',        label: 'Cuốn sách' },
+  ] },
+  { label: 'Đề thi Cambridge', types: [
+    { value: 'exam_reading',   label: 'Đề Reading' },
+    { value: 'exam_listening', label: 'Đề Listening' },
+    { value: 'exam_writing',   label: 'Đề Writing' },
+    { value: 'exam_speaking',  label: 'Đề Speaking' },
+  ] },
+  { label: 'Đề luyện tập', types: [
+    { value: 'reading_practice',   label: 'Reading Practice' },
+    { value: 'listening_practice', label: 'Listening Practice' },
+  ] },
+  { label: 'Bài mẫu', types: [
+    { value: 'writing_sample',  label: 'Writing Samples' },
+    { value: 'speaking_sample', label: 'Speaking Samples' },
+  ] },
+]
 
-const TABS = [
-  { key: 'reading_practice',   label: 'Reading Practice',   group: 'practice' },
-  { key: 'listening_practice', label: 'Listening Practice', group: 'practice' },
-  { key: 'exam_reading',       label: 'Reading',             group: 'exam' },
-  { key: 'exam_listening',     label: 'Listening',           group: 'exam' },
-  { key: 'exam_writing',       label: 'Writing',             group: 'exam' },
-  { key: 'exam_speaking',      label: 'Speaking',            group: 'exam' },
-  { key: 'exam_series',        label: 'Bộ đề',                group: 'exam' },
-  { key: 'book',                label: 'Cuốn sách',           group: 'exam' },
-  { key: 'writing_sample',     label: 'Writing Samples',     group: 'sample' },
-  { key: 'speaking_sample',    label: 'Speaking Samples',    group: 'sample' },
+const SORT_OPTIONS = [
+  { value: 'recent', label: 'Mới nhất' },
+  { value: 'purge',  label: 'Cũ nhất' },
 ]
 
 // Whole days left before the 30-day auto-purge removes this item.
@@ -65,7 +73,11 @@ export default function Trash() {
     },
     placeholderData: (prev) => prev,
   })
-  const [tab, setTab] = useState('all')
+  const [search, setSearch] = useState('')
+  const [type, setType] = useState('')
+  const [sort, setSort] = useState('recent')
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const moreFiltersCls = filtersOpen ? '' : 'max-sm:hidden'
   const [confirming, setConfirming] = useState(null)
   const [purgeConfirm, setPurgeConfirm] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -143,20 +155,22 @@ export default function Trash() {
     }
   }
 
-  const filtered = tab === 'all' ? items : items.filter(x => x.type === tab)
   const countByType = {}
   for (const item of items) countByType[item.type] = (countByType[item.type] || 0) + 1
-
-  const filterOptions = [
-    { value: 'all', label: items.length > 0 ? `Tất cả (${items.length})` : 'Tất cả' },
-    ...GROUP_ORDER.map(g => ({
-      group: GROUP_LABEL[g],
-      options: TABS.filter(t => t.group === g).map(t => {
-        const cnt = countByType[t.key] || 0
-        return { value: t.key, label: cnt > 0 ? `${t.label} (${cnt})` : t.label }
-      }),
-    })),
+  const activeType = countByType[type] ? type : ''
+  const typeOptions = [
+    { value: '', label: `Tất cả (${items.length})` },
+    ...TYPE_GROUPS
+      .map(g => ({ group: g.label, options: g.types.filter(t => countByType[t.value]).map(t => ({ value: t.value, label: `${t.label} (${countByType[t.value]})` })) }))
+      .filter(g => g.options.length),
   ]
+  const keyword = search.trim().toLowerCase()
+  const deletedTime = x => new Date(x.deletedAt).getTime()
+  const filtered = items
+    .filter(x => (!activeType || x.type === activeType) && (!keyword || String(x.title || '').toLowerCase().includes(keyword)))
+    .sort((a, b) => (sort === 'purge' ? deletedTime(a) - deletedTime(b) : deletedTime(b) - deletedTime(a)))
+  const hasActiveFilters = !!(activeType || keyword)
+  const resetFilters = () => { setSearch(''); setType(''); setSort('recent') }
 
   return (
     <>
@@ -166,7 +180,7 @@ export default function Trash() {
             <h1 className="text-xl font-semibold text-zinc-900 tracking-tight flex items-center gap-2.5 whitespace-nowrap">
               Thùng rác
               {items.length > 0 && (
-                <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-600 border border-zinc-200">
+                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200">
                   {items.length} mục
                 </span>
               )}
@@ -183,26 +197,78 @@ export default function Trash() {
           )}
         </div>
 
-        {/* Lọc theo loại — Select nhóm (thay 11 pill 3 hàng trước đây), gom theo loại đối
-            tượng (Đề luyện tập / Đề thi Cambridge / Bài mẫu), khớp cách nhóm "Loại hành động"
-            ở AuditLogs.jsx. Giữ nguyên đủ 11 danh mục + số đếm cạnh mỗi danh mục (trong label). */}
-        <div className="mb-6 w-full sm:w-80">
-          <label className="text-xs font-medium text-zinc-700 mb-1.5 block">
-            Lọc theo loại
-          </label>
-          <Select
-            ariaLabel="Lọc theo loại"
-            value={tab}
-            onChange={setTab}
-            options={filterOptions}
-          />
+        {items.length > 0 && (
+        <div className="bg-white rounded-2xl border border-zinc-200 p-4 sm:p-5 shadow-xs mb-6 w-full">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_auto] gap-4 items-end">
+            <div className="md:col-span-2 lg:col-span-1">
+              <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Tìm kiếm</label>
+              <div className="flex gap-2">
+                <div className="relative flex-1 min-w-0">
+                  <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Tìm theo tên mục đã xóa..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="w-full h-9 pl-8 pr-3 text-xs border border-zinc-200 rounded-full text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition shadow-2xs bg-zinc-50"
+                  />
+                </div>
+                <MobileFilterToggle
+                  open={filtersOpen}
+                  onToggle={() => setFiltersOpen(o => !o)}
+                  activeCount={[activeType, sort !== 'recent'].filter(Boolean).length}
+                  controlsId="trash-more-filters"
+                />
+              </div>
+            </div>
+
+            <div id="trash-more-filters" className={moreFiltersCls}>
+              <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Loại</label>
+              <Select
+                pill
+                buttonClassName="bg-zinc-50"
+                ariaLabel="Lọc theo loại"
+                value={activeType}
+                onChange={setType}
+                options={typeOptions}
+              />
+            </div>
+
+            <div className={moreFiltersCls}>
+              <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Sắp xếp</label>
+              <Select
+                pill
+                buttonClassName="bg-zinc-50"
+                ariaLabel="Sắp xếp"
+                value={sort}
+                onChange={setSort}
+                options={SORT_OPTIONS}
+              />
+            </div>
+
+            <div className={moreFiltersCls}>
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="w-full lg:w-auto h-9 justify-center border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 hover:border-zinc-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-200 focus-visible:border-zinc-900 px-3.5 rounded-full text-xs font-medium flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-zinc-500" />
+                <span>Đặt lại</span>
+              </button>
+            </div>
+          </div>
         </div>
+        )}
 
         <div>
         {isPending && items.length === 0 ? (
           <AdminTableSkeleton firstColType="text" rows={6} cols={4} />
+        ) : filtered.length === 0 && hasActiveFilters && items.length > 0 ? (
+          <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden w-full shadow-xs">
+            <p className="text-center text-zinc-400 py-16 text-xs font-medium">Không có mục nào khớp bộ lọc</p>
+          </div>
         ) : filtered.length === 0 ? (
-          <div className="w-full min-h-[340px] flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-white/50 p-8 text-center">
+          <div className="w-full min-h-[340px] flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 bg-white/50 p-8 text-center">
             <div className="w-12 h-12 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-400 mb-3">
               <Trash2 size={20} strokeWidth={1.5} />
             </div>
@@ -210,7 +276,7 @@ export default function Trash() {
             <p className="text-xs text-zinc-500 mt-1">Không có mục nào bị xóa trong {PURGE_DAYS} ngày qua</p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-zinc-200 shadow-xs overflow-hidden">
+          <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
             <table className="rtable w-full text-xs">
               <thead className="bg-zinc-50 border-b border-zinc-200">

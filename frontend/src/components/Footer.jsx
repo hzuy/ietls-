@@ -1,18 +1,22 @@
 import GatedLink from './common/GatedLink'
 
-// Nhóm liên kết gọn: Luyện thi | Thư viện
 const NAV_GROUPS = [
   {
-    label: 'Luyện thi',
+    label: 'Phòng thi chuẩn hóa',
     links: [
       { label: 'Cambridge Academic', to: '/cambridge' },
       { label: 'Practice Plus', to: '/practice-plus' },
+    ],
+  },
+  {
+    label: 'Luyện tập kỹ năng',
+    links: [
       { label: 'Reading', to: '/practice/reading' },
       { label: 'Listening', to: '/practice/listening' },
     ],
   },
   {
-    label: 'Thư viện',
+    label: 'Thư viện bài mẫu',
     links: [
       { label: 'Bài mẫu Writing', to: '/writing-samples' },
       { label: 'Bài mẫu Speaking', to: '/speaking-samples' },
@@ -22,11 +26,7 @@ const NAV_GROUPS = [
 
 function FooterLink({ to, children }) {
   return (
-    <GatedLink
-      to={to}
-      className="footer-link text-[13px]"
-      style={{ textDecoration: 'none' }}
-    >
+    <GatedLink to={to} className="footer-link text-[13px]" style={{ textDecoration: 'none' }}>
       {children}
     </GatedLink>
   )
@@ -35,33 +35,40 @@ function FooterLink({ to, children }) {
 export default function Footer() {
   return (
     <footer className="bg-zinc-950 border-t border-zinc-800">
-      <div className="max-w-6xl mx-auto px-6 pt-4 pb-20 flex flex-wrap items-center justify-center lg:justify-between gap-x-8 gap-y-3">
-        {/* Brand */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="w-6 h-6 rounded-full bg-zinc-100 flex items-center justify-center shrink-0">
-            <div className="w-2 h-2 rounded-full bg-zinc-950" />
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-8">
+        <div className="grid grid-cols-2 md:grid-cols-[1.4fr_1fr_1fr_1fr] gap-x-8 gap-y-8">
+          <div className="col-span-2 md:col-span-1 max-w-xs">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center shrink-0">
+                <div className="w-2.5 h-2.5 rounded-full bg-zinc-950" />
+              </div>
+              <span className="font-bold text-base text-white tracking-[-0.01em]">
+                IELTS<span className="text-zinc-400 font-medium">Pro</span>
+              </span>
+            </div>
+            <p className="mt-3 text-[13px] leading-relaxed text-zinc-400">
+              Phòng thi IELTS mô phỏng trên máy tính, chấm điểm và giải thích đáp án chi tiết cho cả 4 kỹ năng.
+            </p>
           </div>
-          <span className="font-bold text-[14px] text-white tracking-[-0.01em]">
-            IELTS<span className="text-zinc-400 font-medium">Pro</span>
-          </span>
+
+          {NAV_GROUPS.map(group => (
+            <nav key={group.label} aria-label={group.label}>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">{group.label}</p>
+              <ul className="mt-3 flex flex-col gap-2 list-none p-0 m-0">
+                {group.links.map(l => (
+                  <li key={l.to}>
+                    <FooterLink to={l.to}>{l.label}</FooterLink>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          ))}
         </div>
 
-        {/* Nav groups */}
-        <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1.5 order-3 lg:order-none w-full lg:w-auto">
-          {NAV_GROUPS.map(group => (
-            <div key={group.label} className="flex items-center gap-x-4 gap-y-1 flex-wrap justify-center">
-              <span className="text-[11px] text-zinc-600 font-medium shrink-0">{group.label}:</span>
-              {group.links.map(l => (
-                <FooterLink key={l.to} to={l.to}>{l.label}</FooterLink>
-              ))}
-            </div>
-          ))}
-        </nav>
-
-        {/* Copyright */}
-        <span className="text-zinc-500 text-[12px] whitespace-nowrap shrink-0">
-          © 2026 IELTSPro
-        </span>
+        <div className="mt-10 pt-6 border-t border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-2 sm:pr-20">
+          <span className="text-zinc-500 text-xs">© 2026 IELTSPro. All rights reserved.</span>
+          <span className="text-zinc-600 text-xs">Luyện thi IELTS Academic</span>
+        </div>
       </div>
     </footer>
   )

@@ -23,6 +23,7 @@ export default function Select({
   className = '',
   buttonClassName = '',
   panelClassName = '',
+  pill = false,
 }) {
   const flatOptions = options.flatMap(o => (o.group ? o.options : [o]))
   const selected = flatOptions.find(o => o.value === value)
@@ -35,7 +36,7 @@ export default function Select({
             <ListboxButton
               id={id}
               aria-label={ariaLabel}
-              className={`relative w-full h-9 text-xs border border-zinc-200 rounded-md text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition font-normal bg-white shadow-2xs flex items-center ${Icon ? 'pl-8' : 'pl-3'} pr-8 ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'} ${buttonClassName}`}
+              className={`relative w-full h-9 text-xs border border-zinc-200 ${pill ? 'rounded-full' : 'rounded-lg'} text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition font-normal bg-white shadow-2xs flex items-center ${Icon ? 'pl-8' : 'pl-3'} pr-8 ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'} ${buttonClassName}`}
             >
               {Icon && <Icon className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />}
               <span className="truncate text-left flex-1">{selected ? selected.label : placeholder}</span>
@@ -45,16 +46,16 @@ export default function Select({
             <ListboxOptions
               anchor="bottom start"
               transition
-              className={`z-20 w-[var(--button-width)] mt-1.5 rounded-xl border border-zinc-200 bg-white shadow-lg p-1 focus:outline-none transition duration-100 ease-out data-[closed]:opacity-0 data-[closed]:scale-95 ${panelClassName}`}
+              className={`z-20 w-[var(--button-width)] min-w-[180px] max-h-[min(288px,var(--anchor-max-height))] overflow-y-auto overscroll-contain mt-1.5 rounded-xl border border-zinc-200 bg-white shadow-lg p-1 focus:outline-none transition duration-100 ease-out data-[closed]:opacity-0 data-[closed]:scale-95 ${panelClassName}`}
             >
               {options.map(opt => opt.group ? (
                 <div key={opt.group}>
-                  <p className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400 select-none">
+                  <p className="px-3 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400 select-none">
                     {opt.group}
                   </p>
                   {opt.options.map(sub => (
                     <ListboxOption key={sub.value} value={sub.value} disabled={sub.disabled}
-                      className={({ focus }) => `flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-xs font-medium cursor-pointer select-none transition-colors ${focus ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-700'}`}>
+                      className={({ focus }) => `flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer select-none transition-colors ${focus ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-700'}`}>
                       {({ selected: isSelected }) => (
                         <>
                           <span className="truncate">{sub.label}</span>
@@ -66,7 +67,7 @@ export default function Select({
                 </div>
               ) : (
                 <ListboxOption key={opt.value} value={opt.value} disabled={opt.disabled}
-                  className={({ focus }) => `flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-xs font-medium cursor-pointer select-none transition-colors ${focus ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-700'}`}>
+                  className={({ focus }) => `flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer select-none transition-colors ${focus ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-700'}`}>
                   {({ selected: isSelected }) => (
                     <>
                       <span className="truncate">{opt.label}</span>

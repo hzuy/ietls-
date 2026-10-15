@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { lineText } from '../../utils/noteLine'
 
 // ─── SHARED HOOKS for exam-series dropdowns ────────────────────────────────────
 export function useExamSeriesList() {
@@ -385,7 +386,7 @@ export const recalcAllGroupNumbers = (passages) => {
         const tokenOrder = []
         ;(g.noteSections || []).forEach(ns => {
           ;(ns.lines || []).forEach(l => {
-            const text = l.contentWithTokens || l.content || ''
+            const text = lineText(l)
             for (const m of text.matchAll(/\[Q:(\d+)\]/g)) {
               const num = parseInt(m[1], 10)
               if (!seenTokens.has(num)) {

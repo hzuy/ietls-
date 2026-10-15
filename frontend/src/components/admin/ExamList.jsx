@@ -243,10 +243,11 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
           placeholder="Tìm theo tên đề..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="flex-1 min-w-[160px] px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 bg-white text-zinc-900 placeholder:text-zinc-400"
+          className="flex-1 min-w-[160px] h-9 px-3.5 text-xs border border-zinc-200 rounded-full focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 bg-white text-zinc-900 placeholder:text-zinc-400"
         />
         <label htmlFor="examlist-series" className="sr-only">Lọc theo bộ đề</label>
         <Select
+          pill
           id="examlist-series"
           className="w-[168px]"
           value={filterSeries}
@@ -258,6 +259,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
         />
         <label htmlFor="examlist-status" className="sr-only">Lọc theo trạng thái câu hỏi</label>
         <Select
+          pill
           id="examlist-status"
           className="w-[168px]"
           value={filterStatus}
@@ -270,6 +272,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
         />
         <label htmlFor="examlist-sort" className="sr-only">Sắp xếp</label>
         <Select
+          pill
           id="examlist-sort"
           className="w-[168px]"
           value={sortBy}

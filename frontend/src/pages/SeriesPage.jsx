@@ -9,6 +9,8 @@ import { UserCardGridSkeleton } from '../components/skeletons'
 import { AlertCircle, RefreshCw, FolderArchive } from 'lucide-react'
 import { BACKEND_URL } from '../utils/media'
 import { toSeriesSlug } from '../utils/slug'
+import { queryClient } from '../lib/queryClient'
+import { fullTestsQueryOptions } from '../hooks/useCatalog'
 
 export default function SeriesPage({ filterPattern, title = 'Bộ đề thi' }) {
   const navigate = useNavigate()
@@ -23,13 +25,7 @@ export default function SeriesPage({ filterPattern, title = 'Bộ đề thi' }) 
   const fetchBooks = useCallback(() => {
     setLoading(true)
     setError(null)
-    fetch(`${BACKEND_URL}/api/admin/full-tests`, {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    })
-      .then(r => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json()
-      })
+    queryClient.fetchQuery(fullTestsQueryOptions)
       .then(data => {
         // Gom nhóm các bài test theo bộ sách (seriesId - bookNumber)
         const booksMap = (data || []).reduce((acc, item) => {

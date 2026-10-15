@@ -65,7 +65,7 @@ describe('UserDetail — BUG-06 & BUG-07 Action Handlers & Pagination', () => {
     expect(await screen.findByText('Nguyen Van A')).toBeInTheDocument()
     // shownAttempts = 1, totalAttempts = 25
     expect(screen.getByText('Hiển thị 1 lượt thi gần nhất / tổng 25 lượt')).toBeInTheDocument()
-    expect(screen.getByText('Tổng lượt thi')).toBeInTheDocument()
+    expect(screen.getByText('Bài đã nộp (4 kỹ năng)')).toBeInTheDocument()
   })
 
   it('BUG-07: Khoá/Mở khoá tài khoản gọi đúng API toggleUserLock và cập nhật UI tức thì', async () => {

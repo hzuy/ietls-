@@ -92,6 +92,7 @@ export default function StreakWidget({
   activityMap = {},
   freezeCount = 0,
   isAuthenticated = false,
+  loading = false,
   className = '',
 }) {
   const containerRef = useRef(null)
@@ -130,6 +131,7 @@ export default function StreakWidget({
   return (
     <div
       ref={containerRef}
+      aria-busy={loading || undefined}
       className={`relative rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-xs h-full flex flex-col justify-between ${className}`}
     >
       {/* Floating Tooltip */}
@@ -191,7 +193,7 @@ export default function StreakWidget({
                   {weeks.map((week, wIdx) => (
                     <div key={wIdx} className="flex flex-col gap-1 sm:gap-1.5">
                       {week.map((day) => {
-                        const cellColor = getCellColor(day.count, day.isFuture)
+                        const cellColor = loading ? 'bg-zinc-100 animate-pulse' : getCellColor(day.count, day.isFuture)
 
                         return (
                           <div
@@ -238,9 +240,13 @@ export default function StreakWidget({
             <div className="w-14 h-14 rounded-2xl bg-[#ffedd5] flex items-center justify-center shrink-0 shadow-2xs">
               <Flame className="w-7 h-7 text-[#f97316] fill-[#f97316]" />
             </div>
-            <span className="text-5xl font-black text-[#f97316] font-display leading-none tracking-tight">
-              {currentStreak}
-            </span>
+            {loading ? (
+              <span className="w-12 h-12 rounded-xl bg-zinc-100 animate-pulse" aria-hidden="true" />
+            ) : (
+              <span className="text-5xl font-black text-[#f97316] font-display leading-none tracking-tight">
+                {currentStreak}
+              </span>
+            )}
           </div>
 
           <p className="text-sm sm:text-base font-semibold text-zinc-700 mt-3.5">

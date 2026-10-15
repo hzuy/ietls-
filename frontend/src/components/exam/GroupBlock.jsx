@@ -17,6 +17,7 @@ import TableCompletionRender from '../TableCompletionRender'
 import TypeHeader from './TypeHeaders'
 import QuestionBlock from './QuestionBlock'
 import ExplanationPanel from './ExplanationPanel'
+import { lineText } from '../../utils/noteLine'
 
 // Render a group of questions (from questionGroups) with the appropriate header/UI
 function ReviewBlank({ number, info, active, onSelect }) {
@@ -99,10 +100,10 @@ function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, 
               <ul className="space-y-2">
                 {(ns.lines || []).map((line, li) => (
                   line.lineType === 'heading'
-                    ? <li key={li} className="list-none font-semibold text-zinc-900 text-[0.95rem] pt-1 pb-0.5">{line.contentWithTokens || line.content || ''}</li>
+                    ? <li key={li} className="list-none font-semibold text-zinc-900 text-[0.95rem] pt-1 pb-0.5">{lineText(line)}</li>
                     : <li key={li} className="flex items-start gap-1.5 text-zinc-700 leading-relaxed">
                         <span className="text-zinc-400 mt-1 shrink-0">•</span>
-                        <span>{parseContent(line.contentWithTokens || line.content || '')}</span>
+                        <span>{parseContent(lineText(line))}</span>
                       </li>
                 ))}
               </ul>

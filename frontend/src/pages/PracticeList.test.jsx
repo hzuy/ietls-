@@ -1,9 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render as rtlRender, screen, waitFor, fireEvent } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { queryClient as appQueryClient } from '../lib/queryClient'
 import { MemoryRouter } from 'react-router-dom'
 import PracticeList from './PracticeList'
 import * as draftService from '../services/draftService'
 import * as practiceService from '../services/practiceService'
+
+const render = ui => {
+  appQueryClient.clear()
+  return rtlRender(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{ui}</QueryClientProvider>
+  )
+}
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { X } from 'lucide-react'
+import { lineText } from '../utils/noteLine'
 
 // Danh sách phương án Word Bank hiển thị trong popover chọn nhanh của 1 ô trống.
 // Tách riêng để logic render item (highlight đang chọn / khóa từ đã dùng / xoá) không
@@ -236,7 +237,7 @@ export default function DragWordBankGroup({ group, answers, onAnswer, previewMod
           <div key={nsi} className={nsi > 0 ? 'mt-3' : ''}>
             {ns.title && <div className="font-semibold text-zinc-900 mb-1.5 pb-1 border-b border-zinc-200">{ns.title}</div>}
             {(ns.lines || []).map((line, li) => {
-              const content = line.contentWithTokens || line.content || ''
+              const content = lineText(line)
               if (line.lineType === 'heading') {
                 return <p key={li} className="font-semibold text-zinc-900 text-[0.95rem] mt-2">{content}</p>
               }

@@ -22,6 +22,7 @@ import { buildLocateSpec, resolveTargets } from '../utils/locateTargets'
 import { parseTranscript } from '../utils/transcriptParser'
 import { examExitPath } from '../utils/submittedExam'
 import { toImgSrc } from '../utils/media'
+import AttemptPicker from '../components/exam/AttemptPicker'
 
 const noop = () => {}
 
@@ -514,19 +515,7 @@ export default function ExamReview({ skill = 'reading', practice = null }) {
 
   const currentAttemptId = attemptId || attempts[0]?.attemptId
   const attemptSelect = attempts.length > 0 && (
-    <select
-      value={currentAttemptId ?? ''}
-      onChange={e => changeAttempt(e.target.value)}
-      aria-label="Chọn lượt làm bài"
-      style={FS}
-      className="h-9 pointer-coarse:h-11 max-w-full rounded-xl border border-zinc-200 bg-white px-3 text-zinc-800 cursor-pointer focus:outline-none focus:border-zinc-900"
-    >
-      {attempts.map((a, i) => (
-        <option key={a.attemptId} value={a.attemptId}>
-          Lần {attempts.length - i}: {new Date(a.finishedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
-        </option>
-      ))}
-    </select>
+    <AttemptPicker attempts={attempts} value={currentAttemptId} onChange={changeAttempt} />
   )
 
   const band = practice ? `${correctCount}/${allNumbers.length}` : typeof result.bandScore === 'number' ? result.bandScore.toFixed(1) : '–'

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Bot, User, LogOut } from 'lucide-react'
 import { useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -7,7 +7,7 @@ import GatedLink from './common/GatedLink'
 import NavDropdown from './nav/NavDropdown'
 import LogoutConfirmModal from './nav/LogoutConfirmModal'
 import PillButton from './common/PillButton'
-import { API_BASE } from '../utils/media'
+import { useHomeData } from '../hooks/useCatalog'
 import { toSeriesSlug } from '../utils/slug'
 
 function NavBtn({ children, active, onClick, hasDropdown }) {
@@ -77,33 +77,22 @@ export default function Navbar() {
   const [announcement] = useState(() => sessionStorage.getItem('__announcement__') || '')
   const [announcementDismissed, setAnnouncementDismissed] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
-  const [navSeries, setNavSeries] = useState(null)
-  const [navSeriesList, setNavSeriesList] = useState([])
+  const { data: homeData } = useHomeData()
+  const { navSeries, navSeriesList } = useMemo(() => {
+    if (!Array.isArray(homeData?.fullTests)) return { navSeries: null, navSeriesList: [] }
+    const map = {}
+    const list = []
+    for (const item of homeData.fullTests) {
+      if (item.seriesId && !(item.seriesId in map)) {
+        map[item.seriesId] = item.seriesName
+        list.push({ id: item.seriesId, name: item.seriesName })
+      }
+    }
+    return { navSeries: map, navSeriesList: list }
+  }, [homeData])
 
   const closeTimer = useRef(null)
   const userMenuRef = useRef(null)
-
-  useEffect(() => {
-    fetch(`${API_BASE}/home`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (d?.fullTests && Array.isArray(d.fullTests)) {
-          const map = {}
-          const list = []
-          const seen = new Set()
-          d.fullTests.forEach(item => {
-            if (item.seriesId && !seen.has(item.seriesId)) {
-              seen.add(item.seriesId)
-              map[item.seriesId] = item.seriesName
-              list.push({ id: item.seriesId, name: item.seriesName })
-            }
-          })
-          setNavSeries(map)
-          setNavSeriesList(list)
-        }
-      })
-      .catch(() => {})
-  }, [])
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)

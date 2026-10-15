@@ -111,7 +111,7 @@ export function MobileFilterToggle({ open, onToggle, activeCount = 0, controlsId
       onClick={onToggle}
       aria-expanded={open}
       aria-controls={controlsId}
-      className={`sm:hidden shrink-0 h-9 px-3 rounded-md border text-xs font-medium inline-flex items-center gap-1.5 transition cursor-pointer shadow-2xs ${
+      className={`sm:hidden shrink-0 h-9 px-3 rounded-full border text-xs font-medium inline-flex items-center gap-1.5 transition cursor-pointer shadow-2xs ${
         open ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50'
       }`}
     >

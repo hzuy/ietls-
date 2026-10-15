@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import Breadcrumb from '../components/common/Breadcrumb'
 
 import { useAuth } from '../context/AuthContext'
@@ -12,6 +13,9 @@ import Card from '../components/common/Card'
 import PillButton from '../components/common/PillButton'
 import { UserExamListSkeleton } from '../components/skeletons'
 import ExamAttemptListModal from '../components/exam/ExamAttemptListModal'
+import ExamActionDialog from '../components/common/ExamActionDialog'
+import { queryClient } from '../lib/queryClient'
+import { fullTestsQueryOptions } from '../hooks/useCatalog'
 
 const SKILL_META = {
   listening: { label: 'Listening', Icon: Headphones, colorVar: '--skill-l-color', bgVar: '--skill-l-bg', borderVar: '--skill-l-border', path: '/listening', desc: '4 sections · 40 câu · 40 phút' },
@@ -21,140 +25,158 @@ const SKILL_META = {
 }
 const SKILL_ORDER = ['listening', 'reading', 'writing', 'speaking']
 
-function ActionDropdown({ exam, skill, testNumber, m, hasDraft, historyInfo = {}, setHistoryModal, navigate, user, openAuthModal, location, isLastRow, onClearDraft }) {
+const menuItemCls = 'w-full h-8 flex items-center gap-2 px-2.5 text-[13px] text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer'
+
+function ActionDropdown({ exam, skill, testNumber, m, hasDraft, historyInfo = {}, setHistoryModal, navigate, user, openAuthModal, location, isLastRow, onViewResult, onClearDraft }) {
   const [open, setOpen] = useState(false)
+  const [confirmRestart, setConfirmRestart] = useState(false)
   const dropdownRef = useRef(null)
-  
+
   const examId = exam?.id
   const historyList = (examId && historyInfo?.[examId]) || []
-  const hasHistory = (historyList.length > 0) || 
+  const hasHistory = (historyList.length > 0) ||
                      (skill === 'writing' && historyInfo?.writingHistory?.includes(examId)) ||
                      (skill === 'speaking' && historyInfo?.speakingHistory?.includes(examId))
 
   const isContinue = hasDraft
   const isRetake = !hasDraft && hasHistory
-  
+
   let btnText = 'Làm bài'
   let Icon = PlayCircle
-  let iconColor = 'text-red-500'
-
   if (isContinue) {
     btnText = 'Làm tiếp'
     Icon = PauseCircle
-    iconColor = 'text-blue-600'
   } else if (isRetake) {
     btnText = 'Làm lại'
     Icon = RotateCcw
-    iconColor = 'text-zinc-500 dark:text-zinc-400'
+  }
+
+  const requireUser = () => {
+    if (user) return true
+    openAuthModal('login', (location?.pathname || '') + (location?.search || ''))
+    return false
   }
 
   const handleClickMain = () => {
-    if (!user) {
-      openAuthModal('login', (location?.pathname || '') + (location?.search || ''))
-      return
-    }
+    if (!requireUser()) return
     if (hasDraft) navigate(`${m.path}/${exam?.id}?resume=true`)
     else navigate(`${m.path}/${exam?.id}`)
   }
 
-  const handleRetake = () => {
+  const handleOpenHistory = () => {
     setOpen(false)
-    if (!user) {
-      openAuthModal('login', (location?.pathname || '') + (location?.search || ''))
-      return
-    }
-    const userId = user.id || user._id
-    clearDraft(userId, exam?.id, skill)
+    if (!requireUser()) return
+    setHistoryModal({ skill, skillLabel: m.label, attempts: historyInfo?.[exam?.id] || [] })
+  }
+
+  const handleViewResult = () => {
+    setOpen(false)
+    if (!requireUser()) return
+    onViewResult()
+  }
+
+  const handleAskRestart = () => {
+    setOpen(false)
+    if (!requireUser()) return
+    setConfirmRestart(true)
+  }
+
+  const handleRestart = () => {
+    clearDraft(user.id || user._id, exam?.id, skill)
     onClearDraft?.(testNumber, skill)
+    setConfirmRestart(false)
     navigate(`${m.path}/${exam?.id}`)
   }
 
-  const handleOpenHistory = () => {
-    setOpen(false)
-    if (!user) {
-      openAuthModal('login', (location?.pathname || '') + (location?.search || ''))
-      return
-    }
-    setHistoryModal({ skill, skillLabel: m.label, attempts: historyInfo?.[exam?.id] || [] })
-  }
-  
   useEffect(() => {
     if (!open) return
     const handleClick = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setOpen(false)
-      }
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setOpen(false)
     }
+    const handleKey = (e) => { if (e.key === 'Escape') setOpen(false) }
     document.addEventListener('click', handleClick)
-    return () => document.removeEventListener('click', handleClick)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('click', handleClick)
+      document.removeEventListener('keydown', handleKey)
+    }
   }, [open])
 
-  // Không có nháp và chưa có lịch sử thì chỉ hiện nút thường, không có mũi tên xổ xuống
-  const hasDropdown = hasHistory || hasDraft
-  if (!hasDropdown) {
+  const pillBase = 'h-8 inline-flex items-center justify-center gap-1.5 text-[13px] font-medium leading-none transition-colors cursor-pointer select-none'
+
+  if (!hasHistory && !hasDraft) {
     return (
       <button
         type="button"
         onClick={handleClickMain}
-        className="inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 shadow-2xs hover:border-zinc-300 dark:hover:border-zinc-600 hover:text-zinc-900 dark:hover:text-white text-zinc-800 dark:text-zinc-100 text-[12px] font-medium transition-colors cursor-pointer select-none"
+        className={`${pillBase} w-[116px] rounded-full ${isContinue
+          ? 'border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-700'
+          : 'bg-zinc-900 text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white'}`}
       >
-        <Icon className={`w-3.5 h-3.5 shrink-0 ${iconColor}`} />
+        <Icon className="w-3.5 h-3.5 shrink-0" />
         <span className="whitespace-nowrap">{btnText}</span>
       </button>
     )
   }
 
-  // Bài có lịch sử HOẶC có nháp (đang làm dở) thì có nút và tam giác xổ xuống
   return (
-    <div
-      ref={dropdownRef}
-      className="relative inline-flex flex-col items-center"
-      onClick={e => e.stopPropagation()}
-    >
-      <div className="inline-flex items-center h-8 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 shadow-2xs hover:border-zinc-300 dark:hover:border-zinc-600 transition-colors">
+    <div ref={dropdownRef} className="relative inline-flex" onClick={e => e.stopPropagation()}>
+      <div className="w-[116px] h-8 inline-flex items-stretch rounded-full border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 overflow-hidden">
         <button
           type="button"
           onClick={handleClickMain}
-          className="h-full flex items-center gap-1.5 pl-2.5 pr-1 text-zinc-800 dark:text-zinc-100 hover:text-zinc-900 dark:hover:text-white text-[12px] font-medium transition-colors cursor-pointer select-none"
+          className={`${pillBase} flex-1 pl-3 pr-1.5 text-zinc-800 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-700`}
         >
-          <Icon className={`w-3.5 h-3.5 shrink-0 ${iconColor}`} />
+          <Icon className="w-3.5 h-3.5 shrink-0 text-zinc-500 dark:text-zinc-400" />
           <span className="whitespace-nowrap">{btnText}</span>
         </button>
-        
         <button
           type="button"
-          onClick={() => setOpen(!open)}
-          aria-label="Tùy chọn"
-          className="h-full pl-0.5 pr-2 flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors cursor-pointer"
+          onClick={() => setOpen(o => !o)}
+          aria-label="Tùy chọn khác"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          className="w-7 flex items-center justify-center border-l border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-700 hover:text-zinc-800 transition-colors cursor-pointer"
         >
-          <ChevronDown className={`w-3 h-3 shrink-0 transition-transform ${open ? 'rotate-180 text-zinc-600 dark:text-zinc-300' : ''}`} />
+          <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>
       </div>
 
       {open && (
-        <div className={`absolute ${isLastRow ? 'bottom-[calc(100%+4px)]' : 'top-[calc(100%+4px)]'} left-0 w-full min-w-[100px] bg-white dark:bg-zinc-800 rounded-lg shadow-md border border-zinc-200 dark:border-zinc-700 p-0.5 z-50 animate-in fade-in zoom-in-95 duration-100`}>
+        <div
+          role="menu"
+          className={`absolute ${isLastRow ? 'bottom-[calc(100%+6px)]' : 'top-[calc(100%+6px)]'} left-1/2 -translate-x-1/2 w-48 bg-white dark:bg-zinc-800 rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 p-1 z-50 text-left`}
+        >
           {hasDraft && (
-            <button
-              type="button"
-              onClick={handleRetake}
-              className="w-full h-7 flex items-center justify-center gap-1.5 px-2 text-[12px] font-normal text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 hover:text-zinc-900 dark:hover:text-white rounded-md transition-colors cursor-pointer"
-            >
+            <button type="button" role="menuitem" onClick={handleAskRestart} className={menuItemCls}>
               <RotateCcw className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-              <span className="whitespace-nowrap">Làm lại</span>
+              <span className="whitespace-nowrap">Làm lại từ đầu</span>
             </button>
           )}
           {hasHistory && (
-            <button
-              type="button"
-              onClick={handleOpenHistory}
-              className="w-full h-7 flex items-center justify-center gap-1.5 px-2 text-[12px] font-normal text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 hover:text-zinc-900 dark:hover:text-white rounded-md transition-colors cursor-pointer"
-            >
-              <History className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-              <span className="whitespace-nowrap">Lịch sử</span>
-            </button>
+            <>
+              <button type="button" role="menuitem" onClick={handleViewResult} className={menuItemCls}>
+                <FileText className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                <span className="whitespace-nowrap">Xem kết quả gần nhất</span>
+              </button>
+              <button type="button" role="menuitem" onClick={handleOpenHistory} className={menuItemCls}>
+                <History className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                <span className="whitespace-nowrap">Lịch sử các lần làm</span>
+              </button>
+            </>
           )}
         </div>
       )}
+
+      <ExamActionDialog
+        open={confirmRestart}
+        title="Làm lại từ đầu?"
+        description={`Bài ${m.label} đang làm dở sẽ bị xóa và bạn bắt đầu một lượt mới.`}
+        cancelLabel="Hủy"
+        confirmLabel="Làm lại"
+        onCancel={() => setConfirmRestart(false)}
+        onConfirm={handleRestart}
+      />
     </div>
   )
 }
@@ -164,78 +186,70 @@ function SkillCell({ exam, skill, testNumber, draftInfo = {}, historyInfo = {}, 
   const hasDraft = draftInfo?.[`${testNumber}-${skill}`]?.hasDraft
   const examId = exam?.id
   const historyList = (examId && historyInfo?.[examId]) || []
-  const hasHistory = (historyList.length > 0) || 
+  const hasHistory = (historyList.length > 0) ||
                      (skill === 'writing' && historyInfo?.writingHistory?.includes(examId)) ||
                      (skill === 'speaking' && historyInfo?.speakingHistory?.includes(examId))
 
   if (!exam) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[92px] opacity-40">
+      <div className="flex flex-col items-center justify-center gap-3 py-1 opacity-50">
         <div className="w-12 h-12 rounded-full border border-dashed border-zinc-300 dark:border-zinc-700 flex items-center justify-center text-zinc-400">
           <m.Icon className="w-5 h-5 stroke-[1.5]" />
         </div>
-        <span className="text-[11px] text-zinc-400 mt-2 font-medium">Chưa có đề</span>
+        <span className="h-8 inline-flex items-center text-[12px] text-zinc-400 font-medium">Chưa có đề</span>
       </div>
     )
   }
 
   const latestAttempt = historyList[0]
-  const band = latestAttempt?.bandScore != null 
+  const band = latestAttempt?.bandScore != null
     ? (typeof latestAttempt.bandScore === 'number' ? latestAttempt.bandScore.toFixed(1) : String(latestAttempt.bandScore))
     : (hasHistory ? '0.0' : null)
+
+  const viewResult = () => {
+    if (skill === 'reading') navigate(`/reading/${exam.id}/explanation`)
+    else if (skill === 'listening') navigate(`/listening/${exam.id}/explanation`)
+    else navigate(`${m.path}/${exam.id}?viewResult=true`)
+  }
 
   const handleCircleClick = () => {
     if (!user) {
       openAuthModal('login', (location?.pathname || '') + (location?.search || ''))
       return
     }
-    if (hasDraft) {
-      navigate(`${m.path}/${exam.id}?resume=true`)
-    } else if (hasHistory) {
-      if (skill === 'reading') navigate(`/reading/${exam.id}/explanation`)
-      else if (skill === 'listening') navigate(`/listening/${exam.id}/explanation`)
-      else navigate(`${m.path}/${exam.id}?viewResult=true`)
-    } else {
-      navigate(`${m.path}/${exam.id}`)
-    }
+    if (hasDraft) navigate(`${m.path}/${exam.id}?resume=true`)
+    else if (hasHistory) viewResult()
+    else navigate(`${m.path}/${exam.id}`)
   }
+
+  const skillColor = `var(${m.colorVar})`
 
   return (
     <div className="flex flex-col items-center gap-3 py-1">
-      {/* Circle Icon / Score matching DOL */}
-      {hasDraft ? (
-        <button
-          type="button"
-          onClick={handleCircleClick}
-          title="Đang làm dở bài thi — Bấm để làm tiếp"
-          className="w-12 h-12 rounded-full border-2 border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 flex items-center justify-center shadow-xs cursor-pointer hover:border-blue-400 hover:scale-105 transition-all text-blue-600 dark:text-blue-400"
-        >
-          <m.Icon className="w-6 h-6 stroke-[1.75]" />
-        </button>
-      ) : hasHistory ? (
+      {hasHistory && !hasDraft ? (
         <button
           type="button"
           onClick={handleCircleClick}
           title={`Điểm gần nhất: ${band ?? '0.0'} — Bấm để xem kết quả`}
-          className="w-12 h-12 rounded-full border-2 border-emerald-500 bg-white dark:bg-zinc-800 flex flex-col items-center justify-center shadow-xs cursor-pointer hover:scale-105 transition-transform"
+          className="w-12 h-12 rounded-full border-2 bg-white dark:bg-zinc-800 flex flex-col items-center justify-center gap-0.5 shadow-xs cursor-pointer hover:scale-105 transition-transform"
+          style={{ borderColor: skillColor, color: skillColor }}
         >
-          <m.Icon className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 mb-0.5" />
-          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 font-mono tabular-nums leading-none">
-            {band ?? '0.0'}
-          </span>
+          <m.Icon className="w-3.5 h-3.5" />
+          <span className="text-[12px] font-bold font-mono tabular-nums leading-none">{band ?? '0.0'}</span>
         </button>
       ) : (
         <button
           type="button"
           onClick={handleCircleClick}
-          title={`Làm bài ${m.label}`}
-          className="w-12 h-12 rounded-full border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 flex items-center justify-center shadow-xs cursor-pointer hover:border-zinc-300 hover:scale-105 transition-all text-zinc-400 dark:text-zinc-500"
+          title={hasDraft ? 'Đang làm dở — Bấm để làm tiếp' : `Làm bài ${m.label}`}
+          className={`relative w-12 h-12 rounded-full flex items-center justify-center cursor-pointer hover:scale-105 transition-transform ${hasDraft ? 'border-2 border-dashed' : 'border'}`}
+          style={{ borderColor: hasDraft ? skillColor : `var(${m.borderVar})`, background: `var(${m.bgVar})`, color: skillColor }}
         >
-          <m.Icon className="w-5 h-5 stroke-[1.5]" />
+          <m.Icon className="w-5 h-5 stroke-[1.75]" />
+          {hasDraft && <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-amber-500 border-2 border-white dark:border-zinc-900" />}
         </button>
       )}
 
-      {/* Action Button */}
       <ActionDropdown
         exam={exam}
         skill={skill}
@@ -250,6 +264,7 @@ function SkillCell({ exam, skill, testNumber, draftInfo = {}, historyInfo = {}, 
         location={location}
         isLastRow={isLastRow}
         onClearDraft={onClearDraft}
+        onViewResult={viewResult}
       />
     </div>
   )
@@ -268,7 +283,6 @@ export default function FullTestDetail() {
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState(false)
   const [draftInfo, setDraftInfo] = useState({}) // { [testNumber-skill]: checkDraft result }
-  const [historyInfo, setHistoryInfo] = useState({}) // { [examId]: [attempts] }
   const [historyModal, setHistoryModal] = useState(null) // { skill, skillLabel, attempts }
 
   const handleClearDraft = useCallback((testNumber, skill) => {
@@ -284,10 +298,7 @@ export default function FullTestDetail() {
     setLoading(true)
     setFetchError(false)
 
-    fetch(`${BACKEND_URL}/api/admin/full-tests`, {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    })
-      .then(r => r.ok ? r.json() : [])
+    queryClient.fetchQuery(fullTestsQueryOptions)
       .then(data => {
         const booksMap = data.reduce((acc, item) => {
           const key = `${item.seriesId}-${item.bookNumber}`
@@ -371,42 +382,48 @@ export default function FullTestDetail() {
       .slice(0, 4)
   }, [allBooks, seriesId, bookNumber, bookData])
 
-  // Load draft info for all skills in all tests (runs after bookData + user are ready)
+  const userId = user?.id || user?._id
+  const historyQuery = useQuery({
+    queryKey: ['myHistory', userId, { limit: 100 }],
+    queryFn: () => getMyHistory({ limit: 100 }),
+    enabled: !!userId,
+    staleTime: 1000 * 30,
+  })
+
+  const historyInfo = useMemo(() => {
+    const data = historyQuery.data
+    if (!data) return {}
+    const historyMap = {}
+    ;(data.history || []).forEach(h => {
+      if (!historyMap[h.examId]) historyMap[h.examId] = []
+      historyMap[h.examId].push(h)
+    })
+    for (const byExam of [data.writingAttemptsByExam, data.speakingAttemptsByExam]) {
+      for (const [eId, attempts] of Object.entries(byExam || {})) {
+        historyMap[eId] = [...(historyMap[eId] || []), ...attempts]
+      }
+    }
+    return {
+      ...historyMap,
+      writingHistory: data.writingHistoryExamIds || [],
+      speakingHistory: data.speakingHistoryExamIds || [],
+    }
+  }, [historyQuery.data])
+
   useEffect(() => {
-    if (!user || !bookData?.tests) return
-    const userId = user.id || user._id
+    if (!userId || !bookData?.tests) return
     const info = {}
     for (const test of bookData.tests) {
       for (const skill of SKILL_ORDER) {
         const examId = test.exams[skill]?.id
         if (!examId) continue
-        const key = `${test.testNumber}-${skill}`
-        info[key] = checkDraft(userId, examId, skill)
+        info[`${test.testNumber}-${skill}`] = checkDraft(userId, examId, skill)
       }
     }
     setDraftInfo(info)
+  }, [userId, bookData])
 
-    // Load attempt history
-    getMyHistory({ limit: 100 }).then(data => {
-      const historyMap = {}
-      ;(data.history || []).forEach(h => {
-        if (!historyMap[h.examId]) historyMap[h.examId] = []
-        historyMap[h.examId].push(h)
-      })
-
-      for (const byExam of [data.writingAttemptsByExam, data.speakingAttemptsByExam]) {
-        for (const [eId, attempts] of Object.entries(byExam || {})) {
-          historyMap[eId] = [...(historyMap[eId] || []), ...attempts]
-        }
-      }
-
-      setHistoryInfo({
-        ...historyMap,
-        writingHistory: data.writingHistoryExamIds || [],
-        speakingHistory: data.speakingHistoryExamIds || []
-      })
-    }).catch(() => {})
-  }, [user, bookData])
+  const historyLoading = !!userId && historyQuery.isPending
 
   if (!bookNumber) return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
@@ -414,7 +431,7 @@ export default function FullTestDetail() {
     </div>
   )
 
-  if (loading) return (
+  if (loading || historyLoading) return (
     <div className="min-h-screen bg-[var(--bg)]">
       <div className="app-container py-6">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-6 items-start">
@@ -530,7 +547,7 @@ export default function FullTestDetail() {
             </div>
             <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[620px]">
+                <table className="w-full text-left border-collapse min-w-[640px] table-fixed">
                   <thead>
                     <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-800/40">
                       <th scope="col" className="py-4 pl-6 pr-4 text-xs font-bold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider w-[130px]">
@@ -538,7 +555,10 @@ export default function FullTestDetail() {
                       </th>
                       {SKILL_ORDER.map(skill => (
                         <th key={skill} scope="col" className="py-4 px-3 text-xs font-bold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider text-center">
-                          {SKILL_META[skill].label}
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: `var(${SKILL_META[skill].colorVar})` }} />
+                            {SKILL_META[skill].label}
+                          </span>
                         </th>
                       ))}
                     </tr>
@@ -549,13 +569,13 @@ export default function FullTestDetail() {
 
                       return (
                         <tr key={test.testNumber} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                          <td className="py-6 pl-6 pr-4 align-middle">
-                            <div className="font-bold text-base text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
+                          <td className="py-5 pl-6 pr-4 align-middle">
+                            <div className="font-semibold text-[15px] text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
                               Test {test.testNumber}
                             </div>
                           </td>
                           {SKILL_ORDER.map(skill => (
-                            <td key={skill} className="py-6 px-2 text-center align-middle">
+                            <td key={skill} className="py-5 px-2 text-center align-middle">
                               <SkillCell
                                 exam={test.exams?.[skill]}
                                 skill={skill}
