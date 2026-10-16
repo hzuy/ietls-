@@ -329,8 +329,9 @@ async function callAi(prompt, { maxRateLimitRetries = 6 } = {}) {
   if (useGemini && typeof requestGeminiJson === 'function') {
     try {
       return await requestGeminiJson(prompt, {
-        model: process.env.GEMINI_MODEL || 'gemini-3.5-flash',
+        model: process.env.GEMINI_MODEL || 'gemini-flash-lite-latest',
         temperature: 0.3,
+        max_tokens: 8192,
       })
     } catch (geminiErr) {
       console.warn(`   … [AI] Gemini gặp sự cố (${geminiErr.status || geminiErr.message}), chuyển sang Groq dự phòng...`)

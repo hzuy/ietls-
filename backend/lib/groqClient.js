@@ -38,10 +38,13 @@ async function requestGeminiJson(prompt, { image = null, model = null, temperatu
 
   const primaryModel = (model && model.startsWith('gemini-'))
     ? model
-    : (process.env.GEMINI_MODEL || 'gemini-3.5-flash')
-  const candidateModels = primaryModel === 'gemini-3.1-flash-lite'
-    ? ['gemini-3.1-flash-lite', 'gemini-3.5-flash']
-    : [primaryModel, 'gemini-3.1-flash-lite']
+    : (process.env.GEMINI_MODEL || 'gemini-flash-lite-latest')
+  const candidateModels = [
+    primaryModel,
+    'gemini-flash-lite-latest',
+    'gemini-3.5-flash-lite',
+    'gemini-3.5-flash',
+  ].filter((v, i, a) => a.indexOf(v) === i)
 
   const parts = [{ text: prompt }]
 
@@ -105,7 +108,7 @@ async function requestGeminiJson(prompt, { image = null, model = null, temperatu
       return JSON.parse(repairTruncatedJson(rawText, finishReason))
     } catch (err) {
       lastError = err
-      if (err.status === 503 || err.status === 429) {
+      if (err.status === 503 || err.status === 429 || err instanceof SyntaxError) {
         // Try candidate model
         continue
       }
@@ -179,10 +182,13 @@ async function requestGeminiChat(messages, { model = null, temperature = 0.3, ma
 
   const primaryModel = (model && model.startsWith('gemini-'))
     ? model
-    : (process.env.GEMINI_MODEL || 'gemini-3.5-flash')
-  const candidateModels = primaryModel === 'gemini-3.1-flash-lite'
-    ? ['gemini-3.1-flash-lite', 'gemini-3.5-flash']
-    : [primaryModel, 'gemini-3.1-flash-lite']
+    : (process.env.GEMINI_MODEL || 'gemini-flash-lite-latest')
+  const candidateModels = [
+    primaryModel,
+    'gemini-flash-lite-latest',
+    'gemini-3.5-flash-lite',
+    'gemini-3.5-flash',
+  ].filter((v, i, a) => a.indexOf(v) === i)
 
   const systemMessages = messages.filter(m => m.role === 'system')
   const conversationMessages = messages.filter(m => m.role !== 'system')

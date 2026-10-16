@@ -276,7 +276,9 @@ export default function ReadingPractice() {
         queryClient.invalidateQueries({ queryKey: ['admin', 'practice'] })
         try {
           const fresh = await getReadingPractice(editing.id)
-          const qData = JSON.parse(fresh.questions || '{}')
+          const qData = typeof fresh.questions === 'string'
+            ? JSON.parse(fresh.questions)
+            : (fresh.questions || {})
           if (Array.isArray(qData.groups)) {
             setForm(f => ({ ...f, questionGroups: qData.groups }))
             pristineRef.current = formSig({ ...form, questionGroups: qData.groups })

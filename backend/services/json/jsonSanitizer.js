@@ -7,8 +7,9 @@ function cleanJsonRaw(content) {
 // Attempt to repair truncated JSON (finish_reason === 'length')
 function repairTruncatedJson(raw, finishReason) {
   let cleaned = cleanJsonRaw(raw)
+  const isTruncated = finishReason === 'length' || finishReason === 'MAX_TOKENS'
 
-  if (finishReason === 'length' && cleaned) {
+  if (isTruncated && cleaned) {
     // Try to close any open arrays/objects
     const opens = { '{': '}', '[': ']' }
     const stack = []
