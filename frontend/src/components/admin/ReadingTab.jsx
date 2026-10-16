@@ -678,10 +678,10 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
                 onClick={() => handleGenerateAI()}
                 disabled={generatingAI}
                 className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                title="Tự động phân tích bài đọc và tạo giải thích 4 bước"
+                title="AI giải thích 4 bước cho bài đọc"
               >
                 {generatingAI ? <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-600" /> : <BookOpen className="w-3.5 h-3.5 text-zinc-600" />}
-                <span>{generatingAI ? 'Đang tạo giải thích...' : 'Tự động tạo giải thích'}</span>
+                <span>AI giải thích</span>
               </button>
               <button type="button" onClick={() => setShowPreview(v => !v)}
                 className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 transition shadow-2xs">
