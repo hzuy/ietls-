@@ -88,7 +88,10 @@ async function run() {
         let isTemp = false
 
         if (fs.existsSync(localPath)) {
-          fileToUpload = localPath
+          const ext = path.extname(relPath) || '.tmp'
+          const tempPath = path.join(os.tmpdir(), `migrate-local-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`)
+          fs.copyFileSync(localPath, tempPath)
+          fileToUpload = tempPath
         } else {
           // File không có trên local -> thử download từ remote server
           const remoteUrl = `${REMOTE_FALLBACK_BASE}/${relPath}`

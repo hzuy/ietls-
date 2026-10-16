@@ -3,7 +3,7 @@ const cors = require('cors')
 const compression = require('compression')
 const multer = require('multer')
 const path = require('path')
-require('dotenv').config()
+require('dotenv').config() // Reloaded with Cloudinary config
 
 const authRoutes = require('./routes/auth')
 const readingRoutes = require('./routes/reading')
