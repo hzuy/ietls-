@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { AlertTriangle, Check, X, BookOpen, Loader2 } from 'lucide-react'
+import { AlertTriangle, Check, X, BookOpen, Loader2, Lightbulb } from 'lucide-react'
 
 export default function ExplanationConflictModal({
   isOpen,
@@ -155,6 +155,16 @@ export default function ExplanationConflictModal({
                       <BookOpen className="w-3.5 h-3.5" /> Dẫn chứng AI tìm thấy trong bài:
                     </strong>
                     “{c.evidence}”
+                  </div>
+                )}
+
+                {/* AI Reasoning & Counter-argument */}
+                {c.reasoning && (
+                  <div className="p-3 rounded-xl bg-blue-50/60 border border-blue-200/70 text-xs text-blue-900 leading-relaxed">
+                    <strong className="font-semibold block mb-0.5 text-blue-950 flex items-center gap-1">
+                      <Lightbulb className="w-3.5 h-3.5 text-blue-600" /> Lập luận & Phản biện của AI:
+                    </strong>
+                    {c.reasoning}
                   </div>
                 )}
               </div>

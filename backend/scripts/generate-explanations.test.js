@@ -67,6 +67,7 @@ const {
   classifyFamily,
   findNoteSectionContext,
   buildContext,
+  buildPrompt,
   enrichExplanation,
   normalizeText,
   processQuestion,
@@ -106,6 +107,48 @@ describe('classifyFamily', () => {
   it('nhóm IMAGE nằm trong SKIP_FAMILIES', () => {
     expect(SKIP_FAMILIES.has('IMAGE')).toBe(true)
     expect(SKIP_FAMILIES.has('MCQ')).toBe(false)
+  })
+})
+
+describe('buildPrompt — tư duy phản biện & xác thực độc lập', () => {
+  const dummyCtx = {
+    skill: 'reading',
+    parts: [{ label: 'Đoạn 1', text: PASSAGE }],
+  }
+
+  it('yêu cầu AI phản biện, coi đáp án người dùng nhập chỉ để tham khảo', () => {
+    const q = {
+      number: 1,
+      type: 'mcq',
+      questionText: 'According to the writer, Ekman became interested in lying after a question from his',
+      options: JSON.stringify(['peers', 'patients', 'students', 'teachers']),
+      correctAnswer: 'patients',
+    }
+
+    const prompt = buildPrompt(q, 'MCQ', dummyCtx)
+
+    // Bắt buộc chứa chỉ dẫn tư duy phản biện
+    expect(prompt).toContain('QUY TẮC TƯ DUY PHẢN BIỆN & XÁC THỰC ĐÁP ÁN')
+    expect(prompt).toContain('Đáp án do người dùng/hệ thống cung cấp (cần kiểm chứng độc lập): "patients"')
+    expect(prompt).toContain('TUYỆT ĐỐI KHÔNG tin tưởng mù quáng hay "bẻ cong suy luận"')
+    expect(prompt).toContain('PHẢN BIỆN RÕ RÀNG vì sao đáp án người dùng nhập là sai')
+
+    // Format options chuẩn A. / B. / C. / D.
+    expect(prompt).toContain('- Các lựa chọn: A. peers | B. patients | C. students | D. teachers')
+  })
+
+  it('xử lý options dạng mảng object và không bị trùng chữ cái tiền tố', () => {
+    const q = {
+      number: 2,
+      type: 'mcq',
+      questionText: 'Test question',
+      options: JSON.stringify(['A. Option 1', 'B. Option 2']),
+      correctAnswer: 'A',
+    }
+
+    const prompt = buildPrompt(q, 'MCQ', dummyCtx)
+    expect(prompt).toContain('- Các lựa chọn: A. Option 1 | B. Option 2')
+    expect(prompt).not.toContain('A. A.')
   })
 })
 

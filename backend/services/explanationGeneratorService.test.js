@@ -39,9 +39,49 @@ describe('explanationGeneratorService', () => {
       expect(isAnswerMatch('theater | theatre', 'theater')).toBe(true)
     })
 
-    it('returns false for mismatched answers', () => {
+    it('matches TFNG canonical abbreviations', () => {
+      expect(isAnswerMatch('T', 'TRUE')).toBe(true)
+      expect(isAnswerMatch('f', 'False')).toBe(true)
+      expect(isAnswerMatch('NG', 'NOT GIVEN')).toBe(true)
+      expect(isAnswerMatch('y', 'Yes')).toBe(true)
+      expect(isAnswerMatch('n', 'NO')).toBe(true)
+      expect(isAnswerMatch('T', 'FALSE')).toBe(false)
+    })
+
+    it('resolves option letters and option texts correctly', () => {
+      const options = ['peers', 'patients', 'students', 'teachers']
+      // Matching cases
+      expect(isAnswerMatch('students', 'C. students', options)).toBe(true)
+      expect(isAnswerMatch('C', 'C. students', options)).toBe(true)
+      expect(isAnswerMatch('C. students', 'students', options)).toBe(true)
+      expect(isAnswerMatch('C', 'students', options)).toBe(true)
+
+      // Mismatch / Conflict cases (like user entering 'patients' instead of 'students')
+      expect(isAnswerMatch('patients', 'C. students', options)).toBe(false)
+      expect(isAnswerMatch('B', 'C. students', options)).toBe(false)
+      expect(isAnswerMatch('patients', 'students', options)).toBe(false)
+      expect(isAnswerMatch('peers', 'C. students', options)).toBe(false)
+    })
+
+    it('handles JSON string options and object options', () => {
+      const jsonOptions = JSON.stringify(['peers', 'patients', 'students', 'teachers'])
+      expect(isAnswerMatch('patients', 'C. students', jsonOptions)).toBe(false)
+      expect(isAnswerMatch('students', 'C. students', jsonOptions)).toBe(true)
+
+      const objectOptions = [
+        { optionLetter: 'A', optionText: 'peers' },
+        { optionLetter: 'B', optionText: 'patients' },
+        { optionLetter: 'C', optionText: 'students' },
+      ]
+      expect(isAnswerMatch('patients', 'C. students', objectOptions)).toBe(false)
+      expect(isAnswerMatch('C', 'students', objectOptions)).toBe(true)
+    })
+
+    it('returns false for mismatched answers without options', () => {
       expect(isAnswerMatch('True', 'False')).toBe(false)
       expect(isAnswerMatch('apple', 'banana')).toBe(false)
+      expect(isAnswerMatch(null, 'test')).toBe(false)
+      expect(isAnswerMatch('', 'test')).toBe(false)
     })
   })
 

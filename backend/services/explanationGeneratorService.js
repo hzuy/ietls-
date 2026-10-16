@@ -17,13 +17,111 @@ function parseGroup(row) {
   }
 }
 
+const TFNG_CANONICAL = {
+  't': 'true',
+  'true': 'true',
+  'f': 'false',
+  'false': 'false',
+  'ng': 'not given',
+  'not given': 'not given',
+  'y': 'yes',
+  'yes': 'yes',
+  'n': 'no',
+  'no': 'no',
+}
+
+function extractOptionPairs(rawOptions) {
+  if (!rawOptions) return []
+  let opts = rawOptions
+  if (typeof opts === 'string') {
+    try { opts = JSON.parse(opts) } catch { return [] }
+  }
+  if (!Array.isArray(opts)) return []
+
+  return opts.map((item, index) => {
+    const defaultLetter = String.fromCharCode(65 + index)
+    if (typeof item === 'string') {
+      const match = item.match(/^([A-Za-z])[\.\:\)]\s*(.*)$/)
+      if (match) {
+        return { letter: match[1].toUpperCase(), text: match[2].trim() }
+      }
+      return { letter: defaultLetter, text: item.trim() }
+    }
+    if (item && typeof item === 'object') {
+      const letter = (item.optionLetter || item.letter || defaultLetter).trim().toUpperCase()
+      const text = (item.optionText || item.text || '').trim()
+      return { letter, text }
+    }
+    return null
+  }).filter(Boolean)
+}
+
+function resolveToOption(str, optionPairs) {
+  if (!str || !optionPairs.length) return null
+  const trimmed = str.trim()
+  const norm = normalizeText(trimmed)
+
+  // 1. Direct letter match: "A", "A.", "a"
+  const letterMatch = trimmed.match(/^([A-Za-z])[\.\:\)]?$/)
+  if (letterMatch) {
+    const letter = letterMatch[1].toUpperCase()
+    const found = optionPairs.find(p => p.letter === letter)
+    if (found) return found
+  }
+
+  // 2. Prefixed match: "A. peers", "B: patients"
+  const prefixMatch = trimmed.match(/^([A-Za-z])[\.\:\)]\s*(.*)$/)
+  if (prefixMatch) {
+    const letter = prefixMatch[1].toUpperCase()
+    const found = optionPairs.find(p => p.letter === letter)
+    if (found) return found
+  }
+
+  // 3. Exact text match against option text
+  for (const pair of optionPairs) {
+    if (normalizeText(pair.text) === norm) {
+      return pair
+    }
+  }
+
+  return null
+}
+
 /**
  * Compare two answer strings for equivalence (case-insensitive, trimmed, normalized quotes/spaces).
+ * Supports TFNG equivalences and option mapping (A/B/C/D <-> option text).
  */
-function isAnswerMatch(a, b) {
-  const normA = normalizeText(a)
-  const normB = normalizeText(b)
+function isAnswerMatch(a, b, rawOptions = null) {
+  if (a == null || b == null) return false
+  const strA = String(a).trim()
+  const strB = String(b).trim()
+  if (!strA || !strB) return false
+
+  const normA = normalizeText(strA)
+  const normB = normalizeText(strB)
   if (normA === normB) return true
+
+  // True/False/Not Given canonical normalization
+  const tfA = TFNG_CANONICAL[normA.toLowerCase()]
+  const tfB = TFNG_CANONICAL[normB.toLowerCase()]
+  if (tfA && tfB) {
+    return tfA === tfB
+  }
+
+  // Options matching (resolving letters A/B/C/D to option text or vice-versa)
+  const optionPairs = extractOptionPairs(rawOptions)
+  if (optionPairs.length > 0) {
+    const optA = resolveToOption(strA, optionPairs)
+    const optB = resolveToOption(strB, optionPairs)
+
+    if (optA && optB) {
+      return optA.letter === optB.letter
+    }
+    if (optA || optB) {
+      return false
+    }
+  }
+
   // Also check if one contains the other or matches slash alternatives (e.g. "center/centre")
   const partsA = normA.split(/[/|]/).map(s => s.trim())
   const partsB = normB.split(/[/|]/).map(s => s.trim())
@@ -107,7 +205,8 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
 
       const inputAnswer = String(qCtx.correctAnswer || '').trim()
       const aiAnswer = String(explanation.answer || '').trim()
-      const match = isAnswerMatch(inputAnswer, aiAnswer)
+      const rawOptions = qCtx.options || (group.matchingOptions?.length ? group.matchingOptions : null)
+      const match = isAnswerMatch(inputAnswer, aiAnswer, rawOptions)
 
       const choice = resolveChoices[qNum]
 
@@ -277,7 +376,8 @@ async function generateForExam(examId, { force = false, resolveChoices = {} } = 
 
     const inputAnswer = String(q.correctAnswer || '').trim()
     const aiAnswer = String(explanation.answer || '').trim()
-    const match = isAnswerMatch(inputAnswer, aiAnswer)
+    const rawOptions = q.options || (q.group?.matchingOptions?.length ? q.group.matchingOptions : null)
+    const match = isAnswerMatch(inputAnswer, aiAnswer, rawOptions)
     const choice = resolveChoices[q.number]
 
     if (!match && !choice) {

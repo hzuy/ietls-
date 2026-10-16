@@ -243,9 +243,22 @@ function buildPrompt(q, family, ctx, previousError = null) {
   let optionsBlock = ''
   if (q.options) {
     try {
-      const opts = JSON.parse(q.options)
+      let opts = q.options
+      if (typeof opts === 'string') opts = JSON.parse(opts)
       if (Array.isArray(opts) && opts.length) {
-        optionsBlock = `- Các lựa chọn: ${opts.map((o, i) => `${String.fromCharCode(65 + i)}. ${o}`).join(' | ')}\n`
+        optionsBlock = `- Các lựa chọn: ${opts.map((o, i) => {
+          const letter = String.fromCharCode(65 + i)
+          if (typeof o === 'string') {
+            const clean = o.replace(/^[A-Z][\.\:\)]\s*/i, '')
+            return `${letter}. ${clean}`
+          }
+          if (o && typeof o === 'object') {
+            const optLetter = o.optionLetter || o.letter || letter
+            const optText = o.optionText || o.text || ''
+            return `${optLetter}. ${optText}`
+          }
+          return `${letter}. ${o}`
+        }).join(' | ')}\n`
       }
     } catch { /* options không parse được — bỏ qua, không chặn cả câu */ }
   }
@@ -264,7 +277,17 @@ THÔNG TIN CÂU HỎI:
 - Số câu: ${q.number ?? '(không rõ)'}
 - Loại câu hỏi: ${q.type || '(không rõ)'}
 - Câu hỏi: ${q.questionText || '(không có sẵn — xem ngữ cảnh bên dưới, câu hỏi nằm trong đó)'}
-${optionsBlock}- Đáp án đúng: ${q.correctAnswer}
+${optionsBlock}- Đáp án do người dùng/hệ thống cung cấp (cần kiểm chứng độc lập): "${q.correctAnswer}"
+
+QUY TẮC TƯ DUY PHẢN BIỆN & XÁC THỰC ĐÁP ÁN (BẮT BUỘC):
+1. Bạn là chuyên gia IELTS có TƯ DUY PHẢN BIỆN ĐỘC LẬP. Đáp án do người dùng cung cấp ở trên CHỈ MANG TÍNH THAM KHẢO và CÓ THỂ BỊ SAI (do nhập nhầm, lỗi gõ phím hoặc cố tình thử thách bạn).
+2. TUYỆT ĐỐI KHÔNG tin tưởng mù quáng hay "bẻ cong suy luận" để bao biện cho một đáp án sai khi ${sourceName} không chứng minh điều đó!
+3. Bạn PHẢI tự mình giải câu hỏi độc lập 100% dựa trên bằng chứng trong ${sourceName}:
+   - Trường "answer": PHẢI là đáp án THỰC TẾ CHÍNH XÁC NHẤT theo ${sourceName} (nếu có lựa chọn A/B/C/D, hãy ghi rõ cả chữ cái và nội dung, ví dụ "C. students" hoặc "students").
+   - NẾU ĐÁP ÁN DO NGƯỜI DÙNG CUNG CẤP LÀ SAI hoặc LỆCH với nội dung bài:
+     + Trong "reasoning": Nêu rõ bằng chứng và lập luận khẳng định đáp án thực tế chính xác; ĐỒNG THỜI PHẢN BIỆN RÕ RÀNG vì sao đáp án người dùng nhập là sai, ngộ nhận hoặc bẫy từ vựng nào dẫn đến việc chọn nhầm đó.
+     + Trong "distractors": Phân tích trung thực lý do các phương án nhiễu khác bị sai (bao gồm cả phương án người dùng đã nhập nhầm nếu là trắc nghiệm).
+   - NẾU ĐÁP ÁN CỦA NGƯỜI DÙNG ĐÃ ĐÚNG: Giải thích thuyết phục theo phương pháp Linearthinking thông thường.
 
 ${contextBlock}
 ${retryBlock}
@@ -276,12 +299,12 @@ Trả về DUY NHẤT một JSON, không thêm chữ nào ngoài JSON. Phần gi
   "locate_keywords": ["1-3 cụm NGUYÊN VĂN trong ${sourceName} giúp định vị"],
   "evidence_quote": "1-2 câu liên tiếp chép NGUYÊN VĂN từ ${sourceName} chứa thông tin trả lời, không viết tắt, không dùng dấu ... — nếu cần nhiều chỗ khác nhau trong ${sourceName}, chép riêng từng chỗ và ngăn cách bằng \\" | \\"",
   "evidence_chunks": [{ "text": "cụm quan trọng NGUYÊN VĂN nằm trong evidence_quote", "label": "nghĩa tiếng Việt 2-8 từ" }],
-  "answer": "đáp án đúng như cách viết trong đề",
+  "answer": "đáp án thực tế chính xác nhất theo ${sourceName} (ghi rõ chữ cái và nội dung nếu là trắc nghiệm)",
   "full_sentence": "câu hoàn chỉnh sau khi điền đáp án (chỉ cho câu điền từ, còn lại để rỗng)",
   "translation": "dịch tiếng Việt của full_sentence (để rỗng nếu full_sentence rỗng)",
-  "reasoning": "2-3 câu: vì sao đáp án đúng, khớp với dự đoán ra sao",
+  "reasoning": "2-3 câu: chứng minh vì sao đáp án này đúng theo ${sourceName}. Nếu đáp án người dùng nhập bị sai, hãy phản biện trực tiếp lý do sai/ngộ nhận của đáp án đó",
   "paraphrases": [{ "question": "cụm trong câu hỏi", "question_label": "nghĩa", "passage": "cụm NGUYÊN VĂN trong ${sourceName}", "passage_label": "nghĩa" }],
-  "distractors": [{ "option": "lựa chọn/từ dễ nhầm", "label": "nghĩa ngắn", "reason": "1-2 câu vì sao sai" }]
+  "distractors": [{ "option": "lựa chọn/từ dễ nhầm (bao gồm cả đáp án người dùng đã nhập nhầm nếu có)", "label": "nghĩa ngắn", "reason": "1-2 câu vì sao sai" }]
 }
 
 Ví dụ ngắn (câu điền từ, đáp án "timber"):
