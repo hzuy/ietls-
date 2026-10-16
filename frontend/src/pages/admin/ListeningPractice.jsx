@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useUnsavedChanges, NAV_LEAVE_MSG } from '../../hooks/useUnsavedChanges'
 import { useDraftPersistence } from '../../hooks/useDraftPersistence'
@@ -27,17 +27,40 @@ import ExplanationConflictModal from '../../components/admin/ExplanationConflict
 
 // ─── PREVIEW MODAL ────────────────────────────────────────────────────────────
 function ListeningPracticePreviewModal({ form, showAnswers, setShowAnswers, showExplanations, setShowExplanations, onClose }) {
+  const [leftPct, setLeftPct] = useState(42)
+  const [dragging, setDragging] = useState(false)
+  const containerRef = useRef(null)
+
+  const onDividerMouseDown = useCallback((e) => {
+    e.preventDefault()
+    setDragging(true)
+    const container = containerRef.current
+    if (!container) return
+    const onMouseMove = (ev) => {
+      const rect = container.getBoundingClientRect()
+      setLeftPct(Math.min(75, Math.max(25, ((ev.clientX - rect.left) / rect.width) * 100)))
+    }
+    const onMouseUp = () => {
+      setDragging(false)
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }, [])
+
   useEffect(() => {
     const h = (e) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h)
   }, [onClose])
 
   const audioSrc = form.audioBlobUrl || (form.audioUrl ? toImgSrc(form.audioUrl) : null)
+  const thumbSrc = form.thumbPreview || (form.thumbnailUrl ? toImgSrc(form.thumbnailUrl) : null)
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
-        style={{ width: '90vw', maxWidth: 860, height: '90vh' }}
+        style={{ width: '95vw', height: '90vh' }}
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-3 bg-zinc-50 border-b border-zinc-200 shrink-0">
           <div className="flex items-center gap-2">
@@ -56,20 +79,72 @@ function ListeningPracticePreviewModal({ form, showAnswers, setShowAnswers, show
             ✕ Đóng
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto bg-zinc-50 px-6 py-6">
-          {audioSrc && (
-            <div className="bg-white p-3 rounded-xl border border-zinc-200 shadow-xs mb-5">
-              <audio controls src={audioSrc} key={audioSrc} className="w-full h-10 rounded-lg" />
-            </div>
-          )}
 
-          {form.context && (
-            <p className="text-xs text-zinc-500 italic mb-5 border-l-2 border-zinc-300 pl-3">{form.context}</p>
-          )}
+        <div ref={containerRef} className="flex flex-1 overflow-hidden"
+          style={{ userSelect: dragging ? 'none' : 'auto' }}>
+          {/* CỘT TRÁI (Audio, Tình huống, Ảnh bìa, Transcript) */}
+          <div className="overflow-y-auto bg-white px-7 py-6 space-y-5" style={{ width: `${leftPct}%`, flexShrink: 0 }}>
+            {audioSrc && (
+              <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-200 shadow-2xs">
+                <p className="text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Volume2 className="w-3.5 h-3.5 text-zinc-600" />
+                  <span>File Audio bài nghe</span>
+                </p>
+                <audio controls src={audioSrc} key={audioSrc} className="w-full h-10 rounded-lg" />
+              </div>
+            )}
 
-          {form.questionGroups.length > 0
-            ? form.questionGroups.map((g, gi) => <AdminGroupPreview key={gi} group={g} showAnswers={showAnswers} showExplanations={showExplanations} />)
-            : <p className="text-sm text-zinc-400 italic text-center mt-10">Chưa có câu hỏi</p>}
+            {thumbSrc && (
+              <div className="rounded-xl overflow-hidden border border-zinc-200 bg-zinc-50 max-h-56">
+                <img
+                  src={thumbSrc}
+                  alt={form.title}
+                  className="w-full h-full object-cover max-h-56"
+                />
+              </div>
+            )}
+
+            {form.context && (
+              <div className="bg-zinc-50/70 p-4 rounded-xl border border-zinc-200">
+                <p className="text-xs font-bold text-zinc-600 uppercase tracking-wider mb-1.5">Mô tả tình huống (Context)</p>
+                <p className="text-sm text-zinc-700 leading-relaxed italic">{form.context}</p>
+              </div>
+            )}
+
+            {form.transcript ? (
+              <div className="bg-white rounded-xl border border-zinc-200 p-4 shadow-2xs">
+                <div className="flex items-center justify-between mb-2 pb-2 border-b border-zinc-100">
+                  <p className="text-xs font-bold text-zinc-700 uppercase tracking-wider">Transcript (Lời thoại)</p>
+                  <span className="text-[11px] text-zinc-400">Xem kèm đối chiếu</span>
+                </div>
+                <p className="text-sm text-zinc-700 leading-7 whitespace-pre-wrap font-normal">{form.transcript}</p>
+              </div>
+            ) : (
+              !form.context && !thumbSrc && !audioSrc && (
+                <p className="text-sm text-zinc-400 italic">Chưa có thông tin bài nghe</p>
+              )
+            )}
+          </div>
+
+          {/* THANH KÉO CO GIÃN 2 CỘT */}
+          <div onMouseDown={onDividerMouseDown}
+            style={{ width: 5, cursor: 'col-resize', flexShrink: 0, background: dragging ? '#18181b' : '#e4e4e7', transition: dragging ? 'none' : 'background 0.15s' }}
+            onMouseEnter={e => { if (!dragging) e.currentTarget.style.background = '#a1a1aa' }}
+            onMouseLeave={e => { if (!dragging) e.currentTarget.style.background = '#e4e4e7' }} />
+
+          {/* CỘT PHẢI (Danh sách câu hỏi + giải thích) */}
+          <div className="flex-1 overflow-y-auto bg-zinc-50 px-6 py-6">
+            {form.questionGroups.length > 0
+              ? form.questionGroups.map((g, gi) => (
+                  <AdminGroupPreview
+                    key={gi}
+                    group={g}
+                    showAnswers={showAnswers}
+                    showExplanations={showExplanations}
+                  />
+                ))
+              : <p className="text-sm text-zinc-400 italic text-center mt-10">Chưa có câu hỏi</p>}
+          </div>
         </div>
       </div>
     </div>
