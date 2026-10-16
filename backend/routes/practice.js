@@ -230,8 +230,8 @@ router.get('/admin/:skill/:id', authMiddleware, teacherStrict, async (req, res) 
     })
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy' })
     
-    // Map to JSON for editor
-    const groups = (exam.questions || []).map(pq => JSON.parse(pq.content))
+    // Map to JSON for editor (bao gồm cả explanations đã lưu)
+    const groups = practiceGroupsWithExplanations(exam.questions)
     res.json({ ...exam, questions: JSON.stringify({ groups }) })
   } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
 })

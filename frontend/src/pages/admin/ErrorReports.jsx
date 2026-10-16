@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Flag,
   CheckCircle2,
   XCircle,
   Clock,
@@ -75,12 +74,7 @@ export default function ErrorReports() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="p-2 rounded-xl bg-red-50 text-red-600 border border-red-100">
-              <Flag className="w-5 h-5" />
-            </span>
-            <h1 className="text-xl font-bold text-zinc-900 tracking-tight">Phản hồi & Báo lỗi từ học viên</h1>
-          </div>
+          <h1 className="text-xl font-bold text-zinc-900 tracking-tight mb-1">Phản hồi & Báo lỗi từ học viên</h1>
           <p className="text-xs sm:text-sm text-zinc-500">
             Theo dõi, phân loại và xử lý các phản hồi về câu hỏi, đề thi hoặc lỗi giao diện.
           </p>

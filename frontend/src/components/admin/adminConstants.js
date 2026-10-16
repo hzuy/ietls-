@@ -339,14 +339,14 @@ export const GROUP_INSTRUCTIONS = {
 export const READING_GROUP_TYPES = [
   { value: 'true_false_ng', label: 'True / False / Not Given' },
   { value: 'yes_no_ng', label: 'Yes / No / Not Given' },
-  { value: 'note_completion', label: 'Note / Form Completion' },
+  { value: 'note_completion', label: 'Note Completion' },
   { value: 'table_completion', label: 'Table Completion' },
-  { value: 'mcq', label: 'Multiple Choice (1 đáp án)' },
-  { value: 'mcq_multi', label: 'Multiple Choice (chọn TWO)' },
-  { value: 'matching_information', label: 'Matching Information (nối đoạn)' },
-  { value: 'drag_word_bank', label: 'Summary + Word Bank (kéo thả)' },
-  { value: 'matching_drag', label: 'Matching - Kéo thả đáp án' },
-  { value: 'diagram_label', label: 'Diagram Label Completion' },
+  { value: 'mcq', label: 'Multiple Choice (Single)' },
+  { value: 'mcq_multi', label: 'Multiple Choice (Multi)' },
+  { value: 'matching_information', label: 'Matching Information' },
+  { value: 'drag_word_bank', label: 'Summary Completion' },
+  { value: 'matching_drag', label: 'Matching Features' },
+  { value: 'diagram_label', label: 'Diagram Labeling' },
 ]
 
 export const READING_GROUP_INSTRUCTIONS = {

@@ -76,6 +76,11 @@ export default function PracticeGroupCard({
           {typeLabel}
         </span>
         <span className={s.range}>Câu {group.qNumberStart}–{group.qNumberEnd}</span>
+        {group.explanations && Object.keys(group.explanations).length > 0 && (
+          <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+            <span>✓</span> Đã có giải thích
+          </span>
+        )}
         <div className="flex-1" />
         <div className="flex items-center gap-2">
           <div className={s.moveWrap}>

@@ -24,14 +24,14 @@ describe('PracticeGroupCard — merge Reading/Listening group editor', () => {
   it('reading: render mọi loại group.type của Reading không crash + đúng badge', () => {
     const types = [
       ['true_false_ng', 'True / False / Not Given'],
-      ['note_completion', 'Note / Form Completion'],
+      ['note_completion', 'Note Completion'],
       ['table_completion', 'Table Completion'],
-      ['mcq', 'Multiple Choice (1 đáp án)'],
-      ['mcq_multi', 'Multiple Choice (chọn TWO)'],
-      ['matching_information', 'Matching Information (nối đoạn)'],
-      ['drag_word_bank', 'Summary + Word Bank (kéo thả)'],
-      ['matching_drag', 'Matching - Kéo thả đáp án'],
-      ['diagram_label', 'Diagram Label Completion'],
+      ['mcq', 'Multiple Choice (Single)'],
+      ['mcq_multi', 'Multiple Choice (Multi)'],
+      ['matching_information', 'Matching Information'],
+      ['drag_word_bank', 'Summary Completion'],
+      ['matching_drag', 'Matching Features'],
+      ['diagram_label', 'Diagram Labeling'],
       ['matching_headings', 'Matching Headings'],
     ]
     for (const [type, label] of types) {
@@ -45,15 +45,15 @@ describe('PracticeGroupCard — merge Reading/Listening group editor', () => {
 
   it('listening: render mọi loại group.type của Listening không crash + đúng badge', () => {
     const types = [
-      ['note_completion', 'Note / Form Completion'],
+      ['note_completion', 'Note Completion'],
       ['table_completion', 'Table Completion'],
-      ['mcq', 'Multiple Choice (1 đáp án)'],
-      ['mcq_multi', 'Multiple Choice (nhiều đáp án)'],
+      ['mcq', 'Multiple Choice (Single)'],
+      ['mcq_multi', 'Multiple Choice (Multi)'],
       ['matching', 'Matching'],
       ['map_diagram', 'Map / Diagram Labeling'],
-      ['drag_word_bank', 'Summary + Word Bank (kéo thả)'],
-      ['matching_drag', 'Matching - Kéo thả đáp án'],
-      ['diagram_label', 'Diagram Label Completion'],
+      ['drag_word_bank', 'Summary Completion'],
+      ['matching_drag', 'Matching Features'],
+      ['diagram_label', 'Diagram Labeling'],
       ['matching_headings', 'Matching Headings'],
     ]
     for (const [type, label] of types) {
@@ -99,7 +99,7 @@ describe('PracticeGroupCard — merge Reading/Listening group editor', () => {
   it('collapse: expanded=false → ẩn body (Instruction); header + nút + chevron vẫn hiện', () => {
     const { rerender } = render(<PracticeGroupCard {...cardProps({ expanded: false })} />)
 
-    expect(screen.getByText('Multiple Choice (1 đáp án)')).toBeInTheDocument()
+    expect(screen.getByText('Multiple Choice (Single)')).toBeInTheDocument()
     expect(screen.getByText('Câu 1–3')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Xóa nhóm' })).toBeInTheDocument()
     const chevron = screen.getByRole('button', { name: /nhóm Multiple Choice/ })
@@ -117,7 +117,7 @@ describe('PracticeGroupCard — merge Reading/Listening group editor', () => {
     render(<PracticeGroupCard {...cardProps({ expanded: false, onToggle })} />)
 
     fireEvent.click(screen.getByRole('button', { name: /nhóm Multiple Choice/ }))  // chevron
-    fireEvent.click(screen.getByText('Multiple Choice (1 đáp án)'))                 // badge trong header
+    fireEvent.click(screen.getByText('Multiple Choice (Single)'))                 // badge trong header
     expect(onToggle).toHaveBeenCalledTimes(2)
   })
 

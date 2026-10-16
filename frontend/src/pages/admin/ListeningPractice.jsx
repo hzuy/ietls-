@@ -335,6 +335,14 @@ export default function ListeningPractice() {
         showToast(res.data?.message || 'Đã tạo giải thích 4 bước thành công!', 'success')
         setConflictModalOpen(false)
         queryClient.invalidateQueries({ queryKey: ['admin', 'practice'] })
+        try {
+          const fresh = await getListeningPractice(editing.id)
+          const qData = JSON.parse(fresh.questions || '{}')
+          if (Array.isArray(qData.groups)) {
+            setForm(f => ({ ...f, questionGroups: qData.groups }))
+            pristineRef.current = formSig({ ...form, questionGroups: qData.groups })
+          }
+        } catch { /* ignore refresh error */ }
       }
     } catch (err) {
       showToast(err.response?.data?.message || 'Không thể tạo giải thích bằng AI', 'error')
@@ -600,7 +608,7 @@ export default function ListeningPractice() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Select
-                      className="w-44 sm:w-48"
+                      className="w-52 sm:w-60"
                       ariaLabel="Loại nhóm câu hỏi"
                       value={addGroupType}
                       onChange={setAddGroupType}
