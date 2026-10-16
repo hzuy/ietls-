@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Zap, BookOpen, Headphones } from 'lucide-react'
+import { X, Play, BookOpen, Headphones } from 'lucide-react'
 import Modal from '../common/Modal'
 import { useNavigate } from 'react-router-dom'
 
@@ -83,7 +83,7 @@ export default function QuickFullTestWidget({ books, onSelect, stats }) {
         onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
         onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
       >
-        <Zap className="w-3.5 h-3.5" />
+        <Play className="w-3.5 h-3.5 fill-current" />
         {suggestionLabel}
       </button>
 

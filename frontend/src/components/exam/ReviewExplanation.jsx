@@ -1,4 +1,4 @@
-import { X, Sparkles } from 'lucide-react'
+import { X, HelpCircle } from 'lucide-react'
 import { findRange, normalizeText } from '../../utils/textMatch'
 
 function StepCard({ index, total, title, children }) {
@@ -227,7 +227,7 @@ export default function ReviewExplanation({ explanation, paragraphLabel = i => `
   if (!explanation) {
     return (
       <div className="flex items-center gap-3 rounded-2xl border border-dashed border-zinc-300 bg-white px-4 py-5 text-sm text-zinc-500">
-        <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+        <HelpCircle className="w-4 h-4 text-zinc-400 shrink-0" />
         Câu này chưa có giải thích chi tiết.
       </div>
     )

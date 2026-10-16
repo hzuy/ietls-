@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { AlertTriangle, Check, X, Sparkles, BookOpen, Loader2 } from 'lucide-react'
+import { AlertTriangle, Check, X, BookOpen, Loader2 } from 'lucide-react'
 
 export default function ExplanationConflictModal({
   isOpen,
@@ -56,7 +56,7 @@ export default function ExplanationConflictModal({
                 Phát hiện lệch đáp án ({conflicts.length} câu)
               </h3>
               <p className="text-xs text-zinc-500 mt-0.5">
-                AI phát hiện dẫn chứng trong bài đọc không khớp với đáp án hiện tại. Vui lòng chọn cách xử lý cho từng câu.
+                Hệ thống phát hiện dẫn chứng trong bài đọc không khớp với đáp án hiện tại. Vui lòng chọn cách xử lý cho từng câu.
               </p>
             </div>
           </div>
@@ -133,7 +133,7 @@ export default function ExplanationConflictModal({
                   >
                     <div>
                       <span className="text-[10px] uppercase font-bold text-blue-600 tracking-wider flex items-center gap-1">
-                        <Sparkles className="w-3 h-3" /> Đáp án AI đề xuất:
+                        <BookOpen className="w-3 h-3" /> Đáp án gợi ý:
                       </span>
                       <p className="text-sm font-bold text-blue-900 mt-1 break-words">
                         {c.aiAnswer}

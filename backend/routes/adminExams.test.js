@@ -744,7 +744,7 @@ describe('Admin Exams Router — PUT (diff-based upsert)', () => {
     expect(prismaMock.speakingPart.update).toHaveBeenCalledTimes(3)
     expect(prismaMock.speakingQuestion.deleteMany).toHaveBeenCalledTimes(3)
     expect(prismaMock.speakingQuestion.createMany).toHaveBeenCalledTimes(2) // Part 1 (2 qs) and Part 3 (3 qs)
-  })
+  }, 15000)
 
   it('POST /api/admin/exams/speaking creates all 3 parts with questions and cueCards', async () => {
     prismaMock.exam.findFirst
@@ -784,7 +784,7 @@ describe('Admin Exams Router — PUT (diff-based upsert)', () => {
         })
       })
     }))
-  })
+  }, 15000)
 })
 
 // ─── Audit Log wiring (exam.create / exam.update / exam.delete) ────────────

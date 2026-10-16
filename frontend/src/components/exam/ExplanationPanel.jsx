@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, Sparkles, MapPin, AlertCircle } from 'lucide-react'
+import { ChevronDown, BookOpen, MapPin, AlertCircle } from 'lucide-react'
 
 // Cấu trúc mới cho AI Explanation:
 // {
@@ -52,7 +52,7 @@ export default function ExplanationPanel({ reviewInfo, explanation: rawExplanati
             aria-expanded={open}
             className="inline-flex items-center gap-1.5 text-[11px] font-medium text-zinc-500 hover:text-zinc-800 cursor-pointer bg-transparent border-none px-0 py-0.5"
           >
-            <Sparkles className="w-3 h-3 text-amber-500" />
+            <BookOpen className="w-3.5 h-3.5 text-zinc-500" />
             <span>{open ? 'Ẩn giải thích' : 'Xem giải thích chi tiết'}</span>
             <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
           </button>

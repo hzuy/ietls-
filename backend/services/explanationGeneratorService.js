@@ -150,7 +150,144 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
   }
 }
 
+/**
+ * Generate explanations for an Exam (Reading or Listening Cambridge / Full Test Exam).
+ *
+ * @param {number} examId - Exam ID
+ * @param {object} options
+ * @param {boolean} options.force - If true, regenerate even if explanation exists
+ * @param {object} options.resolveChoices - Map of { [questionNumber]: 'ai' | 'input' }
+ */
+async function generateForExam(examId, { force = false, resolveChoices = {} } = {}) {
+  const exam = await prisma.exam.findUnique({
+    where: { id: examId },
+    select: { id: true, title: true, skill: true },
+  })
+
+  if (!exam) throw new Error(`Không tìm thấy đề thi #${examId}`)
+
+  const questions = await prisma.question.findMany({
+    where: {
+      OR: [
+        { passage: { examId } },
+        { listeningSection: { examId } },
+        { group: { passage: { examId } } },
+        { group: { section: { examId } } },
+      ],
+    },
+    select: {
+      id: true,
+      number: true,
+      type: true,
+      questionText: true,
+      options: true,
+      correctAnswer: true,
+      explanation: true,
+      passage: { select: { body: true } },
+      listeningSection: { select: { transcript: true, context: true } },
+      group: {
+        select: {
+          type: true,
+          passage: { select: { body: true } },
+          section: { select: { transcript: true, context: true } },
+          matchingOptions: { select: { optionLetter: true, optionText: true }, orderBy: { sortOrder: 'asc' } },
+          noteSections: {
+            select: { lines: { select: { contentWithTokens: true }, orderBy: { sortOrder: 'asc' } } },
+            orderBy: { sortOrder: 'asc' },
+          },
+        },
+      },
+    },
+    orderBy: { number: 'asc' },
+  })
+
+  const conflicts = []
+  const updates = []
+  let generatedCount = 0
+
+  for (const q of questions) {
+    if (q.explanation && !force && !resolveChoices[q.number]) {
+      continue
+    }
+
+    const family = classifyFamily(q.type)
+    if (SKIP_FAMILIES.has(family)) continue
+
+    const ctx = buildContext(q, family)
+    const explanation = await generateExplanation(q, family, ctx)
+    if (!explanation) continue
+
+    generatedCount++
+
+    const inputAnswer = String(q.correctAnswer || '').trim()
+    const aiAnswer = String(explanation.answer || '').trim()
+    const match = isAnswerMatch(inputAnswer, aiAnswer)
+    const choice = resolveChoices[q.number]
+
+    if (!match && !choice) {
+      conflicts.push({
+        number: q.number,
+        type: q.type,
+        questionText: q.questionText,
+        inputAnswer,
+        aiAnswer,
+        evidence: explanation.evidence?.parts?.[0]?.text || '',
+        reasoning: explanation.reasoning,
+        explanation,
+      })
+    } else {
+      let finalCorrectAnswer = inputAnswer
+      if (choice === 'ai') {
+        finalCorrectAnswer = aiAnswer
+        explanation.answer = aiAnswer
+      } else if (choice === 'input') {
+        explanation.answer = inputAnswer
+      }
+
+      updates.push({
+        id: q.id,
+        correctAnswer: finalCorrectAnswer,
+        explanation,
+      })
+    }
+  }
+
+  if (conflicts.length > 0 && Object.keys(resolveChoices).length === 0) {
+    return {
+      ok: false,
+      hasConflicts: true,
+      conflicts,
+      generatedCount,
+      message: `Đã quét và phát hiện ${conflicts.length} câu có đáp án lệch so với bài đọc/nghe. Vui lòng duyệt trước khi lưu.`,
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    for (const item of updates) {
+      await tx.question.update({
+        where: { id: item.id },
+        data: {
+          correctAnswer: item.correctAnswer,
+          explanation: item.explanation,
+        },
+      })
+    }
+  })
+
+  invalidate('exams:')
+  invalidate('reading:')
+  invalidate('listening:')
+
+  return {
+    ok: true,
+    hasConflicts: false,
+    generatedCount,
+    message: `Đã tạo giải thích 4 bước thành công cho ${generatedCount} câu hỏi!`,
+  }
+}
+
 module.exports = {
   isAnswerMatch,
   generateForPracticeExam,
+  generateForExam,
 }

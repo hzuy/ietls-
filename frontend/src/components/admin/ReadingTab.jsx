@@ -16,7 +16,8 @@ import ExamList from './ExamList'
 import ExamAuditHistory from './ExamAuditHistory'
 import AdminGroupPreview from '../practice/AdminGroupPreview'
 import ReadingGroupEditor from './editors/ReadingGroupEditor'
-import { Eye, ChevronDown, Volume2, History } from 'lucide-react'
+import { Eye, ChevronDown, Volume2, History, BookOpen, Loader2 } from 'lucide-react'
+import ExplanationConflictModal from './ExplanationConflictModal'
 
 // ─── TAB: READING ─────────────────────────────────────────────────────────────
 
@@ -336,10 +337,36 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   const [toast, setToast] = useState('')
   const [draftBanner, setDraftBanner] = useState(null)
   const [editHighlight, setEditHighlight] = useState(false)
+  const [generatingAI, setGeneratingAI] = useState(false)
+  const [aiConflicts, setAiConflicts] = useState([])
+  const [conflictModalOpen, setConflictModalOpen] = useState(false)
   const formRef = useRef(null)
   const previewRef = useRef(null)
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
+
+  const handleGenerateAI = async (resolveChoices = {}) => {
+    if (!editingId) return
+    setGeneratingAI(true)
+    try {
+      const res = await api.post(`/admin/exams/${editingId}/generate-explanations`, {
+        force: true,
+        resolveChoices,
+      })
+      if (res.data?.hasConflicts) {
+        setAiConflicts(res.data.conflicts || [])
+        setConflictModalOpen(true)
+      } else {
+        showToast(res.data?.message || 'Đã tạo giải thích 4 bước thành công!')
+        setConflictModalOpen(false)
+        onRefresh()
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Không thể tạo giải thích bằng AI')
+    } finally {
+      setGeneratingAI(false)
+    }
+  }
 
   // Scroll the preview panel into view once it has rendered (not when hidden).
   useEffect(() => {
@@ -648,6 +675,16 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
           <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-3 mb-4 flex items-center justify-between">
             <span className="text-sm font-semibold text-zinc-800">Đang sửa đề #{editingId}</span>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleGenerateAI()}
+                disabled={generatingAI}
+                className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                title="Tự động phân tích bài đọc và tạo giải thích 4 bước"
+              >
+                {generatingAI ? <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-600" /> : <BookOpen className="w-3.5 h-3.5 text-zinc-600" />}
+                <span>{generatingAI ? 'Đang tạo giải thích...' : 'Tự động tạo giải thích'}</span>
+              </button>
               <button type="button" onClick={() => setShowPreview(v => !v)}
                 className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 transition shadow-2xs">
                 {showPreview ? 'Ẩn preview' : 'Preview'}
@@ -858,6 +895,14 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         <h3 className="text-base font-semibold text-zinc-900 mb-4">Danh sách đề Reading</h3>
         <ExamList exams={exams} skill="reading" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} error={loadError} />
       </div>
+
+      <ExplanationConflictModal
+        isOpen={conflictModalOpen}
+        onClose={() => setConflictModalOpen(false)}
+        conflicts={aiConflicts}
+        onConfirmResolve={(choices) => handleGenerateAI(choices)}
+        isSubmitting={generatingAI}
+      />
     </div>
   )
 }

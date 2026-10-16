@@ -9,6 +9,7 @@ const { invalidate } = require('../../../lib/swrCache')
 const { invalidateExamCaches } = require('../../../utils/cache')
 const { logAuditEvent } = require('../../../lib/auditLog')
 const { AUDIT_ACTIONS } = require('../../../lib/auditActions')
+const { generateForExam } = require('../../../services/explanationGeneratorService')
 
 // ─── GET EXAM COUNTS BY SKILL ───────────────────────────────────────────────
 router.get('/exams/counts', authMiddleware, teacherOnly, async (req, res) => {
@@ -25,6 +26,19 @@ router.get('/exams/counts', authMiddleware, teacherOnly, async (req, res) => {
     res.json(countMap)
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message })
+  }
+})
+
+// ─── ADMIN: GENERATE EXPLANATIONS FOR EXAM WITH CONFLICT DETECTION ──────────
+router.post('/exams/:id/generate-explanations', authMiddleware, teacherOnly, async (req, res) => {
+  const { id } = req.params
+  const { force = false, resolveChoices = {} } = req.body || {}
+  try {
+    const result = await generateForExam(parseInt(id, 10), { force, resolveChoices })
+    res.json(result)
+  } catch (err) {
+    console.error('[GENERATE EXAM EXPLANATIONS ERROR]', err)
+    res.status(500).json({ message: err.message || 'Lỗi khi tạo giải thích bằng AI' })
   }
 })
 

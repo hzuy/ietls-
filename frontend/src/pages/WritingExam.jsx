@@ -7,7 +7,8 @@ import { saveDraft, loadDraft, clearDraft, isDataEmpty } from '../services/draft
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
-import { Clock, Sparkles, CheckCircle2, RotateCcw, AlertCircle, ChevronRight, X, History, ChevronDown, ChevronUp, FileQuestion } from 'lucide-react'
+import { Clock, CheckCircle2, RotateCcw, AlertCircle, ChevronRight, X, History, ChevronDown, ChevronUp, FileQuestion, TrendingUp, FileText, Loader2 } from 'lucide-react'
+import ReportIssueButton from '../components/common/ReportIssueButton'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
 import InlineCorrections from '../components/exam/InlineCorrections'
@@ -215,7 +216,7 @@ function WritingCriterionCard({ critItem }) {
           {critItem.how_to_improve && critItem.how_to_improve.length > 0 && (
             <div className="bg-blue-50/70 border border-blue-200/70 rounded-xl p-3">
               <div className="flex items-center gap-1.5 text-xs font-bold text-blue-800 mb-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                <TrendingUp className="w-3.5 h-3.5 text-blue-600" />
                 Cách cải thiện
               </div>
               <ul className="m-0 p-0 list-none space-y-1 text-xs text-blue-900 leading-relaxed">
@@ -576,7 +577,7 @@ function WritingTaskAccordion({ task, r, isCompleted, onRetake }) {
                       {/* 4. Khối Tổng quan (ở ngoài cột phải, gọn gàng, không kéo dài) */}
                       <div className="pt-4 border-t border-zinc-100 flex flex-col gap-3.5">
                         <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-900">
-                          <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                          <FileText className="w-3.5 h-3.5 text-zinc-600" />
                           <span>Tổng quan</span>
                         </div>
 
@@ -1281,6 +1282,12 @@ export default function WritingExam() {
             <Clock className="w-3.5 h-3.5" />
             {fmt(timeLeft)}
           </div>
+          <ReportIssueButton
+            examId={exam?.id}
+            skill="writing"
+            sourceType="exam"
+            location={`${exam?.title || 'Writing Exam'} · Task ${task?.number || 1}`}
+          />
         </div>
       </header>
 
@@ -1387,8 +1394,8 @@ export default function WritingExam() {
                     </>
                   ) : (
                     <>
-                      <Sparkles className="w-4 h-4 animate-pulse shrink-0" />
-                      AI đang chấm bài Task {task.number}... Vui lòng làm tiếp các task khác.
+                      <Loader2 className="w-4 h-4 animate-spin text-blue-600 shrink-0" />
+                      Đang chấm bài Task {task.number}... Vui lòng làm tiếp các task khác.
                     </>
                   )}
                 </div>
@@ -1449,7 +1456,7 @@ export default function WritingExam() {
           >
             {submitting ? (
               <>
-                <Sparkles className="w-3.5 h-3.5 animate-spin" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 Đang chấm điểm...
               </>
             ) : taskDone ? (

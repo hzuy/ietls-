@@ -6,7 +6,7 @@ import { useCollapsibleGroups } from '../../hooks/useCollapsibleGroups'
 import { validateAudioFile } from '../../utils/fileValidation'
 import { ConfirmDeleteModal, DraftBanner, DraftSavedHint, AdminListHeader, ThumbnailPicker } from '../../components/admin/contentPageUI'
 import { useToast } from '../../context/ToastContext'
-import { Volume2, Eye, Sparkles, Upload, Loader2 } from 'lucide-react'
+import { Volume2, Eye, BookOpen, Upload, Loader2 } from 'lucide-react'
 import api from '../../utils/axios'
 import PracticeGroupCard from '../../components/admin/PracticeGroupCard'
 import {
@@ -378,11 +378,11 @@ export default function ListeningPractice() {
                   type="button"
                   onClick={() => handleGenerateAI()}
                   disabled={generatingAI}
-                  className="h-9 px-3.5 rounded-xl border border-indigo-200 bg-indigo-50/70 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 text-xs font-semibold transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  title="Tự động phân tích transcript và tạo giải thích 4 bước bằng AI"
+                  className="h-9 px-3.5 rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 text-xs font-semibold transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  title="Tự động phân tích transcript và tạo giải thích 4 bước"
                 >
-                  {generatingAI ? <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" /> : <Sparkles className="w-3.5 h-3.5 text-indigo-600" />}
-                  <span className="hidden sm:inline">{generatingAI ? 'AI đang tạo...' : 'Tạo giải thích AI'}</span>
+                  {generatingAI ? <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-600" /> : <BookOpen className="w-3.5 h-3.5 text-zinc-600" />}
+                  <span className="hidden sm:inline">{generatingAI ? 'Đang tạo giải thích...' : 'Tự động tạo giải thích'}</span>
                 </button>
               )}
               <button
@@ -553,7 +553,7 @@ export default function ListeningPractice() {
                         </>
                       ) : (
                         <>
-                          <Sparkles className="w-3.5 h-3.5 text-zinc-700" />
+                          <Volume2 className="w-3.5 h-3.5 text-zinc-700" />
                           <span>AI Phiên âm</span>
                         </>
                       )}
@@ -562,7 +562,7 @@ export default function ListeningPractice() {
 
                   {!form.transcript && !showTranscriptBox ? (
                     <div className="p-3 bg-zinc-50 rounded-xl border border-dashed border-zinc-200 flex items-center justify-between text-xs text-zinc-500">
-                      <span>{form.audioUrl ? 'Nhấn "AI Phiên âm" để tự động sinh transcript từ audio.' : 'Upload file audio để dùng tính năng AI phiên âm.'}</span>
+                      <span>{form.audioUrl ? 'Nhấn "Tự động phiên âm" để sinh transcript từ audio.' : 'Upload file audio để dùng tính năng phiên âm tự động.'}</span>
                       <button
                         type="button"
                         onClick={() => setShowTranscriptBox(true)}

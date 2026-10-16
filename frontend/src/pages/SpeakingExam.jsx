@@ -8,7 +8,8 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
 import { useSpeechRecording } from '../hooks/useSpeechRecording'
-import { Mic, X, Square, Play, Pause, AlertCircle, RotateCcw, Sparkles, Eye, Volume2, History, CheckCircle2, ChevronUp, ChevronDown, Share } from 'lucide-react'
+import { Mic, X, Square, Play, Pause, AlertCircle, RotateCcw, Eye, Volume2, History, CheckCircle2, ChevronUp, ChevronDown, Share, BookOpen } from 'lucide-react'
+import ReportIssueButton from '../components/common/ReportIssueButton'
 import { SkeletonExamPage } from '../components/skeletons'
 import ExamErrorState from '../components/exam/ExamErrorState'
 import InlineCorrections from '../components/exam/InlineCorrections'
@@ -246,7 +247,7 @@ function SpeakingSampleAnswerBlock({ questionText, partNumber, cueCard, original
       <div className="flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200/80 text-indigo-700 text-xs font-bold tracking-tight shadow-3xs">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+            <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
             {hasOriginal ? 'Gợi ý nâng band · Band 7.5 - 8.0' : 'Gợi ý câu trả lời · Band 7.5 - 8.0'}
           </span>
         </div>
@@ -1556,6 +1557,12 @@ export default function SpeakingExam() {
             <span className="text-xs text-zinc-500 font-mono tabular-nums">
               {exam.speakingParts.filter(p => isPartDone(p.id)).length}/{exam.speakingParts.length} parts
             </span>
+            <ReportIssueButton
+              examId={exam?.id}
+              skill="speaking"
+              sourceType="exam"
+              location={`${exam?.title || 'Speaking Exam'} · Part ${activePart?.number || 1}`}
+            />
           </div>
         )}
       </header>

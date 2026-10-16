@@ -16,7 +16,7 @@ import {
   READING_GROUP_TYPES, emptyReadingGroupOf,
   inputCls, labelCls, btnPrimary, btnSecondary,
 } from '../../utils/practiceConfig'
-import { Eye, Sparkles, Loader2 } from 'lucide-react'
+import { Eye, BookOpen, Loader2 } from 'lucide-react'
 import AdminGroupPreview from '../../components/practice/AdminGroupPreview'
 import ImageWithFallback from '../../components/common/ImageWithFallback'
 import Select from '../../components/admin/Select'
@@ -312,11 +312,11 @@ export default function ReadingPractice() {
                   type="button"
                   onClick={() => handleGenerateAI()}
                   disabled={generatingAI}
-                  className="h-9 px-3.5 rounded-xl border border-indigo-200 bg-indigo-50/70 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 text-xs font-semibold transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  title="Tự động phân tích bài đọc và tạo giải thích 4 bước bằng AI"
+                  className="h-9 px-3.5 rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 text-xs font-semibold transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  title="Tự động phân tích bài đọc và tạo giải thích 4 bước"
                 >
-                  {generatingAI ? <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" /> : <Sparkles className="w-3.5 h-3.5 text-indigo-600" />}
-                  <span className="hidden sm:inline">{generatingAI ? 'AI đang tạo...' : 'Tạo giải thích AI'}</span>
+                  {generatingAI ? <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-600" /> : <BookOpen className="w-3.5 h-3.5 text-zinc-600" />}
+                  <span className="hidden sm:inline">{generatingAI ? 'Đang tạo giải thích...' : 'Tự động tạo giải thích'}</span>
                 </button>
               )}
               <button
