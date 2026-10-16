@@ -28,8 +28,26 @@ const SKILL_ORDER = ['listening', 'reading', 'writing', 'speaking']
 
 const menuItemCls = 'w-full h-8 flex items-center gap-2 px-2.5 text-[13px] text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer'
 
-function ActionDropdown({ exam, skill, testNumber, m, hasDraft, historyInfo = {}, setHistoryModal, navigate, user, openAuthModal, location, onViewResult, onClearDraft }) {
-  const [open, setOpen] = useState(false)
+function ActionDropdown({
+  exam, skill, testNumber, m, hasDraft, historyInfo = {},
+  setHistoryModal, navigate, user, openAuthModal, location,
+  onViewResult, onClearDraft,
+  activeDropdownKey, setActiveDropdownKey,
+}) {
+  const [internalOpen, setInternalOpen] = useState(false)
+  const isControlled = activeDropdownKey !== undefined
+  const dropdownKey = `${testNumber}-${skill}`
+  const open = isControlled ? activeDropdownKey === dropdownKey : internalOpen
+
+  const setOpen = useCallback((val) => {
+    const next = typeof val === 'function' ? val(open) : val
+    if (isControlled) {
+      setActiveDropdownKey?.(next ? dropdownKey : null)
+    } else {
+      setInternalOpen(next)
+    }
+  }, [isControlled, open, dropdownKey, setActiveDropdownKey])
+
   const [confirmRestart, setConfirmRestart] = useState(false)
   const dropdownRef = useRef(null)
   const menuRef = useRef(null)
@@ -91,14 +109,29 @@ function ActionDropdown({ exam, skill, testNumber, m, hasDraft, historyInfo = {}
     navigate(`${m.path}/${exam?.id}`)
   }
 
+  const handleToggle = () => {
+    if (open) {
+      setOpen(false)
+    } else {
+      if (dropdownRef.current) {
+        const rect = dropdownRef.current.getBoundingClientRect()
+        setCoords({
+          top: Math.round(rect.bottom + 6),
+          left: Math.round(rect.left + rect.width / 2),
+        })
+      }
+      setOpen(true)
+    }
+  }
+
   useEffect(() => {
     if (!open) return
     const updatePosition = () => {
       if (dropdownRef.current) {
         const rect = dropdownRef.current.getBoundingClientRect()
         setCoords({
-          top: rect.bottom + 6,
-          left: rect.left + rect.width / 2,
+          top: Math.round(rect.bottom + 6),
+          left: Math.round(rect.left + rect.width / 2),
         })
       }
     }
@@ -125,7 +158,7 @@ function ActionDropdown({ exam, skill, testNumber, m, hasDraft, historyInfo = {}
       document.removeEventListener('click', handleClick)
       document.removeEventListener('keydown', handleKey)
     }
-  }, [open])
+  }, [open, setOpen])
 
   const pillBase = 'h-8 inline-flex items-center justify-center gap-1.5 text-[13px] font-medium leading-none transition-colors cursor-pointer select-none'
 
@@ -157,7 +190,7 @@ function ActionDropdown({ exam, skill, testNumber, m, hasDraft, historyInfo = {}
         </button>
         <button
           type="button"
-          onClick={() => setOpen(o => !o)}
+          onClick={handleToggle}
           aria-label="Tùy chọn khác"
           aria-haspopup="menu"
           aria-expanded={open}
@@ -172,7 +205,7 @@ function ActionDropdown({ exam, skill, testNumber, m, hasDraft, historyInfo = {}
           ref={menuRef}
           role="menu"
           style={{ top: coords.top, left: coords.left }}
-          className="fixed -translate-x-1/2 w-48 bg-white dark:bg-zinc-800 rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 p-1 z-[9999] text-left animate-in fade-in zoom-in-95 duration-100"
+          className="fixed -translate-x-1/2 w-48 bg-white dark:bg-zinc-800 rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 p-1 z-[9999] text-left"
           onClick={e => e.stopPropagation()}
         >
           {hasDraft && (
@@ -210,7 +243,7 @@ function ActionDropdown({ exam, skill, testNumber, m, hasDraft, historyInfo = {}
   )
 }
 
-function SkillCell({ exam, skill, testNumber, draftInfo = {}, historyInfo = {}, setHistoryModal, navigate, user, openAuthModal, location, onClearDraft }) {
+function SkillCell({ exam, skill, testNumber, draftInfo = {}, historyInfo = {}, setHistoryModal, navigate, user, openAuthModal, location, onClearDraft, activeDropdownKey, setActiveDropdownKey }) {
   const m = SKILL_META[skill]
   const hasDraft = draftInfo?.[`${testNumber}-${skill}`]?.hasDraft
   const examId = exam?.id
@@ -293,6 +326,8 @@ function SkillCell({ exam, skill, testNumber, draftInfo = {}, historyInfo = {}, 
         location={location}
         onClearDraft={onClearDraft}
         onViewResult={viewResult}
+        activeDropdownKey={activeDropdownKey}
+        setActiveDropdownKey={setActiveDropdownKey}
       />
     </div>
   )
@@ -312,6 +347,7 @@ export default function FullTestDetail() {
   const [fetchError, setFetchError] = useState(false)
   const [draftInfo, setDraftInfo] = useState({}) // { [testNumber-skill]: checkDraft result }
   const [historyModal, setHistoryModal] = useState(null) // { skill, skillLabel, attempts }
+  const [activeDropdownKey, setActiveDropdownKey] = useState(null)
 
   const handleClearDraft = useCallback((testNumber, skill) => {
     setDraftInfo(prev => ({
@@ -613,6 +649,8 @@ export default function FullTestDetail() {
                               openAuthModal={openAuthModal}
                               location={location}
                               onClearDraft={handleClearDraft}
+                              activeDropdownKey={activeDropdownKey}
+                              setActiveDropdownKey={setActiveDropdownKey}
                             />
                           </td>
                         ))}

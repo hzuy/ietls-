@@ -121,5 +121,39 @@ describe('FullTestDetail — ActionDropdown with "Làm tiếp" and "Làm lại"'
     expect(menu.className).toContain('fixed')
     expect(menu.className).not.toContain('bottom-[calc')
   })
+
+  it('only allows one dropdown to be open at a time across all tests', async () => {
+    vi.spyOn(draftService, 'checkDraft').mockReturnValue({ hasDraft: false })
+    vi.spyOn(historyService, 'getMyHistory').mockResolvedValue({
+      history: [
+        { examId: 101, bandScore: 6.5 },
+        { examId: 102, bandScore: 7.0 },
+      ],
+      writingAttemptsByExam: {},
+      speakingAttemptsByExam: {},
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/full-test/1?book=19']}>
+        <FullTestDetail />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getAllByText('IELTS Mock Test 19').length).toBeGreaterThan(0)
+    })
+
+    const dropdownToggles = await screen.findAllByRole('button', { name: 'Tùy chọn khác' })
+    expect(dropdownToggles.length).toBeGreaterThanOrEqual(2)
+
+    // Open first dropdown
+    fireEvent.click(dropdownToggles[0])
+    expect(screen.getAllByRole('menu').length).toBe(1)
+
+    // Open second dropdown -> first dropdown should automatically close!
+    fireEvent.click(dropdownToggles[1])
+    expect(screen.getAllByRole('menu').length).toBe(1)
+  })
 })
+
 
