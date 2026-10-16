@@ -39,8 +39,21 @@ app.use(cors({
 app.use(compression())
 app.use(express.json({ limit: '10mb' }))
 
-// Serve uploaded audio files
+// Serve uploaded files (audio, thumbnails, diagrams, covers)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
+
+// Development fallback: nếu file không có ở local disk (vd upload từ server VPS),
+// tự động chuyển tiếp (302 redirect) sang remote production server (hzuy.net)
+if (process.env.NODE_ENV !== 'production' || process.env.REMOTE_UPLOADS_URL) {
+  const remoteUploadsUrl = (process.env.REMOTE_UPLOADS_URL || 'https://hzuy.net/uploads').replace(/\/$/, '')
+  app.use('/uploads', (req, res, next) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next()
+    const cleanPath = req.path.replace(/^\/+/, '')
+    // Chặn path traversal an toàn
+    if (cleanPath.includes('..')) return next()
+    return res.redirect(302, `${remoteUploadsUrl}/${cleanPath}`)
+  })
+}
 
 app.use('/api/auth', authRoutes)
 app.use('/api/reading', readingRoutes)
@@ -55,7 +68,6 @@ app.use('/api/home',      homeRoutes)
 app.use('/api/user', userRoutes)
 app.use('/api/stats', statsRoutes)
 app.use('/api/chatbot', chatbotRoutes)
-app.use('/uploads/thumbnails', express.static(path.join(__dirname, 'uploads', 'thumbnails')))
 
 app.get('/', (req, res) => res.json({ message: 'IELTS App API đang chạy!' }))
 

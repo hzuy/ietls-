@@ -9,7 +9,7 @@ const { examSeriesSchema, updateBookNumberSchema } = require('../../validators/c
 const { imageUpload, uploadsDir } = require('../../lib/adminUploads')
 const { invalidate } = require('../../lib/swrCache')
 const { getFullTestsCached } = require('../../lib/publicContent')
-const { resizeUploadedCover } = require('../../lib/imageResize')
+const { uploadOptimizedCover } = require('../../services/storageService')
 const { getOrSet, invalidateExamCaches, TTL_CAMBRIDGE } = require('../../utils/cache')
 
 // ─── GET FULL TESTS (grouped by bookNumber + testNumber) ─────────────────────
@@ -169,7 +169,7 @@ router.post('/exam-series/:seriesId/covers/:bookNumber', authMiddleware, teacher
     if (!req.file) return res.status(400).json({ message: 'Không có file ảnh' })
     const seriesId = parseInt(req.params.seriesId)
     const bookNumber = parseInt(req.params.bookNumber)
-    const { url: coverImageUrl } = await resizeUploadedCover(req.file, { dir: path.join(uploadsDir, 'covers'), urlPrefix: '/uploads/covers' })
+    const { url: coverImageUrl } = await uploadOptimizedCover(req.file, { dir: path.join(uploadsDir, 'covers'), urlPrefix: '/uploads/covers', folder: 'covers' })
     await prisma.bookCover.upsert({
       where: { seriesId_bookNumber: { seriesId, bookNumber } },
       create: { seriesId, bookNumber, coverImageUrl },
