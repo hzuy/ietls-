@@ -27,7 +27,7 @@
 
 const prisma = require('../lib/prisma')
 const { Prisma } = require('@prisma/client')
-const { getGroqClient, getGroqModel } = require('../lib/groqClient')
+const { getGroqClient, getGroqModel, requestGeminiJson } = require('../lib/groqClient')
 const { cleanJsonRaw, repairTruncatedJson } = require('../services/json/jsonSanitizer')
 const { printDbBanner } = require('../lib/dbInfo')
 
@@ -324,10 +324,25 @@ async function callGroq(prompt, { maxRateLimitRetries = 6 } = {}) {
   return JSON.parse(cleaned)
 }
 
+async function callAi(prompt, { maxRateLimitRetries = 6 } = {}) {
+  const useGemini = process.env.GEMINI_API_KEY && (process.env.NODE_ENV !== 'test' || process.env.ENABLE_GEMINI_IN_TEST === 'true')
+  if (useGemini && typeof requestGeminiJson === 'function') {
+    try {
+      return await requestGeminiJson(prompt, {
+        model: process.env.GEMINI_MODEL || 'gemini-3.5-flash',
+        temperature: 0.3,
+      })
+    } catch (geminiErr) {
+      console.warn(`   … [AI] Gemini gặp sự cố (${geminiErr.status || geminiErr.message}), chuyển sang Groq dự phòng...`)
+    }
+  }
+  return await callGroq(prompt, { maxRateLimitRetries })
+}
+
 async function generateExplanation(q, family, ctx) {
   let previousError = null
   for (let attempt = 0; attempt < 2; attempt++) {
-    const raw = await callGroq(buildPrompt(q, family, ctx, previousError))
+    const raw = await callAi(buildPrompt(q, family, ctx, previousError))
     try {
       return enrichExplanation(raw, ctx, q.correctAnswer, family)
     } catch (err) {
@@ -494,6 +509,7 @@ module.exports = {
   buildContext,
   buildPrompt,
   callGroq,
+  callAi,
   generateExplanation,
   fetchQuestions,
   enrichExplanation,

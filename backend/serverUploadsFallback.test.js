@@ -1,8 +1,23 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll } from 'vitest'
 import request from 'supertest'
+import fs from 'fs'
+import path from 'path'
 import app from './server'
 
 describe('Server Uploads Middleware & Dev Fallback', () => {
+  beforeAll(() => {
+    const dir = path.join(__dirname, 'uploads', 'thumbnails')
+    fs.mkdirSync(dir, { recursive: true })
+    const sample = path.join(dir, '1786071827599-845810512.webp')
+    if (!fs.existsSync(sample)) {
+      fs.writeFileSync(sample, Buffer.from([
+        0x52, 0x49, 0x46, 0x46, 0x1a, 0x00, 0x00, 0x00,
+        0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38, 0x20,
+        0x0e, 0x00, 0x00, 0x00, 0xb0, 0x01, 0x00, 0x9d,
+        0x01, 0x2a, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00,
+      ]))
+    }
+  })
   it('serves existing local files directly', async () => {
     // 1786071827599-845810512.webp exists in backend/uploads/thumbnails/
     const res = await request(app).get('/uploads/thumbnails/1786071827599-845810512.webp')

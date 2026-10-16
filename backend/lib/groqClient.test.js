@@ -74,4 +74,37 @@ describe('requestGradingJson', () => {
     await expect(requestGradingJson('p')).rejects.toThrow('rate limit')
     expect(create).toHaveBeenCalledTimes(1)
   })
+
+  it('uses Gemini as primary when enabled and falls back to Groq if Gemini fails', async () => {
+    process.env.GEMINI_API_KEY = 'test_gemini_key'
+    process.env.ENABLE_GEMINI_IN_TEST = 'true'
+
+    const originalFetch = global.fetch
+    try {
+      // 1. Success case with Gemini
+      global.fetch = vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          candidates: [{ content: { parts: [{ text: '{"from": "gemini"}' }] } }],
+        }),
+      })
+
+      const geminiRes = await requestGradingJson('prompt test')
+      expect(geminiRes).toEqual({ from: 'gemini' })
+      expect(global.fetch).toHaveBeenCalled()
+      expect(create).not.toHaveBeenCalled()
+
+      // 2. Failure case with Gemini -> falls back to Groq
+      global.fetch = vi.fn().mockRejectedValueOnce(new Error('Gemini network error'))
+      create.mockResolvedValueOnce(reply('{"from": "groq_fallback"}'))
+
+      const fallbackRes = await requestGradingJson('prompt test')
+      expect(fallbackRes).toEqual({ from: 'groq_fallback' })
+      expect(create).toHaveBeenCalledTimes(1)
+    } finally {
+      global.fetch = originalFetch
+      delete process.env.ENABLE_GEMINI_IN_TEST
+    }
+  })
 })
+
