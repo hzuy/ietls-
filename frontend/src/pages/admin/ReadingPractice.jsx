@@ -279,6 +279,7 @@ export default function ReadingPractice() {
               <button
                 type="button"
                 onClick={() => setShowPreview(true)}
+                aria-label="Xem trước nội dung đề"
                 className="h-9 px-3.5 rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-900 text-xs font-semibold transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
               >
                 <Eye className="w-3.5 h-3.5 text-zinc-500" />

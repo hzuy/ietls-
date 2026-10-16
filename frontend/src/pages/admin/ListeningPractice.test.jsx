@@ -98,5 +98,26 @@ describe('ListeningPractice — double-click protection on delete', () => {
     // Đảm bảo không còn nút Xem Transcript trong preview modal
     expect(screen.queryByRole('button', { name: /Xem Transcript/i })).toBeNull()
   })
+
+  it('renders balanced 2-column editor layout with audio & question groups when opening form view', async () => {
+    render(<ListeningPractice />)
+
+    const addBtn = await screen.findByRole('button', { name: /\+ Thêm mới/i })
+    fireEvent.click(addBtn)
+
+    // Verify top action bar
+    expect(screen.getByRole('button', { name: 'Lưu bài' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Xem trước/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Hủy' })).toBeInTheDocument()
+
+    // Verify left column inputs
+    expect(screen.getByPlaceholderText(/VD: Listening — Section 1/i)).toBeInTheDocument()
+    expect(screen.getByText('File Audio bài nghe')).toBeInTheDocument()
+    expect(screen.getByText('Transcript (Lời thoại)')).toBeInTheDocument()
+
+    // Verify right column question groups
+    expect(screen.getByText('Nhóm câu hỏi')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /\+ Thêm nhóm/i })).toBeInTheDocument()
+  })
 })
 
