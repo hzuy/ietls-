@@ -25,7 +25,13 @@ export default function InlinePreviewPanel({
           {setShowExplanations && (
             <button
               type="button"
-              onClick={() => setShowExplanations(v => !v)}
+              onClick={() => {
+                setShowExplanations(v => {
+                  const next = !v
+                  if (next && setShowAnswers) setShowAnswers(true)
+                  return next
+                })
+              }}
               className={`text-xs px-2.5 py-1 rounded-lg font-medium transition cursor-pointer ${showExplanations ? 'bg-zinc-900 text-white' : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'}`}
             >
               {showExplanations ? 'Ẩn giải thích' : 'Hiện giải thích'}

@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { BookOpen } from 'lucide-react'
 import ReviewExplanation from '../exam/ReviewExplanation'
 import { PreviewTokenLine, buildTokenNumMap } from './PreviewTokenLine'
@@ -11,9 +10,6 @@ import { lineText } from '../../utils/noteLine'
 const BADGE_CLASS = 'bg-zinc-100 text-zinc-700 border-zinc-200'
 
 export default function AdminGroupPreview({ group, showAnswers, showExplanations = false }) {
-  const [localExpanded, setLocalExpanded] = useState(false)
-  const isExplanationOpen = showExplanations || localExpanded
-
   const qStart     = group.qNumberStart
   const qEnd       = group.qNumberEnd
   const maxChoices = group.maxChoices || 2
@@ -31,14 +27,12 @@ export default function AdminGroupPreview({ group, showAnswers, showExplanations
         <div className="flex items-center gap-2">
           <p className="font-bold text-zinc-900 mb-0">Questions {qStart}–{qEnd}</p>
           {hasExplanations && (
-            <button
-              type="button"
-              onClick={() => setLocalExpanded(v => !v)}
-              className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-full flex items-center gap-1 cursor-pointer transition shadow-2xs"
-              title="Bấm để xem trước / ẩn nội dung giải thích chi tiết"
+            <span
+              className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs"
+              title={`Đã có giải thích cho ${explanationCount} câu hỏi`}
             >
-              <span>✓</span> Đã có giải thích ({explanationCount} câu) — <span className="underline">{isExplanationOpen ? 'Ẩn' : 'Xem chi tiết'}</span>
-            </button>
+              <span>✓</span> Đã có giải thích ({explanationCount} câu)
+            </span>
           )}
         </div>
         <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${BADGE_CLASS}`}>
@@ -50,46 +44,53 @@ export default function AdminGroupPreview({ group, showAnswers, showExplanations
   )
 
   const ExplanationsSection = () => {
-    if (!hasExplanations) return null
+    if (!showExplanations || !hasExplanations) return null
+
+    const expList = questions.length > 0
+      ? questions.map((q, idx) => {
+          const qNum = q.number || (qStart + idx)
+          const exp = q.explanation || group.explanations?.[qNum]
+          return { qNum, correctAnswer: q.correctAnswer, exp, id: q.id || qNum || idx }
+        }).filter(item => Boolean(item.exp))
+      : Object.entries(group.explanations || {}).map(([numStr, exp]) => ({
+          qNum: Number(numStr) || numStr,
+          correctAnswer: null,
+          exp,
+          id: numStr
+        }))
+
+    if (expList.length === 0) return null
+
     return (
       <div className="mt-4 pt-4 border-t border-zinc-200">
-        <button
-          type="button"
-          onClick={() => setLocalExpanded(v => !v)}
-          className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100/70 text-emerald-900 text-xs font-semibold transition cursor-pointer"
-        >
-          <div className="flex items-center gap-2">
-            <BookOpen className="w-3.5 h-3.5 text-emerald-700" />
-            <span>Xem trước giải thích chi tiết ({explanationCount} câu hỏi)</span>
-          </div>
-          <span className="text-emerald-700 underline font-medium">{isExplanationOpen ? 'Thu gọn ▲' : 'Mở rộng ▼'}</span>
-        </button>
+        <div className="flex items-center gap-2 mb-3 px-1 text-emerald-800 font-semibold text-xs">
+          <BookOpen className="w-3.5 h-3.5 text-emerald-700" />
+          <span>Giải thích chi tiết ({expList.length} câu hỏi)</span>
+        </div>
 
-        {isExplanationOpen && (
-          <div className="mt-3 space-y-3 bg-zinc-50/80 rounded-xl p-3.5 border border-zinc-200">
-            {questions.map((q, idx) => {
-              const qNum = q.number || (qStart + idx)
-              let exp = q.explanation || group.explanations?.[qNum]
-              if (!exp) return null
-              if (typeof exp === 'string') {
-                try { exp = JSON.parse(exp) } catch {}
-              }
-              return (
-                <div key={q.id || qNum || idx} className="rounded-xl border border-zinc-200 bg-white p-3.5 shadow-2xs">
-                  <div className="flex items-center gap-2 mb-2 pb-2 border-b border-zinc-100">
-                    <span className="w-5 h-5 rounded-full bg-zinc-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
-                      {qNum}
-                    </span>
+        <div className="space-y-3 bg-zinc-50/80 rounded-xl p-3.5 border border-zinc-200">
+          {expList.map(({ qNum, correctAnswer, exp, id }) => {
+            let parsedExp = exp
+            if (typeof parsedExp === 'string') {
+              try { parsedExp = JSON.parse(parsedExp) } catch {}
+            }
+            return (
+              <div key={id} className="rounded-xl border border-zinc-200 bg-white p-3.5 shadow-2xs">
+                <div className="flex items-center gap-2 mb-2 pb-2 border-b border-zinc-100">
+                  <span className="w-5 h-5 rounded-full bg-zinc-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                    {qNum}
+                  </span>
+                  {correctAnswer && (
                     <span className="text-xs font-bold text-zinc-800">
-                      Đáp án đúng: <span className="text-emerald-700 font-semibold">{q.correctAnswer ?? '(chưa nhập)'}</span>
+                      Đáp án đúng: <span className="text-emerald-700 font-semibold">{correctAnswer}</span>
                     </span>
-                  </div>
-                  <ReviewExplanation explanation={exp} />
+                  )}
                 </div>
-              )
-            })}
-          </div>
-        )}
+                <ReviewExplanation explanation={parsedExp} />
+              </div>
+            )
+          })}
+        </div>
       </div>
     )
   }

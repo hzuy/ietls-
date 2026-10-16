@@ -67,7 +67,11 @@ function ReadingPracticePreviewModal({ form, showAnswers, setShowAnswers, showEx
               className={`text-xs px-3 py-1 rounded-full font-semibold transition cursor-pointer ${showAnswers ? 'bg-zinc-900 text-white' : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50'}`}>
               {showAnswers ? 'Ẩn đáp án' : 'Hiện đáp án'}
             </button>
-            <button type="button" onClick={() => setShowExplanations(v => !v)}
+            <button type="button" onClick={() => setShowExplanations(v => {
+              const next = !v
+              if (next) setShowAnswers(true)
+              return next
+            })}
               className={`text-xs px-3 py-1 rounded-full font-semibold transition cursor-pointer ${showExplanations ? 'bg-zinc-900 text-white' : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50'}`}>
               {showExplanations ? 'Ẩn giải thích' : 'Hiện giải thích'}
             </button>
