@@ -23,6 +23,7 @@ import { parseTranscript } from '../utils/transcriptParser'
 import { examExitPath } from '../utils/submittedExam'
 import { toImgSrc } from '../utils/media'
 import AttemptPicker from '../components/exam/AttemptPicker'
+import ReportIssueButton from '../components/common/ReportIssueButton'
 
 const noop = () => {}
 
@@ -544,6 +545,14 @@ export default function ExamReview({ skill = 'reading', practice = null }) {
           </div>
           <ScoreBadge value={band} />
           <div className="hidden md:block">{attemptSelect}</div>
+          <ReportIssueButton
+            examId={!practice ? (exam?.id || id) : null}
+            practiceExamId={practice ? (exam?.id || id) : null}
+            skill={skill}
+            sourceType="review"
+            location={`${exam?.title || 'Exam Review'} · ${partLabel} ${activePassage + 1} · Câu ${activeNumber || ''}`}
+            questionNumber={activeNumber}
+          />
         </div>
         {attemptSelect && <div className="md:hidden px-3 pb-2.5">{attemptSelect}</div>}
       </header>

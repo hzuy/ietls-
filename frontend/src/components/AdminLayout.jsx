@@ -24,6 +24,7 @@ import {
   LogOut,
   Menu,
   X,
+  Flag,
 } from 'lucide-react'
 
 const NAV_ALL = [
@@ -39,6 +40,7 @@ const NAV_ALL = [
   { to: '/admin/speaking-samples',   label: 'Speaking Samples',  icon: Mic,        roles: ADMIN_PAGE_ROLES['/admin/speaking-samples'] },
   { to: '/admin/attempts',           label: 'Lịch sử thi',       icon: History,    roles: ADMIN_PAGE_ROLES['/admin/attempts'] },
   { to: '/admin/audit-logs',         label: 'Nhật ký hoạt động', icon: ScrollText, roles: ADMIN_PAGE_ROLES['/admin/audit-logs'] },
+  { to: '/admin/reports',            label: 'Báo lỗi đề thi',    icon: Flag,       roles: ADMIN_PAGE_ROLES['/admin/reports'] },
   { to: '/admin/trash',              label: 'Đã xóa',             icon: Trash2,     roles: ADMIN_PAGE_ROLES['/admin/trash'], trash: true },
   // Both
   { to: '/admin/profile',   label: 'Cài đặt',           icon: Settings,    roles: ADMIN_PAGE_ROLES['/admin/profile'] },

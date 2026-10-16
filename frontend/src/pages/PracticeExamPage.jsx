@@ -29,6 +29,7 @@ import { resolveImg } from '../utils/media'
 import { useTextHighlight } from '../hooks/useTextHighlight'
 import HighlightLayer from '../components/exam/HighlightLayer'
 import HighlightPopovers from '../components/exam/HighlightPopovers'
+import ReportIssueButton from '../components/common/ReportIssueButton'
 
 const PRACTICE_TIME = 20 * 60
 const LISTENING_TIME = 10 * 60
@@ -268,6 +269,12 @@ function ReadingPracticeExam({ exam, onBack }) {
             <Clock className="w-3.5 h-3.5" />
             {fmt(timeLeft)}
           </div>
+          <ReportIssueButton
+            practiceExamId={exam?.id || id}
+            skill="reading"
+            sourceType="practice"
+            location={`${exam?.title || 'Practice Reading'}`}
+          />
         </div>
       </header>
 
@@ -589,6 +596,12 @@ function ListeningPracticeExam({ exam, onBack }) {
             <Clock className="w-3.5 h-3.5" />
             {fmt(timeLeft)}
           </div>
+          <ReportIssueButton
+            practiceExamId={exam?.id || id}
+            skill="listening"
+            sourceType="practice"
+            location={`${exam?.title || 'Practice Listening'}`}
+          />
         </div>
       </header>
 

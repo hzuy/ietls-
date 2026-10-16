@@ -15,6 +15,7 @@ export const ADMIN_PAGE_ROLES = {
   '/admin/speaking-samples': ['teacher'],
   '/admin/attempts': ['admin', 'teacher'],
   '/admin/audit-logs': ['admin'],
+  '/admin/reports': ['admin', 'teacher'],
   '/admin/trash': ['admin', 'teacher'],
   '/admin/profile': ['admin', 'teacher'],
 }

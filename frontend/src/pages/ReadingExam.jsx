@@ -32,6 +32,7 @@ import ExamErrorState from '../components/exam/ExamErrorState'
 import ExitConfirmModal from '../components/common/ExitConfirmModal'
 import ExamActionDialog from '../components/common/ExamActionDialog'
 import { markSubmitted, clearSubmitted, peekSubmittedExit, examExitPath } from '../utils/submittedExam'
+import ReportIssueButton from '../components/common/ReportIssueButton'
 
 
 const DEFAULT_READING_TIME = 60 * 60
@@ -527,6 +528,12 @@ export default function ReadingExam() {
                 <Clock className="w-3.5 h-3.5" />
                 {fmt(timeLeft)}
               </div>
+              <ReportIssueButton
+                examId={exam?.id || id}
+                skill="reading"
+                sourceType="exam"
+                location={`${exam?.title || 'Reading Exam'} · Passage ${activePassage + 1}`}
+              />
             </>
           )}
         </div>

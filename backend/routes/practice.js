@@ -9,6 +9,7 @@ const { invalidate } = require('../lib/swrCache')
 const { getQuestionCount, getPracticeListCached } = require('../lib/publicContent')
 const { createPracticeSchema, updatePracticeSchema, practiceAttemptSchema } = require('../validators/contentValidator')
 const { uploadAudio, uploadOptimizedCover } = require('../services/storageService')
+const { generateForPracticeExam } = require('../services/explanationGeneratorService')
 const { logAuditEvent } = require('../lib/auditLog')
 const { AUDIT_ACTIONS } = require('../lib/auditActions')
 
@@ -440,6 +441,19 @@ router.delete('/admin/:skill/:id', authMiddleware, teacherStrict, async (req, re
     })
     res.json({ message: 'Đã xóa' })
   } catch (err) { res.status(500).json({ message: 'Lỗi xóa', error: err.message }) }
+})
+
+// ─── ADMIN: generate AI explanations with conflict detection ──────────────────
+router.post('/admin/:skill/:id/generate-explanations', authMiddleware, teacherStrict, async (req, res) => {
+  const { id } = req.params
+  const { force = false, resolveChoices = {} } = req.body || {}
+  try {
+    const result = await generateForPracticeExam(parseInt(id, 10), { force, resolveChoices })
+    res.json(result)
+  } catch (err) {
+    console.error('[GENERATE PRACTICE EXPLANATIONS ERROR]', err)
+    res.status(500).json({ message: err.message || 'Lỗi khi tạo giải thích bằng AI' })
+  }
 })
 
 module.exports = router

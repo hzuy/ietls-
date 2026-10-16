@@ -6,7 +6,7 @@ import { useCollapsibleGroups } from '../../hooks/useCollapsibleGroups'
 import { validateAudioFile } from '../../utils/fileValidation'
 import { ConfirmDeleteModal, DraftBanner, DraftSavedHint, AdminListHeader, ThumbnailPicker } from '../../components/admin/contentPageUI'
 import { useToast } from '../../context/ToastContext'
-import { Volume2, Eye, Sparkles, Upload } from 'lucide-react'
+import { Volume2, Eye, Sparkles, Upload, Loader2 } from 'lucide-react'
 import api from '../../utils/axios'
 import PracticeGroupCard from '../../components/admin/PracticeGroupCard'
 import {
@@ -23,6 +23,7 @@ import AdminGroupPreview from '../../components/practice/AdminGroupPreview'
 import ImageWithFallback from '../../components/common/ImageWithFallback'
 import Select from '../../components/admin/Select'
 import { AdminTableSkeleton } from '../../components/skeletons'
+import ExplanationConflictModal from '../../components/admin/ExplanationConflictModal'
 
 // ─── PREVIEW MODAL ────────────────────────────────────────────────────────────
 function ListeningPracticePreviewModal({ form, showAnswers, setShowAnswers, onClose }) {
@@ -104,6 +105,9 @@ export default function ListeningPractice() {
   const [addGroupType, setAddGroupType] = useState(LISTENING_GROUP_TYPES[0].value)
   const [showPreview, setShowPreview] = useState(false)
   const [showAnswers, setShowAnswers] = useState(false)
+  const [generatingAI, setGeneratingAI] = useState(false)
+  const [aiConflicts, setAiConflicts] = useState([])
+  const [conflictModalOpen, setConflictModalOpen] = useState(false)
   // BUG-13: Track unsaved changes (derive-snapshot: formSig(form) vs pristineRef)
   const [isDirty, setIsDirty] = useState(false)
   const pristineRef = useRef('')
@@ -313,6 +317,32 @@ export default function ListeningPractice() {
     finally { setDeleting(false) }
   }
 
+  const handleGenerateAI = async (resolveChoices = {}) => {
+    if (!editing?.id) {
+      showToast('Vui lòng lưu bài thi trước khi tạo giải thích bằng AI', 'info')
+      return
+    }
+    setGeneratingAI(true)
+    try {
+      const res = await api.post(`/practice/admin/listening/${editing.id}/generate-explanations`, {
+        force: true,
+        resolveChoices,
+      })
+      if (res.data?.hasConflicts) {
+        setAiConflicts(res.data.conflicts || [])
+        setConflictModalOpen(true)
+      } else {
+        showToast(res.data?.message || 'Đã tạo giải thích 4 bước thành công!', 'success')
+        setConflictModalOpen(false)
+        queryClient.invalidateQueries({ queryKey: ['admin', 'practice'] })
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Không thể tạo giải thích bằng AI', 'error')
+    } finally {
+      setGeneratingAI(false)
+    }
+  }
+
   // ── FORM VIEW ────────────────────────────────────────────────────────────────
   if (view === 'form') {
     return (
@@ -343,6 +373,18 @@ export default function ListeningPractice() {
             </div>
 
             <div className="flex items-center gap-2">
+              {editing && (
+                <button
+                  type="button"
+                  onClick={() => handleGenerateAI()}
+                  disabled={generatingAI}
+                  className="h-9 px-3.5 rounded-xl border border-indigo-200 bg-indigo-50/70 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 text-xs font-semibold transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  title="Tự động phân tích transcript và tạo giải thích 4 bước bằng AI"
+                >
+                  {generatingAI ? <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" /> : <Sparkles className="w-3.5 h-3.5 text-indigo-600" />}
+                  <span className="hidden sm:inline">{generatingAI ? 'AI đang tạo...' : 'Tạo giải thích AI'}</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setShowPreview(true)}
@@ -705,6 +747,14 @@ export default function ListeningPractice() {
         onCancel={() => setDelConfirm(null)}
         onConfirm={() => handleDelete(delConfirm)}
         loading={deleting}
+      />
+
+      <ExplanationConflictModal
+        isOpen={conflictModalOpen}
+        onClose={() => setConflictModalOpen(false)}
+        conflicts={aiConflicts}
+        isSubmitting={generatingAI}
+        onConfirmResolve={(choices) => handleGenerateAI(choices)}
       />
     </>
   )

@@ -33,6 +33,7 @@ import ExitConfirmModal from '../components/common/ExitConfirmModal'
 import ExamActionDialog from '../components/common/ExamActionDialog'
 import { markSubmitted, clearSubmitted, peekSubmittedExit, examExitPath } from '../utils/submittedExam'
 import ListeningTranscript from '../components/exam/ListeningTranscript'
+import ReportIssueButton from '../components/common/ReportIssueButton'
 
 
 const DEFAULT_LISTENING_TIME = 40 * 60
@@ -477,6 +478,12 @@ export default function ListeningExam() {
                 <Clock className="w-3.5 h-3.5" />
                 {fmt(timeLeft)}
               </div>
+              <ReportIssueButton
+                examId={exam?.id || id}
+                skill="listening"
+                sourceType="exam"
+                location={`${exam?.title || 'Listening Exam'} · Section ${activeSection + 1}`}
+              />
             </>
           )}
         </div>

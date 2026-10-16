@@ -18,6 +18,7 @@ const homeRoutes = require('./routes/home')
 const userRoutes = require('./routes/user')
 const statsRoutes = require('./routes/stats')
 const { router: chatbotRoutes } = require('./routes/chatbot')
+const reportsRoutes = require('./routes/reports')
 
 const app = express()
 app.disable('x-powered-by')
@@ -68,6 +69,7 @@ app.use('/api/home',      homeRoutes)
 app.use('/api/user', userRoutes)
 app.use('/api/stats', statsRoutes)
 app.use('/api/chatbot', chatbotRoutes)
+app.use('/api/reports', reportsRoutes)
 
 app.get('/', (req, res) => res.json({ message: 'IELTS App API đang chạy!' }))
 

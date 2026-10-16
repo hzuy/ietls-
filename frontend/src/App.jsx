@@ -57,6 +57,7 @@ const ReadingPractice   = lazy(() => import('./pages/admin/ReadingPractice'))
 const ListeningPractice = lazy(() => import('./pages/admin/ListeningPractice'))
 const SampleManager     = lazy(() => import('./pages/admin/SampleManager'))
 const Trash             = lazy(() => import('./pages/admin/Trash'))
+const ErrorReports      = lazy(() => import('./pages/admin/ErrorReports'))
 
 // Bọc nội dung route bằng key để animation "page-transition-in" (fade + slide nhẹ)
 // restart mỗi lần chuyển route — tránh nội dung xuất hiện nhấp nháy nền trắng.
@@ -204,6 +205,7 @@ export default function App() {
                     <Route path="exams/*"           element={<AdminPage path="/admin/exams"><Admin /></AdminPage>} />
                     <Route path="attempts"          element={<AdminPage path="/admin/attempts"><Attempts /></AdminPage>} />
                     <Route path="audit-logs"        element={<AdminPage path="/admin/audit-logs"><AuditLogs /></AdminPage>} />
+                    <Route path="reports"           element={<AdminPage path="/admin/reports"><ErrorReports /></AdminPage>} />
                     <Route path="analytics"         element={<Navigate to="/admin" replace />} />
                     <Route path="accounts"          element={<AdminPage path="/admin/accounts"><Accounts /></AdminPage>} />
                     <Route path="users"             element={<AdminPage path="/admin/users"><Users /></AdminPage>} />

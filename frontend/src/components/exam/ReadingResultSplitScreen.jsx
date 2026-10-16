@@ -4,6 +4,7 @@ import ResultPassagePanel from './ResultPassagePanel'
 import ReviewExplanation from './ReviewExplanation'
 import PassagePills from '../PassagePills'
 import { formatDisplayAnswer } from '../SkillResult'
+import ReportIssueButton from '../common/ReportIssueButton'
 
 function QNum({ num, status }) {
   const c = status === 'correct' ? { bg: 'var(--success)', text: '#fff' } :
@@ -221,16 +222,25 @@ export default function ReadingResultSplitScreen({ data, onRetry, isPractice, on
           </button>
         )}
         
-        <div className="flex items-center gap-4">
-           <div className="flex flex-col items-end">
+        <div className="flex items-center gap-3">
+           <div className="flex flex-col items-end mr-1">
              <span className="text-[10px] uppercase font-bold text-zinc-400">Độ chính xác</span>
              <span className="text-sm font-bold text-zinc-900">{data?.totalQuestions ? Math.round((data.correct / data.totalQuestions) * 100) : 0}%</span>
            </div>
+
+           <ReportIssueButton
+             examId={!isPractice ? data?.examId : null}
+             practiceExamId={isPractice ? data?.examId : null}
+             skill="reading"
+             sourceType="result"
+             location={`${data?.examTitle || 'Reading Result'} · Passage ${activePassage + 1}`}
+           />
            
            {onClose && (
              <button
                 onClick={onClose}
-                className="w-8 h-8 rounded-full border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 flex items-center justify-center transition cursor-pointer ml-2"
+                className="w-8 h-8 rounded-full border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 flex items-center justify-center transition cursor-pointer"
+                title="Đóng"
               >
                 <X className="w-4 h-4" />
              </button>

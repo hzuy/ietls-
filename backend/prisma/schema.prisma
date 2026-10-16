@@ -32,6 +32,7 @@ model User {
   auditLogs              AuditLog[]
   emailVerificationCodes EmailVerificationCode[]
   practiceAttempts       PracticeAttempt[]
+  errorReports           ErrorReport[]
 
   @@index([role])
   @@index([createdAt])
@@ -534,4 +535,28 @@ model PracticeAttempt {
   practiceExam PracticeExam @relation(fields: [practiceExamId], references: [id], onDelete: Cascade)
 
   @@index([userId, practiceExamId])
+}
+
+model ErrorReport {
+  id             Int      @id @default(autoincrement())
+  userId         Int?
+  examId         Int?
+  practiceExamId Int?
+  skill          String   // reading | listening | writing | speaking
+  sourceType     String   // exam | practice | review
+  location       String?  // Text vị trí (vd: Reading Test 1 · Passage 1 · Câu 3)
+  questionNumber Int?
+  issueType      String   // content_wrong | ui_bug | lost_work | slow_hang | other
+  description    String
+  imageUrl       String?
+  status         String   @default("pending") // pending | resolved | dismissed
+  adminNote      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([skill])
 }
