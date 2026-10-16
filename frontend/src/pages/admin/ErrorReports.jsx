@@ -17,7 +17,7 @@ import api from '../../utils/axios'
 import { useToast } from '../../context/ToastContext'
 
 const ISSUE_LABELS = {
-  content_wrong: { label: 'Đề / đáp án sai', color: 'bg-red-50 text-red-700 border-red-200' },
+  content_wrong: { label: 'Đáp án sai', color: 'bg-red-50 text-red-700 border-red-200' },
   ui_bug: { label: 'Giao diện', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
   lost_work: { label: 'Mất bài làm', color: 'bg-amber-50 text-amber-700 border-amber-200' },
   slow_hang: { label: 'Tải chậm / Treo', color: 'bg-orange-50 text-orange-700 border-orange-200' },

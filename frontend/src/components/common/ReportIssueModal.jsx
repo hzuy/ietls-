@@ -5,7 +5,7 @@ import api from '../../utils/axios'
 import { useToast } from '../../context/ToastContext'
 
 const ISSUE_TYPES = [
-  { id: 'content_wrong', label: 'Đề / đáp án sai' },
+  { id: 'content_wrong', label: 'Đáp án sai' },
   { id: 'ui_bug', label: 'Giao diện' },
   { id: 'lost_work', label: 'Mất bài làm' },
   { id: 'slow_hang', label: 'Tải chậm / Treo' },
@@ -181,7 +181,7 @@ export default function ReportIssueModal({
             <label className="block text-xs font-semibold text-zinc-700 uppercase tracking-wider mb-2.5">
               Lỗi nằm ở đâu?
             </label>
-            <div className="flex flex-nowrap items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               {ISSUE_TYPES.map((type) => {
                 const isActive = issueType === type.id
                 return (

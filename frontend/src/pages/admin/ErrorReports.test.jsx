@@ -46,7 +46,7 @@ describe('ErrorReports Admin Page', () => {
     await waitFor(() => {
       expect(screen.getByText('Phản hồi & Báo lỗi từ học viên')).toBeInTheDocument()
       expect(screen.getByText('Đáp án A bị sai, bài nói B')).toBeInTheDocument()
-      expect(screen.getByText(/Đề \/ đáp án sai/i)).toBeInTheDocument()
+      expect(screen.getByText('Đáp án sai')).toBeInTheDocument()
       expect(screen.getByText(/Nguyễn Văn A/i)).toBeInTheDocument()
     })
   })
