@@ -155,7 +155,7 @@ export default function ReportIssueModal({
       role="dialog"
       aria-modal="true"
     >
-      <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl relative border border-zinc-100 flex flex-col max-h-[90vh] overflow-y-auto my-auto">
+      <div className="bg-white rounded-3xl max-w-[540px] w-full p-6 sm:p-7 shadow-2xl relative border border-zinc-100 flex flex-col max-h-[90vh] overflow-y-auto my-auto">
         {/* Close button */}
         <button
           type="button"
@@ -181,7 +181,7 @@ export default function ReportIssueModal({
             <label className="block text-xs font-semibold text-zinc-700 uppercase tracking-wider mb-2.5">
               Lỗi nằm ở đâu?
             </label>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-nowrap items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
               {ISSUE_TYPES.map((type) => {
                 const isActive = issueType === type.id
                 return (
@@ -189,7 +189,7 @@ export default function ReportIssueModal({
                     key={type.id}
                     type="button"
                     onClick={() => setIssueType(type.id)}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition cursor-pointer ${
+                    className={`px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-medium transition cursor-pointer whitespace-nowrap shrink-0 ${
                       isActive
                         ? 'bg-blue-50 text-blue-700 border border-blue-400 shadow-xs'
                         : 'bg-zinc-50 text-zinc-600 border border-zinc-200 hover:bg-zinc-100'
