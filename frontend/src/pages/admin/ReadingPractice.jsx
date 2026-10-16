@@ -23,6 +23,8 @@ import Select from '../../components/admin/Select'
 import { AdminTableSkeleton } from '../../components/skeletons'
 import api from '../../utils/axios'
 import ExplanationConflictModal from '../../components/admin/ExplanationConflictModal'
+import { showAlert } from '../../utils/alertUtils'
+import { validatePracticeReading, formatValidationAlert } from '../../utils/questionValidation'
 
 // ─── PREVIEW MODAL ────────────────────────────────────────────────────────────
 function ReadingPracticePreviewModal({ form, showAnswers, setShowAnswers, showExplanations, setShowExplanations, onClose }) {
@@ -186,9 +188,11 @@ export default function ReadingPractice() {
   }
 
   const handleSave = async () => {
-    if (!form.title.trim()) { showToast('Vui lòng nhập tên bài', 'error'); return }
-    if (form.questionGroups.length === 0) {
-      showToast('Bài thi phải có ít nhất một nhóm câu hỏi', 'error')
+    const val = validatePracticeReading(form)
+    if (!val.isValid) {
+      const alertMsg = formatValidationAlert('Không thể lưu bài Reading Practice', val.errors)
+      showAlert(alertMsg, 'error')
+      showToast(val.errors[0] || 'Vui lòng điền đầy đủ thông tin đề bài và đáp án đúng', 'error')
       return
     }
 
@@ -259,6 +263,13 @@ export default function ReadingPractice() {
   const handleGenerateAI = async (resolveChoices = {}) => {
     if (!editing?.id) {
       showToast('Vui lòng lưu bài thi trước khi tạo giải thích bằng AI', 'info')
+      return
+    }
+    const val = validatePracticeReading(form)
+    if (!val.isValid) {
+      const alertMsg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
+      showAlert(alertMsg, 'error')
+      showToast(val.errors[0] || 'Vui lòng điền đầy đủ thông tin đề bài và đáp án đúng', 'error')
       return
     }
     setGeneratingAI(true)

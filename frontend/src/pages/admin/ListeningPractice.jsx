@@ -24,6 +24,8 @@ import ImageWithFallback from '../../components/common/ImageWithFallback'
 import Select from '../../components/admin/Select'
 import { AdminTableSkeleton } from '../../components/skeletons'
 import ExplanationConflictModal from '../../components/admin/ExplanationConflictModal'
+import { showAlert } from '../../utils/alertUtils'
+import { validatePracticeListening, formatValidationAlert } from '../../utils/questionValidation'
 
 // ─── PREVIEW MODAL ────────────────────────────────────────────────────────────
 function ListeningPracticePreviewModal({ form, showAnswers, setShowAnswers, showExplanations, setShowExplanations, onClose }) {
@@ -329,14 +331,12 @@ export default function ListeningPractice() {
   }
 
   const handleSave = async () => {
-    if (!form.title.trim()) { showToast('Vui lòng nhập tên bài', 'error'); return }
-    if (form.questionGroups.length === 0) {
-      showToast('Bài thi phải có ít nhất một nhóm câu hỏi', 'error')
+    const val = validatePracticeListening(form, { isForAI: false })
+    if (!val.isValid) {
+      const alertMsg = formatValidationAlert('Không thể lưu bài Listening Practice', val.errors)
+      showAlert(alertMsg, 'error')
+      showToast(val.errors[0] || 'Vui lòng điền đầy đủ thông tin bài nghe và đáp án đúng', 'error')
       return
-    }
-    // Audio "bắt buộc" mềm — cho lưu nháp ý tưởng, nhưng cảnh báo rõ hậu quả.
-    if (!form.audioUrl && !form.audioFile) {
-      if (!window.confirm('Bài Listening chưa có file audio. Học viên sẽ không nghe được và không làm được bài. Vẫn lưu?')) return
     }
 
     setSaving(true)
@@ -400,6 +400,13 @@ export default function ListeningPractice() {
   const handleGenerateAI = async (resolveChoices = {}) => {
     if (!editing?.id) {
       showToast('Vui lòng lưu bài thi trước khi tạo giải thích bằng AI', 'info')
+      return
+    }
+    const val = validatePracticeListening(form, { isForAI: true })
+    if (!val.isValid) {
+      const alertMsg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
+      showAlert(alertMsg, 'error')
+      showToast(val.errors[0] || 'Vui lòng điền đầy đủ thông tin bài nghe và đáp án đúng', 'error')
       return
     }
     setGeneratingAI(true)

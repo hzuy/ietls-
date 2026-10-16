@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { queryClient } from '../../lib/queryClient'
 import api from '../../utils/axios'
 import { showAlert } from '../../utils/alertUtils'
+import { validateExamReading, formatValidationAlert } from '../../utils/questionValidation'
 import { notifyTrashChanged } from '../../services/adminService'
 import {
   READING_GROUP_TYPES,
@@ -348,6 +349,14 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
 
   const handleGenerateAI = async (resolveChoices = {}) => {
     if (!editingId) return
+    const val = validateExamReading(form)
+    if (!val.isValid) {
+      const msg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
+      setError(msg)
+      showAlert(msg, 'error')
+      showToast(val.errors[0] || 'Vui lòng điền đầy đủ thông tin đề bài và đáp án đúng')
+      return
+    }
     setGeneratingAI(true)
     try {
       const res = await api.post(`/admin/exams/${editingId}/generate-explanations`, {
@@ -535,21 +544,9 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     setError('')
 
     // Client-side guardrails before hitting the API
-    const problems = []
-    if (!form.title.trim()) problems.push('Chưa nhập tên đề')
-    form.passages.forEach(p => {
-      if (!p.title?.trim() || !(p.body || '').trim()) {
-        problems.push(`Passage ${p.number}: chưa có tiêu đề hoặc nội dung bài đọc`)
-      }
-      (p.questionGroups || []).forEach(g => {
-        if (getGroupSlots(g) === 0) {
-          const label = READING_GROUP_TYPES.find(t => t.value === g.type)?.label || g.type
-          problems.push(`Passage ${p.number}: nhóm "${label}" chưa có câu hỏi nào`)
-        }
-      })
-    })
-    if (problems.length) {
-      const msg = 'Không thể lưu đề:\n• ' + problems.join('\n• ')
+    const val = validateExamReading(form)
+    if (!val.isValid) {
+      const msg = 'Không thể lưu đề:\n• ' + val.errors.join('\n• ')
       setError(msg)
       showAlert(msg, 'error')
       formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })

@@ -1,6 +1,3 @@
-import { useState } from 'react'
-import { BookOpen } from 'lucide-react'
-import ReviewExplanation from '../../exam/ReviewExplanation'
 import { READING_GROUP_TYPES, labelCls, inputCls, getQuestionTypeTheme } from '../adminConstants'
 import TrueFalseEditor from '../../practice/TrueFalseEditor'
 import SummaryCompletionEditor from '../../practice/SummaryCompletionEditor'
@@ -11,7 +8,6 @@ import MatchingEditor from './MatchingEditor'
 import DiagramLabelEditor from '../../practice/DiagramLabelEditor'
 
 export default function ReadingGroupEditor({ group = {}, onChange, onRemove, onMoveUp, onMoveDown, isFirst, isLast }) {
-  const [showExplanations, setShowExplanations] = useState(false)
   const groupType = group?.type || 'short_answer'
   const typeLabel = READING_GROUP_TYPES.find(t => t.value === groupType)?.label || groupType
   const theme = getQuestionTypeTheme(groupType)
@@ -30,15 +26,12 @@ export default function ReadingGroupEditor({ group = {}, onChange, onRemove, onM
         </span>
         <span className="text-xs text-zinc-500 font-semibold">Câu {group.qNumberStart}–{group.qNumberEnd}</span>
         {hasExplanations && (
-          <button
-            type="button"
-            onClick={() => setShowExplanations(v => !v)}
-            aria-expanded={showExplanations}
-            className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-full flex items-center gap-1 cursor-pointer transition shadow-2xs"
-            title="Bấm để xem/ẩn chi tiết giải thích cho nhóm câu hỏi này"
+          <span
+            className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs"
+            title="Nhóm câu hỏi này đã có lời giải thích chi tiết"
           >
-            <span>✓</span> Đã có giải thích ({explanationCount} câu) — <span className="underline">{showExplanations ? 'Ẩn' : 'Xem chi tiết'}</span>
-          </button>
+            <span>✓</span> Đã có giải thích ({explanationCount} câu)
+          </span>
         )}
         <div className="flex-1" />
         <div className="flex items-center gap-2">
@@ -56,52 +49,6 @@ export default function ReadingGroupEditor({ group = {}, onChange, onRemove, onM
       </div>
 
       <div className="p-4 space-y-3">
-        {showExplanations && hasExplanations && (
-          <div className="rounded-xl border border-emerald-300 bg-emerald-50/50 p-4 space-y-3">
-            <div className="flex items-center justify-between border-b border-emerald-200/80 pb-2">
-              <span className="text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
-                <BookOpen className="w-3.5 h-3.5 text-emerald-700" />
-                Giải thích chi tiết {explanationCount} câu hỏi trong nhóm
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowExplanations(false)}
-                className="text-xs text-zinc-500 hover:text-zinc-800 cursor-pointer font-medium"
-              >
-                ✕ Đóng
-              </button>
-            </div>
-            <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
-              {group.explanations
-                ? Object.entries(group.explanations)
-                    .sort(([a], [b]) => Number(a) - Number(b))
-                    .map(([qNum, expl]) => (
-                      <div key={qNum} className="rounded-xl border border-zinc-200 bg-white p-3.5 shadow-2xs">
-                        <div className="text-xs font-bold text-zinc-900 mb-2 flex items-center gap-2">
-                          <span className="w-5 h-5 rounded-full bg-zinc-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
-                            {qNum}
-                          </span>
-                          <span>Câu hỏi {qNum}</span>
-                        </div>
-                        <ReviewExplanation explanation={expl} />
-                      </div>
-                    ))
-                : groupQuestions
-                    .filter(q => q.explanation)
-                    .map((q, idx) => (
-                      <div key={q.id || idx} className="rounded-xl border border-zinc-200 bg-white p-3.5 shadow-2xs">
-                        <div className="text-xs font-bold text-zinc-900 mb-2 flex items-center gap-2">
-                          <span className="w-5 h-5 rounded-full bg-zinc-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
-                            {q.number || (group.qNumberStart + idx)}
-                          </span>
-                          <span>Câu hỏi {q.number || (group.qNumberStart + idx)}</span>
-                        </div>
-                        <ReviewExplanation explanation={q.explanation} />
-                      </div>
-                    ))}
-            </div>
-          </div>
-        )}
 
         <div>
           <label className={labelCls}>Instruction (hiển thị cho học sinh)</label>

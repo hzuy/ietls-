@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { queryClient } from '../../lib/queryClient'
 import api from '../../utils/axios'
 import { showAlert } from '../../utils/alertUtils'
+import { validateExamListening, formatValidationAlert } from '../../utils/questionValidation'
 import { notifyTrashChanged } from '../../services/adminService'
 import { validateAudioFile } from '../../utils/fileValidation'
 import {
@@ -89,7 +90,6 @@ function ListeningFormPreview({ form, showAnswers, showExplanations }) {
 // ─── GROUP EDITOR ─────────────────────────────────────────────────────────────
 
 function GroupEditor({ group = {}, onChange, onRemove }) {
-  const [showExplanations, setShowExplanations] = useState(false)
   const groupType = group?.type || 'fill_blank'
   const typeLabel = GROUP_TYPES.find(t => t.value === groupType)?.label || groupType
   const theme = getQuestionTypeTheme(groupType)
@@ -111,15 +111,12 @@ function GroupEditor({ group = {}, onChange, onRemove }) {
         </span>
         <span className="text-[10px] text-zinc-400">tự động đánh số</span>
         {hasExplanations && (
-          <button
-            type="button"
-            onClick={() => setShowExplanations(v => !v)}
-            aria-expanded={showExplanations}
-            className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-full flex items-center gap-1 cursor-pointer transition shadow-2xs"
-            title="Bấm để xem/ẩn chi tiết giải thích cho nhóm câu hỏi này"
+          <span
+            className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs"
+            title="Nhóm câu hỏi này đã có lời giải thích chi tiết"
           >
-            <span>✓</span> Đã có giải thích ({explanationCount} câu) — <span className="underline">{showExplanations ? 'Ẩn' : 'Xem chi tiết'}</span>
-          </button>
+            <span>✓</span> Đã có giải thích ({explanationCount} câu)
+          </span>
         )}
         <div className="flex-1" />
         <div className="flex items-center gap-2">
@@ -131,48 +128,6 @@ function GroupEditor({ group = {}, onChange, onRemove }) {
       </div>
 
       <div className="p-4 space-y-3">
-        {showExplanations && hasExplanations && (
-          <div className="rounded-xl border border-emerald-300 bg-emerald-50/50 p-4 space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-emerald-200">
-              <div className="flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-emerald-800" />
-                <h4 className="text-xs font-bold text-emerald-950 uppercase tracking-wide">
-                  Xem trước giải thích chi tiết — Nhóm câu {group.qNumberStart}–{group.qNumberEnd}
-                </h4>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowExplanations(false)}
-                className="text-[11px] font-semibold text-emerald-800 hover:text-emerald-950 underline cursor-pointer"
-              >
-                Thu gọn
-              </button>
-            </div>
-            <div className="space-y-3">
-              {groupQuestions.map((q, idx) => {
-                const qNum = q.orderNum || (group.qNumberStart + idx)
-                let exp = q.explanation || group.explanations?.[qNum]
-                if (!exp) return null
-                if (typeof exp === 'string') {
-                  try { exp = JSON.parse(exp) } catch {}
-                }
-                return (
-                  <div key={q.id || qNum || idx} className="rounded-xl border border-emerald-200 bg-white p-3.5 shadow-2xs">
-                    <div className="flex items-center gap-2 mb-2 pb-2 border-b border-zinc-100">
-                      <span className="w-5 h-5 rounded-full bg-zinc-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
-                        {qNum}
-                      </span>
-                      <span className="text-xs font-bold text-zinc-800">
-                        Đáp án đúng: <span className="text-emerald-700 font-semibold">{q.correctAnswer ?? '(chưa nhập)'}</span>
-                      </span>
-                    </div>
-                    <ReviewExplanation explanation={exp} />
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
         <div>
           <label className={labelCls}>Instruction (hiển thị cho học sinh)</label>
           <textarea rows={2}
@@ -258,6 +213,14 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
 
   const handleGenerateAI = async (resolveChoices = {}) => {
     if (!editingId) return
+    const val = validateExamListening(form, { isForAI: true })
+    if (!val.isValid) {
+      const msg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
+      setError(msg)
+      showAlert(msg, 'error')
+      showToast(val.errors[0] || 'Vui lòng điền đầy đủ thông tin bài nghe và đáp án đúng')
+      return
+    }
     setGeneratingAI(true)
     try {
       const res = await api.post(`/admin/exams/${editingId}/generate-explanations`, {
@@ -490,21 +453,9 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     setError('')
 
     // Client-side guardrails before hitting the API
-    const problems = []
-    if (!form.title.trim()) problems.push('Chưa nhập tên đề')
-    form.sections.forEach(s => {
-      if (s.questionGroups.length > 0 && !(s.audioUrl || '').trim()) {
-        problems.push(`Section ${s.number}: có nhóm câu hỏi nhưng chưa có file audio`)
-      }
-      s.questionGroups.forEach(g => {
-        if (getGroupSlots(g) === 0) {
-          const label = GROUP_TYPES.find(t => t.value === g.type)?.label || g.type
-          problems.push(`Section ${s.number}: nhóm "${label}" chưa có câu hỏi nào`)
-        }
-      })
-    })
-    if (problems.length) {
-      const msg = 'Không thể lưu đề:\n• ' + problems.join('\n• ')
+    const val = validateExamListening(form, { isForAI: false })
+    if (!val.isValid) {
+      const msg = 'Không thể lưu đề:\n• ' + val.errors.join('\n• ')
       setError(msg)
       showAlert(msg, 'error')
       formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })

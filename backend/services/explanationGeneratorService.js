@@ -46,6 +46,33 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
 
   if (!exam) throw new Error(`Không tìm thấy bài luyện tập #${examId}`)
 
+  // Kiểm tra đề bài (reading: passage, listening: transcript / passage)
+  if (exam.skill === 'reading' && !String(exam.passage || '').trim()) {
+    throw new Error('Bài đọc chưa có nội dung đề bài (Passage). Vui lòng cập nhật đề bài trước khi tạo giải thích bằng AI.')
+  }
+  if (exam.skill === 'listening' && !String(exam.transcript || '').trim() && !String(exam.passage || '').trim()) {
+    throw new Error('Bài nghe chưa có transcript hoặc nội dung bài nghe. Vui lòng cập nhật transcript trước khi tạo giải thích bằng AI.')
+  }
+
+  // Quét trước để bắt buộc mọi câu hỏi phải có đáp án đúng
+  const missingAnswerQuestions = []
+  for (const row of exam.questions) {
+    const group = parseGroup(row)
+    if (!group || !Array.isArray(group.questions)) continue
+    for (const qItem of group.questions) {
+      const qNum = Number(qItem.number)
+      if (!qNum) continue
+      const ans = String(qItem.correctAnswer ?? '').trim()
+      if (!ans) {
+        missingAnswerQuestions.push(qNum)
+      }
+    }
+  }
+
+  if (missingAnswerQuestions.length > 0) {
+    throw new Error(`Không thể tạo giải thích AI do các câu sau chưa có đáp án đúng: Câu ${missingAnswerQuestions.join(', ')}. Vui lòng điền đầy đủ đáp án đúng trước.`)
+  }
+
   const conflicts = []
   const updatesByRow = new Map() // rowId -> { byNumber: {}, groupContent: modifiedGroup }
   let generatedCount = 0
@@ -204,6 +231,35 @@ async function generateForExam(examId, { force = false, resolveChoices = {} } = 
   const conflicts = []
   const updates = []
   let generatedCount = 0
+
+  if (!questions.length) throw new Error(`Đề thi #${examId} chưa có câu hỏi nào`)
+
+  // Pre-validate that all questions have correctAnswer
+  const missingAnswerQuestions = []
+  for (const q of questions) {
+    const ans = String(q.correctAnswer ?? '').trim()
+    if (!ans) {
+      missingAnswerQuestions.push(q.number)
+    }
+  }
+
+  if (missingAnswerQuestions.length > 0) {
+    throw new Error(`Không thể tạo giải thích AI do các câu sau chưa có đáp án đúng: Câu ${missingAnswerQuestions.join(', ')}. Vui lòng điền đầy đủ đáp án đúng trước.`)
+  }
+
+  // Pre-validate that passage/transcript content exists for questions needing generation
+  for (const q of questions) {
+    if (q.explanation && !force && !resolveChoices[q.number]) {
+      continue
+    }
+    const passage = q.passage || q.group?.passage
+    const section = q.listeningSection || q.group?.section
+    const content = passage?.body || section?.transcript || section?.context
+    if (!content || !content.trim()) {
+      const label = exam.skill === 'listening' ? 'transcript' : 'nội dung bài đọc (Passage)'
+      throw new Error(`Đề thi chưa có ${label} cho câu ${q.number}. Vui lòng nhập đầy đủ nội dung trước khi tạo giải thích AI.`)
+    }
+  }
 
   for (const q of questions) {
     if (q.explanation && !force && !resolveChoices[q.number]) {

@@ -131,4 +131,18 @@ describe('PracticeGroupCard — merge Reading/Listening group editor', () => {
     expect(onRemove).toHaveBeenCalledTimes(1)
     expect(onToggle).not.toHaveBeenCalled()
   })
+
+  it('hiển thị badge tĩnh "Đã có giải thích (X câu)", không có nút Ẩn/Xem chi tiết hay khung mở rộng', () => {
+    const groupWithExp = baseGroup('mcq', {
+      explanations: {
+        1: { answer: 'A', reasoning: 'test' },
+        2: { answer: 'B', reasoning: 'test' },
+      },
+    })
+    renderCard('reading', groupWithExp)
+    expect(screen.getByText(/Đã có giải thích \(2 câu\)/)).toBeInTheDocument()
+    expect(screen.queryByText(/Xem chi tiết/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Ẩn/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Giải thích chi tiết 2 câu hỏi/)).not.toBeInTheDocument()
+  })
 })
