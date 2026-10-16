@@ -250,120 +250,174 @@ export default function ReadingPractice() {
   if (view === 'form') {
     return (
       <>
-        <div className="p-6 max-w-6xl mx-auto">
-          <div className="flex items-center gap-3 mb-6">
-            <button onClick={handleCancelOrBack} aria-label="Quay lại danh sách" className="text-zinc-500 hover:text-zinc-700 text-sm font-semibold transition">←</button>
-            <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">
-              {editing ? 'Chỉnh sửa bài Reading Practice' : 'Thêm bài Reading Practice mới'}
-            </h1>
+        <div className="p-4 sm:p-6 max-w-[1520px] mx-auto">
+          {/* Top Bar: Tiêu đề + Bộ nút thao tác chính (Sticky top) */}
+          <div className="sticky top-0 z-20 bg-zinc-50/95 backdrop-blur-xs py-3.5 mb-5 border-b border-zinc-200 -mx-4 sm:-mx-6 px-4 sm:px-6 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleCancelOrBack}
+                aria-label="Quay lại danh sách"
+                className="w-8 h-8 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-600 flex items-center justify-center text-sm font-semibold transition cursor-pointer shadow-2xs"
+              >
+                ←
+              </button>
+              <div>
+                <h1 className="text-base sm:text-lg font-bold text-zinc-900 tracking-tight">
+                  {editing ? 'Chỉnh sửa bài Reading Practice' : 'Thêm bài Reading Practice mới'}
+                </h1>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-[11px] text-zinc-500 font-medium">
+                    {form.questionGroups.reduce((acc, g) => acc + (g.questions?.length || 0), 0)} câu hỏi · {form.questionGroups.length} nhóm
+                  </span>
+                  {!draftBanner && <DraftSavedHint at={draftSavedAt} />}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowPreview(true)}
+                className="h-9 px-3.5 rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-900 text-xs font-semibold transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Eye className="w-3.5 h-3.5 text-zinc-500" />
+                <span className="hidden sm:inline">Xem trước</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelOrBack}
+                className="h-9 px-3.5 rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 text-xs font-semibold transition shadow-2xs flex items-center justify-center cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                className="h-9 px-4.5 rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 text-xs font-semibold transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {saving ? 'Đang lưu...' : 'Lưu bài'}
+              </button>
+            </div>
           </div>
 
           <DraftBanner draft={draftBanner}
             onRestore={() => { groupCollapse.setAll([]); setForm(draftBanner.data); setDraftBanner(null) }}
             onDismiss={clearDraft} />
-          {!draftBanner && <DraftSavedHint at={draftSavedAt} />}
 
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
-            <div className="space-y-4">
-              <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs">
-                <label className={labelCls}>Tên bài <span className="text-red-500 font-normal">*</span></label>
-                <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                  placeholder="VD: Academic Reading — Nature and Wildlife"
-                  className={inputCls} />
+          {/* Grid 2 cột: Cột trái (Bài đọc & Thông tin), Cột phải (Nhóm câu hỏi) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* ── CỘT TRÁI (5/12): THÔNG TIN BÀI & PASSAGE BÀI ĐỌC (Sticky) ── */}
+            <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-[74px] lg:max-h-[calc(100vh-90px)] lg:overflow-y-auto pr-0.5">
+              {/* Card 1: Tên bài & Thumbnail */}
+              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-zinc-200 shadow-xs space-y-3.5">
+                <div>
+                  <label className={labelCls}>Tên bài đọc <span className="text-red-500 font-normal">*</span></label>
+                  <input
+                    value={form.title}
+                    onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                    placeholder="VD: Academic Reading — Nature and Wildlife"
+                    className={inputCls}
+                  />
+                </div>
+
+                <div className="pt-1">
+                  <ThumbnailPicker
+                    preview={form.thumbPreview}
+                    onSelect={file => setForm(f => ({ ...f, thumbFile: file, thumbPreview: URL.createObjectURL(file) }))}
+                    onClear={() => setForm(f => ({ ...f, thumbFile: null, thumbPreview: null, thumbnailUrl: null }))}
+                    hint="jpg, png, webp — tối đa 5MB"
+                  />
+                </div>
               </div>
 
-              <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs">
-                <label className={labelCls}>Passage (nội dung bài đọc)</label>
-                <textarea value={form.passage} onChange={e => setForm(f => ({ ...f, passage: e.target.value }))}
-                  rows={14} placeholder="Nhập nội dung passage..."
-                  className="w-full px-3 py-2 border border-zinc-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 resize-y font-mono bg-white text-zinc-900 placeholder:text-zinc-400"
-                  style={{ lineHeight: 1.7 }} />
+              {/* Card 2: Passage (Bài đọc) */}
+              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-zinc-200 shadow-xs flex flex-col">
+                <div className="flex items-center justify-between mb-2">
+                  <label className={labelCls + ' mb-0'}>Passage (nội dung bài đọc)</label>
+                  <span className="text-[11px] text-zinc-400 font-mono">
+                    {form.passage ? form.passage.trim().split(/\s+/).filter(Boolean).length : 0} từ
+                  </span>
+                </div>
+                <textarea
+                  value={form.passage}
+                  onChange={e => setForm(f => ({ ...f, passage: e.target.value }))}
+                  placeholder="Nhập hoặc dán nội dung bài đọc (Passage) tại đây..."
+                  className="w-full px-3 py-2.5 border border-zinc-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 resize-y font-mono bg-white text-zinc-900 placeholder:text-zinc-400 min-h-[320px] lg:h-[calc(100vh-450px)] lg:min-h-[280px]"
+                  style={{ lineHeight: 1.7 }}
+                />
               </div>
+            </div>
 
-              <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs">
-                <div className="flex items-center justify-between mb-4">
-                  <label className={labelCls + ' mb-0'}>Nhóm câu hỏi</label>
+            {/* ── CỘT PHẢI (7/12): NHÓM CÂU HỎI & CÂU HỎI ── */}
+            <div className="lg:col-span-7">
+              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-zinc-200 shadow-xs">
+                {/* Header thêm nhóm câu hỏi */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-zinc-100">
+                  <div>
+                    <label className={labelCls + ' mb-0 text-sm font-bold text-zinc-900'}>Nhóm câu hỏi</label>
+                    <p className="text-[11px] text-zinc-500 mt-0.5">
+                      Thêm và cấu hình các dạng câu hỏi cho bài đọc
+                    </p>
+                  </div>
                   <div className="flex items-center gap-2">
                     <Select
-                      className="w-48"
+                      className="w-44 sm:w-48"
                       ariaLabel="Loại nhóm câu hỏi"
                       value={addGroupType}
                       onChange={setAddGroupType}
                       options={READING_GROUP_TYPES}
                     />
-                    <button type="button" onClick={handleAddGroup} className={btnPrimary + ' py-1.5 px-3'}>
+                    <button type="button" onClick={handleAddGroup} className={btnPrimary + ' py-1.5 px-3 text-xs shrink-0 cursor-pointer'}>
                       + Thêm nhóm
                     </button>
                   </div>
                 </div>
+
                 {form.questionGroups.length > 1 && (
-                  <div className="flex justify-end gap-2 mb-2 text-xs">
-                    <button type="button" onClick={() => groupCollapse.setAll(form.questionGroups.map(g => g._id))}
-                      className="text-zinc-500 hover:text-zinc-700 font-medium">Mở tất cả</button>
+                  <div className="flex justify-end gap-2 mb-3 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => groupCollapse.setAll(form.questionGroups.map(g => g._id))}
+                      className="text-zinc-500 hover:text-zinc-700 font-medium cursor-pointer"
+                    >
+                      Mở tất cả
+                    </button>
                     <span className="text-zinc-300">·</span>
-                    <button type="button" onClick={() => groupCollapse.setAll([])}
-                      className="text-zinc-500 hover:text-zinc-700 font-medium">Thu gọn tất cả</button>
+                    <button
+                      type="button"
+                      onClick={() => groupCollapse.setAll([])}
+                      className="text-zinc-500 hover:text-zinc-700 font-medium cursor-pointer"
+                    >
+                      Thu gọn tất cả
+                    </button>
                   </div>
                 )}
+
                 {form.questionGroups.length === 0 ? (
-                  <div className="text-center text-zinc-400 text-xs py-8 border-2 border-dashed border-zinc-200 rounded-xl">
-                    Chưa có nhóm câu hỏi nào. Chọn loại và bấm "+ Thêm nhóm".
+                  <div className="text-center text-zinc-400 text-xs py-14 border-2 border-dashed border-zinc-200 rounded-xl">
+                    Chưa có nhóm câu hỏi nào. Chọn loại câu hỏi ở trên và bấm "+ Thêm nhóm".
                   </div>
                 ) : (
-                  form.questionGroups.map((g, i) => (
-                    <PracticeGroupCard
-                      key={g._id || g.id || i}
-                      skill="reading"
-                      group={g}
-                      expanded={groupCollapse.isExpanded(g._id)}
-                      onToggle={() => groupCollapse.toggle(g._id)}
-                      onChange={updated => handleGroupChange(i, updated)}
-                      onRemove={() => handleGroupRemove(i)}
-                      onMoveUp={() => handleGroupMove(i, -1)}
-                      onMoveDown={() => handleGroupMove(i, 1)}
-                      isFirst={i === 0}
-                      isLast={i === form.questionGroups.length - 1}
-                    />
-                  ))
+                  <div className="space-y-4">
+                    {form.questionGroups.map((g, i) => (
+                      <PracticeGroupCard
+                        key={g._id || g.id || i}
+                        skill="reading"
+                        group={g}
+                        expanded={groupCollapse.isExpanded(g._id)}
+                        onToggle={() => groupCollapse.toggle(g._id)}
+                        onChange={updated => handleGroupChange(i, updated)}
+                        onRemove={() => handleGroupRemove(i)}
+                        onMoveUp={() => handleGroupMove(i, -1)}
+                        onMoveDown={() => handleGroupMove(i, 1)}
+                        isFirst={i === 0}
+                        isLast={i === form.questionGroups.length - 1}
+                      />
+                    ))}
+                  </div>
                 )}
-              </div>
-            </div>
-
-            <div className="space-y-3 lg:sticky lg:top-6 lg:self-start">
-              <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs">
-                <ThumbnailPicker
-                  preview={form.thumbPreview}
-                  onSelect={file => setForm(f => ({ ...f, thumbFile: file, thumbPreview: URL.createObjectURL(file) }))}
-                  onClear={() => setForm(f => ({ ...f, thumbFile: null, thumbPreview: null, thumbnailUrl: null }))}
-                  hint="jpg, png, webp — tối đa 5MB"
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowPreview(true)}
-                className="w-full h-10 rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50 hover:border-zinc-400 hover:text-zinc-900 text-sm font-semibold transition shadow-2xs flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Eye className="w-4 h-4 text-zinc-500" />
-                <span>Xem trước nội dung đề</span>
-              </button>
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={handleCancelOrBack}
-                  className="flex-1 h-10 rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50 text-sm font-semibold transition shadow-2xs flex items-center justify-center cursor-pointer"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="flex-1 h-10 rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 text-sm font-semibold transition shadow-xs flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {saving ? 'Đang lưu...' : 'Lưu bài'}
-                </button>
               </div>
             </div>
           </div>

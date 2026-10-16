@@ -44,4 +44,24 @@ describe('ReadingPractice — double-click protection on delete', () => {
     resolveDelete()
     await waitFor(() => expect(practiceService.getReadingPracticeList).toHaveBeenCalledTimes(2))
   })
+
+  it('renders balanced 2-column editor layout with top actions when opening form view', async () => {
+    render(<ReadingPractice />)
+
+    const addBtn = await screen.findByRole('button', { name: /\+ Thêm mới/i })
+    fireEvent.click(addBtn)
+
+    // Verify top action bar
+    expect(screen.getByRole('button', { name: 'Lưu bài' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Xem trước/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Hủy' })).toBeInTheDocument()
+
+    // Verify left column inputs
+    expect(screen.getByPlaceholderText(/VD: Academic Reading/i)).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(/Nhập hoặc dán nội dung bài đọc/i)).toBeInTheDocument()
+
+    // Verify right column question groups
+    expect(screen.getByText('Nhóm câu hỏi')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /\+ Thêm nhóm/i })).toBeInTheDocument()
+  })
 })
