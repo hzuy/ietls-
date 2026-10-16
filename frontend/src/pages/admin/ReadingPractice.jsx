@@ -485,7 +485,7 @@ export default function ReadingPractice() {
                     <td data-label="Ngày tạo" className="px-4 py-3 text-sm text-zinc-500 hidden sm:table-cell">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</td>
                     <td className="rt-actions px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => openEdit(item)} disabled={loadingEditId !== null} className="h-8 px-3.5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs font-medium text-zinc-700 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-slate-800 transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{loadingEditId === item.id ? 'Đang tải...' : 'Sửa'}</button>
+                        <button onClick={() => openEdit(item)} disabled={loadingEditId !== null} className="h-8 px-3.5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs font-medium text-zinc-700 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-slate-800 transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Sửa</button>
                         <button onClick={() => setDelConfirm(item.id)} disabled={loadingEditId !== null} className="h-8 px-3.5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs font-medium text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-200 transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Xóa</button>
                       </div>
                     </td>
