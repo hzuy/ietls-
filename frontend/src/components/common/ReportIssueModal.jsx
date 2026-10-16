@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { X, UploadCloud, MapPin, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
 import api from '../../utils/axios'
 import { useToast } from '../../context/ToastContext'
@@ -40,12 +41,22 @@ export default function ReportIssueModal({
     }
   }, [isOpen])
 
-  // Clean up preview URL
+  // Clean up object URL when filePreview changes
   useEffect(() => {
     return () => {
       if (filePreview) URL.revokeObjectURL(filePreview)
     }
   }, [filePreview])
+
+  // Escape key to close
+  useEffect(() => {
+    if (!isOpen) return
+    const onKey = (e) => {
+      if (e.key === 'Escape' && !isSubmitting) onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [isOpen, isSubmitting, onClose])
 
   if (!isOpen) return null
 
@@ -137,14 +148,14 @@ export default function ReportIssueModal({
     }
   }
 
-  return (
+  const modalElement = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs animate-in fade-in duration-200 overflow-y-auto"
       onClick={(e) => { if (e.target === e.currentTarget && !isSubmitting) onClose() }}
       role="dialog"
       aria-modal="true"
     >
-      <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl relative border border-zinc-100 flex flex-col max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl relative border border-zinc-100 flex flex-col max-h-[90vh] overflow-y-auto my-auto">
         {/* Close button */}
         <button
           type="button"
@@ -298,4 +309,8 @@ export default function ReportIssueModal({
       </div>
     </div>
   )
+
+  return typeof document !== 'undefined' && document.body
+    ? createPortal(modalElement, document.body)
+    : modalElement
 }

@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { AlertTriangle, Check, X, Sparkles, BookOpen, Loader2 } from 'lucide-react'
 
 export default function ExplanationConflictModal({
@@ -17,6 +18,15 @@ export default function ExplanationConflictModal({
     return init
   })
 
+  useEffect(() => {
+    if (!isOpen) return
+    const onKey = (e) => {
+      if (e.key === 'Escape' && !isSubmitting) onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [isOpen, isSubmitting, onClose])
+
   if (!isOpen || !conflicts.length) return null
 
   const setChoiceFor = (qNum, val) => {
@@ -27,13 +37,14 @@ export default function ExplanationConflictModal({
     onConfirmResolve(choices)
   }
 
-  return (
+  const modalElement = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200 overflow-y-auto"
       role="dialog"
       aria-modal="true"
+      onClick={(e) => { if (e.target === e.currentTarget && !isSubmitting) onClose() }}
     >
-      <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-7 shadow-2xl relative border border-zinc-100 flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-7 shadow-2xl relative border border-zinc-100 flex flex-col max-h-[90vh] my-auto">
         {/* Header */}
         <div className="flex items-start justify-between pb-4 border-b border-zinc-100 shrink-0">
           <div className="flex items-center gap-3">
@@ -174,4 +185,8 @@ export default function ExplanationConflictModal({
       </div>
     </div>
   )
+
+  return typeof document !== 'undefined' && document.body
+    ? createPortal(modalElement, document.body)
+    : modalElement
 }
