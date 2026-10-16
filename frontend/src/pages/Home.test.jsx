@@ -194,18 +194,31 @@ describe('Home Page Standardization', () => {
     expect(screen.getAllByText('IELTS Mock Test 19').length).toBeGreaterThan(0)
   })
 
-  it('renders hero CTA button with dynamic series name and never falls back to Cambridge', async () => {
+  it('renders "Vào phòng thi IELTS Mock Test" immediately on initial render before data resolves', () => {
+    global.fetch = vi.fn().mockReturnValue(new Promise(() => {}))
+
+    render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    )
+
+    expect(screen.getByRole('button', { name: 'Vào phòng thi IELTS Mock Test' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Vào phòng thi' })).not.toBeInTheDocument()
+  })
+
+  it('renders hero CTA button with dynamic series name and adapts dynamically', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
         fullTests: [
           {
-            id: 1,
-            seriesId: 1,
-            seriesName: 'IELTS Mock Test',
-            bookNumber: 19,
+            id: 2,
+            seriesId: 2,
+            seriesName: 'IELTS Practice Test Plus',
+            bookNumber: 3,
             testNumber: 1,
-            exams: { reading: { id: 101, title: 'Mock 19 Test 1 Reading' } },
+            exams: { reading: { id: 201, title: 'Practice Plus 3' } },
             coverImageUrl: null,
           },
         ],
@@ -222,7 +235,7 @@ describe('Home Page Standardization', () => {
       </MemoryRouter>
     )
 
-    const ctaButton = await screen.findByRole('button', { name: 'Vào phòng thi IELTS Mock Test' })
+    const ctaButton = await screen.findByRole('button', { name: 'Vào phòng thi IELTS Practice Test Plus' })
     expect(ctaButton).toBeInTheDocument()
     expect(screen.queryByText('Vào phòng thi Cambridge')).not.toBeInTheDocument()
   })

@@ -249,11 +249,13 @@ export default function Home() {
     staleTime: 1000 * 30,
   })
   const userStats = statsQuery.data ?? null
-  const pageLoading = homeQuery.isPending || (!!userId && statsQuery.isPending)
+  const catalogLoading = homeQuery.isPending && !homeQuery.data
+  const statsLoading = !!userId && statsQuery.isPending && !statsQuery.data
+  const pageLoading = catalogLoading
 
   const homeSection = key => {
     if (homeQuery.isError) return 'error'
-    if (pageLoading || !homeQuery.data) return null
+    if (catalogLoading || !homeQuery.data) return null
     return homeQuery.data[key] ?? 'error'
   }
   const fullTestsData = homeSection('fullTests')
@@ -262,7 +264,6 @@ export default function Home() {
   const writingSamples = homeSection('writingSamples')
   const speakingSamples = homeSection('speakingSamples')
   const loadData = () => homeQuery.refetch()
-  const statsLoading = pageLoading
 
   useEffect(() => {
     document.title = 'IELTS Platform — Không gian Luyện thi & Khảo thí IELTS'
@@ -424,17 +425,16 @@ export default function Home() {
                 <button
                   onClick={() => {
                     const firstSeries = groupedFullTests[0]
-                    const slug = firstSeries ? toSeriesSlug(firstSeries.seriesName) : ''
-                    gate(slug ? `/series/${slug}` : '/full-test')
+                    const targetSeriesName = firstSeries?.seriesName || 'IELTS Mock Test'
+                    const slug = toSeriesSlug(targetSeriesName)
+                    gate(slug ? `/series/${slug}` : '/series/ielts-mock-test')
                   }}
                   className="h-11 pointer-coarse:h-12 px-6 sm:px-7 text-white text-sm sm:text-base font-medium rounded-full shadow-xs transition-all cursor-pointer inline-flex items-center justify-center leading-none hover:shadow-md hover:scale-[1.01]"
                   style={{ background: 'var(--primary)' }}
                   onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-hover)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'var(--primary)'}
                 >
-                  {groupedFullTests[0]?.seriesName
-                    ? `Vào phòng thi ${groupedFullTests[0].seriesName}`
-                    : 'Vào phòng thi'}
+                  {`Vào phòng thi ${groupedFullTests[0]?.seriesName || 'IELTS Mock Test'}`}
                 </button>
                 <button
                   onClick={() => {
