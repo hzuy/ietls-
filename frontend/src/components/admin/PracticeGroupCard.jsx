@@ -30,23 +30,23 @@ function chrome(skill, groupType) {
   if (skill === 'listening') {
     const t = getQuestionTypeTheme(groupType)
     return {
-      card: `border ${t.cardBorder} ${t.cardBg} rounded-2xl overflow-hidden transition-all duration-200 mb-3 shadow-xs`,
-      header: `flex items-center gap-3 px-4 py-3 border-b ${t.headerBg}`,
+      card: `border ${t.cardBorder} ${t.cardBg} rounded-2xl overflow-hidden transition-all duration-200 mb-3.5 shadow-xs`,
+      header: `flex items-center gap-3 px-4 py-3 border-b ${t.headerBg} overflow-x-auto`,
       badge: `text-xs font-bold px-2.5 py-1 rounded-full border ${t.badge}`,
       range: 'text-xs text-zinc-600 font-semibold',
       moveWrap: 'flex items-center gap-1',
-      moveBtn: 'w-6 h-6 flex items-center justify-center rounded-lg border border-zinc-200/80 bg-white text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50 disabled:opacity-30 text-xs transition',
-      removeBtn: 'text-red-500 hover:text-red-600 text-xs font-semibold px-2.5 py-1 rounded-lg hover:bg-red-50/80 transition',
+      moveBtn: 'w-6 h-6 flex items-center justify-center rounded-lg border border-zinc-200/80 bg-white text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50 disabled:opacity-30 text-xs transition cursor-pointer',
+      removeBtn: 'text-red-500 hover:text-red-600 text-xs font-semibold px-2.5 py-1 rounded-lg hover:bg-red-50/80 transition cursor-pointer',
     }
   }
   return {
-    card: 'border border-zinc-200 rounded-lg overflow-hidden mb-3 bg-white shadow-2xs',
-    header: 'flex items-center gap-3 px-4 py-3 bg-zinc-50 border-b border-zinc-200',
-    badge: `text-xs font-bold px-2 py-0.5 rounded-full border ${GROUP_TYPE_COLORS[groupType] || 'bg-zinc-100 text-zinc-700 border-zinc-200'}`,
-    range: 'text-xs text-zinc-500 font-medium',
-    moveWrap: 'flex flex-col gap-0.5',
-    moveBtn: 'w-5 h-5 flex items-center justify-center rounded border border-zinc-200 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 disabled:opacity-25 text-xs transition',
-    removeBtn: 'text-red-600 hover:text-red-700 text-xs font-medium px-2 py-0.5 rounded hover:bg-red-50 transition',
+    card: 'border border-zinc-200 rounded-lg overflow-hidden mb-3.5 bg-white shadow-2xs',
+    header: 'flex items-center gap-3 px-4 py-3 bg-zinc-50/90 border-b border-zinc-200 overflow-x-auto',
+    badge: `text-xs font-bold px-2.5 py-1 rounded-full border ${GROUP_TYPE_COLORS[groupType] || 'bg-zinc-100 text-zinc-700 border-zinc-200'}`,
+    range: 'text-xs text-zinc-600 font-semibold',
+    moveWrap: 'flex items-center gap-1',
+    moveBtn: 'w-6 h-6 flex items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 disabled:opacity-25 text-xs transition cursor-pointer',
+    removeBtn: 'text-red-600 hover:text-red-700 text-xs font-semibold px-2.5 py-1 rounded-lg hover:bg-red-50 transition cursor-pointer',
   }
 }
 
@@ -68,29 +68,58 @@ export default function PracticeGroupCard({
   return (
     <div className={s.card}>
       <div className={`${s.header} cursor-pointer select-none`} onClick={() => onToggle?.()}>
+        {/* Cột 1: Nút toggle expand/collapse */}
         <button type="button"
           onClick={stop(onToggle)}
           aria-expanded={expanded}
           aria-controls={bodyId}
           aria-label={expanded ? `Thu gọn nhóm ${typeLabel}` : `Bung nhóm ${typeLabel}`}
-          className={`text-zinc-400 text-[10px] leading-none transition-transform hover:text-zinc-600 ${expanded ? 'rotate-90' : ''}`}>▶</button>
-        <span className={s.badge}>
-          {typeLabel}
-        </span>
-        <span className={s.range}>Câu {group.qNumberStart}–{group.qNumberEnd}</span>
-        {hasExplanations && (
-          <span
-            className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs"
-            title="Nhóm câu hỏi này đã có lời giải thích chi tiết"
-          >
-            <span>✓</span> Đã có giải thích ({Object.keys(group.explanations).length} câu)
+          className={`w-6 h-6 flex items-center justify-center text-zinc-400 text-[11px] leading-none transition-transform hover:text-zinc-600 shrink-0 ${expanded ? 'rotate-90' : ''}`}
+        >
+          ▶
+        </button>
+
+        {/* Cột 2: Badge loại câu hỏi (đặt width cố định để mọi dòng đều thẳng hàng) */}
+        <div className="w-48 sm:w-52 shrink-0 flex items-center">
+          <span className={`${s.badge} w-full text-center truncate shadow-2xs`}>
+            {typeLabel}
           </span>
-        )}
-        <div className="flex-1" />
-        <div className="flex items-center gap-2">
+        </div>
+
+        {/* Cột 3: Phạm vi số câu (đặt width cố định để cột badge giải thích thẳng hàng) */}
+        <div className="w-20 sm:w-24 shrink-0 text-left">
+          <span className={`${s.range} whitespace-nowrap`}>
+            Câu {group.qNumberStart}–{group.qNumberEnd}
+          </span>
+        </div>
+
+        {/* Cột 4: Badge trạng thái giải thích AI (thẳng hàng tuyệt đối giữa các nhóm) */}
+        <div className="min-w-[190px] shrink-0 flex items-center">
+          {hasExplanations ? (
+            <span
+              className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs whitespace-nowrap"
+              title="Nhóm câu hỏi này đã có lời giải thích chi tiết"
+            >
+              <span>✓</span> Đã có giải thích ({Object.keys(group.explanations).length} câu)
+            </span>
+          ) : (
+            <span
+              className="text-[11px] font-normal text-zinc-400 px-2.5 py-0.5 rounded-full border border-dashed border-zinc-200 flex items-center gap-1.5 whitespace-nowrap"
+              title="Nhóm câu hỏi này chưa tạo giải thích"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 inline-block" /> Chưa có giải thích
+            </span>
+          )}
+        </div>
+
+        {/* Spacer */}
+        <div className="flex-1 min-w-2" />
+
+        {/* Cột 5: Nút Di chuyển và Xóa nhóm */}
+        <div className="flex items-center gap-2 shrink-0">
           <div className={s.moveWrap}>
-            <button type="button" onClick={stop(onMoveUp)} disabled={isFirst} className={s.moveBtn}>▲</button>
-            <button type="button" onClick={stop(onMoveDown)} disabled={isLast} className={s.moveBtn}>▼</button>
+            <button type="button" onClick={stop(onMoveUp)} disabled={isFirst} className={s.moveBtn} title="Di chuyển lên">▲</button>
+            <button type="button" onClick={stop(onMoveDown)} disabled={isLast} className={s.moveBtn} title="Di chuyển xuống">▼</button>
           </div>
           <button type="button" onClick={stop(onRemove)} className={s.removeBtn}>
             Xóa nhóm

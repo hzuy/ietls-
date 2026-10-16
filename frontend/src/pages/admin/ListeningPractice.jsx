@@ -703,29 +703,45 @@ export default function ListeningPractice() {
                       onChange={setAddGroupType}
                       options={LISTENING_GROUP_TYPES}
                     />
-                    <button type="button" onClick={handleAddGroup} className={btnPrimary + ' py-1.5 px-3 text-xs shrink-0 cursor-pointer'}>
+                    <button
+                      type="button"
+                      onClick={handleAddGroup}
+                      className={btnPrimary + ' h-9 py-0 px-4 text-xs font-semibold shrink-0 cursor-pointer flex items-center justify-center rounded-xl shadow-xs'}
+                    >
                       + Thêm nhóm
                     </button>
                   </div>
                 </div>
 
-                {form.questionGroups.length > 1 && (
-                  <div className="flex justify-end gap-2 mb-3 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => groupCollapse.setAll(form.questionGroups.map(g => g._id))}
-                      className="text-zinc-500 hover:text-zinc-700 font-medium cursor-pointer"
-                    >
-                      Mở tất cả
-                    </button>
-                    <span className="text-zinc-300">·</span>
-                    <button
-                      type="button"
-                      onClick={() => groupCollapse.setAll([])}
-                      className="text-zinc-500 hover:text-zinc-700 font-medium cursor-pointer"
-                    >
-                      Thu gọn tất cả
-                    </button>
+                {form.questionGroups.length > 0 && (
+                  <div className="flex items-center justify-between mb-3 text-xs px-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-zinc-700">
+                        Danh sách nhóm câu hỏi
+                      </span>
+                      <span className="text-[11px] font-semibold text-zinc-500 bg-zinc-100 px-2 py-0.5 rounded-full border border-zinc-200">
+                        {form.questionGroups.length} nhóm · {form.questionGroups.reduce((acc, g) => acc + (g.questions?.length || 0), 0)} câu
+                      </span>
+                    </div>
+                    {form.questionGroups.length > 1 && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => groupCollapse.setAll(form.questionGroups.map(g => g._id))}
+                          className="text-xs font-medium text-zinc-500 hover:text-zinc-800 transition cursor-pointer"
+                        >
+                          Mở tất cả
+                        </button>
+                        <span className="text-zinc-300">·</span>
+                        <button
+                          type="button"
+                          onClick={() => groupCollapse.setAll([])}
+                          className="text-xs font-medium text-zinc-500 hover:text-zinc-800 transition cursor-pointer"
+                        >
+                          Thu gọn tất cả
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 

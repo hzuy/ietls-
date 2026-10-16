@@ -20,20 +20,39 @@ export default function ReadingGroupEditor({ group = {}, onChange, onRemove, onM
 
   return (
     <div className={`border ${theme.cardBorder} ${theme.cardBg} rounded-2xl overflow-hidden transition-all duration-200 mb-4 shadow-xs`}>
-      <div className={`flex items-center gap-3 px-4 py-3 border-b ${theme.headerBg}`}>
-        <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${theme.badge}`}>
-          {typeLabel}
-        </span>
-        <span className="text-xs text-zinc-500 font-semibold">Câu {group.qNumberStart}–{group.qNumberEnd}</span>
-        {hasExplanations && (
-          <span
-            className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs"
-            title="Nhóm câu hỏi này đã có lời giải thích chi tiết"
-          >
-            <span>✓</span> Đã có giải thích ({explanationCount} câu)
+      <div className={`flex items-center gap-3 px-4 py-3 border-b ${theme.headerBg} overflow-x-auto`}>
+        {/* Cột 1: Badge loại câu hỏi */}
+        <div className="w-48 sm:w-52 shrink-0 flex items-center">
+          <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${theme.badge} w-full text-center truncate shadow-2xs`}>
+            {typeLabel}
           </span>
-        )}
-        <div className="flex-1" />
+        </div>
+
+        {/* Cột 2: Phạm vi câu hỏi */}
+        <div className="w-20 sm:w-24 shrink-0 text-left">
+          <span className="text-xs text-zinc-600 font-semibold whitespace-nowrap">Câu {group.qNumberStart}–{group.qNumberEnd}</span>
+        </div>
+
+        {/* Cột 3: Trạng thái giải thích */}
+        <div className="min-w-[190px] shrink-0 flex items-center">
+          {hasExplanations ? (
+            <span
+              className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs whitespace-nowrap"
+              title="Nhóm câu hỏi này đã có lời giải thích chi tiết"
+            >
+              <span>✓</span> Đã có giải thích ({explanationCount} câu)
+            </span>
+          ) : (
+            <span
+              className="text-[11px] font-normal text-zinc-400 px-2.5 py-0.5 rounded-full border border-dashed border-zinc-200 flex items-center gap-1.5 whitespace-nowrap"
+              title="Nhóm câu hỏi này chưa tạo giải thích"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 inline-block" /> Chưa có giải thích
+            </span>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-2" />
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">
             <button type="button" onClick={onMoveUp} disabled={isFirst}
