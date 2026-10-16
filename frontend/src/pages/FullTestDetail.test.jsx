@@ -98,4 +98,28 @@ describe('FullTestDetail — ActionDropdown with "Làm tiếp" and "Làm lại"'
     expect(clearDraftSpy).toHaveBeenCalledWith(123, 101, 'listening')
     expect(mockNavigate).toHaveBeenCalledWith('/listening/101')
   })
+
+  it('renders dropdown downwards with portal position for single-test book (no upward jumping)', async () => {
+    vi.spyOn(draftService, 'checkDraft').mockReturnValue({ hasDraft: false })
+
+    render(
+      <MemoryRouter initialEntries={['/full-test/1?book=16']}>
+        <FullTestDetail />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getAllByText('IELTS Mock Test 19').length).toBeGreaterThan(0)
+    })
+
+    const dropdownToggle = screen.getByRole('button', { name: 'Tùy chọn khác' })
+    fireEvent.click(dropdownToggle)
+
+    const menu = screen.getByRole('menu')
+    expect(menu).toBeInTheDocument()
+    // Must be fixed (portal in document.body) and NOT have bottom-[calc(...)]
+    expect(menu.className).toContain('fixed')
+    expect(menu.className).not.toContain('bottom-[calc')
+  })
 })
+

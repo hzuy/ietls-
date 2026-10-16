@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import Breadcrumb from '../components/common/Breadcrumb'
@@ -27,10 +28,12 @@ const SKILL_ORDER = ['listening', 'reading', 'writing', 'speaking']
 
 const menuItemCls = 'w-full h-8 flex items-center gap-2 px-2.5 text-[13px] text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer'
 
-function ActionDropdown({ exam, skill, testNumber, m, hasDraft, historyInfo = {}, setHistoryModal, navigate, user, openAuthModal, location, isLastRow, onViewResult, onClearDraft }) {
+function ActionDropdown({ exam, skill, testNumber, m, hasDraft, historyInfo = {}, setHistoryModal, navigate, user, openAuthModal, location, onViewResult, onClearDraft }) {
   const [open, setOpen] = useState(false)
   const [confirmRestart, setConfirmRestart] = useState(false)
   const dropdownRef = useRef(null)
+  const menuRef = useRef(null)
+  const [coords, setCoords] = useState({ top: 0, left: 0 })
 
   const examId = exam?.id
   const historyList = (examId && historyInfo?.[examId]) || []
@@ -90,13 +93,35 @@ function ActionDropdown({ exam, skill, testNumber, m, hasDraft, historyInfo = {}
 
   useEffect(() => {
     if (!open) return
+    const updatePosition = () => {
+      if (dropdownRef.current) {
+        const rect = dropdownRef.current.getBoundingClientRect()
+        setCoords({
+          top: rect.bottom + 6,
+          left: rect.left + rect.width / 2,
+        })
+      }
+    }
+    updatePosition()
+
     const handleClick = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setOpen(false)
+      if (
+        (dropdownRef.current && dropdownRef.current.contains(e.target)) ||
+        (menuRef.current && menuRef.current.contains(e.target))
+      ) {
+        return
+      }
+      setOpen(false)
     }
     const handleKey = (e) => { if (e.key === 'Escape') setOpen(false) }
+
+    window.addEventListener('scroll', updatePosition, true)
+    window.addEventListener('resize', updatePosition)
     document.addEventListener('click', handleClick)
     document.addEventListener('keydown', handleKey)
     return () => {
+      window.removeEventListener('scroll', updatePosition, true)
+      window.removeEventListener('resize', updatePosition)
       document.removeEventListener('click', handleClick)
       document.removeEventListener('keydown', handleKey)
     }
@@ -142,10 +167,13 @@ function ActionDropdown({ exam, skill, testNumber, m, hasDraft, historyInfo = {}
         </button>
       </div>
 
-      {open && (
+      {open && typeof document !== 'undefined' && createPortal(
         <div
+          ref={menuRef}
           role="menu"
-          className={`absolute ${isLastRow ? 'bottom-[calc(100%+6px)]' : 'top-[calc(100%+6px)]'} left-1/2 -translate-x-1/2 w-48 bg-white dark:bg-zinc-800 rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 p-1 z-50 text-left`}
+          style={{ top: coords.top, left: coords.left }}
+          className="fixed -translate-x-1/2 w-48 bg-white dark:bg-zinc-800 rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 p-1 z-[9999] text-left animate-in fade-in zoom-in-95 duration-100"
+          onClick={e => e.stopPropagation()}
         >
           {hasDraft && (
             <button type="button" role="menuitem" onClick={handleAskRestart} className={menuItemCls}>
@@ -165,7 +193,8 @@ function ActionDropdown({ exam, skill, testNumber, m, hasDraft, historyInfo = {}
               </button>
             </>
           )}
-        </div>
+        </div>,
+        document.body
       )}
 
       <ExamActionDialog
@@ -181,7 +210,7 @@ function ActionDropdown({ exam, skill, testNumber, m, hasDraft, historyInfo = {}
   )
 }
 
-function SkillCell({ exam, skill, testNumber, draftInfo = {}, historyInfo = {}, setHistoryModal, navigate, user, openAuthModal, location, isLastRow, onClearDraft }) {
+function SkillCell({ exam, skill, testNumber, draftInfo = {}, historyInfo = {}, setHistoryModal, navigate, user, openAuthModal, location, onClearDraft }) {
   const m = SKILL_META[skill]
   const hasDraft = draftInfo?.[`${testNumber}-${skill}`]?.hasDraft
   const examId = exam?.id
@@ -262,7 +291,6 @@ function SkillCell({ exam, skill, testNumber, draftInfo = {}, historyInfo = {}, 
         user={user}
         openAuthModal={openAuthModal}
         location={location}
-        isLastRow={isLastRow}
         onClearDraft={onClearDraft}
         onViewResult={viewResult}
       />
@@ -564,37 +592,32 @@ export default function FullTestDetail() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
-                    {bookData.tests.map((test, idx) => {
-                      const isLastRow = idx === bookData.tests.length - 1
-
-                      return (
-                        <tr key={test.testNumber} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                          <td className="py-5 pl-6 pr-4 align-middle">
-                            <div className="font-semibold text-[15px] text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
-                              Test {test.testNumber}
-                            </div>
+                    {bookData.tests.map(test => (
+                      <tr key={test.testNumber} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
+                        <td className="py-5 pl-6 pr-4 align-middle">
+                          <div className="font-semibold text-[15px] text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
+                            Test {test.testNumber}
+                          </div>
+                        </td>
+                        {SKILL_ORDER.map(skill => (
+                          <td key={skill} className="py-5 px-2 text-center align-middle">
+                            <SkillCell
+                              exam={test.exams?.[skill]}
+                              skill={skill}
+                              testNumber={test.testNumber}
+                              draftInfo={draftInfo}
+                              historyInfo={historyInfo}
+                              setHistoryModal={setHistoryModal}
+                              navigate={navigate}
+                              user={user}
+                              openAuthModal={openAuthModal}
+                              location={location}
+                              onClearDraft={handleClearDraft}
+                            />
                           </td>
-                          {SKILL_ORDER.map(skill => (
-                            <td key={skill} className="py-5 px-2 text-center align-middle">
-                              <SkillCell
-                                exam={test.exams?.[skill]}
-                                skill={skill}
-                                testNumber={test.testNumber}
-                                draftInfo={draftInfo}
-                                historyInfo={historyInfo}
-                                setHistoryModal={setHistoryModal}
-                                navigate={navigate}
-                                user={user}
-                                openAuthModal={openAuthModal}
-                                location={location}
-                                isLastRow={isLastRow}
-                                onClearDraft={handleClearDraft}
-                              />
-                            </td>
-                          ))}
-                        </tr>
-                      )
-                    })}
+                        ))}
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
