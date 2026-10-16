@@ -377,24 +377,10 @@ function sanitizeHistory(conversationHistory, currentMessage) {
 }
 
 // Helper to get Groq client lazily
-function getGroqClient() {
-  if (process.env.GROQ_API_KEY) {
-    try {
-      return new Groq({ apiKey: process.env.GROQ_API_KEY })
-    } catch (e) {
-      console.error('[Chatbot] Groq init error:', e.message)
-    }
-  }
-  return null
-}
+const { requestAiChat } = require('../lib/groqClient')
 
-async function completeChat(groq, messages) {
-  const model = getGroqModel()
-  const params = { messages, model, temperature: 0.3, max_tokens: 1400 }
-  if (/gpt-oss/i.test(model)) params.reasoning_effort = 'low'
-  const completion = await groq.chat.completions.create(params)
-  const choice = completion.choices?.[0]
-  return { text: (choice?.message?.content || '').trim(), finishReason: choice?.finish_reason || null }
+async function completeChat(messages) {
+  return await requestAiChat(messages, { temperature: 0.3, max_tokens: 1400 })
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -432,17 +418,20 @@ router.post(['/message', '/chat'], authMiddleware, learnerOnly, chatbotRateLimit
       { role: 'user', content: trimmedMsg },
     ]
 
-    const groq = getGroqClient()
     let replyText = ''
-    if (groq) {
-      let result = await completeChat(groq, messagesPayload)
+    try {
+      let result = await completeChat(messagesPayload)
       if (!result.text && result.finishReason === 'length') {
-        result = await completeChat(groq, [
+        result = await completeChat([
           ...messagesPayload.slice(0, -1),
           { role: 'user', content: `${trimmedMsg}\n\n(Trả lời thật ngắn, tối đa 80 từ.)` },
         ])
       }
       replyText = result.text
+    } catch (aiErr) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[Chatbot AI Error]', aiErr.message)
+      }
     }
 
     res.json({ reply: replyText || buildFallbackReply(userContext) })

@@ -1,25 +1,10 @@
 const express = require('express')
-const groqSdk = require('groq-sdk')
-const Groq = groqSdk.Groq || groqSdk.default || groqSdk
 const authMiddleware = require('../middleware/auth')
 const { learnerOnly } = require('../lib/roles')
 const prisma = require('../lib/prisma')
-const { cleanJsonRaw, repairTruncatedJson } = require('../services/json/jsonSanitizer')
-const { getGroqModel } = require('../lib/groqClient')
+const { requestGradingJson } = require('../lib/groqClient')
 
 const router = express.Router()
-
-// Helper to get Groq client lazily
-function getGroqClient() {
-  if (process.env.GROQ_API_KEY) {
-    try {
-      return new Groq({ apiKey: process.env.GROQ_API_KEY })
-    } catch (err) {
-      if (process.env.NODE_ENV !== 'production') console.error('[Groq SDK Init Warning]', err.message)
-    }
-  }
-  return null
-}
 
 // In-memory rate-limiter: Max 5 requests per user per day (24 hours)
 const adviceRateLimitMap = new Map()
@@ -510,32 +495,14 @@ YÊU CẦU BẮT BUỘC KHI TẠO CÂU TRẢ LỜI:
   ]
 }`
 
-    // Call Groq LLM API if client initialized
-    const groq = getGroqClient()
-
-    let responseText = ''
-    let finishReason = null
-
-    if (groq) {
-      const completion = await groq.chat.completions.create({
-        messages: [{ role: 'user', content: prompt }],
-        model: getGroqModel(),
-        temperature: 0.2,
-      })
-      responseText = completion.choices[0]?.message?.content || ''
-      finishReason = completion.choices[0]?.finish_reason || null
-    }
-
+    // Call AI (Google Gemini Primary -> Groq Fallback)
     let adviceObj = null
 
-    if (responseText) {
-      const cleanedJson = repairTruncatedJson(responseText, finishReason)
-      try {
-        adviceObj = JSON.parse(cleanedJson)
-      } catch (parseErr) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.error('[AI Advice JSON Parse Error]', parseErr.message)
-        }
+    try {
+      adviceObj = await requestGradingJson(prompt, { temperature: 0.2 })
+    } catch (parseErr) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('[AI Advice Error]', parseErr.message)
       }
     }
 

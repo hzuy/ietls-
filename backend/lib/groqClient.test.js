@@ -9,7 +9,7 @@ class MockGroq {
 const groqPath = require.resolve('groq-sdk')
 require.cache[groqPath] = { id: groqPath, filename: groqPath, loaded: true, exports: MockGroq }
 
-const { requestGradingJson, gradingParams, getGroqVisionModel } = require('./groqClient')
+const { requestGradingJson, requestAiChat, gradingParams, getGroqVisionModel } = require('./groqClient')
 
 const reply = content => ({ choices: [{ message: { content }, finish_reason: 'stop' }] })
 
@@ -100,6 +100,56 @@ describe('requestGradingJson', () => {
 
       const fallbackRes = await requestGradingJson('prompt test')
       expect(fallbackRes).toEqual({ from: 'groq_fallback' })
+      expect(create).toHaveBeenCalledTimes(1)
+    } finally {
+      global.fetch = originalFetch
+      delete process.env.ENABLE_GEMINI_IN_TEST
+    }
+  })
+})
+
+describe('requestAiChat', () => {
+  beforeEach(() => {
+    create.mockReset()
+  })
+
+  it('routes to Groq in test environment by default', async () => {
+    create.mockResolvedValueOnce(reply('Groq test response'))
+    const res = await requestAiChat([{ role: 'user', content: 'hello' }])
+    expect(res.text).toBe('Groq test response')
+    expect(create).toHaveBeenCalledTimes(1)
+  })
+
+  it('routes to Gemini when enabled and falls back to Groq if Gemini fails', async () => {
+    process.env.GEMINI_API_KEY = 'test_gemini_key'
+    process.env.ENABLE_GEMINI_IN_TEST = 'true'
+
+    const originalFetch = global.fetch
+    try {
+      // 1. Success case with Gemini Chat
+      global.fetch = vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          candidates: [{ content: { parts: [{ text: 'Hello from Gemini Chat' }] } }],
+        }),
+      })
+
+      const geminiRes = await requestAiChat([
+        { role: 'system', content: 'System prompt' },
+        { role: 'user', content: 'User prompt' },
+      ])
+      expect(geminiRes.text).toBe('Hello from Gemini Chat')
+      expect(global.fetch).toHaveBeenCalled()
+      expect(create).not.toHaveBeenCalled()
+
+      // 2. Failure case with Gemini Chat -> falls back to Groq
+      global.fetch = vi.fn().mockRejectedValueOnce(new Error('Gemini Chat 503 error'))
+      create.mockResolvedValueOnce(reply('Hello from Groq Fallback Chat'))
+
+      const fallbackRes = await requestAiChat([
+        { role: 'user', content: 'User prompt' },
+      ])
+      expect(fallbackRes.text).toBe('Hello from Groq Fallback Chat')
       expect(create).toHaveBeenCalledTimes(1)
     } finally {
       global.fetch = originalFetch

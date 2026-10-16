@@ -170,6 +170,112 @@ async function requestGradingJson(prompt, options = {}) {
   return await requestGroqGradingJson(prompt, options)
 }
 
+/**
+ * Request chat completion from Google Gemini API (Primary AI provider for chat).
+ */
+async function requestGeminiChat(messages, { model = null, temperature = 0.3, max_tokens = 1400 } = {}) {
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) throw new Error('GEMINI_API_KEY is not configured')
+
+  const primaryModel = (model && model.startsWith('gemini-'))
+    ? model
+    : (process.env.GEMINI_MODEL || 'gemini-3.5-flash')
+  const candidateModels = primaryModel === 'gemini-3.1-flash-lite'
+    ? ['gemini-3.1-flash-lite', 'gemini-3.5-flash']
+    : [primaryModel, 'gemini-3.1-flash-lite']
+
+  const systemMessages = messages.filter(m => m.role === 'system')
+  const conversationMessages = messages.filter(m => m.role !== 'system')
+
+  const systemInstruction = systemMessages.length > 0
+    ? { parts: [{ text: systemMessages.map(m => m.content).join('\n\n') }] }
+    : undefined
+
+  const contents = conversationMessages.map(m => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content || '' }],
+  }))
+
+  if (contents.length === 0) {
+    contents.push({ role: 'user', parts: [{ text: 'Hello' }] })
+  } else if (contents[0].role !== 'user') {
+    contents.unshift({ role: 'user', parts: [{ text: 'Context' }] })
+  }
+
+  let lastError
+  for (const targetModel of candidateModels) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`
+    try {
+      const payload = {
+        contents,
+        generationConfig: {
+          temperature,
+          maxOutputTokens: max_tokens,
+        },
+      }
+      if (systemInstruction) payload.systemInstruction = systemInstruction
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (!res.ok) {
+        const errText = await res.text()
+        const error = new Error(`Gemini Chat API error (${res.status}): ${errText.slice(0, 300)}`)
+        error.status = res.status
+        throw error
+      }
+
+      const data = await res.json()
+      const text = (data.candidates?.[0]?.content?.parts?.[0]?.text || '').trim()
+      const finishReason = data.candidates?.[0]?.finishReason || null
+      return { text, finishReason }
+    } catch (err) {
+      lastError = err
+      if (err.status === 503 || err.status === 429) {
+        continue
+      }
+      throw err
+    }
+  }
+  throw lastError
+}
+
+/**
+ * Request chat completion from Groq API (Secondary / Fallback provider for chat).
+ */
+async function requestGroqChat(messages, { model = null, temperature = 0.3, max_tokens = 1400 } = {}) {
+  const groq = getGroqClient()
+  if (!groq) throw new Error('GROQ_API_KEY is not configured')
+  const targetModel = model || getGroqModel()
+  const params = { messages, model: targetModel, temperature, max_tokens }
+  if (/gpt-oss/i.test(targetModel)) params.reasoning_effort = 'low'
+  const completion = await groq.chat.completions.create(params)
+  const choice = completion.choices?.[0]
+  return {
+    text: (choice?.message?.content || '').trim(),
+    finishReason: choice?.finish_reason || null,
+  }
+}
+
+/**
+ * Main AI entrypoint for multi-turn chat (used by chatbot).
+ * Automatically uses Google Gemini as Primary and falls back to Groq if needed.
+ */
+async function requestAiChat(messages, options = {}) {
+  const useGemini = process.env.GEMINI_API_KEY && (process.env.NODE_ENV !== 'test' || process.env.ENABLE_GEMINI_IN_TEST === 'true')
+  if (useGemini) {
+    try {
+      return await requestGeminiChat(messages, options)
+    } catch (geminiErr) {
+      console.warn(`[AI Chat] Gemini gặp sự cố (${geminiErr.status || geminiErr.message}), tự động chuyển sang Groq dự phòng...`)
+    }
+  }
+  return await requestGroqChat(messages, options)
+}
+
 module.exports = {
   getGroqClient,
   getGroqModel,
@@ -178,4 +284,7 @@ module.exports = {
   requestGradingJson,
   requestGeminiJson,
   requestGroqGradingJson,
+  requestGeminiChat,
+  requestGroqChat,
+  requestAiChat,
 }
