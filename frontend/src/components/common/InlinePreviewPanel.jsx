@@ -1,8 +1,17 @@
-export default function InlinePreviewPanel({ title, showAnswers, setShowAnswers, onClose, children, hideAnswers = false }) {
+export default function InlinePreviewPanel({
+  title,
+  showAnswers,
+  setShowAnswers,
+  showExplanations,
+  setShowExplanations,
+  onClose,
+  children,
+  hideAnswers = false,
+}) {
   return (
     <div className="bg-white rounded-xl border border-zinc-200 shadow-xs overflow-hidden">
       <div className="flex items-center justify-between px-5 py-3 bg-zinc-50 border-b border-zinc-200">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-zinc-900">Xem trước — {title}</span>
           {!hideAnswers && (
             <button
@@ -11,6 +20,15 @@ export default function InlinePreviewPanel({ title, showAnswers, setShowAnswers,
               className={`text-xs px-2.5 py-1 rounded-lg font-medium transition cursor-pointer ${showAnswers ? 'bg-zinc-900 text-white' : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'}`}
             >
               {showAnswers ? 'Ẩn đáp án' : 'Hiện đáp án'}
+            </button>
+          )}
+          {setShowExplanations && (
+            <button
+              type="button"
+              onClick={() => setShowExplanations(v => !v)}
+              className={`text-xs px-2.5 py-1 rounded-lg font-medium transition cursor-pointer ${showExplanations ? 'bg-zinc-900 text-white' : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'}`}
+            >
+              {showExplanations ? 'Ẩn giải thích' : 'Hiện giải thích'}
             </button>
           )}
         </div>

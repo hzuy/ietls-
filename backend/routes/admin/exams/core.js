@@ -204,6 +204,7 @@ router.get('/exams/:id', authMiddleware, teacherOnly, async (req, res) => {
     const qSelect = {
       id: true, number: true, type: true, questionText: true,
       options: true, correctAnswer: true, imageUrl: true,
+      explanation: true,
     }
     const exam = await prisma.exam.findUnique({
       where: { id },
@@ -229,7 +230,11 @@ router.get('/exams/:id', authMiddleware, teacherOnly, async (req, res) => {
       }
     })
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy đề' })
-    const parseQ = q => ({ ...q, options: q.options ? JSON.parse(q.options) : null })
+    const parseQ = q => ({
+      ...q,
+      options: q.options ? JSON.parse(q.options) : null,
+      explanation: typeof q.explanation === 'string' ? (() => { try { return JSON.parse(q.explanation) } catch { return q.explanation } })() : q.explanation,
+    })
     exam.passages?.forEach(p => {
       p.questions = p.questions.map(parseQ)
       p.questionGroups?.forEach(g => { g.questions = g.questions.map(parseQ) })

@@ -24,12 +24,13 @@ import NoteCompletionEditor from './editors/NoteCompletionEditor'
 import MCQGroupEditor from './editors/MCQGroupEditor'
 import MatchingEditor from './editors/MatchingEditor'
 import AdminGroupPreview from '../practice/AdminGroupPreview'
+import ReviewExplanation from '../exam/ReviewExplanation'
 import { Volume2, Upload, Eye, ChevronDown, BookOpen, Loader2 } from 'lucide-react'
 import ExplanationConflictModal from './ExplanationConflictModal'
 
 // ─── PREVIEW: LISTENING FORM ──────────────────────────────────────────────────
 
-function ListeningFormPreview({ form, showAnswers }) {
+function ListeningFormPreview({ form, showAnswers, showExplanations }) {
   const [activeSection, setActiveSection] = useState(0)
   const section = form.sections[activeSection]
 
@@ -70,7 +71,7 @@ function ListeningFormPreview({ form, showAnswers }) {
           {section.questionGroups.length > 0 ? (
             <div className="space-y-3">
               {section.questionGroups.map((group, gi) => (
-                <AdminGroupPreview key={gi} group={group} showAnswers={showAnswers} />
+                <AdminGroupPreview key={gi} group={group} showAnswers={showAnswers} showExplanations={showExplanations} />
               ))}
             </div>
           ) : (
@@ -88,9 +89,16 @@ function ListeningFormPreview({ form, showAnswers }) {
 // ─── GROUP EDITOR ─────────────────────────────────────────────────────────────
 
 function GroupEditor({ group = {}, onChange, onRemove }) {
+  const [showExplanations, setShowExplanations] = useState(false)
   const groupType = group?.type || 'fill_blank'
   const typeLabel = GROUP_TYPES.find(t => t.value === groupType)?.label || groupType
   const theme = getQuestionTypeTheme(groupType)
+
+  const groupQuestions = group.questions || []
+  const hasExplanations = groupQuestions.some(q => q.explanation) || (group.explanations && Object.keys(group.explanations).length > 0)
+  const explanationCount = group.explanations
+    ? Object.keys(group.explanations).length
+    : groupQuestions.filter(q => q.explanation).length
 
   return (
     <div className={`border ${theme.cardBorder} ${theme.cardBg} rounded-2xl overflow-hidden transition-all duration-200 mb-4 shadow-xs`}>
@@ -102,6 +110,17 @@ function GroupEditor({ group = {}, onChange, onRemove }) {
           Câu {group.qNumberStart}–{group.qNumberEnd}
         </span>
         <span className="text-[10px] text-zinc-400">tự động đánh số</span>
+        {hasExplanations && (
+          <button
+            type="button"
+            onClick={() => setShowExplanations(v => !v)}
+            aria-expanded={showExplanations}
+            className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-full flex items-center gap-1 cursor-pointer transition shadow-2xs"
+            title="Bấm để xem/ẩn chi tiết giải thích cho nhóm câu hỏi này"
+          >
+            <span>✓</span> Đã có giải thích ({explanationCount} câu) — <span className="underline">{showExplanations ? 'Ẩn' : 'Xem chi tiết'}</span>
+          </button>
+        )}
         <div className="flex-1" />
         <div className="flex items-center gap-2">
           <button type="button" onClick={onRemove}
@@ -112,6 +131,48 @@ function GroupEditor({ group = {}, onChange, onRemove }) {
       </div>
 
       <div className="p-4 space-y-3">
+        {showExplanations && hasExplanations && (
+          <div className="rounded-xl border border-emerald-300 bg-emerald-50/50 p-4 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-emerald-200">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-emerald-800" />
+                <h4 className="text-xs font-bold text-emerald-950 uppercase tracking-wide">
+                  Xem trước giải thích chi tiết — Nhóm câu {group.qNumberStart}–{group.qNumberEnd}
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowExplanations(false)}
+                className="text-[11px] font-semibold text-emerald-800 hover:text-emerald-950 underline cursor-pointer"
+              >
+                Thu gọn
+              </button>
+            </div>
+            <div className="space-y-3">
+              {groupQuestions.map((q, idx) => {
+                const qNum = q.orderNum || (group.qNumberStart + idx)
+                let exp = q.explanation || group.explanations?.[qNum]
+                if (!exp) return null
+                if (typeof exp === 'string') {
+                  try { exp = JSON.parse(exp) } catch {}
+                }
+                return (
+                  <div key={q.id || qNum || idx} className="rounded-xl border border-emerald-200 bg-white p-3.5 shadow-2xs">
+                    <div className="flex items-center gap-2 mb-2 pb-2 border-b border-zinc-100">
+                      <span className="w-5 h-5 rounded-full bg-zinc-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                        {qNum}
+                      </span>
+                      <span className="text-xs font-bold text-zinc-800">
+                        Đáp án đúng: <span className="text-emerald-700 font-semibold">{q.correctAnswer ?? '(chưa nhập)'}</span>
+                      </span>
+                    </div>
+                    <ReviewExplanation explanation={exp} />
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
         <div>
           <label className={labelCls}>Instruction (hiển thị cho học sinh)</label>
           <textarea rows={2}
@@ -183,6 +244,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   const [loadingEdit, setLoadingEdit] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [showAnswers, setShowAnswers] = useState(false)
+  const [showExplanations, setShowExplanations] = useState(false)
   const [toast, setToast] = useState('')
   const [draftBanner, setDraftBanner] = useState(null)
   const [editHighlight, setEditHighlight] = useState(false)
@@ -823,9 +885,11 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
             title={form.title || 'Listening'}
             showAnswers={showAnswers}
             setShowAnswers={setShowAnswers}
+            showExplanations={showExplanations}
+            setShowExplanations={setShowExplanations}
             onClose={() => setShowPreview(false)}
           >
-            <ListeningFormPreview form={form} showAnswers={showAnswers} />
+            <ListeningFormPreview form={form} showAnswers={showAnswers} showExplanations={showExplanations} />
           </InlinePreviewPanel>
         </div>
       )}
