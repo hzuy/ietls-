@@ -11,7 +11,15 @@ async function fetchJson(url, init) {
 
 export const homeQueryOptions = {
   queryKey: ['home'],
-  queryFn: () => fetchJson(API_BASE + '/home'),
+  queryFn: async () => {
+    const data = await fetchJson(API_BASE + '/home')
+    try {
+      if (typeof window !== 'undefined' && data) {
+        localStorage.setItem('__home_cache__', JSON.stringify(data))
+      }
+    } catch {}
+    return data
+  },
   staleTime: FIVE_MINUTES,
 }
 
@@ -24,7 +32,18 @@ export const fullTestsQueryOptions = {
 }
 
 export function useHomeData() {
-  return useQuery(homeQueryOptions)
+  return useQuery({
+    ...homeQueryOptions,
+    placeholderData: (prev) => {
+      if (prev) return prev
+      if (typeof window === 'undefined') return undefined
+      try {
+        const cached = localStorage.getItem('__home_cache__')
+        if (cached) return JSON.parse(cached)
+      } catch {}
+      return undefined
+    },
+  })
 }
 
 export function useFullTests() {

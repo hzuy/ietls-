@@ -425,7 +425,7 @@ export default function Home() {
                   onClick={() => {
                     const firstSeries = groupedFullTests[0]
                     const slug = firstSeries ? toSeriesSlug(firstSeries.seriesName) : ''
-                    gate(slug ? `/series/${slug}` : '/cambridge')
+                    gate(slug ? `/series/${slug}` : '/full-test')
                   }}
                   className="h-11 pointer-coarse:h-12 px-6 sm:px-7 text-white text-sm sm:text-base font-medium rounded-full shadow-xs transition-all cursor-pointer inline-flex items-center justify-center leading-none hover:shadow-md hover:scale-[1.01]"
                   style={{ background: 'var(--primary)' }}
@@ -434,7 +434,7 @@ export default function Home() {
                 >
                   {groupedFullTests[0]?.seriesName
                     ? `Vào phòng thi ${groupedFullTests[0].seriesName}`
-                    : 'Vào phòng thi Cambridge'}
+                    : 'Vào phòng thi'}
                 </button>
                 <button
                   onClick={() => {

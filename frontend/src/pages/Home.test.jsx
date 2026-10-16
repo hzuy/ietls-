@@ -193,5 +193,39 @@ describe('Home Page Standardization', () => {
     expect(await screen.findByRole('button', { name: 'IELTS Mock Test' })).toBeInTheDocument()
     expect(screen.getAllByText('IELTS Mock Test 19').length).toBeGreaterThan(0)
   })
+
+  it('renders hero CTA button with dynamic series name and never falls back to Cambridge', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        fullTests: [
+          {
+            id: 1,
+            seriesId: 1,
+            seriesName: 'IELTS Mock Test',
+            bookNumber: 19,
+            testNumber: 1,
+            exams: { reading: { id: 101, title: 'Mock 19 Test 1 Reading' } },
+            coverImageUrl: null,
+          },
+        ],
+        reading: [],
+        listening: [],
+        writingSamples: [],
+        speakingSamples: [],
+      }),
+    })
+
+    render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    )
+
+    const ctaButton = await screen.findByRole('button', { name: 'Vào phòng thi IELTS Mock Test' })
+    expect(ctaButton).toBeInTheDocument()
+    expect(screen.queryByText('Vào phòng thi Cambridge')).not.toBeInTheDocument()
+  })
 })
+
 
