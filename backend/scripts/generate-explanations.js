@@ -445,9 +445,9 @@ function buildResponseSchema(type, rawOptions = null) {
   }
 }
 
-async function callAi(prompt, { questionType = null, rawOptions = null, maxRateLimitRetries = 6 } = {}) {
+async function callAi(prompt, { questionType = null, rawOptions = null, model: customModel = null, maxRateLimitRetries = 6 } = {}) {
   const useGemini = process.env.GEMINI_API_KEY && (process.env.NODE_ENV !== 'test' || process.env.ENABLE_GEMINI_IN_TEST === 'true')
-  const model = process.env.GEMINI_MODEL || 'gemini-3.8-flash'
+  const model = customModel || process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite'
 
   if (useGemini && typeof requestGeminiJson === 'function') {
     const responseSchema = buildResponseSchema(questionType, rawOptions)

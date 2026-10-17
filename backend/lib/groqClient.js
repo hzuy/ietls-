@@ -53,11 +53,11 @@ async function requestGeminiJson(prompt, {
 
   const primaryModel = (model && model.startsWith('gemini-'))
     ? model
-    : (process.env.GEMINI_MODEL || 'gemini-3.8-flash')
+    : (process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite')
   const candidateModels = [
     primaryModel,
-    'gemini-3.8-flash',
-    'gemini-3.5-flash',
+    'gemini-3.5-flash-lite',
+    'gemini-3.1-flash-lite',
   ].filter((v, i, a) => a.indexOf(v) === i)
 
   const parts = [{ text: prompt }]
@@ -104,7 +104,7 @@ async function requestGeminiJson(prompt, {
 
   if (thinkingConfig) {
     generationConfig.thinkingConfig = thinkingConfig
-  } else if (primaryModel.includes('3.8-flash') || primaryModel.includes('3.5-flash')) {
+  } else if ((primaryModel.includes('3.8-flash') || primaryModel.includes('3.5-flash')) && !primaryModel.includes('lite')) {
     generationConfig.thinkingConfig = { thinkingLevel: 'low' }
   }
 
@@ -122,7 +122,7 @@ async function requestGeminiJson(prompt, {
               contents: [{ parts }],
               generationConfig,
             }),
-            signal: AbortSignal.timeout(30000),
+            signal: AbortSignal.timeout(15000),
           })
         )
 
