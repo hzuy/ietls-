@@ -470,8 +470,8 @@ async function callAi(prompt, { questionType = null, rawOptions = null, maxRateL
       } catch (geminiErr) {
         const isTransient = geminiErr.status === 503 || geminiErr.status === 429 || /503|429|high demand/i.test(geminiErr.message)
         if (isTransient && geminiAttempt < 2) {
-          const waitMs = (geminiAttempt + 1) * 2000
-          console.warn(`   … [AI] Gemini quá tải (${geminiErr.status || geminiErr.message}), thử lại lượt ${geminiAttempt + 2} sau ${waitMs / 1000}s...`)
+          const waitMs = geminiErr.retryWaitMs || ((geminiAttempt + 1) * 3000)
+          console.warn(`   … [AI] Gemini giới hạn hoặc quá tải (${geminiErr.status || geminiErr.message}), chờ ${waitMs / 1000}s trước khi thử lại lượt ${geminiAttempt + 2}...`)
           await sleep(waitMs)
           continue
         }

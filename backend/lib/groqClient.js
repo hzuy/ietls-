@@ -1,5 +1,10 @@
 'use strict'
 const Groq = require('groq-sdk')
+const {
+  scheduleGeminiCall,
+  parseGeminiRetryWaitMs,
+  recordGeminiCooldown,
+} = require('./geminiRateLimiter')
 
 /**
  * Lazy Groq client factory.
@@ -109,19 +114,23 @@ async function requestGeminiJson(prompt, {
 
     for (let attempt = 0; attempt <= retriesPerModel; attempt++) {
       try {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts }],
-            generationConfig,
-          }),
-        })
+        const res = await scheduleGeminiCall(() =>
+          fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts }],
+              generationConfig,
+            }),
+            signal: AbortSignal.timeout(30000),
+          })
+        )
 
         if (!res.ok) {
           const errText = await res.text()
           const error = new Error(`Gemini API error (${res.status}): ${errText.slice(0, 300)}`)
           error.status = res.status
+          error.retryWaitMs = parseGeminiRetryWaitMs(res.headers, errText)
           throw error
         }
 
@@ -143,8 +152,9 @@ async function requestGeminiJson(prompt, {
         lastError = err
         const isTransient = err.status === 503 || err.status === 429 || err instanceof SyntaxError
         if (isTransient && attempt < retriesPerModel) {
-          const backoff = (attempt + 1) * 1500
-          await new Promise(r => setTimeout(r, backoff))
+          const waitMs = err.retryWaitMs || ((attempt + 1) * 2500)
+          recordGeminiCooldown(waitMs)
+          await new Promise(r => setTimeout(r, waitMs))
           continue
         }
         break // Try next candidate model
@@ -256,16 +266,20 @@ async function requestGeminiChat(messages, { model = null, temperature = 0.3, ma
       }
       if (systemInstruction) payload.systemInstruction = systemInstruction
 
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
+      const res = await scheduleGeminiCall(() =>
+        fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(30000),
+        })
+      )
 
       if (!res.ok) {
         const errText = await res.text()
         const error = new Error(`Gemini Chat API error (${res.status}): ${errText.slice(0, 300)}`)
         error.status = res.status
+        error.retryWaitMs = parseGeminiRetryWaitMs(res.headers, errText)
         throw error
       }
 
