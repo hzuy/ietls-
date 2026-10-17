@@ -60,7 +60,12 @@ export function gradePractice(skill, exam, answers = {}) {
         correctAnswer: skill === 'listening' ? expected : q.correctAnswer,
         options: q.options || null,
         type: g.type || q.type,
-        explanation: g.explanations?.[q.number] || null,
+        explanation: (() => {
+          const exp = g.explanations?.[q.number] || null
+          if (!exp) return null
+          if (!exp.status) return exp
+          return ['ai_generated', 'teacher_reviewed', 'teacher_edited'].includes(exp.status) ? exp : null
+        })(),
       })
     })
   })

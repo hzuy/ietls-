@@ -9,6 +9,7 @@ const { getOrSet, TTL_EXAM_DETAIL } = require('../utils/cache')
 
 const router = express.Router()
 const prisma = require('../lib/prisma')
+const { filterLearnerExplanation } = require('../services/explanationGeneratorService')
 
 router.get('/exams', authMiddleware, async (req, res) => {
   try {
@@ -418,7 +419,7 @@ router.get('/exams/:id/result-detail', authMiddleware, learnerOnly, validate(res
           rawCorrectAnswer,
           options: parsedOpts,
           type: q.type,
-          explanation: q.explanation || null,
+          explanation: filterLearnerExplanation(q.explanation),
           grouped: false
         })
       }
@@ -498,7 +499,7 @@ router.get('/exams/:id/result-detail', authMiddleware, learnerOnly, validate(res
               statuses,
               options: parsedOpts,
               type: g.type,
-              explanation: q.explanation || null
+              explanation: filterLearnerExplanation(q.explanation)
             })
           } else {
             // All other group types — flatten to individual questions
@@ -528,7 +529,7 @@ router.get('/exams/:id/result-detail', authMiddleware, learnerOnly, validate(res
               rawCorrectAnswer,
               options: parsedOpts,
               type: g.type || q.type,
-              explanation: q.explanation || null,
+              explanation: filterLearnerExplanation(q.explanation),
               grouped: false
             })
           }

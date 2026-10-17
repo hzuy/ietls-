@@ -9,7 +9,12 @@ const { invalidate } = require('../../../lib/swrCache')
 const { invalidateExamCaches } = require('../../../utils/cache')
 const { logAuditEvent } = require('../../../lib/auditLog')
 const { AUDIT_ACTIONS } = require('../../../lib/auditActions')
-const { generateForExam } = require('../../../services/explanationGeneratorService')
+const {
+  generateForExam,
+  regenerateQuestionExplanation,
+  updateManualExplanation,
+  reviewQuestionExplanation,
+} = require('../../../services/explanationGeneratorService')
 
 // ─── GET EXAM COUNTS BY SKILL ───────────────────────────────────────────────
 router.get('/exams/counts', authMiddleware, teacherOnly, async (req, res) => {
@@ -32,13 +37,64 @@ router.get('/exams/counts', authMiddleware, teacherOnly, async (req, res) => {
 // ─── ADMIN: GENERATE EXPLANATIONS FOR EXAM WITH CONFLICT DETECTION ──────────
 router.post('/exams/:id/generate-explanations', authMiddleware, teacherOnly, async (req, res) => {
   const { id } = req.params
-  const { force = false, resolveChoices = {} } = req.body || {}
+  const { force = false, resolveChoices = {}, overwriteProtected = false } = req.body || {}
   try {
-    const result = await generateForExam(parseInt(id, 10), { force, resolveChoices })
+    const result = await generateForExam(parseInt(id, 10), { force, resolveChoices, overwriteProtected })
     res.json(result)
   } catch (err) {
     console.error('[GENERATE EXAM EXPLANATIONS ERROR]', err)
     res.status(500).json({ message: err.message || 'Lỗi khi tạo giải thích bằng AI' })
+  }
+})
+
+// ─── ADMIN: REGENERATE SINGLE QUESTION EXPLANATION WITH TEACHER FEEDBACK ───
+router.post('/exams/:id/questions/:qId/regenerate-explanation', authMiddleware, teacherOnly, async (req, res) => {
+  const { id, qId } = req.params
+  const { teacherFeedback } = req.body || {}
+  try {
+    const result = await regenerateQuestionExplanation({
+      examId: parseInt(id, 10),
+      questionId: qId,
+      isPractice: false,
+      teacherFeedback,
+    })
+    res.json(result)
+  } catch (err) {
+    console.error('[REGENERATE EXAM QUESTION EXPLANATION ERROR]', err)
+    res.status(500).json({ message: err.message || 'Lỗi khi tạo lại giải thích' })
+  }
+})
+
+// ─── ADMIN: MANUALLY EDIT SINGLE QUESTION EXPLANATION ─────────────────────
+router.put('/exams/:id/questions/:qId/explanation', authMiddleware, teacherOnly, async (req, res) => {
+  const { id, qId } = req.params
+  try {
+    const result = await updateManualExplanation({
+      examId: parseInt(id, 10),
+      questionId: qId,
+      isPractice: false,
+      fields: req.body || {},
+    })
+    res.json(result)
+  } catch (err) {
+    console.error('[EDIT EXAM QUESTION EXPLANATION ERROR]', err)
+    res.status(400).json({ message: err.message || 'Lỗi khi lưu chỉnh sửa giải thích' })
+  }
+})
+
+// ─── ADMIN: APPROVE/REVIEW SINGLE QUESTION EXPLANATION ────────────────────
+router.post('/exams/:id/questions/:qId/review-explanation', authMiddleware, teacherOnly, async (req, res) => {
+  const { id, qId } = req.params
+  try {
+    const result = await reviewQuestionExplanation({
+      examId: parseInt(id, 10),
+      questionId: qId,
+      isPractice: false,
+    })
+    res.json(result)
+  } catch (err) {
+    console.error('[REVIEW EXAM QUESTION EXPLANATION ERROR]', err)
+    res.status(400).json({ message: err.message || 'Lỗi khi duyệt giải thích' })
   }
 })
 
@@ -367,13 +423,33 @@ function planQuestionDiff(existingQuestions, submittedQuestions, fieldMapper) {
   const toCreate = []
   const unmatchedSubmitted = []
 
+  function getStalePatch(ex, fields) {
+    if (!ex.explanation) return {}
+    const answerChanged = String(ex.correctAnswer ?? '').trim() !== String(fields.correctAnswer ?? '').trim()
+    const textChanged = String(ex.questionText ?? '').trim() !== String(fields.questionText ?? '').trim()
+    if (answerChanged || textChanged) {
+      const expObj = typeof ex.explanation === 'object' ? ex.explanation : {}
+      return {
+        explanation: {
+          ...expObj,
+          status: 'possibly_stale',
+          staleReason: answerChanged ? 'Đáp án đã thay đổi' : 'Nội dung câu hỏi đã thay đổi',
+          staleAt: new Date().toISOString()
+        }
+      }
+    }
+    return {}
+  }
+
   // Phase 1: match by q.id if provided and exists in this group
   for (const q of submittedQuestions) {
     const fields = fieldMapper(q)
     const qId = q.id ? parseInt(q.id) : null
     if (qId && existingById.has(qId)) {
+      const ex = existingById.get(qId)
       matchedExistingIds.add(qId)
-      toUpdate.push({ id: qId, data: { number: q.number, ...fields } })
+      const stalePatch = getStalePatch(ex, fields)
+      toUpdate.push({ id: qId, data: { number: q.number, ...fields, ...stalePatch } })
     } else {
       unmatchedSubmitted.push({ q, fields })
     }
@@ -384,7 +460,8 @@ function planQuestionDiff(existingQuestions, submittedQuestions, fieldMapper) {
     const ex = existingByNumber.get(q.number)
     if (ex && !matchedExistingIds.has(ex.id)) {
       matchedExistingIds.add(ex.id)
-      toUpdate.push({ id: ex.id, data: { number: q.number, ...fields } })
+      const stalePatch = getStalePatch(ex, fields)
+      toUpdate.push({ id: ex.id, data: { number: q.number, ...fields, ...stalePatch } })
     } else {
       toCreate.push({ number: q.number, ...fields })
     }
@@ -533,8 +610,8 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
             where: { examId: id },
             orderBy: { number: 'asc' },
             include: {
-              questions: { where: { groupId: null }, select: { id: true, number: true } },
-              questionGroups: { orderBy: { sortOrder: 'asc' }, include: { questions: { select: { id: true, number: true } } } }
+              questions: { where: { groupId: null }, select: { id: true, number: true, questionText: true, correctAnswer: true, explanation: true } },
+              questionGroups: { orderBy: { sortOrder: 'asc' }, include: { questions: { select: { id: true, number: true, questionText: true, correctAnswer: true, explanation: true } } } }
             }
           })
           const oldByNumber = new Map(oldPassages.map(p => [p.number, p]))
@@ -681,8 +758,8 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
             where: { examId: id },
             orderBy: { number: 'asc' },
             include: {
-              questions: { where: { groupId: null }, select: { id: true, number: true } },
-              questionGroups: { orderBy: { sortOrder: 'asc' }, include: { questions: { select: { id: true, number: true } } } }
+              questions: { where: { groupId: null }, select: { id: true, number: true, questionText: true, correctAnswer: true, explanation: true } },
+              questionGroups: { orderBy: { sortOrder: 'asc' }, include: { questions: { select: { id: true, number: true, questionText: true, correctAnswer: true, explanation: true } } } }
             }
           })
           const oldByNumber = new Map(oldSections.map(s => [s.number, s]))

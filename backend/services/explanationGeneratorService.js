@@ -4,10 +4,72 @@ const {
   buildContext,
   generateExplanation,
   normalizeText,
+  cleanString,
+  ExplanationValidationError,
   SKIP_FAMILIES,
 } = require('../scripts/generate-explanations')
 const { practiceQuestionContext } = require('../scripts/import-practice-explanations')
 const { invalidate } = require('../lib/swrCache')
+const { invalidateExamCaches } = require('../utils/cache')
+
+function isExplanationVisibleToLearner(explanation) {
+  if (!explanation || typeof explanation !== 'object') return false
+  // 3.2 TƯƠNG THÍCH NGƯỢC: lời giải cũ (chưa có status) coi như ai_generated, vẫn hiển thị bình thường
+  if (!explanation.status) return true
+  const ALLOWED = ['ai_generated', 'teacher_reviewed', 'teacher_edited']
+  return ALLOWED.includes(explanation.status)
+}
+
+function filterLearnerExplanation(explanation) {
+  return isExplanationVisibleToLearner(explanation) ? explanation : null
+}
+
+function validateManualExplanation(data) {
+  if (!data || typeof data !== 'object') {
+    throw new Error('Dữ liệu sửa giải thích không hợp lệ')
+  }
+
+  const allowed = {}
+
+  if (data.reasoning !== undefined) {
+    if (typeof data.reasoning !== 'string') throw new Error('reasoning phải là chuỗi ký tự')
+    if (data.reasoning.length > 2000) throw new Error('reasoning không được vượt quá 2000 ký tự')
+    allowed.reasoning = data.reasoning.trim()
+  }
+
+  if (data.predict !== undefined) {
+    if (typeof data.predict !== 'string') throw new Error('predict phải là chuỗi ký tự')
+    if (data.predict.length > 1000) throw new Error('predict không được vượt quá 1000 ký tự')
+    allowed.predict = data.predict.trim()
+  }
+
+  if (data.translation !== undefined) {
+    if (typeof data.translation !== 'string') throw new Error('translation phải là chuỗi ký tự')
+    if (data.translation.length > 1000) throw new Error('translation không được vượt quá 1000 ký tự')
+    allowed.translation = data.translation.trim()
+  }
+
+  if (data.full_sentence !== undefined) {
+    if (typeof data.full_sentence !== 'string') throw new Error('full_sentence phải là chuỗi ký tự')
+    if (data.full_sentence.length > 1000) throw new Error('full_sentence không được vượt quá 1000 ký tự')
+    allowed.full_sentence = data.full_sentence.trim()
+  }
+
+  if (data.distractors !== undefined) {
+    if (!Array.isArray(data.distractors)) throw new Error('distractors phải là một danh sách')
+    if (data.distractors.length > 10) throw new Error('distractors không được vượt quá 10 mục')
+    allowed.distractors = data.distractors.map((d, i) => {
+      if (!d || typeof d !== 'object') throw new Error(`Lựa chọn thứ ${i + 1} trong distractors không hợp lệ`)
+      const option = String(d.option || '').trim().slice(0, 100)
+      const reason = String(d.reason || '').trim().slice(0, 500)
+      const label = d.label ? String(d.label).trim().slice(0, 100) : ''
+      if (!option || !reason) throw new Error(`Lựa chọn thứ ${i + 1} phải có đầy đủ option và reason`)
+      return { option, reason, ...(label ? { label } : {}) }
+    })
+  }
+
+  return allowed
+}
 
 function parseGroup(row) {
   try {
@@ -355,8 +417,9 @@ function isAnswerMatch(a, b, rawOptionsOrOpts = null, explicitType = null) {
  * @param {object} options
  * @param {boolean} options.force - If true, regenerate even if explanation exists
  * @param {object} options.resolveChoices - Map of { [questionNumber]: 'ai' | 'input' }
+ * @param {boolean} options.overwriteProtected - If true, overwrite teacher_reviewed or teacher_edited explanations
  */
-async function generateForPracticeExam(examId, { force = false, resolveChoices = {} } = {}) {
+async function generateForPracticeExam(examId, { force = false, resolveChoices = {}, overwriteProtected = false } = {}) {
   const exam = await prisma.practiceExam.findUnique({
     where: { id: examId },
     include: { questions: { orderBy: { orderNum: 'asc' } } },
@@ -406,9 +469,13 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
       const qNum = Number(qItem.number)
       if (!qNum) continue
 
-      // Skip if already has explanation and not force/resolving
-      if (currentExplanations[qNum] && !force && !resolveChoices[qNum]) {
-        continue
+      const existing = currentExplanations[qNum]
+      const isProtected = existing && (existing.status === 'teacher_reviewed' || existing.status === 'teacher_edited')
+
+      // 3.10: Skip if already has explanation, respect overwriteProtected
+      if (existing && !resolveChoices[qNum]) {
+        if (!force) continue
+        if (isProtected && !overwriteProtected) continue
       }
 
       const qCtx = practiceQuestionContext(exam, group, qNum)
@@ -431,7 +498,9 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
       const choice = resolveChoices[qNum]
 
       if (!match && !choice) {
-        // Record conflict
+        // 4.1: Record conflict and save with conflict_pending status
+        explanation.status = 'conflict_pending'
+        explanation.aiAnswer = aiAnswer
         conflicts.push({
           number: qNum,
           type: qCtx.type,
@@ -442,15 +511,21 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
           reasoning: explanation.reasoning,
           explanation,
         })
+        currentExplanations[qNum] = explanation
       } else {
         // Resolve or match
         if (choice === 'ai') {
-          // Adopt AI answer into question
+          // 3.4: Adopt AI answer into question
           qItem.correctAnswer = aiAnswer
           groupModified = true
           explanation.answer = aiAnswer
+          explanation.status = 'ai_generated'
         } else if (choice === 'input') {
-          explanation.answer = inputAnswer
+          // 3.3: Teacher keeps answer -> needs regeneration to argue for teacher answer
+          explanation.status = 'needs_regeneration'
+          explanation.teacherKeptAnswer = inputAnswer
+        } else {
+          explanation.status = 'ai_generated'
         }
 
         currentExplanations[qNum] = explanation
@@ -463,18 +538,7 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
     })
   }
 
-  // If there are unresolved conflicts and no explicit resolveChoices, pause and return conflicts for confirmation
-  if (conflicts.length > 0 && Object.keys(resolveChoices).length === 0) {
-    return {
-      ok: false,
-      hasConflicts: true,
-      conflicts,
-      generatedCount,
-      message: `Đã quét và phát hiện ${conflicts.length} câu có đáp án lệch so với bài đọc. Vui lòng duyệt trước khi lưu.`,
-    }
-  }
-
-  // Save updates to database
+  // 4.1 PARTIAL SAVE: Save updates to database first so data is never lost
   await prisma.$transaction(async (tx) => {
     for (const [rowId, { byNumber, groupContent }] of updatesByRow) {
       const data = { explanation: { byNumber } }
@@ -487,6 +551,17 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
   })
 
   invalidate('practice:')
+
+  // If there are unresolved conflicts and no explicit resolveChoices, notify frontend
+  if (conflicts.length > 0 && Object.keys(resolveChoices).length === 0) {
+    return {
+      ok: false,
+      hasConflicts: true,
+      conflicts,
+      generatedCount,
+      message: `Đã lưu giải thích và phát hiện ${conflicts.length} câu có đáp án lệch so với bài đọc. Vui lòng duyệt trước khi công bố cho học sinh.`,
+    }
+  }
 
   return {
     ok: true,
@@ -503,8 +578,9 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
  * @param {object} options
  * @param {boolean} options.force - If true, regenerate even if explanation exists
  * @param {object} options.resolveChoices - Map of { [questionNumber]: 'ai' | 'input' }
+ * @param {boolean} options.overwriteProtected - If true, overwrite teacher_reviewed or teacher_edited explanations
  */
-async function generateForExam(examId, { force = false, resolveChoices = {} } = {}) {
+async function generateForExam(examId, { force = false, resolveChoices = {}, overwriteProtected = false } = {}) {
   const exam = await prisma.exam.findUnique({
     where: { id: examId },
     select: { id: true, title: true, skill: true },
@@ -568,8 +644,11 @@ async function generateForExam(examId, { force = false, resolveChoices = {} } = 
 
   // Pre-validate that passage/transcript content exists for questions needing generation
   for (const q of questions) {
-    if (q.explanation && !force && !resolveChoices[q.number]) {
-      continue
+    const existing = q.explanation
+    const isProtected = existing && (existing.status === 'teacher_reviewed' || existing.status === 'teacher_edited')
+    if (existing && !resolveChoices[q.number]) {
+      if (!force) continue
+      if (isProtected && !overwriteProtected) continue
     }
     const passage = q.passage || q.group?.passage
     const section = q.listeningSection || q.group?.section
@@ -581,8 +660,11 @@ async function generateForExam(examId, { force = false, resolveChoices = {} } = 
   }
 
   for (const q of questions) {
-    if (q.explanation && !force && !resolveChoices[q.number]) {
-      continue
+    const existing = q.explanation
+    const isProtected = existing && (existing.status === 'teacher_reviewed' || existing.status === 'teacher_edited')
+    if (existing && !resolveChoices[q.number]) {
+      if (!force) continue
+      if (isProtected && !overwriteProtected) continue
     }
 
     const family = classifyFamily(q.type)
@@ -601,6 +683,9 @@ async function generateForExam(examId, { force = false, resolveChoices = {} } = 
     const choice = resolveChoices[q.number]
 
     if (!match && !choice) {
+      // 4.1: Record conflict and save with conflict_pending
+      explanation.status = 'conflict_pending'
+      explanation.aiAnswer = aiAnswer
       conflicts.push({
         number: q.number,
         type: q.type,
@@ -611,13 +696,22 @@ async function generateForExam(examId, { force = false, resolveChoices = {} } = 
         reasoning: explanation.reasoning,
         explanation,
       })
+      updates.push({
+        id: q.id,
+        correctAnswer: inputAnswer,
+        explanation,
+      })
     } else {
       let finalCorrectAnswer = inputAnswer
       if (choice === 'ai') {
         finalCorrectAnswer = aiAnswer
         explanation.answer = aiAnswer
+        explanation.status = 'ai_generated'
       } else if (choice === 'input') {
-        explanation.answer = inputAnswer
+        explanation.status = 'needs_regeneration'
+        explanation.teacherKeptAnswer = inputAnswer
+      } else {
+        explanation.status = 'ai_generated'
       }
 
       updates.push({
@@ -628,16 +722,7 @@ async function generateForExam(examId, { force = false, resolveChoices = {} } = 
     }
   }
 
-  if (conflicts.length > 0 && Object.keys(resolveChoices).length === 0) {
-    return {
-      ok: false,
-      hasConflicts: true,
-      conflicts,
-      generatedCount,
-      message: `Đã quét và phát hiện ${conflicts.length} câu có đáp án lệch so với bài đọc/nghe. Vui lòng duyệt trước khi lưu.`,
-    }
-  }
-
+  // 4.1 PARTIAL SAVE: Save updates to database first so data is never lost
   await prisma.$transaction(async (tx) => {
     for (const item of updates) {
       await tx.question.update({
@@ -650,15 +735,481 @@ async function generateForExam(examId, { force = false, resolveChoices = {} } = 
     }
   })
 
-  invalidate('exams:')
-  invalidate('reading:')
-  invalidate('listening:')
+  invalidateExamCaches(examId)
+
+  if (conflicts.length > 0 && Object.keys(resolveChoices).length === 0) {
+    return {
+      ok: false,
+      hasConflicts: true,
+      conflicts,
+      generatedCount,
+      message: `Đã lưu giải thích và phát hiện ${conflicts.length} câu có đáp án lệch so với bài đọc/nghe. Vui lòng duyệt trước khi công bố cho học sinh.`,
+    }
+  }
 
   return {
     ok: true,
     hasConflicts: false,
     generatedCount,
     message: `Đã tạo giải thích 4 bước thành công cho ${generatedCount} câu hỏi!`,
+  }
+}
+
+/**
+ * Atomic helper for modifying PracticeQuestion.explanation.byNumber safely in transaction.
+ * 3.6 CONCURRENCY SAFE
+ */
+async function updatePracticeQuestionExplanationTx(practiceQuestionId, updaterFn) {
+  return prisma.$transaction(async (tx) => {
+    const row = await tx.practiceQuestion.findUnique({
+      where: { id: practiceQuestionId },
+      select: { id: true, explanation: true, content: true },
+    })
+    if (!row) throw new Error(`Không tìm thấy PracticeQuestion #${practiceQuestionId}`)
+
+    const currentByNumber = (row.explanation && typeof row.explanation === 'object' && row.explanation.byNumber) || {}
+    const updatedByNumber = updaterFn({ ...currentByNumber }, row)
+
+    const updated = await tx.practiceQuestion.update({
+      where: { id: practiceQuestionId },
+      data: {
+        explanation: { byNumber: updatedByNumber },
+      },
+    })
+    return { updated, row }
+  })
+}
+
+/**
+ * 4.3 Regenerate explanation for a single question with optional teacherFeedback.
+ */
+async function regenerateQuestionExplanation({ examId, questionId = null, questionNumber = null, isPractice = false, skill = 'reading', teacherFeedback = null }) {
+  const cleanFeedback = teacherFeedback ? cleanString(teacherFeedback, 1000) : null
+  const parsedExamId = parseInt(examId, 10)
+
+  if (isPractice) {
+    const exam = await prisma.practiceExam.findUnique({
+      where: { id: parsedExamId },
+      include: { questions: { orderBy: { orderNum: 'asc' } } },
+    })
+    if (!exam) throw new Error(`Không tìm thấy bài luyện tập #${parsedExamId}`)
+
+    const targetNum = parseInt(questionNumber, 10)
+    let targetRow = null
+    let targetGroup = null
+    let targetQItem = null
+
+    for (const row of exam.questions) {
+      const group = parseGroup(row)
+      if (!group || !Array.isArray(group.questions)) continue
+      const qItem = group.questions.find((q) => Number(q.number) === targetNum)
+      if (qItem) {
+        targetRow = row
+        targetGroup = group
+        targetQItem = qItem
+        break
+      }
+    }
+
+    if (!targetRow || !targetQItem) {
+      throw new Error(`Không tìm thấy câu hỏi #${targetNum} trong bài luyện tập #${parsedExamId}`)
+    }
+
+    const inputAnswer = String(targetQItem.correctAnswer ?? '').trim()
+    if (!inputAnswer) {
+      throw new Error(`Câu #${targetNum} chưa có đáp án đúng, không thể tạo giải thích bằng AI.`)
+    }
+
+    const qCtx = practiceQuestionContext(exam, targetGroup, targetNum)
+    if (!qCtx) throw new Error(`Không thể khởi tạo ngữ cảnh cho câu #${targetNum}`)
+    const family = classifyFamily(qCtx.type)
+    const ctx = buildContext(qCtx, family)
+
+    let explanation
+    try {
+      explanation = await generateExplanation(qCtx, family, ctx, { teacherFeedback: cleanFeedback })
+    } catch (err) {
+      if (err instanceof ExplanationValidationError) {
+        return {
+          ok: false,
+          error: 'EVIDENCE_NOT_FOUND',
+          message: 'Không thể xác thực bằng chứng nguyên văn: ' + err.message,
+        }
+      }
+      throw err
+    }
+
+    if (!explanation) {
+      return { ok: false, message: 'AI không tạo được giải thích cho câu hỏi này.' }
+    }
+
+    const aiAnswer = String(explanation.answer || '').trim()
+    const rawOptions = qCtx.options || (targetGroup.matchingOptions?.length ? targetGroup.matchingOptions : null)
+    const match = isAnswerMatch(inputAnswer, aiAnswer, rawOptions, qCtx.type)
+
+    if (!match) {
+      explanation.status = 'conflict_pending'
+      explanation.aiAnswer = aiAnswer
+    } else {
+      explanation.status = 'ai_generated'
+    }
+
+    const oldExp = targetRow.explanation?.byNumber?.[targetNum] || {}
+    const oldHistory = Array.isArray(oldExp.feedbackHistory) ? oldExp.feedbackHistory : []
+    const feedbackEntry = {
+      at: new Date().toISOString(),
+      feedback: cleanFeedback || '',
+      provider: explanation.provider || 'Gemini',
+      model: explanation.model || 'gemini-3.5-flash-lite',
+    }
+    explanation.teacherFeedback = cleanFeedback || ''
+    explanation.feedbackHistory = [feedbackEntry, ...oldHistory].slice(0, 5)
+    explanation.updatedAt = new Date().toISOString()
+
+    await updatePracticeQuestionExplanationTx(targetRow.id, (byNumber) => {
+      byNumber[targetNum] = explanation
+      return byNumber
+    })
+
+    invalidate('practice:')
+
+    return {
+      ok: true,
+      status: explanation.status,
+      isConflict: explanation.status === 'conflict_pending',
+      explanation,
+      message: match
+        ? 'Đã tạo lại giải thích thành công!'
+        : 'AI sinh giải thích nhưng đáp án lệch so với đáp án câu hỏi. Trạng thái được đặt là Chờ duyệt (ẩn khỏi học sinh).',
+    }
+  } else {
+    // Cambridge / Full Exam
+    const qLookup = parseInt(questionId || questionNumber, 10)
+    const question = await prisma.question.findFirst({
+      where: {
+        OR: [
+          { id: qLookup },
+          {
+            number: qLookup,
+            OR: [
+              { passage: { examId: parsedExamId } },
+              { listeningSection: { examId: parsedExamId } },
+              { group: { passage: { examId: parsedExamId } } },
+              { group: { section: { examId: parsedExamId } } },
+            ],
+          },
+        ],
+      },
+      select: {
+        id: true,
+        number: true,
+        type: true,
+        questionText: true,
+        options: true,
+        correctAnswer: true,
+        explanation: true,
+        passage: { select: { body: true, examId: true } },
+        listeningSection: { select: { transcript: true, context: true, examId: true } },
+        group: {
+          select: {
+            type: true,
+            passage: { select: { body: true, examId: true } },
+            section: { select: { transcript: true, context: true, examId: true } },
+            matchingOptions: { select: { optionLetter: true, optionText: true }, orderBy: { sortOrder: 'asc' } },
+            noteSections: {
+              select: { lines: { select: { contentWithTokens: true }, orderBy: { sortOrder: 'asc' } } },
+              orderBy: { sortOrder: 'asc' },
+            },
+          },
+        },
+      },
+    })
+
+    if (!question) {
+      throw new Error(`Không tìm thấy câu hỏi #${questionId || questionNumber} trong đề #${parsedExamId}`)
+    }
+
+    const inputAnswer = String(question.correctAnswer ?? '').trim()
+    if (!inputAnswer) {
+      throw new Error(`Câu #${question.number} chưa có đáp án đúng, không thể tạo giải thích bằng AI.`)
+    }
+
+    const family = classifyFamily(question.type)
+    const ctx = buildContext(question, family)
+
+    let explanation
+    try {
+      explanation = await generateExplanation(question, family, ctx, { teacherFeedback: cleanFeedback })
+    } catch (err) {
+      if (err instanceof ExplanationValidationError) {
+        return {
+          ok: false,
+          error: 'EVIDENCE_NOT_FOUND',
+          message: 'Không thể xác thực bằng chứng nguyên văn: ' + err.message,
+        }
+      }
+      throw err
+    }
+
+    if (!explanation) {
+      return { ok: false, message: 'AI không tạo được giải thích cho câu hỏi này.' }
+    }
+
+    const aiAnswer = String(explanation.answer || '').trim()
+    const rawOptions = question.options || (question.group?.matchingOptions?.length ? question.group.matchingOptions : null)
+    const match = isAnswerMatch(inputAnswer, aiAnswer, rawOptions, question.type)
+
+    if (!match) {
+      explanation.status = 'conflict_pending'
+      explanation.aiAnswer = aiAnswer
+    } else {
+      explanation.status = 'ai_generated'
+    }
+
+    const oldExp = (question.explanation && typeof question.explanation === 'object') ? question.explanation : {}
+    const oldHistory = Array.isArray(oldExp.feedbackHistory) ? oldExp.feedbackHistory : []
+    const feedbackEntry = {
+      at: new Date().toISOString(),
+      feedback: cleanFeedback || '',
+      provider: explanation.provider || 'Gemini',
+      model: explanation.model || 'gemini-3.5-flash-lite',
+    }
+    explanation.teacherFeedback = cleanFeedback || ''
+    explanation.feedbackHistory = [feedbackEntry, ...oldHistory].slice(0, 5)
+    explanation.updatedAt = new Date().toISOString()
+
+    await prisma.question.update({
+      where: { id: question.id },
+      data: { explanation },
+    })
+
+    invalidateExamCaches(parsedExamId)
+
+    return {
+      ok: true,
+      status: explanation.status,
+      isConflict: explanation.status === 'conflict_pending',
+      explanation,
+      message: match
+        ? 'Đã tạo lại giải thích thành công!'
+        : 'AI sinh giải thích nhưng đáp án lệch so với đáp án câu hỏi. Trạng thái được đặt là Chờ duyệt (ẩn khỏi học sinh).',
+    }
+  }
+}
+
+/**
+ * 4.4 Manual edit an explanation for a single question.
+ */
+async function updateManualExplanation({ examId, questionId = null, questionNumber = null, isPractice = false, fields = {} }) {
+  const cleanFields = validateManualExplanation(fields)
+  const parsedExamId = parseInt(examId, 10)
+
+  if (isPractice) {
+    const exam = await prisma.practiceExam.findUnique({
+      where: { id: parsedExamId },
+      include: { questions: { orderBy: { orderNum: 'asc' } } },
+    })
+    if (!exam) throw new Error(`Không tìm thấy bài luyện tập #${parsedExamId}`)
+
+    const targetNum = parseInt(questionNumber, 10)
+    let targetRow = null
+    let targetQItem = null
+
+    for (const row of exam.questions) {
+      const group = parseGroup(row)
+      if (!group || !Array.isArray(group.questions)) continue
+      const qItem = group.questions.find((q) => Number(q.number) === targetNum)
+      if (qItem) {
+        targetRow = row
+        targetQItem = qItem
+        break
+      }
+    }
+
+    if (!targetRow || !targetQItem) {
+      throw new Error(`Không tìm thấy câu hỏi #${targetNum} trong bài luyện tập #${parsedExamId}`)
+    }
+
+    let resultExp = null
+    await updatePracticeQuestionExplanationTx(targetRow.id, (byNumber) => {
+      const prev = (byNumber[targetNum] && typeof byNumber[targetNum] === 'object')
+        ? byNumber[targetNum]
+        : { v: 2, answer: String(targetQItem.correctAnswer || '') }
+
+      const updated = {
+        ...prev,
+        ...cleanFields,
+        status: 'teacher_edited',
+        manualEdit: true,
+        updatedAt: new Date().toISOString(),
+      }
+      byNumber[targetNum] = updated
+      resultExp = updated
+      return byNumber
+    })
+
+    invalidate('practice:')
+
+    return {
+      ok: true,
+      status: 'teacher_edited',
+      explanation: resultExp,
+      message: 'Đã lưu chỉnh sửa lời giải thành công!',
+    }
+  } else {
+    const qLookup = parseInt(questionId || questionNumber, 10)
+    const question = await prisma.question.findFirst({
+      where: {
+        OR: [
+          { id: qLookup },
+          {
+            number: qLookup,
+            OR: [
+              { passage: { examId: parsedExamId } },
+              { listeningSection: { examId: parsedExamId } },
+              { group: { passage: { examId: parsedExamId } } },
+              { group: { section: { examId: parsedExamId } } },
+            ],
+          },
+        ],
+      },
+      select: { id: true, number: true, correctAnswer: true, explanation: true },
+    })
+
+    if (!question) {
+      throw new Error(`Không tìm thấy câu hỏi #${questionId || questionNumber} trong đề #${parsedExamId}`)
+    }
+
+    const prev = (question.explanation && typeof question.explanation === 'object')
+      ? question.explanation
+      : { v: 2, answer: String(question.correctAnswer || '') }
+
+    const updated = {
+      ...prev,
+      ...cleanFields,
+      status: 'teacher_edited',
+      manualEdit: true,
+      updatedAt: new Date().toISOString(),
+    }
+
+    await prisma.question.update({
+      where: { id: question.id },
+      data: { explanation: updated },
+    })
+
+    invalidateExamCaches(parsedExamId)
+
+    return {
+      ok: true,
+      status: 'teacher_edited',
+      explanation: updated,
+      message: 'Đã lưu chỉnh sửa lời giải thành công!',
+    }
+  }
+}
+
+/**
+ * 4.5 Teacher review action for a single question.
+ */
+async function reviewQuestionExplanation({ examId, questionId = null, questionNumber = null, isPractice = false }) {
+  const parsedExamId = parseInt(examId, 10)
+
+  if (isPractice) {
+    const exam = await prisma.practiceExam.findUnique({
+      where: { id: parsedExamId },
+      include: { questions: { orderBy: { orderNum: 'asc' } } },
+    })
+    if (!exam) throw new Error(`Không tìm thấy bài luyện tập #${parsedExamId}`)
+
+    const targetNum = parseInt(questionNumber, 10)
+    let targetRow = null
+
+    for (const row of exam.questions) {
+      const group = parseGroup(row)
+      if (!group || !Array.isArray(group.questions)) continue
+      const qItem = group.questions.find((q) => Number(q.number) === targetNum)
+      if (qItem) {
+        targetRow = row
+        break
+      }
+    }
+
+    if (!targetRow) {
+      throw new Error(`Không tìm thấy câu hỏi #${targetNum} trong bài luyện tập #${parsedExamId}`)
+    }
+
+    let resultExp = null
+    await updatePracticeQuestionExplanationTx(targetRow.id, (byNumber) => {
+      const prev = byNumber[targetNum]
+      if (!prev || typeof prev !== 'object') {
+        throw new Error(`Câu hỏi #${targetNum} chưa có lời giải để duyệt`)
+      }
+
+      const updated = {
+        ...prev,
+        status: 'teacher_reviewed',
+        reviewedAt: new Date().toISOString(),
+      }
+      byNumber[targetNum] = updated
+      resultExp = updated
+      return byNumber
+    })
+
+    invalidate('practice:')
+
+    return {
+      ok: true,
+      status: 'teacher_reviewed',
+      explanation: resultExp,
+      message: 'Đã duyệt lời giải thành công!',
+    }
+  } else {
+    const qLookup = parseInt(questionId || questionNumber, 10)
+    const question = await prisma.question.findFirst({
+      where: {
+        OR: [
+          { id: qLookup },
+          {
+            number: qLookup,
+            OR: [
+              { passage: { examId: parsedExamId } },
+              { listeningSection: { examId: parsedExamId } },
+              { group: { passage: { examId: parsedExamId } } },
+              { group: { section: { examId: parsedExamId } } },
+            ],
+          },
+        ],
+      },
+      select: { id: true, number: true, explanation: true },
+    })
+
+    if (!question) {
+      throw new Error(`Không tìm thấy câu hỏi #${questionId || questionNumber} trong đề #${parsedExamId}`)
+    }
+
+    if (!question.explanation || typeof question.explanation !== 'object') {
+      throw new Error(`Câu hỏi #${question.number} chưa có lời giải để duyệt`)
+    }
+
+    const updated = {
+      ...question.explanation,
+      status: 'teacher_reviewed',
+      reviewedAt: new Date().toISOString(),
+    }
+
+    await prisma.question.update({
+      where: { id: question.id },
+      data: { explanation: updated },
+    })
+
+    invalidateExamCaches(parsedExamId)
+
+    return {
+      ok: true,
+      status: 'teacher_reviewed',
+      explanation: updated,
+      message: 'Đã duyệt lời giải thành công!',
+    }
   }
 }
 
@@ -672,4 +1223,11 @@ module.exports = {
   ROMAN_NUMERALS,
   generateForPracticeExam,
   generateForExam,
+  isExplanationVisibleToLearner,
+  filterLearnerExplanation,
+  validateManualExplanation,
+  updatePracticeQuestionExplanationTx,
+  regenerateQuestionExplanation,
+  updateManualExplanation,
+  reviewQuestionExplanation,
 }

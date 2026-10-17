@@ -242,7 +242,7 @@ function buildContext(q, family) {
   return { skill, parts, sourceText: passageText }
 }
 
-function buildPrompt(q, family, ctx, previousError = null) {
+function buildPrompt(q, family, ctx, previousError = null, teacherFeedback = null) {
   const skillLabel = ctx.skill === 'reading' ? 'Reading' : ctx.skill === 'listening' ? 'Listening' : 'Practice'
   const sourceName = ctx.skill === 'listening' ? 'transcript' : 'bài đọc'
   let optionsBlock = ''
@@ -274,6 +274,10 @@ function buildPrompt(q, family, ctx, previousError = null) {
     ? `\nLẦN TRẢ LỜI TRƯỚC BỊ LOẠI VÌ: ${previousError}\nHãy sửa lỗi này. Mọi cụm trích từ ${sourceName} phải chép NGUYÊN VĂN từng chữ.\n`
     : ''
 
+  const feedbackBlock = teacherFeedback
+    ? `\nGÓP Ý / HƯỚNG DẪN TỪ GIÁO VIÊN: "${teacherFeedback}"\n(LƯU Ý: Góp ý này chỉ định hướng cách giải thích và trọng tâm cần làm rõ. Mọi dẫn chứng bắt buộc phải trích NGUYÊN VĂN từ ${sourceName}, không được bịa đặt dẫn chứng.)\n`
+    : ''
+
   return `Bạn là gia sư IELTS, giải thích theo phương pháp "Linear thinking": tách câu thành từng cụm ý ngắn, gắn nghĩa tiếng Việt cho từng cụm, rồi đối chiếu câu hỏi với ${sourceName} theo 4 bước. Đề thi ${skillLabel}.
 
 ${TYPE_INSTRUCTION[family]}
@@ -293,7 +297,7 @@ QUY TẮC TƯ DUY PHẢN BIỆN & XÁC THỰC ĐÁP ÁN (BẮT BUỘC):
      + Trong "reasoning": Nêu rõ bằng chứng và lập luận khẳng định đáp án thực tế chính xác; ĐỒNG THỜI PHẢN BIỆN RÕ RÀNG vì sao đáp án người dùng nhập là sai, ngộ nhận hoặc bẫy từ vựng nào dẫn đến việc chọn nhầm đó.
      + Trong "distractors": Phân tích trung thực lý do các phương án nhiễu khác bị sai (bao gồm cả phương án người dùng đã nhập nhầm nếu là trắc nghiệm).
    - NẾU ĐÁP ÁN CỦA NGƯỜI DÙNG ĐÃ ĐÚNG: Giải thích thuyết phục theo phương pháp Linearthinking thông thường.
-
+${feedbackBlock}
 ${contextBlock}
 ${retryBlock}
 Trả về DUY NHẤT một JSON, không thêm chữ nào ngoài JSON. Phần giải thích viết bằng tiếng Việt, ngắn gọn, xưng "ta". Các trường:
@@ -490,10 +494,10 @@ async function callAi(prompt, { questionType = null, rawOptions = null, model: c
   }
 }
 
-async function generateExplanation(q, family, ctx) {
+async function generateExplanation(q, family, ctx, { teacherFeedback = null } = {}) {
   let previousError = null
   for (let attempt = 0; attempt < 2; attempt++) {
-    const aiResult = await callAi(buildPrompt(q, family, ctx, previousError), {
+    const aiResult = await callAi(buildPrompt(q, family, ctx, previousError, teacherFeedback), {
       questionType: q.type,
       rawOptions: q.options || (q.group?.matchingOptions?.length ? q.group.matchingOptions : null),
     })
@@ -681,4 +685,5 @@ module.exports = {
   main,
   SKIP_FAMILIES,
   buildResponseSchema,
+  cleanString,
 }

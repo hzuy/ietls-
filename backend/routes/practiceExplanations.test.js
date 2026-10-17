@@ -12,16 +12,53 @@ const group = (start, answers) => ({
 const row = (g, byNumber) => ({ content: JSON.stringify(g), explanation: byNumber ? { byNumber } : null })
 
 describe('practice explanations', () => {
-  it('attaches explanations by question number to each group', () => {
-    const groups = practiceGroupsWithExplanations([row(group(1, ['TRUE']), { 1: { v: 2, answer: 'TRUE' } }), row(group(2, ['FALSE']))])
-    expect(groups[0].explanations).toEqual({ 1: { v: 2, answer: 'TRUE' } })
-    expect(groups[1].explanations).toBeUndefined()
+  it('attaches explanations by question number to each group for admin', () => {
+    const groups = practiceGroupsWithExplanations(
+      [
+        row(group(1, ['TRUE', 'FALSE', 'NOT GIVEN']), {
+          1: { v: 2, answer: 'TRUE', status: 'ai_generated' },
+          2: { v: 2, answer: 'FALSE', status: 'conflict_pending' },
+          3: { v: 2, answer: 'NOT GIVEN' }, // legacy without status
+        }),
+      ],
+      { forAdmin: true }
+    )
+    expect(groups[0].explanations).toEqual({
+      1: { v: 2, answer: 'TRUE', status: 'ai_generated' },
+      2: { v: 2, answer: 'FALSE', status: 'conflict_pending' },
+      3: { v: 2, answer: 'NOT GIVEN' },
+    })
   })
 
-  it('keeps explanations when an admin saves without changing the answer', () => {
+  it('filters out conflict_pending and possibly_stale for learners (3.1 & 3.2)', () => {
+    const groups = practiceGroupsWithExplanations(
+      [
+        row(group(1, ['TRUE', 'FALSE', 'NOT GIVEN', 'TRUE']), {
+          1: { v: 2, answer: 'TRUE', status: 'ai_generated' },
+          2: { v: 2, answer: 'FALSE', status: 'conflict_pending' },
+          3: { v: 2, answer: 'NOT GIVEN' }, // legacy: should show
+          4: { v: 2, answer: 'TRUE', status: 'possibly_stale' }, // stale: should hide
+        }),
+      ],
+      { forAdmin: false }
+    )
+    expect(groups[0].explanations).toEqual({
+      1: { v: 2, answer: 'TRUE', status: 'ai_generated' },
+      3: { v: 2, answer: 'NOT GIVEN' },
+    })
+  })
+
+  it('preserves explanations when admin edits exam, marking changed answers as possibly_stale (3.8)', () => {
     const oldRows = [row(group(1, ['TRUE', 'FALSE']), { 1: { v: 2, answer: 'TRUE' }, 2: { v: 2, answer: 'FALSE' } })]
     const kept = carryOverExplanations(oldRows, [group(1, ['TRUE', 'NOT GIVEN'])])
-    expect(kept).toEqual([{ byNumber: { 1: { v: 2, answer: 'TRUE' } } }])
+    expect(kept[0].byNumber[1]).toEqual({ v: 2, answer: 'TRUE' })
+    expect(kept[0].byNumber[2]).toMatchObject({
+      v: 2,
+      answer: 'FALSE',
+      status: 'possibly_stale',
+      staleReason: 'Đáp án đã thay đổi',
+    })
+    expect(kept[0].byNumber[2].staleAt).toBeDefined()
   })
 
   it('handles string payloads and groups without explanations', () => {

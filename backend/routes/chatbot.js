@@ -14,6 +14,7 @@ const {
   fetchWritingCriteriaStats,
   fetchSpeakingCriteriaStats,
 } = require('./stats')
+const { isExplanationVisibleToLearner } = require('../services/explanationGeneratorService')
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Rate Limiter: chatbotRateLimiter (Max 20 requests per user per hour)
@@ -263,6 +264,7 @@ function parsePageContext(pageContext) {
 
 function explanationSnippet(exp) {
   if (!exp || typeof exp !== 'object') return ''
+  if (!isExplanationVisibleToLearner(exp)) return ''
   if (exp.v === 2) {
     const quote = (exp.evidence?.parts || []).map(p => p.text).join(' … ')
     return clip([quote && `Bằng chứng trong bài: "${quote}"`, exp.reasoning && `Lý do: ${exp.reasoning}`].filter(Boolean).join('. '), 420)

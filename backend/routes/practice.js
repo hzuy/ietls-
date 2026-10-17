@@ -9,7 +9,13 @@ const { invalidate } = require('../lib/swrCache')
 const { getQuestionCount, getPracticeListCached } = require('../lib/publicContent')
 const { createPracticeSchema, updatePracticeSchema, practiceAttemptSchema } = require('../validators/contentValidator')
 const { uploadAudio, uploadOptimizedCover } = require('../services/storageService')
-const { generateForPracticeExam } = require('../services/explanationGeneratorService')
+const {
+  generateForPracticeExam,
+  isExplanationVisibleToLearner,
+  regenerateQuestionExplanation,
+  updateManualExplanation,
+  reviewQuestionExplanation,
+} = require('../services/explanationGeneratorService')
 const { logAuditEvent } = require('../lib/auditLog')
 const { AUDIT_ACTIONS } = require('../lib/auditActions')
 
@@ -59,11 +65,20 @@ const { teacherStrict, learnerOnly } = require('../lib/roles')
 // ─── PUBLIC: list ─────────────────────────────────────────────────────────────
 // Fetcher + SWR cache nằm ở lib/publicContent.js (chia sẻ cache với /api/home).
 // getQuestionCount cũng import từ đó — còn dùng cho các route /admin bên dưới.
-function practiceGroupsWithExplanations(rows) {
+function practiceGroupsWithExplanations(rows, { forAdmin = false } = {}) {
   return (rows || []).map(pq => {
     const group = JSON.parse(pq.content)
     const byNumber = pq.explanation?.byNumber
-    return byNumber ? { ...group, explanations: byNumber } : group
+    if (!byNumber) return group
+    if (forAdmin) return { ...group, explanations: byNumber }
+    // 3.1: Ẩn lời giải chưa duyệt hoặc conflict khỏi học sinh
+    const filteredByNumber = {}
+    for (const [k, exp] of Object.entries(byNumber)) {
+      if (isExplanationVisibleToLearner(exp)) {
+        filteredByNumber[k] = exp
+      }
+    }
+    return Object.keys(filteredByNumber).length ? { ...group, explanations: filteredByNumber } : group
   })
 }
 
@@ -75,7 +90,13 @@ function carryOverExplanations(oldRows, newGroups) {
     let group
     try { group = JSON.parse(row.content) } catch { continue }
     for (const q of group.questions || []) {
-      if (byNumber[q.number]) old[q.number] = { answer: String(q.correctAnswer ?? ''), explanation: byNumber[q.number] }
+      if (byNumber[q.number]) {
+        old[q.number] = {
+          answer: String(q.correctAnswer ?? ''),
+          text: String(q.questionText ?? ''),
+          explanation: byNumber[q.number]
+        }
+      }
     }
   }
   return newGroups.map(g => {
@@ -83,7 +104,21 @@ function carryOverExplanations(oldRows, newGroups) {
     const byNumber = {}
     for (const q of group.questions || []) {
       const prev = old[q.number]
-      if (prev && prev.answer === String(q.correctAnswer ?? '')) byNumber[q.number] = prev.explanation
+      if (prev && prev.explanation) {
+        const answerChanged = prev.answer !== String(q.correctAnswer ?? '')
+        const textChanged = prev.text !== String(q.questionText ?? '')
+        if (answerChanged || textChanged) {
+          // 3.8: Không xóa lời giải, đánh dấu status 'possibly_stale'
+          byNumber[q.number] = {
+            ...prev.explanation,
+            status: 'possibly_stale',
+            staleReason: answerChanged ? 'Đáp án đã thay đổi' : 'Nội dung câu hỏi đã thay đổi',
+            staleAt: new Date().toISOString()
+          }
+        } else {
+          byNumber[q.number] = prev.explanation
+        }
+      }
     }
     return Object.keys(byNumber).length ? { byNumber } : null
   })
@@ -160,7 +195,7 @@ router.get('/reading/:id', authMiddleware, async (req, res) => {
       include: { questions: { orderBy: { orderNum: 'asc' } } }
     })
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy' })
-    const groups = practiceGroupsWithExplanations(exam.questions)
+    const groups = practiceGroupsWithExplanations(exam.questions, { forAdmin: false })
     res.json({ ...exam, questions: { groups } })
   } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
 })
@@ -172,7 +207,7 @@ router.get('/listening/:id', authMiddleware, async (req, res) => {
       include: { questions: { orderBy: { orderNum: 'asc' } } }
     })
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy' })
-    const groups = practiceGroupsWithExplanations(exam.questions)
+    const groups = practiceGroupsWithExplanations(exam.questions, { forAdmin: false })
     res.json({ ...exam, questions: { groups } })
   } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
 })
@@ -231,7 +266,7 @@ router.get('/admin/:skill/:id', authMiddleware, teacherStrict, async (req, res) 
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy' })
     
     // Map to JSON for editor (bao gồm cả explanations đã lưu)
-    const groups = practiceGroupsWithExplanations(exam.questions)
+    const groups = practiceGroupsWithExplanations(exam.questions, { forAdmin: true })
     res.json({ ...exam, questions: JSON.stringify({ groups }) })
   } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
 })
@@ -446,13 +481,65 @@ router.delete('/admin/:skill/:id', authMiddleware, teacherStrict, async (req, re
 // ─── ADMIN: generate AI explanations with conflict detection ──────────────────
 router.post('/admin/:skill/:id/generate-explanations', authMiddleware, teacherStrict, async (req, res) => {
   const { id } = req.params
-  const { force = false, resolveChoices = {} } = req.body || {}
+  const { force = false, resolveChoices = {}, overwriteProtected = false } = req.body || {}
   try {
-    const result = await generateForPracticeExam(parseInt(id, 10), { force, resolveChoices })
+    const result = await generateForPracticeExam(parseInt(id, 10), { force, resolveChoices, overwriteProtected })
     res.json(result)
   } catch (err) {
     console.error('[GENERATE PRACTICE EXPLANATIONS ERROR]', err)
     res.status(500).json({ message: err.message || 'Lỗi khi tạo giải thích bằng AI' })
+  }
+})
+
+// ─── ADMIN: regenerate single question explanation with teacher feedback ─────────
+router.post('/admin/:skill/:id/questions/:qNum/regenerate-explanation', authMiddleware, teacherStrict, async (req, res) => {
+  const { skill, id, qNum } = req.params
+  const { teacherFeedback } = req.body || {}
+  try {
+    const result = await regenerateQuestionExplanation({
+      examId: parseInt(id, 10),
+      questionNumber: parseInt(qNum, 10),
+      isPractice: true,
+      skill,
+      teacherFeedback,
+    })
+    res.json(result)
+  } catch (err) {
+    console.error('[REGENERATE PRACTICE QUESTION EXPLANATION ERROR]', err)
+    res.status(500).json({ message: err.message || 'Lỗi khi tạo lại giải thích' })
+  }
+})
+
+// ─── ADMIN: manually edit single question explanation ─────────────────────────────
+router.put('/admin/:skill/:id/questions/:qNum/explanation', authMiddleware, teacherStrict, async (req, res) => {
+  const { id, qNum } = req.params
+  try {
+    const result = await updateManualExplanation({
+      examId: parseInt(id, 10),
+      questionNumber: parseInt(qNum, 10),
+      isPractice: true,
+      fields: req.body || {},
+    })
+    res.json(result)
+  } catch (err) {
+    console.error('[EDIT PRACTICE QUESTION EXPLANATION ERROR]', err)
+    res.status(400).json({ message: err.message || 'Lỗi khi lưu chỉnh sửa giải thích' })
+  }
+})
+
+// ─── ADMIN: approve/review single question explanation ────────────────────────────
+router.post('/admin/:skill/:id/questions/:qNum/review-explanation', authMiddleware, teacherStrict, async (req, res) => {
+  const { id, qNum } = req.params
+  try {
+    const result = await reviewQuestionExplanation({
+      examId: parseInt(id, 10),
+      questionNumber: parseInt(qNum, 10),
+      isPractice: true,
+    })
+    res.json(result)
+  } catch (err) {
+    console.error('[REVIEW PRACTICE QUESTION EXPLANATION ERROR]', err)
+    res.status(400).json({ message: err.message || 'Lỗi khi duyệt giải thích' })
   }
 })
 
