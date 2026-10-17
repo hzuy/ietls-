@@ -19,6 +19,16 @@ export default function ExplanationConflictModal({
   })
 
   useEffect(() => {
+    if (conflicts && conflicts.length) {
+      const init = {}
+      conflicts.forEach(c => {
+        init[c.number] = 'ai'
+      })
+      setChoices(init)
+    }
+  }, [conflicts])
+
+  useEffect(() => {
     if (!isOpen) return
     const onKey = (e) => {
       if (e.key === 'Escape' && !isSubmitting) onClose()

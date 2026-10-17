@@ -49,7 +49,7 @@ export default function AdminGroupPreview({ group, showAnswers, showExplanations
     const expList = questions.length > 0
       ? questions.map((q, idx) => {
           const qNum = q.number || (qStart + idx)
-          const exp = q.explanation || group.explanations?.[qNum]
+          const exp = q.explanation || group.explanations?.[qNum] || group.explanations?.[String(qNum)]
           return { qNum, correctAnswer: q.correctAnswer, exp, id: q.id || qNum || idx }
         }).filter(item => Boolean(item.exp))
       : Object.entries(group.explanations || {}).map(([numStr, exp]) => ({

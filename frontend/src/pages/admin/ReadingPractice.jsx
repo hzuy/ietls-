@@ -277,7 +277,29 @@ export default function ReadingPractice() {
       return
     }
     setGeneratingAI(true)
+    showToast('Đang kết nối AI để phân tích và tạo lời giải thích...', 'info')
     try {
+      // Tự động đồng bộ các thay đổi mới nhất lên server nếu form đang có chỉnh sửa
+      if (isDirty) {
+        let thumbnailUrl = form.thumbnailUrl
+        if (form.thumbFile) {
+          const fd = new FormData()
+          fd.append('thumbnail', form.thumbFile)
+          try {
+            thumbnailUrl = (await uploadReadingThumbnailFile(fd)).url
+          } catch { /* giữ URL cũ nếu lỗi ảnh */ }
+        }
+        const body = {
+          title: form.title.trim(),
+          passage: form.passage,
+          thumbnailUrl: thumbnailUrl || null,
+          questions: form.questionGroups.map((group, index) => ({ ...group, orderIndex: index }))
+        }
+        await updateReadingPractice(editing.id, body)
+        setIsDirty(false)
+        pristineRef.current = formSig(form)
+      }
+
       const res = await api.post(`/practice/admin/reading/${editing.id}/generate-explanations`, {
         force: true,
         resolveChoices,
@@ -285,6 +307,7 @@ export default function ReadingPractice() {
       if (res.data?.hasConflicts) {
         setAiConflicts(res.data.conflicts || [])
         setConflictModalOpen(true)
+        showToast('AI phát hiện đáp án có sự khác biệt so với bài đọc. Vui lòng kiểm tra!', 'warning')
       } else {
         showToast(res.data?.message || 'Đã tạo giải thích 4 bước thành công!', 'success')
         setConflictModalOpen(false)
@@ -523,6 +546,14 @@ export default function ReadingPractice() {
             onClose={() => { setShowPreview(false); setShowAnswers(false); setShowExplanations(false) }}
           />
         )}
+
+        <ExplanationConflictModal
+          isOpen={conflictModalOpen}
+          onClose={() => setConflictModalOpen(false)}
+          conflicts={aiConflicts}
+          isSubmitting={generatingAI}
+          onConfirmResolve={(choices) => handleGenerateAI(choices)}
+        />
       </>
     )
   }
