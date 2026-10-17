@@ -231,12 +231,13 @@ function GroupEditor({ group = {}, onChange, onRemove, examId, passage = '' }) {
           initialExplanation={selectedQModal.explanation}
           passage={passage}
           onExplanationUpdated={(newExp, qNum) => {
+            const targetNum = qNum || selectedQModal?.qNum
             const updatedQuestions = (group.questions || []).map(q =>
-              (q.number === qNum || q.id === selectedQModal.question?.id)
+              (q.number === targetNum || q.id === selectedQModal.question?.id)
                 ? { ...q, explanation: newExp }
                 : q
             )
-            const nextExplanations = { ...(group.explanations || {}), [qNum]: newExp }
+            const nextExplanations = { ...(group.explanations || {}), [targetNum]: newExp }
             onChange({ ...group, questions: updatedQuestions, explanations: nextExplanations })
             setSelectedQModal(prev => prev ? { ...prev, explanation: newExp } : null)
           }}

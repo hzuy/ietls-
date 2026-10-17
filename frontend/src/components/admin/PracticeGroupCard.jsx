@@ -249,7 +249,8 @@ export default function PracticeGroupCard({
           initialExplanation={selectedQModal.explanation}
           passage={passage}
           onExplanationUpdated={(newExp, qNum) => {
-            const nextExplanations = { ...(group.explanations || {}), [qNum]: newExp }
+            const targetNum = qNum || selectedQModal?.qNum
+            const nextExplanations = { ...(group.explanations || {}), [targetNum]: newExp }
             onChange({ ...group, explanations: nextExplanations })
             setSelectedQModal(prev => prev ? { ...prev, explanation: newExp } : null)
           }}

@@ -192,7 +192,7 @@ export default function QuestionExplanationModal({
 
       if (data.explanation) {
         setCurrentExplanation(data.explanation)
-        onExplanationUpdated?.(data.explanation)
+        onExplanationUpdated?.(data.explanation, qNum)
         setActiveTab('view')
         showToast(data.message || 'Đã tạo lại giải thích thành công!')
       }
@@ -227,7 +227,7 @@ export default function QuestionExplanationModal({
 
       if (data.explanation) {
         setCurrentExplanation(data.explanation)
-        onExplanationUpdated?.(data.explanation)
+        onExplanationUpdated?.(data.explanation, qNum)
         setActiveTab('view')
         showToast('Đã lưu chỉnh sửa lời giải!')
       }
@@ -252,7 +252,7 @@ export default function QuestionExplanationModal({
 
       if (data.explanation) {
         setCurrentExplanation(data.explanation)
-        onExplanationUpdated?.(data.explanation)
+        onExplanationUpdated?.(data.explanation, qNum)
         showToast('Đã duyệt lời giải thành công!')
       }
     } catch (err) {
