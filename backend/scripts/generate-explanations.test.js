@@ -73,6 +73,10 @@ const {
   processQuestion,
   processPracticeQuestion,
   SKIP_FAMILIES,
+  buildResponseSchema,
+  ExplanationValidationError,
+  callAi,
+  generateExplanation,
 } = mod
 
 function mockGroqResponse(content, finishReason = 'stop') {
@@ -359,5 +363,70 @@ describe('fetchQuestions — điều kiện lọc cho phép chạy lại không 
     await mod.main()
     const args = prismaMock.question.findMany.mock.calls[0][0]
     expect(args.where.explanation.equals).toBe(Prisma.DbNull)
+  })
+})
+
+describe('Batch 2: buildResponseSchema — ép enum cho answer theo họ câu hỏi', () => {
+  it('ép enum TRUE | FALSE | NOT GIVEN cho true_false_ng', () => {
+    const schema = buildResponseSchema('true_false_ng')
+    expect(schema.properties.answer.enum).toEqual(['TRUE', 'FALSE', 'NOT GIVEN'])
+  })
+
+  it('ép enum YES | NO | NOT GIVEN cho yes_no_ng', () => {
+    const schema = buildResponseSchema('yes_no_ng')
+    expect(schema.properties.answer.enum).toEqual(['YES', 'NO', 'NOT GIVEN'])
+  })
+
+  it('ép enum các chữ cái A, B, C, D cho mcq đơn', () => {
+    const schema = buildResponseSchema('mcq', ['peers', 'patients', 'students', 'teachers'])
+    expect(schema.properties.answer.enum).toEqual(['A', 'B', 'C', 'D'])
+  })
+
+  it('để chuỗi tự do (không enum) cho họ COMPLETION', () => {
+    const schema = buildResponseSchema('fill_blank')
+    expect(schema.properties.answer.enum).toBeUndefined()
+    expect(schema.properties.answer.type).toBe('STRING')
+  })
+})
+
+describe('Batch 2: enrichExplanation — loại bỏ fallback che lỗi correctAnswer', () => {
+  const dummyCtx = {
+    skill: 'reading',
+    sourceText: PASSAGE,
+    parts: [{ label: 'Đoạn 1', text: PASSAGE }],
+  }
+
+  it('ném lỗi ExplanationValidationError nếu trường answer bị thiếu hoặc rỗng', () => {
+    const rawWithoutAnswer = {
+      ...VALID_EXPLANATION,
+      answer: '',
+    }
+    expect(() => {
+      enrichExplanation(rawWithoutAnswer, dummyCtx, 'fallbackAnswer', 'COMPLETION')
+    }).toThrow(ExplanationValidationError)
+  })
+
+  it('không bao giờ lấy correctAnswer đắp vào khi answer rỗng', () => {
+    const rawWithoutAnswer = {
+      ...VALID_EXPLANATION,
+      answer: null,
+    }
+    expect(() => {
+      enrichExplanation(rawWithoutAnswer, dummyCtx, 'supposedFallback', 'COMPLETION')
+    }).toThrow(/Thiếu hoặc rỗng trường "answer"/)
+  })
+})
+
+describe('Batch 2: generateExplanation — ghi nhận metadata provider và model', () => {
+  it('lưu metadata provider và model vào kết quả explanation', async () => {
+    mockGroqResponse(VALID_EXPLANATION)
+    const ctx = buildContext(COMPLETION_Q, 'COMPLETION')
+    const result = await generateExplanation(COMPLETION_Q, 'COMPLETION', ctx)
+
+    expect(result).not.toBeNull()
+    expect(result.answer).toBe('timber')
+    expect(result.provider).toBe('Groq')
+    expect(result.model).toBe('test-model')
+    expect(result.isFallback).toBe(true)
   })
 })

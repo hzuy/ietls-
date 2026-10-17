@@ -120,6 +120,11 @@ function enrichExplanation(raw, ctx, correctAnswer, family = 'GENERIC') {
   if (!predict) throw new ExplanationValidationError('Thiếu "predict"')
   if (!reasoning) throw new ExplanationValidationError('Thiếu "reasoning"')
 
+  const answer = cleanString(raw.answer, 200)
+  if (!answer) {
+    throw new ExplanationValidationError('Thiếu hoặc rỗng trường "answer" trong kết quả AI')
+  }
+
   const paragraphs = splitParagraphs(ctx.sourceText)
   const hasSource = paragraphs.length > 0
 
@@ -189,7 +194,7 @@ function enrichExplanation(raw, ctx, correctAnswer, family = 'GENERIC') {
       paragraph: locateParagraph === -1 ? null : locateParagraph,
     },
     evidence,
-    answer: cleanString(raw.answer, 200) || String(correctAnswer || ''),
+    answer,
     full_sentence: cleanString(raw.full_sentence),
     translation: cleanString(raw.translation),
     reasoning,
@@ -347,28 +352,158 @@ async function callGroq(prompt, { maxRateLimitRetries = 6 } = {}) {
   return JSON.parse(cleaned)
 }
 
-async function callAi(prompt, { maxRateLimitRetries = 6 } = {}) {
-  const useGemini = process.env.GEMINI_API_KEY && (process.env.NODE_ENV !== 'test' || process.env.ENABLE_GEMINI_IN_TEST === 'true')
-  if (useGemini && typeof requestGeminiJson === 'function') {
-    try {
-      return await requestGeminiJson(prompt, {
-        model: process.env.GEMINI_MODEL || 'gemini-flash-lite-latest',
-        temperature: 0.3,
-        max_tokens: 8192,
-      })
-    } catch (geminiErr) {
-      console.warn(`   … [AI] Gemini gặp sự cố (${geminiErr.status || geminiErr.message}), chuyển sang Groq dự phòng...`)
+function buildResponseSchema(type, rawOptions = null) {
+  let answerSchema = { type: 'STRING' }
+
+  if (type === 'true_false_ng') {
+    answerSchema = {
+      type: 'STRING',
+      enum: ['TRUE', 'FALSE', 'NOT GIVEN'],
+    }
+  } else if (type === 'yes_no_ng') {
+    answerSchema = {
+      type: 'STRING',
+      enum: ['YES', 'NO', 'NOT GIVEN'],
+    }
+  } else if (type === 'mcq' || type === 'choose_title') {
+    let opts = rawOptions
+    if (typeof opts === 'string') {
+      try { opts = JSON.parse(opts) } catch {}
+    }
+    const letters = Array.isArray(opts) && opts.length > 0
+      ? opts.map((_, i) => String.fromCharCode(65 + i))
+      : ['A', 'B', 'C', 'D']
+    answerSchema = {
+      type: 'STRING',
+      enum: letters,
     }
   }
-  return await callGroq(prompt, { maxRateLimitRetries })
+
+  return {
+    type: 'OBJECT',
+    properties: {
+      question_chunks: {
+        type: 'ARRAY',
+        items: {
+          type: 'OBJECT',
+          properties: {
+            text: { type: 'STRING' },
+            label: { type: 'STRING' },
+          },
+          required: ['text', 'label'],
+        },
+      },
+      predict: { type: 'STRING' },
+      locate_note: { type: 'STRING' },
+      locate_keywords: {
+        type: 'ARRAY',
+        items: { type: 'STRING' },
+      },
+      evidence_quote: { type: 'STRING' },
+      evidence_chunks: {
+        type: 'ARRAY',
+        items: {
+          type: 'OBJECT',
+          properties: {
+            text: { type: 'STRING' },
+            label: { type: 'STRING' },
+          },
+          required: ['text', 'label'],
+        },
+      },
+      answer: answerSchema,
+      full_sentence: { type: 'STRING' },
+      translation: { type: 'STRING' },
+      reasoning: { type: 'STRING' },
+      paraphrases: {
+        type: 'ARRAY',
+        items: {
+          type: 'OBJECT',
+          properties: {
+            question: { type: 'STRING' },
+            question_label: { type: 'STRING' },
+            passage: { type: 'STRING' },
+            passage_label: { type: 'STRING' },
+          },
+          required: ['question', 'passage'],
+        },
+      },
+      distractors: {
+        type: 'ARRAY',
+        items: {
+          type: 'OBJECT',
+          properties: {
+            option: { type: 'STRING' },
+            label: { type: 'STRING' },
+            reason: { type: 'STRING' },
+          },
+          required: ['option', 'reason'],
+        },
+      },
+    },
+    required: ['question_chunks', 'predict', 'evidence_quote', 'answer', 'reasoning'],
+  }
+}
+
+async function callAi(prompt, { questionType = null, rawOptions = null, maxRateLimitRetries = 6 } = {}) {
+  const useGemini = process.env.GEMINI_API_KEY && (process.env.NODE_ENV !== 'test' || process.env.ENABLE_GEMINI_IN_TEST === 'true')
+  const model = process.env.GEMINI_MODEL || 'gemini-3.8-flash'
+
+  if (useGemini && typeof requestGeminiJson === 'function') {
+    const responseSchema = buildResponseSchema(questionType, rawOptions)
+    for (let geminiAttempt = 0; geminiAttempt < 3; geminiAttempt++) {
+      try {
+        const res = await requestGeminiJson(prompt, {
+          model,
+          temperature: 0,
+          seed: 42,
+          responseSchema,
+          max_tokens: 8192,
+          withMetadata: true,
+        })
+        return {
+          data: res.data || res,
+          provider: res.provider || 'Gemini',
+          model: res.model || model,
+          isFallback: false,
+        }
+      } catch (geminiErr) {
+        const isTransient = geminiErr.status === 503 || geminiErr.status === 429 || /503|429|high demand/i.test(geminiErr.message)
+        if (isTransient && geminiAttempt < 2) {
+          const waitMs = (geminiAttempt + 1) * 2000
+          console.warn(`   … [AI] Gemini quá tải (${geminiErr.status || geminiErr.message}), thử lại lượt ${geminiAttempt + 2} sau ${waitMs / 1000}s...`)
+          await sleep(waitMs)
+          continue
+        }
+        console.warn(`   … [AI] Gemini gặp sự cố (${geminiErr.status || geminiErr.message}), chuyển sang Groq dự phòng...`)
+        break
+      }
+    }
+  }
+
+  const groqData = await callGroq(prompt, { maxRateLimitRetries })
+  return {
+    data: groqData,
+    provider: 'Groq',
+    model: typeof getGroqModel === 'function' ? getGroqModel() : 'openai/gpt-oss-120b',
+    isFallback: true,
+  }
 }
 
 async function generateExplanation(q, family, ctx) {
   let previousError = null
   for (let attempt = 0; attempt < 2; attempt++) {
-    const raw = await callAi(buildPrompt(q, family, ctx, previousError))
+    const aiResult = await callAi(buildPrompt(q, family, ctx, previousError), {
+      questionType: q.type,
+      rawOptions: q.options || (q.group?.matchingOptions?.length ? q.group.matchingOptions : null),
+    })
+    const payload = aiResult?.data || aiResult
     try {
-      return enrichExplanation(raw, ctx, q.correctAnswer, family)
+      const explanation = enrichExplanation(payload, ctx, q.correctAnswer, family)
+      if (aiResult?.provider) explanation.provider = aiResult.provider
+      if (aiResult?.model) explanation.model = aiResult.model
+      if (aiResult?.isFallback) explanation.isFallback = true
+      return explanation
     } catch (err) {
       if (!(err instanceof ExplanationValidationError) || attempt === 1) throw err
       previousError = err.message
@@ -545,4 +680,5 @@ module.exports = {
   processPracticeQuestion,
   main,
   SKIP_FAMILIES,
+  buildResponseSchema,
 }

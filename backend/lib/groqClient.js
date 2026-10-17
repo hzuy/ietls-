@@ -32,17 +32,26 @@ function gradingParams(model) {
  * Request structured JSON from Google Gemini API (Primary AI provider).
  * High rate limits: 1,000,000 TPM and 1,500 RPD on free tier.
  */
-async function requestGeminiJson(prompt, { image = null, model = null, temperature = 0.2, max_tokens = 4096 } = {}) {
+async function requestGeminiJson(prompt, {
+  image = null,
+  model = null,
+  temperature = 0,
+  seed = 42,
+  responseSchema = null,
+  thinkingConfig = null,
+  max_tokens = 8192,
+  withMetadata = false,
+  retriesPerModel = 2,
+} = {}) {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) throw new Error('GEMINI_API_KEY is not configured')
 
   const primaryModel = (model && model.startsWith('gemini-'))
     ? model
-    : (process.env.GEMINI_MODEL || 'gemini-flash-lite-latest')
+    : (process.env.GEMINI_MODEL || 'gemini-3.8-flash')
   const candidateModels = [
     primaryModel,
-    'gemini-flash-lite-latest',
-    'gemini-3.5-flash-lite',
+    'gemini-3.8-flash',
     'gemini-3.5-flash',
   ].filter((v, i, a) => a.indexOf(v) === i)
 
@@ -77,42 +86,69 @@ async function requestGeminiJson(prompt, { image = null, model = null, temperatu
     }
   }
 
+  const generationConfig = {
+    responseMimeType: 'application/json',
+    temperature,
+    maxOutputTokens: max_tokens,
+    seed,
+  }
+
+  if (responseSchema) {
+    generationConfig.responseSchema = responseSchema
+  }
+
+  if (thinkingConfig) {
+    generationConfig.thinkingConfig = thinkingConfig
+  } else if (primaryModel.includes('3.8-flash') || primaryModel.includes('3.5-flash')) {
+    generationConfig.thinkingConfig = { thinkingLevel: 'low' }
+  }
+
   let lastError
   for (const targetModel of candidateModels) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            temperature,
-            maxOutputTokens: max_tokens,
-          },
-        }),
-      })
 
-      if (!res.ok) {
-        const errText = await res.text()
-        const error = new Error(`Gemini API error (${res.status}): ${errText.slice(0, 300)}`)
-        error.status = res.status
-        throw error
-      }
+    for (let attempt = 0; attempt <= retriesPerModel; attempt++) {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts }],
+            generationConfig,
+          }),
+        })
 
-      const data = await res.json()
-      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
-      const { repairTruncatedJson } = require('../services/json/jsonSanitizer')
-      const finishReason = data.candidates?.[0]?.finishReason || null
-      return JSON.parse(repairTruncatedJson(rawText, finishReason))
-    } catch (err) {
-      lastError = err
-      if (err.status === 503 || err.status === 429 || err instanceof SyntaxError) {
-        // Try candidate model
-        continue
+        if (!res.ok) {
+          const errText = await res.text()
+          const error = new Error(`Gemini API error (${res.status}): ${errText.slice(0, 300)}`)
+          error.status = res.status
+          throw error
+        }
+
+        const data = await res.json()
+        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+        const { repairTruncatedJson } = require('../services/json/jsonSanitizer')
+        const finishReason = data.candidates?.[0]?.finishReason || null
+        const parsed = JSON.parse(repairTruncatedJson(rawText, finishReason))
+
+        if (withMetadata) {
+          return {
+            data: parsed,
+            provider: 'Gemini',
+            model: targetModel,
+          }
+        }
+        return parsed
+      } catch (err) {
+        lastError = err
+        const isTransient = err.status === 503 || err.status === 429 || err instanceof SyntaxError
+        if (isTransient && attempt < retriesPerModel) {
+          const backoff = (attempt + 1) * 1500
+          await new Promise(r => setTimeout(r, backoff))
+          continue
+        }
+        break // Try next candidate model
       }
-      throw err
     }
   }
   throw lastError
@@ -182,11 +218,10 @@ async function requestGeminiChat(messages, { model = null, temperature = 0.3, ma
 
   const primaryModel = (model && model.startsWith('gemini-'))
     ? model
-    : (process.env.GEMINI_MODEL || 'gemini-flash-lite-latest')
+    : (process.env.GEMINI_MODEL || 'gemini-3.8-flash')
   const candidateModels = [
     primaryModel,
-    'gemini-flash-lite-latest',
-    'gemini-3.5-flash-lite',
+    'gemini-3.8-flash',
     'gemini-3.5-flash',
   ].filter((v, i, a) => a.indexOf(v) === i)
 
