@@ -1,4 +1,7 @@
+import { useState } from 'react'
+import { Sparkles } from 'lucide-react'
 import { READING_GROUP_TYPES, labelCls, inputCls, getQuestionTypeTheme } from '../adminConstants'
+import QuestionExplanationModal, { ExplanationStatusBadge } from '../QuestionExplanationModal'
 import TrueFalseEditor from '../../practice/TrueFalseEditor'
 import SummaryCompletionEditor from '../../practice/SummaryCompletionEditor'
 import NoteCompletionEditor from './NoteCompletionEditor'
@@ -7,7 +10,11 @@ import MCQGroupEditor from './MCQGroupEditor'
 import MatchingEditor from './MatchingEditor'
 import DiagramLabelEditor from '../../practice/DiagramLabelEditor'
 
-export default function ReadingGroupEditor({ group = {}, onChange, onRemove, onMoveUp, onMoveDown, isFirst, isLast }) {
+export default function ReadingGroupEditor({
+  group = {}, onChange, onRemove, onMoveUp, onMoveDown, isFirst, isLast,
+  examId, passage = '',
+}) {
+  const [selectedQModal, setSelectedQModal] = useState(null)
   const groupType = group?.type || 'short_answer'
   const typeLabel = READING_GROUP_TYPES.find(t => t.value === groupType)?.label || groupType
   const theme = getQuestionTypeTheme(groupType)
@@ -17,6 +24,15 @@ export default function ReadingGroupEditor({ group = {}, onChange, onRemove, onM
   const explanationCount = group.explanations
     ? Object.keys(group.explanations).length
     : groupQuestions.filter(q => q.explanation).length
+
+  const questionsList = (Array.isArray(group.questions) && group.questions.length > 0)
+    ? group.questions
+    : (group.qNumberStart && group.qNumberEnd && group.qNumberEnd >= group.qNumberStart)
+      ? Array.from(
+          { length: group.qNumberEnd - group.qNumberStart + 1 },
+          (_, idx) => ({ number: group.qNumberStart + idx })
+        )
+      : []
 
   return (
     <div className={`border ${theme.cardBorder} ${theme.cardBg} rounded-2xl overflow-hidden transition-all duration-200 mb-4 shadow-xs`}>
@@ -66,6 +82,34 @@ export default function ReadingGroupEditor({ group = {}, onChange, onRemove, onM
           </button>
         </div>
       </div>
+
+      {/* Cột danh sách câu hỏi & huy hiệu giải thích */}
+      {questionsList.length > 0 && (
+        <div className="px-4 py-2.5 bg-zinc-50/80 border-b border-zinc-200/80 flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-bold text-zinc-600 flex items-center gap-1 shrink-0 uppercase tracking-wider">
+            <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+            <span>Giải thích 4 bước:</span>
+          </span>
+          <div className="flex flex-wrap items-center gap-1.5 flex-1">
+            {questionsList.map(q => {
+              const qNum = q.number
+              const exp = q.explanation || group.explanations?.[qNum] || group.explanations?.[String(qNum)]
+              return (
+                <button
+                  key={qNum}
+                  type="button"
+                  onClick={() => setSelectedQModal({ question: q, qNum, explanation: exp })}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border bg-white hover:bg-zinc-50 border-zinc-200 hover:border-zinc-300 text-zinc-800 transition shadow-2xs cursor-pointer"
+                  title={`Xem, duyệt, góp ý hoặc sửa tay giải thích câu ${qNum}`}
+                >
+                  <span className="font-semibold">Câu {qNum}</span>
+                  <ExplanationStatusBadge explanation={exp} />
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="p-4 space-y-3">
 
@@ -119,6 +163,31 @@ export default function ReadingGroupEditor({ group = {}, onChange, onRemove, onM
           <DiagramLabelEditor group={group} onChange={onChange} />
         )}
       </div>
+
+      {selectedQModal && (
+        <QuestionExplanationModal
+          isOpen={Boolean(selectedQModal)}
+          onClose={() => setSelectedQModal(null)}
+          examId={examId}
+          questionId={selectedQModal.question?.id || selectedQModal.qNum}
+          questionNumber={selectedQModal.qNum}
+          isPractice={false}
+          skill="reading"
+          question={selectedQModal.question}
+          initialExplanation={selectedQModal.explanation}
+          passage={passage}
+          onExplanationUpdated={(newExp, qNum) => {
+            const updatedQuestions = (group.questions || []).map(q =>
+              (q.number === qNum || q.id === selectedQModal.question?.id)
+                ? { ...q, explanation: newExp }
+                : q
+            )
+            const nextExplanations = { ...(group.explanations || {}), [qNum]: newExp }
+            onChange({ ...group, questions: updatedQuestions, explanations: nextExplanations })
+            setSelectedQModal(prev => prev ? { ...prev, explanation: newExp } : null)
+          }}
+        />
+      )}
     </div>
   )
 }

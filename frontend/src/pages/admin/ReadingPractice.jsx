@@ -23,6 +23,7 @@ import Select from '../../components/admin/Select'
 import { AdminTableSkeleton } from '../../components/skeletons'
 import api from '../../utils/axios'
 import ExplanationConflictModal from '../../components/admin/ExplanationConflictModal'
+import OverwriteProtectedConfirmModal from '../../components/admin/OverwriteProtectedConfirmModal'
 import { showAlert } from '../../utils/alertUtils'
 import { validatePracticeReading, formatValidationAlert } from '../../utils/questionValidation'
 
@@ -135,6 +136,8 @@ export default function ReadingPractice() {
   const [generatingAI, setGeneratingAI] = useState(false)
   const [aiConflicts, setAiConflicts] = useState([])
   const [conflictModalOpen, setConflictModalOpen] = useState(false)
+  const [overwriteModalOpen, setOverwriteModalOpen] = useState(false)
+  const [protectedStats, setProtectedStats] = useState({ reviewedCount: 0, editedCount: 0 })
   // BUG-13: Track unsaved changes (derive-snapshot: formSig(form) vs pristineRef)
   const [isDirty, setIsDirty] = useState(false)
   const pristineRef = useRef('')
@@ -264,7 +267,41 @@ export default function ReadingPractice() {
     groupCollapse.reveal(newGroup._id)
   }
 
-  const handleGenerateAI = async (resolveChoices = {}) => {
+  const countProtectedQuestions = () => {
+    let reviewedCount = 0
+    let editedCount = 0
+    for (const g of form.questionGroups || []) {
+      const byNumber = g.explanations || {}
+      for (const exp of Object.values(byNumber)) {
+        if (exp?.status === 'teacher_reviewed') reviewedCount++
+        if (exp?.status === 'teacher_edited') editedCount++
+      }
+    }
+    return { reviewedCount, editedCount }
+  }
+
+  const handleStartGenerateAI = () => {
+    if (!editing?.id) {
+      showToast('Vui lòng lưu bài thi trước khi tạo giải thích bằng AI', 'info')
+      return
+    }
+    const val = validatePracticeReading(form)
+    if (!val.isValid) {
+      const alertMsg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
+      showAlert(alertMsg, 'error')
+      showToast(val.errors[0] || 'Vui lòng điền đầy đủ thông tin đề bài và đáp án đúng', 'error')
+      return
+    }
+    const stats = countProtectedQuestions()
+    if (stats.reviewedCount + stats.editedCount > 0) {
+      setProtectedStats(stats)
+      setOverwriteModalOpen(true)
+    } else {
+      handleGenerateAI({ overwriteProtected: false })
+    }
+  }
+
+  const handleGenerateAI = async ({ resolveChoices = {}, overwriteProtected = false } = {}) => {
     if (!editing?.id) {
       showToast('Vui lòng lưu bài thi trước khi tạo giải thích bằng AI', 'info')
       return
@@ -302,6 +339,7 @@ export default function ReadingPractice() {
 
       const res = await api.post(`/practice/admin/reading/${editing.id}/generate-explanations`, {
         force: true,
+        overwriteProtected,
         resolveChoices,
       })
       if (res.data?.hasConflicts) {
@@ -363,7 +401,7 @@ export default function ReadingPractice() {
               {editing && (
                 <button
                   type="button"
-                  onClick={() => handleGenerateAI()}
+                  onClick={handleStartGenerateAI}
                   disabled={generatingAI}
                   className="h-9 px-3.5 rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 text-xs font-semibold transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                   title="AI giải thích 4 bước cho bài đọc"
@@ -519,6 +557,8 @@ export default function ReadingPractice() {
                         key={g._id || g.id || i}
                         skill="reading"
                         group={g}
+                        examId={editing?.id}
+                        passage={form.passage}
                         expanded={groupCollapse.isExpanded(g._id)}
                         onToggle={() => groupCollapse.toggle(g._id)}
                         onChange={updated => handleGroupChange(i, updated)}
@@ -552,7 +592,19 @@ export default function ReadingPractice() {
           onClose={() => setConflictModalOpen(false)}
           conflicts={aiConflicts}
           isSubmitting={generatingAI}
-          onConfirmResolve={(choices) => handleGenerateAI(choices)}
+          onConfirmResolve={(choices) => handleGenerateAI({ resolveChoices: choices, overwriteProtected: false })}
+        />
+
+        <OverwriteProtectedConfirmModal
+          isOpen={overwriteModalOpen}
+          onClose={() => setOverwriteModalOpen(false)}
+          reviewedCount={protectedStats.reviewedCount}
+          editedCount={protectedStats.editedCount}
+          isSubmitting={generatingAI}
+          onConfirm={({ overwriteProtected }) => {
+            setOverwriteModalOpen(false)
+            handleGenerateAI({ overwriteProtected })
+          }}
         />
       </>
     )

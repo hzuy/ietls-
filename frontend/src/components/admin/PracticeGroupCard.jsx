@@ -1,8 +1,11 @@
+import { useState } from 'react'
+import { Sparkles } from 'lucide-react'
 import {
   READING_GROUP_TYPES, LISTENING_GROUP_TYPES,
   GROUP_TYPE_COLORS, getQuestionTypeTheme,
   inputCls, labelCls,
 } from '../../utils/practiceConfig'
+import QuestionExplanationModal, { ExplanationStatusBadge } from './QuestionExplanationModal'
 import TrueFalseEditor from '../practice/TrueFalseEditor'
 import NoteCompletionEditor from './editors/NoteCompletionEditor'
 import TableCompletionEditor from './editors/TableCompletionEditor'
@@ -52,14 +55,23 @@ function chrome(skill, groupType) {
 
 export default function PracticeGroupCard({
   skill, group, onChange, onRemove, onMoveUp, onMoveDown, isFirst, isLast,
-  expanded = true, onToggle,
+  expanded = true, onToggle, examId, passage = '',
 }) {
+  const [selectedQModal, setSelectedQModal] = useState(null)
   const groupTypes = skill === 'listening' ? LISTENING_GROUP_TYPES : READING_GROUP_TYPES
   const typeLabel = groupTypes.find(t => t.value === group.type)?.label || group.type
   const s = chrome(skill, group.type)
   const bodyId = `grp-body-${group._id ?? group.id ?? group.qNumberStart}`
 
   const hasExplanations = group.explanations && Object.keys(group.explanations).length > 0
+  const questionsList = (Array.isArray(group.questions) && group.questions.length > 0)
+    ? group.questions
+    : (group.qNumberStart && group.qNumberEnd && group.qNumberEnd >= group.qNumberStart)
+      ? Array.from(
+          { length: group.qNumberEnd - group.qNumberStart + 1 },
+          (_, idx) => ({ number: group.qNumberStart + idx })
+        )
+      : []
 
   // Header là vùng click tiện lợi để thu gọn/bung; chevron mới là control a11y thật
   // (aria-expanded/controls + bàn phím). Nút ▲▼/Xóa chặn nổi bọt để không toggle nhầm.
@@ -126,6 +138,34 @@ export default function PracticeGroupCard({
           </button>
         </div>
       </div>
+
+      {/* Cột danh sách câu hỏi & huy hiệu giải thích */}
+      {questionsList.length > 0 && (
+        <div className="px-4 py-2.5 bg-zinc-50/80 border-b border-zinc-200/80 flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-bold text-zinc-600 flex items-center gap-1 shrink-0 uppercase tracking-wider">
+            <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+            <span>Giải thích 4 bước:</span>
+          </span>
+          <div className="flex flex-wrap items-center gap-1.5 flex-1">
+            {questionsList.map(q => {
+              const qNum = q.number
+              const exp = group.explanations?.[qNum] || group.explanations?.[String(qNum)]
+              return (
+                <button
+                  key={qNum}
+                  type="button"
+                  onClick={stop(() => setSelectedQModal({ question: q, qNum, explanation: exp }))}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border bg-white hover:bg-zinc-50 border-zinc-200 hover:border-zinc-300 text-zinc-800 transition shadow-2xs cursor-pointer"
+                  title={`Xem, duyệt, góp ý hoặc sửa tay giải thích câu ${qNum}`}
+                >
+                  <span className="font-semibold">Câu {qNum}</span>
+                  <ExplanationStatusBadge explanation={exp} />
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {expanded && (
       <div id={bodyId} role="region" aria-label={`Nội dung nhóm ${typeLabel}`} className="p-4 space-y-3">
@@ -196,6 +236,26 @@ export default function PracticeGroupCard({
         )}
       </div>
       )}
+
+      {selectedQModal && (
+        <QuestionExplanationModal
+          isOpen={Boolean(selectedQModal)}
+          onClose={() => setSelectedQModal(null)}
+          examId={examId}
+          questionNumber={selectedQModal.qNum}
+          isPractice={true}
+          skill={skill}
+          question={selectedQModal.question}
+          initialExplanation={selectedQModal.explanation}
+          passage={passage}
+          onExplanationUpdated={(newExp, qNum) => {
+            const nextExplanations = { ...(group.explanations || {}), [qNum]: newExp }
+            onChange({ ...group, explanations: nextExplanations })
+            setSelectedQModal(prev => prev ? { ...prev, explanation: newExp } : null)
+          }}
+        />
+      )}
     </div>
   )
 }
+

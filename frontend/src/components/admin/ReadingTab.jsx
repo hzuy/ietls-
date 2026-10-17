@@ -19,6 +19,7 @@ import AdminGroupPreview from '../practice/AdminGroupPreview'
 import ReadingGroupEditor from './editors/ReadingGroupEditor'
 import { Eye, ChevronDown, Volume2, History, BookOpen, Loader2 } from 'lucide-react'
 import ExplanationConflictModal from './ExplanationConflictModal'
+import OverwriteProtectedConfirmModal from './OverwriteProtectedConfirmModal'
 
 // ─── TAB: READING ─────────────────────────────────────────────────────────────
 
@@ -342,12 +343,47 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   const [generatingAI, setGeneratingAI] = useState(false)
   const [aiConflicts, setAiConflicts] = useState([])
   const [conflictModalOpen, setConflictModalOpen] = useState(false)
+  const [overwriteModalOpen, setOverwriteModalOpen] = useState(false)
+  const [protectedStats, setProtectedStats] = useState({ reviewedCount: 0, editedCount: 0 })
   const formRef = useRef(null)
   const previewRef = useRef(null)
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
-  const handleGenerateAI = async (resolveChoices = {}) => {
+  const countProtectedQuestions = () => {
+    let reviewedCount = 0
+    let editedCount = 0
+    for (const p of (form.passages || [])) {
+      for (const g of (p.questionGroups || [])) {
+        for (const q of (g.questions || [])) {
+          if (q.explanation?.status === 'teacher_reviewed') reviewedCount++
+          if (q.explanation?.status === 'teacher_edited') editedCount++
+        }
+      }
+    }
+    return { reviewedCount, editedCount }
+  }
+
+  const handleStartGenerateAI = () => {
+    if (!editingId) return
+    const val = validateExamReading(form)
+    if (!val.isValid) {
+      const msg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
+      setError(msg)
+      showAlert(msg, 'error')
+      showToast(val.errors[0] || 'Vui lòng điền đầy đủ thông tin đề bài và đáp án đúng')
+      return
+    }
+    const stats = countProtectedQuestions()
+    if (stats.reviewedCount + stats.editedCount > 0) {
+      setProtectedStats(stats)
+      setOverwriteModalOpen(true)
+    } else {
+      handleGenerateAI({ overwriteProtected: false })
+    }
+  }
+
+  const handleGenerateAI = async ({ resolveChoices = {}, overwriteProtected = false } = {}) => {
     if (!editingId) return
     const val = validateExamReading(form)
     if (!val.isValid) {
@@ -361,6 +397,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     try {
       const res = await api.post(`/admin/exams/${editingId}/generate-explanations`, {
         force: true,
+        overwriteProtected,
         resolveChoices,
       })
       if (res.data?.hasConflicts) {
@@ -675,7 +712,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => handleGenerateAI()}
+                onClick={handleStartGenerateAI}
                 disabled={generatingAI}
                 className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 title="AI giải thích 4 bước cho bài đọc"
@@ -804,6 +841,8 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
                           <ReadingGroupEditor
                             key={group._id || gi}
                             group={group}
+                            examId={editingId}
+                            passage={passage.body}
                             onChange={newGroup => updateGroup(pi, gi, newGroup)}
                             onRemove={() => removeGroup(pi, gi)}
                             onMoveUp={() => moveGroup(pi, gi, -1)}
@@ -900,8 +939,20 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         isOpen={conflictModalOpen}
         onClose={() => setConflictModalOpen(false)}
         conflicts={aiConflicts}
-        onConfirmResolve={(choices) => handleGenerateAI(choices)}
+        onConfirmResolve={(choices) => handleGenerateAI({ resolveChoices: choices, overwriteProtected: false })}
         isSubmitting={generatingAI}
+      />
+
+      <OverwriteProtectedConfirmModal
+        isOpen={overwriteModalOpen}
+        onClose={() => setOverwriteModalOpen(false)}
+        reviewedCount={protectedStats.reviewedCount}
+        editedCount={protectedStats.editedCount}
+        isSubmitting={generatingAI}
+        onConfirm={({ overwriteProtected }) => {
+          setOverwriteModalOpen(false)
+          handleGenerateAI({ overwriteProtected })
+        }}
       />
     </div>
   )

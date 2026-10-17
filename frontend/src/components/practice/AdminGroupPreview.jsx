@@ -1,5 +1,6 @@
 import { BookOpen } from 'lucide-react'
 import ReviewExplanation from '../exam/ReviewExplanation'
+import { ExplanationStatusBadge } from '../admin/QuestionExplanationModal'
 import { PreviewTokenLine, buildTokenNumMap } from './PreviewTokenLine'
 import { toImgSrc } from '../../utils/practiceConfig'
 import { deriveCorrectIndices } from '../../utils/mcqAnswer'
@@ -80,8 +81,9 @@ export default function AdminGroupPreview({ group, showAnswers, showExplanations
                   <span className="w-5 h-5 rounded-full bg-zinc-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
                     {qNum}
                   </span>
+                  <ExplanationStatusBadge explanation={parsedExp} />
                   {correctAnswer && (
-                    <span className="text-xs font-bold text-zinc-800">
+                    <span className="text-xs font-bold text-zinc-800 ml-auto">
                       Đáp án đúng: <span className="text-emerald-700 font-semibold">{correctAnswer}</span>
                     </span>
                   )}
