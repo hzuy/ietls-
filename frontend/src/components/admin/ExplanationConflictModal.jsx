@@ -66,7 +66,7 @@ export default function ExplanationConflictModal({
                 Phát hiện lệch đáp án ({conflicts.length} câu)
               </h3>
               <p className="text-xs text-zinc-500 mt-0.5">
-                Hệ thống phát hiện dẫn chứng trong bài đọc không khớp với đáp án hiện tại. Vui lòng chọn cách xử lý cho từng câu.
+                Hệ thống phát hiện dẫn chứng trong bài đọc không khớp với đáp án hiện tại. <span className="text-amber-700 font-semibold">Lưu ý: Chọn &quot;Cập nhật theo AI&quot; sẽ thay đổi đáp án đúng của câu trong đề thi.</span>
               </p>
             </div>
           </div>
@@ -155,6 +155,9 @@ export default function ExplanationConflictModal({
                       </span>
                       Cập nhật theo AI
                     </div>
+                    <span className="text-[11px] text-amber-700 font-medium mt-1">
+                      (Sẽ đổi đáp án đúng của câu thành &quot;{c.aiAnswer}&quot;)
+                    </span>
                   </div>
                 </div>
 
