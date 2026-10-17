@@ -92,8 +92,9 @@ function carryOverExplanations(oldRows, newGroups) {
     for (const q of group.questions || []) {
       if (byNumber[q.number]) {
         old[q.number] = {
-          answer: String(q.correctAnswer ?? ''),
-          text: String(q.questionText ?? ''),
+          answer: String(q.correctAnswer ?? '').trim(),
+          text: String(q.questionText ?? '').trim(),
+          options: JSON.stringify(q.options ?? null),
           explanation: byNumber[q.number]
         }
       }
@@ -105,14 +106,18 @@ function carryOverExplanations(oldRows, newGroups) {
     for (const q of group.questions || []) {
       const prev = old[q.number]
       if (prev && prev.explanation) {
-        const answerChanged = prev.answer !== String(q.correctAnswer ?? '')
-        const textChanged = prev.text !== String(q.questionText ?? '')
-        if (answerChanged || textChanged) {
+        const answerChanged = prev.answer !== String(q.correctAnswer ?? '').trim()
+        const textChanged = prev.text !== String(q.questionText ?? '').trim()
+        const optionsChanged = prev.options !== JSON.stringify(q.options ?? null)
+        if (answerChanged || textChanged || optionsChanged) {
           // 3.8: Không xóa lời giải, đánh dấu status 'possibly_stale'
+          let staleReason = 'Nội dung câu hỏi đã thay đổi'
+          if (answerChanged) staleReason = 'Đáp án đã thay đổi'
+          else if (optionsChanged) staleReason = 'Các lựa chọn đã thay đổi'
           byNumber[q.number] = {
             ...prev.explanation,
             status: 'possibly_stale',
-            staleReason: answerChanged ? 'Đáp án đã thay đổi' : 'Nội dung câu hỏi đã thay đổi',
+            staleReason,
             staleAt: new Date().toISOString()
           }
         } else {

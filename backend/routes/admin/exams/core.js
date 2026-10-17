@@ -427,13 +427,17 @@ function planQuestionDiff(existingQuestions, submittedQuestions, fieldMapper) {
     if (!ex.explanation) return {}
     const answerChanged = String(ex.correctAnswer ?? '').trim() !== String(fields.correctAnswer ?? '').trim()
     const textChanged = String(ex.questionText ?? '').trim() !== String(fields.questionText ?? '').trim()
-    if (answerChanged || textChanged) {
+    const optionsChanged = String(ex.options ?? '').trim() !== String(fields.options ?? '').trim()
+    if (answerChanged || textChanged || optionsChanged) {
       const expObj = typeof ex.explanation === 'object' ? ex.explanation : {}
+      let staleReason = 'Nội dung câu hỏi đã thay đổi'
+      if (answerChanged) staleReason = 'Đáp án đã thay đổi'
+      else if (optionsChanged) staleReason = 'Các lựa chọn đã thay đổi'
       return {
         explanation: {
           ...expObj,
           status: 'possibly_stale',
-          staleReason: answerChanged ? 'Đáp án đã thay đổi' : 'Nội dung câu hỏi đã thay đổi',
+          staleReason,
           staleAt: new Date().toISOString()
         }
       }
@@ -1043,4 +1047,5 @@ router.delete('/exams/:id', authMiddleware, teacherOnly, async (req, res) => {
 })
 
 router.checkDuplicateExamTest = checkDuplicateExamTest
+router.planQuestionDiff = planQuestionDiff
 module.exports = router
