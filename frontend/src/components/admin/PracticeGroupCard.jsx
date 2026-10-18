@@ -130,10 +130,10 @@ export default function PracticeGroupCard({
         {/* Cột 5: Nút Di chuyển và Xóa nhóm */}
         <div className="flex items-center gap-2 shrink-0">
           <div className={s.moveWrap}>
-            <button type="button" onClick={stop(onMoveUp)} disabled={isFirst} className={s.moveBtn} title="Di chuyển lên">▲</button>
-            <button type="button" onClick={stop(onMoveDown)} disabled={isLast} className={s.moveBtn} title="Di chuyển xuống">▼</button>
+            <button type="button" onClick={stop(onMoveUp)} disabled={isFirst || isAIBusy} className={s.moveBtn} title="Di chuyển lên">▲</button>
+            <button type="button" onClick={stop(onMoveDown)} disabled={isLast || isAIBusy} className={s.moveBtn} title="Di chuyển xuống">▼</button>
           </div>
-          <button type="button" onClick={stop(onRemove)} className={s.removeBtn}>
+          <button type="button" onClick={stop(onRemove)} disabled={isAIBusy} className={`${s.removeBtn} disabled:opacity-40 disabled:cursor-not-allowed`}>
             Xóa nhóm
           </button>
         </div>

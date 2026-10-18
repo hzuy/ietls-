@@ -543,8 +543,10 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
     throw new Error(`Không thể tạo giải thích AI do các câu sau chưa có đáp án đúng: Câu ${missingAnswerQuestions.join(', ')}. Vui lòng điền đầy đủ đáp án đúng trước.`)
   }
 
+  const startedAt = new Date().toISOString()
   const conflicts = []
-  const updatesByRow = new Map() // rowId -> { byNumber: {}, groupContent: modifiedGroup }
+  const newlyGeneratedByRow = new Map() // rowId -> Map(qNum -> { explanation, adoptedAiAnswer })
+  const failedQuestions = []
   let generatedCount = 0
 
   for (const row of exam.questions) {
@@ -552,7 +554,7 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
     if (!group || !Array.isArray(group.questions)) continue
 
     const currentExplanations = { ...(row.explanation?.byNumber || {}) }
-    let groupModified = false
+    const rowGeneratedMap = new Map()
 
     for (const qItem of group.questions) {
       const qNum = Number(qItem.number)
@@ -574,10 +576,18 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
       if (SKIP_FAMILIES.has(family)) continue
 
       const ctx = buildContext(qCtx, family)
-      const explanation = await generateExplanation(qCtx, family, ctx)
+
+      let explanation
+      try {
+        explanation = await generateExplanation(qCtx, family, ctx)
+      } catch (err) {
+        failedQuestions.push({ number: qNum, message: err.message })
+        continue
+      }
       if (!explanation) continue
 
       generatedCount++
+      explanation.updatedAt = new Date().toISOString()
 
       const inputAnswer = String(qCtx.correctAnswer || '').trim()
       const aiAnswer = String(explanation.answer || '').trim()
@@ -585,6 +595,7 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
       const match = isAnswerMatch(inputAnswer, aiAnswer, rawOptions, qCtx.type)
 
       const choice = resolveChoices[qNum]
+      let adoptedAiAnswer = null
 
       if (!match && !choice) {
         // 4.1: Record conflict and save with conflict_pending status
@@ -601,13 +612,12 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
           teacher_note: explanation.teacher_note || '',
           explanation,
         })
-        currentExplanations[qNum] = explanation
+        rowGeneratedMap.set(qNum, { explanation, adoptedAiAnswer: null })
       } else {
         // Resolve or match
         if (choice === 'ai') {
           // 3.4: Adopt AI answer into question
-          qItem.correctAnswer = aiAnswer
-          groupModified = true
+          adoptedAiAnswer = aiAnswer
           explanation.answer = aiAnswer
           explanation.status = 'ai_generated'
         } else if (choice === 'input') {
@@ -623,21 +633,61 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
           explanation.needsRegenerationReason = 'Lời giải chứa cụm từ nội bộ'
         }
 
-        currentExplanations[qNum] = explanation
+        rowGeneratedMap.set(qNum, { explanation, adoptedAiAnswer })
       }
     }
 
-    updatesByRow.set(row.id, {
-      byNumber: currentExplanations,
-      groupContent: groupModified ? JSON.stringify(group) : null,
-    })
+    if (rowGeneratedMap.size > 0) {
+      newlyGeneratedByRow.set(row.id, rowGeneratedMap)
+    }
   }
 
-  // 4.1 PARTIAL SAVE: Save updates to database first so data is never lost
+  // B.5 SỬA GỐC RACE: Trong transaction đọc lại dữ liệu hiện tại và chỉ ghi đè theo key
   await prisma.$transaction(async (tx) => {
-    for (const [rowId, { byNumber, groupContent }] of updatesByRow) {
-      const data = { explanation: { byNumber } }
-      if (groupContent) data.content = groupContent
+    for (const [rowId, newlyGeneratedMap] of newlyGeneratedByRow) {
+      if (!newlyGeneratedMap.size) continue
+
+      const currentRow = await tx.practiceQuestion.findUnique({
+        where: { id: rowId },
+        select: { id: true, content: true, explanation: true },
+      })
+      if (!currentRow) continue
+
+      const currentByNumber = (currentRow.explanation && typeof currentRow.explanation === 'object' && currentRow.explanation.byNumber)
+        ? { ...currentRow.explanation.byNumber }
+        : {}
+
+      let currentGroup = parseGroup(currentRow)
+      let groupModified = false
+
+      for (const [qNum, { explanation: newExp, adoptedAiAnswer }] of newlyGeneratedMap) {
+        const existingExp = currentByNumber[qNum]
+
+        // Không ghi đè câu có status được bảo vệ nếu !overwriteProtected
+        const isExistingProtected = existingExp && (existingExp.status === 'teacher_reviewed' || existingExp.status === 'teacher_edited')
+        if (isExistingProtected && !overwriteProtected) {
+          continue
+        }
+
+        // Không ghi đè câu vừa bị đổi trong lúc sinh cả đề (updatedAt mới hơn startedAt)
+        if (existingExp && existingExp.updatedAt && new Date(existingExp.updatedAt) > new Date(startedAt)) {
+          continue
+        }
+
+        currentByNumber[qNum] = newExp
+
+        if (adoptedAiAnswer && currentGroup && Array.isArray(currentGroup.questions)) {
+          const qTarget = currentGroup.questions.find((q) => Number(q.number) === Number(qNum))
+          if (qTarget) {
+            qTarget.correctAnswer = adoptedAiAnswer
+            groupModified = true
+          }
+        }
+      }
+
+      const data = { explanation: { byNumber: currentByNumber } }
+      if (groupModified) data.content = JSON.stringify(currentGroup)
+
       await tx.practiceQuestion.update({
         where: { id: rowId },
         data,
@@ -654,6 +704,7 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
       hasConflicts: true,
       conflicts,
       generatedCount,
+      errors: failedQuestions.length ? failedQuestions : undefined,
       message: `Đã lưu giải thích và phát hiện ${conflicts.length} câu có đáp án lệch so với bài đọc. Vui lòng duyệt trước khi công bố cho học sinh.`,
     }
   }
@@ -662,7 +713,10 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
     ok: true,
     hasConflicts: false,
     generatedCount,
-    message: `Đã tạo giải thích 4 bước thành công cho ${generatedCount} câu hỏi!`,
+    errors: failedQuestions.length ? failedQuestions : undefined,
+    message: failedQuestions.length
+      ? `Đã tạo giải thích thành công cho ${generatedCount} câu hỏi (${failedQuestions.length} câu bị lỗi: câu ${failedQuestions.map(f => f.number).join(', ')}).`
+      : `Đã tạo giải thích 4 bước thành công cho ${generatedCount} câu hỏi!`,
   }
 }
 
@@ -730,10 +784,6 @@ async function generateForExam(examId, { force = false, resolveChoices = {}, ove
     orderBy: { number: 'asc' },
   })
 
-  const conflicts = []
-  const updates = []
-  let generatedCount = 0
-
   if (!questions.length) {
     if (parsedGroupId) {
       throw new Error(`Nhóm câu hỏi #${parsedGroupId} không có câu hỏi nào trong đề thi #${examId}`)
@@ -771,6 +821,12 @@ async function generateForExam(examId, { force = false, resolveChoices = {}, ove
     }
   }
 
+  const startedAt = new Date().toISOString()
+  const conflicts = []
+  const updates = []
+  const failedQuestions = []
+  let generatedCount = 0
+
   for (const q of questions) {
     const existing = q.explanation
     const isProtected = existing && (existing.status === 'teacher_reviewed' || existing.status === 'teacher_edited')
@@ -783,10 +839,18 @@ async function generateForExam(examId, { force = false, resolveChoices = {}, ove
     if (SKIP_FAMILIES.has(family)) continue
 
     const ctx = buildContext(q, family)
-    const explanation = await generateExplanation(q, family, ctx)
+
+    let explanation
+    try {
+      explanation = await generateExplanation(q, family, ctx)
+    } catch (err) {
+      failedQuestions.push({ number: q.number, message: err.message })
+      continue
+    }
     if (!explanation) continue
 
     generatedCount++
+    explanation.updatedAt = new Date().toISOString()
 
     const inputAnswer = String(q.correctAnswer || '').trim()
     const aiAnswer = String(explanation.answer || '').trim()
@@ -811,6 +875,7 @@ async function generateForExam(examId, { force = false, resolveChoices = {}, ove
       })
       updates.push({
         id: q.id,
+        number: q.number,
         correctAnswer: inputAnswer,
         explanation,
       })
@@ -834,15 +899,36 @@ async function generateForExam(examId, { force = false, resolveChoices = {}, ove
 
       updates.push({
         id: q.id,
+        number: q.number,
         correctAnswer: finalCorrectAnswer,
         explanation,
       })
     }
   }
 
-  // 4.1 PARTIAL SAVE: Save updates to database first so data is never lost
+  // B.5 SỬA GỐC RACE: Trong transaction đọc lại dữ liệu câu hỏi hiện tại và không ghi đè câu vừa đổi
   await prisma.$transaction(async (tx) => {
     for (const item of updates) {
+      const currentQ = tx.question.findUnique
+        ? await tx.question.findUnique({
+            where: { id: item.id },
+            select: { id: true, explanation: true, updatedAt: true },
+          })
+        : null
+
+      const existingExp = currentQ?.explanation
+      const isExistingProtected = existingExp && (existingExp.status === 'teacher_reviewed' || existingExp.status === 'teacher_edited')
+
+      // Không ghi đè câu có status được bảo vệ nếu !overwriteProtected
+      if (isExistingProtected && !overwriteProtected) {
+        continue
+      }
+
+      // Không ghi đè câu vừa bị đổi trong lúc sinh cả đề (updatedAt mới hơn startedAt)
+      if (existingExp && existingExp.updatedAt && new Date(existingExp.updatedAt) > new Date(startedAt)) {
+        continue
+      }
+
       await tx.question.update({
         where: { id: item.id },
         data: {
@@ -861,6 +947,7 @@ async function generateForExam(examId, { force = false, resolveChoices = {}, ove
       hasConflicts: true,
       conflicts,
       generatedCount,
+      errors: failedQuestions.length ? failedQuestions : undefined,
       message: `Đã lưu giải thích và phát hiện ${conflicts.length} câu có đáp án lệch so với bài đọc/nghe. Vui lòng duyệt trước khi công bố cho học sinh.`,
     }
   }
@@ -869,7 +956,10 @@ async function generateForExam(examId, { force = false, resolveChoices = {}, ove
     ok: true,
     hasConflicts: false,
     generatedCount,
-    message: `Đã tạo giải thích 4 bước thành công cho ${generatedCount} câu hỏi!`,
+    errors: failedQuestions.length ? failedQuestions : undefined,
+    message: failedQuestions.length
+      ? `Đã tạo giải thích thành công cho ${generatedCount} câu hỏi (${failedQuestions.length} câu bị lỗi: câu ${failedQuestions.map(f => f.number).join(', ')}).`
+      : `Đã tạo giải thích 4 bước thành công cho ${generatedCount} câu hỏi!`,
   }
 }
 

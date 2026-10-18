@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const prismaMock = {
   exam: { findUnique: vi.fn() },
   practiceExam: { findUnique: vi.fn() },
-  question: { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
+  question: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
   practiceQuestion: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
   $transaction: vi.fn(async (fn) => fn(prismaMock)),
 }

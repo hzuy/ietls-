@@ -476,6 +476,12 @@ router.post('/admin/listening/:id/audio', authMiddleware, teacherStrict, audioUp
 router.delete('/admin/:skill/:id', authMiddleware, teacherStrict, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
+    const lockKey = `practice:${id}`
+    if (isLocked(lockKey)) {
+      return res.status(409).json({
+        message: 'Đang có một tác vụ AI khác đang chạy cho bài luyện tập này. Vui lòng chờ hoàn thành trước khi xóa.'
+      })
+    }
     // Đọc tiêu đề trước khi soft-delete để entityLabel vẫn đọc được sau này.
     const existing = await prisma.practiceExam.findUnique({ where: { id }, select: { title: true } })
     await prisma.practiceExam.update({
