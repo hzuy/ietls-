@@ -18,6 +18,7 @@ const {
 } = require('../services/explanationGeneratorService')
 const { logAuditEvent } = require('../lib/auditLog')
 const { AUDIT_ACTIONS } = require('../lib/auditActions')
+const { acquireLock, releaseLock, isLocked } = require('../lib/explanationLock')
 
 const router = express.Router()
 
@@ -328,6 +329,15 @@ router.post('/admin/:skill', authMiddleware, teacherStrict, validate(createPract
 // ─── ADMIN: update (FIXED) ────────────────────────────────────────────────────
 router.put('/admin/:skill/:id', authMiddleware, teacherStrict, validate(updatePracticeSchema), async (req, res) => {
   const { id, skill } = req.params
+  const practiceId = parseInt(id, 10)
+  const lockKey = `practice:${practiceId}`
+
+  if (isLocked(lockKey)) {
+    return res.status(409).json({
+      message: 'Đang có một tác vụ AI khác đang chạy cho bài luyện tập này. Vui lòng chờ hoàn thành trước khi lưu bài.'
+    })
+  }
+
   const { title, level, thumbnailUrl, audioUrl, passage, transcript, questions } = req.body
 
   try {
@@ -487,12 +497,23 @@ router.delete('/admin/:skill/:id', authMiddleware, teacherStrict, async (req, re
 router.post('/admin/:skill/:id/generate-explanations', authMiddleware, teacherStrict, async (req, res) => {
   const { id } = req.params
   const { force = false, resolveChoices = {}, overwriteProtected = false } = req.body || {}
+  const practiceId = parseInt(id, 10)
+  const lockKey = `practice:${practiceId}`
+
+  if (!acquireLock(lockKey)) {
+    return res.status(409).json({
+      message: 'Đang có một tác vụ AI khác đang chạy cho bài luyện tập này. Vui lòng chờ hoàn thành.'
+    })
+  }
+
   try {
-    const result = await generateForPracticeExam(parseInt(id, 10), { force, resolveChoices, overwriteProtected })
+    const result = await generateForPracticeExam(practiceId, { force, resolveChoices, overwriteProtected })
     res.json(result)
   } catch (err) {
     console.error('[GENERATE PRACTICE EXPLANATIONS ERROR]', err)
     res.status(500).json({ message: err.message || 'Lỗi khi tạo giải thích bằng AI' })
+  } finally {
+    releaseLock(lockKey)
   }
 })
 
@@ -500,9 +521,18 @@ router.post('/admin/:skill/:id/generate-explanations', authMiddleware, teacherSt
 router.post('/admin/:skill/:id/questions/:qNum/regenerate-explanation', authMiddleware, teacherStrict, async (req, res) => {
   const { skill, id, qNum } = req.params
   const { teacherFeedback } = req.body || {}
+  const practiceId = parseInt(id, 10)
+  const lockKey = `practice:${practiceId}`
+
+  if (!acquireLock(lockKey)) {
+    return res.status(409).json({
+      message: 'Đang có một tác vụ AI khác đang chạy cho bài luyện tập này. Vui lòng chờ hoàn thành.'
+    })
+  }
+
   try {
     const result = await regenerateQuestionExplanation({
-      examId: parseInt(id, 10),
+      examId: practiceId,
       questionNumber: parseInt(qNum, 10),
       isPractice: true,
       skill,
@@ -512,15 +542,26 @@ router.post('/admin/:skill/:id/questions/:qNum/regenerate-explanation', authMidd
   } catch (err) {
     console.error('[REGENERATE PRACTICE QUESTION EXPLANATION ERROR]', err)
     res.status(500).json({ message: err.message || 'Lỗi khi tạo lại giải thích' })
+  } finally {
+    releaseLock(lockKey)
   }
 })
 
 // ─── ADMIN: manually edit single question explanation ─────────────────────────────
 router.put('/admin/:skill/:id/questions/:qNum/explanation', authMiddleware, teacherStrict, async (req, res) => {
   const { id, qNum } = req.params
+  const practiceId = parseInt(id, 10)
+  const lockKey = `practice:${practiceId}`
+
+  if (isLocked(lockKey)) {
+    return res.status(409).json({
+      message: 'Đang có một tác vụ AI khác đang chạy cho bài luyện tập này. Vui lòng chờ hoàn thành trước khi sửa lời giải.'
+    })
+  }
+
   try {
     const result = await updateManualExplanation({
-      examId: parseInt(id, 10),
+      examId: practiceId,
       questionNumber: parseInt(qNum, 10),
       isPractice: true,
       fields: req.body || {},
@@ -535,9 +576,18 @@ router.put('/admin/:skill/:id/questions/:qNum/explanation', authMiddleware, teac
 // ─── ADMIN: approve/review single question explanation ────────────────────────────
 router.post('/admin/:skill/:id/questions/:qNum/review-explanation', authMiddleware, teacherStrict, async (req, res) => {
   const { id, qNum } = req.params
+  const practiceId = parseInt(id, 10)
+  const lockKey = `practice:${practiceId}`
+
+  if (isLocked(lockKey)) {
+    return res.status(409).json({
+      message: 'Đang có một tác vụ AI khác đang chạy cho bài luyện tập này. Vui lòng chờ hoàn thành trước khi duyệt lời giải.'
+    })
+  }
+
   try {
     const result = await reviewQuestionExplanation({
-      examId: parseInt(id, 10),
+      examId: practiceId,
       questionNumber: parseInt(qNum, 10),
       isPractice: true,
     })

@@ -34,22 +34,21 @@ router.get('/exams/counts', authMiddleware, teacherOnly, async (req, res) => {
   }
 })
 
-// In-memory concurrency lock per exam: Only ONE AI explanation job can run on an exam at a time (Requirement 3.5)
-const activeExamAIJobs = new Set()
+const { acquireLock, releaseLock, isLocked } = require('../../../lib/explanationLock')
 
 // ─── ADMIN: GENERATE EXPLANATIONS FOR EXAM WITH CONFLICT DETECTION ──────────
 router.post('/exams/:id/generate-explanations', authMiddleware, teacherOnly, async (req, res) => {
   const { id } = req.params
   const { force = false, resolveChoices = {}, overwriteProtected = false } = req.body || {}
   const examIdNum = parseInt(id, 10)
+  const lockKey = `exam:${examIdNum}`
 
-  if (activeExamAIJobs.has(examIdNum)) {
+  if (!acquireLock(lockKey)) {
     return res.status(409).json({
       message: `Đang có một tác vụ AI khác đang chạy cho đề thi #${examIdNum}. Vui lòng chờ hoàn thành.`
     })
   }
 
-  activeExamAIJobs.add(examIdNum)
   try {
     const result = await generateForExam(examIdNum, { force, resolveChoices, overwriteProtected })
     res.json(result)
@@ -57,7 +56,7 @@ router.post('/exams/:id/generate-explanations', authMiddleware, teacherOnly, asy
     console.error('[GENERATE EXAM EXPLANATIONS ERROR]', err)
     res.status(500).json({ message: err.message || 'Lỗi khi tạo giải thích bằng AI' })
   } finally {
-    activeExamAIJobs.delete(examIdNum)
+    releaseLock(lockKey)
   }
 })
 
@@ -67,14 +66,14 @@ router.post('/exams/:id/groups/:groupId/generate-explanations', authMiddleware, 
   const { force = false, resolveChoices = {}, overwriteProtected = false } = req.body || {}
   const examIdNum = parseInt(id, 10)
   const groupIdNum = parseInt(groupId, 10)
+  const lockKey = `exam:${examIdNum}`
 
-  if (activeExamAIJobs.has(examIdNum)) {
+  if (!acquireLock(lockKey)) {
     return res.status(409).json({
       message: `Đang có một tác vụ AI khác đang chạy cho đề thi #${examIdNum}. Vui lòng chờ hoàn thành.`
     })
   }
 
-  activeExamAIJobs.add(examIdNum)
   try {
     const result = await generateForExam(examIdNum, {
       force,
@@ -87,7 +86,7 @@ router.post('/exams/:id/groups/:groupId/generate-explanations', authMiddleware, 
     console.error('[GENERATE GROUP EXPLANATIONS ERROR]', err)
     res.status(500).json({ message: err.message || 'Lỗi khi tạo giải thích cho nhóm câu hỏi' })
   } finally {
-    activeExamAIJobs.delete(examIdNum)
+    releaseLock(lockKey)
   }
 })
 
@@ -95,9 +94,18 @@ router.post('/exams/:id/groups/:groupId/generate-explanations', authMiddleware, 
 router.post('/exams/:id/questions/:qId/regenerate-explanation', authMiddleware, teacherOnly, async (req, res) => {
   const { id, qId } = req.params
   const { teacherFeedback } = req.body || {}
+  const examIdNum = parseInt(id, 10)
+  const lockKey = `exam:${examIdNum}`
+
+  if (!acquireLock(lockKey)) {
+    return res.status(409).json({
+      message: `Đang có một tác vụ AI khác đang chạy cho đề thi #${examIdNum}. Vui lòng chờ hoàn thành.`
+    })
+  }
+
   try {
     const result = await regenerateQuestionExplanation({
-      examId: parseInt(id, 10),
+      examId: examIdNum,
       questionId: qId,
       isPractice: false,
       teacherFeedback,
@@ -106,15 +114,26 @@ router.post('/exams/:id/questions/:qId/regenerate-explanation', authMiddleware, 
   } catch (err) {
     console.error('[REGENERATE EXAM QUESTION EXPLANATION ERROR]', err)
     res.status(500).json({ message: err.message || 'Lỗi khi tạo lại giải thích' })
+  } finally {
+    releaseLock(lockKey)
   }
 })
 
 // ─── ADMIN: MANUALLY EDIT SINGLE QUESTION EXPLANATION ─────────────────────
 router.put('/exams/:id/questions/:qId/explanation', authMiddleware, teacherOnly, async (req, res) => {
   const { id, qId } = req.params
+  const examIdNum = parseInt(id, 10)
+  const lockKey = `exam:${examIdNum}`
+
+  if (isLocked(lockKey)) {
+    return res.status(409).json({
+      message: `Đang có một tác vụ AI khác đang chạy cho đề thi #${examIdNum}. Vui lòng chờ hoàn thành trước khi sửa lời giải.`
+    })
+  }
+
   try {
     const result = await updateManualExplanation({
-      examId: parseInt(id, 10),
+      examId: examIdNum,
       questionId: qId,
       isPractice: false,
       fields: req.body || {},
@@ -129,9 +148,18 @@ router.put('/exams/:id/questions/:qId/explanation', authMiddleware, teacherOnly,
 // ─── ADMIN: APPROVE/REVIEW SINGLE QUESTION EXPLANATION ────────────────────
 router.post('/exams/:id/questions/:qId/review-explanation', authMiddleware, teacherOnly, async (req, res) => {
   const { id, qId } = req.params
+  const examIdNum = parseInt(id, 10)
+  const lockKey = `exam:${examIdNum}`
+
+  if (isLocked(lockKey)) {
+    return res.status(409).json({
+      message: `Đang có một tác vụ AI khác đang chạy cho đề thi #${examIdNum}. Vui lòng chờ hoàn thành trước khi duyệt lời giải.`
+    })
+  }
+
   try {
     const result = await reviewQuestionExplanation({
-      examId: parseInt(id, 10),
+      examId: examIdNum,
       questionId: qId,
       isPractice: false,
     })
