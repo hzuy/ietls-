@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   mergeExamExplanations,
   normalizeFormForDirtyCheck,
-  isExamFormDirty
+  isExamFormDirty,
+  calculateExamExplanationStats
 } from './examExplanationUtils'
 
 describe('examExplanationUtils', () => {
@@ -325,6 +326,158 @@ describe('examExplanationUtils', () => {
 
       // Dirty check should ignore explanation field
       expect(isExamFormDirty(formWithExp, pristineSig)).toBe(false)
+    })
+  })
+
+  describe('calculateExamExplanationStats (Batch 2 - Requirement 3.3)', () => {
+    it('properly counts mcq_multi where 1 question record covers multiple question numbers/slots', () => {
+      const examForm = {
+        passages: [
+          {
+            number: 1,
+            questionGroups: [
+              {
+                id: 1,
+                type: 'mcq_multi',
+                qNumberStart: 21,
+                qNumberEnd: 22,
+                maxChoices: 2,
+                questions: [
+                  {
+                    id: 50,
+                    number: 21,
+                    questionText: 'Which TWO factors are discussed?',
+                    explanation: { status: 'ai_generated' }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+
+      const stats = calculateExamExplanationStats(examForm)
+
+      // 1 question record in DB, but covers 2 slots (Q21 and Q22)
+      expect(stats.totalQuestions).toBe(1)
+      expect(stats.supportedQuestions).toBe(1)
+      expect(stats.explainedQuestions).toBe(1)
+
+      expect(stats.totalSlots).toBe(2)
+      expect(stats.supportedSlots).toBe(2)
+      expect(stats.explainedSlots).toBe(2)
+      expect(stats.isFullyExplained).toBe(true)
+      expect(stats.hasAttention).toBe(false)
+    })
+
+    it('excludes questions in SKIP_FAMILIES from the denominator (supportedSlots/Questions)', () => {
+      const examForm = {
+        passages: [
+          {
+            number: 1,
+            questionGroups: [
+              // 4 questions in diagram_label (IMAGE family)
+              {
+                id: 1,
+                type: 'diagram_label',
+                qNumberStart: 1,
+                qNumberEnd: 4,
+                questions: [
+                  { id: 10, number: 1 },
+                  { id: 11, number: 2 },
+                  { id: 12, number: 3 },
+                  { id: 13, number: 4 }
+                ]
+              },
+              // 6 standard questions with explanations
+              {
+                id: 2,
+                type: 'fill_blank',
+                qNumberStart: 5,
+                qNumberEnd: 10,
+                questions: [5, 6, 7, 8, 9, 10].map(n => ({
+                  id: 10 + n,
+                  number: n,
+                  explanation: { status: 'teacher_reviewed' }
+                }))
+              }
+            ]
+          }
+        ]
+      }
+
+      const stats = calculateExamExplanationStats(examForm)
+
+      // Total slots = 10, but 4 are unsupported diagram_label
+      expect(stats.totalSlots).toBe(10)
+      expect(stats.unsupportedSlots).toBe(4)
+      expect(stats.supportedSlots).toBe(6) // Denominator excludes diagram_label
+      expect(stats.explainedSlots).toBe(6)
+      expect(stats.isFullyExplained).toBe(true) // 6/6 supported are explained
+      expect(stats.hasUnsupported).toBe(true)
+    })
+
+    it('flags hasAttention ONLY for conflict_pending, needs_regeneration, and possibly_stale with text labels', () => {
+      const examForm = {
+        sections: [
+          {
+            number: 1,
+            questionGroups: [
+              {
+                id: 1,
+                type: 'mcq',
+                questions: [
+                  { id: 1, number: 1, explanation: { status: 'ai_generated' } },
+                  { id: 2, number: 2, explanation: { status: 'teacher_reviewed' } },
+                  { id: 3, number: 3, explanation: { status: 'teacher_edited' } },
+                  { id: 4, number: 4, explanation: { status: 'conflict_pending' } },
+                  { id: 5, number: 5, explanation: { status: 'needs_regeneration' } },
+                  { id: 6, number: 6, explanation: { status: 'possibly_stale' } }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+
+      const stats = calculateExamExplanationStats(examForm)
+
+      expect(stats.totalSlots).toBe(6)
+      expect(stats.supportedSlots).toBe(6)
+      expect(stats.explainedSlots).toBe(6)
+
+      // 3 questions require attention
+      expect(stats.hasAttention).toBe(true)
+      expect(stats.attentionSlots).toBe(3)
+      expect(stats.statusCounts.conflict_pending).toBe(1)
+      expect(stats.statusCounts.needs_regeneration).toBe(1)
+      expect(stats.statusCounts.possibly_stale).toBe(1)
+
+      // Check text reasons (non-color based labels)
+      expect(stats.attentionReasons).toContain('1 câu Chờ duyệt (Lệch)')
+      expect(stats.attentionReasons).toContain('1 câu Cần sinh lại')
+      expect(stats.attentionReasons).toContain('1 câu Có thể lỗi thời')
+    })
+
+    it('works on a single passage partition or group', () => {
+      const passage = {
+        number: 1,
+        questionGroups: [
+          {
+            type: 'true_false_ng',
+            questions: [
+              { id: 1, number: 1, explanation: { status: 'ai_generated' } },
+              { id: 2, number: 2, explanation: null }
+            ]
+          }
+        ]
+      }
+
+      const stats = calculateExamExplanationStats(passage)
+      expect(stats.supportedSlots).toBe(2)
+      expect(stats.explainedSlots).toBe(1)
+      expect(stats.isFullyExplained).toBe(false)
+      expect(stats.hasAttention).toBe(false)
     })
   })
 })

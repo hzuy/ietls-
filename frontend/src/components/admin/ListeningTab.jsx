@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { queryClient } from '../../lib/queryClient'
 import api from '../../utils/axios'
 import { showAlert } from '../../utils/alertUtils'
@@ -31,7 +31,8 @@ import ExplanationConflictModal from './ExplanationConflictModal'
 import OverwriteProtectedConfirmModal from './OverwriteProtectedConfirmModal'
 import QuestionExplanationModal, { ExplanationStatusBadge } from './QuestionExplanationModal'
 import UnsavedChangesAIModal from './UnsavedChangesAIModal'
-import { mergeExamExplanations, normalizeFormForDirtyCheck, isExamFormDirty } from '../../utils/examExplanationUtils'
+import ExamExplanationOverviewBadge from './ExamExplanationOverviewBadge'
+import { mergeExamExplanations, normalizeFormForDirtyCheck, isExamFormDirty, calculateExamExplanationStats } from '../../utils/examExplanationUtils'
 
 // ─── PREVIEW: LISTENING FORM ──────────────────────────────────────────────────
 
@@ -280,6 +281,8 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   const formRef = useRef(null)
   const previewRef = useRef(null)
   const pristineFormSigRef = useRef('')
+
+  const examStats = useMemo(() => calculateExamExplanationStats(form), [form])
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
@@ -719,8 +722,11 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         )}
 
         {editingId && (
-          <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-3 mb-4 flex items-center justify-between">
-            <span className="text-sm font-semibold text-zinc-800">Đang sửa đề #{editingId}</span>
+          <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-3 mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-semibold text-zinc-800">Đang sửa đề #{editingId}</span>
+              <ExamExplanationOverviewBadge stats={examStats} />
+            </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -791,35 +797,41 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         </div>
 
         <div className="space-y-3 mb-5">
-          {form.sections.map((section, si) => (
-            <div key={si} className="border border-zinc-200 rounded-2xl overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setOpenSection(openSection === si ? -1 : si)}
-                aria-expanded={openSection === si}
-                aria-controls={`ls-section-panel-${si}`}
-                className="w-full flex items-center justify-between px-5 py-3 bg-zinc-50 hover:bg-zinc-100/80 transition-colors"
-              >
-                <div className="flex flex-col items-start text-left">
-                  <span className="font-medium text-sm text-zinc-800">Section {section.number}</span>
-                  <span className="text-xs text-zinc-500 mt-0.5">{SECTION_HINTS[section.number] || ''}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-zinc-500 font-medium">{section.questionGroups.length} nhóm · {section.questionGroups.reduce((a, g) => a + (g.qNumberEnd - g.qNumberStart + 1), 0)} câu</span>
-                  {section.audioUrl && (
-                    <span className="text-[11px] bg-zinc-100 text-zinc-800 border border-zinc-200 font-medium px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <Volume2 className="w-3 h-3 text-zinc-600" />
-                      <span>Audio</span>
+          {form.sections.map((section, si) => {
+            const sStats = calculateExamExplanationStats(section)
+            const sectionTotalQs = section.questionGroups.reduce((a, g) => a + (g.qNumberEnd - g.qNumberStart + 1), 0)
+            return (
+              <div key={si} className="border border-zinc-200 rounded-2xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setOpenSection(openSection === si ? -1 : si)}
+                  aria-expanded={openSection === si}
+                  aria-controls={`ls-section-panel-${si}`}
+                  className="w-full flex items-center justify-between px-5 py-3 bg-zinc-50 hover:bg-zinc-100/80 transition-colors"
+                >
+                  <div className="flex flex-col items-start text-left">
+                    <span className="font-medium text-sm text-zinc-800">Section {section.number}</span>
+                    <span className="text-xs text-zinc-500 mt-0.5">{SECTION_HINTS[section.number] || ''}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-zinc-500 font-medium">
+                      {section.questionGroups.length} nhóm · {sectionTotalQs} câu
                     </span>
-                  )}
-                  {section.transcript && (
-                    <span className="text-[11px] bg-zinc-100 text-zinc-800 border border-zinc-200 font-medium px-2 py-0.5 rounded-full">
-                      Transcript
-                    </span>
-                  )}
-                  <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${openSection === si ? 'rotate-180' : ''}`} />
-                </div>
-              </button>
+                    <ExamExplanationOverviewBadge stats={sStats} compact={true} />
+                    {section.audioUrl && (
+                      <span className="text-[11px] bg-zinc-100 text-zinc-800 border border-zinc-200 font-medium px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Volume2 className="w-3 h-3 text-zinc-600" />
+                        <span>Audio</span>
+                      </span>
+                    )}
+                    {section.transcript && (
+                      <span className="text-[11px] bg-zinc-100 text-zinc-800 border border-zinc-200 font-medium px-2 py-0.5 rounded-full">
+                        Transcript
+                      </span>
+                    )}
+                    <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${openSection === si ? 'rotate-180' : ''}`} />
+                  </div>
+                </button>
 
               {openSection === si && (
                 <div id={`ls-section-panel-${si}`} role="region" aria-label={`Section ${section.number}`} className="p-5 space-y-4">
@@ -950,8 +962,9 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
                 </div>
               )}
             </div>
-          ))}
-        </div>
+          )
+        })}
+      </div>
 
         <button
           type="submit"

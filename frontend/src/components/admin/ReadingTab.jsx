@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { queryClient } from '../../lib/queryClient'
 import api from '../../utils/axios'
 import { showAlert } from '../../utils/alertUtils'
@@ -21,7 +21,8 @@ import { Eye, ChevronDown, Volume2, History, BookOpen, Loader2 } from 'lucide-re
 import ExplanationConflictModal from './ExplanationConflictModal'
 import OverwriteProtectedConfirmModal from './OverwriteProtectedConfirmModal'
 import UnsavedChangesAIModal from './UnsavedChangesAIModal'
-import { mergeExamExplanations, normalizeFormForDirtyCheck, isExamFormDirty } from '../../utils/examExplanationUtils'
+import ExamExplanationOverviewBadge from './ExamExplanationOverviewBadge'
+import { mergeExamExplanations, normalizeFormForDirtyCheck, isExamFormDirty, calculateExamExplanationStats } from '../../utils/examExplanationUtils'
 
 // ─── TAB: READING ─────────────────────────────────────────────────────────────
 
@@ -351,6 +352,8 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   const formRef = useRef(null)
   const previewRef = useRef(null)
   const pristineFormSigRef = useRef('')
+
+  const examStats = useMemo(() => calculateExamExplanationStats(form), [form])
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
@@ -750,8 +753,11 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         )}
 
         {editingId && (
-          <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-3 mb-4 flex items-center justify-between">
-            <span className="text-sm font-semibold text-zinc-800">Đang sửa đề #{editingId}</span>
+          <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-3 mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-semibold text-zinc-800">Đang sửa đề #{editingId}</span>
+              <ExamExplanationOverviewBadge stats={examStats} />
+            </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -826,6 +832,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         <div className="space-y-3 mb-5">
           {form.passages.map((passage, pi) => {
             const totalQs = passage.questionGroups.reduce((a, g) => a + (g.qNumberEnd - g.qNumberStart + 1), 0)
+            const pStats = calculateExamExplanationStats(passage)
             return (
               <div key={pi} className="border border-zinc-200 rounded-2xl overflow-hidden shadow-xs">
                 <button
@@ -841,6 +848,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] text-zinc-500 font-medium">{passage.questionGroups.length} nhóm · {totalQs} câu</span>
+                    <ExamExplanationOverviewBadge stats={pStats} compact={true} />
                     <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${openPassage === pi ? 'rotate-180' : ''}`} />
                   </div>
                 </button>

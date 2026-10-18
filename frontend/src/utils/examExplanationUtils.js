@@ -2,6 +2,188 @@
  * Utility functions for syncing and managing explanations in Cambridge Exams (Reading & Listening).
  */
 
+export const EXAM_EXPLANATION_SKIP_FAMILIES = new Set([
+  'diagram_completion',
+  'diagram_label',
+  'map_diagram'
+])
+
+export const EXAM_EXPLANATION_ATTENTION_STATUSES = new Set([
+  'conflict_pending',
+  'needs_regeneration',
+  'possibly_stale'
+])
+
+/**
+ * Calculates explanation statistics for an exam form, passage, section, or question group.
+ *
+ * Rules (Requirement 3.3):
+ * 1. Definitive counting for mcq_multi: 1 question record covers multiple question slots
+ *    (e.g., Q21-Q22 = 2 slots). If the question record has an explanation, all covered slots
+ *    are counted as explained.
+ * 2. Questions belonging to SKIP_FAMILIES ('diagram_completion', 'diagram_label', 'map_diagram')
+ *    are completely EXCLUDED from the denominator (supportedSlots / supportedQuestions).
+ * 3. Flags "cần chú ý" (hasAttention) ONLY when there are questions with:
+ *    - 'conflict_pending' (teacher needs to review conflict)
+ *    - 'needs_regeneration' (regeneration requested or failed validation)
+ *    - 'possibly_stale' (exam content/answer changed after explanation generated)
+ */
+export function calculateExamExplanationStats(target) {
+  const result = {
+    totalSlots: 0,
+    supportedSlots: 0,
+    explainedSlots: 0,
+    unsupportedSlots: 0,
+    attentionSlots: 0,
+
+    totalQuestions: 0,
+    supportedQuestions: 0,
+    explainedQuestions: 0,
+    unsupportedQuestions: 0,
+    attentionQuestions: 0,
+
+    statusCounts: {
+      ai_generated: 0,
+      teacher_reviewed: 0,
+      teacher_edited: 0,
+      conflict_pending: 0,
+      needs_regeneration: 0,
+      possibly_stale: 0,
+      none: 0,
+      unsupported: 0
+    },
+
+    hasAttention: false,
+    hasUnsupported: false,
+    isFullyExplained: false,
+    attentionReasons: []
+  }
+
+  if (!target || typeof target !== 'object') return result
+
+  let groups = []
+  if (Array.isArray(target.passages)) {
+    groups = target.passages.flatMap(p => p.questionGroups || [])
+  } else if (Array.isArray(target.sections)) {
+    groups = target.sections.flatMap(s => s.questionGroups || [])
+  } else if (Array.isArray(target.questionGroups)) {
+    groups = target.questionGroups
+  } else if (target.questions || target.type) {
+    groups = [target]
+  }
+
+  for (const g of groups) {
+    const gType = g.type || 'mcq'
+    const isSkipped = EXAM_EXPLANATION_SKIP_FAMILIES.has(gType)
+    const isMulti = gType === 'mcq_multi'
+
+    const questions = Array.isArray(g.questions) ? g.questions : []
+    const rawSpan = (Number.isFinite(g.qNumberStart) && Number.isFinite(g.qNumberEnd) && g.qNumberEnd >= g.qNumberStart)
+      ? (g.qNumberEnd - g.qNumberStart + 1)
+      : (isMulti ? (g.maxChoices || 2) * Math.max(1, questions.length) : questions.length)
+
+    const groupSlotCount = Math.max(rawSpan, questions.length)
+    result.totalSlots += groupSlotCount
+
+    if (isSkipped) {
+      const qCount = Math.max(1, questions.length)
+      result.unsupportedSlots += groupSlotCount
+      result.totalQuestions += qCount
+      result.unsupportedQuestions += qCount
+      result.statusCounts.unsupported += groupSlotCount
+      result.hasUnsupported = true
+      continue
+    }
+
+    if (isMulti) {
+      const qCount = questions.length || 1
+      result.totalQuestions += qCount
+      result.supportedQuestions += qCount
+      result.supportedSlots += groupSlotCount
+
+      const slotsPerQ = Math.max(1, Math.round(groupSlotCount / qCount))
+
+      if (questions.length === 0) {
+        result.statusCounts.none += groupSlotCount
+      } else {
+        questions.forEach((q, idx) => {
+          const qSlots = (idx === questions.length - 1)
+            ? (groupSlotCount - slotsPerQ * (qCount - 1))
+            : slotsPerQ
+
+          const exp = q.explanation || g.explanations?.[q.number] || g.explanations?.[String(q.number)]
+          if (exp && typeof exp === 'object') {
+            result.explainedSlots += qSlots
+            result.explainedQuestions += 1
+
+            const status = exp.status || 'ai_generated'
+            if (result.statusCounts[status] != null) {
+              result.statusCounts[status] += qSlots
+            } else {
+              result.statusCounts.ai_generated += qSlots
+            }
+
+            if (EXAM_EXPLANATION_ATTENTION_STATUSES.has(status)) {
+              result.attentionSlots += qSlots
+              result.attentionQuestions += 1
+            }
+          } else {
+            result.statusCounts.none += qSlots
+          }
+        })
+      }
+    } else {
+      if (questions.length === 0) {
+        result.totalQuestions += groupSlotCount
+        result.supportedQuestions += groupSlotCount
+        result.supportedSlots += groupSlotCount
+        result.statusCounts.none += groupSlotCount
+      } else {
+        result.totalQuestions += questions.length
+        result.supportedQuestions += questions.length
+        result.supportedSlots += questions.length
+
+        questions.forEach(q => {
+          const exp = q.explanation || g.explanations?.[q.number] || g.explanations?.[String(q.number)]
+          if (exp && typeof exp === 'object') {
+            result.explainedSlots += 1
+            result.explainedQuestions += 1
+
+            const status = exp.status || 'ai_generated'
+            if (result.statusCounts[status] != null) {
+              result.statusCounts[status] += 1
+            } else {
+              result.statusCounts.ai_generated += 1
+            }
+
+            if (EXAM_EXPLANATION_ATTENTION_STATUSES.has(status)) {
+              result.attentionSlots += 1
+              result.attentionQuestions += 1
+            }
+          } else {
+            result.statusCounts.none += 1
+          }
+        })
+      }
+    }
+  }
+
+  result.hasAttention = result.attentionSlots > 0
+  result.isFullyExplained = result.supportedSlots > 0 && result.explainedSlots === result.supportedSlots
+
+  if (result.statusCounts.conflict_pending > 0) {
+    result.attentionReasons.push(`${result.statusCounts.conflict_pending} câu Chờ duyệt (Lệch)`)
+  }
+  if (result.statusCounts.needs_regeneration > 0) {
+    result.attentionReasons.push(`${result.statusCounts.needs_regeneration} câu Cần sinh lại`)
+  }
+  if (result.statusCounts.possibly_stale > 0) {
+    result.attentionReasons.push(`${result.statusCounts.possibly_stale} câu Có thể lỗi thời`)
+  }
+
+  return result
+}
+
 /**
  * Normalizes form state to create a stable signature for detecting unsaved content edits.
  * Omits 'explanation' fields so AI updates or explanation status changes don't falsely mark teacher edits as dirty.
