@@ -23,6 +23,11 @@ if (!fs.existsSync(envPath)) {
   process.exit(1)
 }
 
+const baseEnvPath = path.join(__dirname, '..', '.env')
+if (fs.existsSync(baseEnvPath)) {
+  require('dotenv').config({ path: baseEnvPath })
+}
+
 require('dotenv').config({
   path: envPath,
   override: true, // đảm bảo ghi đè DATABASE_URL/DIRECT_URL dù shell/.env đã set giá trị khác
