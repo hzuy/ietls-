@@ -139,6 +139,11 @@ const TFNG_CANONICAL_STRICT = {
   'no': 'no',
 }
 
+function stripTrailingPunctuation(str) {
+  if (typeof str !== 'string') return ''
+  return str.trim().replace(/[.,;:!?]+$/, '').trim()
+}
+
 function extractOptionPairs(rawOptions) {
   if (!rawOptions) return []
   let opts = rawOptions
@@ -154,20 +159,20 @@ function extractOptionPairs(rawOptions) {
       // Check Roman numeral prefix: "iv. Heading text"
       const romanMatch = trimmed.match(/^(x{0,3}(?:ix|iv|v?i{1,3}))[\.\:\)]\s*(.*)$/i)
       if (romanMatch && ROMAN_NUMERALS.has(romanMatch[1].toLowerCase())) {
-        return { letter: romanMatch[1].toLowerCase(), text: romanMatch[2].trim() }
+        return { letter: romanMatch[1].toLowerCase(), text: stripTrailingPunctuation(romanMatch[2]) }
       }
       // Check letter prefix: "A. Option text"
       const letterMatch = trimmed.match(/^([A-Za-z])[\.\:\)]\s*(.*)$/)
       if (letterMatch) {
-        return { letter: letterMatch[1].toUpperCase(), text: letterMatch[2].trim() }
+        return { letter: letterMatch[1].toUpperCase(), text: stripTrailingPunctuation(letterMatch[2]) }
       }
-      return { letter: defaultLetter, text: trimmed }
+      return { letter: defaultLetter, text: stripTrailingPunctuation(trimmed) }
     }
     if (item && typeof item === 'object') {
       const rawLetter = String(item.optionLetter || item.letter || defaultLetter).trim()
       const isRoman = ROMAN_NUMERALS.has(rawLetter.toLowerCase())
       const letter = isRoman ? rawLetter.toLowerCase() : rawLetter.toUpperCase()
-      const text = (item.optionText || item.text || '').trim()
+      const text = stripTrailingPunctuation(item.optionText || item.text || '')
       return { letter, text }
     }
     return null
@@ -176,7 +181,7 @@ function extractOptionPairs(rawOptions) {
 
 function resolveToOption(str, optionPairs) {
   if (!str || !optionPairs.length) return null
-  const trimmed = str.trim()
+  const trimmed = stripTrailingPunctuation(str)
   const norm = normalizeText(trimmed)
 
   // 1. Direct letter or Roman numeral match: "A", "a", "iv", "IV"
@@ -207,7 +212,7 @@ function resolveToOption(str, optionPairs) {
 
   // 3. Exact text match against option text
   for (const pair of optionPairs) {
-    if (pair.text && normalizeText(pair.text) === norm) {
+    if (pair.text && normalizeText(stripTrailingPunctuation(pair.text)) === norm) {
       return pair
     }
   }
@@ -324,8 +329,8 @@ function expandCompletionVariants(rawStr) {
  */
 function isAnswerMatch(a, b, rawOptionsOrOpts = null, explicitType = null) {
   if (a == null || b == null) return false
-  const strA = String(a).trim()
-  const strB = String(b).trim()
+  const strA = stripTrailingPunctuation(String(a))
+  const strB = stripTrailingPunctuation(String(b))
   if (!strA || !strB) return false
 
   let rawOptions = rawOptionsOrOpts
@@ -1232,6 +1237,7 @@ async function reviewQuestionExplanation({ examId, questionId = null, questionNu
 
 module.exports = {
   isAnswerMatch,
+  stripTrailingPunctuation,
   extractOptionPairs,
   resolveToOption,
   extractMultiChoiceTokens,

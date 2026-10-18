@@ -63,6 +63,25 @@ describe('explanationGeneratorService', () => {
       expect(isAnswerMatch('peers', 'C. students', options)).toBe(false)
     })
 
+    it('Batch 1a: handles trailing punctuation on correctAnswer or AI response for MCQ (Ekman Q1 reproduction)', () => {
+      const options = ['A. peers', 'B. patients', 'C. students', 'D. teachers']
+      const correctAnswer = 'students.'
+
+      // AI returns 'C' -> must match
+      expect(isAnswerMatch(correctAnswer, 'C', options, 'mcq')).toBe(true)
+      // AI returns 'C. students' -> must match
+      expect(isAnswerMatch(correctAnswer, 'C. students', options, 'mcq')).toBe(true)
+      // AI returns 'students' -> must match
+      expect(isAnswerMatch(correctAnswer, 'students', options, 'mcq')).toBe(true)
+
+      // Counter-tests: must NOT falsely match
+      expect(isAnswerMatch('3.5', '35', null, 'fill_blank')).toBe(false)
+      expect(isAnswerMatch('U.S.', 'US', null, 'fill_blank')).toBe(false)
+      expect(isAnswerMatch('Mr.', 'Mr', null, 'fill_blank')).toBe(true)
+      expect(isAnswerMatch('FALSE.', 'FALSE', null, 'true_false_ng')).toBe(true)
+      expect(isAnswerMatch('patients.', 'C. students', options, 'mcq')).toBe(false)
+    })
+
     it('handles JSON string options and object options', () => {
       const jsonOptions = JSON.stringify(['peers', 'patients', 'students', 'teachers'])
       expect(isAnswerMatch('patients', 'C. students', jsonOptions)).toBe(false)
