@@ -373,8 +373,22 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
 
   const [generatingGroupId, setGeneratingGroupId] = useState(null)
   const [aiProgress, setAiProgress] = useState(null)
+  const [isCancellingAI, setIsCancellingAI] = useState(false)
+  const isCancellingAIRef = useRef(false)
   const abortControllerRef = useRef(null)
   const pendingAIFnRef = useRef(null)
+
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (generatingAI) {
+        e.preventDefault()
+        e.returnValue = 'Tác vụ AI đang chạy. Rời khỏi trang lúc này có thể làm gián đoạn quá trình.'
+        return e.returnValue
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [generatingAI])
 
   const countGroupProtected = (g) => {
     let reviewedCount = 0
@@ -498,6 +512,8 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     }
 
     setGeneratingAI(true)
+    setIsCancellingAI(false)
+    isCancellingAIRef.current = false
     const abortController = new AbortController()
     abortControllerRef.current = abortController
     setAiProgress({ current: 0, total: allGroups.length, groupLabel: '' })
@@ -507,7 +523,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     const failedGroups = []
 
     for (let i = 0; i < allGroups.length; i++) {
-      if (abortController.signal.aborted) break
+      if (isCancellingAIRef.current || abortController.signal.aborted) break
       const group = allGroups[i]
       setGeneratingGroupId(group.id)
       const groupLabel = `nhóm ${i + 1}/${allGroups.length} (Câu ${group.qNumberStart}–${group.qNumberEnd})`
@@ -537,6 +553,12 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
           console.error('Lỗi đồng bộ nhóm vào form:', syncErr)
         }
       } catch (err) {
+        if (err.response?.status === 409) {
+          const msg = err.response?.data?.message || 'Đang có một tác vụ AI khác đang chạy cho đề thi này. Vui lòng chờ hoàn thành.'
+          showToast(msg)
+          showAlert(msg, 'warning')
+          break
+        }
         if (abortController.signal.aborted || err.name === 'CanceledError' || err.code === 'ERR_CANCELED') {
           break
         }
@@ -544,12 +566,15 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         failedGroups.push({ group, error: msg })
         showToast(`Nhóm câu ${group.qNumberStart}–${group.qNumberEnd}: ${msg}`)
       }
+
+      if (isCancellingAIRef.current) break
     }
 
     setGeneratingAI(false)
+    setIsCancellingAI(false)
     setGeneratingGroupId(null)
     setAiProgress(null)
-    const wasAborted = abortController.signal.aborted
+    const wasAborted = isCancellingAIRef.current || abortController.signal.aborted
     abortControllerRef.current = null
 
     try {
@@ -562,7 +587,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     onRefresh()
 
     if (wasAborted) {
-      showToast('Đã dừng tác vụ sinh AI. Các nhóm đã tạo trước đó được giữ nguyên.')
+      showToast('Đã dừng tác vụ sinh AI. Nhóm đang chạy đã được hoàn tất và lưu lại.')
     } else if (failedGroups.length > 0) {
       showAlert(
         `Đã hoàn thành ${allGroups.length - failedGroups.length}/${allGroups.length} nhóm. Các nhóm gặp lỗi: ${failedGroups.map(f => `Câu ${f.group.qNumberStart}-${f.group.qNumberEnd}`).join(', ')}. Bạn có thể bấm "Sinh AI nhóm này" để thử lại.`,
@@ -897,19 +922,28 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
             </div>
             <div className="flex items-center gap-2">
               {generatingAI ? (
-                <div className="flex items-center gap-2 bg-zinc-100 border border-zinc-300 rounded-lg px-2.5 py-1 text-xs">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-700 shrink-0" />
-                  <span className="font-semibold text-zinc-800">
-                    Đang xử lý {aiProgress?.groupLabel || '...'}
+                <div className={`flex items-center gap-2 rounded-lg px-2.5 py-1 text-xs border ${
+                  isCancellingAI
+                    ? 'bg-amber-50 border-amber-300 text-amber-900'
+                    : 'bg-zinc-100 border-zinc-300 text-zinc-800'
+                }`}>
+                  <Loader2 className={`w-3.5 h-3.5 animate-spin shrink-0 ${isCancellingAI ? 'text-amber-700' : 'text-zinc-700'}`} />
+                  <span className="font-semibold">
+                    {isCancellingAI ? 'Đang hoàn tất nhóm hiện tại...' : `Đang xử lý ${aiProgress?.groupLabel || '...'}`}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => abortControllerRef.current?.abort()}
-                    className="ml-1 text-xs font-semibold px-2 py-0.5 rounded border border-zinc-400 bg-white hover:bg-zinc-50 text-zinc-700 transition cursor-pointer"
-                    title="Hủy giữa chừng (các nhóm đã xong được giữ lại)"
-                  >
-                    Hủy
-                  </button>
+                  {!isCancellingAI && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        isCancellingAIRef.current = true
+                        setIsCancellingAI(true)
+                      }}
+                      className="ml-1 text-xs font-semibold px-2 py-0.5 rounded border border-zinc-400 bg-white hover:bg-zinc-50 text-zinc-700 transition cursor-pointer"
+                      title="Hủy giữa chừng (hoàn tất nhóm hiện tại rồi dừng)"
+                    >
+                      Hủy
+                    </button>
+                  )}
                 </div>
               ) : (
                 <button
@@ -927,7 +961,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
                 className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 transition shadow-2xs">
                 {showPreview ? 'Ẩn preview' : 'Preview'}
               </button>
-              <button type="button" onClick={cancelEdit} className={btnSecondary + ' text-xs'}>Hủy sửa</button>
+              <button type="button" onClick={cancelEdit} disabled={generatingAI} className={btnSecondary + ' text-xs disabled:opacity-50 disabled:cursor-not-allowed'}>Hủy sửa</button>
             </div>
           </div>
         )}
@@ -1097,7 +1131,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
 
         <button
           type="submit"
-          disabled={submitting || loadingEdit}
+          disabled={submitting || loadingEdit || generatingAI}
           className="w-full h-10 rounded-xl bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-800 transition shadow-xs flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {submitting ? 'Đang lưu...' : editingId ? 'Cập nhật đề Reading' : 'Tạo đề Reading'}

@@ -55,7 +55,7 @@ function chrome(skill, groupType) {
 
 export default function PracticeGroupCard({
   skill, group, onChange, onRemove, onMoveUp, onMoveDown, isFirst, isLast,
-  expanded = true, onToggle, examId, passage = '',
+  expanded = true, onToggle, examId, passage = '', isAIBusy = false,
 }) {
   const [selectedQModal, setSelectedQModal] = useState(null)
   const groupTypes = skill === 'listening' ? LISTENING_GROUP_TYPES : READING_GROUP_TYPES
@@ -248,6 +248,7 @@ export default function PracticeGroupCard({
           question={selectedQModal.question}
           initialExplanation={selectedQModal.explanation}
           passage={passage}
+          isAIBusy={isAIBusy}
           onExplanationUpdated={(newExp, qNum) => {
             const targetNum = qNum || selectedQModal?.qNum
             const nextExplanations = { ...(group.explanations || {}), [targetNum]: newExp }

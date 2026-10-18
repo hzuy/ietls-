@@ -103,6 +103,7 @@ export default function QuestionExplanationModal({
   skill = 'reading',
   isPractice = false,
   onExplanationUpdated,
+  isAIBusy = false,
 }) {
   const [activeTab, setActiveTab] = useState('view') // 'view' | 'feedback' | 'edit'
   const [currentExplanation, setCurrentExplanation] = useState(null)
@@ -493,8 +494,9 @@ export default function QuestionExplanationModal({
                 <button
                   type="button"
                   onClick={handleRegenerate}
-                  disabled={isRegenerating}
+                  disabled={isRegenerating || isAIBusy}
                   className="w-full py-2.5 px-4 rounded-2xl bg-zinc-900 text-white text-xs font-bold hover:bg-zinc-800 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shadow-sm"
+                  title={isAIBusy ? "Đang có tác vụ AI khác đang chạy..." : undefined}
                 >
                   {isRegenerating ? (
                     <>
@@ -648,8 +650,9 @@ export default function QuestionExplanationModal({
                 <button
                   type="button"
                   onClick={handleSaveEdit}
-                  disabled={isSavingEdit}
+                  disabled={isSavingEdit || isAIBusy}
                   className="w-full py-2.5 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shadow-sm"
+                  title={isAIBusy ? "Đang có tác vụ AI khác đang chạy..." : undefined}
                 >
                   {isSavingEdit ? (
                     <>
@@ -671,13 +674,23 @@ export default function QuestionExplanationModal({
         {/* Modal Footer */}
         <div className="pt-3 border-t border-zinc-100 flex items-center justify-between shrink-0 flex-wrap gap-2">
           <div className="flex items-center gap-2">
-            {statusInfo.status !== 'teacher_reviewed' ? (
+            {statusInfo.status === 'teacher_reviewed' ? (
+              <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-300 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                Đã duyệt bởi giáo viên
+              </span>
+            ) : statusInfo.status === 'teacher_edited' ? (
+              <span className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-300 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                <Check className="w-3.5 h-3.5 text-indigo-600" />
+                Đã sửa tay bởi giáo viên
+              </span>
+            ) : (
               <button
                 type="button"
                 onClick={handleReview}
-                disabled={isReviewing || !currentExplanation}
+                disabled={isReviewing || !currentExplanation || isAIBusy}
                 className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-40 shadow-xs"
-                title="Đánh dấu đã duyệt để công bố cho học sinh"
+                title={isAIBusy ? "Đang có tác vụ AI khác đang chạy..." : "Đánh dấu đã duyệt để công bố cho học sinh"}
               >
                 {isReviewing ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -686,11 +699,6 @@ export default function QuestionExplanationModal({
                 )}
                 Duyệt giải thích
               </button>
-            ) : (
-              <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-300 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
-                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                Đã duyệt bởi giáo viên
-              </span>
             )}
           </div>
 

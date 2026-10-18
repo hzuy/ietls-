@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import ReadingTab from './ReadingTab'
 import ListeningTab from './ListeningTab'
@@ -162,7 +162,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     })
   })
 
-  it('aborts sequential generation when cancel button is clicked', async () => {
+  it('gracefully cancels sequential generation: displays completing message and finishes in-flight group before stopping', async () => {
     render(<ReadingTab exams={[]} onRefresh={vi.fn()} />)
 
     fireEvent.click(screen.getByText('Edit Reading 10'))
@@ -170,15 +170,14 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
       expect(screen.getByText('Đang sửa đề #10')).toBeInTheDocument()
     })
 
-    api.post.mockImplementation((url, data, config) => new Promise((resolve, reject) => {
-      if (config?.signal) {
-        config.signal.addEventListener('abort', () => {
-          const err = new Error('canceled')
-          err.name = 'CanceledError'
-          reject(err)
-        })
-      }
-    }))
+    let resolveGroup201
+    const p201 = new Promise((resolve) => { resolveGroup201 = resolve })
+
+    api.post.mockImplementation((url) => {
+      if (url.includes('/groups/201/')) return p201
+      if (url.includes('/groups/202/')) return Promise.resolve({ data: { success: true } })
+      return Promise.resolve({ data: {} })
+    })
 
     const allAIButtons = screen.getAllByRole('button', { name: /AI giải thích/i })
     const toolbarAIBtn = allAIButtons.find(b => b.title && b.title.includes('tuần tự theo nhóm'))
@@ -192,9 +191,145 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     const cancelBtn = screen.getByRole('button', { name: /^Hủy$/ })
     fireEvent.click(cancelBtn)
 
-    // Progress bar reverts, buttons become enabled
+    // Displays "Đang hoàn tất nhóm hiện tại..." until in-flight finishes
     await waitFor(() => {
-      expect(screen.queryByText(/Đang xử lý nhóm 1\/2/i)).not.toBeInTheDocument()
+      expect(screen.getByText('Đang hoàn tất nhóm hiện tại...')).toBeInTheDocument()
+    })
+
+    // Now resolve in-flight group 201
+    resolveGroup201({ data: { success: true, generatedCount: 2 } })
+
+    // UI returns to idle and group 202 was NEVER called!
+    await waitFor(() => {
+      expect(screen.queryByText('Đang hoàn tất nhóm hiện tại...')).not.toBeInTheDocument()
+    })
+    expect(api.post).not.toHaveBeenCalledWith(
+      expect.stringContaining('/groups/202/'),
+      expect.anything(),
+      expect.anything()
+    )
+  })
+
+  it('locks Save, Cancel Edit, and single group buttons throughout sequential AI generation (Requirement A.3)', async () => {
+    render(<ReadingTab exams={[]} onRefresh={vi.fn()} />)
+
+    fireEvent.click(screen.getByText('Edit Reading 10'))
+    await waitFor(() => {
+      expect(screen.getByText('Đang sửa đề #10')).toBeInTheDocument()
+    })
+
+    let resolveGroup201
+    const p201 = new Promise((resolve) => { resolveGroup201 = resolve })
+    api.post.mockImplementation((url) => {
+      if (url.includes('/groups/201/')) return p201
+      return Promise.resolve({ data: { success: true } })
+    })
+
+    const allAIButtons = screen.getAllByRole('button', { name: /AI giải thích/i })
+    const toolbarAIBtn = allAIButtons.find(b => b.title && b.title.includes('tuần tự theo nhóm'))
+    fireEvent.click(toolbarAIBtn)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Đang xử lý nhóm 1\/2/i)).toBeInTheDocument()
+    })
+
+    // "Hủy sửa" button must be disabled
+    const cancelEditBtn = screen.getByRole('button', { name: /Hủy sửa/i })
+    expect(cancelEditBtn).toBeDisabled()
+
+    // "Cập nhật đề Reading" submit button must be disabled
+    const submitBtn = screen.getByRole('button', { name: /Cập nhật đề Reading/i })
+    expect(submitBtn).toBeDisabled()
+
+    // Group buttons "Sinh AI nhóm này" must be disabled
+    const singleGroupButtons = screen.getAllByRole('button', { name: /Sinh AI nhóm này/i })
+    singleGroupButtons.forEach(btn => {
+      expect(btn).toBeDisabled()
+    })
+
+    // Resolve group 1
+    resolveGroup201({ data: { success: true, generatedCount: 2 } })
+    await waitFor(() => {
+      expect(cancelEditBtn).not.toBeDisabled()
+      expect(submitBtn).not.toBeDisabled()
+    })
+  })
+
+  it('accumulates conflicts when middle group has conflict and opens conflict modal once at end (Requirement A.4)', async () => {
+    const mock3GroupsExam = {
+      ...mockReadingExam,
+      passages: [
+        {
+          id: 101,
+          title: 'Passage 1',
+          passageNumber: 1,
+          body: 'Passage 1 text',
+          questionGroups: [
+            {
+              id: 201,
+              type: 'true_false_not_given',
+              qNumberStart: 1,
+              qNumberEnd: 2,
+              questions: [{ id: 301, number: 1, questionText: 'Q1', correctAnswer: 'TRUE' }, { id: 302, number: 2, questionText: 'Q2', correctAnswer: 'FALSE' }]
+            },
+            {
+              id: 202,
+              type: 'summary_completion',
+              qNumberStart: 3,
+              qNumberEnd: 4,
+              questions: [{ id: 303, number: 3, questionText: 'Q3', correctAnswer: 'word1' }, { id: 304, number: 4, questionText: 'Q4', correctAnswer: 'word2' }]
+            },
+            {
+              id: 203,
+              type: 'mcq',
+              qNumberStart: 5,
+              qNumberEnd: 6,
+              questions: [{ id: 305, number: 5, questionText: 'Q5', correctAnswer: 'A' }, { id: 306, number: 6, questionText: 'Q6', correctAnswer: 'B' }]
+            }
+          ]
+        }
+      ]
+    }
+
+    api.get.mockImplementation((url) => {
+      if (url === '/admin/exams/10') return Promise.resolve({ data: mock3GroupsExam })
+      return Promise.resolve({ data: [] })
+    })
+
+    render(<ReadingTab exams={[]} onRefresh={vi.fn()} />)
+    fireEvent.click(screen.getByText('Edit Reading 10'))
+    await waitFor(() => {
+      expect(screen.getByText('Đang sửa đề #10')).toBeInTheDocument()
+    })
+
+    api.post.mockImplementation((url) => {
+      if (url.includes('/groups/201/')) return Promise.resolve({ data: { success: true, generatedCount: 2 } })
+      if (url.includes('/groups/202/')) {
+        return Promise.resolve({
+          data: {
+            success: false,
+            hasConflicts: true,
+            conflicts: [{ number: 3, aiAnswer: 'diff_word', inputAnswer: 'word1', type: 'summary_completion' }],
+            generatedCount: 1
+          }
+        })
+      }
+      if (url.includes('/groups/203/')) return Promise.resolve({ data: { success: true, generatedCount: 2 } })
+      return Promise.resolve({ data: {} })
+    })
+
+    const allAIButtons = screen.getAllByRole('button', { name: /AI giải thích/i })
+    const toolbarAIBtn = allAIButtons.find(b => b.title && b.title.includes('tuần tự theo nhóm'))
+    fireEvent.click(toolbarAIBtn)
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith(expect.stringContaining('/groups/203/'), expect.anything(), expect.anything())
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText(/Phát hiện lệch đáp án/i)).toBeInTheDocument()
+      const dialog = screen.getByRole('dialog')
+      expect(within(dialog).getByText(/Câu 3/i)).toBeInTheDocument()
     })
   })
 

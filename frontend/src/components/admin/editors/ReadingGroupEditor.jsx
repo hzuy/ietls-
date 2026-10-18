@@ -197,6 +197,7 @@ export default function ReadingGroupEditor({
           question={selectedQModal.question}
           initialExplanation={selectedQModal.explanation}
           passage={passage}
+          isAIBusy={isAIBusy}
           onExplanationUpdated={(newExp, qNum) => {
             const targetNum = qNum || selectedQModal?.qNum
             const updatedQuestions = (group.questions || []).map(q =>

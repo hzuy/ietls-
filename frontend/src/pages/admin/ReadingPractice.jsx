@@ -145,6 +145,18 @@ export default function ReadingPractice() {
   // BUG-13: Block navigation when dirty (view === 'form' with changes)
   useUnsavedChanges(view === 'form' && isDirty)
 
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (generatingAI) {
+        e.preventDefault()
+        e.returnValue = 'Tác vụ AI đang chạy. Rời khỏi trang lúc này có thể làm gián đoạn quá trình.'
+        return e.returnValue
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [generatingAI])
+
   // isDirty = form hiện tại khác snapshot lúc mở form (openAdd/openEdit đặt lại pristineRef).
   useEffect(() => {
     if (view !== 'form') return
@@ -422,14 +434,15 @@ export default function ReadingPractice() {
               <button
                 type="button"
                 onClick={handleCancelOrBack}
-                className="h-9 px-3.5 rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 text-xs font-semibold transition shadow-2xs flex items-center justify-center cursor-pointer"
+                disabled={saving || generatingAI}
+                className="h-9 px-3.5 rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 text-xs font-semibold transition shadow-2xs flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Hủy
               </button>
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={saving}
+                disabled={saving || generatingAI}
                 className="h-9 px-4.5 rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 text-xs font-semibold transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? 'Đang lưu...' : 'Lưu bài'}
@@ -567,6 +580,7 @@ export default function ReadingPractice() {
                         onMoveDown={() => handleGroupMove(i, 1)}
                         isFirst={i === 0}
                         isLast={i === form.questionGroups.length - 1}
+                        isAIBusy={generatingAI}
                       />
                     ))}
                   </div>
