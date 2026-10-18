@@ -1,3 +1,5 @@
+import { containsInternalJargon } from './examExplanationUtils'
+
 const LISTENING_FILL_TYPES = ['note_completion', 'table_completion', 'drag_word_bank', 'diagram_label']
 
 function formatType(type) {
@@ -63,6 +65,7 @@ export function gradePractice(skill, exam, answers = {}) {
         explanation: (() => {
           const exp = g.explanations?.[q.number] || null
           if (!exp) return null
+          if (containsInternalJargon(exp)) return null
           if (!exp.status) return exp
           return ['ai_generated', 'teacher_reviewed', 'teacher_edited'].includes(exp.status) ? exp : null
         })(),

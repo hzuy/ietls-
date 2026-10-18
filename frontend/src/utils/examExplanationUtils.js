@@ -14,6 +14,79 @@ export const EXAM_EXPLANATION_ATTENTION_STATUSES = new Set([
   'possibly_stale'
 ])
 
+export const INTERNAL_JARGON_PHRASES = Object.freeze([
+  'nguoi dung nhap',
+  'nguoi nhap',
+  'dap an nguoi dung',
+  'ngo nhan',
+  'thu thach',
+  'giao vien nhap',
+  'he thong cung cap',
+])
+
+export function normalizeJargonText(str) {
+  if (!str || typeof str !== 'string') return ''
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .toLowerCase()
+}
+
+const EXCLUDED_METADATA_KEYS = new Set([
+  'teacher_note',
+  'teacherFeedback',
+  'feedbackHistory',
+  'teacherKeptAnswer',
+  'status',
+  'statusHistory',
+  'staleReason',
+  'staleAt',
+  'needsRegenerationReason',
+  'id',
+  'method',
+  'provider',
+  'model',
+  'answer',
+  'aiAnswer',
+  'v',
+  'createdAt',
+  'updatedAt',
+])
+
+function extractLearnerTexts(val) {
+  if (!val) return []
+  if (typeof val === 'string') return [val]
+  if (Array.isArray(val)) {
+    return val.flatMap((item) => extractLearnerTexts(item))
+  }
+  if (typeof val === 'object') {
+    const texts = []
+    for (const [k, v] of Object.entries(val)) {
+      if (!EXCLUDED_METADATA_KEYS.has(k)) {
+        texts.push(...extractLearnerTexts(v))
+      }
+    }
+    return texts
+  }
+  return []
+}
+
+export function containsInternalJargon(explanation) {
+  if (!explanation || typeof explanation !== 'object') return false
+  const texts = extractLearnerTexts(explanation)
+  for (const text of texts) {
+    const norm = normalizeJargonText(text)
+    for (const phrase of INTERNAL_JARGON_PHRASES) {
+      const normPhrase = normalizeJargonText(phrase)
+      if (norm.includes(normPhrase)) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
 /**
  * Calculates explanation statistics for an exam form, passage, section, or question group.
  *

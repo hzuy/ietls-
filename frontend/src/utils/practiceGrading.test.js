@@ -31,4 +31,37 @@ describe('gradePractice', () => {
   it('handles an empty exam', () => {
     expect(gradePractice('reading', {}, {})).toMatchObject({ correct: 0, total: 0 })
   })
+
+  it('filters out explanations containing internal jargon from learner results', () => {
+    const examWithJargon = {
+      title: 'Test Jargon',
+      questions: {
+        groups: [
+          {
+            type: 'true_false_ng',
+            qNumberStart: 1,
+            qNumberEnd: 2,
+            questions: [
+              { number: 1, correctAnswer: 'TRUE' },
+              { number: 2, correctAnswer: 'FALSE' },
+            ],
+            explanations: {
+              1: {
+                status: 'ai_generated',
+                reasoning: 'Đáp án người dùng nhập là ngộ nhận.',
+              },
+              2: {
+                status: 'ai_generated',
+                reasoning: 'Đoạn 1 nêu rõ thông tin.',
+              },
+            },
+          },
+        ],
+      },
+    }
+    const { result } = gradePractice('reading', examWithJargon, { 1: 'TRUE', 2: 'FALSE' })
+    expect(result.sections[0].questions[0].explanation).toBeNull()
+    expect(result.sections[0].questions[1].explanation).not.toBeNull()
+    expect(result.sections[0].questions[1].explanation.reasoning).toBe('Đoạn 1 nêu rõ thông tin.')
+  })
 })

@@ -12,12 +12,90 @@ const { practiceQuestionContext } = require('../scripts/import-practice-explanat
 const { invalidate } = require('../lib/swrCache')
 const { invalidateExamCaches } = require('../utils/cache')
 
+const INTERNAL_JARGON_PHRASES = Object.freeze([
+  'nguoi dung nhap',
+  'nguoi nhap',
+  'dap an nguoi dung',
+  'ngo nhan',
+  'thu thach',
+  'giao vien nhap',
+  'he thong cung cap',
+])
+
+function normalizeJargonText(str) {
+  if (!str || typeof str !== 'string') return ''
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .toLowerCase()
+}
+
+const EXCLUDED_METADATA_KEYS = new Set([
+  'teacher_note',
+  'teacherFeedback',
+  'feedbackHistory',
+  'teacherKeptAnswer',
+  'status',
+  'statusHistory',
+  'staleReason',
+  'staleAt',
+  'needsRegenerationReason',
+  'id',
+  'method',
+  'provider',
+  'model',
+  'answer',
+  'aiAnswer',
+  'v',
+  'createdAt',
+  'updatedAt',
+])
+
+function extractLearnerTexts(val) {
+  if (!val) return []
+  if (typeof val === 'string') return [val]
+  if (Array.isArray(val)) {
+    return val.flatMap((item) => extractLearnerTexts(item))
+  }
+  if (typeof val === 'object') {
+    const texts = []
+    for (const [k, v] of Object.entries(val)) {
+      if (!EXCLUDED_METADATA_KEYS.has(k)) {
+        texts.push(...extractLearnerTexts(v))
+      }
+    }
+    return texts
+  }
+  return []
+}
+
+function containsInternalJargon(explanation) {
+  if (!explanation || typeof explanation !== 'object') return false
+  const texts = extractLearnerTexts(explanation)
+  for (const text of texts) {
+    const norm = normalizeJargonText(text)
+    for (const phrase of INTERNAL_JARGON_PHRASES) {
+      const normPhrase = normalizeJargonText(phrase)
+      if (norm.includes(normPhrase)) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
 function isExplanationVisibleToLearner(explanation) {
   if (!explanation || typeof explanation !== 'object') return false
   // 3.2 TƯƠNG THÍCH NGƯỢC: lời giải cũ (chưa có status) coi như ai_generated, vẫn hiển thị bình thường
-  if (!explanation.status) return true
-  const ALLOWED = ['ai_generated', 'teacher_reviewed', 'teacher_edited']
-  return ALLOWED.includes(explanation.status)
+  if (explanation.status && !['ai_generated', 'teacher_reviewed', 'teacher_edited'].includes(explanation.status)) {
+    return false
+  }
+  // B.3: Ẩn lời giải chứa cụm nội bộ khỏi học sinh
+  if (containsInternalJargon(explanation)) {
+    return false
+  }
+  return true
 }
 
 function filterLearnerExplanation(explanation) {
@@ -540,6 +618,11 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
           explanation.status = 'ai_generated'
         }
 
+        if (containsInternalJargon(explanation)) {
+          explanation.status = 'needs_regeneration'
+          explanation.needsRegenerationReason = 'Lời giải chứa cụm từ nội bộ'
+        }
+
         currentExplanations[qNum] = explanation
       }
     }
@@ -744,6 +827,11 @@ async function generateForExam(examId, { force = false, resolveChoices = {}, ove
         explanation.status = 'ai_generated'
       }
 
+      if (containsInternalJargon(explanation)) {
+        explanation.status = 'needs_regeneration'
+        explanation.needsRegenerationReason = 'Lời giải chứa cụm từ nội bộ'
+      }
+
       updates.push({
         id: q.id,
         correctAnswer: finalCorrectAnswer,
@@ -884,6 +972,11 @@ async function regenerateQuestionExplanation({ examId, questionId = null, questi
       explanation.status = 'ai_generated'
     }
 
+    if (containsInternalJargon(explanation)) {
+      explanation.status = 'needs_regeneration'
+      explanation.needsRegenerationReason = 'Lời giải chứa cụm từ nội bộ'
+    }
+
     const oldExp = targetRow.explanation?.byNumber?.[targetNum] || {}
     const oldHistory = Array.isArray(oldExp.feedbackHistory) ? oldExp.feedbackHistory : []
     const feedbackEntry = {
@@ -994,6 +1087,11 @@ async function regenerateQuestionExplanation({ examId, questionId = null, questi
       explanation.aiAnswer = aiAnswer
     } else {
       explanation.status = 'ai_generated'
+    }
+
+    if (containsInternalJargon(explanation)) {
+      explanation.status = 'needs_regeneration'
+      explanation.needsRegenerationReason = 'Lời giải chứa cụm từ nội bộ'
     }
 
     const oldExp = (question.explanation && typeof question.explanation === 'object') ? question.explanation : {}
@@ -1254,6 +1352,9 @@ module.exports = {
   ROMAN_NUMERALS,
   generateForPracticeExam,
   generateForExam,
+  INTERNAL_JARGON_PHRASES,
+  normalizeJargonText,
+  containsInternalJargon,
   isExplanationVisibleToLearner,
   filterLearnerExplanation,
   validateManualExplanation,
