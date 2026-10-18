@@ -198,6 +198,7 @@ function enrichExplanation(raw, ctx, correctAnswer, family = 'GENERIC') {
     full_sentence: cleanString(raw.full_sentence),
     translation: cleanString(raw.translation),
     reasoning,
+    teacher_note: cleanString(raw.teacher_note, 1000) || null,
     paraphrases,
     distractors,
   }
@@ -286,17 +287,17 @@ THÔNG TIN CÂU HỎI:
 - Số câu: ${q.number ?? '(không rõ)'}
 - Loại câu hỏi: ${q.type || '(không rõ)'}
 - Câu hỏi: ${q.questionText || '(không có sẵn — xem ngữ cảnh bên dưới, câu hỏi nằm trong đó)'}
-${optionsBlock}- Đáp án do người dùng/hệ thống cung cấp (cần kiểm chứng độc lập): "${q.correctAnswer}"
+${optionsBlock}- Đáp án tham chiếu từ hệ thống: "${q.correctAnswer}"
 
-QUY TẮC TƯ DUY PHẢN BIỆN & XÁC THỰC ĐÁP ÁN (BẮT BUỘC):
-1. Bạn là chuyên gia IELTS có TƯ DUY PHẢN BIỆN ĐỘC LẬP. Đáp án do người dùng cung cấp ở trên CHỈ MANG TÍNH THAM KHẢO và CÓ THỂ BỊ SAI (do nhập nhầm, lỗi gõ phím hoặc cố tình thử thách bạn).
+QUY TẮC TƯ DUY PHẢN BIỆN & ĐỐI CHIẾU ĐÁP ÁN (BẮT BUỘC):
+1. Bạn là chuyên gia IELTS có TƯ DUY PHẢN BIỆN ĐỘC LẬP. Đáp án tham chiếu ở trên chỉ mang tính đối chiếu sau khi bạn tự giải xong bài.
 2. TUYỆT ĐỐI KHÔNG tin tưởng mù quáng hay "bẻ cong suy luận" để bao biện cho một đáp án sai khi ${sourceName} không chứng minh điều đó!
 3. Bạn PHẢI tự mình giải câu hỏi độc lập 100% dựa trên bằng chứng trong ${sourceName}:
    - Trường "answer": PHẢI là đáp án THỰC TẾ CHÍNH XÁC NHẤT theo ${sourceName} (nếu có lựa chọn A/B/C/D, hãy ghi rõ cả chữ cái và nội dung, ví dụ "C. students" hoặc "students").
-   - NẾU ĐÁP ÁN DO NGƯỜI DÙNG CUNG CẤP LÀ SAI hoặc LỆCH với nội dung bài:
-     + Trong "reasoning": Nêu rõ bằng chứng và lập luận khẳng định đáp án thực tế chính xác; ĐỒNG THỜI PHẢN BIỆN RÕ RÀNG vì sao đáp án người dùng nhập là sai, ngộ nhận hoặc bẫy từ vựng nào dẫn đến việc chọn nhầm đó.
-     + Trong "distractors": Phân tích trung thực lý do các phương án nhiễu khác bị sai (bao gồm cả phương án người dùng đã nhập nhầm nếu là trắc nghiệm).
-   - NẾU ĐÁP ÁN CỦA NGƯỜI DÙNG ĐÃ ĐÚNG: Giải thích thuyết phục theo phương pháp Linearthinking thông thường.
+   - TÁCH BẠCH RÕ RÀNG HAI TRƯỜNG "reasoning" (CHO HỌC SINH) VÀ "teacher_note" (CHO GIÁO VIÊN):
+     + "reasoning": 2-3 câu chứng minh mạch tư duy vì sao đáp án đúng theo phương pháp Linear thinking. Đây là phần DÀNH CHO HỌC SINH ĐỌC. TUYỆT ĐỐI KHÔNG nhắc đến "người dùng", "người nhập", "giáo viên", "đáp án tham chiếu", "ngộ nhận", "thử thách", và KHÔNG phán xét người nhập. Chỉ tập trung vào dữ liệu bài đọc và mạch suy luận để ra đáp án đúng.
+     + "teacher_note": 1-2 câu nhận xét đối chiếu DÀNH RIÊNG CHO GIÁO VIÊN XEM NỘI BỘ. Nếu đáp án tham chiếu lệch với đáp án trong bài, nêu rõ phân tích đối chiếu ở đây (ví dụ: "Đáp án tham chiếu là X, nhưng bài khẳng định Y vì..."). Nếu đáp án tham chiếu đã đúng, ghi ngắn "Khớp với bài đọc".
+     + "distractors": Phân tích trung thực lý do các phương án nhiễu khác bị sai.
 ${feedbackBlock}
 ${contextBlock}
 ${retryBlock}
@@ -311,9 +312,10 @@ Trả về DUY NHẤT một JSON, không thêm chữ nào ngoài JSON. Phần gi
   "answer": "đáp án thực tế chính xác nhất theo ${sourceName} (ghi rõ chữ cái và nội dung nếu là trắc nghiệm)",
   "full_sentence": "câu hoàn chỉnh sau khi điền đáp án (chỉ cho câu điền từ, còn lại để rỗng)",
   "translation": "dịch tiếng Việt của full_sentence (để rỗng nếu full_sentence rỗng)",
-  "reasoning": "2-3 câu: chứng minh vì sao đáp án này đúng theo ${sourceName}. Nếu đáp án người dùng nhập bị sai, hãy phản biện trực tiếp lý do sai/ngộ nhận của đáp án đó",
+  "reasoning": "2-3 câu: chứng minh mạch tư duy vì sao đáp án này đúng theo ${sourceName}. Dành cho học sinh đọc — TUYỆT ĐỐI KHÔNG nhắc người dùng, người nhập, giáo viên, ngộ nhận.",
+  "teacher_note": "1-2 câu: nhận xét đối chiếu độc lập dành riêng cho giáo viên xem nội bộ. Nếu đáp án tham chiếu bị lệch, phân tích lý do lệch ở đây.",
   "paraphrases": [{ "question": "cụm trong câu hỏi", "question_label": "nghĩa", "passage": "cụm NGUYÊN VĂN trong ${sourceName}", "passage_label": "nghĩa" }],
-  "distractors": [{ "option": "lựa chọn/từ dễ nhầm (bao gồm cả đáp án người dùng đã nhập nhầm nếu có)", "label": "nghĩa ngắn", "reason": "1-2 câu vì sao sai" }]
+  "distractors": [{ "option": "lựa chọn/từ dễ nhầm", "label": "nghĩa ngắn", "reason": "1-2 câu vì sao sai" }]
 }
 
 Ví dụ ngắn (câu điền từ, đáp án "timber"):
@@ -419,6 +421,7 @@ function buildResponseSchema(type, rawOptions = null) {
       full_sentence: { type: 'STRING' },
       translation: { type: 'STRING' },
       reasoning: { type: 'STRING' },
+      teacher_note: { type: 'STRING' },
       paraphrases: {
         type: 'ARRAY',
         items: {

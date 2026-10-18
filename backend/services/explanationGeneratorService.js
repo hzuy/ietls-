@@ -37,6 +37,12 @@ function validateManualExplanation(data) {
     allowed.reasoning = data.reasoning.trim()
   }
 
+  if (data.teacher_note !== undefined) {
+    if (typeof data.teacher_note !== 'string') throw new Error('teacher_note phải là chuỗi ký tự')
+    if (data.teacher_note.length > 2000) throw new Error('teacher_note không được vượt quá 2000 ký tự')
+    allowed.teacher_note = data.teacher_note.trim()
+  }
+
   if (data.predict !== undefined) {
     if (typeof data.predict !== 'string') throw new Error('predict phải là chuỗi ký tự')
     if (data.predict.length > 1000) throw new Error('predict không được vượt quá 1000 ký tự')
@@ -514,6 +520,7 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
           aiAnswer,
           evidence: explanation.evidence?.parts?.[0]?.text || '',
           reasoning: explanation.reasoning,
+          teacher_note: explanation.teacher_note || '',
           explanation,
         })
         currentExplanations[qNum] = explanation
@@ -716,6 +723,7 @@ async function generateForExam(examId, { force = false, resolveChoices = {}, ove
         aiAnswer,
         evidence: explanation.evidence?.parts?.[0]?.text || '',
         reasoning: explanation.reasoning,
+        teacher_note: explanation.teacher_note || '',
         explanation,
       })
       updates.push({

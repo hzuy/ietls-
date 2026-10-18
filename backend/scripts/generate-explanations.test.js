@@ -131,11 +131,12 @@ describe('buildPrompt — tư duy phản biện & xác thực độc lập', () 
 
     const prompt = buildPrompt(q, 'MCQ', dummyCtx)
 
-    // Bắt buộc chứa chỉ dẫn tư duy phản biện
-    expect(prompt).toContain('QUY TẮC TƯ DUY PHẢN BIỆN & XÁC THỰC ĐÁP ÁN')
-    expect(prompt).toContain('Đáp án do người dùng/hệ thống cung cấp (cần kiểm chứng độc lập): "patients"')
+    // Bắt buộc chứa chỉ dẫn tư duy phản biện và tách trường Batch 1b
+    expect(prompt).toContain('QUY TẮC TƯ DUY PHẢN BIỆN & ĐỐI CHIẾU ĐÁP ÁN')
+    expect(prompt).toContain('Đáp án tham chiếu từ hệ thống: "patients"')
     expect(prompt).toContain('TUYỆT ĐỐI KHÔNG tin tưởng mù quáng hay "bẻ cong suy luận"')
-    expect(prompt).toContain('PHẢN BIỆN RÕ RÀNG vì sao đáp án người dùng nhập là sai')
+    expect(prompt).toContain('TÁCH BẠCH RÕ RÀNG HAI TRƯỜNG "reasoning" (CHO HỌC SINH) VÀ "teacher_note" (CHO GIÁO VIÊN)')
+    expect(prompt).toContain('"teacher_note"')
 
     // Format options chuẩn A. / B. / C. / D.
     expect(prompt).toContain('- Các lựa chọn: A. peers | B. patients | C. students | D. teachers')
@@ -310,6 +311,14 @@ describe('enrichExplanation — chỉ giữ thông tin có thật trong bài', (
   it('NOT GIVEN không có câu trích → evidence null, không lỗi', () => {
     const ng = enrichExplanation({ ...VALID_EXPLANATION, evidence_quote: '' }, ctx, 'NOT GIVEN', 'TFNG')
     expect(ng.evidence).toBeNull()
+  })
+
+  it('Batch 1b: trích xuất teacher_note nếu có và giữ null nếu không có (tương thích ngược)', () => {
+    const withNote = enrichExplanation({ ...VALID_EXPLANATION, teacher_note: 'Ghi chú đối chiếu cho giáo viên' }, ctx, 'timber', 'COMPLETION')
+    expect(withNote.teacher_note).toBe('Ghi chú đối chiếu cho giáo viên')
+
+    const withoutNote = enrichExplanation(VALID_EXPLANATION, ctx, 'timber', 'COMPLETION')
+    expect(withoutNote.teacher_note).toBeNull()
   })
 })
 

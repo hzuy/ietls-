@@ -171,13 +171,13 @@ export default function ExplanationConflictModal({
                   </div>
                 )}
 
-                {/* AI Reasoning & Counter-argument */}
-                {c.reasoning && (
+                {/* AI Note for Teacher / Fallback Reasoning */}
+                {(c.teacher_note || c.reasoning) && (
                   <div className="p-3 rounded-xl bg-blue-50/60 border border-blue-200/70 text-xs text-blue-900 leading-relaxed">
                     <strong className="font-semibold block mb-0.5 text-blue-950 flex items-center gap-1">
-                      <Lightbulb className="w-3.5 h-3.5 text-blue-600" /> Lập luận & Phản biện của AI:
+                      <Lightbulb className="w-3.5 h-3.5 text-blue-600" /> {c.teacher_note ? 'Ghi chú đối chiếu từ AI (chỉ giáo viên thấy):' : 'Lập luận & Phản biện của AI:'}
                     </strong>
-                    {c.reasoning}
+                    {c.teacher_note || c.reasoning}
                   </div>
                 )}
               </div>
