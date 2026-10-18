@@ -20,6 +20,8 @@ import ReadingGroupEditor from './editors/ReadingGroupEditor'
 import { Eye, ChevronDown, Volume2, History, BookOpen, Loader2 } from 'lucide-react'
 import ExplanationConflictModal from './ExplanationConflictModal'
 import OverwriteProtectedConfirmModal from './OverwriteProtectedConfirmModal'
+import UnsavedChangesAIModal from './UnsavedChangesAIModal'
+import { mergeExamExplanations, normalizeFormForDirtyCheck, isExamFormDirty } from '../../utils/examExplanationUtils'
 
 // ─── TAB: READING ─────────────────────────────────────────────────────────────
 
@@ -344,9 +346,11 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   const [aiConflicts, setAiConflicts] = useState([])
   const [conflictModalOpen, setConflictModalOpen] = useState(false)
   const [overwriteModalOpen, setOverwriteModalOpen] = useState(false)
+  const [unsavedModalOpen, setUnsavedModalOpen] = useState(false)
   const [protectedStats, setProtectedStats] = useState({ reviewedCount: 0, editedCount: 0 })
   const formRef = useRef(null)
   const previewRef = useRef(null)
+  const pristineFormSigRef = useRef('')
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
@@ -364,6 +368,16 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     return { reviewedCount, editedCount }
   }
 
+  const proceedWithAIGeneration = () => {
+    const stats = countProtectedQuestions()
+    if (stats.reviewedCount + stats.editedCount > 0) {
+      setProtectedStats(stats)
+      setOverwriteModalOpen(true)
+    } else {
+      handleGenerateAI({ overwriteProtected: false })
+    }
+  }
+
   const handleStartGenerateAI = () => {
     if (!editingId) return
     const val = validateExamReading(form)
@@ -374,13 +388,11 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       showToast(val.errors[0] || 'Vui lòng điền đầy đủ thông tin đề bài và đáp án đúng')
       return
     }
-    const stats = countProtectedQuestions()
-    if (stats.reviewedCount + stats.editedCount > 0) {
-      setProtectedStats(stats)
-      setOverwriteModalOpen(true)
-    } else {
-      handleGenerateAI({ overwriteProtected: false })
+    if (isExamFormDirty(form, pristineFormSigRef.current)) {
+      setUnsavedModalOpen(true)
+      return
     }
+    proceedWithAIGeneration()
   }
 
   const handleGenerateAI = async ({ resolveChoices = {}, overwriteProtected = false } = {}) => {
@@ -400,6 +412,17 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         overwriteProtected,
         resolveChoices,
       })
+
+      // Fetch fresh exam data and merge explanations into form (Targeted Merge — keeps pending edits)
+      try {
+        const fresh = await api.get(`/admin/exams/${editingId}`)
+        if (fresh?.data) {
+          setForm(prev => mergeExamExplanations(prev, fresh.data, resolveChoices))
+        }
+      } catch (syncErr) {
+        console.error('Lỗi đồng bộ lời giải mới vào form:', syncErr)
+      }
+
       if (res.data?.hasConflicts) {
         setAiConflicts(res.data.conflicts || [])
         setConflictModalOpen(true)
@@ -477,7 +500,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     try {
       const res = await api.get(`/admin/exams/${id}`)
       const exam = res.data
-      setForm({
+      const loadedForm = {
         title: exam.title,
         bookNumber: exam.bookNumber?.toString() || '',
         testNumber: exam.testNumber?.toString() || '',
@@ -509,12 +532,22 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
               number: q.number,
               questionText: q.questionText || '',
               options: q.options || ['', '', '', ''],
-              correctAnswer: q.correctAnswer || ''
-            }))
+              correctAnswer: q.correctAnswer || '',
+              explanation: q.explanation || null
+            })),
+            explanations: (g.questions || []).reduce((acc, q) => {
+              if (q.explanation) acc[q.number] = q.explanation
+              return acc
+            }, {})
           }))
         }))
-      })
-      setForm(f => ({ ...f, passages: recalcAllGroupNumbers(f.passages) }))
+      }
+      const loadedWithNumbers = {
+        ...loadedForm,
+        passages: recalcAllGroupNumbers(loadedForm.passages)
+      }
+      setForm(loadedWithNumbers)
+      pristineFormSigRef.current = normalizeFormForDirtyCheck(loadedWithNumbers)
       setEditingId(id)
       setOpenPassage(0)
       setEditHighlight(true)
@@ -531,6 +564,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
 
   const cancelEdit = () => {
     if (editingId) localStorage.removeItem(`draft_reading_${editingId}`)
+    pristineFormSigRef.current = ''
     setEditingId(null); setForm(emptyReadingForm()); setOpenPassage(0); setEditHighlight(false); setDraftBanner(null)
   }
 
@@ -576,8 +610,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     setForm({ ...form, passages: recalcAllGroupNumbers(p) })
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+  const saveCurrentExam = async () => {
     setError('')
 
     // Client-side guardrails before hitting the API
@@ -587,13 +620,13 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       setError(msg)
       showAlert(msg, 'error')
       formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      return
+      return false
     }
 
     const totalQ = form.passages.reduce(
       (a, p) => a + (p.questionGroups || []).reduce((b, g) => b + (g.qNumberEnd - g.qNumberStart + 1), 0), 0
     )
-    if (totalQ !== 40 && !window.confirm(`Tổng số câu hiện tại là ${totalQ}, không phải 40. Vẫn lưu?`)) return
+    if (totalQ !== 40 && !window.confirm(`Tổng số câu hiện tại là ${totalQ}, không phải 40. Vẫn lưu?`)) return false
 
     setSubmitting(true)
     try {
@@ -638,7 +671,9 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
         // Log audit vừa ghi ở backend — invalidate để khối "Lịch sử thay đổi" hiện ngay, không đợi hết staleTime.
         queryClient.invalidateQueries({ queryKey: ['admin', 'auditLogs', 'exam', editingId] })
+        pristineFormSigRef.current = normalizeFormForDirtyCheck(form)
         onRefresh()
+        return true
       } else {
         await api.post('/admin/exams/reading', payload)
         localStorage.removeItem('draft_reading_new')
@@ -647,7 +682,9 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         setOpenPassage(0)
         queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
         queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
+        pristineFormSigRef.current = ''
         onRefresh()
+        return true
       }
     } catch (err) {
       const data = err.response?.data
@@ -657,9 +694,15 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       setError(errMsg)
       showAlert(errMsg, 'error')
       formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return false
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    await saveCurrentExam()
   }
 
   const handleDelete = async (id) => {
@@ -934,6 +977,23 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         <h3 className="text-base font-semibold text-zinc-900 mb-4">Danh sách đề Reading</h3>
         <ExamList exams={exams} skill="reading" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} error={loadError} />
       </div>
+
+      <UnsavedChangesAIModal
+        isOpen={unsavedModalOpen}
+        onClose={() => setUnsavedModalOpen(false)}
+        isSaving={submitting}
+        onSaveAndGenerate={async () => {
+          const ok = await saveCurrentExam()
+          if (ok) {
+            setUnsavedModalOpen(false)
+            proceedWithAIGeneration()
+          }
+        }}
+        onContinueWithoutSaving={() => {
+          setUnsavedModalOpen(false)
+          proceedWithAIGeneration()
+        }}
+      />
 
       <ExplanationConflictModal
         isOpen={conflictModalOpen}

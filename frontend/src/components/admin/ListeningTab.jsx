@@ -30,6 +30,8 @@ import { Volume2, Upload, Eye, ChevronDown, BookOpen, Loader2, Sparkles } from '
 import ExplanationConflictModal from './ExplanationConflictModal'
 import OverwriteProtectedConfirmModal from './OverwriteProtectedConfirmModal'
 import QuestionExplanationModal, { ExplanationStatusBadge } from './QuestionExplanationModal'
+import UnsavedChangesAIModal from './UnsavedChangesAIModal'
+import { mergeExamExplanations, normalizeFormForDirtyCheck, isExamFormDirty } from '../../utils/examExplanationUtils'
 
 // ─── PREVIEW: LISTENING FORM ──────────────────────────────────────────────────
 
@@ -273,9 +275,11 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   const [aiConflicts, setAiConflicts] = useState([])
   const [conflictModalOpen, setConflictModalOpen] = useState(false)
   const [overwriteModalOpen, setOverwriteModalOpen] = useState(false)
+  const [unsavedModalOpen, setUnsavedModalOpen] = useState(false)
   const [protectedStats, setProtectedStats] = useState({ reviewedCount: 0, editedCount: 0 })
   const formRef = useRef(null)
   const previewRef = useRef(null)
+  const pristineFormSigRef = useRef('')
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
@@ -293,6 +297,16 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     return { reviewedCount, editedCount }
   }
 
+  const proceedWithAIGeneration = () => {
+    const stats = countProtectedQuestions()
+    if (stats.reviewedCount + stats.editedCount > 0) {
+      setProtectedStats(stats)
+      setOverwriteModalOpen(true)
+    } else {
+      handleGenerateAI({ overwriteProtected: false })
+    }
+  }
+
   const handleStartGenerateAI = () => {
     if (!editingId) return
     const val = validateExamListening(form, { isForAI: true })
@@ -303,13 +317,11 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       showToast(val.errors[0] || 'Vui lòng điền đầy đủ thông tin bài nghe và đáp án đúng')
       return
     }
-    const stats = countProtectedQuestions()
-    if (stats.reviewedCount + stats.editedCount > 0) {
-      setProtectedStats(stats)
-      setOverwriteModalOpen(true)
-    } else {
-      handleGenerateAI({ overwriteProtected: false })
+    if (isExamFormDirty(form, pristineFormSigRef.current)) {
+      setUnsavedModalOpen(true)
+      return
     }
+    proceedWithAIGeneration()
   }
 
   const handleGenerateAI = async ({ resolveChoices = {}, overwriteProtected = false } = {}) => {
@@ -329,6 +341,17 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         overwriteProtected,
         resolveChoices,
       })
+
+      // Fetch fresh exam data and merge explanations into form (Targeted Merge — keeps pending edits)
+      try {
+        const fresh = await api.get(`/admin/exams/${editingId}`)
+        if (fresh?.data) {
+          setForm(prev => mergeExamExplanations(prev, fresh.data, resolveChoices))
+        }
+      } catch (syncErr) {
+        console.error('Lỗi đồng bộ lời giải mới vào form:', syncErr)
+      }
+
       if (res.data?.hasConflicts) {
         setAiConflicts(res.data.conflicts || [])
         setConflictModalOpen(true)
@@ -406,40 +429,48 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     try {
       const res = await api.get(`/admin/exams/${id}`)
       const exam = res.data
-      setForm({
+      const rawSections = exam.listeningSections.map(s => ({
+        id: s.id,
+        number: s.number,
+        context: s.context || '',
+        audioUrl: s.audioUrl || '',
+        transcript: s.transcript || '',
+        questionGroups: (s.questionGroups || []).map(g => ({
+          id: g.id,
+          _id: g.id,
+          type: g.type,
+          qNumberStart: g.qNumberStart,
+          qNumberEnd: g.qNumberEnd,
+          instruction: g.instruction || '',
+          imageUrl: g.imageUrl || '',
+          noteSections: (g.noteSections || []).map(ns => ({
+            title: ns.title || '',
+            lines: (ns.lines || []).map(l => ({ content: l.contentWithTokens || '', lineType: l.lineType || 'content' }))
+          })),
+          matchingOptions: (g.matchingOptions || []).map(mo => ({ letter: mo.optionLetter, text: mo.optionText })),
+          questions: (g.questions || []).map(q => ({
+            id: q.id,
+            number: q.number,
+            questionText: q.questionText || '',
+            options: q.options || ['','','',''],
+            correctAnswer: q.correctAnswer || '',
+            explanation: q.explanation || null
+          })),
+          explanations: (g.questions || []).reduce((acc, q) => {
+            if (q.explanation) acc[q.number] = q.explanation
+            return acc
+          }, {})
+        }))
+      }))
+      const loadedForm = {
         title: exam.title,
         bookNumber: exam.bookNumber?.toString() || '',
         testNumber: exam.testNumber?.toString() || '',
         seriesId: exam.seriesId?.toString() || '',
-        sections: recalcAllListeningNumbers(exam.listeningSections.map(s => ({
-          id: s.id,
-          number: s.number,
-          context: s.context || '',
-          audioUrl: s.audioUrl || '',
-          transcript: s.transcript || '',
-          questionGroups: (s.questionGroups || []).map(g => ({
-            id: g.id,
-            _id: g.id,
-            type: g.type,
-            qNumberStart: g.qNumberStart,
-            qNumberEnd: g.qNumberEnd,
-            instruction: g.instruction || '',
-            imageUrl: g.imageUrl || '',
-            noteSections: (g.noteSections || []).map(ns => ({
-              title: ns.title || '',
-              lines: (ns.lines || []).map(l => ({ content: l.contentWithTokens || '', lineType: l.lineType || 'content' }))
-            })),
-            matchingOptions: (g.matchingOptions || []).map(mo => ({ letter: mo.optionLetter, text: mo.optionText })),
-            questions: (g.questions || []).map(q => ({
-              id: q.id,
-              number: q.number,
-              questionText: q.questionText || '',
-              options: q.options || ['','','',''],
-              correctAnswer: q.correctAnswer || ''
-            }))
-          }))
-        })))
-      })
+        sections: recalcAllListeningNumbers(rawSections)
+      }
+      setForm(loadedForm)
+      pristineFormSigRef.current = normalizeFormForDirtyCheck(loadedForm)
       setEditingId(id)
       setOpenSection(0)
       setEditHighlight(true)
@@ -456,6 +487,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
 
   const cancelEdit = () => {
     if (editingId) localStorage.removeItem(`draft_listening_${editingId}`)
+    pristineFormSigRef.current = ''
     setEditingId(null); setForm(emptyListeningForm()); setOpenSection(0); setEditHighlight(false); setDraftBanner(null)
   }
 
@@ -550,8 +582,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     })
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+  const saveCurrentExam = async () => {
     setError('')
 
     // Client-side guardrails before hitting the API
@@ -561,13 +592,13 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       setError(msg)
       showAlert(msg, 'error')
       formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      return
+      return false
     }
 
     const totalQ = form.sections.reduce(
       (a, s) => a + s.questionGroups.reduce((b, g) => b + (g.qNumberEnd - g.qNumberStart + 1), 0), 0
     )
-    if (totalQ !== 40 && !window.confirm(`Tổng số câu hiện tại là ${totalQ}, không phải 40. Vẫn lưu?`)) return
+    if (totalQ !== 40 && !window.confirm(`Tổng số câu hiện tại là ${totalQ}, không phải 40. Vẫn lưu?`)) return false
 
     setSubmitting(true)
     try {
@@ -610,7 +641,9 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
         // Log audit vừa ghi ở backend — invalidate để khối "Lịch sử thay đổi" hiện ngay, không đợi hết staleTime.
         queryClient.invalidateQueries({ queryKey: ['admin', 'auditLogs', 'exam', editingId] })
+        pristineFormSigRef.current = normalizeFormForDirtyCheck(form)
         onRefresh()
+        return true
       } else {
         await api.post('/admin/exams/listening', payload)
         localStorage.removeItem('draft_listening_new')
@@ -619,7 +652,9 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         setOpenSection(0)
         queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
         queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
+        pristineFormSigRef.current = ''
         onRefresh()
+        return true
       }
     } catch (err) {
       const data = err.response?.data
@@ -628,9 +663,15 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         : (data?.message || 'Lỗi lưu đề Listening')
       setError(errMsg)
       showAlert(errMsg, 'error')
+      return false
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    await saveCurrentExam()
   }
 
   const handleDelete = async (id) => {
@@ -959,6 +1000,23 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         <h3 className="text-base font-semibold text-zinc-900 mb-4">Danh sách đề Listening</h3>
         <ExamList exams={exams} skill="listening" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} error={loadError} />
       </div>
+
+      <UnsavedChangesAIModal
+        isOpen={unsavedModalOpen}
+        onClose={() => setUnsavedModalOpen(false)}
+        isSaving={submitting}
+        onSaveAndGenerate={async () => {
+          const ok = await saveCurrentExam()
+          if (ok) {
+            setUnsavedModalOpen(false)
+            proceedWithAIGeneration()
+          }
+        }}
+        onContinueWithoutSaving={() => {
+          setUnsavedModalOpen(false)
+          proceedWithAIGeneration()
+        }}
+      />
 
       <ExplanationConflictModal
         isOpen={conflictModalOpen}
