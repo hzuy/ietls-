@@ -34,16 +34,60 @@ router.get('/exams/counts', authMiddleware, teacherOnly, async (req, res) => {
   }
 })
 
+// In-memory concurrency lock per exam: Only ONE AI explanation job can run on an exam at a time (Requirement 3.5)
+const activeExamAIJobs = new Set()
+
 // ─── ADMIN: GENERATE EXPLANATIONS FOR EXAM WITH CONFLICT DETECTION ──────────
 router.post('/exams/:id/generate-explanations', authMiddleware, teacherOnly, async (req, res) => {
   const { id } = req.params
   const { force = false, resolveChoices = {}, overwriteProtected = false } = req.body || {}
+  const examIdNum = parseInt(id, 10)
+
+  if (activeExamAIJobs.has(examIdNum)) {
+    return res.status(409).json({
+      message: `Đang có một tác vụ AI khác đang chạy cho đề thi #${examIdNum}. Vui lòng chờ hoàn thành.`
+    })
+  }
+
+  activeExamAIJobs.add(examIdNum)
   try {
-    const result = await generateForExam(parseInt(id, 10), { force, resolveChoices, overwriteProtected })
+    const result = await generateForExam(examIdNum, { force, resolveChoices, overwriteProtected })
     res.json(result)
   } catch (err) {
     console.error('[GENERATE EXAM EXPLANATIONS ERROR]', err)
     res.status(500).json({ message: err.message || 'Lỗi khi tạo giải thích bằng AI' })
+  } finally {
+    activeExamAIJobs.delete(examIdNum)
+  }
+})
+
+// ─── ADMIN: GENERATE EXPLANATIONS FOR SINGLE QUESTION GROUP ─────────────────
+router.post('/exams/:id/groups/:groupId/generate-explanations', authMiddleware, teacherOnly, async (req, res) => {
+  const { id, groupId } = req.params
+  const { force = false, resolveChoices = {}, overwriteProtected = false } = req.body || {}
+  const examIdNum = parseInt(id, 10)
+  const groupIdNum = parseInt(groupId, 10)
+
+  if (activeExamAIJobs.has(examIdNum)) {
+    return res.status(409).json({
+      message: `Đang có một tác vụ AI khác đang chạy cho đề thi #${examIdNum}. Vui lòng chờ hoàn thành.`
+    })
+  }
+
+  activeExamAIJobs.add(examIdNum)
+  try {
+    const result = await generateForExam(examIdNum, {
+      force,
+      resolveChoices,
+      overwriteProtected,
+      groupId: groupIdNum,
+    })
+    res.json(result)
+  } catch (err) {
+    console.error('[GENERATE GROUP EXPLANATIONS ERROR]', err)
+    res.status(500).json({ message: err.message || 'Lỗi khi tạo giải thích cho nhóm câu hỏi' })
+  } finally {
+    activeExamAIJobs.delete(examIdNum)
   }
 })
 

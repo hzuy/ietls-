@@ -579,8 +579,9 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
  * @param {boolean} options.force - If true, regenerate even if explanation exists
  * @param {object} options.resolveChoices - Map of { [questionNumber]: 'ai' | 'input' }
  * @param {boolean} options.overwriteProtected - If true, overwrite teacher_reviewed or teacher_edited explanations
+ * @param {number|null} options.groupId - If provided, only generates explanations for questions in this QuestionGroup
  */
-async function generateForExam(examId, { force = false, resolveChoices = {}, overwriteProtected = false } = {}) {
+async function generateForExam(examId, { force = false, resolveChoices = {}, overwriteProtected = false, groupId = null } = {}) {
   const exam = await prisma.exam.findUnique({
     where: { id: examId },
     select: { id: true, title: true, skill: true },
@@ -588,15 +589,26 @@ async function generateForExam(examId, { force = false, resolveChoices = {}, ove
 
   if (!exam) throw new Error(`Không tìm thấy đề thi #${examId}`)
 
+  const parsedGroupId = groupId ? parseInt(groupId, 10) : null
+  const whereClause = parsedGroupId
+    ? {
+        groupId: parsedGroupId,
+        OR: [
+          { group: { passage: { examId } } },
+          { group: { section: { examId } } },
+        ],
+      }
+    : {
+        OR: [
+          { passage: { examId } },
+          { listeningSection: { examId } },
+          { group: { passage: { examId } } },
+          { group: { section: { examId } } },
+        ],
+      }
+
   const questions = await prisma.question.findMany({
-    where: {
-      OR: [
-        { passage: { examId } },
-        { listeningSection: { examId } },
-        { group: { passage: { examId } } },
-        { group: { section: { examId } } },
-      ],
-    },
+    where: whereClause,
     select: {
       id: true,
       number: true,
@@ -627,7 +639,12 @@ async function generateForExam(examId, { force = false, resolveChoices = {}, ove
   const updates = []
   let generatedCount = 0
 
-  if (!questions.length) throw new Error(`Đề thi #${examId} chưa có câu hỏi nào`)
+  if (!questions.length) {
+    if (parsedGroupId) {
+      throw new Error(`Nhóm câu hỏi #${parsedGroupId} không có câu hỏi nào trong đề thi #${examId}`)
+    }
+    throw new Error(`Đề thi #${examId} chưa có câu hỏi nào`)
+  }
 
   // Pre-validate that all questions have correctAnswer
   const missingAnswerQuestions = []

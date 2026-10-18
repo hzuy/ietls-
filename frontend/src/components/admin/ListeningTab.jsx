@@ -32,7 +32,7 @@ import OverwriteProtectedConfirmModal from './OverwriteProtectedConfirmModal'
 import QuestionExplanationModal, { ExplanationStatusBadge } from './QuestionExplanationModal'
 import UnsavedChangesAIModal from './UnsavedChangesAIModal'
 import ExamExplanationOverviewBadge from './ExamExplanationOverviewBadge'
-import { mergeExamExplanations, normalizeFormForDirtyCheck, isExamFormDirty, calculateExamExplanationStats } from '../../utils/examExplanationUtils'
+import { mergeExamExplanations, normalizeFormForDirtyCheck, isExamFormDirty, calculateExamExplanationStats, EXAM_EXPLANATION_SKIP_FAMILIES } from '../../utils/examExplanationUtils'
 
 // ─── PREVIEW: LISTENING FORM ──────────────────────────────────────────────────
 
@@ -94,11 +94,13 @@ function ListeningFormPreview({ form, showAnswers, showExplanations }) {
 
 // ─── GROUP EDITOR ─────────────────────────────────────────────────────────────
 
-function GroupEditor({ group = {}, onChange, onRemove, examId, passage = '' }) {
+function GroupEditor({ group = {}, onChange, onRemove, examId, passage = '', onGenerateGroupAI, isAIBusy, generatingGroupId }) {
   const [selectedQModal, setSelectedQModal] = useState(null)
   const groupType = group?.type || 'fill_blank'
   const typeLabel = GROUP_TYPES.find(t => t.value === groupType)?.label || groupType
   const theme = getQuestionTypeTheme(groupType)
+  const isSkipped = EXAM_EXPLANATION_SKIP_FAMILIES.has(groupType)
+  const isCurrentGenerating = generatingGroupId === group.id
 
   const groupQuestions = group.questions || []
   const hasExplanations = groupQuestions.some(q => q.explanation) || (group.explanations && Object.keys(group.explanations).length > 0)
@@ -135,8 +137,24 @@ function GroupEditor({ group = {}, onChange, onRemove, examId, passage = '' }) {
         )}
         <div className="flex-1" />
         <div className="flex items-center gap-2">
+          {!isSkipped && onGenerateGroupAI && (
+            <button
+              type="button"
+              onClick={onGenerateGroupAI}
+              disabled={isAIBusy}
+              className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              title={isAIBusy ? "Đang có tác vụ AI đang chạy..." : `Sinh AI giải thích cho nhóm câu ${group.qNumberStart}–${group.qNumberEnd}`}
+            >
+              {isCurrentGenerating ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-600" />
+              ) : (
+                <Sparkles className="w-3.5 h-3.5 text-zinc-600" />
+              )}
+              <span>{isCurrentGenerating ? 'Đang tạo...' : 'Sinh AI nhóm này'}</span>
+            </button>
+          )}
           <button type="button" onClick={onRemove}
-            className="text-red-500 hover:text-red-600 text-xs font-semibold px-2 py-0.5 rounded hover:bg-red-50">
+            className="text-red-500 hover:text-red-600 text-xs font-semibold px-2 py-0.5 rounded hover:bg-red-50 cursor-pointer">
             Xóa nhóm
           </button>
         </div>
@@ -300,18 +318,43 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     return { reviewedCount, editedCount }
   }
 
+  const [generatingGroupId, setGeneratingGroupId] = useState(null)
+  const [aiProgress, setAiProgress] = useState(null)
+  const abortControllerRef = useRef(null)
+  const pendingAIFnRef = useRef(null)
+
+  const countGroupProtected = (g) => {
+    let reviewedCount = 0
+    let editedCount = 0
+    for (const q of (g.questions || [])) {
+      if (q.explanation?.status === 'teacher_reviewed') reviewedCount++
+      if (q.explanation?.status === 'teacher_edited') editedCount++
+    }
+    return { reviewedCount, editedCount }
+  }
+
   const proceedWithAIGeneration = () => {
     const stats = countProtectedQuestions()
     if (stats.reviewedCount + stats.editedCount > 0) {
       setProtectedStats(stats)
       setOverwriteModalOpen(true)
     } else {
-      handleGenerateAI({ overwriteProtected: false })
+      handleGenerateSequentialAll({ overwriteProtected: false })
+    }
+  }
+
+  const proceedWithGroupAIGeneration = (group) => {
+    const stats = countGroupProtected(group)
+    if (stats.reviewedCount + stats.editedCount > 0) {
+      setProtectedStats(stats)
+      setOverwriteModalOpen(true)
+    } else {
+      handleGenerateGroupAI(group, { overwriteProtected: false })
     }
   }
 
   const handleStartGenerateAI = () => {
-    if (!editingId) return
+    if (!editingId || generatingAI) return
     const val = validateExamListening(form, { isForAI: true })
     if (!val.isValid) {
       const msg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
@@ -320,6 +363,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       showToast(val.errors[0] || 'Vui lòng điền đầy đủ thông tin bài nghe và đáp án đúng')
       return
     }
+    pendingAIFnRef.current = (opts) => handleGenerateSequentialAll(opts)
     if (isExamFormDirty(form, pristineFormSigRef.current)) {
       setUnsavedModalOpen(true)
       return
@@ -327,25 +371,31 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     proceedWithAIGeneration()
   }
 
-  const handleGenerateAI = async ({ resolveChoices = {}, overwriteProtected = false } = {}) => {
-    if (!editingId) return
-    const val = validateExamListening(form, { isForAI: true })
-    if (!val.isValid) {
-      const msg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
-      setError(msg)
-      showAlert(msg, 'error')
-      showToast(val.errors[0] || 'Vui lòng điền đầy đủ thông tin bài nghe và đáp án đúng')
+  const handleStartGenerateGroupAI = (group) => {
+    if (!editingId || generatingAI) return
+    if (!group || !group.id) {
+      showAlert('Vui lòng lưu đề thi trước khi sinh AI cho nhóm câu hỏi mới tạo.', 'info')
       return
     }
+    pendingAIFnRef.current = (opts) => handleGenerateGroupAI(group, opts)
+    if (isExamFormDirty(form, pristineFormSigRef.current)) {
+      setUnsavedModalOpen(true)
+      return
+    }
+    proceedWithGroupAIGeneration(group)
+  }
+
+  const handleGenerateGroupAI = async (group, { resolveChoices = {}, overwriteProtected = false } = {}) => {
+    if (!editingId) return
     setGeneratingAI(true)
+    setGeneratingGroupId(group.id)
     try {
-      const res = await api.post(`/admin/exams/${editingId}/generate-explanations`, {
+      const res = await api.post(`/admin/exams/${editingId}/groups/${group.id}/generate-explanations`, {
         force: true,
         overwriteProtected,
         resolveChoices,
       })
 
-      // Fetch fresh exam data and merge explanations into form (Targeted Merge — keeps pending edits)
       try {
         const fresh = await api.get(`/admin/exams/${editingId}`)
         if (fresh?.data) {
@@ -359,14 +409,119 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         setAiConflicts(res.data.conflicts || [])
         setConflictModalOpen(true)
       } else {
-        showToast(res.data?.message || 'Đã tạo giải thích 4 bước thành công!')
+        showToast(res.data?.message || `Đã tạo giải thích cho nhóm câu ${group.qNumberStart}–${group.qNumberEnd}!`)
         setConflictModalOpen(false)
         onRefresh()
       }
     } catch (err) {
-      showToast(err.response?.data?.message || 'Không thể tạo giải thích bằng AI')
+      if (err.response?.status === 409) {
+        showAlert(err.response?.data?.message || 'Đang có một tác vụ AI khác đang chạy cho đề thi này.', 'warning')
+      } else {
+        showToast(err.response?.data?.message || 'Không thể tạo giải thích cho nhóm này')
+      }
     } finally {
       setGeneratingAI(false)
+      setGeneratingGroupId(null)
+    }
+  }
+
+  const handleGenerateSequentialAll = async ({ resolveChoices = {}, overwriteProtected = false } = {}) => {
+    if (!editingId) return
+    const val = validateExamListening(form, { isForAI: true })
+    if (!val.isValid) {
+      const msg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
+      setError(msg)
+      showAlert(msg, 'error')
+      showToast(val.errors[0] || 'Vui lòng điền đầy đủ thông tin bài nghe và đáp án đúng')
+      return
+    }
+
+    const allGroups = (form.sections || []).flatMap(s => s.questionGroups || [])
+      .filter(g => !EXAM_EXPLANATION_SKIP_FAMILIES.has(g.type) && (g.questions?.length > 0 || (g.qNumberEnd >= g.qNumberStart)))
+
+    if (allGroups.length === 0) {
+      showAlert('Không có nhóm câu hỏi nào hỗ trợ tạo giải thích AI trong đề này.', 'info')
+      return
+    }
+
+    setGeneratingAI(true)
+    const abortController = new AbortController()
+    abortControllerRef.current = abortController
+    setAiProgress({ current: 0, total: allGroups.length, groupLabel: '' })
+
+    let totalGenerated = 0
+    const accumulatedConflicts = []
+    const failedGroups = []
+
+    for (let i = 0; i < allGroups.length; i++) {
+      if (abortController.signal.aborted) break
+      const group = allGroups[i]
+      setGeneratingGroupId(group.id)
+      const groupLabel = `nhóm ${i + 1}/${allGroups.length} (Câu ${group.qNumberStart}–${group.qNumberEnd})`
+      setAiProgress({ current: i + 1, total: allGroups.length, groupLabel })
+
+      try {
+        const res = await api.post(
+          `/admin/exams/${editingId}/groups/${group.id}/generate-explanations`,
+          { force: true, overwriteProtected, resolveChoices },
+          { signal: abortController.signal }
+        )
+
+        if (res.data) {
+          totalGenerated += res.data.generatedCount || 0
+          if (res.data.hasConflicts && res.data.conflicts?.length) {
+            accumulatedConflicts.push(...res.data.conflicts)
+          }
+        }
+
+        // Live partial merge into form state
+        try {
+          const fresh = await api.get(`/admin/exams/${editingId}`)
+          if (fresh?.data) {
+            setForm(prev => mergeExamExplanations(prev, fresh.data, resolveChoices))
+          }
+        } catch (syncErr) {
+          console.error('Lỗi đồng bộ nhóm vào form:', syncErr)
+        }
+      } catch (err) {
+        if (abortController.signal.aborted || err.name === 'CanceledError' || err.code === 'ERR_CANCELED') {
+          break
+        }
+        const msg = err.response?.data?.message || err.message
+        failedGroups.push({ group, error: msg })
+        showToast(`Nhóm câu ${group.qNumberStart}–${group.qNumberEnd}: ${msg}`)
+      }
+    }
+
+    setGeneratingAI(false)
+    setGeneratingGroupId(null)
+    setAiProgress(null)
+    const wasAborted = abortController.signal.aborted
+    abortControllerRef.current = null
+
+    try {
+      const fresh = await api.get(`/admin/exams/${editingId}`)
+      if (fresh?.data) {
+        setForm(prev => mergeExamExplanations(prev, fresh.data, resolveChoices))
+      }
+    } catch {}
+
+    onRefresh()
+
+    if (wasAborted) {
+      showToast('Đã dừng tác vụ sinh AI. Các nhóm đã tạo trước đó được giữ nguyên.')
+    } else if (failedGroups.length > 0) {
+      showAlert(
+        `Đã hoàn thành ${allGroups.length - failedGroups.length}/${allGroups.length} nhóm. Các nhóm gặp lỗi: ${failedGroups.map(f => `Câu ${f.group.qNumberStart}-${f.group.qNumberEnd}`).join(', ')}. Bạn có thể bấm "Sinh AI nhóm này" để thử lại.`,
+        'warning'
+      )
+    } else {
+      showToast(`Đã tạo giải thích thành công cho toàn bộ ${allGroups.length} nhóm (${totalGenerated} câu)!`)
+    }
+
+    if (accumulatedConflicts.length > 0) {
+      setAiConflicts(accumulatedConflicts)
+      setConflictModalOpen(true)
     }
   }
 
@@ -728,16 +883,33 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
               <ExamExplanationOverviewBadge stats={examStats} />
             </div>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleStartGenerateAI}
-                disabled={generatingAI}
-                className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                title="AI giải thích 4 bước từ transcript"
-              >
-                {generatingAI ? <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-600" /> : <BookOpen className="w-3.5 h-3.5 text-zinc-600" />}
-                <span>AI giải thích</span>
-              </button>
+              {generatingAI ? (
+                <div className="flex items-center gap-2 bg-zinc-100 border border-zinc-300 rounded-lg px-2.5 py-1 text-xs">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-700 shrink-0" />
+                  <span className="font-semibold text-zinc-800">
+                    Đang xử lý {aiProgress?.groupLabel || '...'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => abortControllerRef.current?.abort()}
+                    className="ml-1 text-xs font-semibold px-2 py-0.5 rounded border border-zinc-400 bg-white hover:bg-zinc-50 text-zinc-700 transition cursor-pointer"
+                    title="Hủy giữa chừng (các nhóm đã xong được giữ lại)"
+                  >
+                    Hủy
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleStartGenerateAI}
+                  disabled={generatingAI}
+                  className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  title="AI giải thích 4 bước từ transcript (tuần tự theo nhóm)"
+                >
+                  <BookOpen className="w-3.5 h-3.5 text-zinc-600" />
+                  <span>AI giải thích</span>
+                </button>
+              )}
               <button type="button" onClick={() => setShowPreview(v => !v)}
                 className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 transition shadow-2xs">
                 {showPreview ? 'Ẩn preview' : 'Preview'}
@@ -926,6 +1098,9 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
                               passage={section.transcript}
                               onChange={newGroup => updateGroup(si, gi, newGroup)}
                               onRemove={() => removeGroup(si, gi)}
+                              onGenerateGroupAI={editingId ? () => handleStartGenerateGroupAI(group) : null}
+                              isAIBusy={generatingAI}
+                              generatingGroupId={generatingGroupId}
                             />
                           </div>
                         </div>
@@ -1016,38 +1191,56 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
 
       <UnsavedChangesAIModal
         isOpen={unsavedModalOpen}
-        onClose={() => setUnsavedModalOpen(false)}
+        onClose={() => { setUnsavedModalOpen(false); pendingAIFnRef.current = null }}
         isSaving={submitting}
         onSaveAndGenerate={async () => {
           const ok = await saveCurrentExam()
           if (ok) {
             setUnsavedModalOpen(false)
-            proceedWithAIGeneration()
+            if (pendingAIFnRef.current) {
+              pendingAIFnRef.current()
+            } else {
+              proceedWithAIGeneration()
+            }
           }
         }}
         onContinueWithoutSaving={() => {
           setUnsavedModalOpen(false)
-          proceedWithAIGeneration()
+          if (pendingAIFnRef.current) {
+            pendingAIFnRef.current()
+          } else {
+            proceedWithAIGeneration()
+          }
         }}
       />
 
       <ExplanationConflictModal
         isOpen={conflictModalOpen}
-        onClose={() => setConflictModalOpen(false)}
+        onClose={() => { setConflictModalOpen(false); pendingAIFnRef.current = null }}
         conflicts={aiConflicts}
-        onConfirmResolve={(choices) => handleGenerateAI({ resolveChoices: choices, overwriteProtected: false })}
+        onConfirmResolve={(choices) => {
+          if (pendingAIFnRef.current) {
+            pendingAIFnRef.current({ resolveChoices: choices, overwriteProtected: false })
+          } else {
+            handleGenerateSequentialAll({ resolveChoices: choices, overwriteProtected: false })
+          }
+        }}
         isSubmitting={generatingAI}
       />
 
       <OverwriteProtectedConfirmModal
         isOpen={overwriteModalOpen}
-        onClose={() => setOverwriteModalOpen(false)}
+        onClose={() => { setOverwriteModalOpen(false); pendingAIFnRef.current = null }}
         reviewedCount={protectedStats.reviewedCount}
         editedCount={protectedStats.editedCount}
         isSubmitting={generatingAI}
         onConfirm={({ overwriteProtected }) => {
           setOverwriteModalOpen(false)
-          handleGenerateAI({ overwriteProtected })
+          if (pendingAIFnRef.current) {
+            pendingAIFnRef.current({ overwriteProtected })
+          } else {
+            handleGenerateSequentialAll({ overwriteProtected })
+          }
         }}
       />
     </div>

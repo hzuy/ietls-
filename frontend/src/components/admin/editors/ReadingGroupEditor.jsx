@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Sparkles } from 'lucide-react'
+import { Sparkles, Loader2 } from 'lucide-react'
 import { READING_GROUP_TYPES, labelCls, inputCls, getQuestionTypeTheme } from '../adminConstants'
 import QuestionExplanationModal, { ExplanationStatusBadge } from '../QuestionExplanationModal'
 import TrueFalseEditor from '../../practice/TrueFalseEditor'
@@ -9,10 +9,12 @@ import TableCompletionEditor from './TableCompletionEditor'
 import MCQGroupEditor from './MCQGroupEditor'
 import MatchingEditor from './MatchingEditor'
 import DiagramLabelEditor from '../../practice/DiagramLabelEditor'
+import { EXAM_EXPLANATION_SKIP_FAMILIES } from '../../../utils/examExplanationUtils'
 
 export default function ReadingGroupEditor({
   group = {}, onChange, onRemove, onMoveUp, onMoveDown, isFirst, isLast,
   examId, passage = '',
+  onGenerateGroupAI, isAIBusy = false, generatingGroupId = null
 }) {
   const [selectedQModal, setSelectedQModal] = useState(null)
   const groupType = group?.type || 'short_answer'
@@ -67,6 +69,25 @@ export default function ReadingGroupEditor({
             </span>
           )}
         </div>
+
+        {/* Nút sinh AI theo nhóm (Requirement 3.5) */}
+        {onGenerateGroupAI && !EXAM_EXPLANATION_SKIP_FAMILIES.has(groupType) && (
+          <button
+            type="button"
+            onClick={() => onGenerateGroupAI(group)}
+            disabled={isAIBusy}
+            className="text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap shrink-0"
+            title={isAIBusy ? 'Đang có tác vụ AI khác đang chạy trên đề thi này' : 'Sinh giải thích AI cho riêng nhóm câu hỏi này'}
+            data-testid={`generate-group-ai-${group.id || group.qNumberStart}`}
+          >
+            {generatingGroupId === group.id ? (
+              <Loader2 className="w-3 h-3 animate-spin text-zinc-600" />
+            ) : (
+              <Sparkles className="w-3 h-3 text-zinc-600" />
+            )}
+            <span>Sinh AI nhóm này</span>
+          </button>
+        )}
 
         <div className="flex-1 min-w-2" />
         <div className="flex items-center gap-2">
