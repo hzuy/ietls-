@@ -1251,6 +1251,8 @@ async function reviewQuestionExplanation({ examId, questionId = null, questionNu
 
     const targetNum = parseInt(questionNumber, 10)
     let targetRow = null
+    let targetGroup = null
+    let targetQItem = null
 
     for (const row of exam.questions) {
       const group = parseGroup(row)
@@ -1258,11 +1260,13 @@ async function reviewQuestionExplanation({ examId, questionId = null, questionNu
       const qItem = group.questions.find((q) => Number(q.number) === targetNum)
       if (qItem) {
         targetRow = row
+        targetGroup = group
+        targetQItem = qItem
         break
       }
     }
 
-    if (!targetRow) {
+    if (!targetRow || !targetQItem) {
       throw new Error(`Không tìm thấy câu hỏi #${targetNum} trong bài luyện tập #${parsedExamId}`)
     }
 
@@ -1271,6 +1275,14 @@ async function reviewQuestionExplanation({ examId, questionId = null, questionNu
       const prev = byNumber[targetNum]
       if (!prev || typeof prev !== 'object') {
         throw new Error(`Câu hỏi #${targetNum} chưa có lời giải để duyệt`)
+      }
+
+      const inputAnswer = String(targetQItem.correctAnswer ?? '').trim()
+      const expAnswer = String(prev.answer ?? '').trim()
+      const rawOptions = targetQItem.options || (targetGroup.matchingOptions?.length ? targetGroup.matchingOptions : null)
+      const qType = targetGroup.type || targetQItem.type
+      if (!isAnswerMatch(inputAnswer, expAnswer, rawOptions, qType)) {
+        throw new Error(`Không thể duyệt lời giải vì đáp án trong lời giải ("${expAnswer}") không khớp với đáp án đúng của câu hỏi ("${inputAnswer}").`)
       }
 
       const updated = {
@@ -1308,7 +1320,20 @@ async function reviewQuestionExplanation({ examId, questionId = null, questionNu
           },
         ],
       },
-      select: { id: true, number: true, explanation: true },
+      select: {
+        id: true,
+        number: true,
+        type: true,
+        correctAnswer: true,
+        options: true,
+        explanation: true,
+        group: {
+          select: {
+            type: true,
+            matchingOptions: { select: { optionLetter: true, optionText: true }, orderBy: { sortOrder: 'asc' } },
+          },
+        },
+      },
     })
 
     if (!question) {
@@ -1317,6 +1342,14 @@ async function reviewQuestionExplanation({ examId, questionId = null, questionNu
 
     if (!question.explanation || typeof question.explanation !== 'object') {
       throw new Error(`Câu hỏi #${question.number} chưa có lời giải để duyệt`)
+    }
+
+    const inputAnswer = String(question.correctAnswer ?? '').trim()
+    const expAnswer = String(question.explanation.answer ?? '').trim()
+    const rawOptions = question.options || (question.group?.matchingOptions?.length ? question.group.matchingOptions : null)
+    const qType = question.type || question.group?.type
+    if (!isAnswerMatch(inputAnswer, expAnswer, rawOptions, qType)) {
+      throw new Error(`Không thể duyệt lời giải vì đáp án trong lời giải ("${expAnswer}") không khớp với đáp án đúng của câu hỏi ("${inputAnswer}").`)
     }
 
     const updated = {

@@ -56,6 +56,11 @@ describe('ReviewExplanation', () => {
     expect(screen.getAllByText(/^STEP 0[1-4]$/)).toHaveLength(4)
     expect(screen.getByText('E')).toBeInTheDocument()
   })
+
+  it('dùng correctAnswer truyền vào làm nguồn đáp án duy nhất cho Bước 4', () => {
+    render(<ReviewExplanation explanation={V2} correctAnswer="timber." />)
+    expect(screen.getByText('timber.')).toBeInTheDocument()
+  })
 })
 
 describe('textMatch', () => {

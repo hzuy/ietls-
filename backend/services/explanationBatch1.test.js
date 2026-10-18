@@ -342,11 +342,14 @@ describe('Batch 1 Explanation Logic Tests', () => {
   })
 
   // ─── 3.5 & 4.5 TEACHER REVIEW ACTION ──────────────────────────────────────
-  describe('Teacher Review Action (3.5 & 4.5)', () => {
-    it('sets status to teacher_reviewed and reviewedAt timestamp', async () => {
+  describe('Teacher Review Action (3.5 & 4.5 & B.4)', () => {
+    it('sets status to teacher_reviewed when answer matches correctAnswer', async () => {
       prismaMock.question.findFirst.mockResolvedValue({
         id: 70,
         number: 7,
+        type: 'mcq',
+        correctAnswer: 'B',
+        options: JSON.stringify(['A', 'B']),
         explanation: { v: 2, answer: 'B', status: 'ai_generated' },
       })
       prismaMock.question.update.mockResolvedValue({})
@@ -361,6 +364,66 @@ describe('Batch 1 Explanation Logic Tests', () => {
       expect(res.status).toBe('teacher_reviewed')
       expect(res.explanation.status).toBe('teacher_reviewed')
       expect(res.explanation.reviewedAt).toBeDefined()
+    })
+
+    it('blocks review if explanation answer does not match question correctAnswer for Exam', async () => {
+      prismaMock.question.findFirst.mockResolvedValue({
+        id: 70,
+        number: 7,
+        type: 'mcq',
+        correctAnswer: 'A',
+        options: JSON.stringify(['A', 'B']),
+        explanation: { v: 2, answer: 'B', status: 'conflict_pending' },
+      })
+
+      await expect(
+        reviewQuestionExplanation({ examId: 2, questionId: 70, isPractice: false })
+      ).rejects.toThrow(/Không thể duyệt lời giải vì đáp án trong lời giải \("B"\) không khớp với đáp án đúng của câu hỏi \("A"\)/)
+    })
+
+    it('blocks review if explanation answer does not match question correctAnswer for Practice', async () => {
+      const practiceRow = {
+        id: 10,
+        content: JSON.stringify({
+          type: 'mcq',
+          questions: [{ number: 1, correctAnswer: 'TRUE' }],
+        }),
+        explanation: {
+          byNumber: {
+            1: { v: 2, answer: 'FALSE', status: 'conflict_pending' },
+          },
+        },
+      }
+      prismaMock.practiceExam.findUnique.mockResolvedValue({
+        id: 5,
+        questions: [practiceRow],
+      })
+      prismaMock.practiceQuestion.findUnique.mockResolvedValue(practiceRow)
+
+      await expect(
+        reviewQuestionExplanation({ examId: 5, questionNumber: 1, isPractice: true })
+      ).rejects.toThrow(/Không thể duyệt lời giải vì đáp án trong lời giải \("FALSE"\) không khớp với đáp án đúng của câu hỏi \("TRUE"\)/)
+    })
+
+    it('allows review when answers match with trailing punctuation (Batch 1)', async () => {
+      prismaMock.question.findFirst.mockResolvedValue({
+        id: 72,
+        number: 1,
+        type: 'mcq',
+        correctAnswer: 'students.',
+        options: JSON.stringify(['A. peers', 'B. patients', 'C. students']),
+        explanation: { v: 2, answer: 'C. students', status: 'ai_generated' },
+      })
+      prismaMock.question.update.mockResolvedValue({})
+
+      const res = await reviewQuestionExplanation({
+        examId: 2,
+        questionId: 72,
+        isPractice: false,
+      })
+
+      expect(res.ok).toBe(true)
+      expect(res.status).toBe('teacher_reviewed')
     })
 
     it('throws error if question has no explanation to review', async () => {

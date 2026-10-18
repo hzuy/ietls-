@@ -424,7 +424,7 @@ export default function QuestionExplanationModal({
               )}
 
               {/* 4-Step Explanation View */}
-              <ReviewExplanation explanation={currentExplanation} />
+              <ReviewExplanation explanation={currentExplanation} correctAnswer={question.correctAnswer} />
 
               {/* Feedback History Block */}
               {Array.isArray(currentExplanation?.feedbackHistory) && currentExplanation.feedbackHistory.length > 0 && (
