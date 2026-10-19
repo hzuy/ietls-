@@ -499,6 +499,93 @@ router.delete('/admin/:skill/:id', authMiddleware, teacherStrict, async (req, re
   } catch (err) { res.status(500).json({ message: 'Lỗi xóa', error: err.message }) }
 })
 
+// ─── ADMIN: GET EXPLANATION STATUS FOR PRACTICE (READ-ONLY) ─────────────────
+router.get('/admin/:skill/:id/explanation-status', authMiddleware, teacherStrict, async (req, res) => {
+  const { skill, id } = req.params
+  if (!PRACTICE_SKILLS.has(skill)) {
+    return res.status(400).json({ message: 'Kỹ năng không hợp lệ' })
+  }
+  const practiceId = parseInt(id, 10)
+  if (isNaN(practiceId)) {
+    return res.status(400).json({ message: 'ID không hợp lệ' })
+  }
+
+  try {
+    const exam = await prisma.practiceExam.findFirst({
+      where: { id: practiceId, skill, deletedAt: null },
+      include: { questions: { orderBy: { orderNum: 'asc' } } }
+    })
+    if (!exam) {
+      return res.status(404).json({ message: 'Không tìm thấy bài luyện tập' })
+    }
+
+    const lockKey = `practice:${practiceId}`
+    const isLockedNow = isLocked(lockKey)
+
+    const statusCounts = {
+      ai_generated: 0,
+      teacher_reviewed: 0,
+      teacher_edited: 0,
+      conflict_pending: 0,
+      needs_regeneration: 0,
+      none: 0,
+    }
+    const unprocessedQuestionNumbers = []
+    let totalQuestions = 0
+    let generatedCount = 0
+
+    for (const pq of exam.questions || []) {
+      let group
+      try {
+        group = typeof pq.content === 'string' ? JSON.parse(pq.content) : pq.content
+      } catch {
+        group = null
+      }
+      if (!group || !Array.isArray(group.questions)) continue
+
+      const byNumber = (pq.explanation && typeof pq.explanation === 'object' && pq.explanation.byNumber)
+        ? pq.explanation.byNumber
+        : {}
+
+      for (const q of group.questions) {
+        const qNum = Number(q.number)
+        if (!qNum) continue
+        totalQuestions++
+
+        let exp = byNumber[qNum]
+        if (typeof exp === 'string') {
+          try { exp = JSON.parse(exp) } catch { exp = null }
+        }
+        const hasExp = exp && typeof exp === 'object' && (exp.steps || exp.reasoning || exp.aiExplanation || exp.status)
+        if (hasExp) {
+          generatedCount++
+          const st = exp.status || 'ai_generated'
+          if (statusCounts[st] !== undefined) {
+            statusCounts[st]++
+          } else {
+            statusCounts.ai_generated++
+          }
+        } else {
+          statusCounts.none++
+          unprocessedQuestionNumbers.push(qNum)
+        }
+      }
+    }
+
+    res.json({
+      isLocked: isLockedNow,
+      totalQuestions,
+      generatedCount,
+      unprocessedCount: unprocessedQuestionNumbers.length,
+      unprocessedQuestionNumbers,
+      statusCounts,
+    })
+  } catch (err) {
+    console.error('[GET PRACTICE EXPLANATION STATUS ERROR]', err)
+    res.status(500).json({ message: 'Lỗi server khi lấy trạng thái giải thích AI', error: err.message })
+  }
+})
+
 // ─── ADMIN: generate AI explanations with conflict detection ──────────────────
 router.post('/admin/:skill/:id/generate-explanations', authMiddleware, teacherStrict, async (req, res) => {
   const { id } = req.params

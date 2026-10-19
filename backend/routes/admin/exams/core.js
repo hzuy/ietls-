@@ -36,6 +36,90 @@ router.get('/exams/counts', authMiddleware, teacherOnly, async (req, res) => {
 
 const { acquireLock, releaseLock, isLocked } = require('../../../lib/explanationLock')
 
+// ─── ADMIN: GET EXPLANATION STATUS FOR EXAM (READ-ONLY) ─────────────────────
+router.get('/exams/:id/explanation-status', authMiddleware, teacherOnly, async (req, res) => {
+  const { id } = req.params
+  const examIdNum = parseInt(id, 10)
+  if (isNaN(examIdNum)) {
+    return res.status(400).json({ message: 'ID đề thi không hợp lệ' })
+  }
+
+  try {
+    const exam = await prisma.exam.findFirst({
+      where: { id: examIdNum, deletedAt: null },
+      select: { id: true, skill: true }
+    })
+    if (!exam) {
+      return res.status(404).json({ message: `Không tìm thấy đề thi #${examIdNum}` })
+    }
+
+    const whereClause = {
+      OR: [
+        { passage: { examId: examIdNum } },
+        { listeningSection: { examId: examIdNum } },
+        { group: { passage: { examId: examIdNum } } },
+        { group: { section: { examId: examIdNum } } },
+      ],
+    }
+
+    const questions = await prisma.question.findMany({
+      where: whereClause,
+      select: {
+        id: true,
+        number: true,
+        explanation: true,
+      },
+      orderBy: { number: 'asc' },
+    })
+
+    const lockKey = `exam:${examIdNum}`
+    const isLockedNow = isLocked(lockKey)
+
+    const statusCounts = {
+      ai_generated: 0,
+      teacher_reviewed: 0,
+      teacher_edited: 0,
+      conflict_pending: 0,
+      needs_regeneration: 0,
+      none: 0,
+    }
+    const unprocessedQuestionNumbers = []
+    let generatedCount = 0
+
+    for (const q of questions) {
+      let exp = q.explanation
+      if (typeof exp === 'string') {
+        try { exp = JSON.parse(exp) } catch { exp = null }
+      }
+      const hasExp = exp && typeof exp === 'object' && (exp.steps || exp.reasoning || exp.aiExplanation || exp.status)
+      if (hasExp) {
+        generatedCount++
+        const st = exp.status || 'ai_generated'
+        if (statusCounts[st] !== undefined) {
+          statusCounts[st]++
+        } else {
+          statusCounts.ai_generated++
+        }
+      } else {
+        statusCounts.none++
+        unprocessedQuestionNumbers.push(q.number)
+      }
+    }
+
+    res.json({
+      isLocked: isLockedNow,
+      totalQuestions: questions.length,
+      generatedCount,
+      unprocessedCount: unprocessedQuestionNumbers.length,
+      unprocessedQuestionNumbers,
+      statusCounts,
+    })
+  } catch (err) {
+    console.error('[GET EXAM EXPLANATION STATUS ERROR]', err)
+    res.status(500).json({ message: 'Lỗi server khi lấy trạng thái giải thích AI', error: err.message })
+  }
+})
+
 // ─── ADMIN: GENERATE EXPLANATIONS FOR EXAM WITH CONFLICT DETECTION ──────────
 router.post('/exams/:id/generate-explanations', authMiddleware, teacherOnly, async (req, res) => {
   const { id } = req.params
