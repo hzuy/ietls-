@@ -39,7 +39,10 @@ export default function ExplanationChipGrid({
   if (!questionsList || questionsList.length === 0) return null
 
   return (
-    <div className={`px-4 py-2.5 bg-zinc-50/80 border-b border-zinc-200/80 space-y-2 ${className}`}>
+    <div
+      data-testid="explanation-chip-grid"
+      className={`px-4 py-2.5 bg-zinc-50/80 border-b border-zinc-200/80 space-y-2 ${className}`}
+    >
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-bold text-zinc-600 flex items-center gap-1.5 uppercase tracking-wider">
           <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
@@ -60,11 +63,11 @@ export default function ExplanationChipGrid({
                 e.stopPropagation()
                 onSelectQuestion?.({ question: q, qNum, explanation: exp })
               }}
-              className="h-9 w-full min-w-0 px-2.5 inline-flex items-center justify-between gap-1.5 rounded-lg text-xs font-medium border bg-white hover:bg-zinc-50 border-zinc-200 hover:border-zinc-300 text-zinc-800 transition shadow-2xs cursor-pointer select-none"
+              className="h-10 w-full min-w-0 px-1.5 sm:px-2 inline-flex items-center justify-between gap-1 rounded-xl text-xs font-medium border bg-white hover:bg-zinc-50 border-zinc-200 hover:border-zinc-300 text-zinc-800 transition shadow-2xs cursor-pointer select-none"
               title={`Xem, duyệt, góp ý hoặc sửa tay giải thích câu ${qNum}`}
             >
-              <span className="font-semibold shrink-0">Câu {qNum}</span>
-              <ExplanationStatusBadge explanation={exp} className="shrink min-w-0" />
+              <span className="font-bold text-[11px] shrink-0 text-zinc-900">Câu {qNum}</span>
+              <ExplanationStatusBadge explanation={exp} />
             </button>
           )
         })}

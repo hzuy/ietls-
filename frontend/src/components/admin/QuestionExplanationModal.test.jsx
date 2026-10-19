@@ -43,13 +43,13 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
     it('correctly maps teacher_edited status', () => {
       const info = getExplanationStatusInfo({ status: 'teacher_edited' })
       expect(info.status).toBe('teacher_edited')
-      expect(info.label).toBe('Đã sửa tay')
+      expect(info.label).toBe('Đã sửa')
     })
 
     it('correctly maps conflict_pending status', () => {
       const info = getExplanationStatusInfo({ status: 'conflict_pending' })
       expect(info.status).toBe('conflict_pending')
-      expect(info.label).toBe('Chờ duyệt (Lệch)')
+      expect(info.label).toBe('Chờ duyệt')
     })
 
     it('correctly maps needs_regeneration status', () => {
@@ -272,8 +272,8 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
       // Dialog container has fixed dimensions
       const dialog = screen.getByRole('dialog')
       const modalBox = dialog.querySelector('.bg-white.rounded-3xl')
-      expect(modalBox.className).toContain('w-[880px]')
-      expect(modalBox.className).toContain('h-[660px]')
+      expect(modalBox.className).toContain('w-[960px]')
+      expect(modalBox.className).toContain('h-[720px]')
 
       // Only 1 "Đóng" button exists (the "X" icon button in the header), no footer "Đóng" text button
       const closeButtons = screen.getAllByRole('button', { name: /Đóng/i })

@@ -20,7 +20,7 @@ describe('ExplanationChipGrid', () => {
     expect(gridEl.className).toContain('lg:grid-cols-5')
 
     const chip = screen.getByRole('button', { name: /Câu 1/i })
-    expect(chip.className).toContain('h-9')
+    expect(chip.className).toContain('h-10')
     expect(chip.className).toContain('w-full')
     expect(screen.getByText('AI sinh')).toBeInTheDocument()
   })
@@ -32,7 +32,7 @@ describe('ExplanationChipGrid', () => {
     for (let i = 1; i <= 5; i++) {
       const chip = screen.getByRole('button', { name: new RegExp(`Câu ${i}`, 'i') })
       expect(chip).toBeInTheDocument()
-      expect(chip.className).toContain('h-9')
+      expect(chip.className).toContain('h-10')
       expect(chip.className).toContain('w-full')
     }
   })
@@ -45,8 +45,8 @@ describe('ExplanationChipGrid', () => {
     render(<ExplanationChipGrid questions={questions} />)
 
     expect(screen.getAllByRole('button').length).toBe(7)
-    expect(screen.getByText('Đã sửa tay')).toBeInTheDocument()
-    expect(screen.getByText('Chờ duyệt (Lệch)')).toBeInTheDocument()
+    expect(screen.getByText('Đã sửa')).toBeInTheDocument()
+    expect(screen.getByText('Chờ duyệt')).toBeInTheDocument()
   })
 
   it('renders correctly with groups of 10 questions', () => {
