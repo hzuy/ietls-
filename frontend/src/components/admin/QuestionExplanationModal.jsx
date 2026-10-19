@@ -85,11 +85,11 @@ export function ExplanationStatusBadge({ explanation, className = '' }) {
   const info = getExplanationStatusInfo(explanation)
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${info.badgeClass} ${className}`}
+      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold border min-w-0 max-w-full ${info.badgeClass} ${className}`}
       title={`Trạng thái: ${info.label}`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${info.dotClass} shrink-0`} />
-      <span>{info.label}</span>
+      <span className="truncate">{info.label}</span>
     </span>
   )
 }
@@ -290,7 +290,7 @@ export default function QuestionExplanationModal({
         }
       }}
     >
-      <div className="bg-white rounded-3xl max-w-4xl w-full p-5 sm:p-6 shadow-2xl relative border border-zinc-100 flex flex-col max-h-[92vh] my-auto">
+      <div className="bg-white rounded-3xl w-[880px] max-w-[95vw] h-[660px] max-h-[92vh] p-5 sm:p-6 shadow-2xl relative border border-zinc-100 flex flex-col my-auto">
         {/* Toast notification */}
         {toastMessage && (
           <div className="absolute top-4 right-14 z-20 bg-zinc-900 text-white px-3.5 py-1.5 rounded-full text-xs font-semibold shadow-lg flex items-center gap-1.5 animate-in fade-in slide-in-from-top-2">
@@ -489,44 +489,12 @@ export default function QuestionExplanationModal({
                   <span>{feedbackText.length}/1000</span>
                 </div>
               </div>
-
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={handleRegenerate}
-                  disabled={isRegenerating || isAIBusy}
-                  className="w-full py-2.5 px-4 rounded-2xl bg-zinc-900 text-white text-xs font-bold hover:bg-zinc-800 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shadow-sm"
-                  title={isAIBusy ? "Đang có tác vụ AI khác đang chạy..." : undefined}
-                >
-                  {isRegenerating ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
-                      AI đang suy luận và tạo lại lời giải...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4 text-amber-400" />
-                      Tạo lại lời giải với AI
-                    </>
-                  )}
-                </button>
-              </div>
             </div>
           )}
 
           {/* TAB 3: DIRECT MANUAL EDIT */}
           {activeTab === 'edit' && (
             <div className="space-y-4">
-              <div className="rounded-2xl bg-indigo-50/60 border border-indigo-200 p-3.5 text-xs text-indigo-900 leading-relaxed">
-                <p className="font-bold mb-1 flex items-center gap-1.5">
-                  <Edit3 className="w-4 h-4 text-indigo-600" />
-                  Sửa tay an toàn (3.7)
-                </p>
-                <p>
-                  Nội dung sửa tay sẽ được render dưới dạng văn bản thuần an toàn cho học sinh và gắn nhãn "Đã sửa tay". Để đảm bảo tính toàn vẹn dữ liệu, trường <em>Bằng chứng (evidence)</em> và <em>Đáp án (answer)</em> được giữ nguyên.
-                </p>
-              </div>
-
               {editError && (
                 <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-xs text-red-700 flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
@@ -645,72 +613,86 @@ export default function QuestionExplanationModal({
                   </div>
                 ))}
               </div>
-
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={handleSaveEdit}
-                  disabled={isSavingEdit || isAIBusy}
-                  className="w-full py-2.5 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shadow-sm"
-                  title={isAIBusy ? "Đang có tác vụ AI khác đang chạy..." : undefined}
-                >
-                  {isSavingEdit ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Đang lưu chỉnh sửa...
-                    </>
-                  ) : (
-                    <>
-                      <Check className="w-4 h-4" />
-                      Lưu thay đổi lời giải
-                    </>
-                  )}
-                </button>
-              </div>
             </div>
           )}
         </div>
 
         {/* Modal Footer */}
-        <div className="pt-3 border-t border-zinc-100 flex items-center justify-between shrink-0 flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            {statusInfo.status === 'teacher_reviewed' ? (
-              <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-300 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
-                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                Đã duyệt bởi giáo viên
-              </span>
-            ) : statusInfo.status === 'teacher_edited' ? (
-              <span className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-300 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
-                <Check className="w-3.5 h-3.5 text-indigo-600" />
-                Đã sửa tay bởi giáo viên
-              </span>
-            ) : (
-              <button
-                type="button"
-                onClick={handleReview}
-                disabled={isReviewing || !currentExplanation || isAIBusy}
-                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-40 shadow-xs"
-                title={isAIBusy ? "Đang có tác vụ AI khác đang chạy..." : "Đánh dấu đã duyệt để công bố cho học sinh"}
-              >
-                {isReviewing ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Check className="w-3.5 h-3.5" />
-                )}
-                Duyệt giải thích
-              </button>
-            )}
-          </div>
+        <div className="pt-3 border-t border-zinc-100 flex items-center justify-end shrink-0 gap-2">
+          {activeTab === 'view' && (
+            <div className="flex items-center gap-2">
+              {statusInfo.status === 'teacher_reviewed' ? (
+                <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-300 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  Đã duyệt bởi giáo viên
+                </span>
+              ) : statusInfo.status === 'teacher_edited' ? (
+                <span className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-300 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                  <Check className="w-3.5 h-3.5 text-indigo-600" />
+                  Đã sửa tay bởi giáo viên
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleReview}
+                  disabled={isReviewing || !currentExplanation || isAIBusy}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-40 shadow-xs"
+                  title={isAIBusy ? "Đang có tác vụ AI khác đang chạy..." : `Đánh dấu đã duyệt câu ${qNum} để công bố cho học sinh`}
+                >
+                  {isReviewing ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Check className="w-3.5 h-3.5" />
+                  )}
+                  Duyệt giải thích câu {qNum}
+                </button>
+              )}
+            </div>
+          )}
 
-          <div className="flex items-center gap-2">
+          {activeTab === 'feedback' && (
             <button
               type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-xl border border-zinc-200 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 transition cursor-pointer"
+              onClick={handleRegenerate}
+              disabled={isRegenerating || isAIBusy}
+              className="py-2 px-4 rounded-xl bg-zinc-900 text-white text-xs font-bold hover:bg-zinc-800 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shadow-xs"
+              title={isAIBusy ? "Đang có tác vụ AI khác đang chạy..." : undefined}
             >
-              Đóng
+              {isRegenerating ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+                  AI đang suy luận và tạo lại lời giải...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  Tạo lại lời giải với AI
+                </>
+              )}
             </button>
-          </div>
+          )}
+
+          {activeTab === 'edit' && (
+            <button
+              type="button"
+              onClick={handleSaveEdit}
+              disabled={isSavingEdit || isAIBusy}
+              className="py-2 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shadow-xs"
+              title={isAIBusy ? "Đang có tác vụ AI khác đang chạy..." : undefined}
+            >
+              {isSavingEdit ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Đang lưu chỉnh sửa...
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4" />
+                  Lưu chỉnh sửa
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>

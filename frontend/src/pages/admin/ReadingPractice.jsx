@@ -29,7 +29,7 @@ import { validatePracticeReading, formatValidationAlert } from '../../utils/ques
 import { executeTimedAIGenerationLoop } from '../../utils/examExplanationUtils'
 
 // ─── PREVIEW MODAL ────────────────────────────────────────────────────────────
-function ReadingPracticePreviewModal({ form, showAnswers, setShowAnswers, showExplanations, setShowExplanations, onClose }) {
+function ReadingPracticePreviewModal({ form, showAnswers, setShowAnswers, onClose }) {
   const [leftPct, setLeftPct] = useState(50)
   const [dragging, setDragging] = useState(false)
   const containerRef = useRef(null)
@@ -69,14 +69,6 @@ function ReadingPracticePreviewModal({ form, showAnswers, setShowAnswers, showEx
               className={`text-xs px-3 py-1 rounded-full font-semibold transition cursor-pointer ${showAnswers ? 'bg-zinc-900 text-white' : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50'}`}>
               {showAnswers ? 'Ẩn đáp án' : 'Hiện đáp án'}
             </button>
-            <button type="button" onClick={() => setShowExplanations(v => {
-              const next = !v
-              if (next) setShowAnswers(true)
-              return next
-            })}
-              className={`text-xs px-3 py-1 rounded-full font-semibold transition cursor-pointer ${showExplanations ? 'bg-zinc-900 text-white' : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50'}`}>
-              {showExplanations ? 'Ẩn giải thích' : 'Hiện giải thích'}
-            </button>
           </div>
           <button type="button" onClick={onClose}
             className="text-xs px-3 py-1.5 rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-100 transition font-medium cursor-pointer">
@@ -96,7 +88,7 @@ function ReadingPracticePreviewModal({ form, showAnswers, setShowAnswers, showEx
             onMouseLeave={e => { if (!dragging) e.currentTarget.style.background = '#e4e4e7' }} />
           <div className="flex-1 overflow-y-auto bg-zinc-50 px-6 py-6">
             {form.questionGroups.length > 0
-              ? form.questionGroups.map((g, gi) => <AdminGroupPreview key={gi} group={g} showAnswers={showAnswers} showExplanations={showExplanations} />)
+              ? form.questionGroups.map((g, gi) => <AdminGroupPreview key={gi} group={g} showAnswers={showAnswers} />)
               : <p className="text-sm text-zinc-400 italic text-center mt-10">Chưa có câu hỏi</p>}
           </div>
         </div>
@@ -133,7 +125,6 @@ export default function ReadingPractice() {
   const [addGroupType, setAddGroupType] = useState(READING_GROUP_TYPES[0].value)
   const [showPreview, setShowPreview] = useState(false)
   const [showAnswers, setShowAnswers] = useState(false)
-  const [showExplanations, setShowExplanations] = useState(false)
   const [generatingAI, setGeneratingAI] = useState(false)
   const [aiConflicts, setAiConflicts] = useState([])
   const [conflictModalOpen, setConflictModalOpen] = useState(false)
@@ -663,9 +654,7 @@ export default function ReadingPractice() {
             form={form}
             showAnswers={showAnswers}
             setShowAnswers={setShowAnswers}
-            showExplanations={showExplanations}
-            setShowExplanations={setShowExplanations}
-            onClose={() => { setShowPreview(false); setShowAnswers(false); setShowExplanations(false) }}
+            onClose={() => { setShowPreview(false); setShowAnswers(false) }}
           />
         )}
 

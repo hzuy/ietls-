@@ -30,6 +30,7 @@ import { Volume2, Upload, Eye, ChevronDown, BookOpen, Loader2, Sparkles } from '
 import ExplanationConflictModal from './ExplanationConflictModal'
 import OverwriteProtectedConfirmModal from './OverwriteProtectedConfirmModal'
 import QuestionExplanationModal, { ExplanationStatusBadge } from './QuestionExplanationModal'
+import ExplanationChipGrid from './ExplanationChipGrid'
 import UnsavedChangesAIModal from './UnsavedChangesAIModal'
 import ExamExplanationOverviewBadge from './ExamExplanationOverviewBadge'
 import {
@@ -43,7 +44,7 @@ import {
 
 // ─── PREVIEW: LISTENING FORM ──────────────────────────────────────────────────
 
-function ListeningFormPreview({ form, showAnswers, showExplanations }) {
+function ListeningFormPreview({ form, showAnswers }) {
   const [activeSection, setActiveSection] = useState(0)
   const section = form.sections[activeSection]
 
@@ -84,7 +85,7 @@ function ListeningFormPreview({ form, showAnswers, showExplanations }) {
           {section.questionGroups.length > 0 ? (
             <div className="space-y-3">
               {section.questionGroups.map((group, gi) => (
-                <AdminGroupPreview key={gi} group={group} showAnswers={showAnswers} showExplanations={showExplanations} />
+                <AdminGroupPreview key={gi} group={group} showAnswers={showAnswers} />
               ))}
             </div>
           ) : (
@@ -168,32 +169,11 @@ function GroupEditor({ group = {}, onChange, onRemove, examId, passage = '', onG
       </div>
 
       {/* Cột danh sách câu hỏi & huy hiệu giải thích */}
-      {questionsList.length > 0 && (
-        <div className="px-4 py-2.5 bg-zinc-50/80 border-b border-zinc-200/80 flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-bold text-zinc-600 flex items-center gap-1 shrink-0 uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-            <span>Giải thích 4 bước:</span>
-          </span>
-          <div className="flex flex-wrap items-center gap-1.5 flex-1">
-            {questionsList.map(q => {
-              const qNum = q.number
-              const exp = q.explanation || group.explanations?.[qNum] || group.explanations?.[String(qNum)]
-              return (
-                <button
-                  key={qNum}
-                  type="button"
-                  onClick={() => setSelectedQModal({ question: q, qNum, explanation: exp })}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border bg-white hover:bg-zinc-50 border-zinc-200 hover:border-zinc-300 text-zinc-800 transition shadow-2xs cursor-pointer"
-                  title={`Xem, duyệt, góp ý hoặc sửa tay giải thích câu ${qNum}`}
-                >
-                  <span className="font-semibold">Câu {qNum}</span>
-                  <ExplanationStatusBadge explanation={exp} />
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
+      <ExplanationChipGrid
+        questions={questionsList}
+        group={group}
+        onSelectQuestion={(data) => setSelectedQModal(data)}
+      />
 
       <div className="p-4 space-y-3">
         <div>
@@ -294,7 +274,6 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   const [loadingEdit, setLoadingEdit] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [showAnswers, setShowAnswers] = useState(false)
-  const [showExplanations, setShowExplanations] = useState(false)
   const [toast, setToast] = useState('')
   const [draftBanner, setDraftBanner] = useState(null)
   const [editHighlight, setEditHighlight] = useState(false)
@@ -1267,11 +1246,9 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
             title={form.title || 'Listening'}
             showAnswers={showAnswers}
             setShowAnswers={setShowAnswers}
-            showExplanations={showExplanations}
-            setShowExplanations={setShowExplanations}
             onClose={() => setShowPreview(false)}
           >
-            <ListeningFormPreview form={form} showAnswers={showAnswers} showExplanations={showExplanations} />
+            <ListeningFormPreview form={form} showAnswers={showAnswers} />
           </InlinePreviewPanel>
         </div>
       )}

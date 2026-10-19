@@ -30,7 +30,7 @@ import { validatePracticeListening, formatValidationAlert } from '../../utils/qu
 import { executeTimedAIGenerationLoop } from '../../utils/examExplanationUtils'
 
 // ─── PREVIEW MODAL ────────────────────────────────────────────────────────────
-function ListeningPracticePreviewModal({ form, showAnswers, setShowAnswers, showExplanations, setShowExplanations, onClose }) {
+function ListeningPracticePreviewModal({ form, showAnswers, setShowAnswers, onClose }) {
   const [leftPct, setLeftPct] = useState(42)
   const [dragging, setDragging] = useState(false)
   const containerRef = useRef(null)
@@ -72,14 +72,6 @@ function ListeningPracticePreviewModal({ form, showAnswers, setShowAnswers, show
             <button type="button" onClick={() => setShowAnswers(v => !v)}
               className={`text-xs px-3 py-1 rounded-full font-semibold transition cursor-pointer ${showAnswers ? 'bg-zinc-900 text-white' : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50'}`}>
               {showAnswers ? 'Ẩn đáp án' : 'Hiện đáp án'}
-            </button>
-            <button type="button" onClick={() => setShowExplanations(v => {
-              const next = !v
-              if (next) setShowAnswers(true)
-              return next
-            })}
-              className={`text-xs px-3 py-1 rounded-full font-semibold transition cursor-pointer ${showExplanations ? 'bg-zinc-900 text-white' : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50'}`}>
-              {showExplanations ? 'Ẩn giải thích' : 'Hiện giải thích'}
             </button>
           </div>
           <button type="button" onClick={onClose}
@@ -148,7 +140,6 @@ function ListeningPracticePreviewModal({ form, showAnswers, setShowAnswers, show
                     key={gi}
                     group={g}
                     showAnswers={showAnswers}
-                    showExplanations={showExplanations}
                   />
                 ))
               : <p className="text-sm text-zinc-400 italic text-center mt-10">Chưa có câu hỏi</p>}
@@ -192,7 +183,6 @@ export default function ListeningPractice() {
   const [addGroupType, setAddGroupType] = useState(LISTENING_GROUP_TYPES[0].value)
   const [showPreview, setShowPreview] = useState(false)
   const [showAnswers, setShowAnswers] = useState(false)
-  const [showExplanations, setShowExplanations] = useState(false)
   const [generatingAI, setGeneratingAI] = useState(false)
   const [aiConflicts, setAiConflicts] = useState([])
   const [conflictModalOpen, setConflictModalOpen] = useState(false)
@@ -937,9 +927,7 @@ export default function ListeningPractice() {
             form={form}
             showAnswers={showAnswers}
             setShowAnswers={setShowAnswers}
-            showExplanations={showExplanations}
-            setShowExplanations={setShowExplanations}
-            onClose={() => { setShowPreview(false); setShowAnswers(false); setShowExplanations(false) }}
+            onClose={() => { setShowPreview(false); setShowAnswers(false) }}
           />
         )}
 

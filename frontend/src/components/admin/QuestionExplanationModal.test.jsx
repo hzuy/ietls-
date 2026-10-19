@@ -120,7 +120,7 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
       )
 
       expect(screen.getByRole('dialog')).toBeInTheDocument()
-      expect(screen.getByText(/Câu 1/i)).toBeInTheDocument()
+      expect(screen.getAllByText(/Câu 1/i)[0]).toBeInTheDocument()
       expect(screen.getByText(/Oxygen is the vital element found in the core layer/i)).toBeInTheDocument()
       expect(screen.getByText(/The text directly mentions oxygen/i)).toBeInTheDocument()
     })
@@ -241,7 +241,7 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
       const reasoningTextarea = screen.getByPlaceholderText(/Lập luận vì sao đáp án này đúng/i)
       fireEvent.change(reasoningTextarea, { target: { value: 'Teacher custom reasoning.' } })
 
-      const saveBtn = screen.getByRole('button', { name: /Lưu thay đổi lời giải/i })
+      const saveBtn = screen.getByRole('button', { name: /Lưu chỉnh sửa/i })
       fireEvent.click(saveBtn)
 
       await waitFor(() => {
@@ -254,5 +254,61 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
       })
       expect(handleUpdated).toHaveBeenCalled()
     })
+
+    it('has fixed dimensions, no "Đóng" button in footer, and only "X" button to close', () => {
+      render(
+        <QuestionExplanationModal
+          isOpen={true}
+          onClose={vi.fn()}
+          examId={10}
+          questionNumber={1}
+          isPractice={true}
+          skill="reading"
+          question={sampleQuestion}
+          initialExplanation={sampleExplanation}
+        />
+      )
+
+      // Dialog container has fixed dimensions
+      const dialog = screen.getByRole('dialog')
+      const modalBox = dialog.querySelector('.bg-white.rounded-3xl')
+      expect(modalBox.className).toContain('w-[880px]')
+      expect(modalBox.className).toContain('h-[660px]')
+
+      // Only 1 "Đóng" button exists (the "X" icon button in the header), no footer "Đóng" text button
+      const closeButtons = screen.getAllByRole('button', { name: /Đóng/i })
+      expect(closeButtons).toHaveLength(1)
+      expect(closeButtons[0].querySelector('svg')).toBeInTheDocument()
+    })
+
+    it('shows "Duyệt giải thích câu 1" only on view tab, never on feedback or edit tabs', () => {
+      render(
+        <QuestionExplanationModal
+          isOpen={true}
+          onClose={vi.fn()}
+          examId={10}
+          questionNumber={1}
+          isPractice={true}
+          skill="reading"
+          question={sampleQuestion}
+          initialExplanation={{ ...sampleExplanation, status: 'ai_generated' }}
+        />
+      )
+
+      // On view tab: shows "Duyệt giải thích câu 1"
+      expect(screen.getByRole('button', { name: /Duyệt giải thích câu 1/i })).toBeInTheDocument()
+
+      // Switch to feedback tab: no review button, has regenerate button
+      fireEvent.click(screen.getByRole('tab', { name: /Góp ý & Tạo lại/i }))
+      expect(screen.queryByRole('button', { name: /Duyệt giải thích/i })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Tạo lại lời giải với AI/i })).toBeInTheDocument()
+
+      // Switch to edit tab: no review button, has save button and NO "Sửa tay an toàn (3.7)"
+      fireEvent.click(screen.getByRole('tab', { name: /Sửa trực tiếp/i }))
+      expect(screen.queryByRole('button', { name: /Duyệt giải thích/i })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Lưu chỉnh sửa/i })).toBeInTheDocument()
+      expect(screen.queryByText(/Sửa tay an toàn \(3\.7\)/i)).not.toBeInTheDocument()
+    })
   })
 })
+

@@ -6,6 +6,7 @@ import {
   inputCls, labelCls,
 } from '../../utils/practiceConfig'
 import QuestionExplanationModal, { ExplanationStatusBadge } from './QuestionExplanationModal'
+import ExplanationChipGrid from './ExplanationChipGrid'
 import TrueFalseEditor from '../practice/TrueFalseEditor'
 import NoteCompletionEditor from './editors/NoteCompletionEditor'
 import TableCompletionEditor from './editors/TableCompletionEditor'
@@ -140,32 +141,11 @@ export default function PracticeGroupCard({
       </div>
 
       {/* Cột danh sách câu hỏi & huy hiệu giải thích */}
-      {questionsList.length > 0 && (
-        <div className="px-4 py-2.5 bg-zinc-50/80 border-b border-zinc-200/80 flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-bold text-zinc-600 flex items-center gap-1 shrink-0 uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-            <span>Giải thích 4 bước:</span>
-          </span>
-          <div className="flex flex-wrap items-center gap-1.5 flex-1">
-            {questionsList.map(q => {
-              const qNum = q.number
-              const exp = group.explanations?.[qNum] || group.explanations?.[String(qNum)]
-              return (
-                <button
-                  key={qNum}
-                  type="button"
-                  onClick={stop(() => setSelectedQModal({ question: q, qNum, explanation: exp }))}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border bg-white hover:bg-zinc-50 border-zinc-200 hover:border-zinc-300 text-zinc-800 transition shadow-2xs cursor-pointer"
-                  title={`Xem, duyệt, góp ý hoặc sửa tay giải thích câu ${qNum}`}
-                >
-                  <span className="font-semibold">Câu {qNum}</span>
-                  <ExplanationStatusBadge explanation={exp} />
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
+      <ExplanationChipGrid
+        questions={questionsList}
+        group={group}
+        onSelectQuestion={(data) => setSelectedQModal(data)}
+      />
 
       {expanded && (
       <div id={bodyId} role="region" aria-label={`Nội dung nhóm ${typeLabel}`} className="p-4 space-y-3">

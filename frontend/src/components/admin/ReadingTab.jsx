@@ -33,7 +33,7 @@ import {
 
 // ─── TAB: READING ─────────────────────────────────────────────────────────────
 
-function ReadingFormPreview({ form, showAnswers, showExplanations }) {
+function ReadingFormPreview({ form, showAnswers }) {
   const [activePassage, setActivePassage] = useState(0)
   const [leftPct, setLeftPct] = useState(40)
   const [dragging, setDragging] = useState(false)
@@ -121,7 +121,7 @@ function ReadingFormPreview({ form, showAnswers, showExplanations }) {
             {sortedGroups.length > 0 ? (
               <div className="space-y-3">
                 {sortedGroups.map((group, gi) => (
-                  <AdminGroupPreview key={gi} group={group} showAnswers={showAnswers} showExplanations={showExplanations} />
+                  <AdminGroupPreview key={gi} group={group} showAnswers={showAnswers} />
                 ))}
               </div>
             ) : (
@@ -346,7 +346,6 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   const [addingGroupPassage, setAddingGroupPassage] = useState(null)
   const [showPreview, setShowPreview] = useState(false)
   const [showAnswers, setShowAnswers] = useState(false)
-  const [showExplanations, setShowExplanations] = useState(false)
   const [toast, setToast] = useState('')
   const [draftBanner, setDraftBanner] = useState(null)
   const [editHighlight, setEditHighlight] = useState(false)
@@ -1220,11 +1219,9 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
             title={form.title || 'Reading'}
             showAnswers={showAnswers}
             setShowAnswers={setShowAnswers}
-            showExplanations={showExplanations}
-            setShowExplanations={setShowExplanations}
             onClose={() => setShowPreview(false)}
           >
-            <ReadingFormPreview form={form} showAnswers={showAnswers} showExplanations={showExplanations} />
+            <ReadingFormPreview form={form} showAnswers={showAnswers} />
           </InlinePreviewPanel>
         </div>
       )}
