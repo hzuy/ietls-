@@ -392,6 +392,14 @@ export default function ReadingPractice() {
         setAiConflicts(loopResult.conflicts || [])
         setConflictModalOpen(true)
         showToast('AI phát hiện đáp án có sự khác biệt so với bài đọc. Vui lòng kiểm tra!', 'warning')
+      } else if (loopResult.errors?.length) {
+        const firstErr = loopResult.errors[0]
+        const msg = firstErr?.message || 'Không thể tạo giải thích bằng AI'
+        if (firstErr?.status === 409) {
+          showAlert(msg, 'warning')
+        } else {
+          showToast(msg, 'error')
+        }
       } else {
         showToast(`Đã tạo giải thích 4 bước thành công cho ${loopResult.totalGenerated} câu hỏi!`, 'success')
         setConflictModalOpen(false)

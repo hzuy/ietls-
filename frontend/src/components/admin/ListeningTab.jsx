@@ -448,6 +448,15 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       } else if (loopResult.hasConflicts) {
         setAiConflicts(loopResult.conflicts || [])
         setConflictModalOpen(true)
+      } else if (loopResult.errors?.length) {
+        const firstErr = loopResult.errors[0]
+        const msg = firstErr?.message || 'Không thể tạo giải thích cho nhóm này'
+        if (firstErr?.status === 409) {
+          showAlert(msg, 'warning')
+          showToast(msg)
+        } else {
+          showToast(msg)
+        }
       } else {
         showToast(`Đã tạo giải thích cho nhóm câu ${group.qNumberStart}–${group.qNumberEnd}!`)
         setConflictModalOpen(false)
@@ -541,6 +550,18 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         }
 
         if (loopResult.cancelled) break
+        if (loopResult.errors?.length) {
+          const firstErr = loopResult.errors[0]
+          const msg = firstErr?.message || 'Lỗi khi tạo giải thích'
+          if (firstErr?.status === 409) {
+            showAlert(msg, 'warning')
+            showToast(msg)
+            break
+          } else {
+            failedGroups.push({ group, error: msg })
+            showToast(`Nhóm câu ${group.qNumberStart}–${group.qNumberEnd}: ${msg}`)
+          }
+        }
       } catch (err) {
         if (err.response?.status === 409) {
           const msg = err.response?.data?.message || 'Đang có một tác vụ AI khác đang chạy cho đề thi này. Vui lòng chờ hoàn thành.'
