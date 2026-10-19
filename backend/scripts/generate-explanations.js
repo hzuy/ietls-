@@ -85,6 +85,51 @@ function normalizeText(s) {
     .toLowerCase()
 }
 
+const ROMAN_NUMERALS = new Set([
+  'i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x',
+  'xi', 'xii', 'xiii', 'xiv', 'xv', 'xvi', 'xvii', 'xviii', 'xix', 'xx',
+])
+
+function stripTrailingPunctuation(str) {
+  if (typeof str !== 'string') return ''
+  return str.trim().replace(/[.,;:!?]+$/, '').trim()
+}
+
+function extractOptionPairs(rawOptions) {
+  if (!rawOptions) return []
+  let opts = rawOptions
+  if (typeof opts === 'string') {
+    try { opts = JSON.parse(opts) } catch { return [] }
+  }
+  if (!Array.isArray(opts)) return []
+
+  return opts.map((item, index) => {
+    const defaultLetter = String.fromCharCode(65 + index)
+    if (typeof item === 'string') {
+      const trimmed = item.trim()
+      // Check Roman numeral prefix: "iv. Heading text"
+      const romanMatch = trimmed.match(/^(x{0,3}(?:ix|iv|v?i{1,3}))[\.\:\)]\s*(.*)$/i)
+      if (romanMatch && ROMAN_NUMERALS.has(romanMatch[1].toLowerCase())) {
+        return { letter: romanMatch[1].toLowerCase(), text: stripTrailingPunctuation(romanMatch[2]) }
+      }
+      // Check letter prefix: "A. Option text"
+      const letterMatch = trimmed.match(/^([A-Za-z])[\.\:\)]\s*(.*)$/)
+      if (letterMatch) {
+        return { letter: letterMatch[1].toUpperCase(), text: stripTrailingPunctuation(letterMatch[2]) }
+      }
+      return { letter: defaultLetter, text: stripTrailingPunctuation(trimmed) }
+    }
+    if (item && typeof item === 'object') {
+      const rawLetter = String(item.optionLetter || item.letter || defaultLetter).trim()
+      const isRoman = ROMAN_NUMERALS.has(rawLetter.toLowerCase())
+      const letter = isRoman ? rawLetter.toLowerCase() : rawLetter.toUpperCase()
+      const text = stripTrailingPunctuation(item.optionText || item.text || '')
+      return { letter, text }
+    }
+    return { letter: defaultLetter, text: String(item || '') }
+  }).filter(Boolean)
+}
+
 function splitParagraphs(text) {
   return String(text || '').split(/\n\s*\n|\n/).map(s => s.trim()).filter(Boolean)
 }
@@ -243,30 +288,16 @@ function buildContext(q, family) {
   return { skill, parts, sourceText: passageText }
 }
 
-function buildPrompt(q, family, ctx, previousError = null, teacherFeedback = null) {
+function buildPrompt(q, family, ctx, previousError = null, teacherFeedback = null, optionsOrFixed = {}) {
+  const isFixedMode = Boolean(optionsOrFixed?.isFixedMode)
+  const targetAnswer = optionsOrFixed?.targetAnswer != null ? String(optionsOrFixed.targetAnswer).trim() : null
   const skillLabel = ctx.skill === 'reading' ? 'Reading' : ctx.skill === 'listening' ? 'Listening' : 'Practice'
   const sourceName = ctx.skill === 'listening' ? 'transcript' : 'bài đọc'
+
   let optionsBlock = ''
-  if (q.options) {
-    try {
-      let opts = q.options
-      if (typeof opts === 'string') opts = JSON.parse(opts)
-      if (Array.isArray(opts) && opts.length) {
-        optionsBlock = `- Các lựa chọn: ${opts.map((o, i) => {
-          const letter = String.fromCharCode(65 + i)
-          if (typeof o === 'string') {
-            const clean = o.replace(/^[A-Z][\.\:\)]\s*/i, '')
-            return `${letter}. ${clean}`
-          }
-          if (o && typeof o === 'object') {
-            const optLetter = o.optionLetter || o.letter || letter
-            const optText = o.optionText || o.text || ''
-            return `${optLetter}. ${optText}`
-          }
-          return `${letter}. ${o}`
-        }).join(' | ')}\n`
-      }
-    } catch { /* options không parse được — bỏ qua, không chặn cả câu */ }
+  const pairs = extractOptionPairs(q.options || (q.group?.matchingOptions?.length ? q.group.matchingOptions : null))
+  if (pairs.length > 0) {
+    optionsBlock = `- Các lựa chọn: ${pairs.map(p => `${p.letter}. ${p.text}`).join(' | ')}\n`
   }
 
   const contextBlock = ctx.parts.map(p => `${p.label}:\n${p.text}`).join('\n\n')
@@ -279,6 +310,57 @@ function buildPrompt(q, family, ctx, previousError = null, teacherFeedback = nul
     ? `\nGÓP Ý / HƯỚNG DẪN TỪ GIÁO VIÊN: "${teacherFeedback}"\n(LƯU Ý: Góp ý này chỉ định hướng cách giải thích và trọng tâm cần làm rõ. Mọi dẫn chứng bắt buộc phải trích NGUYÊN VĂN từ ${sourceName}, không được bịa đặt dẫn chứng.)\n`
     : ''
 
+  let modeInstruction = ''
+  let jsonFieldsInstruction = ''
+
+  if (isFixedMode && targetAnswer) {
+    modeInstruction = `CHẾ ĐỘ GIẢI THÍCH THEO ĐÁP ÁN ĐÃ CHỐT:
+1. Đáp án đã chốt cho câu hỏi này là: "${targetAnswer}".
+2. Bạn hãy đóng vai gia sư IELTS giải thích theo phương pháp Linear thinking vì sao đáp án "${targetAnswer}" là đúng dựa trên ${sourceName}.
+3. Mọi bằng chứng trích dẫn trong "evidence_quote" bắt buộc phải chép NGUYÊN VĂN từ ${sourceName}.
+4. QUY TẮC BẮT BUỘC VỀ "no_support":
+   - Nếu trong ${sourceName} HOÀN TOÀN KHÔNG CÓ BẰNG CHỨNG ủng hộ đáp án "${targetAnswer}", hoặc ${sourceName} trực tiếp mâu thuẫn/bác bỏ đáp án này: Bạn TUYỆT ĐỐI KHÔNG ĐƯỢC BỊA ĐẶT DẪN CHỨNG!
+   - Trong trường hợp đó, bạn PHẢI trả về "no_support": true (kèm reasoning ngắn gọn chỉ rõ bài không hỗ trợ).
+   - Nếu tìm thấy bằng chứng hợp lệ ủng hộ đáp án, đặt "no_support": false hoặc không cần trả trường này.`
+
+    jsonFieldsInstruction = `{
+  "no_support": false,
+  "question_chunks": [{ "text": "cụm tiếng Anh của câu hỏi", "label": "nghĩa/vai trò của cụm, 2-6 từ tiếng Việt" }],
+  "predict": "1-2 câu: câu hỏi cần thông tin gì, dự đoán loại đáp án",
+  "locate_note": "1-2 câu: ý nào trong câu hỏi giúp tìm vùng cần đọc, tìm thấy ở đâu",
+  "locate_keywords": ["1-3 cụm NGUYÊN VĂN trong ${sourceName} giúp định vị"],
+  "evidence_quote": "1-2 câu liên tiếp chép NGUYÊN VĂN từ ${sourceName} chứa thông tin trả lời",
+  "evidence_chunks": [{ "text": "cụm quan trọng NGUYÊN VĂN nằm trong evidence_quote", "label": "nghĩa tiếng Việt 2-8 từ" }],
+  "answer": "${targetAnswer}",
+  "full_sentence": "câu hoàn chỉnh sau khi điền đáp án (chỉ cho câu điền từ, còn lại để rỗng)",
+  "translation": "dịch tiếng Việt của full_sentence (để rỗng nếu full_sentence rỗng)",
+  "reasoning": "2-3 câu: chứng minh mạch tư duy vì sao đáp án này đúng theo ${sourceName}. Dành cho học sinh đọc — TUYỆT ĐỐI KHÔNG nhắc người dùng, người nhập, giáo viên, ngộ nhận.",
+  "paraphrases": [{ "question": "cụm trong câu hỏi", "question_label": "nghĩa", "passage": "cụm NGUYÊN VĂN trong ${sourceName}", "passage_label": "nghĩa" }],
+  "distractors": [{ "option": "lựa chọn/từ dễ nhầm", "label": "nghĩa ngắn", "reason": "1-2 câu vì sao sai" }]
+}`
+  } else {
+    modeInstruction = `QUY TẮC TỰ GIẢI ĐỘC LẬP:
+1. Bạn là chuyên gia IELTS có TƯ DUY PHẢN BIỆN ĐỘC LẬP. Bạn PHẢI tự mình giải câu hỏi độc lập 100% dựa trên bằng chứng trong ${sourceName}.
+2. Trường "answer": PHẢI là đáp án THỰC TẾ CHÍNH XÁC NHẤT theo ${sourceName} (nếu có lựa chọn A/B/C/D hoặc số La Mã, ghi đúng ký hiệu lựa chọn).
+3. Trường "reasoning": 2-3 câu chứng minh mạch tư duy vì sao đáp án đúng theo phương pháp Linear thinking. Đây là phần DÀNH CHO HỌC SINH ĐỌC. TUYỆT ĐỐI KHÔNG nhắc đến "người dùng", "người nhập", "giáo viên", "ngộ nhận", "thử thách", và KHÔNG phán xét người nhập. Chỉ tập trung vào dữ liệu ${sourceName} và mạch suy luận để ra đáp án đúng.
+4. Trường "distractors": Phân tích trung thực lý do các phương án nhiễu khác bị sai.`
+
+    jsonFieldsInstruction = `{
+  "question_chunks": [{ "text": "cụm tiếng Anh của câu hỏi", "label": "nghĩa/vai trò của cụm, 2-6 từ tiếng Việt" }],
+  "predict": "1-2 câu: câu hỏi cần thông tin gì, dự đoán loại đáp án",
+  "locate_note": "1-2 câu: ý nào trong câu hỏi giúp tìm vùng cần đọc, tìm thấy ở đâu",
+  "locate_keywords": ["1-3 cụm NGUYÊN VĂN trong ${sourceName} giúp định vị"],
+  "evidence_quote": "1-2 câu liên tiếp chép NGUYÊN VĂN từ ${sourceName} chứa thông tin trả lời, không viết tắt, không dùng dấu ... — nếu cần nhiều chỗ khác nhau trong ${sourceName}, chép riêng từng chỗ và ngăn cách bằng \\" | \\"",
+  "evidence_chunks": [{ "text": "cụm quan trọng NGUYÊN VĂN nằm trong evidence_quote", "label": "nghĩa tiếng Việt 2-8 từ" }],
+  "answer": "đáp án thực tế chính xác nhất theo ${sourceName} (ghi rõ chữ cái hoặc số La Mã và nội dung nếu là trắc nghiệm/nối)",
+  "full_sentence": "câu hoàn chỉnh sau khi điền đáp án (chỉ cho câu điền từ, còn lại để rỗng)",
+  "translation": "dịch tiếng Việt của full_sentence (để rỗng nếu full_sentence rỗng)",
+  "reasoning": "2-3 câu: chứng minh mạch tư duy vì sao đáp án này đúng theo ${sourceName}. Dành cho học sinh đọc — TUYỆT ĐỐI KHÔNG nhắc người dùng, người nhập, giáo viên, ngộ nhận.",
+  "paraphrases": [{ "question": "cụm trong câu hỏi", "question_label": "nghĩa", "passage": "cụm NGUYÊN VĂN trong ${sourceName}", "passage_label": "nghĩa" }],
+  "distractors": [{ "option": "lựa chọn/từ dễ nhầm", "label": "nghĩa ngắn", "reason": "1-2 câu vì sao sai" }]
+}`
+  }
+
   return `Bạn là gia sư IELTS, giải thích theo phương pháp "Linear thinking": tách câu thành từng cụm ý ngắn, gắn nghĩa tiếng Việt cho từng cụm, rồi đối chiếu câu hỏi với ${sourceName} theo 4 bước. Đề thi ${skillLabel}.
 
 ${TYPE_INSTRUCTION[family]}
@@ -287,36 +369,13 @@ THÔNG TIN CÂU HỎI:
 - Số câu: ${q.number ?? '(không rõ)'}
 - Loại câu hỏi: ${q.type || '(không rõ)'}
 - Câu hỏi: ${q.questionText || '(không có sẵn — xem ngữ cảnh bên dưới, câu hỏi nằm trong đó)'}
-${optionsBlock}- Đáp án tham chiếu từ hệ thống: "${q.correctAnswer}"
-
-QUY TẮC TƯ DUY PHẢN BIỆN & ĐỐI CHIẾU ĐÁP ÁN (BẮT BUỘC):
-1. Bạn là chuyên gia IELTS có TƯ DUY PHẢN BIỆN ĐỘC LẬP. Đáp án tham chiếu ở trên chỉ mang tính đối chiếu sau khi bạn tự giải xong bài.
-2. TUYỆT ĐỐI KHÔNG tin tưởng mù quáng hay "bẻ cong suy luận" để bao biện cho một đáp án sai khi ${sourceName} không chứng minh điều đó!
-3. Bạn PHẢI tự mình giải câu hỏi độc lập 100% dựa trên bằng chứng trong ${sourceName}:
-   - Trường "answer": PHẢI là đáp án THỰC TẾ CHÍNH XÁC NHẤT theo ${sourceName} (nếu có lựa chọn A/B/C/D, hãy ghi rõ cả chữ cái và nội dung, ví dụ "C. students" hoặc "students").
-   - TÁCH BẠCH RÕ RÀNG HAI TRƯỜNG "reasoning" (CHO HỌC SINH) VÀ "teacher_note" (CHO GIÁO VIÊN):
-     + "reasoning": 2-3 câu chứng minh mạch tư duy vì sao đáp án đúng theo phương pháp Linear thinking. Đây là phần DÀNH CHO HỌC SINH ĐỌC. TUYỆT ĐỐI KHÔNG nhắc đến "người dùng", "người nhập", "giáo viên", "đáp án tham chiếu", "ngộ nhận", "thử thách", và KHÔNG phán xét người nhập. Chỉ tập trung vào dữ liệu bài đọc và mạch suy luận để ra đáp án đúng.
-     + "teacher_note": 1-2 câu nhận xét đối chiếu DÀNH RIÊNG CHO GIÁO VIÊN XEM NỘI BỘ. Nếu đáp án tham chiếu lệch với đáp án trong bài, nêu rõ phân tích đối chiếu ở đây (ví dụ: "Đáp án tham chiếu là X, nhưng bài khẳng định Y vì..."). Nếu đáp án tham chiếu đã đúng, ghi ngắn "Khớp với bài đọc".
-     + "distractors": Phân tích trung thực lý do các phương án nhiễu khác bị sai.
+${optionsBlock}
+${modeInstruction}
 ${feedbackBlock}
 ${contextBlock}
 ${retryBlock}
 Trả về DUY NHẤT một JSON, không thêm chữ nào ngoài JSON. Phần giải thích viết bằng tiếng Việt, ngắn gọn, xưng "ta". Các trường:
-{
-  "question_chunks": [{ "text": "cụm tiếng Anh của câu hỏi", "label": "nghĩa/vai trò của cụm, 2-6 từ tiếng Việt" }],
-  "predict": "1-2 câu: câu hỏi cần thông tin gì, dự đoán loại đáp án",
-  "locate_note": "1-2 câu: ý nào trong câu hỏi giúp tìm vùng cần đọc, tìm thấy ở đâu",
-  "locate_keywords": ["1-3 cụm NGUYÊN VĂN trong ${sourceName} giúp định vị"],
-  "evidence_quote": "1-2 câu liên tiếp chép NGUYÊN VĂN từ ${sourceName} chứa thông tin trả lời, không viết tắt, không dùng dấu ... — nếu cần nhiều chỗ khác nhau trong ${sourceName}, chép riêng từng chỗ và ngăn cách bằng \\" | \\"",
-  "evidence_chunks": [{ "text": "cụm quan trọng NGUYÊN VĂN nằm trong evidence_quote", "label": "nghĩa tiếng Việt 2-8 từ" }],
-  "answer": "đáp án thực tế chính xác nhất theo ${sourceName} (ghi rõ chữ cái và nội dung nếu là trắc nghiệm)",
-  "full_sentence": "câu hoàn chỉnh sau khi điền đáp án (chỉ cho câu điền từ, còn lại để rỗng)",
-  "translation": "dịch tiếng Việt của full_sentence (để rỗng nếu full_sentence rỗng)",
-  "reasoning": "2-3 câu: chứng minh mạch tư duy vì sao đáp án này đúng theo ${sourceName}. Dành cho học sinh đọc — TUYỆT ĐỐI KHÔNG nhắc người dùng, người nhập, giáo viên, ngộ nhận.",
-  "teacher_note": "1-2 câu: nhận xét đối chiếu độc lập dành riêng cho giáo viên xem nội bộ. Nếu đáp án tham chiếu bị lệch, phân tích lý do lệch ở đây.",
-  "paraphrases": [{ "question": "cụm trong câu hỏi", "question_label": "nghĩa", "passage": "cụm NGUYÊN VĂN trong ${sourceName}", "passage_label": "nghĩa" }],
-  "distractors": [{ "option": "lựa chọn/từ dễ nhầm", "label": "nghĩa ngắn", "reason": "1-2 câu vì sao sai" }]
-}
+${jsonFieldsInstruction}
 
 Ví dụ ngắn (câu điền từ, đáp án "timber"):
 question_chunks: [{"text":"the grandfather","label":"người ông"},{"text":"built his wealth on two things:","label":"gây dựng của cải từ hai nguồn"},{"text":"1. ___","label":"nguồn còn thiếu"},{"text":"and the carrying of cargo by ship","label":"nguồn thứ hai: chở hàng bằng tàu"}]
@@ -358,8 +417,12 @@ async function callGroq(prompt, { maxRateLimitRetries = 6 } = {}) {
   return JSON.parse(cleaned)
 }
 
-function buildResponseSchema(type, rawOptions = null) {
+function buildResponseSchema(type, rawOptions = null, schemaOpts = {}) {
+  const isFixedMode = Boolean(schemaOpts?.isFixedMode)
   let answerSchema = { type: 'STRING' }
+
+  const pairs = extractOptionPairs(rawOptions)
+  const family = type ? classifyFamily(type) : null
 
   if (type === 'true_false_ng') {
     answerSchema = {
@@ -370,6 +433,11 @@ function buildResponseSchema(type, rawOptions = null) {
     answerSchema = {
       type: 'STRING',
       enum: ['YES', 'NO', 'NOT GIVEN'],
+    }
+  } else if (pairs.length > 0 && (family === 'MATCHING' || type?.startsWith('matching_') || type === 'mcq' || type === 'choose_title')) {
+    answerSchema = {
+      type: 'STRING',
+      enum: pairs.map(p => p.letter),
     }
   } else if (type === 'mcq' || type === 'choose_title') {
     let opts = rawOptions
@@ -385,79 +453,84 @@ function buildResponseSchema(type, rawOptions = null) {
     }
   }
 
-  return {
-    type: 'OBJECT',
-    properties: {
-      question_chunks: {
-        type: 'ARRAY',
-        items: {
-          type: 'OBJECT',
-          properties: {
-            text: { type: 'STRING' },
-            label: { type: 'STRING' },
-          },
-          required: ['text', 'label'],
+  const properties = {
+    question_chunks: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          text: { type: 'STRING' },
+          label: { type: 'STRING' },
         },
-      },
-      predict: { type: 'STRING' },
-      locate_note: { type: 'STRING' },
-      locate_keywords: {
-        type: 'ARRAY',
-        items: { type: 'STRING' },
-      },
-      evidence_quote: { type: 'STRING' },
-      evidence_chunks: {
-        type: 'ARRAY',
-        items: {
-          type: 'OBJECT',
-          properties: {
-            text: { type: 'STRING' },
-            label: { type: 'STRING' },
-          },
-          required: ['text', 'label'],
-        },
-      },
-      answer: answerSchema,
-      full_sentence: { type: 'STRING' },
-      translation: { type: 'STRING' },
-      reasoning: { type: 'STRING' },
-      teacher_note: { type: 'STRING' },
-      paraphrases: {
-        type: 'ARRAY',
-        items: {
-          type: 'OBJECT',
-          properties: {
-            question: { type: 'STRING' },
-            question_label: { type: 'STRING' },
-            passage: { type: 'STRING' },
-            passage_label: { type: 'STRING' },
-          },
-          required: ['question', 'passage'],
-        },
-      },
-      distractors: {
-        type: 'ARRAY',
-        items: {
-          type: 'OBJECT',
-          properties: {
-            option: { type: 'STRING' },
-            label: { type: 'STRING' },
-            reason: { type: 'STRING' },
-          },
-          required: ['option', 'reason'],
-        },
+        required: ['text', 'label'],
       },
     },
+    predict: { type: 'STRING' },
+    locate_note: { type: 'STRING' },
+    locate_keywords: {
+      type: 'ARRAY',
+      items: { type: 'STRING' },
+    },
+    evidence_quote: { type: 'STRING' },
+    evidence_chunks: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          text: { type: 'STRING' },
+          label: { type: 'STRING' },
+        },
+        required: ['text', 'label'],
+      },
+    },
+    answer: answerSchema,
+    full_sentence: { type: 'STRING' },
+    translation: { type: 'STRING' },
+    reasoning: { type: 'STRING' },
+    paraphrases: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          question: { type: 'STRING' },
+          question_label: { type: 'STRING' },
+          passage: { type: 'STRING' },
+          passage_label: { type: 'STRING' },
+        },
+        required: ['question', 'passage'],
+      },
+    },
+    distractors: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          option: { type: 'STRING' },
+          label: { type: 'STRING' },
+          reason: { type: 'STRING' },
+        },
+        required: ['option', 'reason'],
+      },
+    },
+  }
+
+  if (isFixedMode) {
+    properties.no_support = { type: 'BOOLEAN' }
+  }
+
+  return {
+    type: 'OBJECT',
+    properties,
     required: ['question_chunks', 'predict', 'evidence_quote', 'answer', 'reasoning'],
   }
 }
 
-async function callAi(prompt, { questionType = null, rawOptions = null, model: customModel = null, maxRateLimitRetries = 6 } = {}) {
+async function callAi(prompt, { questionType = null, rawOptions = null, model: customModel = null, maxRateLimitRetries = 6, isFixedMode = false } = {}) {
   const useGemini = process.env.GEMINI_API_KEY && (process.env.NODE_ENV !== 'test' || process.env.ENABLE_GEMINI_IN_TEST === 'true')
   const model = customModel || process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite'
 
   if (useGemini && typeof requestGeminiJson === 'function') {
-    const responseSchema = buildResponseSchema(questionType, rawOptions)
+    const responseSchema = buildResponseSchema(questionType, rawOptions, { isFixedMode })
     for (let geminiAttempt = 0; geminiAttempt < 3; geminiAttempt++) {
       try {
         const res = await requestGeminiJson(prompt, {
@@ -497,19 +570,36 @@ async function callAi(prompt, { questionType = null, rawOptions = null, model: c
   }
 }
 
-async function generateExplanation(q, family, ctx, { teacherFeedback = null } = {}) {
+async function generateExplanation(q, family, ctx, { teacherFeedback = null, isFixedMode = false, targetAnswer = null } = {}) {
   let previousError = null
   for (let attempt = 0; attempt < 2; attempt++) {
-    const aiResult = await callAi(buildPrompt(q, family, ctx, previousError, teacherFeedback), {
+    const rawOptions = q.options || (q.group?.matchingOptions?.length ? q.group.matchingOptions : null)
+    const prompt = buildPrompt(q, family, ctx, previousError, teacherFeedback, { isFixedMode, targetAnswer })
+    const aiResult = await callAi(prompt, {
       questionType: q.type,
-      rawOptions: q.options || (q.group?.matchingOptions?.length ? q.group.matchingOptions : null),
+      rawOptions,
+      isFixedMode,
     })
     const payload = aiResult?.data || aiResult
+
+    if (isFixedMode && payload?.no_support) {
+      return {
+        v: 2,
+        no_support: true,
+        answer: targetAnswer || q.correctAnswer,
+        reasoning: cleanString(payload.reasoning, 900) || '',
+        provider: aiResult?.provider,
+        model: aiResult?.model,
+        isFallback: aiResult?.isFallback || false,
+      }
+    }
+
     try {
-      const explanation = enrichExplanation(payload, ctx, q.correctAnswer, family)
+      const explanation = enrichExplanation(payload, ctx, targetAnswer || q.correctAnswer, family)
       if (aiResult?.provider) explanation.provider = aiResult.provider
       if (aiResult?.model) explanation.model = aiResult.model
       if (aiResult?.isFallback) explanation.isFallback = true
+      if (isFixedMode) explanation.no_support = false
       return explanation
     } catch (err) {
       if (!(err instanceof ExplanationValidationError) || attempt === 1) throw err
@@ -689,4 +779,7 @@ module.exports = {
   SKIP_FAMILIES,
   buildResponseSchema,
   cleanString,
+  extractOptionPairs,
+  ROMAN_NUMERALS,
+  stripTrailingPunctuation,
 }

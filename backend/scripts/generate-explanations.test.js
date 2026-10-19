@@ -120,7 +120,7 @@ describe('buildPrompt — tư duy phản biện & xác thực độc lập', () 
     parts: [{ label: 'Đoạn 1', text: PASSAGE }],
   }
 
-  it('yêu cầu AI phản biện, coi đáp án người dùng nhập chỉ để tham khảo', () => {
+  it('yêu cầu AI tự giải độc lập (giải mù), không chứa đáp án tham chiếu hay teacher_note', () => {
     const q = {
       number: 1,
       type: 'mcq',
@@ -131,12 +131,13 @@ describe('buildPrompt — tư duy phản biện & xác thực độc lập', () 
 
     const prompt = buildPrompt(q, 'MCQ', dummyCtx)
 
-    // Bắt buộc chứa chỉ dẫn tư duy phản biện và tách trường Batch 1b
-    expect(prompt).toContain('QUY TẮC TƯ DUY PHẢN BIỆN & ĐỐI CHIẾU ĐÁP ÁN')
-    expect(prompt).toContain('Đáp án tham chiếu từ hệ thống: "patients"')
-    expect(prompt).toContain('TUYỆT ĐỐI KHÔNG tin tưởng mù quáng hay "bẻ cong suy luận"')
-    expect(prompt).toContain('TÁCH BẠCH RÕ RÀNG HAI TRƯỜNG "reasoning" (CHO HỌC SINH) VÀ "teacher_note" (CHO GIÁO VIÊN)')
-    expect(prompt).toContain('"teacher_note"')
+    // Bắt buộc giải mù độc lập: không rò rỉ đáp án tham chiếu, không để AI viết teacher_note
+    expect(prompt).toContain('QUY TẮC TỰ GIẢI ĐỘC LẬP')
+    expect(prompt).not.toContain('Đáp án tham chiếu từ hệ thống')
+    expect(prompt).not.toContain('đáp án tham chiếu')
+    expect(prompt).not.toContain('QUY TẮC TƯ DUY PHẢN BIỆN & ĐỐI CHIẾU ĐÁP ÁN')
+    expect(prompt).not.toContain('"teacher_note"')
+    expect(prompt).toContain('"reasoning"')
 
     // Format options chuẩn A. / B. / C. / D.
     expect(prompt).toContain('- Các lựa chọn: A. peers | B. patients | C. students | D. teachers')

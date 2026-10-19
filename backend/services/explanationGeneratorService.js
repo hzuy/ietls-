@@ -578,8 +578,16 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
       const ctx = buildContext(qCtx, family)
 
       let explanation
+      const choice = resolveChoices[qNum]
+      const inputAnswer = String(qCtx.correctAnswer || '').trim()
+      const rawOptions = qCtx.options || (group.matchingOptions?.length ? group.matchingOptions : null)
+
       try {
-        explanation = await generateExplanation(qCtx, family, ctx)
+        if (choice === 'input') {
+          explanation = await generateExplanation(qCtx, family, ctx, { isFixedMode: true, targetAnswer: inputAnswer })
+        } else {
+          explanation = await generateExplanation(qCtx, family, ctx)
+        }
       } catch (err) {
         failedQuestions.push({ number: qNum, message: err.message })
         continue
@@ -589,18 +597,38 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
       generatedCount++
       explanation.updatedAt = new Date().toISOString()
 
-      const inputAnswer = String(qCtx.correctAnswer || '').trim()
       const aiAnswer = String(explanation.answer || '').trim()
-      const rawOptions = qCtx.options || (group.matchingOptions?.length ? group.matchingOptions : null)
       const match = isAnswerMatch(inputAnswer, aiAnswer, rawOptions, qCtx.type)
-
-      const choice = resolveChoices[qNum]
       let adoptedAiAnswer = null
 
-      if (!match && !choice) {
+      if (choice === 'input') {
+        if (explanation.no_support) {
+          explanation.status = 'needs_regeneration'
+          explanation.teacherKeptAnswer = inputAnswer
+          explanation.needsRegenerationReason = 'AI không tìm thấy bằng chứng trong bài đọc ủng hộ đáp án này'
+          explanation.teacher_note = `AI không tìm thấy bằng chứng ủng hộ đáp án "${inputAnswer}". Cần sửa trực tiếp.`
+        } else if (!match) {
+          explanation.status = 'needs_regeneration'
+          explanation.teacherKeptAnswer = inputAnswer
+          explanation.needsRegenerationReason = 'AI không thể bảo vệ đáp án của giáo viên'
+          explanation.teacher_note = `AI không thể bảo vệ đáp án "${inputAnswer}". Cần sửa trực tiếp.`
+        } else {
+          explanation.status = 'ai_generated'
+          explanation.answer = inputAnswer
+          explanation.teacher_note = `Khớp với đáp án đề (${inputAnswer}).`
+        }
+
+        if (containsInternalJargon(explanation)) {
+          explanation.status = 'needs_regeneration'
+          explanation.needsRegenerationReason = 'Lời giải chứa cụm từ nội bộ'
+        }
+
+        rowGeneratedMap.set(qNum, { explanation, adoptedAiAnswer: null })
+      } else if (!match && !choice) {
         // 4.1: Record conflict and save with conflict_pending status
         explanation.status = 'conflict_pending'
         explanation.aiAnswer = aiAnswer
+        explanation.teacher_note = `AI chọn "${aiAnswer}"; đáp án đề đang là "${inputAnswer}". Cần giáo viên đối chiếu.`
         conflicts.push({
           number: qNum,
           type: qCtx.type,
@@ -609,7 +637,7 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
           aiAnswer,
           evidence: explanation.evidence?.parts?.[0]?.text || '',
           reasoning: explanation.reasoning,
-          teacher_note: explanation.teacher_note || '',
+          teacher_note: explanation.teacher_note,
           explanation,
         })
         rowGeneratedMap.set(qNum, { explanation, adoptedAiAnswer: null })
@@ -620,12 +648,10 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
           adoptedAiAnswer = aiAnswer
           explanation.answer = aiAnswer
           explanation.status = 'ai_generated'
-        } else if (choice === 'input') {
-          // 3.3: Teacher keeps answer -> needs regeneration to argue for teacher answer
-          explanation.status = 'needs_regeneration'
-          explanation.teacherKeptAnswer = inputAnswer
+          explanation.teacher_note = `Đã chọn theo đáp án của AI (${aiAnswer}).`
         } else {
           explanation.status = 'ai_generated'
+          explanation.teacher_note = `Khớp với đáp án đề (${inputAnswer}).`
         }
 
         if (containsInternalJargon(explanation)) {
@@ -841,8 +867,16 @@ async function generateForExam(examId, { force = false, resolveChoices = {}, ove
     const ctx = buildContext(q, family)
 
     let explanation
+    const choice = resolveChoices[q.number]
+    const inputAnswer = String(q.correctAnswer || '').trim()
+    const rawOptions = q.options || (q.group?.matchingOptions?.length ? q.group.matchingOptions : null)
+
     try {
-      explanation = await generateExplanation(q, family, ctx)
+      if (choice === 'input') {
+        explanation = await generateExplanation(q, family, ctx, { isFixedMode: true, targetAnswer: inputAnswer })
+      } else {
+        explanation = await generateExplanation(q, family, ctx)
+      }
     } catch (err) {
       failedQuestions.push({ number: q.number, message: err.message })
       continue
@@ -852,16 +886,42 @@ async function generateForExam(examId, { force = false, resolveChoices = {}, ove
     generatedCount++
     explanation.updatedAt = new Date().toISOString()
 
-    const inputAnswer = String(q.correctAnswer || '').trim()
     const aiAnswer = String(explanation.answer || '').trim()
-    const rawOptions = q.options || (q.group?.matchingOptions?.length ? q.group.matchingOptions : null)
     const match = isAnswerMatch(inputAnswer, aiAnswer, rawOptions, q.type)
-    const choice = resolveChoices[q.number]
 
-    if (!match && !choice) {
+    if (choice === 'input') {
+      if (explanation.no_support) {
+        explanation.status = 'needs_regeneration'
+        explanation.teacherKeptAnswer = inputAnswer
+        explanation.needsRegenerationReason = 'AI không tìm thấy bằng chứng trong bài đọc ủng hộ đáp án này'
+        explanation.teacher_note = `AI không tìm thấy bằng chứng ủng hộ đáp án "${inputAnswer}". Cần sửa trực tiếp.`
+      } else if (!match) {
+        explanation.status = 'needs_regeneration'
+        explanation.teacherKeptAnswer = inputAnswer
+        explanation.needsRegenerationReason = 'AI không thể bảo vệ đáp án của giáo viên'
+        explanation.teacher_note = `AI không thể bảo vệ đáp án "${inputAnswer}". Cần sửa trực tiếp.`
+      } else {
+        explanation.status = 'ai_generated'
+        explanation.answer = inputAnswer
+        explanation.teacher_note = `Khớp với đáp án đề (${inputAnswer}).`
+      }
+
+      if (containsInternalJargon(explanation)) {
+        explanation.status = 'needs_regeneration'
+        explanation.needsRegenerationReason = 'Lời giải chứa cụm từ nội bộ'
+      }
+
+      updates.push({
+        id: q.id,
+        number: q.number,
+        correctAnswer: inputAnswer,
+        explanation,
+      })
+    } else if (!match && !choice) {
       // 4.1: Record conflict and save with conflict_pending
       explanation.status = 'conflict_pending'
       explanation.aiAnswer = aiAnswer
+      explanation.teacher_note = `AI chọn "${aiAnswer}"; đáp án đề đang là "${inputAnswer}". Cần giáo viên đối chiếu.`
       conflicts.push({
         number: q.number,
         type: q.type,
@@ -870,7 +930,7 @@ async function generateForExam(examId, { force = false, resolveChoices = {}, ove
         aiAnswer,
         evidence: explanation.evidence?.parts?.[0]?.text || '',
         reasoning: explanation.reasoning,
-        teacher_note: explanation.teacher_note || '',
+        teacher_note: explanation.teacher_note,
         explanation,
       })
       updates.push({
@@ -885,11 +945,10 @@ async function generateForExam(examId, { force = false, resolveChoices = {}, ove
         finalCorrectAnswer = aiAnswer
         explanation.answer = aiAnswer
         explanation.status = 'ai_generated'
-      } else if (choice === 'input') {
-        explanation.status = 'needs_regeneration'
-        explanation.teacherKeptAnswer = inputAnswer
+        explanation.teacher_note = `Đã chọn theo đáp án của AI (${aiAnswer}).`
       } else {
         explanation.status = 'ai_generated'
+        explanation.teacher_note = `Khớp với đáp án đề (${inputAnswer}).`
       }
 
       if (containsInternalJargon(explanation)) {
@@ -1033,9 +1092,25 @@ async function regenerateQuestionExplanation({ examId, questionId = null, questi
     const family = classifyFamily(qCtx.type)
     const ctx = buildContext(qCtx, family)
 
+    const oldExp = targetRow.explanation?.byNumber?.[targetNum] || {}
+    const isFixedMode = Boolean(
+      cleanFeedback ||
+      oldExp.status === 'needs_regeneration' ||
+      oldExp.teacherKeptAnswer ||
+      oldExp.status === 'teacher_edited'
+    )
+
     let explanation
     try {
-      explanation = await generateExplanation(qCtx, family, ctx, { teacherFeedback: cleanFeedback })
+      if (isFixedMode) {
+        explanation = await generateExplanation(qCtx, family, ctx, {
+          isFixedMode: true,
+          targetAnswer: inputAnswer,
+          teacherFeedback: cleanFeedback,
+        })
+      } else {
+        explanation = await generateExplanation(qCtx, family, ctx, { teacherFeedback: cleanFeedback })
+      }
     } catch (err) {
       if (err instanceof ExplanationValidationError) {
         return {
@@ -1051,15 +1126,28 @@ async function regenerateQuestionExplanation({ examId, questionId = null, questi
       return { ok: false, message: 'AI không tạo được giải thích cho câu hỏi này.' }
     }
 
+    if (isFixedMode && explanation.no_support) {
+      return {
+        ok: false,
+        error: 'NO_SUPPORT',
+        message: `Không tìm thấy bằng chứng trong bài đọc ủng hộ đáp án "${inputAnswer}". Bạn vui lòng sử dụng chức năng "Sửa trực tiếp" để viết lời giải thủ công.`,
+      }
+    }
+
     const aiAnswer = String(explanation.answer || '').trim()
     const rawOptions = qCtx.options || (targetGroup.matchingOptions?.length ? targetGroup.matchingOptions : null)
     const match = isAnswerMatch(inputAnswer, aiAnswer, rawOptions, qCtx.type)
 
-    if (!match) {
+    if (match) {
+      explanation.status = 'ai_generated'
+      explanation.teacher_note = `Khớp với đáp án đề (${inputAnswer}).`
+    } else if (isFixedMode && (oldExp.status === 'needs_regeneration' || oldExp.teacherKeptAnswer)) {
+      explanation.status = 'needs_regeneration'
+      explanation.teacher_note = `AI không tìm thấy bằng chứng ủng hộ đáp án "${inputAnswer}". Cần sửa trực tiếp.`
+    } else {
       explanation.status = 'conflict_pending'
       explanation.aiAnswer = aiAnswer
-    } else {
-      explanation.status = 'ai_generated'
+      explanation.teacher_note = `AI chọn "${aiAnswer}"; đáp án đề đang là "${inputAnswer}". Cần giáo viên đối chiếu.`
     }
 
     if (containsInternalJargon(explanation)) {
@@ -1067,7 +1155,6 @@ async function regenerateQuestionExplanation({ examId, questionId = null, questi
       explanation.needsRegenerationReason = 'Lời giải chứa cụm từ nội bộ'
     }
 
-    const oldExp = targetRow.explanation?.byNumber?.[targetNum] || {}
     const oldHistory = Array.isArray(oldExp.feedbackHistory) ? oldExp.feedbackHistory : []
     const feedbackEntry = {
       at: new Date().toISOString(),
@@ -1091,7 +1178,7 @@ async function regenerateQuestionExplanation({ examId, questionId = null, questi
       status: explanation.status,
       isConflict: explanation.status === 'conflict_pending',
       explanation,
-      message: match
+      message: (isFixedMode || match)
         ? 'Đã tạo lại giải thích thành công!'
         : 'AI sinh giải thích nhưng đáp án lệch so với đáp án câu hỏi. Trạng thái được đặt là Chờ duyệt (ẩn khỏi học sinh).',
     }
@@ -1150,9 +1237,25 @@ async function regenerateQuestionExplanation({ examId, questionId = null, questi
     const family = classifyFamily(question.type)
     const ctx = buildContext(question, family)
 
+    const oldExp = (question.explanation && typeof question.explanation === 'object') ? question.explanation : {}
+    const isFixedMode = Boolean(
+      cleanFeedback ||
+      oldExp.status === 'needs_regeneration' ||
+      oldExp.teacherKeptAnswer ||
+      oldExp.status === 'teacher_edited'
+    )
+
     let explanation
     try {
-      explanation = await generateExplanation(question, family, ctx, { teacherFeedback: cleanFeedback })
+      if (isFixedMode) {
+        explanation = await generateExplanation(question, family, ctx, {
+          isFixedMode: true,
+          targetAnswer: inputAnswer,
+          teacherFeedback: cleanFeedback,
+        })
+      } else {
+        explanation = await generateExplanation(question, family, ctx, { teacherFeedback: cleanFeedback })
+      }
     } catch (err) {
       if (err instanceof ExplanationValidationError) {
         return {
@@ -1168,15 +1271,28 @@ async function regenerateQuestionExplanation({ examId, questionId = null, questi
       return { ok: false, message: 'AI không tạo được giải thích cho câu hỏi này.' }
     }
 
+    if (isFixedMode && explanation.no_support) {
+      return {
+        ok: false,
+        error: 'NO_SUPPORT',
+        message: `Không tìm thấy bằng chứng trong bài đọc ủng hộ đáp án "${inputAnswer}". Bạn vui lòng sử dụng chức năng "Sửa trực tiếp" để viết lời giải thủ công.`,
+      }
+    }
+
     const aiAnswer = String(explanation.answer || '').trim()
     const rawOptions = question.options || (question.group?.matchingOptions?.length ? question.group.matchingOptions : null)
     const match = isAnswerMatch(inputAnswer, aiAnswer, rawOptions, question.type)
 
-    if (!match) {
+    if (match) {
+      explanation.status = 'ai_generated'
+      explanation.teacher_note = `Khớp với đáp án đề (${inputAnswer}).`
+    } else if (isFixedMode && (oldExp.status === 'needs_regeneration' || oldExp.teacherKeptAnswer)) {
+      explanation.status = 'needs_regeneration'
+      explanation.teacher_note = `AI không tìm thấy bằng chứng ủng hộ đáp án "${inputAnswer}". Cần sửa trực tiếp.`
+    } else {
       explanation.status = 'conflict_pending'
       explanation.aiAnswer = aiAnswer
-    } else {
-      explanation.status = 'ai_generated'
+      explanation.teacher_note = `AI chọn "${aiAnswer}"; đáp án đề đang là "${inputAnswer}". Cần giáo viên đối chiếu.`
     }
 
     if (containsInternalJargon(explanation)) {
@@ -1184,7 +1300,6 @@ async function regenerateQuestionExplanation({ examId, questionId = null, questi
       explanation.needsRegenerationReason = 'Lời giải chứa cụm từ nội bộ'
     }
 
-    const oldExp = (question.explanation && typeof question.explanation === 'object') ? question.explanation : {}
     const oldHistory = Array.isArray(oldExp.feedbackHistory) ? oldExp.feedbackHistory : []
     const feedbackEntry = {
       at: new Date().toISOString(),
@@ -1208,7 +1323,7 @@ async function regenerateQuestionExplanation({ examId, questionId = null, questi
       status: explanation.status,
       isConflict: explanation.status === 'conflict_pending',
       explanation,
-      message: match
+      message: (isFixedMode || match)
         ? 'Đã tạo lại giải thích thành công!'
         : 'AI sinh giải thích nhưng đáp án lệch so với đáp án câu hỏi. Trạng thái được đặt là Chờ duyệt (ẩn khỏi học sinh).',
     }
