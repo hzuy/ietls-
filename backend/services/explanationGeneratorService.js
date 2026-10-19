@@ -13,6 +13,23 @@ const { invalidate } = require('../lib/swrCache')
 const { invalidateExamCaches } = require('../utils/cache')
 
 const DEFAULT_TIME_BUDGET_MS = parseInt(process.env.EXPLANATION_TIME_BUDGET_MS, 10) || 40000
+const MAX_REQUEST_HARD_TIMEOUT_MS = 48000 // Trần cứng: không bao giờ để một request vượt 48s (< 50s và < 60s Nginx)
+const SINGLE_QUESTION_TIMEOUT_MS = 20000 // Timeout cứng cho MỖI lần xử lý 1 câu (kể cả retry/backoff)
+const MIN_REMAINING_FOR_NEXT_CALL_MS = 14000 // Trước khi bắt đầu câu mới, cần ít nhất 14s (đủ cho 1 lần gọi đầy đủ)
+
+function withTimeout(promise, timeoutMs, timeoutErrorMessage = 'Quá thời gian xử lý AI cho câu hỏi này') {
+  let timer
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const err = new Error(timeoutErrorMessage)
+      err.code = 'ETIMEDOUT'
+      err.isTimeout = true
+      reject(err)
+    }, timeoutMs)
+  })
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer))
+}
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 const INTERNAL_JARGON_PHRASES = Object.freeze([
@@ -581,9 +598,10 @@ async function generateForPracticeExam(examId, {
   questionNumbers = null,
   timeBudgetMs = null,
 } = {}) {
-  const effectiveTimeBudget = (typeof timeBudgetMs === 'number' && timeBudgetMs > 0)
+  const requestedBudget = (typeof timeBudgetMs === 'number' && timeBudgetMs > 0)
     ? timeBudgetMs
     : DEFAULT_TIME_BUDGET_MS
+  const effectiveTimeBudget = Math.min(requestedBudget, MAX_REQUEST_HARD_TIMEOUT_MS)
   const startTime = Date.now()
 
   const exam = await prisma.practiceExam.findUnique({
@@ -653,12 +671,12 @@ async function generateForPracticeExam(examId, {
   const failedQuestions = []
   let generatedCount = 0
 
-  const budgetThreshold = effectiveTimeBudget > 20000 ? (effectiveTimeBudget - 15000) : effectiveTimeBudget
-
   for (const item of candidateItems) {
-    // Kiểm tra ngân sách thời gian (tính cả rate limit & backoff đã tiêu tốn)
-    if (generatedCount > 0 && (Date.now() - startTime) >= budgetThreshold) {
-      console.log(`[TIME_BUDGET] Practice #${examId}: Đã chạy ${Date.now() - startTime}ms (ngưỡng an toàn ${budgetThreshold}ms / ngân sách ${effectiveTimeBudget}ms). Ngắt lượt để trả về client gọi tiếp.`)
+    // 3.1: Kiểm tra thời gian còn lại đủ cho một lần gọi đầy đủ (kể cả backoff tối đa)
+    const elapsedBeforeItem = Date.now() - startTime
+    const remainingTime = effectiveTimeBudget - elapsedBeforeItem
+    if (generatedCount > 0 && remainingTime < MIN_REMAINING_FOR_NEXT_CALL_MS) {
+      console.log(`[TIME_BUDGET] Practice #${examId}: Đã chạy ${elapsedBeforeItem}ms, thời gian còn lại ${remainingTime}ms không đủ cho một lần gọi đầy đủ (cần >= ${MIN_REMAINING_FOR_NEXT_CALL_MS}ms). Ngắt lượt để trả về client gọi tiếp.`)
       break
     }
 
@@ -678,11 +696,23 @@ async function generateForPracticeExam(examId, {
 
     try {
       if (choice === 'input') {
-        explanation = await generateExplanation(qCtx, family, ctx, { isFixedMode: true, targetAnswer: inputAnswer })
+        explanation = await withTimeout(
+          generateExplanation(qCtx, family, ctx, { isFixedMode: true, targetAnswer: inputAnswer }),
+          SINGLE_QUESTION_TIMEOUT_MS,
+          `Hết thời gian xử lý AI (${SINGLE_QUESTION_TIMEOUT_MS}ms) cho câu #${qNum}`
+        )
       } else {
-        explanation = await generateExplanation(qCtx, family, ctx)
+        explanation = await withTimeout(
+          generateExplanation(qCtx, family, ctx),
+          SINGLE_QUESTION_TIMEOUT_MS,
+          `Hết thời gian xử lý AI (${SINGLE_QUESTION_TIMEOUT_MS}ms) cho câu #${qNum}`
+        )
       }
     } catch (err) {
+      if (err.isTimeout || err.code === 'ETIMEDOUT') {
+        console.warn(`[TIMEOUT_STALL] Practice #${examId} Câu #${qNum} bị timeout sau ${SINGLE_QUESTION_TIMEOUT_MS}ms. Coi là chưa xong, ngắt request để trả về client gọi lại câu này.`)
+        break
+      }
       failedQuestions.push({ number: qNum, message: err.message })
       continue
     }
@@ -942,9 +972,10 @@ async function generateForExam(examId, {
   questionNumbers = null,
   timeBudgetMs = null,
 } = {}) {
-  const effectiveTimeBudget = (typeof timeBudgetMs === 'number' && timeBudgetMs > 0)
+  const requestedBudget = (typeof timeBudgetMs === 'number' && timeBudgetMs > 0)
     ? timeBudgetMs
     : DEFAULT_TIME_BUDGET_MS
+  const effectiveTimeBudget = Math.min(requestedBudget, MAX_REQUEST_HARD_TIMEOUT_MS)
   const startTime = Date.now()
 
   const exam = await prisma.exam.findUnique({
@@ -1063,11 +1094,12 @@ async function generateForExam(examId, {
   const failedQuestions = []
   let generatedCount = 0
 
-  const budgetThreshold = effectiveTimeBudget > 20000 ? (effectiveTimeBudget - 15000) : effectiveTimeBudget
-
   for (const { q, family } of candidateQuestions) {
-    if (generatedCount > 0 && (Date.now() - startTime) >= budgetThreshold) {
-      console.log(`[TIME_BUDGET] Exam #${examId}: Đã chạy ${Date.now() - startTime}ms (ngưỡng an toàn ${budgetThreshold}ms / ngân sách ${effectiveTimeBudget}ms). Ngắt lượt để trả về client gọi tiếp.`)
+    // 3.1: Kiểm tra thời gian còn lại đủ cho một lần gọi đầy đủ (kể cả backoff tối đa)
+    const elapsedBeforeItem = Date.now() - startTime
+    const remainingTime = effectiveTimeBudget - elapsedBeforeItem
+    if (generatedCount > 0 && remainingTime < MIN_REMAINING_FOR_NEXT_CALL_MS) {
+      console.log(`[TIME_BUDGET] Exam #${examId}: Đã chạy ${elapsedBeforeItem}ms, thời gian còn lại ${remainingTime}ms không đủ cho một lần gọi đầy đủ (cần >= ${MIN_REMAINING_FOR_NEXT_CALL_MS}ms). Ngắt lượt để trả về client gọi tiếp.`)
       break
     }
 
@@ -1080,11 +1112,23 @@ async function generateForExam(examId, {
 
     try {
       if (choice === 'input') {
-        explanation = await generateExplanation(q, family, ctx, { isFixedMode: true, targetAnswer: inputAnswer })
+        explanation = await withTimeout(
+          generateExplanation(q, family, ctx, { isFixedMode: true, targetAnswer: inputAnswer }),
+          SINGLE_QUESTION_TIMEOUT_MS,
+          `Hết thời gian xử lý AI (${SINGLE_QUESTION_TIMEOUT_MS}ms) cho câu #${q.number}`
+        )
       } else {
-        explanation = await generateExplanation(q, family, ctx)
+        explanation = await withTimeout(
+          generateExplanation(q, family, ctx),
+          SINGLE_QUESTION_TIMEOUT_MS,
+          `Hết thời gian xử lý AI (${SINGLE_QUESTION_TIMEOUT_MS}ms) cho câu #${q.number}`
+        )
       }
     } catch (err) {
+      if (err.isTimeout || err.code === 'ETIMEDOUT') {
+        console.warn(`[TIMEOUT_STALL] Exam #${examId} Câu #${q.number} bị timeout sau ${SINGLE_QUESTION_TIMEOUT_MS}ms. Coi là chưa xong, ngắt request để trả về client gọi lại câu này.`)
+        break
+      }
       failedQuestions.push({ number: q.number, message: err.message })
       continue
     }
