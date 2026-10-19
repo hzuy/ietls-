@@ -13,6 +13,7 @@ const { invalidate } = require('../lib/swrCache')
 const { invalidateExamCaches } = require('../utils/cache')
 
 const DEFAULT_TIME_BUDGET_MS = parseInt(process.env.EXPLANATION_TIME_BUDGET_MS, 10) || 40000
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 const INTERNAL_JARGON_PHRASES = Object.freeze([
   'nguoi dung nhap',
@@ -502,6 +503,69 @@ function isAnswerMatch(a, b, rawOptionsOrOpts = null, explicitType = null) {
 }
 
 /**
+ * Thử lại bằng Gemini khi kết quả AI đến từ fallback (Groq) bị lệch so với đáp án đề.
+ * Tối đa 2 lần, có backoff, kiểm tra thời gian còn lại trong ngân sách.
+ */
+async function handleFallbackMismatchRetry({
+  qCtx,
+  family,
+  ctx,
+  inputAnswer,
+  rawOptions,
+  startTime,
+  effectiveTimeBudget,
+  isFixedMode = false,
+  targetAnswer = null,
+}) {
+  for (let retry = 1; retry <= 2; retry++) {
+    const elapsed = Date.now() - startTime
+    const remainingTime = effectiveTimeBudget - elapsed
+    // Cần tối thiểu 6s cho một lần thử Gemini
+    if (remainingTime < 6000) {
+      console.warn(`[FALLBACK_RETRY] Thời gian còn lại ${remainingTime}ms không đủ cho retry Gemini lần ${retry}. Bỏ qua retry.`)
+      break
+    }
+
+    const backoffMs = retry * 1000
+    await sleep(backoffMs)
+
+    try {
+      console.log(`[FALLBACK_RETRY] Kết quả dự phòng lệch đáp án đề. Thử lại với Gemini lần ${retry}/2 (đã chạy ${Date.now() - startTime}ms)...`)
+      const geminiExp = await generateExplanation(qCtx, family, ctx, {
+        forceProvider: 'Gemini',
+        isFixedMode,
+        targetAnswer,
+      })
+
+      if (geminiExp && (!geminiExp.provider || geminiExp.provider.toLowerCase() === 'gemini') && !geminiExp.isFallback) {
+        if (geminiExp.no_support) {
+          return {
+            resolvedWithGemini: true,
+            explanation: geminiExp,
+            no_support: true,
+            match: false,
+          }
+        }
+        const geminiAiAnswer = String(geminiExp.answer || '').trim()
+        const geminiMatch = isAnswerMatch(inputAnswer, geminiAiAnswer, rawOptions, qCtx.type)
+        return {
+          resolvedWithGemini: true,
+          explanation: geminiExp,
+          aiAnswer: geminiAiAnswer,
+          match: geminiMatch,
+        }
+      }
+    } catch (retryErr) {
+      console.warn(`[FALLBACK_RETRY] Retry Gemini lần ${retry} thất bại: ${retryErr.message}`)
+    }
+  }
+
+  return {
+    resolvedWithGemini: false,
+  }
+}
+
+/**
  * Generate explanations for a PracticeExam (Reading or Listening).
  *
  * @param {number} examId - PracticeExam ID
@@ -578,12 +642,13 @@ async function generateForPracticeExam(examId, {
       if (!qCtx) continue
       const family = classifyFamily(qCtx.type)
       if (SKIP_FAMILIES.has(family)) continue
-      candidateItems.push({ row, group, qItem, qNum, qCtx, family })
+      candidateItems.push({ row, group, qItem, qNum, qCtx, family, existing })
     }
   }
 
   const startedAt = new Date().toISOString()
   const conflicts = []
+  const needsRetryQuestions = []
   const newlyGeneratedByRow = new Map() // rowId -> Map(qNum -> { explanation, adoptedAiAnswer })
   const failedQuestions = []
   let generatedCount = 0
@@ -597,7 +662,7 @@ async function generateForPracticeExam(examId, {
       break
     }
 
-    const { row, group, qNum, qCtx, family } = item
+    const { row, group, qNum, qCtx, family, existing } = item
     let rowGeneratedMap = newlyGeneratedByRow.get(row.id)
     if (!rowGeneratedMap) {
       rowGeneratedMap = new Map()
@@ -654,22 +719,93 @@ async function generateForPracticeExam(examId, {
 
       rowGeneratedMap.set(qNum, { explanation, adoptedAiAnswer: null })
     } else if (!match && !choice) {
-      // 4.1: Record conflict and save with conflict_pending status
-      explanation.status = 'conflict_pending'
-      explanation.aiAnswer = aiAnswer
-      explanation.teacher_note = `AI chọn "${aiAnswer}"; đáp án đề đang là "${inputAnswer}". Cần giáo viên đối chiếu.`
-      conflicts.push({
-        number: qNum,
-        type: qCtx.type,
-        questionText: qCtx.questionText,
-        inputAnswer,
-        aiAnswer,
-        evidence: explanation.evidence?.parts?.[0]?.text || '',
-        reasoning: explanation.reasoning,
-        teacher_note: explanation.teacher_note,
-        explanation,
-      })
-      rowGeneratedMap.set(qNum, { explanation, adoptedAiAnswer: null })
+      const isFallbackResult = Boolean(explanation?.isFallback || (explanation?.provider && explanation.provider.toLowerCase() !== 'gemini'))
+
+      if (isFallbackResult) {
+        // 1.1: Fallback provider lệch đáp án -> KHÔNG tạo conflict_pending, KHÔNG hiện modal xung đột!
+        // Thử lại bằng Gemini tối đa 2 lần, backoff, trong phạm vi ngân sách thời gian.
+        const retryResult = await handleFallbackMismatchRetry({
+          qCtx,
+          family,
+          ctx,
+          inputAnswer,
+          rawOptions,
+          startTime,
+          effectiveTimeBudget,
+        })
+
+        if (retryResult.resolvedWithGemini) {
+          explanation = retryResult.explanation
+          const geminiAiAnswer = retryResult.aiAnswer
+          const geminiMatch = retryResult.match
+
+          if (geminiMatch) {
+            explanation.status = 'ai_generated'
+            explanation.teacher_note = `Khớp với đáp án đề (${inputAnswer}).`
+            rowGeneratedMap.set(qNum, { explanation, adoptedAiAnswer: null })
+          } else {
+            explanation.status = 'conflict_pending'
+            explanation.aiAnswer = geminiAiAnswer
+            explanation.teacher_note = `AI chọn "${geminiAiAnswer}"; đáp án đề đang là "${inputAnswer}". Cần giáo viên đối chiếu.`
+            conflicts.push({
+              number: qNum,
+              type: qCtx.type,
+              questionText: qCtx.questionText,
+              inputAnswer,
+              aiAnswer: geminiAiAnswer,
+              evidence: explanation.evidence?.parts?.[0]?.text || '',
+              reasoning: explanation.reasoning,
+              teacher_note: explanation.teacher_note,
+              explanation,
+            })
+            rowGeneratedMap.set(qNum, { explanation, adoptedAiAnswer: null })
+          }
+        } else {
+          // Vẫn chỉ có kết quả fallback lệch đáp án:
+          // KHÔNG tạo conflict_pending, KHÔNG hiện modal xung đột.
+          // KHÔNG lưu lời giải mới đè lên lời giải cũ; đặt câu ở trạng thái needs_regeneration
+          // kèm lý do "AI chính đang bận, kết quả dự phòng chưa đủ tin cậy, hãy thử lại sau"
+          // và đưa vào danh sách "cần thử lại" trong phản hồi để frontend hiển thị.
+          const retryReason = 'AI chính đang bận, kết quả dự phòng chưa đủ tin cậy, hãy thử lại sau'
+          needsRetryQuestions.push({
+            number: qNum,
+            reason: retryReason,
+          })
+
+          const hasMeaningfulOldExp = existing && (existing.answer || existing.reasoning || existing.status)
+          if (!hasMeaningfulOldExp) {
+            const placeholderExp = {
+              v: 2,
+              status: 'needs_regeneration',
+              needsRegenerationReason: retryReason,
+              teacher_note: retryReason,
+              answer: inputAnswer,
+              provider: explanation.provider || 'Groq',
+              model: explanation.model || 'llama-3.3-70b-versatile',
+              isFallback: true,
+              updatedAt: new Date().toISOString(),
+            }
+            rowGeneratedMap.set(qNum, { explanation: placeholderExp, adoptedAiAnswer: null })
+          }
+        }
+      } else {
+        // 4.1: Record conflict and save with conflict_pending status
+        explanation.status = 'conflict_pending'
+        explanation.aiAnswer = aiAnswer
+        explanation.teacher_note = `AI chọn "${aiAnswer}"; đáp án đề đang là "${inputAnswer}". Cần giáo viên đối chiếu.`
+        conflicts.push({
+          number: qNum,
+          type: qCtx.type,
+          questionText: qCtx.questionText,
+          inputAnswer,
+          aiAnswer,
+          evidence: explanation.evidence?.parts?.[0]?.text || '',
+          reasoning: explanation.reasoning,
+          teacher_note: explanation.teacher_note,
+          explanation,
+        })
+        rowGeneratedMap.set(qNum, { explanation, adoptedAiAnswer: null })
+      }
     } else {
       // Resolve or match
       if (choice === 'ai') {
@@ -752,6 +888,7 @@ async function generateForPracticeExam(examId, {
     for (const qNum of map.keys()) processedNumbers.add(qNum)
   }
   for (const f of failedQuestions) processedNumbers.add(f.number)
+  for (const r of needsRetryQuestions) processedNumbers.add(r.number)
 
   const remainingQuestionNumbers = candidateItems
     .map(item => item.qNum)
@@ -762,6 +899,8 @@ async function generateForPracticeExam(examId, {
       ok: false,
       hasConflicts: true,
       conflicts,
+      needsRetryQuestions: needsRetryQuestions.length ? needsRetryQuestions : undefined,
+      needsRetryCount: needsRetryQuestions.length,
       generatedCount,
       remainingQuestionNumbers,
       totalQuestions: candidateItems.length,
@@ -773,6 +912,8 @@ async function generateForPracticeExam(examId, {
   return {
     ok: true,
     hasConflicts: false,
+    needsRetryQuestions: needsRetryQuestions.length ? needsRetryQuestions : undefined,
+    needsRetryCount: needsRetryQuestions.length,
     generatedCount,
     remainingQuestionNumbers,
     totalQuestions: candidateItems.length,
@@ -917,6 +1058,7 @@ async function generateForExam(examId, {
 
   const startedAt = new Date().toISOString()
   const conflicts = []
+  const needsRetryQuestions = []
   const updates = []
   const failedQuestions = []
   let generatedCount = 0
@@ -983,27 +1125,108 @@ async function generateForExam(examId, {
         explanation,
       })
     } else if (!match && !choice) {
-      // 4.1: Record conflict and save with conflict_pending
-      explanation.status = 'conflict_pending'
-      explanation.aiAnswer = aiAnswer
-      explanation.teacher_note = `AI chọn "${aiAnswer}"; đáp án đề đang là "${inputAnswer}". Cần giáo viên đối chiếu.`
-      conflicts.push({
-        number: q.number,
-        type: q.type,
-        questionText: q.questionText,
-        inputAnswer,
-        aiAnswer,
-        evidence: explanation.evidence?.parts?.[0]?.text || '',
-        reasoning: explanation.reasoning,
-        teacher_note: explanation.teacher_note,
-        explanation,
-      })
-      updates.push({
-        id: q.id,
-        number: q.number,
-        correctAnswer: inputAnswer,
-        explanation,
-      })
+      const isFallbackResult = Boolean(explanation?.isFallback || (explanation?.provider && explanation.provider.toLowerCase() !== 'gemini'))
+
+      if (isFallbackResult) {
+        // 1.1: Fallback provider lệch đáp án -> KHÔNG tạo conflict_pending, KHÔNG hiện modal xung đột!
+        const retryResult = await handleFallbackMismatchRetry({
+          qCtx: q,
+          family,
+          ctx,
+          inputAnswer,
+          rawOptions,
+          startTime,
+          effectiveTimeBudget,
+        })
+
+        if (retryResult.resolvedWithGemini) {
+          explanation = retryResult.explanation
+          const geminiAiAnswer = retryResult.aiAnswer
+          const geminiMatch = retryResult.match
+
+          if (geminiMatch) {
+            explanation.status = 'ai_generated'
+            explanation.teacher_note = `Khớp với đáp án đề (${inputAnswer}).`
+            updates.push({
+              id: q.id,
+              number: q.number,
+              correctAnswer: inputAnswer,
+              explanation,
+            })
+          } else {
+            explanation.status = 'conflict_pending'
+            explanation.aiAnswer = geminiAiAnswer
+            explanation.teacher_note = `AI chọn "${geminiAiAnswer}"; đáp án đề đang là "${inputAnswer}". Cần giáo viên đối chiếu.`
+            conflicts.push({
+              number: q.number,
+              type: q.type,
+              questionText: q.questionText,
+              inputAnswer,
+              aiAnswer: geminiAiAnswer,
+              evidence: explanation.evidence?.parts?.[0]?.text || '',
+              reasoning: explanation.reasoning,
+              teacher_note: explanation.teacher_note,
+              explanation,
+            })
+            updates.push({
+              id: q.id,
+              number: q.number,
+              correctAnswer: inputAnswer,
+              explanation,
+            })
+          }
+        } else {
+          // Fallback mismatch and Gemini retry failed:
+          const retryReason = 'AI chính đang bận, kết quả dự phòng chưa đủ tin cậy, hãy thử lại sau'
+          needsRetryQuestions.push({
+            number: q.number,
+            reason: retryReason,
+          })
+
+          const hasMeaningfulOldExp = q.explanation && (q.explanation.answer || q.explanation.reasoning || q.explanation.status)
+          if (!hasMeaningfulOldExp) {
+            const placeholderExp = {
+              v: 2,
+              status: 'needs_regeneration',
+              needsRegenerationReason: retryReason,
+              teacher_note: retryReason,
+              answer: inputAnswer,
+              provider: explanation.provider || 'Groq',
+              model: explanation.model || 'llama-3.3-70b-versatile',
+              isFallback: true,
+              updatedAt: new Date().toISOString(),
+            }
+            updates.push({
+              id: q.id,
+              number: q.number,
+              correctAnswer: inputAnswer,
+              explanation: placeholderExp,
+            })
+          }
+        }
+      } else {
+        // 4.1: Record conflict and save with conflict_pending
+        explanation.status = 'conflict_pending'
+        explanation.aiAnswer = aiAnswer
+        explanation.teacher_note = `AI chọn "${aiAnswer}"; đáp án đề đang là "${inputAnswer}". Cần giáo viên đối chiếu.`
+        conflicts.push({
+          number: q.number,
+          type: q.type,
+          questionText: q.questionText,
+          inputAnswer,
+          aiAnswer,
+          evidence: explanation.evidence?.parts?.[0]?.text || '',
+          reasoning: explanation.reasoning,
+          teacher_note: explanation.teacher_note,
+          explanation,
+        })
+        updates.push({
+          id: q.id,
+          number: q.number,
+          correctAnswer: inputAnswer,
+          explanation,
+        })
+      }
     } else {
       let finalCorrectAnswer = inputAnswer
       if (choice === 'ai') {
@@ -1067,6 +1290,7 @@ async function generateForExam(examId, {
 
   const processedNumbers = new Set(updates.map(u => u.number))
   for (const f of failedQuestions) processedNumbers.add(f.number)
+  for (const r of needsRetryQuestions) processedNumbers.add(r.number)
 
   const remainingQuestionNumbers = candidateQuestions
     .map(c => c.q.number)
@@ -1077,6 +1301,8 @@ async function generateForExam(examId, {
       ok: false,
       hasConflicts: true,
       conflicts,
+      needsRetryQuestions: needsRetryQuestions.length ? needsRetryQuestions : undefined,
+      needsRetryCount: needsRetryQuestions.length,
       generatedCount,
       remainingQuestionNumbers,
       totalQuestions: candidateQuestions.length,
@@ -1088,6 +1314,8 @@ async function generateForExam(examId, {
   return {
     ok: true,
     hasConflicts: false,
+    needsRetryQuestions: needsRetryQuestions.length ? needsRetryQuestions : undefined,
+    needsRetryCount: needsRetryQuestions.length,
     generatedCount,
     remainingQuestionNumbers,
     totalQuestions: candidateQuestions.length,
@@ -1202,6 +1430,38 @@ async function regenerateQuestionExplanation({ examId, questionId = null, questi
       return { ok: false, message: 'AI không tạo được giải thích cho câu hỏi này.' }
     }
 
+    const aiAnswer = String(explanation.answer || '').trim()
+    const rawOptions = qCtx.options || (targetGroup.matchingOptions?.length ? targetGroup.matchingOptions : null)
+    let match = isAnswerMatch(inputAnswer, aiAnswer, rawOptions, qCtx.type)
+    const isFallbackResult = Boolean(explanation?.isFallback || (explanation?.provider && explanation.provider.toLowerCase() !== 'gemini'))
+
+    if (isFallbackResult && (!match || (isFixedMode && explanation.no_support))) {
+      const retryResult = await handleFallbackMismatchRetry({
+        qCtx,
+        family,
+        ctx,
+        inputAnswer,
+        rawOptions,
+        startTime: Date.now(),
+        effectiveTimeBudget: 30000,
+        isFixedMode,
+        targetAnswer: isFixedMode ? inputAnswer : null,
+      })
+      if (retryResult.resolvedWithGemini) {
+        explanation = retryResult.explanation
+        match = retryResult.match
+      } else {
+        return {
+          ok: false,
+          status: 'needs_regeneration',
+          isConflict: false,
+          needsRetry: true,
+          message: `AI chính đang bận, kết quả dự phòng của câu #${targetNum} chưa đủ tin cậy, hãy thử lại sau.`,
+          explanation: oldExp,
+        }
+      }
+    }
+
     if (isFixedMode && explanation.no_support) {
       return {
         ok: false,
@@ -1210,10 +1470,7 @@ async function regenerateQuestionExplanation({ examId, questionId = null, questi
       }
     }
 
-    const aiAnswer = String(explanation.answer || '').trim()
-    const rawOptions = qCtx.options || (targetGroup.matchingOptions?.length ? targetGroup.matchingOptions : null)
-    const match = isAnswerMatch(inputAnswer, aiAnswer, rawOptions, qCtx.type)
-
+    const currentAiAnswer = String(explanation.answer || '').trim()
     if (match) {
       explanation.status = 'ai_generated'
       explanation.teacher_note = `Khớp với đáp án đề (${inputAnswer}).`
@@ -1222,8 +1479,8 @@ async function regenerateQuestionExplanation({ examId, questionId = null, questi
       explanation.teacher_note = `AI không tìm thấy bằng chứng ủng hộ đáp án "${inputAnswer}". Cần sửa trực tiếp.`
     } else {
       explanation.status = 'conflict_pending'
-      explanation.aiAnswer = aiAnswer
-      explanation.teacher_note = `AI chọn "${aiAnswer}"; đáp án đề đang là "${inputAnswer}". Cần giáo viên đối chiếu.`
+      explanation.aiAnswer = currentAiAnswer
+      explanation.teacher_note = `AI chọn "${currentAiAnswer}"; đáp án đề đang là "${inputAnswer}". Cần giáo viên đối chiếu.`
     }
 
     if (containsInternalJargon(explanation)) {
@@ -1347,6 +1604,38 @@ async function regenerateQuestionExplanation({ examId, questionId = null, questi
       return { ok: false, message: 'AI không tạo được giải thích cho câu hỏi này.' }
     }
 
+    const aiAnswer = String(explanation.answer || '').trim()
+    const rawOptions = question.options || (question.group?.matchingOptions?.length ? question.group.matchingOptions : null)
+    let match = isAnswerMatch(inputAnswer, aiAnswer, rawOptions, question.type)
+    const isFallbackResult = Boolean(explanation?.isFallback || (explanation?.provider && explanation.provider.toLowerCase() !== 'gemini'))
+
+    if (isFallbackResult && (!match || (isFixedMode && explanation.no_support))) {
+      const retryResult = await handleFallbackMismatchRetry({
+        qCtx: question,
+        family,
+        ctx,
+        inputAnswer,
+        rawOptions,
+        startTime: Date.now(),
+        effectiveTimeBudget: 30000,
+        isFixedMode,
+        targetAnswer: isFixedMode ? inputAnswer : null,
+      })
+      if (retryResult.resolvedWithGemini) {
+        explanation = retryResult.explanation
+        match = retryResult.match
+      } else {
+        return {
+          ok: false,
+          status: 'needs_regeneration',
+          isConflict: false,
+          needsRetry: true,
+          message: `AI chính đang bận, kết quả dự phòng của câu #${question.number} chưa đủ tin cậy, hãy thử lại sau.`,
+          explanation: oldExp,
+        }
+      }
+    }
+
     if (isFixedMode && explanation.no_support) {
       return {
         ok: false,
@@ -1355,10 +1644,7 @@ async function regenerateQuestionExplanation({ examId, questionId = null, questi
       }
     }
 
-    const aiAnswer = String(explanation.answer || '').trim()
-    const rawOptions = question.options || (question.group?.matchingOptions?.length ? question.group.matchingOptions : null)
-    const match = isAnswerMatch(inputAnswer, aiAnswer, rawOptions, question.type)
-
+    const currentAiAnswer = String(explanation.answer || '').trim()
     if (match) {
       explanation.status = 'ai_generated'
       explanation.teacher_note = `Khớp với đáp án đề (${inputAnswer}).`
@@ -1367,8 +1653,8 @@ async function regenerateQuestionExplanation({ examId, questionId = null, questi
       explanation.teacher_note = `AI không tìm thấy bằng chứng ủng hộ đáp án "${inputAnswer}". Cần sửa trực tiếp.`
     } else {
       explanation.status = 'conflict_pending'
-      explanation.aiAnswer = aiAnswer
-      explanation.teacher_note = `AI chọn "${aiAnswer}"; đáp án đề đang là "${inputAnswer}". Cần giáo viên đối chiếu.`
+      explanation.aiAnswer = currentAiAnswer
+      explanation.teacher_note = `AI chọn "${currentAiAnswer}"; đáp án đề đang là "${inputAnswer}". Cần giáo viên đối chiếu.`
     }
 
     if (containsInternalJargon(explanation)) {

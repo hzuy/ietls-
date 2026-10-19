@@ -525,9 +525,19 @@ function buildResponseSchema(type, rawOptions = null, schemaOpts = {}) {
   }
 }
 
-async function callAi(prompt, { questionType = null, rawOptions = null, model: customModel = null, maxRateLimitRetries = 6, isFixedMode = false } = {}) {
+async function callAi(prompt, { questionType = null, rawOptions = null, model: customModel = null, maxRateLimitRetries = 6, isFixedMode = false, forceProvider = null } = {}) {
   const useGemini = process.env.GEMINI_API_KEY && (process.env.NODE_ENV !== 'test' || process.env.ENABLE_GEMINI_IN_TEST === 'true')
   const model = customModel || process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite'
+
+  if (forceProvider === 'Groq') {
+    const groqData = await callGroq(prompt, { maxRateLimitRetries })
+    return {
+      data: groqData,
+      provider: 'Groq',
+      model: typeof getGroqModel === 'function' ? getGroqModel() : 'openai/gpt-oss-120b',
+      isFallback: true,
+    }
+  }
 
   if (useGemini && typeof requestGeminiJson === 'function') {
     const responseSchema = buildResponseSchema(questionType, rawOptions, { isFixedMode })
@@ -555,10 +565,15 @@ async function callAi(prompt, { questionType = null, rawOptions = null, model: c
           await sleep(waitMs)
           continue
         }
+        if (forceProvider === 'Gemini') {
+          throw geminiErr
+        }
         console.warn(`   … [AI] Gemini gặp sự cố (${geminiErr.status || geminiErr.message}), chuyển sang Groq dự phòng...`)
         break
       }
     }
+  } else if (forceProvider === 'Gemini') {
+    throw new Error('Gemini API key is not configured or requestGeminiJson is unavailable')
   }
 
   const groqData = await callGroq(prompt, { maxRateLimitRetries })
@@ -570,7 +585,7 @@ async function callAi(prompt, { questionType = null, rawOptions = null, model: c
   }
 }
 
-async function generateExplanation(q, family, ctx, { teacherFeedback = null, isFixedMode = false, targetAnswer = null } = {}) {
+async function generateExplanation(q, family, ctx, { teacherFeedback = null, isFixedMode = false, targetAnswer = null, forceProvider = null } = {}) {
   let previousError = null
   for (let attempt = 0; attempt < 2; attempt++) {
     const rawOptions = q.options || (q.group?.matchingOptions?.length ? q.group.matchingOptions : null)
@@ -579,6 +594,7 @@ async function generateExplanation(q, family, ctx, { teacherFeedback = null, isF
       questionType: q.type,
       rawOptions,
       isFixedMode,
+      forceProvider,
     })
     const payload = aiResult?.data || aiResult
 
