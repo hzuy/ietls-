@@ -105,4 +105,128 @@ describe('executeTimedAIGenerationLoop', () => {
     expect(result.conflicts[0].number).toBe(1)
     expect(result.conflicts[1].number).toBe(3)
   })
+
+  it('Requirement 3.3(a): stops and reports Vietnamese error when 2 consecutive requests make no progress', async () => {
+    const fetchChunk = vi.fn()
+      // Request 1: generates 1, remaining [2, 3]
+      .mockResolvedValueOnce({
+        ok: true,
+        generatedCount: 1,
+        totalQuestions: 3,
+        remainingQuestionNumbers: [2, 3],
+      })
+      // Request 2: generates 0, remaining still [2, 3] (stall 1)
+      .mockResolvedValueOnce({
+        ok: true,
+        generatedCount: 0,
+        totalQuestions: 3,
+        remainingQuestionNumbers: [2, 3],
+      })
+      // Request 3: generates 0, remaining still [2, 3] (stall 2 -> must break)
+      .mockResolvedValueOnce({
+        ok: true,
+        generatedCount: 0,
+        totalQuestions: 3,
+        remainingQuestionNumbers: [2, 3],
+      })
+
+    const result = await executeTimedAIGenerationLoop({
+      fetchChunk,
+    })
+
+    expect(fetchChunk).toHaveBeenCalledTimes(3)
+    expect(result.ok).toBe(false)
+    expect(result.errors).toHaveLength(1)
+    expect(result.errors[0].message).toContain('AI không phản hồi hoặc không có tiến triển')
+    expect(result.totalGenerated).toBe(1)
+  })
+
+  it('Requirement 3.3(b): limits loop execution to maximum iterations (e.g. maxIterations = 20)', async () => {
+    const fetchChunk = vi.fn().mockImplementation(() => Promise.resolve({
+      ok: true,
+      generatedCount: 1,
+      totalQuestions: 100,
+      remainingQuestionNumbers: [20, 21, 22],
+    }))
+
+    const result = await executeTimedAIGenerationLoop({
+      fetchChunk,
+      maxIterations: 5,
+    })
+
+    expect(fetchChunk).toHaveBeenCalledTimes(5)
+    expect(result.ok).toBe(false)
+    expect(result.errors[0].message).toContain('Đã đạt giới hạn tối đa 5 vòng')
+  })
+
+  it('Requirement 3.3(c): treats request as complete without error if legacy backend does not return remainingQuestionNumbers', async () => {
+    const fetchChunk = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      generatedCount: 4,
+      totalQuestions: 4,
+      // remainingQuestionNumbers is undefined (legacy backend)
+    })
+
+    const onProgress = vi.fn()
+    const result = await executeTimedAIGenerationLoop({
+      fetchChunk,
+      onProgress,
+    })
+
+    expect(fetchChunk).toHaveBeenCalledTimes(1)
+    expect(result.ok).toBe(true)
+    expect(result.totalGenerated).toBe(4)
+    expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({
+      current: 4,
+      total: 4,
+      remainingCount: 0,
+    }))
+  })
+
+  it('Requirement 3.3(d): handles 409 Conflict with Vietnamese message and stops without retrying', async () => {
+    const error409 = new Error('Request failed with status code 409')
+    error409.response = {
+      status: 409,
+      data: {
+        message: 'Hệ thống đang tạo giải thích AI cho đề thi này ở phiên khác. Vui lòng chờ vài giây rồi thử lại.',
+      },
+    }
+
+    const fetchChunk = vi.fn().mockRejectedValueOnce(error409)
+
+    const result = await executeTimedAIGenerationLoop({
+      fetchChunk,
+    })
+
+    expect(fetchChunk).toHaveBeenCalledTimes(1)
+    expect(result.ok).toBe(false)
+    expect(result.errors).toHaveLength(1)
+    expect(result.errors[0].status).toBe(409)
+    expect(result.errors[0].message).toContain('Hệ thống đang tạo giải thích AI cho đề thi này ở phiên khác')
+  })
+
+  it('Requirement 3.3(e): tracks needsRetryQuestions from backend fallback safety (Phan 1)', async () => {
+    const fetchChunk = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        generatedCount: 1,
+        totalQuestions: 2,
+        remainingQuestionNumbers: [2],
+        needsRetryQuestions: [{ number: 1, reason: 'AI chính đang bận, kết quả dự phòng chưa đủ tin cậy, hãy thử lại sau' }],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        generatedCount: 1,
+        totalQuestions: 2,
+        remainingQuestionNumbers: [],
+      })
+
+    const result = await executeTimedAIGenerationLoop({
+      fetchChunk,
+    })
+
+    expect(result.needsRetryCount).toBe(1)
+    expect(result.needsRetryQuestions).toHaveLength(1)
+    expect(result.needsRetryQuestions[0].number).toBe(1)
+  })
 })

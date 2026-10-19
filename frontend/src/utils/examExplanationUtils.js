@@ -481,15 +481,23 @@ export async function executeTimedAIGenerationLoop({
   signal = null,
   onProgress = null,
   onChunkSuccess = null,
+  maxIterations = 20,
 }) {
   let remainingNumbers = null
   let totalQuestions = null
   let totalGenerated = 0
   const accumulatedConflicts = []
   const accumulatedErrors = []
+  const accumulatedNeedsRetry = []
   let isCancelled = false
 
-  while (true) {
+  let iteration = 0
+  let noProgressCount = 0
+  let prevRemainingCount = null
+
+  while (iteration < maxIterations) {
+    iteration++
+
     if (signal?.aborted) {
       isCancelled = true
       break
@@ -500,7 +508,30 @@ export async function executeTimedAIGenerationLoop({
       questionNumbers: remainingNumbers,
     }
 
-    const res = await fetchChunk(payload, { signal })
+    let res
+    try {
+      res = await fetchChunk(payload, { signal })
+    } catch (err) {
+      if (err?.name === 'AbortError' || signal?.aborted) {
+        isCancelled = true
+        break
+      }
+      // 3.3(d): 409 hiển thị thông báo tiếng Việt và không lặp tiếp
+      if (err?.response?.status === 409 || err?.status === 409) {
+        const conflictMsg = err?.response?.data?.message || 'Hệ thống đang tạo giải thích AI cho đề thi này ở phiên khác. Vui lòng chờ vài giây rồi thử lại.'
+        accumulatedErrors.push({
+          status: 409,
+          message: conflictMsg,
+        })
+        break
+      }
+      accumulatedErrors.push({
+        status: err?.response?.status || 500,
+        message: err?.response?.data?.message || err?.message || 'Lỗi khi gọi AI giải thích',
+      })
+      break
+    }
+
     const data = res?.data || res
     if (!data) break
 
@@ -508,9 +539,8 @@ export async function executeTimedAIGenerationLoop({
       totalQuestions = data.totalQuestions
     }
 
-    if (data.generatedCount) {
-      totalGenerated += data.generatedCount
-    }
+    const currentGenerated = data.generatedCount || 0
+    totalGenerated += currentGenerated
 
     if (Array.isArray(data.conflicts) && data.conflicts.length > 0) {
       accumulatedConflicts.push(...data.conflicts)
@@ -520,6 +550,36 @@ export async function executeTimedAIGenerationLoop({
       accumulatedErrors.push(...data.errors)
     }
 
+    // 3.3(e): Thu thập danh sách "cần thử lại" từ Phần 1
+    if (Array.isArray(data.needsRetryQuestions) && data.needsRetryQuestions.length > 0) {
+      for (const nr of data.needsRetryQuestions) {
+        const exists = accumulatedNeedsRetry.some(item => (typeof item === 'object' ? item.number : item) === (typeof nr === 'object' ? nr.number : nr))
+        if (!exists) accumulatedNeedsRetry.push(nr)
+      }
+    }
+
+    // 3.3(c): Nếu backend không trả remainingQuestionNumbers (bản backend cũ trong lúc deploy) thì coi là đã xong, không lặp, không lỗi
+    if (data.remainingQuestionNumbers === undefined) {
+      if (typeof onProgress === 'function') {
+        onProgress({
+          current: totalQuestions !== null ? totalQuestions : totalGenerated,
+          total: totalQuestions !== null ? totalQuestions : totalGenerated,
+          remainingCount: 0,
+          needsRetryCount: accumulatedNeedsRetry.length,
+          needsRetryQuestions: accumulatedNeedsRetry,
+          data,
+        })
+      }
+      if (typeof onChunkSuccess === 'function') {
+        try {
+          await onChunkSuccess(data)
+        } catch (chunkErr) {
+          console.error('[CHUNK_SYNC_ERROR]', chunkErr)
+        }
+      }
+      break
+    }
+
     const remaining = Array.isArray(data.remainingQuestionNumbers)
       ? data.remainingQuestionNumbers
       : []
@@ -527,11 +587,27 @@ export async function executeTimedAIGenerationLoop({
     const remainingCount = remaining.length
     const currentCompleted = totalQuestions !== null ? (totalQuestions - remainingCount) : totalGenerated
 
+    // 3.3(a): Chặn vòng lặp vô hạn: nếu 2 request liên tiếp không sinh thêm câu nào và remainingQuestionNumbers không giảm -> dừng và báo lỗi tiếng Việt
+    if (currentGenerated === 0 && prevRemainingCount !== null && remainingCount >= prevRemainingCount) {
+      noProgressCount++
+      if (noProgressCount >= 2) {
+        accumulatedErrors.push({
+          message: 'AI không phản hồi hoặc không có tiến triển, các câu đã sinh được giữ lại an toàn.',
+        })
+        break
+      }
+    } else {
+      noProgressCount = 0
+    }
+    prevRemainingCount = remainingCount
+
     if (typeof onProgress === 'function') {
       onProgress({
         current: Math.max(0, currentCompleted),
         total: totalQuestions !== null ? totalQuestions : totalGenerated,
         remainingCount,
+        needsRetryCount: accumulatedNeedsRetry.length,
+        needsRetryQuestions: accumulatedNeedsRetry,
         data,
       })
     }
@@ -552,10 +628,19 @@ export async function executeTimedAIGenerationLoop({
     remainingNumbers = remaining
   }
 
+  // 3.3(b): Giới hạn tối đa số vòng (20 vòng)
+  if (iteration >= maxIterations && remainingNumbers && remainingNumbers.length > 0) {
+    accumulatedErrors.push({
+      message: `Đã đạt giới hạn tối đa ${maxIterations} vòng gọi AI. Các câu đã sinh được giữ lại, vui lòng thử lại sau cho các câu còn lại.`,
+    })
+  }
+
   return {
     ok: accumulatedErrors.length === 0,
     hasConflicts: accumulatedConflicts.length > 0,
     conflicts: accumulatedConflicts,
+    needsRetryQuestions: accumulatedNeedsRetry,
+    needsRetryCount: accumulatedNeedsRetry.length,
     totalGenerated,
     totalQuestions: totalQuestions || totalGenerated,
     cancelled: isCancelled,
