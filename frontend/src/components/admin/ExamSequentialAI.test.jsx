@@ -109,7 +109,8 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith(
         '/admin/exams/10/groups/201/generate-explanations',
-        expect.objectContaining({ force: true, overwriteProtected: false })
+        expect.objectContaining({ force: true, overwriteProtected: false }),
+        expect.anything()
       )
     })
   })
@@ -386,7 +387,8 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith(
         '/admin/exams/20/groups/601/generate-explanations',
-        expect.objectContaining({ force: true, overwriteProtected: false })
+        expect.objectContaining({ force: true, overwriteProtected: false }),
+        expect.anything()
       )
     })
   })

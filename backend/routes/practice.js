@@ -502,7 +502,7 @@ router.delete('/admin/:skill/:id', authMiddleware, teacherStrict, async (req, re
 // ─── ADMIN: generate AI explanations with conflict detection ──────────────────
 router.post('/admin/:skill/:id/generate-explanations', authMiddleware, teacherStrict, async (req, res) => {
   const { id } = req.params
-  const { force = false, resolveChoices = {}, overwriteProtected = false } = req.body || {}
+  const { force = false, resolveChoices = {}, overwriteProtected = false, questionNumbers = null, timeBudgetMs = null } = req.body || {}
   const practiceId = parseInt(id, 10)
   const lockKey = `practice:${practiceId}`
 
@@ -513,7 +513,7 @@ router.post('/admin/:skill/:id/generate-explanations', authMiddleware, teacherSt
   }
 
   try {
-    const result = await generateForPracticeExam(practiceId, { force, resolveChoices, overwriteProtected })
+    const result = await generateForPracticeExam(practiceId, { force, resolveChoices, overwriteProtected, questionNumbers, timeBudgetMs })
     res.json(result)
   } catch (err) {
     console.error('[GENERATE PRACTICE EXPLANATIONS ERROR]', err)

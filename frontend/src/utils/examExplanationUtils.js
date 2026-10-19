@@ -454,3 +454,111 @@ export function mergeExamExplanations(currentForm, freshExam, resolvedChoices = 
 
   return currentForm
 }
+
+/**
+ * Executes a chunked, timed loop for generating AI explanations.
+ * Keeps running requests with remaining question numbers until finished or aborted.
+ *
+ * @param {object} params
+ * @param {Function} params.fetchChunk - async (payload, { signal }) => response.data
+ * @param {object} params.basePayload - { force, overwriteProtected, resolveChoices }
+ * @param {AbortSignal} [params.signal] - AbortSignal for user cancellation
+ * @param {Function} [params.onProgress] - ({ current, total, remainingCount, data }) => void
+ * @param {Function} [params.onChunkSuccess] - async (chunkData) => void (e.g. sync form/draft)
+ * @returns {Promise<{
+ *   ok: boolean,
+ *   hasConflicts: boolean,
+ *   conflicts: Array,
+ *   totalGenerated: number,
+ *   totalQuestions: number,
+ *   cancelled: boolean,
+ *   errors: Array
+ * }>}
+ */
+export async function executeTimedAIGenerationLoop({
+  fetchChunk,
+  basePayload = {},
+  signal = null,
+  onProgress = null,
+  onChunkSuccess = null,
+}) {
+  let remainingNumbers = null
+  let totalQuestions = null
+  let totalGenerated = 0
+  const accumulatedConflicts = []
+  const accumulatedErrors = []
+  let isCancelled = false
+
+  while (true) {
+    if (signal?.aborted) {
+      isCancelled = true
+      break
+    }
+
+    const payload = {
+      ...basePayload,
+      questionNumbers: remainingNumbers,
+    }
+
+    const res = await fetchChunk(payload, { signal })
+    const data = res?.data || res
+    if (!data) break
+
+    if (totalQuestions === null && typeof data.totalQuestions === 'number') {
+      totalQuestions = data.totalQuestions
+    }
+
+    if (data.generatedCount) {
+      totalGenerated += data.generatedCount
+    }
+
+    if (Array.isArray(data.conflicts) && data.conflicts.length > 0) {
+      accumulatedConflicts.push(...data.conflicts)
+    }
+
+    if (Array.isArray(data.errors) && data.errors.length > 0) {
+      accumulatedErrors.push(...data.errors)
+    }
+
+    const remaining = Array.isArray(data.remainingQuestionNumbers)
+      ? data.remainingQuestionNumbers
+      : []
+
+    const remainingCount = remaining.length
+    const currentCompleted = totalQuestions !== null ? (totalQuestions - remainingCount) : totalGenerated
+
+    if (typeof onProgress === 'function') {
+      onProgress({
+        current: Math.max(0, currentCompleted),
+        total: totalQuestions !== null ? totalQuestions : totalGenerated,
+        remainingCount,
+        data,
+      })
+    }
+
+    if (typeof onChunkSuccess === 'function') {
+      try {
+        await onChunkSuccess(data)
+      } catch (chunkErr) {
+        console.error('[CHUNK_SYNC_ERROR]', chunkErr)
+      }
+    }
+
+    if (remaining.length === 0 || signal?.aborted) {
+      if (signal?.aborted) isCancelled = true
+      break
+    }
+
+    remainingNumbers = remaining
+  }
+
+  return {
+    ok: accumulatedErrors.length === 0,
+    hasConflicts: accumulatedConflicts.length > 0,
+    conflicts: accumulatedConflicts,
+    totalGenerated,
+    totalQuestions: totalQuestions || totalGenerated,
+    cancelled: isCancelled,
+    errors: accumulatedErrors,
+  }
+}

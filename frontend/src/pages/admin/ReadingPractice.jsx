@@ -26,6 +26,7 @@ import ExplanationConflictModal from '../../components/admin/ExplanationConflict
 import OverwriteProtectedConfirmModal from '../../components/admin/OverwriteProtectedConfirmModal'
 import { showAlert } from '../../utils/alertUtils'
 import { validatePracticeReading, formatValidationAlert } from '../../utils/questionValidation'
+import { executeTimedAIGenerationLoop } from '../../utils/examExplanationUtils'
 
 // ─── PREVIEW MODAL ────────────────────────────────────────────────────────────
 function ReadingPracticePreviewModal({ form, showAnswers, setShowAnswers, showExplanations, setShowExplanations, onClose }) {
@@ -138,6 +139,10 @@ export default function ReadingPractice() {
   const [conflictModalOpen, setConflictModalOpen] = useState(false)
   const [overwriteModalOpen, setOverwriteModalOpen] = useState(false)
   const [protectedStats, setProtectedStats] = useState({ reviewedCount: 0, editedCount: 0 })
+  const [aiProgress, setAiProgress] = useState(null)
+  const [isCancellingAI, setIsCancellingAI] = useState(false)
+  const isCancellingAIRef = useRef(false)
+  const abortControllerRef = useRef(null)
   // BUG-13: Track unsaved changes (derive-snapshot: formSig(form) vs pristineRef)
   const [isDirty, setIsDirty] = useState(false)
   const pristineRef = useRef('')
@@ -325,8 +330,14 @@ export default function ReadingPractice() {
       showToast(val.errors[0] || 'Vui lòng điền đầy đủ thông tin đề bài và đáp án đúng', 'error')
       return
     }
+
     setGeneratingAI(true)
-    showToast('Đang kết nối AI để phân tích và tạo lời giải thích...', 'info')
+    setIsCancellingAI(false)
+    isCancellingAIRef.current = false
+    const abortController = new AbortController()
+    abortControllerRef.current = abortController
+    setAiProgress({ current: 0, total: 0, label: 'chuẩn bị...' })
+
     try {
       // Tự động đồng bộ các thay đổi mới nhất lên server nếu form đang có chỉnh sửa
       if (isDirty) {
@@ -349,34 +360,54 @@ export default function ReadingPractice() {
         pristineRef.current = formSig(form)
       }
 
-      const res = await api.post(`/practice/admin/reading/${editing.id}/generate-explanations`, {
-        force: true,
-        overwriteProtected,
-        resolveChoices,
+      const loopResult = await executeTimedAIGenerationLoop({
+        fetchChunk: (payload, opts) =>
+          api.post(`/practice/admin/reading/${editing.id}/generate-explanations`, payload, opts),
+        basePayload: { force: true, overwriteProtected, resolveChoices },
+        signal: abortController.signal,
+        onProgress: ({ current, total }) => {
+          setAiProgress({
+            current,
+            total,
+            label: total > 0 ? `${current}/${total} câu` : 'đang xử lý...',
+          })
+        },
+        onChunkSuccess: async () => {
+          try {
+            const fresh = await getReadingPractice(editing.id)
+            const qData = typeof fresh.questions === 'string'
+              ? JSON.parse(fresh.questions)
+              : (fresh.questions || {})
+            if (Array.isArray(qData.groups)) {
+              setForm(f => ({ ...f, questionGroups: qData.groups }))
+              pristineRef.current = formSig({ ...form, questionGroups: qData.groups })
+            }
+          } catch { /* ignore refresh error */ }
+        },
       })
-      if (res.data?.hasConflicts) {
-        setAiConflicts(res.data.conflicts || [])
+
+      if (loopResult.cancelled) {
+        showToast('Đã dừng tác vụ sinh AI. Các câu đã xong đã được lưu lại.', 'info')
+      } else if (loopResult.hasConflicts) {
+        setAiConflicts(loopResult.conflicts || [])
         setConflictModalOpen(true)
         showToast('AI phát hiện đáp án có sự khác biệt so với bài đọc. Vui lòng kiểm tra!', 'warning')
       } else {
-        showToast(res.data?.message || 'Đã tạo giải thích 4 bước thành công!', 'success')
+        showToast(`Đã tạo giải thích 4 bước thành công cho ${loopResult.totalGenerated} câu hỏi!`, 'success')
         setConflictModalOpen(false)
         queryClient.invalidateQueries({ queryKey: ['admin', 'practice'] })
-        try {
-          const fresh = await getReadingPractice(editing.id)
-          const qData = typeof fresh.questions === 'string'
-            ? JSON.parse(fresh.questions)
-            : (fresh.questions || {})
-          if (Array.isArray(qData.groups)) {
-            setForm(f => ({ ...f, questionGroups: qData.groups }))
-            pristineRef.current = formSig({ ...form, questionGroups: qData.groups })
-          }
-        } catch { /* ignore refresh error */ }
       }
     } catch (err) {
-      showToast(err.response?.data?.message || 'Không thể tạo giải thích bằng AI', 'error')
+      if (err.response?.status === 409) {
+        showAlert(err.response?.data?.message || 'Đang có một tác vụ AI khác đang chạy cho bài luyện tập này.', 'warning')
+      } else if (!abortController.signal.aborted && err.name !== 'CanceledError' && err.code !== 'ERR_CANCELED') {
+        showToast(err.response?.data?.message || 'Không thể tạo giải thích bằng AI', 'error')
+      }
     } finally {
       setGeneratingAI(false)
+      setIsCancellingAI(false)
+      setAiProgress(null)
+      abortControllerRef.current = null
     }
   }
 
@@ -391,8 +422,9 @@ export default function ReadingPractice() {
               <button
                 type="button"
                 onClick={handleCancelOrBack}
+                disabled={generatingAI}
                 aria-label="Quay lại danh sách"
-                className="w-8 h-8 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-600 flex items-center justify-center text-sm font-semibold transition cursor-pointer shadow-2xs"
+                className="w-8 h-8 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-600 flex items-center justify-center text-sm font-semibold transition cursor-pointer shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 ←
               </button>
@@ -410,23 +442,51 @@ export default function ReadingPractice() {
             </div>
 
             <div className="flex items-center gap-2">
-              {editing && (
-                <button
-                  type="button"
-                  onClick={handleStartGenerateAI}
-                  disabled={generatingAI}
-                  className="h-9 px-3.5 rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 text-xs font-semibold transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  title="AI giải thích 4 bước cho bài đọc"
-                >
-                  {generatingAI ? <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-600" /> : <BookOpen className="w-3.5 h-3.5 text-zinc-600" />}
-                  <span className="hidden sm:inline">AI giải thích</span>
-                </button>
+              {generatingAI ? (
+                <div className={`flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs border ${
+                  isCancellingAI
+                    ? 'bg-amber-50 border-amber-300 text-amber-900'
+                    : 'bg-zinc-100 border-zinc-300 text-zinc-800'
+                }`}>
+                  <Loader2 className={`w-3.5 h-3.5 animate-spin shrink-0 ${isCancellingAI ? 'text-amber-700' : 'text-zinc-700'}`} />
+                  <span className="font-semibold">
+                    {isCancellingAI ? 'Đang dừng...' : `Đang xử lý ${aiProgress?.label || '...'}`}
+                  </span>
+                  {!isCancellingAI && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        isCancellingAIRef.current = true
+                        setIsCancellingAI(true)
+                        abortControllerRef.current?.abort()
+                      }}
+                      className="ml-1 text-xs font-semibold px-2 py-0.5 rounded border border-zinc-400 bg-white hover:bg-zinc-50 text-zinc-700 transition cursor-pointer"
+                      title="Hủy giữa chừng (lưu các câu đã xong)"
+                    >
+                      Hủy
+                    </button>
+                  )}
+                </div>
+              ) : (
+                editing && (
+                  <button
+                    type="button"
+                    onClick={handleStartGenerateAI}
+                    disabled={generatingAI}
+                    className="h-9 px-3.5 rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 text-xs font-semibold transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    title="AI giải thích 4 bước cho bài đọc"
+                  >
+                    <BookOpen className="w-3.5 h-3.5 text-zinc-600" />
+                    <span className="hidden sm:inline">AI giải thích</span>
+                  </button>
+                )
               )}
               <button
                 type="button"
                 onClick={() => setShowPreview(true)}
+                disabled={generatingAI}
                 aria-label="Xem trước nội dung đề"
-                className="h-9 px-3.5 rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-900 text-xs font-semibold transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                className="h-9 px-3.5 rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-900 text-xs font-semibold transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Eye className="w-3.5 h-3.5 text-zinc-500" />
                 <span className="hidden sm:inline">Xem trước</span>

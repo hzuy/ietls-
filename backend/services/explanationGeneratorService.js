@@ -12,6 +12,8 @@ const { practiceQuestionContext } = require('../scripts/import-practice-explanat
 const { invalidate } = require('../lib/swrCache')
 const { invalidateExamCaches } = require('../utils/cache')
 
+const DEFAULT_TIME_BUDGET_MS = parseInt(process.env.EXPLANATION_TIME_BUDGET_MS, 10) || 40000
+
 const INTERNAL_JARGON_PHRASES = Object.freeze([
   'nguoi dung nhap',
   'nguoi nhap',
@@ -508,7 +510,18 @@ function isAnswerMatch(a, b, rawOptionsOrOpts = null, explicitType = null) {
  * @param {object} options.resolveChoices - Map of { [questionNumber]: 'ai' | 'input' }
  * @param {boolean} options.overwriteProtected - If true, overwrite teacher_reviewed or teacher_edited explanations
  */
-async function generateForPracticeExam(examId, { force = false, resolveChoices = {}, overwriteProtected = false } = {}) {
+async function generateForPracticeExam(examId, {
+  force = false,
+  resolveChoices = {},
+  overwriteProtected = false,
+  questionNumbers = null,
+  timeBudgetMs = null,
+} = {}) {
+  const effectiveTimeBudget = (typeof timeBudgetMs === 'number' && timeBudgetMs > 0)
+    ? timeBudgetMs
+    : DEFAULT_TIME_BUDGET_MS
+  const startTime = Date.now()
+
   const exam = await prisma.practiceExam.findUnique({
     where: { id: examId },
     include: { questions: { orderBy: { orderNum: 'asc' } } },
@@ -543,128 +556,139 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
     throw new Error(`Không thể tạo giải thích AI do các câu sau chưa có đáp án đúng: Câu ${missingAnswerQuestions.join(', ')}. Vui lòng điền đầy đủ đáp án đúng trước.`)
   }
 
+  // Gom các câu hỏi mục tiêu hợp lệ
+  const candidateItems = []
+  for (const row of exam.questions) {
+    const group = parseGroup(row)
+    if (!group || !Array.isArray(group.questions)) continue
+    const currentExplanations = { ...(row.explanation?.byNumber || {}) }
+    for (const qItem of group.questions) {
+      const qNum = Number(qItem.number)
+      if (!qNum) continue
+      if (Array.isArray(questionNumbers) && questionNumbers.length > 0 && !questionNumbers.includes(qNum)) {
+        continue
+      }
+      const existing = currentExplanations[qNum]
+      const isProtected = existing && (existing.status === 'teacher_reviewed' || existing.status === 'teacher_edited')
+      if (existing && !resolveChoices[qNum]) {
+        if (!force) continue
+        if (isProtected && !overwriteProtected) continue
+      }
+      const qCtx = practiceQuestionContext(exam, group, qNum)
+      if (!qCtx) continue
+      const family = classifyFamily(qCtx.type)
+      if (SKIP_FAMILIES.has(family)) continue
+      candidateItems.push({ row, group, qItem, qNum, qCtx, family })
+    }
+  }
+
   const startedAt = new Date().toISOString()
   const conflicts = []
   const newlyGeneratedByRow = new Map() // rowId -> Map(qNum -> { explanation, adoptedAiAnswer })
   const failedQuestions = []
   let generatedCount = 0
 
-  for (const row of exam.questions) {
-    const group = parseGroup(row)
-    if (!group || !Array.isArray(group.questions)) continue
+  const budgetThreshold = effectiveTimeBudget > 20000 ? (effectiveTimeBudget - 15000) : effectiveTimeBudget
 
-    const currentExplanations = { ...(row.explanation?.byNumber || {}) }
-    const rowGeneratedMap = new Map()
-
-    for (const qItem of group.questions) {
-      const qNum = Number(qItem.number)
-      if (!qNum) continue
-
-      const existing = currentExplanations[qNum]
-      const isProtected = existing && (existing.status === 'teacher_reviewed' || existing.status === 'teacher_edited')
-
-      // 3.10: Skip if already has explanation, respect overwriteProtected
-      if (existing && !resolveChoices[qNum]) {
-        if (!force) continue
-        if (isProtected && !overwriteProtected) continue
-      }
-
-      const qCtx = practiceQuestionContext(exam, group, qNum)
-      if (!qCtx) continue
-
-      const family = classifyFamily(qCtx.type)
-      if (SKIP_FAMILIES.has(family)) continue
-
-      const ctx = buildContext(qCtx, family)
-
-      let explanation
-      const choice = resolveChoices[qNum]
-      const inputAnswer = String(qCtx.correctAnswer || '').trim()
-      const rawOptions = qCtx.options || (group.matchingOptions?.length ? group.matchingOptions : null)
-
-      try {
-        if (choice === 'input') {
-          explanation = await generateExplanation(qCtx, family, ctx, { isFixedMode: true, targetAnswer: inputAnswer })
-        } else {
-          explanation = await generateExplanation(qCtx, family, ctx)
-        }
-      } catch (err) {
-        failedQuestions.push({ number: qNum, message: err.message })
-        continue
-      }
-      if (!explanation) continue
-
-      generatedCount++
-      explanation.updatedAt = new Date().toISOString()
-
-      const aiAnswer = String(explanation.answer || '').trim()
-      const match = isAnswerMatch(inputAnswer, aiAnswer, rawOptions, qCtx.type)
-      let adoptedAiAnswer = null
-
-      if (choice === 'input') {
-        if (explanation.no_support) {
-          explanation.status = 'needs_regeneration'
-          explanation.teacherKeptAnswer = inputAnswer
-          explanation.needsRegenerationReason = 'AI không tìm thấy bằng chứng trong bài đọc ủng hộ đáp án này'
-          explanation.teacher_note = `AI không tìm thấy bằng chứng ủng hộ đáp án "${inputAnswer}". Cần sửa trực tiếp.`
-        } else if (!match) {
-          explanation.status = 'needs_regeneration'
-          explanation.teacherKeptAnswer = inputAnswer
-          explanation.needsRegenerationReason = 'AI không thể bảo vệ đáp án của giáo viên'
-          explanation.teacher_note = `AI không thể bảo vệ đáp án "${inputAnswer}". Cần sửa trực tiếp.`
-        } else {
-          explanation.status = 'ai_generated'
-          explanation.answer = inputAnswer
-          explanation.teacher_note = `Khớp với đáp án đề (${inputAnswer}).`
-        }
-
-        if (containsInternalJargon(explanation)) {
-          explanation.status = 'needs_regeneration'
-          explanation.needsRegenerationReason = 'Lời giải chứa cụm từ nội bộ'
-        }
-
-        rowGeneratedMap.set(qNum, { explanation, adoptedAiAnswer: null })
-      } else if (!match && !choice) {
-        // 4.1: Record conflict and save with conflict_pending status
-        explanation.status = 'conflict_pending'
-        explanation.aiAnswer = aiAnswer
-        explanation.teacher_note = `AI chọn "${aiAnswer}"; đáp án đề đang là "${inputAnswer}". Cần giáo viên đối chiếu.`
-        conflicts.push({
-          number: qNum,
-          type: qCtx.type,
-          questionText: qCtx.questionText,
-          inputAnswer,
-          aiAnswer,
-          evidence: explanation.evidence?.parts?.[0]?.text || '',
-          reasoning: explanation.reasoning,
-          teacher_note: explanation.teacher_note,
-          explanation,
-        })
-        rowGeneratedMap.set(qNum, { explanation, adoptedAiAnswer: null })
-      } else {
-        // Resolve or match
-        if (choice === 'ai') {
-          // 3.4: Adopt AI answer into question
-          adoptedAiAnswer = aiAnswer
-          explanation.answer = aiAnswer
-          explanation.status = 'ai_generated'
-          explanation.teacher_note = `Đã chọn theo đáp án của AI (${aiAnswer}).`
-        } else {
-          explanation.status = 'ai_generated'
-          explanation.teacher_note = `Khớp với đáp án đề (${inputAnswer}).`
-        }
-
-        if (containsInternalJargon(explanation)) {
-          explanation.status = 'needs_regeneration'
-          explanation.needsRegenerationReason = 'Lời giải chứa cụm từ nội bộ'
-        }
-
-        rowGeneratedMap.set(qNum, { explanation, adoptedAiAnswer })
-      }
+  for (const item of candidateItems) {
+    // Kiểm tra ngân sách thời gian (tính cả rate limit & backoff đã tiêu tốn)
+    if (generatedCount > 0 && (Date.now() - startTime) >= budgetThreshold) {
+      console.log(`[TIME_BUDGET] Practice #${examId}: Đã chạy ${Date.now() - startTime}ms (ngưỡng an toàn ${budgetThreshold}ms / ngân sách ${effectiveTimeBudget}ms). Ngắt lượt để trả về client gọi tiếp.`)
+      break
     }
 
-    if (rowGeneratedMap.size > 0) {
+    const { row, group, qNum, qCtx, family } = item
+    let rowGeneratedMap = newlyGeneratedByRow.get(row.id)
+    if (!rowGeneratedMap) {
+      rowGeneratedMap = new Map()
       newlyGeneratedByRow.set(row.id, rowGeneratedMap)
+    }
+
+    const ctx = buildContext(qCtx, family)
+
+    let explanation
+    const choice = resolveChoices[qNum]
+    const inputAnswer = String(qCtx.correctAnswer || '').trim()
+    const rawOptions = qCtx.options || (group.matchingOptions?.length ? group.matchingOptions : null)
+
+    try {
+      if (choice === 'input') {
+        explanation = await generateExplanation(qCtx, family, ctx, { isFixedMode: true, targetAnswer: inputAnswer })
+      } else {
+        explanation = await generateExplanation(qCtx, family, ctx)
+      }
+    } catch (err) {
+      failedQuestions.push({ number: qNum, message: err.message })
+      continue
+    }
+    if (!explanation) continue
+
+    generatedCount++
+    explanation.updatedAt = new Date().toISOString()
+
+    const aiAnswer = String(explanation.answer || '').trim()
+    const match = isAnswerMatch(inputAnswer, aiAnswer, rawOptions, qCtx.type)
+    let adoptedAiAnswer = null
+
+    if (choice === 'input') {
+      if (explanation.no_support) {
+        explanation.status = 'needs_regeneration'
+        explanation.teacherKeptAnswer = inputAnswer
+        explanation.needsRegenerationReason = 'AI không tìm thấy bằng chứng trong bài đọc ủng hộ đáp án này'
+        explanation.teacher_note = `AI không tìm thấy bằng chứng ủng hộ đáp án "${inputAnswer}". Cần sửa trực tiếp.`
+      } else if (!match) {
+        explanation.status = 'needs_regeneration'
+        explanation.teacherKeptAnswer = inputAnswer
+        explanation.needsRegenerationReason = 'AI không thể bảo vệ đáp án của giáo viên'
+        explanation.teacher_note = `AI không thể bảo vệ đáp án "${inputAnswer}". Cần sửa trực tiếp.`
+      } else {
+        explanation.status = 'ai_generated'
+        explanation.answer = inputAnswer
+        explanation.teacher_note = `Khớp với đáp án đề (${inputAnswer}).`
+      }
+
+      if (containsInternalJargon(explanation)) {
+        explanation.status = 'needs_regeneration'
+        explanation.needsRegenerationReason = 'Lời giải chứa cụm từ nội bộ'
+      }
+
+      rowGeneratedMap.set(qNum, { explanation, adoptedAiAnswer: null })
+    } else if (!match && !choice) {
+      // 4.1: Record conflict and save with conflict_pending status
+      explanation.status = 'conflict_pending'
+      explanation.aiAnswer = aiAnswer
+      explanation.teacher_note = `AI chọn "${aiAnswer}"; đáp án đề đang là "${inputAnswer}". Cần giáo viên đối chiếu.`
+      conflicts.push({
+        number: qNum,
+        type: qCtx.type,
+        questionText: qCtx.questionText,
+        inputAnswer,
+        aiAnswer,
+        evidence: explanation.evidence?.parts?.[0]?.text || '',
+        reasoning: explanation.reasoning,
+        teacher_note: explanation.teacher_note,
+        explanation,
+      })
+      rowGeneratedMap.set(qNum, { explanation, adoptedAiAnswer: null })
+    } else {
+      // Resolve or match
+      if (choice === 'ai') {
+        // 3.4: Adopt AI answer into question
+        adoptedAiAnswer = aiAnswer
+        explanation.answer = aiAnswer
+        explanation.status = 'ai_generated'
+        explanation.teacher_note = `Đã chọn theo đáp án của AI (${aiAnswer}).`
+      } else {
+        explanation.status = 'ai_generated'
+        explanation.teacher_note = `Khớp với đáp án đề (${inputAnswer}).`
+      }
+
+      if (containsInternalJargon(explanation)) {
+        explanation.status = 'needs_regeneration'
+        explanation.needsRegenerationReason = 'Lời giải chứa cụm từ nội bộ'
+      }
+
+      rowGeneratedMap.set(qNum, { explanation, adoptedAiAnswer })
     }
   }
 
@@ -723,13 +747,24 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
 
   invalidate('practice:')
 
-  // If there are unresolved conflicts and no explicit resolveChoices, notify frontend
+  const processedNumbers = new Set()
+  for (const map of newlyGeneratedByRow.values()) {
+    for (const qNum of map.keys()) processedNumbers.add(qNum)
+  }
+  for (const f of failedQuestions) processedNumbers.add(f.number)
+
+  const remainingQuestionNumbers = candidateItems
+    .map(item => item.qNum)
+    .filter(num => !processedNumbers.has(num))
+
   if (conflicts.length > 0 && Object.keys(resolveChoices).length === 0) {
     return {
       ok: false,
       hasConflicts: true,
       conflicts,
       generatedCount,
+      remainingQuestionNumbers,
+      totalQuestions: candidateItems.length,
       errors: failedQuestions.length ? failedQuestions : undefined,
       message: `Đã lưu giải thích và phát hiện ${conflicts.length} câu có đáp án lệch so với bài đọc. Vui lòng duyệt trước khi công bố cho học sinh.`,
     }
@@ -739,6 +774,8 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
     ok: true,
     hasConflicts: false,
     generatedCount,
+    remainingQuestionNumbers,
+    totalQuestions: candidateItems.length,
     errors: failedQuestions.length ? failedQuestions : undefined,
     message: failedQuestions.length
       ? `Đã tạo giải thích thành công cho ${generatedCount} câu hỏi (${failedQuestions.length} câu bị lỗi: câu ${failedQuestions.map(f => f.number).join(', ')}).`
@@ -756,7 +793,19 @@ async function generateForPracticeExam(examId, { force = false, resolveChoices =
  * @param {boolean} options.overwriteProtected - If true, overwrite teacher_reviewed or teacher_edited explanations
  * @param {number|null} options.groupId - If provided, only generates explanations for questions in this QuestionGroup
  */
-async function generateForExam(examId, { force = false, resolveChoices = {}, overwriteProtected = false, groupId = null } = {}) {
+async function generateForExam(examId, {
+  force = false,
+  resolveChoices = {},
+  overwriteProtected = false,
+  groupId = null,
+  questionNumbers = null,
+  timeBudgetMs = null,
+} = {}) {
+  const effectiveTimeBudget = (typeof timeBudgetMs === 'number' && timeBudgetMs > 0)
+    ? timeBudgetMs
+    : DEFAULT_TIME_BUDGET_MS
+  const startTime = Date.now()
+
   const exam = await prisma.exam.findUnique({
     where: { id: examId },
     select: { id: true, title: true, skill: true },
@@ -847,13 +896,12 @@ async function generateForExam(examId, { force = false, resolveChoices = {}, ove
     }
   }
 
-  const startedAt = new Date().toISOString()
-  const conflicts = []
-  const updates = []
-  const failedQuestions = []
-  let generatedCount = 0
-
+  // Filter candidate questions
+  const candidateQuestions = []
   for (const q of questions) {
+    if (Array.isArray(questionNumbers) && questionNumbers.length > 0 && !questionNumbers.includes(q.number)) {
+      continue
+    }
     const existing = q.explanation
     const isProtected = existing && (existing.status === 'teacher_reviewed' || existing.status === 'teacher_edited')
     if (existing && !resolveChoices[q.number]) {
@@ -863,6 +911,23 @@ async function generateForExam(examId, { force = false, resolveChoices = {}, ove
 
     const family = classifyFamily(q.type)
     if (SKIP_FAMILIES.has(family)) continue
+
+    candidateQuestions.push({ q, family })
+  }
+
+  const startedAt = new Date().toISOString()
+  const conflicts = []
+  const updates = []
+  const failedQuestions = []
+  let generatedCount = 0
+
+  const budgetThreshold = effectiveTimeBudget > 20000 ? (effectiveTimeBudget - 15000) : effectiveTimeBudget
+
+  for (const { q, family } of candidateQuestions) {
+    if (generatedCount > 0 && (Date.now() - startTime) >= budgetThreshold) {
+      console.log(`[TIME_BUDGET] Exam #${examId}: Đã chạy ${Date.now() - startTime}ms (ngưỡng an toàn ${budgetThreshold}ms / ngân sách ${effectiveTimeBudget}ms). Ngắt lượt để trả về client gọi tiếp.`)
+      break
+    }
 
     const ctx = buildContext(q, family)
 
@@ -971,7 +1036,7 @@ async function generateForExam(examId, { force = false, resolveChoices = {}, ove
       const currentQ = tx.question.findUnique
         ? await tx.question.findUnique({
             where: { id: item.id },
-            select: { id: true, explanation: true, updatedAt: true },
+            select: { id: true, explanation: true },
           })
         : null
 
@@ -1000,12 +1065,21 @@ async function generateForExam(examId, { force = false, resolveChoices = {}, ove
 
   invalidateExamCaches(examId)
 
+  const processedNumbers = new Set(updates.map(u => u.number))
+  for (const f of failedQuestions) processedNumbers.add(f.number)
+
+  const remainingQuestionNumbers = candidateQuestions
+    .map(c => c.q.number)
+    .filter(num => !processedNumbers.has(num))
+
   if (conflicts.length > 0 && Object.keys(resolveChoices).length === 0) {
     return {
       ok: false,
       hasConflicts: true,
       conflicts,
       generatedCount,
+      remainingQuestionNumbers,
+      totalQuestions: candidateQuestions.length,
       errors: failedQuestions.length ? failedQuestions : undefined,
       message: `Đã lưu giải thích và phát hiện ${conflicts.length} câu có đáp án lệch so với bài đọc/nghe. Vui lòng duyệt trước khi công bố cho học sinh.`,
     }
@@ -1015,6 +1089,8 @@ async function generateForExam(examId, { force = false, resolveChoices = {}, ove
     ok: true,
     hasConflicts: false,
     generatedCount,
+    remainingQuestionNumbers,
+    totalQuestions: candidateQuestions.length,
     errors: failedQuestions.length ? failedQuestions : undefined,
     message: failedQuestions.length
       ? `Đã tạo giải thích thành công cho ${generatedCount} câu hỏi (${failedQuestions.length} câu bị lỗi: câu ${failedQuestions.map(f => f.number).join(', ')}).`

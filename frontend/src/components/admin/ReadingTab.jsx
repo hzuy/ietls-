@@ -22,7 +22,14 @@ import ExplanationConflictModal from './ExplanationConflictModal'
 import OverwriteProtectedConfirmModal from './OverwriteProtectedConfirmModal'
 import UnsavedChangesAIModal from './UnsavedChangesAIModal'
 import ExamExplanationOverviewBadge from './ExamExplanationOverviewBadge'
-import { mergeExamExplanations, normalizeFormForDirtyCheck, isExamFormDirty, calculateExamExplanationStats, EXAM_EXPLANATION_SKIP_FAMILIES } from '../../utils/examExplanationUtils'
+import {
+  mergeExamExplanations,
+  normalizeFormForDirtyCheck,
+  isExamFormDirty,
+  calculateExamExplanationStats,
+  EXAM_EXPLANATION_SKIP_FAMILIES,
+  executeTimedAIGenerationLoop,
+} from '../../utils/examExplanationUtils'
 
 // ─── TAB: READING ─────────────────────────────────────────────────────────────
 
@@ -455,40 +462,61 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   const handleGenerateGroupAI = async (group, { resolveChoices = {}, overwriteProtected = false } = {}) => {
     if (!editingId) return
     setGeneratingAI(true)
+    setIsCancellingAI(false)
+    isCancellingAIRef.current = false
+    const abortController = new AbortController()
+    abortControllerRef.current = abortController
     setGeneratingGroupId(group.id)
+    setAiProgress({ current: 0, total: 0, groupLabel: `nhóm câu ${group.qNumberStart}–${group.qNumberEnd}` })
+
     try {
-      const res = await api.post(`/admin/exams/${editingId}/groups/${group.id}/generate-explanations`, {
-        force: true,
-        overwriteProtected,
-        resolveChoices,
+      const loopResult = await executeTimedAIGenerationLoop({
+        fetchChunk: (payload, opts) =>
+          api.post(`/admin/exams/${editingId}/groups/${group.id}/generate-explanations`, payload, opts),
+        basePayload: { force: true, overwriteProtected, resolveChoices },
+        signal: abortController.signal,
+        onProgress: ({ current, total }) => {
+          const countText = total > 0 ? ` (${current}/${total} câu)` : ''
+          setAiProgress({
+            current,
+            total,
+            groupLabel: `nhóm câu ${group.qNumberStart}–${group.qNumberEnd}${countText}`,
+          })
+        },
+        onChunkSuccess: async () => {
+          try {
+            const fresh = await api.get(`/admin/exams/${editingId}`)
+            if (fresh?.data) {
+              setForm(prev => mergeExamExplanations(prev, fresh.data, resolveChoices))
+            }
+          } catch (syncErr) {
+            console.error('Lỗi đồng bộ lời giải mới vào form:', syncErr)
+          }
+        },
       })
 
-      try {
-        const fresh = await api.get(`/admin/exams/${editingId}`)
-        if (fresh?.data) {
-          setForm(prev => mergeExamExplanations(prev, fresh.data, resolveChoices))
-        }
-      } catch (syncErr) {
-        console.error('Lỗi đồng bộ lời giải mới vào form:', syncErr)
-      }
-
-      if (res.data?.hasConflicts) {
-        setAiConflicts(res.data.conflicts || [])
+      if (loopResult.cancelled) {
+        showToast('Đã dừng tác vụ sinh AI. Các câu đã xong đã được lưu lại.')
+      } else if (loopResult.hasConflicts) {
+        setAiConflicts(loopResult.conflicts || [])
         setConflictModalOpen(true)
       } else {
-        showToast(res.data?.message || `Đã tạo giải thích cho nhóm câu ${group.qNumberStart}–${group.qNumberEnd}!`)
+        showToast(`Đã tạo giải thích cho nhóm câu ${group.qNumberStart}–${group.qNumberEnd}!`)
         setConflictModalOpen(false)
         onRefresh()
       }
     } catch (err) {
       if (err.response?.status === 409) {
         showAlert(err.response?.data?.message || 'Đang có một tác vụ AI khác đang chạy cho đề thi này.', 'warning')
-      } else {
+      } else if (!abortController.signal.aborted && err.name !== 'CanceledError' && err.code !== 'ERR_CANCELED') {
         showToast(err.response?.data?.message || 'Không thể tạo giải thích cho nhóm này')
       }
     } finally {
       setGeneratingAI(false)
+      setIsCancellingAI(false)
       setGeneratingGroupId(null)
+      setAiProgress(null)
+      abortControllerRef.current = null
     }
   }
 
@@ -530,28 +558,41 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       setAiProgress({ current: i + 1, total: allGroups.length, groupLabel })
 
       try {
-        const res = await api.post(
-          `/admin/exams/${editingId}/groups/${group.id}/generate-explanations`,
-          { force: true, overwriteProtected, resolveChoices },
-          { signal: abortController.signal }
-        )
+        const loopResult = await executeTimedAIGenerationLoop({
+          fetchChunk: (payload, opts) =>
+            api.post(
+              `/admin/exams/${editingId}/groups/${group.id}/generate-explanations`,
+              payload,
+              opts
+            ),
+          basePayload: { force: true, overwriteProtected, resolveChoices },
+          signal: abortController.signal,
+          onProgress: ({ current, total }) => {
+            const subCountText = total > 0 ? ` [${current}/${total} câu]` : ''
+            setAiProgress({
+              current: i + 1,
+              total: allGroups.length,
+              groupLabel: `nhóm ${i + 1}/${allGroups.length} (Câu ${group.qNumberStart}–${group.qNumberEnd})${subCountText}`,
+            })
+          },
+          onChunkSuccess: async () => {
+            try {
+              const fresh = await api.get(`/admin/exams/${editingId}`)
+              if (fresh?.data) {
+                setForm(prev => mergeExamExplanations(prev, fresh.data, resolveChoices))
+              }
+            } catch (syncErr) {
+              console.error('Lỗi đồng bộ nhóm vào form:', syncErr)
+            }
+          },
+        })
 
-        if (res.data) {
-          totalGenerated += res.data.generatedCount || 0
-          if (res.data.hasConflicts && res.data.conflicts?.length) {
-            accumulatedConflicts.push(...res.data.conflicts)
-          }
+        totalGenerated += loopResult.totalGenerated || 0
+        if (loopResult.hasConflicts && loopResult.conflicts?.length) {
+          accumulatedConflicts.push(...loopResult.conflicts)
         }
 
-        // Live partial merge into form state
-        try {
-          const fresh = await api.get(`/admin/exams/${editingId}`)
-          if (fresh?.data) {
-            setForm(prev => mergeExamExplanations(prev, fresh.data, resolveChoices))
-          }
-        } catch (syncErr) {
-          console.error('Lỗi đồng bộ nhóm vào form:', syncErr)
-        }
+        if (loopResult.cancelled) break
       } catch (err) {
         if (err.response?.status === 409) {
           const msg = err.response?.data?.message || 'Đang có một tác vụ AI khác đang chạy cho đề thi này. Vui lòng chờ hoàn thành.'
@@ -937,6 +978,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
                       onClick={() => {
                         isCancellingAIRef.current = true
                         setIsCancellingAI(true)
+                        abortControllerRef.current?.abort()
                       }}
                       className="ml-1 text-xs font-semibold px-2 py-0.5 rounded border border-zinc-400 bg-white hover:bg-zinc-50 text-zinc-700 transition cursor-pointer"
                       title="Hủy giữa chừng (hoàn tất nhóm hiện tại rồi dừng)"

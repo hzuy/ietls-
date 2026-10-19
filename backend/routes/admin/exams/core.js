@@ -39,7 +39,7 @@ const { acquireLock, releaseLock, isLocked } = require('../../../lib/explanation
 // ─── ADMIN: GENERATE EXPLANATIONS FOR EXAM WITH CONFLICT DETECTION ──────────
 router.post('/exams/:id/generate-explanations', authMiddleware, teacherOnly, async (req, res) => {
   const { id } = req.params
-  const { force = false, resolveChoices = {}, overwriteProtected = false } = req.body || {}
+  const { force = false, resolveChoices = {}, overwriteProtected = false, questionNumbers = null, timeBudgetMs = null } = req.body || {}
   const examIdNum = parseInt(id, 10)
   const lockKey = `exam:${examIdNum}`
 
@@ -50,7 +50,7 @@ router.post('/exams/:id/generate-explanations', authMiddleware, teacherOnly, asy
   }
 
   try {
-    const result = await generateForExam(examIdNum, { force, resolveChoices, overwriteProtected })
+    const result = await generateForExam(examIdNum, { force, resolveChoices, overwriteProtected, questionNumbers, timeBudgetMs })
     res.json(result)
   } catch (err) {
     console.error('[GENERATE EXAM EXPLANATIONS ERROR]', err)
@@ -63,7 +63,7 @@ router.post('/exams/:id/generate-explanations', authMiddleware, teacherOnly, asy
 // ─── ADMIN: GENERATE EXPLANATIONS FOR SINGLE QUESTION GROUP ─────────────────
 router.post('/exams/:id/groups/:groupId/generate-explanations', authMiddleware, teacherOnly, async (req, res) => {
   const { id, groupId } = req.params
-  const { force = false, resolveChoices = {}, overwriteProtected = false } = req.body || {}
+  const { force = false, resolveChoices = {}, overwriteProtected = false, questionNumbers = null, timeBudgetMs = null } = req.body || {}
   const examIdNum = parseInt(id, 10)
   const groupIdNum = parseInt(groupId, 10)
   const lockKey = `exam:${examIdNum}`
@@ -80,6 +80,8 @@ router.post('/exams/:id/groups/:groupId/generate-explanations', authMiddleware, 
       resolveChoices,
       overwriteProtected,
       groupId: groupIdNum,
+      questionNumbers,
+      timeBudgetMs,
     })
     res.json(result)
   } catch (err) {
