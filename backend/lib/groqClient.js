@@ -41,7 +41,7 @@ async function requestGeminiJson(prompt, {
   image = null,
   model = null,
   temperature = 0,
-  seed = 42,
+  seed = null,
   responseSchema = null,
   thinkingConfig = null,
   max_tokens = 8192,
@@ -95,7 +95,9 @@ async function requestGeminiJson(prompt, {
     responseMimeType: 'application/json',
     temperature,
     maxOutputTokens: max_tokens,
-    seed,
+  }
+  if (seed !== null && seed !== undefined) {
+    generationConfig.seed = seed
   }
 
   if (responseSchema) {
@@ -122,7 +124,7 @@ async function requestGeminiJson(prompt, {
               contents: [{ parts }],
               generationConfig,
             }),
-            signal: AbortSignal.timeout(15000),
+            signal: AbortSignal.timeout(22000),
           })
         )
 

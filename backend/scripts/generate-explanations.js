@@ -546,7 +546,6 @@ async function callAi(prompt, { questionType = null, rawOptions = null, model: c
         const res = await requestGeminiJson(prompt, {
           model,
           temperature: 0,
-          seed: 42,
           responseSchema,
           max_tokens: 8192,
           withMetadata: true,

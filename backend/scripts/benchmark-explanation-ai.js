@@ -380,9 +380,10 @@ const BENCHMARK_CASES = [
   },
 ]
 
-// ─── THEO DÕI VÀ BÁO CÁO 429/503/FALLBACK ─────────────────────────────────────
+// ─── THEO DÕI VÀ BÁO CÁO 429/503/TIMEOUT/FALLBACK ─────────────────────────────
 let trackedGemini429 = 0
 let trackedGemini503 = 0
+let trackedGeminiTimeout = 0
 
 const originalRequestGeminiJson = groqClient.requestGeminiJson
 groqClient.requestGeminiJson = async (...args) => {
@@ -393,6 +394,8 @@ groqClient.requestGeminiJson = async (...args) => {
       trackedGemini429++
     } else if (err.status === 503 || /503|high demand|overloaded/i.test(err.message)) {
       trackedGemini503++
+    } else if (/timeout|etimedout|esockettimedout/i.test(err.message)) {
+      trackedGeminiTimeout++
     }
     throw err
   }
@@ -403,8 +406,9 @@ async function runBenchmarkForProvider(providerName) {
   console.log(`BẮT ĐẦU BENCHMARK CHO PROVIDER: ${providerName.toUpperCase()}`)
   console.log(`================================================================================`)
 
+  const isGemini = providerName.toLowerCase() === 'gemini'
   const originalGeminiKey = process.env.GEMINI_API_KEY
-  if (providerName.toLowerCase() === 'groq') {
+  if (!isGemini) {
     delete process.env.GEMINI_API_KEY
   } else {
     process.env.GEMINI_API_KEY = originalGeminiKey
@@ -426,6 +430,65 @@ async function runBenchmarkForProvider(providerName) {
   const repeatabilityMap = new Map()
   let ekmanQ1Verified = false
   let ekmanQ1JargonFree = false
+
+  async function callPureAi(qConfig, family, ctx) {
+    if (isGemini) {
+      while (true) {
+        const tStart = Date.now()
+        let exp = null
+        let err = null
+        try {
+          exp = await generateExplanation(qConfig, family, ctx, { forceProvider: 'Gemini' })
+        } catch (e) {
+          err = e.message
+          if (/429|resource exhausted/i.test(err)) {
+            trackedGemini429++
+            console.warn('   [GEMINI 429] Bị nghẽn quota, chờ 3s trước khi thử lại Gemini...')
+            await sleep(3000)
+            continue
+          } else if (/503|high demand|overloaded/i.test(err)) {
+            trackedGemini503++
+            console.warn('   [GEMINI 503] Server bận, chờ 2s trước khi thử lại Gemini...')
+            await sleep(2000)
+            continue
+          } else if (/timeout|etimedout/i.test(err)) {
+            trackedGeminiTimeout++
+            console.warn('   [GEMINI TIMEOUT] Hết thời gian chờ, thử lại Gemini...')
+            await sleep(1000)
+            continue
+          }
+        }
+        const dur = Date.now() - tStart
+
+        const isFallback = Boolean(exp?.isFallback || (exp?.provider && exp.provider.toLowerCase() !== 'gemini'))
+        if (isFallback) {
+          fallbackRuns++
+          console.warn(`   [FALLBACK LOẠI BỎ] Lượt bị fallback sang ${exp?.provider || 'Groq'}. Loại khỏi số đếm Gemini thuần, thử lại Gemini...`)
+          await sleep(1000)
+          continue
+        }
+
+        if (!exp) {
+          console.warn(`   [GEMINI ERROR] Không nhận được phản hồi (${err}). Thử lại Gemini...`)
+          await sleep(1000)
+          continue
+        }
+
+        return { explanation: exp, dur, err }
+      }
+    } else {
+      const tStart = Date.now()
+      let exp = null
+      let err = null
+      try {
+        exp = await generateExplanation(qConfig, family, ctx, { forceProvider: 'Groq' })
+      } catch (e) {
+        err = e.message
+      }
+      const dur = Date.now() - tStart
+      return { explanation: exp, dur, err }
+    }
+  }
 
   for (const c of BENCHMARK_CASES) {
     console.log(`\n--- [${providerName}] ${c.typeName} ---`)
@@ -449,15 +512,7 @@ async function runBenchmarkForProvider(providerName) {
     for (const testAns of correctAnswersToTest) {
       for (let r = 1; r <= 3; r++) {
         const qConfig = { ...c.q, correctAnswer: testAns }
-        const tStart = Date.now()
-        let explanation = null
-        let err = null
-        try {
-          explanation = await generateExplanation(qConfig, family, ctx)
-        } catch (e) {
-          err = e.message
-        }
-        const dur = Date.now() - tStart
+        const { explanation, dur, err } = await callPureAi(qConfig, family, ctx)
 
         if (explanation) {
           if (explanation.provider?.toLowerCase() === providerName.toLowerCase()) {
@@ -511,15 +566,7 @@ async function runBenchmarkForProvider(providerName) {
       const wrongAns = c.deliberateWrong[w]
       for (let rep = 1; rep <= wrongRepeats; rep++) {
         const qConfig = { ...c.q, correctAnswer: wrongAns }
-        const tStart = Date.now()
-        let explanation = null
-        let err = null
-        try {
-          explanation = await generateExplanation(qConfig, family, ctx)
-        } catch (e) {
-          err = e.message
-        }
-        const dur = Date.now() - tStart
+        const { explanation, dur, err } = await callPureAi(qConfig, family, ctx)
 
         if (explanation) {
           if (explanation.provider?.toLowerCase() === providerName.toLowerCase()) {
@@ -578,6 +625,7 @@ async function runBenchmarkForProvider(providerName) {
     fallbackRuns,
     gemini429: providerName.toLowerCase() === 'gemini' ? trackedGemini429 : 0,
     gemini503: providerName.toLowerCase() === 'gemini' ? trackedGemini503 : 0,
+    geminiTimeout: providerName.toLowerCase() === 'gemini' ? trackedGeminiTimeout : 0,
     thresholdMet: providerName.toLowerCase() === 'gemini'
       ? (repeatabilityRate === 100 && falsePositiveRate === 0 && omissionRate === 0)
       : true,
@@ -616,10 +664,11 @@ async function main() {
       'Bắt đúng': geminiSummary.caughtWrongRuns,
       'Bỏ sót (FN)': geminiSummary.omissionRate,
       'Lặp lại': geminiSummary.repeatabilityRate,
-      'Thực trả': geminiSummary.providerAnsweredRuns,
-      'Fallback': geminiSummary.fallbackRuns,
+      'Thực trả (Gemini thuần)': geminiSummary.providerAnsweredRuns,
+      'Fallback (loại khỏi Gemini)': geminiSummary.fallbackRuns,
       '429': geminiSummary.gemini429,
       '503': geminiSummary.gemini503,
+      'Timeout': geminiSummary.geminiTimeout,
     },
     {
       Provider: groqSummary.provider,
@@ -630,10 +679,11 @@ async function main() {
       'Bắt đúng': groqSummary.caughtWrongRuns,
       'Bỏ sót (FN)': groqSummary.omissionRate,
       'Lặp lại': groqSummary.repeatabilityRate,
-      'Thực trả': groqSummary.providerAnsweredRuns,
-      'Fallback': groqSummary.fallbackRuns,
+      'Thực trả (Groq)': groqSummary.providerAnsweredRuns,
+      'Fallback': 0,
       '429': 0,
       '503': 0,
+      'Timeout': 0,
     },
   ])
 
