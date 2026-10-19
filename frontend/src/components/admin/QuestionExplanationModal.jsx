@@ -49,12 +49,34 @@ function AutoResizeTextarea({
   )
 }
 
-export function getExplanationStatusInfo(explanation) {
+export function getExplanationStatusInfo(explanation, { isGenerating = false, isUnsaved = false } = {}) {
+  if (isGenerating) {
+    return {
+      status: 'generating',
+      label: 'Đang sinh...',
+      chipLabel: 'Đang sinh',
+      fullLabel: 'AI đang tạo giải thích...',
+      badgeClass: 'bg-sky-50 text-sky-700 border-sky-300 animate-pulse',
+      dotClass: 'bg-sky-500 animate-ping',
+    }
+  }
+
+  if (isUnsaved) {
+    return {
+      status: 'unsaved',
+      label: 'Chưa lưu',
+      chipLabel: 'Chưa lưu',
+      fullLabel: 'Giải thích đã sửa đổi nhưng chưa lưu vào hệ thống',
+      badgeClass: 'bg-amber-50 text-amber-800 border-amber-300',
+      dotClass: 'bg-amber-500',
+    }
+  }
+
   if (!explanation || typeof explanation !== 'object') {
     return {
       status: 'none',
       label: 'Chưa có lời giải',
-      chipLabel: 'Chưa có',
+      chipLabel: 'Chưa sinh',
       fullLabel: 'Chưa có lời giải',
       badgeClass: 'bg-zinc-50 text-zinc-400 border-zinc-200 border-dashed',
       dotClass: 'bg-zinc-300',
@@ -62,6 +84,17 @@ export function getExplanationStatusInfo(explanation) {
   }
 
   const s = explanation.status
+
+  if (s === 'error') {
+    return {
+      status: 'error',
+      label: 'Lỗi sinh AI',
+      chipLabel: 'Lỗi',
+      fullLabel: 'Lỗi khi tạo giải thích bằng AI',
+      badgeClass: 'bg-rose-50 text-rose-700 border-rose-300',
+      dotClass: 'bg-rose-500',
+    }
+  }
 
   // 3.2: Legacy explanations without status are treated as ai_generated
   if (!s || s === 'ai_generated') {
@@ -140,9 +173,15 @@ export function getExplanationStatusInfo(explanation) {
   }
 }
 
-export function ExplanationStatusBadge({ explanation, className = '' }) {
-  const info = getExplanationStatusInfo(explanation)
+export function ExplanationStatusBadge({
+  explanation,
+  isGenerating = false,
+  isUnsaved = false,
+  className = '',
+}) {
+  const info = getExplanationStatusInfo(explanation, { isGenerating, isUnsaved })
   const isConflict = info.status === 'conflict_pending'
+  const isGeneratingStatus = info.status === 'generating'
   const tooltipText = isConflict
     ? 'Chờ duyệt (Lệch đáp án giữa AI và giáo viên)'
     : info.fullLabel || `Trạng thái: ${info.label}`
@@ -153,7 +192,9 @@ export function ExplanationStatusBadge({ explanation, className = '' }) {
       className={`inline-flex items-center justify-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold tracking-tight border shrink-0 whitespace-nowrap h-5 ${info.badgeClass} ${className}`}
       title={tooltipText}
     >
-      {isConflict ? (
+      {isGeneratingStatus ? (
+        <Loader2 className="w-2.5 h-2.5 animate-spin text-sky-600 shrink-0" />
+      ) : isConflict ? (
         <AlertTriangle className="w-2.5 h-2.5 text-amber-600 shrink-0" />
       ) : (
         <span className={`w-1.5 h-1.5 rounded-full ${info.dotClass} shrink-0`} />

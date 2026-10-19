@@ -35,8 +35,17 @@ export function useDraftPersistence(key, form, { enabled, dirty }) {
     let next = null
     const saved = localStorage.getItem(key)
     if (saved) {
-      try { next = { data: JSON.parse(saved) } }
-      catch { localStorage.removeItem(key) }
+      try {
+        const parsed = JSON.parse(saved)
+        if (parsed && parsed.__draftEnvelope) {
+          next = { data: parsed.data, savedAt: parsed.savedAt, savedAtTs: parsed.savedAtTs }
+          if (parsed.savedAt) setDraftSavedAt(parsed.savedAt)
+        } else {
+          next = { data: parsed, savedAt: null }
+        }
+      } catch {
+        localStorage.removeItem(key)
+      }
     }
     setDraftBanner(next)
   }, [enabled, key])
@@ -45,9 +54,16 @@ export function useDraftPersistence(key, form, { enabled, dirty }) {
   useEffect(() => {
     if (!enabled || !dirty) return
     const timer = setTimeout(() => {
-      localStorage.setItem(key, JSON.stringify(form))
       const now = new Date()
-      setDraftSavedAt(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
+      const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} ${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}`
+      const envelope = {
+        __draftEnvelope: true,
+        data: form,
+        savedAt: timeStr,
+        savedAtTs: Date.now(),
+      }
+      localStorage.setItem(key, JSON.stringify(envelope))
+      setDraftSavedAt(timeStr)
     }, AUTOSAVE_DELAY_MS)
     return () => clearTimeout(timer)
   }, [form, enabled, dirty, key])

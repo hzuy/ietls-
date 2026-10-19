@@ -15,7 +15,8 @@ import { EXAM_EXPLANATION_SKIP_FAMILIES } from '../../../utils/examExplanationUt
 export default function ReadingGroupEditor({
   group = {}, onChange, onRemove, onMoveUp, onMoveDown, isFirst, isLast,
   examId, passage = '',
-  onGenerateGroupAI, isAIBusy = false, generatingGroupId = null
+  onGenerateGroupAI, isAIBusy = false, generatingGroupId = null,
+  unsavedQuestionNumbers,
 }) {
   const [selectedQModal, setSelectedQModal] = useState(null)
   const groupType = group?.type || 'short_answer'
@@ -36,6 +37,10 @@ export default function ReadingGroupEditor({
           (_, idx) => ({ number: group.qNumberStart + idx })
         )
       : []
+
+  const generatingQuestionNumbers = generatingGroupId === group.id
+    ? new Set(questionsList.map(q => q.number))
+    : undefined
 
   return (
     <div className={`border ${theme.cardBorder} ${theme.cardBg} rounded-2xl overflow-hidden transition-all duration-200 mb-4 shadow-xs`}>
@@ -78,7 +83,7 @@ export default function ReadingGroupEditor({
             onClick={() => onGenerateGroupAI(group)}
             disabled={isAIBusy}
             className="text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap shrink-0"
-            title={isAIBusy ? 'Đang có tác vụ AI khác đang chạy trên đề thi này' : 'Sinh giải thích AI cho riêng nhóm câu hỏi này'}
+            title={isAIBusy ? 'Đang sinh giải thích AI, vui lòng chờ' : 'Sinh giải thích AI cho riêng nhóm câu hỏi này'}
             data-testid={`generate-group-ai-${group.id || group.qNumberStart}`}
           >
             {generatingGroupId === group.id ? (
@@ -93,13 +98,16 @@ export default function ReadingGroupEditor({
         <div className="flex-1 min-w-2" />
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">
-            <button type="button" onClick={onMoveUp} disabled={isFirst}
-              className="w-6 h-6 flex items-center justify-center rounded-lg border border-zinc-200/80 bg-white text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50 disabled:opacity-30 text-xs transition">▲</button>
-            <button type="button" onClick={onMoveDown} disabled={isLast}
-              className="w-6 h-6 flex items-center justify-center rounded-lg border border-zinc-200/80 bg-white text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50 disabled:opacity-30 text-xs transition">▼</button>
+            <button type="button" onClick={onMoveUp} disabled={isFirst || isAIBusy}
+              title={isAIBusy ? 'Đang sinh giải thích AI, vui lòng chờ' : undefined}
+              className="w-6 h-6 flex items-center justify-center rounded-lg border border-zinc-200/80 bg-white text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50 disabled:opacity-30 disabled:cursor-not-allowed text-xs transition">▲</button>
+            <button type="button" onClick={onMoveDown} disabled={isLast || isAIBusy}
+              title={isAIBusy ? 'Đang sinh giải thích AI, vui lòng chờ' : undefined}
+              className="w-6 h-6 flex items-center justify-center rounded-lg border border-zinc-200/80 bg-white text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50 disabled:opacity-30 disabled:cursor-not-allowed text-xs transition">▼</button>
           </div>
-          <button type="button" onClick={onRemove}
-            className="text-red-500 hover:text-red-600 text-xs font-semibold px-2.5 py-1 rounded-lg hover:bg-red-50/80 transition">
+          <button type="button" onClick={onRemove} disabled={isAIBusy}
+            title={isAIBusy ? 'Đang sinh giải thích AI, vui lòng chờ' : undefined}
+            className="text-red-500 hover:text-red-600 text-xs font-semibold px-2.5 py-1 rounded-lg hover:bg-red-50/80 transition disabled:opacity-40 disabled:cursor-not-allowed">
             Xóa nhóm
           </button>
         </div>
@@ -110,6 +118,8 @@ export default function ReadingGroupEditor({
         questions={questionsList}
         group={group}
         onSelectQuestion={(data) => setSelectedQModal(data)}
+        generatingQuestionNumbers={generatingQuestionNumbers}
+        unsavedQuestionNumbers={unsavedQuestionNumbers}
       />
 
       <div className="p-4 space-y-3">

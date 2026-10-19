@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useUnsavedChanges, NAV_LEAVE_MSG } from '../../hooks/useUnsavedChanges'
 import { useDraftPersistence } from '../../hooks/useDraftPersistence'
@@ -28,6 +28,16 @@ import OverwriteProtectedConfirmModal from '../../components/admin/OverwriteProt
 import { showAlert } from '../../utils/alertUtils'
 import { validatePracticeListening, formatValidationAlert } from '../../utils/questionValidation'
 import { executeTimedAIGenerationLoop } from '../../utils/examExplanationUtils'
+import { useExplanationGenerationLock } from '../../hooks/useExplanationGenerationLock'
+import AIGenerationStickyProgress from '../../components/admin/AIGenerationStickyProgress'
+import AIGenerationExitConfirmModal from '../../components/admin/AIGenerationExitConfirmModal'
+import AIGenerationResumeBanner from '../../components/admin/AIGenerationResumeBanner'
+import {
+  smartMergeDraft,
+  analyzeDraftDifferences,
+  extractExplanationsMap,
+  isExplanationEqual,
+} from '../../utils/draftMergeUtils'
 
 // ─── PREVIEW MODAL ────────────────────────────────────────────────────────────
 function ListeningPracticePreviewModal({ form, showAnswers, setShowAnswers, onClose }) {
@@ -195,22 +205,11 @@ export default function ListeningPractice() {
   // BUG-13: Track unsaved changes (derive-snapshot: formSig(form) vs pristineRef)
   const [isDirty, setIsDirty] = useState(false)
   const pristineRef = useRef('')
+  const pristineExplanationsRef = useRef({})
   const audioRef = useRef()
 
   // BUG-13: Block navigation when form is dirty
   useUnsavedChanges(view === 'form' && isDirty)
-
-  useEffect(() => {
-    const handleBeforeUnload = (e) => {
-      if (generatingAI) {
-        e.preventDefault()
-        e.returnValue = 'Tác vụ AI đang chạy. Rời khỏi trang lúc này có thể làm gián đoạn quá trình.'
-        return e.returnValue
-      }
-    }
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [generatingAI])
 
   // isDirty = form hiện tại khác snapshot lúc mở form (openAdd/openEdit đặt lại pristineRef).
   useEffect(() => {
@@ -226,14 +225,68 @@ export default function ListeningPractice() {
   // Thu gọn/bung từng nhóm câu hỏi (mặc định thu gọn khi mở đề).
   const groupCollapse = useCollapsibleGroups()
 
+  // Concurrency lock, multi-tab sync, grace window & exit confirmation hook
+  const expLock = useExplanationGenerationLock({
+    examId: editing?.id,
+    type: 'practice',
+    skill: 'listening',
+    enabled: view === 'form' && !!editing?.id,
+    onResumeGenerate: (unprocessedNums) => {
+      handleGenerateAI({ questionNumbers: unprocessedNums })
+    },
+  })
+
+  // Compare explanations with DB snapshot to detect unsaved changes
+  const unsavedQuestionNumbers = useMemo(() => {
+    if (!editing || !pristineExplanationsRef.current) return new Set()
+    const set = new Set()
+    const currentExps = extractExplanationsMap(form)
+    for (const [k, exp] of Object.entries(currentExps)) {
+      const qNum = Number(k)
+      if (!qNum) continue
+      const pristineExp = pristineExplanationsRef.current[qNum]
+      if (!isExplanationEqual(exp, pristineExp)) {
+        set.add(qNum)
+      }
+    }
+    return set
+  }, [form, editing])
+
+  // Analyze differences between draft in localStorage and active DB form
+  const draftDiffInfo = useMemo(() => {
+    if (!draftBanner?.data) return null
+    return analyzeDraftDifferences({ draftData: draftBanner.data, currentDbForm: form })
+  }, [draftBanner, form])
+
+  const handleRestoreDraft = (resolutionChoice = 'keep_db') => {
+    if (!draftBanner?.data) return
+    const merged = smartMergeDraft({
+      draftData: draftBanner.data,
+      currentDbForm: form,
+      resolutionChoice,
+    })
+    groupCollapse.setAll([])
+    setForm(merged)
+    setDraftBanner(null)
+    showToast(
+      resolutionChoice === 'keep_draft'
+        ? 'Đã khôi phục bản nháp gồm các giải thích đã sửa'
+        : 'Đã khôi phục bản nháp (giữ nguyên giải thích mới nhất từ hệ thống)',
+      'info'
+    )
+  }
+
   const handleCancelOrBack = () => {
-    if (isDirty && !window.confirm(NAV_LEAVE_MSG)) return
-    setIsDirty(false)
-    setView('list')
+    expLock.handleSafeActionOrExit(() => {
+      if (isDirty && !window.confirm(NAV_LEAVE_MSG)) return
+      setIsDirty(false)
+      setView('list')
+    })
   }
 
   const openAdd = () => {
     pristineRef.current = formSig(EMPTY_FORM)
+    pristineExplanationsRef.current = {}
     groupCollapse.setAll([])
     setShowTranscriptBox(false)
     setForm(EMPTY_FORM); setEditing(null); setIsDirty(false); setView('form')
@@ -262,6 +315,7 @@ export default function ListeningPractice() {
       }
       setShowTranscriptBox(Boolean(data.transcript))
       pristineRef.current = formSig(next)
+      pristineExplanationsRef.current = extractExplanationsMap(next)
       groupCollapse.setAll([])
       setForm(next)
       setEditing(data); setIsDirty(false); setView('form')
@@ -424,7 +478,7 @@ export default function ListeningPractice() {
     return { reviewedCount, editedCount }
   }
 
-  const handleStartGenerateAI = () => {
+  const handleStartGenerateAI = (e, { questionNumbers = null } = {}) => {
     if (!editing?.id) {
       showToast('Vui lòng lưu bài thi trước khi tạo giải thích bằng AI', 'info')
       return
@@ -441,11 +495,18 @@ export default function ListeningPractice() {
       setProtectedStats(stats)
       setOverwriteModalOpen(true)
     } else {
-      handleGenerateAI({ overwriteProtected: false })
+      handleGenerateAI({ overwriteProtected: false, questionNumbers })
     }
   }
 
-  const handleGenerateAI = async ({ resolveChoices = {}, overwriteProtected = false } = {}) => {
+  const handleCancelAI = () => {
+    isCancellingAIRef.current = true
+    setIsCancellingAI(true)
+    expLock.setIsCancelling(true)
+    abortControllerRef.current?.abort()
+  }
+
+  const handleGenerateAI = async ({ resolveChoices = {}, overwriteProtected = false, questionNumbers = null } = {}) => {
     if (!editing?.id) {
       showToast('Vui lòng lưu bài thi trước khi tạo giải thích bằng AI', 'info')
       return
@@ -464,6 +525,18 @@ export default function ListeningPractice() {
     const abortController = new AbortController()
     abortControllerRef.current = abortController
     setAiProgress({ current: 0, total: 0, label: 'chuẩn bị...' })
+
+    const totalTarget = questionNumbers
+      ? questionNumbers.length
+      : form.questionGroups.reduce((acc, g) => acc + (g.questions?.length || 0), 0)
+
+    expLock.startLocalGeneration({
+      abortController,
+      total: totalTarget,
+      current: 0,
+    })
+
+    let loopResult = null
 
     try {
       // Tự động đồng bộ các thay đổi mới nhất lên server nếu form đang có chỉnh sửa
@@ -495,21 +568,33 @@ export default function ListeningPractice() {
         await updateListeningPractice(editing.id, body)
         setIsDirty(false)
         pristineRef.current = formSig(form)
+        pristineExplanationsRef.current = extractExplanationsMap(form)
       }
 
-      const loopResult = await executeTimedAIGenerationLoop({
-        fetchChunk: (payload, opts) =>
-          api.post(`/practice/admin/listening/${editing.id}/generate-explanations`, payload, opts),
-        basePayload: { force: true, overwriteProtected, resolveChoices },
+      loopResult = await executeTimedAIGenerationLoop({
+        fetchChunk: (payload, opts) => {
+          expLock.notifyChunkStart({
+            current: aiProgress?.current || 0,
+            total: aiProgress?.total || totalTarget,
+          })
+          return api.post(`/practice/admin/listening/${editing.id}/generate-explanations`, payload, opts)
+        },
+        basePayload: { force: true, overwriteProtected, resolveChoices, questionNumbers },
         signal: abortController.signal,
         onProgress: ({ current, total }) => {
-          setAiProgress({
+          const p = {
             current,
             total,
             label: total > 0 ? `${current}/${total} câu` : 'đang xử lý...',
-          })
+          }
+          setAiProgress(p)
+          expLock.updateLocalProgress(p)
         },
         onChunkSuccess: async () => {
+          expLock.notifyChunkEnd({
+            current: aiProgress?.current || 0,
+            total: aiProgress?.total || totalTarget,
+          })
           try {
             const fresh = await getListeningPractice(editing.id)
             const qData = typeof fresh.questions === 'string'
@@ -518,6 +603,7 @@ export default function ListeningPractice() {
             if (Array.isArray(qData.groups)) {
               setForm(f => ({ ...f, questionGroups: qData.groups }))
               pristineRef.current = formSig({ ...form, questionGroups: qData.groups })
+              pristineExplanationsRef.current = extractExplanationsMap({ questionGroups: qData.groups })
             }
           } catch { /* ignore refresh error */ }
         },
@@ -553,6 +639,7 @@ export default function ListeningPractice() {
       setIsCancellingAI(false)
       setAiProgress(null)
       abortControllerRef.current = null
+      expLock.endLocalGeneration({ completed: !loopResult?.cancelled, cancelled: Boolean(loopResult?.cancelled) })
     }
   }
 
@@ -567,7 +654,8 @@ export default function ListeningPractice() {
               <button
                 type="button"
                 onClick={handleCancelOrBack}
-                disabled={generatingAI}
+                disabled={expLock.isLockedOperation}
+                title={expLock.lockTooltip || 'Quay lại danh sách'}
                 aria-label="Quay lại danh sách"
                 className="w-8 h-8 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-600 flex items-center justify-center text-sm font-semibold transition cursor-pointer shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -587,51 +675,25 @@ export default function ListeningPractice() {
             </div>
 
             <div className="flex items-center gap-2">
-              {generatingAI ? (
-                <div className={`flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs border ${
-                  isCancellingAI
-                    ? 'bg-amber-50 border-amber-300 text-amber-900'
-                    : 'bg-zinc-100 border-zinc-300 text-zinc-800'
-                }`}>
-                  <Loader2 className={`w-3.5 h-3.5 animate-spin shrink-0 ${isCancellingAI ? 'text-amber-700' : 'text-zinc-700'}`} />
-                  <span className="font-semibold">
-                    {isCancellingAI ? 'Đang dừng...' : `Đang xử lý ${aiProgress?.label || '...'}`}
-                  </span>
-                  {!isCancellingAI && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        isCancellingAIRef.current = true
-                        setIsCancellingAI(true)
-                        abortControllerRef.current?.abort()
-                      }}
-                      className="ml-1 text-xs font-semibold px-2 py-0.5 rounded border border-zinc-400 bg-white hover:bg-zinc-50 text-zinc-700 transition cursor-pointer"
-                      title="Hủy giữa chừng (lưu các câu đã xong)"
-                    >
-                      Hủy
-                    </button>
-                  )}
-                </div>
-              ) : (
-                editing && (
-                  <button
-                    type="button"
-                    onClick={handleStartGenerateAI}
-                    disabled={generatingAI}
-                    className="h-9 px-3.5 rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 text-xs font-semibold transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    title="AI giải thích 4 bước từ transcript"
-                  >
-                    <BookOpen className="w-3.5 h-3.5 text-zinc-600" />
-                    <span className="hidden sm:inline">AI giải thích</span>
-                  </button>
-                )
+              {editing && (
+                <button
+                  type="button"
+                  onClick={handleStartGenerateAI}
+                  disabled={expLock.isLockedGenerate}
+                  className="h-9 px-3.5 rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 text-xs font-semibold transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={expLock.isLockedGenerate ? (expLock.lockTooltip || 'Đang sinh giải thích AI, vui lòng chờ') : 'AI giải thích 4 bước từ transcript'}
+                >
+                  <BookOpen className="w-3.5 h-3.5 text-zinc-600" />
+                  <span className="hidden sm:inline">AI giải thích</span>
+                </button>
               )}
               <button
                 type="button"
                 onClick={() => setShowPreview(true)}
-                disabled={generatingAI}
+                disabled={expLock.isLockedOperation}
                 aria-label="Xem trước nội dung đề"
                 className="h-9 px-3.5 rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-900 text-xs font-semibold transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                title={expLock.lockTooltip}
               >
                 <Eye className="w-3.5 h-3.5 text-zinc-500" />
                 <span className="hidden sm:inline">Xem trước</span>
@@ -639,7 +701,7 @@ export default function ListeningPractice() {
               <button
                 type="button"
                 onClick={handleCancelOrBack}
-                disabled={saving || generatingAI}
+                disabled={saving || expLock.isLockedOperation}
                 className="h-9 px-3.5 rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 text-xs font-semibold transition shadow-2xs flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Hủy
@@ -647,7 +709,8 @@ export default function ListeningPractice() {
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={saving || generatingAI}
+                disabled={saving || expLock.isLockedOperation}
+                title={expLock.lockTooltip}
                 className="h-9 px-4.5 rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 text-xs font-semibold transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? 'Đang lưu...' : 'Lưu bài'}
@@ -655,9 +718,18 @@ export default function ListeningPractice() {
             </div>
           </div>
 
-          <DraftBanner draft={draftBanner}
-            onRestore={() => { groupCollapse.setAll([]); setForm(draftBanner.data); setDraftBanner(null) }}
-            onDismiss={clearDraft} />
+          <AIGenerationResumeBanner
+            banner={expLock.resumeBanner}
+            disabled={expLock.isLockedOperation}
+          />
+
+          <DraftBanner
+            draft={draftBanner}
+            diffInfo={draftDiffInfo}
+            onRestore={() => handleRestoreDraft('keep_db')}
+            onRestoreKeepDraft={() => handleRestoreDraft('keep_draft')}
+            onDismiss={clearDraft}
+          />
 
           {/* Grid 2 cột: Cột trái (Thông tin, Audio & Transcript), Cột phải (Nhóm câu hỏi) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -833,6 +905,14 @@ export default function ListeningPractice() {
             {/* ── CỘT PHẢI (7/12): NHÓM CÂU HỎI ── */}
             <div className="lg:col-span-7">
               <div className="bg-white rounded-2xl p-4 sm:p-5 border border-zinc-200 shadow-xs">
+                {/* Sticky Progress khi đang sinh AI */}
+                <AIGenerationStickyProgress
+                  isGenerating={expLock.isGenerating}
+                  isCancelling={expLock.isCancelling}
+                  progress={expLock.localProgress}
+                  onCancel={handleCancelAI}
+                />
+
                 {/* Header thêm nhóm câu hỏi */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-zinc-100">
                   <div>
@@ -852,7 +932,9 @@ export default function ListeningPractice() {
                     <button
                       type="button"
                       onClick={handleAddGroup}
-                      className={btnPrimary + ' h-9 py-0 px-4 text-xs font-semibold shrink-0 cursor-pointer flex items-center justify-center rounded-xl shadow-xs'}
+                      disabled={expLock.isLockedOperation}
+                      title={expLock.lockTooltip}
+                      className={btnPrimary + ' h-9 py-0 px-4 text-xs font-semibold shrink-0 cursor-pointer flex items-center justify-center rounded-xl shadow-xs disabled:opacity-50 disabled:cursor-not-allowed'}
                     >
                       + Thêm nhóm
                     </button>
@@ -912,7 +994,8 @@ export default function ListeningPractice() {
                         onMoveDown={() => handleGroupMove(i, 1)}
                         isFirst={i === 0}
                         isLast={i === form.questionGroups.length - 1}
-                        isAIBusy={generatingAI}
+                        isAIBusy={expLock.isLockedOperation}
+                        unsavedQuestionNumbers={unsavedQuestionNumbers}
                       />
                     ))}
                   </div>
@@ -949,6 +1032,14 @@ export default function ListeningPractice() {
             setOverwriteModalOpen(false)
             handleGenerateAI({ overwriteProtected })
           }}
+        />
+
+        <AIGenerationExitConfirmModal
+          isOpen={expLock.exitConfirmOpen}
+          onClose={expLock.closeExitConfirm}
+          onConfirmExit={expLock.confirmExit}
+          currentCount={expLock.localProgress?.current || 0}
+          totalCount={expLock.localProgress?.total || 0}
         />
       </>
     )

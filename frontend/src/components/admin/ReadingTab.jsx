@@ -30,6 +30,17 @@ import {
   EXAM_EXPLANATION_SKIP_FAMILIES,
   executeTimedAIGenerationLoop,
 } from '../../utils/examExplanationUtils'
+import { useExplanationGenerationLock } from '../../hooks/useExplanationGenerationLock'
+import AIGenerationStickyProgress from './AIGenerationStickyProgress'
+import AIGenerationExitConfirmModal from './AIGenerationExitConfirmModal'
+import AIGenerationResumeBanner from './AIGenerationResumeBanner'
+import { DraftBanner } from './contentPageUI'
+import {
+  smartMergeDraft,
+  analyzeDraftDifferences,
+  extractExplanationsMap,
+  isExplanationEqual,
+} from '../../utils/draftMergeUtils'
 
 // ─── TAB: READING ─────────────────────────────────────────────────────────────
 
@@ -383,18 +394,63 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   const isCancellingAIRef = useRef(false)
   const abortControllerRef = useRef(null)
   const pendingAIFnRef = useRef(null)
+  const pristineExplanationsRef = useRef({})
 
-  useEffect(() => {
-    const handleBeforeUnload = (e) => {
-      if (generatingAI) {
-        e.preventDefault()
-        e.returnValue = 'Tác vụ AI đang chạy. Rời khỏi trang lúc này có thể làm gián đoạn quá trình.'
-        return e.returnValue
+  // Concurrency lock, multi-tab sync, grace window & exit confirmation hook
+  const expLock = useExplanationGenerationLock({
+    examId: editingId,
+    type: 'exam',
+    skill: 'reading',
+    enabled: !!editingId,
+    onResumeGenerate: (unprocessedNums) => {
+      handleGenerateSequentialAll({ questionNumbers: unprocessedNums })
+    },
+  })
+
+  // Compare explanations with DB snapshot to detect unsaved changes
+  const unsavedQuestionNumbers = useMemo(() => {
+    if (!editingId || !pristineExplanationsRef.current) return new Set()
+    const set = new Set()
+    const currentExps = extractExplanationsMap(form)
+    for (const [k, exp] of Object.entries(currentExps)) {
+      const qNum = Number(k)
+      if (!qNum) continue
+      const pristineExp = pristineExplanationsRef.current[qNum]
+      if (!isExplanationEqual(exp, pristineExp)) {
+        set.add(qNum)
       }
     }
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [generatingAI])
+    return set
+  }, [form, editingId])
+
+  // Analyze differences between draft in localStorage and active DB form
+  const draftDiffInfo = useMemo(() => {
+    if (!draftBanner?.data) return null
+    return analyzeDraftDifferences({ draftData: draftBanner.data, currentDbForm: form })
+  }, [draftBanner, form])
+
+  const handleRestoreDraft = (resolutionChoice = 'keep_db') => {
+    if (!draftBanner?.data) return
+    const merged = smartMergeDraft({
+      draftData: draftBanner.data,
+      currentDbForm: form,
+      resolutionChoice,
+    })
+    setForm(merged)
+    setDraftBanner(null)
+    showToast(
+      resolutionChoice === 'keep_draft'
+        ? 'Đã khôi phục bản nháp gồm các giải thích đã sửa'
+        : 'Đã khôi phục bản nháp (giữ nguyên giải thích mới nhất từ hệ thống)'
+    )
+  }
+
+  const handleCancelAI = () => {
+    isCancellingAIRef.current = true
+    setIsCancellingAI(true)
+    expLock.setIsCancelling(true)
+    abortControllerRef.current?.abort()
+  }
 
   const countGroupProtected = (g) => {
     let reviewedCount = 0
@@ -468,25 +524,46 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     setGeneratingGroupId(group.id)
     setAiProgress({ current: 0, total: 0, groupLabel: `nhóm câu ${group.qNumberStart}–${group.qNumberEnd}` })
 
+    const totalTarget = group.questions?.length || (group.qNumberEnd - group.qNumberStart + 1) || 0
+    expLock.startLocalGeneration({
+      abortController,
+      total: totalTarget,
+      current: 0,
+    })
+
+    let loopResult = null
+
     try {
-      const loopResult = await executeTimedAIGenerationLoop({
-        fetchChunk: (payload, opts) =>
-          api.post(`/admin/exams/${editingId}/groups/${group.id}/generate-explanations`, payload, opts),
+      loopResult = await executeTimedAIGenerationLoop({
+        fetchChunk: (payload, opts) => {
+          expLock.notifyChunkStart({
+            current: aiProgress?.current || 0,
+            total: totalTarget,
+          })
+          return api.post(`/admin/exams/${editingId}/groups/${group.id}/generate-explanations`, payload, opts)
+        },
         basePayload: { force: true, overwriteProtected, resolveChoices },
         signal: abortController.signal,
         onProgress: ({ current, total }) => {
           const countText = total > 0 ? ` (${current}/${total} câu)` : ''
-          setAiProgress({
+          const p = {
             current,
             total,
             groupLabel: `nhóm câu ${group.qNumberStart}–${group.qNumberEnd}${countText}`,
-          })
+          }
+          setAiProgress(p)
+          expLock.updateLocalProgress(p)
         },
         onChunkSuccess: async () => {
+          expLock.notifyChunkEnd({
+            current: aiProgress?.current || 0,
+            total: totalTarget,
+          })
           try {
             const fresh = await api.get(`/admin/exams/${editingId}`)
             if (fresh?.data) {
               setForm(prev => mergeExamExplanations(prev, fresh.data, resolveChoices))
+              pristineExplanationsRef.current = extractExplanationsMap(fresh.data)
             }
           } catch (syncErr) {
             console.error('Lỗi đồng bộ lời giải mới vào form:', syncErr)
@@ -525,10 +602,11 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       setGeneratingGroupId(null)
       setAiProgress(null)
       abortControllerRef.current = null
+      expLock.endLocalGeneration({ completed: !loopResult?.cancelled, cancelled: Boolean(loopResult?.cancelled) })
     }
   }
 
-  const handleGenerateSequentialAll = async ({ resolveChoices = {}, overwriteProtected = false } = {}) => {
+  const handleGenerateSequentialAll = async ({ resolveChoices = {}, overwriteProtected = false, questionNumbers = null } = {}) => {
     if (!editingId) return
     const val = validateExamReading(form)
     if (!val.isValid) {
@@ -539,13 +617,27 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       return
     }
 
-    const allGroups = (form.passages || []).flatMap(p => p.questionGroups || [])
+    let allGroups = (form.passages || []).flatMap(p => p.questionGroups || [])
       .filter(g => !EXAM_EXPLANATION_SKIP_FAMILIES.has(g.type) && (g.questions?.length > 0 || (g.qNumberEnd >= g.qNumberStart)))
+
+    if (questionNumbers && Array.isArray(questionNumbers) && questionNumbers.length > 0) {
+      const qNumSet = new Set(questionNumbers.map(Number))
+      allGroups = allGroups.filter(g => {
+        const start = g.qNumberStart
+        const end = g.qNumberEnd
+        for (let n = start; n <= end; n++) {
+          if (qNumSet.has(n)) return true
+        }
+        return false
+      })
+    }
 
     if (allGroups.length === 0) {
       showAlert('Không có nhóm câu hỏi nào hỗ trợ tạo giải thích AI trong đề này.', 'info')
       return
     }
+
+    const totalQuestions = allGroups.reduce((acc, g) => acc + (g.questions?.length || (g.qNumberEnd - g.qNumberStart + 1)), 0)
 
     setGeneratingAI(true)
     setIsCancellingAI(false)
@@ -553,6 +645,12 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     const abortController = new AbortController()
     abortControllerRef.current = abortController
     setAiProgress({ current: 0, total: allGroups.length, groupLabel: '' })
+
+    expLock.startLocalGeneration({
+      abortController,
+      total: totalQuestions,
+      current: 0,
+    })
 
     let totalGenerated = 0
     const accumulatedConflicts = []
@@ -567,27 +665,43 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
 
       try {
         const loopResult = await executeTimedAIGenerationLoop({
-          fetchChunk: (payload, opts) =>
-            api.post(
+          fetchChunk: (payload, opts) => {
+            expLock.notifyChunkStart({
+              current: totalGenerated,
+              total: totalQuestions,
+            })
+            return api.post(
               `/admin/exams/${editingId}/groups/${group.id}/generate-explanations`,
               payload,
               opts
-            ),
+            )
+          },
           basePayload: { force: true, overwriteProtected, resolveChoices },
           signal: abortController.signal,
           onProgress: ({ current, total }) => {
             const subCountText = total > 0 ? ` [${current}/${total} câu]` : ''
-            setAiProgress({
+            const p = {
               current: i + 1,
               total: allGroups.length,
               groupLabel: `nhóm ${i + 1}/${allGroups.length} (Câu ${group.qNumberStart}–${group.qNumberEnd})${subCountText}`,
+            }
+            setAiProgress(p)
+            expLock.updateLocalProgress({
+              current: totalGenerated + current,
+              total: totalQuestions,
+              label: `${totalGenerated + current}/${totalQuestions} câu`,
             })
           },
           onChunkSuccess: async () => {
+            expLock.notifyChunkEnd({
+              current: totalGenerated,
+              total: totalQuestions,
+            })
             try {
               const fresh = await api.get(`/admin/exams/${editingId}`)
               if (fresh?.data) {
                 setForm(prev => mergeExamExplanations(prev, fresh.data, resolveChoices))
+                pristineExplanationsRef.current = extractExplanationsMap(fresh.data)
               }
             } catch (syncErr) {
               console.error('Lỗi đồng bộ nhóm vào form:', syncErr)
@@ -637,11 +751,13 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     setAiProgress(null)
     const wasAborted = isCancellingAIRef.current || abortController.signal.aborted
     abortControllerRef.current = null
+    expLock.endLocalGeneration({ completed: !wasAborted, cancelled: Boolean(wasAborted) })
 
     try {
       const fresh = await api.get(`/admin/exams/${editingId}`)
       if (fresh?.data) {
         setForm(prev => mergeExamExplanations(prev, fresh.data, resolveChoices))
+        pristineExplanationsRef.current = extractExplanationsMap(fresh.data)
       }
     } catch {}
 
@@ -774,6 +890,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       }
       setForm(loadedWithNumbers)
       pristineFormSigRef.current = normalizeFormForDirtyCheck(loadedWithNumbers)
+      pristineExplanationsRef.current = extractExplanationsMap(loadedWithNumbers)
       setEditingId(id)
       setOpenPassage(0)
       setEditHighlight(true)
@@ -789,9 +906,16 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   }
 
   const cancelEdit = () => {
-    if (editingId) localStorage.removeItem(`draft_reading_${editingId}`)
-    pristineFormSigRef.current = ''
-    setEditingId(null); setForm(emptyReadingForm()); setOpenPassage(0); setEditHighlight(false); setDraftBanner(null)
+    expLock.handleSafeActionOrExit(() => {
+      if (editingId) localStorage.removeItem(`draft_reading_${editingId}`)
+      pristineFormSigRef.current = ''
+      pristineExplanationsRef.current = {}
+      setEditingId(null)
+      setForm(emptyReadingForm())
+      setOpenPassage(0)
+      setEditHighlight(false)
+      setDraftBanner(null)
+    })
   }
 
   const updatePassage = (pi, field, val) => {
@@ -898,6 +1022,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         // Log audit vừa ghi ở backend — invalidate để khối "Lịch sử thay đổi" hiện ngay, không đợi hết staleTime.
         queryClient.invalidateQueries({ queryKey: ['admin', 'auditLogs', 'exam', editingId] })
         pristineFormSigRef.current = normalizeFormForDirtyCheck(form)
+        pristineExplanationsRef.current = extractExplanationsMap(form)
         onRefresh()
         return true
       } else {
@@ -909,6 +1034,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
         queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
         pristineFormSigRef.current = ''
+        pristineExplanationsRef.current = {}
         onRefresh()
         return true
       }
@@ -963,17 +1089,21 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
 
         {error && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg mb-4 text-sm whitespace-pre-line">{error}</div>}
 
-        {draftBanner && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex items-center justify-between">
-            <span className="text-sm text-amber-700">Có bản nháp chưa lưu. Khôi phục?</span>
-            <div className="flex gap-2">
-              <button type="button" onClick={() => { setForm(draftBanner.data); setDraftBanner(null) }}
-                className="text-xs px-2.5 py-1 bg-amber-500 text-white rounded-lg font-semibold hover:bg-amber-600 transition">Khôi phục</button>
-              <button type="button" onClick={() => { localStorage.removeItem(draftBanner.key); setDraftBanner(null) }}
-                className="text-xs px-2.5 py-1 border border-amber-300 text-amber-700 rounded-lg hover:bg-amber-100 transition">Bỏ qua</button>
-            </div>
-          </div>
-        )}
+        <AIGenerationResumeBanner
+          banner={expLock.resumeBanner}
+          disabled={expLock.isLockedOperation}
+        />
+
+        <DraftBanner
+          draft={draftBanner}
+          diffInfo={draftDiffInfo}
+          onRestore={() => handleRestoreDraft('keep_db')}
+          onRestoreKeepDraft={() => handleRestoreDraft('keep_draft')}
+          onDismiss={() => {
+            if (draftBanner?.key) localStorage.removeItem(draftBanner.key)
+            setDraftBanner(null)
+          }}
+        />
 
         {editingId && (
           <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-3 mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -995,11 +1125,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
                   {!isCancellingAI && (
                     <button
                       type="button"
-                      onClick={() => {
-                        isCancellingAIRef.current = true
-                        setIsCancellingAI(true)
-                        abortControllerRef.current?.abort()
-                      }}
+                      onClick={handleCancelAI}
                       className="ml-1 text-xs font-semibold px-2 py-0.5 rounded border border-zinc-400 bg-white hover:bg-zinc-50 text-zinc-700 transition cursor-pointer"
                       title="Hủy giữa chừng (hoàn tất nhóm hiện tại rồi dừng)"
                     >
@@ -1011,22 +1137,31 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
                 <button
                   type="button"
                   onClick={handleStartGenerateAI}
-                  disabled={generatingAI}
-                  className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  title="AI giải thích 4 bước cho bài đọc (tuần tự theo nhóm)"
+                  disabled={generatingAI || expLock.isLockedGenerate}
+                  className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={expLock.isLockedGenerate ? (expLock.lockTooltip ? `${expLock.lockTooltip} (tuần tự theo nhóm)` : 'Đang sinh giải thích AI, vui lòng chờ (tuần tự theo nhóm)') : 'AI giải thích 4 bước cho bài đọc (tuần tự theo nhóm)'}
                 >
                   <BookOpen className="w-3.5 h-3.5 text-zinc-600" />
                   <span>AI giải thích</span>
                 </button>
               )}
               <button type="button" onClick={() => setShowPreview(v => !v)}
-                className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 transition shadow-2xs">
+                disabled={expLock.isLockedOperation}
+                title={expLock.isLockedOperation ? expLock.lockTooltip : undefined}
+                className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 transition shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed">
                 {showPreview ? 'Ẩn preview' : 'Preview'}
               </button>
-              <button type="button" onClick={cancelEdit} disabled={generatingAI} className={btnSecondary + ' text-xs disabled:opacity-50 disabled:cursor-not-allowed'}>Hủy sửa</button>
+              <button type="button" onClick={cancelEdit} disabled={generatingAI || expLock.isLockedOperation} title={expLock.isLockedOperation ? expLock.lockTooltip : undefined} className={btnSecondary + ' text-xs disabled:opacity-50 disabled:cursor-not-allowed'}>Hủy sửa</button>
             </div>
           </div>
         )}
+
+        <AIGenerationStickyProgress
+          isGenerating={expLock.isGenerating}
+          isCancelling={expLock.isCancelling}
+          progress={expLock.localProgress}
+          onCancel={handleCancelAI}
+        />
 
         <div className="mb-3">
           <label className={labelCls}>Tên đề</label>
@@ -1151,8 +1286,9 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
                             isFirst={gi === 0}
                             isLast={gi === passage.questionGroups.length - 1}
                             onGenerateGroupAI={editingId ? () => handleStartGenerateGroupAI(group) : null}
-                            isAIBusy={generatingAI}
+                            isAIBusy={expLock.isLockedOperation}
                             generatingGroupId={generatingGroupId}
+                            unsavedQuestionNumbers={unsavedQuestionNumbers}
                           />
                         ))}
                       </div>
@@ -1179,7 +1315,9 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
                         <button
                           type="button"
                           onClick={() => setAddingGroupPassage(pi)}
-                          className="w-full border-2 border-dashed border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50 text-zinc-600 hover:text-zinc-900 rounded-lg py-2 px-3 text-xs font-medium transition">
+                          disabled={expLock.isLockedOperation}
+                          title={expLock.lockTooltip}
+                          className="w-full border-2 border-dashed border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50 text-zinc-600 hover:text-zinc-900 rounded-lg py-2 px-3 text-xs font-medium transition disabled:opacity-50 disabled:cursor-not-allowed">
                           + Thêm nhóm câu hỏi
                         </button>
                       )}
@@ -1193,7 +1331,8 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
 
         <button
           type="submit"
-          disabled={submitting || loadingEdit || generatingAI}
+          disabled={submitting || loadingEdit || expLock.isLockedOperation}
+          title={expLock.lockTooltip}
           className="w-full h-10 rounded-xl bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-800 transition shadow-xs flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {submitting ? 'Đang lưu...' : editingId ? 'Cập nhật đề Reading' : 'Tạo đề Reading'}
@@ -1290,6 +1429,14 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
             handleGenerateSequentialAll({ overwriteProtected })
           }
         }}
+      />
+
+      <AIGenerationExitConfirmModal
+        isOpen={expLock.exitConfirmOpen}
+        onClose={expLock.closeExitConfirm}
+        onConfirmExit={expLock.confirmExit}
+        currentCount={expLock.localProgress?.current || 0}
+        totalCount={expLock.localProgress?.total || 0}
       />
     </div>
   )

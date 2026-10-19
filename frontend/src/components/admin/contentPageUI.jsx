@@ -53,19 +53,74 @@ export function ConfirmDeleteModal({ open, title, message = 'Hành động này 
 }
 
 // ─── Draft banner + hint "đã lưu nháp" ───────────────────────────────────────
-export function DraftBanner({ draft, onRestore, onDismiss }) {
+export function DraftBanner({
+  draft,
+  onRestore,
+  onDismiss,
+  diffInfo = null,
+  onRestoreKeepDraft = null,
+}) {
   if (!draft) return null
+
+  const savedAt = draft.savedAt
+  const hasDiffInfo = diffInfo && typeof diffInfo === 'object'
+  const explanationCount = hasDiffInfo ? diffInfo.draftExplanationCount : null
+  const differentCount = hasDiffInfo ? diffInfo.differentCount : 0
+
   return (
-    <div className="bg-zinc-100 border border-zinc-200 rounded-lg p-3 mb-4 flex items-center justify-between">
-      <span className="text-sm text-zinc-800 flex items-center gap-2">
-        <FileText className="w-4 h-4 text-zinc-500 shrink-0" />
-        <span>Bạn có bản nháp chưa lưu. Khôi phục không?</span>
-      </span>
-      <div className="flex gap-2">
-        <button onClick={onRestore}
-          className="text-xs font-medium px-4 py-1.5 rounded-full bg-zinc-900 text-white hover:bg-zinc-800 transition shadow-xs cursor-pointer">Khôi phục</button>
-        <button onClick={onDismiss}
-          className="text-xs font-medium px-4 py-1.5 rounded-full bg-white hover:bg-zinc-50 text-zinc-700 border border-zinc-200 transition shadow-2xs cursor-pointer">Bỏ qua</button>
+    <div data-testid="smart-draft-banner" className="bg-zinc-100 border border-zinc-200 rounded-xl p-3.5 mb-4 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+      <div className="flex items-start gap-2.5 text-xs text-zinc-800 min-w-0">
+        <FileText className="w-4 h-4 text-zinc-500 shrink-0 mt-0.5" />
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold text-zinc-900">Bạn có bản nháp chưa lưu.</span>
+            {savedAt && (
+              <span className="text-[11px] text-zinc-500 font-normal">
+                (Lưu lúc {savedAt})
+              </span>
+            )}
+          </div>
+          <div className="text-[11px] text-zinc-600 space-y-0.5">
+            {explanationCount !== null && (
+              <p>• Nháp có {explanationCount} câu có giải thích.</p>
+            )}
+            {differentCount > 0 ? (
+              <p className="text-amber-800 font-medium">
+                • Có {differentCount} câu có giải thích khác với dữ liệu hiện tại trong hệ thống.
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          type="button"
+          onClick={onRestore}
+          className="text-xs font-semibold px-3.5 py-1.5 rounded-lg bg-zinc-900 text-white hover:bg-zinc-800 transition shadow-xs cursor-pointer"
+          title={differentCount > 0 ? 'Khôi phục nội dung bài và giữ nguyên giải thích mới từ hệ thống' : 'Khôi phục bản nháp'}
+        >
+          {differentCount > 0 ? 'Khôi phục (giữ giải thích DB)' : 'Khôi phục'}
+        </button>
+
+        {differentCount > 0 && onRestoreKeepDraft && (
+          <button
+            type="button"
+            onClick={onRestoreKeepDraft}
+            className="text-xs font-semibold px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white transition shadow-xs cursor-pointer"
+            title="Khôi phục toàn bộ kể cả các giải thích đã sửa trong nháp"
+          >
+            Dùng giải thích nháp ({differentCount})
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white hover:bg-zinc-50 text-zinc-700 border border-zinc-200 transition shadow-2xs cursor-pointer"
+        >
+          Bỏ qua
+        </button>
       </div>
     </div>
   )

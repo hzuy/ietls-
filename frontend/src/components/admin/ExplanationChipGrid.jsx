@@ -20,6 +20,8 @@ export default function ExplanationChipGrid({
   group = {},
   onSelectQuestion,
   className = '',
+  generatingQuestionNumbers = null,
+  unsavedQuestionNumbers = null,
 }) {
   const questionsList = useMemo(() => {
     if (Array.isArray(questions) && questions.length > 0) return questions
@@ -55,6 +57,14 @@ export default function ExplanationChipGrid({
           const qNum = q.number ?? (Number(group?.qNumberStart) ? Number(group.qNumberStart) + idx : idx + 1)
           const exp = q.explanation || group?.explanations?.[qNum] || group?.explanations?.[String(qNum)]
 
+          const isGeneratingThis = generatingQuestionNumbers
+            ? (generatingQuestionNumbers instanceof Set ? generatingQuestionNumbers.has(qNum) : generatingQuestionNumbers.includes?.(qNum))
+            : false
+
+          const isUnsavedThis = unsavedQuestionNumbers
+            ? (unsavedQuestionNumbers instanceof Set ? unsavedQuestionNumbers.has(qNum) : unsavedQuestionNumbers.includes?.(qNum))
+            : false
+
           return (
             <button
               key={qNum}
@@ -67,7 +77,11 @@ export default function ExplanationChipGrid({
               title={`Xem, duyệt, góp ý hoặc sửa tay giải thích câu ${qNum}`}
             >
               <span className="font-bold text-[11px] shrink-0 text-zinc-900">Câu {qNum}</span>
-              <ExplanationStatusBadge explanation={exp} />
+              <ExplanationStatusBadge
+                explanation={exp}
+                isGenerating={isGeneratingThis}
+                isUnsaved={isUnsavedThis}
+              />
             </button>
           )
         })}

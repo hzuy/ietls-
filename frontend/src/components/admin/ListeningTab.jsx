@@ -41,6 +41,17 @@ import {
   EXAM_EXPLANATION_SKIP_FAMILIES,
   executeTimedAIGenerationLoop,
 } from '../../utils/examExplanationUtils'
+import { useExplanationGenerationLock } from '../../hooks/useExplanationGenerationLock'
+import AIGenerationStickyProgress from './AIGenerationStickyProgress'
+import AIGenerationExitConfirmModal from './AIGenerationExitConfirmModal'
+import AIGenerationResumeBanner from './AIGenerationResumeBanner'
+import { DraftBanner } from './contentPageUI'
+import {
+  smartMergeDraft,
+  analyzeDraftDifferences,
+  extractExplanationsMap,
+  isExplanationEqual,
+} from '../../utils/draftMergeUtils'
 
 // ─── PREVIEW: LISTENING FORM ──────────────────────────────────────────────────
 
@@ -102,7 +113,7 @@ function ListeningFormPreview({ form, showAnswers }) {
 
 // ─── GROUP EDITOR ─────────────────────────────────────────────────────────────
 
-function GroupEditor({ group = {}, onChange, onRemove, examId, passage = '', onGenerateGroupAI, isAIBusy, generatingGroupId }) {
+function GroupEditor({ group = {}, onChange, onRemove, examId, passage = '', onGenerateGroupAI, isAIBusy, generatingGroupId, unsavedQuestionNumbers }) {
   const [selectedQModal, setSelectedQModal] = useState(null)
   const groupType = group?.type || 'fill_blank'
   const typeLabel = GROUP_TYPES.find(t => t.value === groupType)?.label || groupType
@@ -124,6 +135,10 @@ function GroupEditor({ group = {}, onChange, onRemove, examId, passage = '', onG
           (_, idx) => ({ number: group.qNumberStart + idx })
         )
       : []
+
+  const generatingQuestionNumbers = isCurrentGenerating
+    ? new Set(questionsList.map(q => q.number))
+    : undefined
 
   return (
     <div className={`border ${theme.cardBorder} ${theme.cardBg} rounded-2xl overflow-hidden transition-all duration-200 mb-4 shadow-xs`}>
@@ -150,8 +165,8 @@ function GroupEditor({ group = {}, onChange, onRemove, examId, passage = '', onG
               type="button"
               onClick={onGenerateGroupAI}
               disabled={isAIBusy}
-              className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-              title={isAIBusy ? "Đang có tác vụ AI đang chạy..." : `Sinh AI giải thích cho nhóm câu ${group.qNumberStart}–${group.qNumberEnd}`}
+              className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              title={isAIBusy ? "Đang sinh giải thích AI, vui lòng chờ" : `Sinh AI giải thích cho nhóm câu ${group.qNumberStart}–${group.qNumberEnd}`}
             >
               {isCurrentGenerating ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-600" />
@@ -161,8 +176,9 @@ function GroupEditor({ group = {}, onChange, onRemove, examId, passage = '', onG
               <span>{isCurrentGenerating ? 'Đang tạo...' : 'Sinh AI nhóm này'}</span>
             </button>
           )}
-          <button type="button" onClick={onRemove}
-            className="text-red-500 hover:text-red-600 text-xs font-semibold px-2 py-0.5 rounded hover:bg-red-50 cursor-pointer">
+          <button type="button" onClick={onRemove} disabled={isAIBusy}
+            title={isAIBusy ? "Đang sinh giải thích AI, vui lòng chờ" : undefined}
+            className="text-red-500 hover:text-red-600 text-xs font-semibold px-2 py-0.5 rounded hover:bg-red-50 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
             Xóa nhóm
           </button>
         </div>
@@ -173,6 +189,8 @@ function GroupEditor({ group = {}, onChange, onRemove, examId, passage = '', onG
         questions={questionsList}
         group={group}
         onSelectQuestion={(data) => setSelectedQModal(data)}
+        generatingQuestionNumbers={generatingQuestionNumbers}
+        unsavedQuestionNumbers={unsavedQuestionNumbers}
       />
 
       <div className="p-4 space-y-3">
@@ -311,18 +329,63 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   const isCancellingAIRef = useRef(false)
   const abortControllerRef = useRef(null)
   const pendingAIFnRef = useRef(null)
+  const pristineExplanationsRef = useRef({})
 
-  useEffect(() => {
-    const handleBeforeUnload = (e) => {
-      if (generatingAI) {
-        e.preventDefault()
-        e.returnValue = 'Tác vụ AI đang chạy. Rời khỏi trang lúc này có thể làm gián đoạn quá trình.'
-        return e.returnValue
+  // Concurrency lock, multi-tab sync, grace window & exit confirmation hook
+  const expLock = useExplanationGenerationLock({
+    examId: editingId,
+    type: 'exam',
+    skill: 'listening',
+    enabled: !!editingId,
+    onResumeGenerate: (unprocessedNums) => {
+      handleGenerateSequentialAll({ questionNumbers: unprocessedNums })
+    },
+  })
+
+  // Compare explanations with DB snapshot to detect unsaved changes
+  const unsavedQuestionNumbers = useMemo(() => {
+    if (!editingId || !pristineExplanationsRef.current) return new Set()
+    const set = new Set()
+    const currentExps = extractExplanationsMap(form)
+    for (const [k, exp] of Object.entries(currentExps)) {
+      const qNum = Number(k)
+      if (!qNum) continue
+      const pristineExp = pristineExplanationsRef.current[qNum]
+      if (!isExplanationEqual(exp, pristineExp)) {
+        set.add(qNum)
       }
     }
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [generatingAI])
+    return set
+  }, [form, editingId])
+
+  // Analyze differences between draft in localStorage and active DB form
+  const draftDiffInfo = useMemo(() => {
+    if (!draftBanner?.data) return null
+    return analyzeDraftDifferences({ draftData: draftBanner.data, currentDbForm: form })
+  }, [draftBanner, form])
+
+  const handleRestoreDraft = (resolutionChoice = 'keep_db') => {
+    if (!draftBanner?.data) return
+    const merged = smartMergeDraft({
+      draftData: draftBanner.data,
+      currentDbForm: form,
+      resolutionChoice,
+    })
+    setForm(merged)
+    setDraftBanner(null)
+    showToast(
+      resolutionChoice === 'keep_draft'
+        ? 'Đã khôi phục bản nháp gồm các giải thích đã sửa'
+        : 'Đã khôi phục bản nháp (giữ nguyên giải thích mới nhất từ hệ thống)'
+    )
+  }
+
+  const handleCancelAI = () => {
+    isCancellingAIRef.current = true
+    setIsCancellingAI(true)
+    expLock.setIsCancelling(true)
+    abortControllerRef.current?.abort()
+  }
 
   const countGroupProtected = (g) => {
     let reviewedCount = 0
@@ -396,25 +459,46 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     setGeneratingGroupId(group.id)
     setAiProgress({ current: 0, total: 0, groupLabel: `nhóm câu ${group.qNumberStart}–${group.qNumberEnd}` })
 
+    const totalTarget = group.questions?.length || (group.qNumberEnd - group.qNumberStart + 1) || 0
+    expLock.startLocalGeneration({
+      abortController,
+      total: totalTarget,
+      current: 0,
+    })
+
+    let loopResult = null
+
     try {
-      const loopResult = await executeTimedAIGenerationLoop({
-        fetchChunk: (payload, opts) =>
-          api.post(`/admin/exams/${editingId}/groups/${group.id}/generate-explanations`, payload, opts),
+      loopResult = await executeTimedAIGenerationLoop({
+        fetchChunk: (payload, opts) => {
+          expLock.notifyChunkStart({
+            current: aiProgress?.current || 0,
+            total: totalTarget,
+          })
+          return api.post(`/admin/exams/${editingId}/groups/${group.id}/generate-explanations`, payload, opts)
+        },
         basePayload: { force: true, overwriteProtected, resolveChoices },
         signal: abortController.signal,
         onProgress: ({ current, total }) => {
           const countText = total > 0 ? ` (${current}/${total} câu)` : ''
-          setAiProgress({
+          const p = {
             current,
             total,
             groupLabel: `nhóm câu ${group.qNumberStart}–${group.qNumberEnd}${countText}`,
-          })
+          }
+          setAiProgress(p)
+          expLock.updateLocalProgress(p)
         },
         onChunkSuccess: async () => {
+          expLock.notifyChunkEnd({
+            current: aiProgress?.current || 0,
+            total: totalTarget,
+          })
           try {
             const fresh = await api.get(`/admin/exams/${editingId}`)
             if (fresh?.data) {
               setForm(prev => mergeExamExplanations(prev, fresh.data, resolveChoices))
+              pristineExplanationsRef.current = extractExplanationsMap(fresh.data)
             }
           } catch (syncErr) {
             console.error('Lỗi đồng bộ lời giải mới vào form:', syncErr)
@@ -453,10 +537,11 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       setGeneratingGroupId(null)
       setAiProgress(null)
       abortControllerRef.current = null
+      expLock.endLocalGeneration({ completed: !loopResult?.cancelled, cancelled: Boolean(loopResult?.cancelled) })
     }
   }
 
-  const handleGenerateSequentialAll = async ({ resolveChoices = {}, overwriteProtected = false } = {}) => {
+  const handleGenerateSequentialAll = async ({ resolveChoices = {}, overwriteProtected = false, questionNumbers = null } = {}) => {
     if (!editingId) return
     const val = validateExamListening(form, { isForAI: true })
     if (!val.isValid) {
@@ -467,13 +552,27 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       return
     }
 
-    const allGroups = (form.sections || []).flatMap(s => s.questionGroups || [])
+    let allGroups = (form.sections || []).flatMap(s => s.questionGroups || [])
       .filter(g => !EXAM_EXPLANATION_SKIP_FAMILIES.has(g.type) && (g.questions?.length > 0 || (g.qNumberEnd >= g.qNumberStart)))
+
+    if (questionNumbers && Array.isArray(questionNumbers) && questionNumbers.length > 0) {
+      const qNumSet = new Set(questionNumbers.map(Number))
+      allGroups = allGroups.filter(g => {
+        const start = g.qNumberStart
+        const end = g.qNumberEnd
+        for (let n = start; n <= end; n++) {
+          if (qNumSet.has(n)) return true
+        }
+        return false
+      })
+    }
 
     if (allGroups.length === 0) {
       showAlert('Không có nhóm câu hỏi nào hỗ trợ tạo giải thích AI trong đề này.', 'info')
       return
     }
+
+    const totalQuestions = allGroups.reduce((acc, g) => acc + (g.questions?.length || (g.qNumberEnd - g.qNumberStart + 1)), 0)
 
     setGeneratingAI(true)
     setIsCancellingAI(false)
@@ -481,6 +580,12 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     const abortController = new AbortController()
     abortControllerRef.current = abortController
     setAiProgress({ current: 0, total: allGroups.length, groupLabel: '' })
+
+    expLock.startLocalGeneration({
+      abortController,
+      total: totalQuestions,
+      current: 0,
+    })
 
     let totalGenerated = 0
     const accumulatedConflicts = []
@@ -495,27 +600,43 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
 
       try {
         const loopResult = await executeTimedAIGenerationLoop({
-          fetchChunk: (payload, opts) =>
-            api.post(
+          fetchChunk: (payload, opts) => {
+            expLock.notifyChunkStart({
+              current: totalGenerated,
+              total: totalQuestions,
+            })
+            return api.post(
               `/admin/exams/${editingId}/groups/${group.id}/generate-explanations`,
               payload,
               opts
-            ),
+            )
+          },
           basePayload: { force: true, overwriteProtected, resolveChoices },
           signal: abortController.signal,
           onProgress: ({ current, total }) => {
             const subCountText = total > 0 ? ` [${current}/${total} câu]` : ''
-            setAiProgress({
+            const p = {
               current: i + 1,
               total: allGroups.length,
               groupLabel: `nhóm ${i + 1}/${allGroups.length} (Câu ${group.qNumberStart}–${group.qNumberEnd})${subCountText}`,
+            }
+            setAiProgress(p)
+            expLock.updateLocalProgress({
+              current: totalGenerated + current,
+              total: totalQuestions,
+              label: `${totalGenerated + current}/${totalQuestions} câu`,
             })
           },
           onChunkSuccess: async () => {
+            expLock.notifyChunkEnd({
+              current: totalGenerated,
+              total: totalQuestions,
+            })
             try {
               const fresh = await api.get(`/admin/exams/${editingId}`)
               if (fresh?.data) {
                 setForm(prev => mergeExamExplanations(prev, fresh.data, resolveChoices))
+                pristineExplanationsRef.current = extractExplanationsMap(fresh.data)
               }
             } catch (syncErr) {
               console.error('Lỗi đồng bộ nhóm vào form:', syncErr)
@@ -565,11 +686,13 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     setAiProgress(null)
     const wasAborted = isCancellingAIRef.current || abortController.signal.aborted
     abortControllerRef.current = null
+    expLock.endLocalGeneration({ completed: !wasAborted, cancelled: Boolean(wasAborted) })
 
     try {
       const fresh = await api.get(`/admin/exams/${editingId}`)
       if (fresh?.data) {
         setForm(prev => mergeExamExplanations(prev, fresh.data, resolveChoices))
+        pristineExplanationsRef.current = extractExplanationsMap(fresh.data)
       }
     } catch {}
 
@@ -696,6 +819,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       }
       setForm(loadedForm)
       pristineFormSigRef.current = normalizeFormForDirtyCheck(loadedForm)
+      pristineExplanationsRef.current = extractExplanationsMap(loadedForm)
       setEditingId(id)
       setOpenSection(0)
       setEditHighlight(true)
@@ -711,9 +835,12 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   }
 
   const cancelEdit = () => {
-    if (editingId) localStorage.removeItem(`draft_listening_${editingId}`)
-    pristineFormSigRef.current = ''
-    setEditingId(null); setForm(emptyListeningForm()); setOpenSection(0); setEditHighlight(false); setDraftBanner(null)
+    expLock.handleSafeActionOrExit(() => {
+      if (editingId) localStorage.removeItem(`draft_listening_${editingId}`)
+      pristineFormSigRef.current = ''
+      pristineExplanationsRef.current = {}
+      setEditingId(null); setForm(emptyListeningForm()); setOpenSection(0); setEditHighlight(false); setDraftBanner(null)
+    })
   }
 
   // All form mutations use the functional setForm(prev => …) form so that async
@@ -867,6 +994,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         // Log audit vừa ghi ở backend — invalidate để khối "Lịch sử thay đổi" hiện ngay, không đợi hết staleTime.
         queryClient.invalidateQueries({ queryKey: ['admin', 'auditLogs', 'exam', editingId] })
         pristineFormSigRef.current = normalizeFormForDirtyCheck(form)
+        pristineExplanationsRef.current = extractExplanationsMap(form)
         onRefresh()
         return true
       } else {
@@ -878,6 +1006,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
         queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
         pristineFormSigRef.current = ''
+        pristineExplanationsRef.current = {}
         onRefresh()
         return true
       }
@@ -931,17 +1060,28 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
 
         {error && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg mb-4 text-sm whitespace-pre-line">{error}</div>}
 
-        {draftBanner && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex items-center justify-between">
-            <span className="text-sm text-amber-700">Có bản nháp chưa lưu. Khôi phục?</span>
-            <div className="flex gap-2">
-              <button type="button" onClick={() => { setForm(draftBanner.data); setDraftBanner(null) }}
-                className="text-xs px-2.5 py-1 bg-amber-500 text-white rounded-lg font-semibold hover:bg-amber-600 transition">Khôi phục</button>
-              <button type="button" onClick={() => { localStorage.removeItem(draftBanner.key); setDraftBanner(null) }}
-                className="text-xs px-2.5 py-1 border border-amber-300 text-amber-700 rounded-lg hover:bg-amber-100 transition">Bỏ qua</button>
-            </div>
-          </div>
-        )}
+        <AIGenerationResumeBanner
+          banner={expLock.resumeBanner}
+          disabled={expLock.isLockedOperation}
+        />
+
+        <DraftBanner
+          draft={draftBanner}
+          diffInfo={draftDiffInfo}
+          onRestore={() => handleRestoreDraft('keep_db')}
+          onRestoreKeepDraft={() => handleRestoreDraft('keep_draft')}
+          onDismiss={() => {
+            if (draftBanner?.key) localStorage.removeItem(draftBanner.key)
+            setDraftBanner(null)
+          }}
+        />
+
+        <AIGenerationStickyProgress
+          isGenerating={expLock.isGenerating}
+          isCancelling={expLock.isCancelling}
+          progress={expLock.localProgress}
+          onCancel={handleCancelAI}
+        />
 
         {editingId && (
           <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-3 mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -963,11 +1103,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
                   {!isCancellingAI && (
                     <button
                       type="button"
-                      onClick={() => {
-                        isCancellingAIRef.current = true
-                        setIsCancellingAI(true)
-                        abortControllerRef.current?.abort()
-                      }}
+                      onClick={handleCancelAI}
                       className="ml-1 text-xs font-semibold px-2 py-0.5 rounded border border-zinc-400 bg-white hover:bg-zinc-50 text-zinc-700 transition cursor-pointer"
                       title="Hủy giữa chừng (hoàn tất nhóm hiện tại rồi dừng)"
                     >
@@ -979,19 +1115,30 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
                 <button
                   type="button"
                   onClick={handleStartGenerateAI}
-                  disabled={generatingAI}
-                  className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  title="AI giải thích 4 bước từ transcript (tuần tự theo nhóm)"
+                  disabled={generatingAI || expLock.isLockedGenerate}
+                  className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={expLock.isLockedGenerate ? (expLock.lockTooltip ? `${expLock.lockTooltip} (tuần tự theo nhóm)` : 'Đang sinh giải thích AI, vui lòng chờ (tuần tự theo nhóm)') : 'AI giải thích 4 bước từ transcript (tuần tự theo nhóm)'}
                 >
                   <BookOpen className="w-3.5 h-3.5 text-zinc-600" />
                   <span>AI giải thích</span>
                 </button>
               )}
-              <button type="button" onClick={() => setShowPreview(v => !v)}
-                className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 transition shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setShowPreview(v => !v)}
+                disabled={expLock.isLockedOperation}
+                title={expLock.isLockedOperation ? "Đang sinh giải thích AI, vui lòng chờ" : undefined}
+                className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 transition shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed">
                 {showPreview ? 'Ẩn preview' : 'Preview'}
               </button>
-              <button type="button" onClick={cancelEdit} disabled={generatingAI} className={btnSecondary + ' text-xs disabled:opacity-50 disabled:cursor-not-allowed'}>Hủy sửa</button>
+              <button
+                type="button"
+                onClick={cancelEdit}
+                disabled={generatingAI || expLock.isLockedOperation}
+                title={expLock.isLockedOperation ? "Đang sinh giải thích AI, vui lòng chờ" : undefined}
+                className={btnSecondary + ' text-xs disabled:opacity-50 disabled:cursor-not-allowed'}>
+                Hủy sửa
+              </button>
             </div>
           </div>
         )}
@@ -1158,15 +1305,15 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
                             <button
                               type="button"
                               onClick={() => moveGroup(si, gi, -1)}
-                              disabled={gi === 0}
-                              className="w-6 h-6 flex items-center justify-center rounded border border-zinc-200 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 disabled:opacity-25 text-xs transition"
-                              title="Di chuyển lên">▲</button>
+                              disabled={gi === 0 || expLock.isLockedOperation}
+                              title={expLock.isLockedOperation ? "Đang sinh giải thích AI, vui lòng chờ" : "Di chuyển lên"}
+                              className="w-6 h-6 flex items-center justify-center rounded border border-zinc-200 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 disabled:opacity-25 text-xs transition">▲</button>
                             <button
                               type="button"
                               onClick={() => moveGroup(si, gi, 1)}
-                              disabled={gi === section.questionGroups.length - 1}
-                              className="w-6 h-6 flex items-center justify-center rounded border border-zinc-200 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 disabled:opacity-25 text-xs transition"
-                              title="Di chuyển xuống">▼</button>
+                              disabled={gi === section.questionGroups.length - 1 || expLock.isLockedOperation}
+                              title={expLock.isLockedOperation ? "Đang sinh giải thích AI, vui lòng chờ" : "Di chuyển xuống"}
+                              className="w-6 h-6 flex items-center justify-center rounded border border-zinc-200 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 disabled:opacity-25 text-xs transition">▼</button>
                           </div>
                           <div className="flex-1">
                             <GroupEditor
@@ -1176,8 +1323,9 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
                               onChange={newGroup => updateGroup(si, gi, newGroup)}
                               onRemove={() => removeGroup(si, gi)}
                               onGenerateGroupAI={editingId ? () => handleStartGenerateGroupAI(group) : null}
-                              isAIBusy={generatingAI}
+                              isAIBusy={generatingAI || expLock.isLockedOperation}
                               generatingGroupId={generatingGroupId}
+                              unsavedQuestionNumbers={unsavedQuestionNumbers}
                             />
                           </div>
                         </div>
@@ -1206,7 +1354,9 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
                       <button
                         type="button"
                         onClick={() => setAddingGroupSection(si)}
-                        className="w-full border-2 border-dashed border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50 text-zinc-600 hover:text-zinc-900 rounded-lg py-2 px-3 text-xs font-medium transition">
+                        disabled={expLock.isLockedOperation}
+                        title={expLock.isLockedOperation ? "Đang sinh giải thích AI, vui lòng chờ" : undefined}
+                        className="w-full border-2 border-dashed border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50 text-zinc-600 hover:text-zinc-900 rounded-lg py-2 px-3 text-xs font-medium transition disabled:opacity-50 disabled:cursor-not-allowed">
                         + Thêm nhóm câu hỏi
                       </button>
                     )}
@@ -1220,7 +1370,8 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
 
         <button
           type="submit"
-          disabled={submitting || loadingEdit || generatingAI}
+          disabled={submitting || loadingEdit || generatingAI || expLock.isLockedOperation}
+          title={expLock.isLockedOperation ? "Đang sinh giải thích AI, vui lòng chờ" : undefined}
           className="w-full h-10 rounded-xl bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-800 transition shadow-xs flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {submitting ? 'Đang lưu...' : editingId ? 'Cập nhật đề Listening' : 'Tạo đề Listening'}
@@ -1317,6 +1468,14 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
             handleGenerateSequentialAll({ overwriteProtected })
           }
         }}
+      />
+
+      <AIGenerationExitConfirmModal
+        isOpen={expLock.exitConfirmOpen}
+        onClose={expLock.closeExitConfirm}
+        onConfirmExit={expLock.confirmExit}
+        currentCount={expLock.localProgress?.current || 0}
+        totalCount={expLock.localProgress?.total || 0}
       />
     </div>
   )
