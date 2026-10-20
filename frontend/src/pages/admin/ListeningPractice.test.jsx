@@ -91,10 +91,10 @@ describe('ListeningPractice — double-click protection on delete', () => {
     render(<ListeningPractice />)
 
     fireEvent.click(await screen.findByRole('button', { name: 'Sửa' }))
-    const previewBtn = await screen.findByRole('button', { name: /Xem trước nội dung đề/i })
+    const previewBtn = await screen.findByRole('button', { name: /Preview nội dung đề/i })
     fireEvent.click(previewBtn)
 
-    expect(await screen.findByText(/Xem trước — Bài nghe có transcript/i)).toBeInTheDocument()
+    expect(await screen.findByText(/Preview — Bài nghe có transcript/i)).toBeInTheDocument()
     // Đảm bảo không còn nút Xem Transcript trong preview modal
     expect(screen.queryByRole('button', { name: /Xem Transcript/i })).toBeNull()
   })
@@ -107,7 +107,7 @@ describe('ListeningPractice — double-click protection on delete', () => {
 
     // Verify top action bar
     expect(screen.getByRole('button', { name: 'Lưu bài' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Xem trước/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Preview/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Hủy' })).toBeInTheDocument()
 
     // Verify left column inputs

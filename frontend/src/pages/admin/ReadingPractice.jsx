@@ -74,7 +74,7 @@ function ReadingPracticePreviewModal({ form, showAnswers, setShowAnswers, onClos
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-3 bg-zinc-50 border-b border-zinc-200 shrink-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-zinc-900">Xem trước — {form.title || 'Reading Practice'}</span>
+            <span className="text-sm font-bold text-zinc-900">Preview — {form.title || 'Reading Practice'}</span>
             <button type="button" onClick={() => setShowAnswers(v => !v)}
               className={`text-xs px-3 py-1 rounded-full font-semibold transition cursor-pointer ${showAnswers ? 'bg-zinc-900 text-white' : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50'}`}>
               {showAnswers ? 'Ẩn đáp án' : 'Hiện đáp án'}
@@ -545,12 +545,12 @@ export default function ReadingPractice() {
                 type="button"
                 onClick={() => setShowPreview(true)}
                 disabled={expLock.isLockedOperation}
-                aria-label="Xem trước nội dung đề"
+                aria-label="Preview nội dung đề"
                 className="h-9 px-3.5 rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-900 text-xs font-semibold transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 title={expLock.lockTooltip}
               >
                 <Eye className="w-3.5 h-3.5 text-zinc-500" />
-                <span className="hidden sm:inline">Xem trước</span>
+                <span className="hidden sm:inline">Preview</span>
               </button>
               <button
                 type="button"

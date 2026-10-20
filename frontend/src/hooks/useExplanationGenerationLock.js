@@ -50,6 +50,13 @@ export function useExplanationGenerationLock({
   const abortControllerRef = useRef(null)
   const webLockReleaseRef = useRef(null)
   const broadcastChannelRef = useRef(null)
+  const tabIdRef = useRef(
+    typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : Math.random().toString(36).substring(2)
+  )
+  const isHoldingWebLockRef = useRef(false)
+  const inspectedTargetRef = useRef(null)
 
   const lockKey = `${type}_${numericId}`
   const storageActiveKey = `${LOCAL_STORAGE_ACTIVE_PREFIX}${lockKey}`
@@ -61,13 +68,13 @@ export function useExplanationGenerationLock({
   const checkBrowserConcurrency = useCallback(async () => {
     if (!isTargetValid) return false
 
-    // 1. Try Web Locks API if supported
-    if (typeof navigator !== 'undefined' && navigator.locks && navigator.locks.query) {
+    // 1. Try Web Locks API if supported (ONLY check if another tab holds it, not this tab)
+    if (!isHoldingWebLockRef.current && typeof navigator !== 'undefined' && navigator.locks && navigator.locks.query) {
       try {
         const state = await navigator.locks.query()
         const held = state.held || []
         const isLockHeld = held.some((l) => l.name === `ai_gen_${lockKey}`)
-        if (isLockHeld && !isGenerating) {
+        if (isLockHeld && !isGenerating && !isHoldingWebLockRef.current) {
           setIsBrowserRunning(true)
           return true
         }
@@ -82,7 +89,8 @@ export function useExplanationGenerationLock({
       if (raw) {
         const active = JSON.parse(raw)
         const age = Date.now() - (active.lastHeartbeat || 0)
-        if (active.isRunning && age < HEARTBEAT_EXPIRY_MS && !isGenerating) {
+        // If active payload belongs to ANOTHER tab and is still fresh:
+        if (active.isRunning && active.tabId && active.tabId !== tabIdRef.current && age < HEARTBEAT_EXPIRY_MS && !isGenerating) {
           setIsBrowserRunning(true)
           setBrowserProgress({ current: active.current || 0, total: active.total || 0 })
           return true
@@ -92,7 +100,7 @@ export function useExplanationGenerationLock({
       // Ignore JSON parse errors
     }
 
-    if (!isGenerating) {
+    if (!isGenerating && !isHoldingWebLockRef.current) {
       setIsBrowserRunning(false)
       setBrowserProgress(null)
     }
@@ -169,6 +177,10 @@ export function useExplanationGenerationLock({
 
   useEffect(() => {
     if (!isTargetValid) return
+    const currentTarget = `${type}_${numericId}`
+    if (inspectedTargetRef.current === currentTarget) return
+    inspectedTargetRef.current = currentTarget
+
     let isMounted = true
     let graceTimer = null
     let pollTimer = null
@@ -188,8 +200,8 @@ export function useExplanationGenerationLock({
 
       if (status1) {
         setServerStatus(status1)
+        setIsServerRunning(Boolean(status1.isLocked))
         if (status1.isLocked) {
-          setIsServerRunning(true)
           setIsCheckingStatus(false)
           return
         }
@@ -197,9 +209,12 @@ export function useExplanationGenerationLock({
           setIsCheckingStatus(false)
           return
         }
-      } else if (isTestEnv) {
-        setIsCheckingStatus(false)
-        return
+      } else {
+        setIsServerRunning(false)
+        if (isTestEnv) {
+          setIsCheckingStatus(false)
+          return
+        }
       }
 
       // If server is not locked, wait grace window (5s) to avoid race between chunks
@@ -210,10 +225,12 @@ export function useExplanationGenerationLock({
         if (!isMounted) return
         if (status2) {
           setServerStatus(status2)
+          setIsServerRunning(Boolean(status2.isLocked))
           if (status2.isLocked) {
-            setIsServerRunning(true)
             setIsCheckingStatus(false)
           }
+        } else {
+          setIsServerRunning(false)
         }
       }, Math.min(2500, Math.floor(GRACE_WINDOW_MS / 2)))
 
@@ -221,6 +238,7 @@ export function useExplanationGenerationLock({
       graceTimer = setTimeout(() => {
         if (!isMounted) return
         setIsCheckingStatus(false)
+        setIsServerRunning(false)
       }, GRACE_WINDOW_MS)
     }
 
@@ -231,7 +249,7 @@ export function useExplanationGenerationLock({
       if (pollTimer) clearTimeout(pollTimer)
       if (graceTimer) clearTimeout(graceTimer)
     }
-  }, [isTargetValid, fetchServerStatus, checkBrowserConcurrency])
+  }, [isTargetValid, type, numericId, fetchServerStatus, checkBrowserConcurrency])
 
   // ── 3. LOCAL GENERATION LIFECYCLE MANAGERS ─────────────────────────────────
 
@@ -248,6 +266,10 @@ export function useExplanationGenerationLock({
   const startLocalGeneration = useCallback(async ({ abortController, total = 0, current = 0 }) => {
     setIsGenerating(true)
     setIsCancelling(false)
+    setIsBrowserRunning(false)
+    setIsServerRunning(false)
+    setIsCheckingStatus(false)
+    isHoldingWebLockRef.current = true
     abortControllerRef.current = abortController
     setBannerDismissed(true)
 
@@ -263,6 +285,7 @@ export function useExplanationGenerationLock({
     // 2. Set active state and evidence in localStorage
     const activePayload = {
       isRunning: true,
+      tabId: tabIdRef.current,
       startedAt: Date.now(),
       lastHeartbeat: Date.now(),
       current,
@@ -281,6 +304,7 @@ export function useExplanationGenerationLock({
     try {
       const activePayload = {
         isRunning: true,
+        tabId: tabIdRef.current,
         lastHeartbeat: Date.now(),
         lastChunkAt: Date.now(),
         current,
@@ -295,6 +319,7 @@ export function useExplanationGenerationLock({
     try {
       const activePayload = {
         isRunning: true,
+        tabId: tabIdRef.current,
         lastHeartbeat: Date.now(),
         lastChunkAt: Date.now(),
         current,
@@ -313,6 +338,7 @@ export function useExplanationGenerationLock({
         const obj = JSON.parse(raw)
         obj.current = current
         obj.total = total
+        obj.tabId = tabIdRef.current
         obj.lastHeartbeat = Date.now()
         localStorage.setItem(storageActiveKey, JSON.stringify(obj))
       }
@@ -323,8 +349,12 @@ export function useExplanationGenerationLock({
   const endLocalGeneration = useCallback(({ completed = true, cancelled = false } = {}) => {
     setIsGenerating(false)
     setIsCancelling(false)
+    setIsBrowserRunning(false)
+    setIsServerRunning(false)
+    setIsCheckingStatus(false)
     setLocalProgress(null)
     abortControllerRef.current = null
+    isHoldingWebLockRef.current = false
 
     // 1. Release Web Lock
     if (webLockReleaseRef.current) {
@@ -343,9 +373,14 @@ export function useExplanationGenerationLock({
     // 3. Notify other tabs
     broadcastMessage(cancelled ? 'AI_GEN_STOPPED' : 'AI_GEN_COMPLETED')
 
-    // 4. Refresh server status
+    // 4. Refresh server status and synchronize isServerRunning
     fetchServerStatus().then((s) => {
-      if (s) setServerStatus(s)
+      if (s) {
+        setServerStatus(s)
+        setIsServerRunning(Boolean(s.isLocked))
+      } else {
+        setIsServerRunning(false)
+      }
     })
   }, [storageActiveKey, storageEvidenceKey, broadcastMessage, fetchServerStatus])
 

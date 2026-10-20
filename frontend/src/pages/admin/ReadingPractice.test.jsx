@@ -53,7 +53,7 @@ describe('ReadingPractice — double-click protection on delete', () => {
 
     // Verify top action bar
     expect(screen.getByRole('button', { name: 'Lưu bài' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Xem trước/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Preview/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Hủy' })).toBeInTheDocument()
 
     // Verify left column inputs
