@@ -1558,10 +1558,343 @@ async function updatePracticeQuestionExplanationTx(practiceQuestionId, updaterFn
 }
 
 /**
- * 4.3 Regenerate explanation for a single question with optional teacherFeedback.
+ * Core regeneration logic shared across Practice and Exam.
+ * Handles L2 requirements:
+ * - Proposed answer flow (blind solve, confirmation, fallback blocking, attempt warning)
+ * - Teacher feedback flow (blind verify to avoid defending wrong answers)
  */
-async function regenerateQuestionExplanation({ examId, questionId = null, questionNumber = null, isPractice = false, skill = 'reading', teacherFeedback = null }) {
+async function handleRegenerateCore({
+  qCtx,
+  family,
+  ctx,
+  inputAnswer,
+  rawOptions,
+  oldExp,
+  cleanFeedback,
+  cleanProposed,
+  confirmChangeAnswer,
+  attemptCount = 0,
+  updateCorrectAnswer,
+  saveExplanation,
+  questionNumber,
+}) {
+  const isChangingAnswer = Boolean(cleanProposed && !isAnswerMatch(inputAnswer, cleanProposed, rawOptions, qCtx.type))
+
+  // ─── BRANCH 1: TEACHER PROPOSES A NEW ANSWER ──────────────────────────────
+  if (isChangingAnswer) {
+    if (confirmChangeAnswer) {
+      // Step 2: Teacher confirmed changing the answer!
+      await updateCorrectAnswer(cleanProposed)
+
+      let explanation
+      try {
+        explanation = await generateExplanation(qCtx, family, ctx, {
+          isFixedMode: true,
+          targetAnswer: cleanProposed,
+          teacherFeedback: cleanFeedback,
+        })
+      } catch (err) {
+        if (err instanceof ExplanationValidationError) {
+          return {
+            ok: false,
+            error: 'EVIDENCE_NOT_FOUND',
+            message: 'Không thể xác thực bằng chứng nguyên văn: ' + err.message,
+          }
+        }
+        throw err
+      }
+
+      if (!explanation) {
+        return { ok: false, message: 'AI không tạo được giải thích cho đáp án mới này.' }
+      }
+
+      if (explanation.no_support) {
+        explanation.status = 'needs_regeneration'
+        explanation.teacher_note = `Đã đổi đáp án sang "${cleanProposed}" nhưng AI không tìm thấy bằng chứng ủng hộ. Cần sửa trực tiếp.`
+      } else {
+        explanation.status = 'teacher_reviewed'
+        explanation.teacher_note = `Đã đổi đáp án chuẩn từ "${inputAnswer}" sang "${cleanProposed}" (xác nhận bởi giáo viên).`
+      }
+
+      if (containsInternalJargon(explanation)) {
+        explanation.status = 'needs_regeneration'
+        explanation.needsRegenerationReason = 'Lời giải chứa cụm từ nội bộ'
+      }
+
+      const oldHistory = Array.isArray(oldExp.feedbackHistory) ? oldExp.feedbackHistory : []
+      const feedbackEntry = {
+        at: new Date().toISOString(),
+        feedback: cleanFeedback ? `[Đổi đáp án -> ${cleanProposed}] ${cleanFeedback}` : `[Đổi đáp án -> ${cleanProposed}]`,
+        provider: explanation.provider || 'Gemini',
+        model: explanation.model || 'gemini-3.5-flash-lite',
+      }
+      explanation.teacherFeedback = cleanFeedback || ''
+      explanation.feedbackHistory = [feedbackEntry, ...oldHistory].slice(0, 5)
+      explanation.updatedAt = new Date().toISOString()
+
+      await saveExplanation(explanation)
+
+      return {
+        ok: true,
+        status: explanation.status,
+        isConflict: false,
+        updatedCorrectAnswer: cleanProposed,
+        explanation,
+        message: `Đã cập nhật đáp án chuẩn thành "${cleanProposed}" và tạo lời giải mới thành công!`,
+      }
+    } else {
+      // Step 1: Independent Blind Solve! (No feedback, no targetAnswer, force Gemini)
+      let blindExplanation
+      try {
+        blindExplanation = await generateExplanation(qCtx, family, ctx, {
+          isFixedMode: false,
+          targetAnswer: null,
+          teacherFeedback: null,
+          forceProvider: 'Gemini',
+        })
+      } catch (err) {
+        if (err instanceof ExplanationValidationError) {
+          return {
+            ok: false,
+            error: 'EVIDENCE_NOT_FOUND',
+            message: 'Không thể xác thực bằng chứng nguyên văn khi giải mù: ' + err.message,
+          }
+        }
+        throw err
+      }
+
+      if (!blindExplanation) {
+        return { ok: false, message: 'AI giải độc lập không đưa ra được kết quả.' }
+      }
+
+      const isFallbackResult = Boolean(
+        blindExplanation?.isFallback ||
+        (blindExplanation?.provider && blindExplanation.provider.toLowerCase() !== 'gemini')
+      )
+      if (isFallbackResult) {
+        return {
+          ok: false,
+          error: 'FALLBACK_NOT_ALLOWED',
+          message: 'AI chính đang bận hoặc gặp sự cố, hệ thống không dùng AI dự phòng để quyết định đổi đáp án chuẩn. Vui lòng thử lại sau.',
+        }
+      }
+
+      const aiBlindAnswer = String(blindExplanation.answer || '').trim()
+      const matchProposed = isAnswerMatch(cleanProposed, aiBlindAnswer, rawOptions, qCtx.type)
+
+      if (matchProposed) {
+        // AI agrees with proposed answer! Prompt confirmation
+        return {
+          ok: true,
+          requiresConfirmation: true,
+          proposedAnswer: cleanProposed,
+          currentAnswer: inputAnswer,
+          aiBlindAnswer,
+          attemptCount,
+          evidence: blindExplanation.evidence?.parts?.[0]?.text || '',
+          reasoning: blindExplanation.reasoning || '',
+          message: `AI giải độc lập cũng ra "${aiBlindAnswer}" (khớp với bạn). Bạn có chắc chắn muốn đổi đáp án chuẩn từ "${inputAnswer}" thành "${cleanProposed}" không?`,
+        }
+      } else {
+        // AI does NOT agree with proposed answer! Reject change and do NOT overwrite
+        return {
+          ok: false,
+          conflict: true,
+          proposedAnswer: cleanProposed,
+          currentAnswer: inputAnswer,
+          aiBlindAnswer,
+          evidence: blindExplanation.evidence?.parts?.[0]?.text || '',
+          reasoning: blindExplanation.reasoning || '',
+          message: `AI giải độc lập ra "${aiBlindAnswer}" (dựa trên bài đọc), KHÔNG khớp với đáp án "${cleanProposed}" bạn đề xuất. Lời giải chưa được lưu.`,
+        }
+      }
+    }
+  }
+
+  // ─── BRANCH 2: TEACHER ONLY GIVES FEEDBACK (OR NORMAL REGENERATE) ─────────
+  if (cleanFeedback) {
+    const isTeacherReviewed = oldExp && oldExp.status === 'teacher_reviewed'
+    if (!isTeacherReviewed) {
+      // Run 1 blind check to see if AI still supports inputAnswer
+      let blindExp
+      try {
+        blindExp = await generateExplanation(qCtx, family, ctx, {
+          isFixedMode: false,
+          targetAnswer: null,
+          teacherFeedback: null,
+        })
+      } catch (err) {
+        if (err instanceof ExplanationValidationError) {
+          return {
+            ok: false,
+            error: 'EVIDENCE_NOT_FOUND',
+            message: 'Không thể xác thực bằng chứng nguyên văn: ' + err.message,
+          }
+        }
+        throw err
+      }
+
+      const aiBlindAnswer = String(blindExp?.answer || '').trim()
+      const matchCurrent = isAnswerMatch(inputAnswer, aiBlindAnswer, rawOptions, qCtx.type)
+
+      if (!matchCurrent) {
+        // AI disagrees with current answer! Do NOT manufacture false defense.
+        const conflictExp = {
+          ...(blindExp || oldExp),
+          status: 'conflict_pending',
+          aiAnswer: aiBlindAnswer,
+          answer: inputAnswer,
+          teacher_note: `AI chọn "${aiBlindAnswer}"; đáp án đề đang là "${inputAnswer}". Cần giáo viên đối chiếu.`,
+          teacherFeedback: cleanFeedback,
+          updatedAt: new Date().toISOString(),
+        }
+        await saveExplanation(conflictExp)
+
+        return {
+          ok: true,
+          status: 'conflict_pending',
+          isConflict: true,
+          explanation: conflictExp,
+          message: 'AI sinh giải thích nhưng đáp án lệch so với đáp án câu hỏi. Trạng thái được đặt là Chờ duyệt (ẩn khỏi học sinh).',
+        }
+      }
+    }
+  }
+
+  // Standard generate (or proceed with fixedMode after blind check succeeded, or teacher_reviewed)
+  const isFixedMode = Boolean(
+    cleanFeedback ||
+    oldExp.status === 'needs_regeneration' ||
+    oldExp.teacherKeptAnswer ||
+    oldExp.status === 'teacher_edited'
+  )
+
+  let explanation
+  try {
+    if (isFixedMode) {
+      explanation = await generateExplanation(qCtx, family, ctx, {
+        isFixedMode: true,
+        targetAnswer: inputAnswer,
+        teacherFeedback: cleanFeedback,
+      })
+    } else {
+      explanation = await generateExplanation(qCtx, family, ctx, { teacherFeedback: cleanFeedback })
+    }
+  } catch (err) {
+    if (err instanceof ExplanationValidationError) {
+      return {
+        ok: false,
+        error: 'EVIDENCE_NOT_FOUND',
+        message: 'Không thể xác thực bằng chứng nguyên văn: ' + err.message,
+      }
+    }
+    throw err
+  }
+
+  if (!explanation) {
+    return { ok: false, message: 'AI không tạo được giải thích cho câu hỏi này.' }
+  }
+
+  const aiAnswer = String(explanation.answer || '').trim()
+  let match = isAnswerMatch(inputAnswer, aiAnswer, rawOptions, qCtx.type)
+  const isFallbackResult = Boolean(
+    explanation?.isFallback ||
+    (explanation?.provider && explanation.provider.toLowerCase() !== 'gemini')
+  )
+
+  if (isFallbackResult && (!match || (isFixedMode && explanation.no_support))) {
+    const retryResult = await handleFallbackMismatchRetry({
+      qCtx,
+      family,
+      ctx,
+      inputAnswer,
+      rawOptions,
+      startTime: Date.now(),
+      effectiveTimeBudget: 30000,
+      isFixedMode,
+      targetAnswer: isFixedMode ? inputAnswer : null,
+    })
+    if (retryResult.resolvedWithGemini) {
+      explanation = retryResult.explanation
+      match = retryResult.match
+    } else {
+      return {
+        ok: false,
+        status: 'needs_regeneration',
+        isConflict: false,
+        needsRetry: true,
+        message: `AI chính đang bận, kết quả dự phòng của câu #${questionNumber} chưa đủ tin cậy, hãy thử lại sau.`,
+        explanation: oldExp,
+      }
+    }
+  }
+
+  if (isFixedMode && explanation.no_support) {
+    return {
+      ok: false,
+      error: 'NO_SUPPORT',
+      message: `Không tìm thấy bằng chứng trong bài đọc ủng hộ đáp án "${inputAnswer}". Bạn vui lòng sử dụng chức năng "Sửa trực tiếp" để viết lời giải thủ công.`,
+    }
+  }
+
+  const currentAiAnswer = String(explanation.answer || '').trim()
+  if (match) {
+    explanation.status = 'ai_generated'
+    explanation.teacher_note = `Khớp với đáp án đề (${inputAnswer}).`
+  } else if (isFixedMode && (oldExp.status === 'needs_regeneration' || oldExp.teacherKeptAnswer)) {
+    explanation.status = 'needs_regeneration'
+    explanation.teacher_note = `AI không tìm thấy bằng chứng ủng hộ đáp án "${inputAnswer}". Cần sửa trực tiếp.`
+  } else {
+    explanation.status = 'conflict_pending'
+    explanation.aiAnswer = currentAiAnswer
+    explanation.teacher_note = `AI chọn "${currentAiAnswer}"; đáp án đề đang là "${inputAnswer}". Cần giáo viên đối chiếu.`
+  }
+
+  if (containsInternalJargon(explanation)) {
+    explanation.status = 'needs_regeneration'
+    explanation.needsRegenerationReason = 'Lời giải chứa cụm từ nội bộ'
+  }
+
+  const oldHistory = Array.isArray(oldExp.feedbackHistory) ? oldExp.feedbackHistory : []
+  const feedbackEntry = {
+    at: new Date().toISOString(),
+    feedback: cleanFeedback || '',
+    provider: explanation.provider || 'Gemini',
+    model: explanation.model || 'gemini-3.5-flash-lite',
+  }
+  explanation.teacherFeedback = cleanFeedback || ''
+  explanation.feedbackHistory = [feedbackEntry, ...oldHistory].slice(0, 5)
+  explanation.updatedAt = new Date().toISOString()
+
+  await saveExplanation(explanation)
+
+  return {
+    ok: true,
+    status: explanation.status,
+    isConflict: explanation.status === 'conflict_pending',
+    explanation,
+    message: (isFixedMode || match)
+      ? 'Đã tạo lại giải thích thành công!'
+      : 'AI sinh giải thích nhưng đáp án lệch so với đáp án câu hỏi. Trạng thái được đặt là Chờ duyệt (ẩn khỏi học sinh).',
+  }
+}
+
+/**
+ * 4.3 Regenerate explanation for a single question with optional teacherFeedback,
+ * proposedAnswer, and confirmChangeAnswer (L2).
+ */
+async function regenerateQuestionExplanation({
+  examId,
+  questionId = null,
+  questionNumber = null,
+  isPractice = false,
+  skill = 'reading',
+  teacherFeedback = null,
+  proposedAnswer = null,
+  confirmChangeAnswer = false,
+}) {
   const cleanFeedback = teacherFeedback ? cleanString(teacherFeedback, 1000) : null
+  const cleanProposed = proposedAnswer ? cleanString(proposedAnswer, 200).trim() : null
   const parsedExamId = parseInt(examId, 10)
 
   if (isPractice) {
@@ -1603,124 +1936,44 @@ async function regenerateQuestionExplanation({ examId, questionId = null, questi
     const ctx = buildContext(qCtx, family)
 
     const oldExp = targetRow.explanation?.byNumber?.[targetNum] || {}
-    const isFixedMode = Boolean(
-      cleanFeedback ||
-      oldExp.status === 'needs_regeneration' ||
-      oldExp.teacherKeptAnswer ||
-      oldExp.status === 'teacher_edited'
-    )
-
-    let explanation
-    try {
-      if (isFixedMode) {
-        explanation = await generateExplanation(qCtx, family, ctx, {
-          isFixedMode: true,
-          targetAnswer: inputAnswer,
-          teacherFeedback: cleanFeedback,
-        })
-      } else {
-        explanation = await generateExplanation(qCtx, family, ctx, { teacherFeedback: cleanFeedback })
-      }
-    } catch (err) {
-      if (err instanceof ExplanationValidationError) {
-        return {
-          ok: false,
-          error: 'EVIDENCE_NOT_FOUND',
-          message: 'Không thể xác thực bằng chứng nguyên văn: ' + err.message,
-        }
-      }
-      throw err
-    }
-
-    if (!explanation) {
-      return { ok: false, message: 'AI không tạo được giải thích cho câu hỏi này.' }
-    }
-
-    const aiAnswer = String(explanation.answer || '').trim()
     const rawOptions = qCtx.options || (targetGroup.matchingOptions?.length ? targetGroup.matchingOptions : null)
-    let match = isAnswerMatch(inputAnswer, aiAnswer, rawOptions, qCtx.type)
-    const isFallbackResult = Boolean(explanation?.isFallback || (explanation?.provider && explanation.provider.toLowerCase() !== 'gemini'))
 
-    if (isFallbackResult && (!match || (isFixedMode && explanation.no_support))) {
-      const retryResult = await handleFallbackMismatchRetry({
-        qCtx,
-        family,
-        ctx,
-        inputAnswer,
-        rawOptions,
-        startTime: Date.now(),
-        effectiveTimeBudget: 30000,
-        isFixedMode,
-        targetAnswer: isFixedMode ? inputAnswer : null,
-      })
-      if (retryResult.resolvedWithGemini) {
-        explanation = retryResult.explanation
-        match = retryResult.match
-      } else {
-        return {
-          ok: false,
-          status: 'needs_regeneration',
-          isConflict: false,
-          needsRetry: true,
-          message: `AI chính đang bận, kết quả dự phòng của câu #${targetNum} chưa đủ tin cậy, hãy thử lại sau.`,
-          explanation: oldExp,
-        }
+    let attemptCount = 0
+    try {
+      if (prisma.practiceAttempt && typeof prisma.practiceAttempt.count === 'function') {
+        attemptCount = await prisma.practiceAttempt.count({ where: { practiceExamId: parsedExamId } })
       }
+    } catch {
+      attemptCount = 0
     }
 
-    if (isFixedMode && explanation.no_support) {
-      return {
-        ok: false,
-        error: 'NO_SUPPORT',
-        message: `Không tìm thấy bằng chứng trong bài đọc ủng hộ đáp án "${inputAnswer}". Bạn vui lòng sử dụng chức năng "Sửa trực tiếp" để viết lời giải thủ công.`,
-      }
-    }
-
-    const currentAiAnswer = String(explanation.answer || '').trim()
-    if (match) {
-      explanation.status = 'ai_generated'
-      explanation.teacher_note = `Khớp với đáp án đề (${inputAnswer}).`
-    } else if (isFixedMode && (oldExp.status === 'needs_regeneration' || oldExp.teacherKeptAnswer)) {
-      explanation.status = 'needs_regeneration'
-      explanation.teacher_note = `AI không tìm thấy bằng chứng ủng hộ đáp án "${inputAnswer}". Cần sửa trực tiếp.`
-    } else {
-      explanation.status = 'conflict_pending'
-      explanation.aiAnswer = currentAiAnswer
-      explanation.teacher_note = `AI chọn "${currentAiAnswer}"; đáp án đề đang là "${inputAnswer}". Cần giáo viên đối chiếu.`
-    }
-
-    if (containsInternalJargon(explanation)) {
-      explanation.status = 'needs_regeneration'
-      explanation.needsRegenerationReason = 'Lời giải chứa cụm từ nội bộ'
-    }
-
-    const oldHistory = Array.isArray(oldExp.feedbackHistory) ? oldExp.feedbackHistory : []
-    const feedbackEntry = {
-      at: new Date().toISOString(),
-      feedback: cleanFeedback || '',
-      provider: explanation.provider || 'Gemini',
-      model: explanation.model || 'gemini-3.5-flash-lite',
-    }
-    explanation.teacherFeedback = cleanFeedback || ''
-    explanation.feedbackHistory = [feedbackEntry, ...oldHistory].slice(0, 5)
-    explanation.updatedAt = new Date().toISOString()
-
-    await updatePracticeQuestionExplanationTx(targetRow.id, (byNumber) => {
-      byNumber[targetNum] = explanation
-      return byNumber
+    return await handleRegenerateCore({
+      qCtx,
+      family,
+      ctx,
+      inputAnswer,
+      rawOptions,
+      oldExp,
+      cleanFeedback,
+      cleanProposed,
+      confirmChangeAnswer: Boolean(confirmChangeAnswer),
+      attemptCount,
+      questionNumber: targetNum,
+      updateCorrectAnswer: async (newAnswer) => {
+        targetQItem.correctAnswer = newAnswer
+        await prisma.practiceQuestion.update({
+          where: { id: targetRow.id },
+          data: { content: JSON.stringify(targetGroup) },
+        })
+      },
+      saveExplanation: async (exp) => {
+        await updatePracticeQuestionExplanationTx(targetRow.id, (byNumber) => {
+          byNumber[targetNum] = exp
+          return byNumber
+        })
+        invalidate('practice:')
+      },
     })
-
-    invalidate('practice:')
-
-    return {
-      ok: true,
-      status: explanation.status,
-      isConflict: explanation.status === 'conflict_pending',
-      explanation,
-      message: (isFixedMode || match)
-        ? 'Đã tạo lại giải thích thành công!'
-        : 'AI sinh giải thích nhưng đáp án lệch so với đáp án câu hỏi. Trạng thái được đặt là Chờ duyệt (ẩn khỏi học sinh).',
-    }
   } else {
     // Cambridge / Full Exam
     const qLookup = parseInt(questionId || questionNumber, 10)
@@ -1777,124 +2030,43 @@ async function regenerateQuestionExplanation({ examId, questionId = null, questi
     const ctx = buildContext(question, family)
 
     const oldExp = (question.explanation && typeof question.explanation === 'object') ? question.explanation : {}
-    const isFixedMode = Boolean(
-      cleanFeedback ||
-      oldExp.status === 'needs_regeneration' ||
-      oldExp.teacherKeptAnswer ||
-      oldExp.status === 'teacher_edited'
-    )
-
-    let explanation
-    try {
-      if (isFixedMode) {
-        explanation = await generateExplanation(question, family, ctx, {
-          isFixedMode: true,
-          targetAnswer: inputAnswer,
-          teacherFeedback: cleanFeedback,
-        })
-      } else {
-        explanation = await generateExplanation(question, family, ctx, { teacherFeedback: cleanFeedback })
-      }
-    } catch (err) {
-      if (err instanceof ExplanationValidationError) {
-        return {
-          ok: false,
-          error: 'EVIDENCE_NOT_FOUND',
-          message: 'Không thể xác thực bằng chứng nguyên văn: ' + err.message,
-        }
-      }
-      throw err
-    }
-
-    if (!explanation) {
-      return { ok: false, message: 'AI không tạo được giải thích cho câu hỏi này.' }
-    }
-
-    const aiAnswer = String(explanation.answer || '').trim()
     const rawOptions = question.options || (question.group?.matchingOptions?.length ? question.group.matchingOptions : null)
-    let match = isAnswerMatch(inputAnswer, aiAnswer, rawOptions, question.type)
-    const isFallbackResult = Boolean(explanation?.isFallback || (explanation?.provider && explanation.provider.toLowerCase() !== 'gemini'))
 
-    if (isFallbackResult && (!match || (isFixedMode && explanation.no_support))) {
-      const retryResult = await handleFallbackMismatchRetry({
-        qCtx: question,
-        family,
-        ctx,
-        inputAnswer,
-        rawOptions,
-        startTime: Date.now(),
-        effectiveTimeBudget: 30000,
-        isFixedMode,
-        targetAnswer: isFixedMode ? inputAnswer : null,
-      })
-      if (retryResult.resolvedWithGemini) {
-        explanation = retryResult.explanation
-        match = retryResult.match
-      } else {
-        return {
-          ok: false,
-          status: 'needs_regeneration',
-          isConflict: false,
-          needsRetry: true,
-          message: `AI chính đang bận, kết quả dự phòng của câu #${question.number} chưa đủ tin cậy, hãy thử lại sau.`,
-          explanation: oldExp,
-        }
+    let attemptCount = 0
+    try {
+      if (prisma.attempt && typeof prisma.attempt.count === 'function') {
+        attemptCount = await prisma.attempt.count({ where: { examId: parsedExamId } })
       }
+    } catch {
+      attemptCount = 0
     }
 
-    if (isFixedMode && explanation.no_support) {
-      return {
-        ok: false,
-        error: 'NO_SUPPORT',
-        message: `Không tìm thấy bằng chứng trong bài đọc ủng hộ đáp án "${inputAnswer}". Bạn vui lòng sử dụng chức năng "Sửa trực tiếp" để viết lời giải thủ công.`,
-      }
-    }
-
-    const currentAiAnswer = String(explanation.answer || '').trim()
-    if (match) {
-      explanation.status = 'ai_generated'
-      explanation.teacher_note = `Khớp với đáp án đề (${inputAnswer}).`
-    } else if (isFixedMode && (oldExp.status === 'needs_regeneration' || oldExp.teacherKeptAnswer)) {
-      explanation.status = 'needs_regeneration'
-      explanation.teacher_note = `AI không tìm thấy bằng chứng ủng hộ đáp án "${inputAnswer}". Cần sửa trực tiếp.`
-    } else {
-      explanation.status = 'conflict_pending'
-      explanation.aiAnswer = currentAiAnswer
-      explanation.teacher_note = `AI chọn "${currentAiAnswer}"; đáp án đề đang là "${inputAnswer}". Cần giáo viên đối chiếu.`
-    }
-
-    if (containsInternalJargon(explanation)) {
-      explanation.status = 'needs_regeneration'
-      explanation.needsRegenerationReason = 'Lời giải chứa cụm từ nội bộ'
-    }
-
-    const oldHistory = Array.isArray(oldExp.feedbackHistory) ? oldExp.feedbackHistory : []
-    const feedbackEntry = {
-      at: new Date().toISOString(),
-      feedback: cleanFeedback || '',
-      provider: explanation.provider || 'Gemini',
-      model: explanation.model || 'gemini-3.5-flash-lite',
-    }
-    explanation.teacherFeedback = cleanFeedback || ''
-    explanation.feedbackHistory = [feedbackEntry, ...oldHistory].slice(0, 5)
-    explanation.updatedAt = new Date().toISOString()
-
-    await prisma.question.update({
-      where: { id: question.id },
-      data: { explanation },
+    return await handleRegenerateCore({
+      qCtx: question,
+      family,
+      ctx,
+      inputAnswer,
+      rawOptions,
+      oldExp,
+      cleanFeedback,
+      cleanProposed,
+      confirmChangeAnswer: Boolean(confirmChangeAnswer),
+      attemptCount,
+      questionNumber: question.number,
+      updateCorrectAnswer: async (newAnswer) => {
+        await prisma.question.update({
+          where: { id: question.id },
+          data: { correctAnswer: newAnswer },
+        })
+      },
+      saveExplanation: async (exp) => {
+        await prisma.question.update({
+          where: { id: question.id },
+          data: { explanation: exp },
+        })
+        invalidateExamCaches(parsedExamId)
+      },
     })
-
-    invalidateExamCaches(parsedExamId)
-
-    return {
-      ok: true,
-      status: explanation.status,
-      isConflict: explanation.status === 'conflict_pending',
-      explanation,
-      message: (isFixedMode || match)
-        ? 'Đã tạo lại giải thích thành công!'
-        : 'AI sinh giải thích nhưng đáp án lệch so với đáp án câu hỏi. Trạng thái được đặt là Chờ duyệt (ẩn khỏi học sinh).',
-    }
   }
 }
 

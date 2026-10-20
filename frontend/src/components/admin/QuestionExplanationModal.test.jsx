@@ -200,10 +200,186 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
       await waitFor(() => {
         expect(api.post).toHaveBeenCalledWith(
           '/practice/admin/reading/10/questions/1/regenerate-explanation',
-          { teacherFeedback: 'Giải thích ngắn hơn' }
+          expect.objectContaining({ teacherFeedback: 'Giải thích ngắn hơn' })
         )
       })
       expect(handleUpdated).toHaveBeenCalled()
+    })
+
+    it('renders banner displaying which answer this explanation explains and warns if mismatched (C.4)', () => {
+      // 1. Matching case
+      const { rerender } = render(
+        <QuestionExplanationModal
+          isOpen={true}
+          onClose={vi.fn()}
+          examId={10}
+          questionNumber={1}
+          isPractice={true}
+          skill="reading"
+          question={sampleQuestion} // correctAnswer: 'Oxygen'
+          initialExplanation={{ ...sampleExplanation, answer: 'Oxygen' }}
+        />
+      )
+
+      expect(screen.getByText(/Lời giải này giải thích đáp án:/i)).toBeInTheDocument()
+      expect(screen.queryByText(/Cảnh báo: Lời giải đang giải thích đáp án/i)).not.toBeInTheDocument()
+
+      // 2. Mismatched case (AI explanation explains 'Nitrogen', stored answer is 'Oxygen')
+      rerender(
+        <QuestionExplanationModal
+          isOpen={true}
+          onClose={vi.fn()}
+          examId={10}
+          questionNumber={1}
+          isPractice={true}
+          skill="reading"
+          question={sampleQuestion}
+          initialExplanation={{ ...sampleExplanation, answer: 'Nitrogen' }}
+        />
+      )
+
+      expect(screen.getByText(/Cảnh báo: Lời giải đang giải thích đáp án "Nitrogen", khác với đáp án đang lưu "Oxygen"/i)).toBeInTheDocument()
+    })
+
+    it('supports proposing a new answer with confirmation dialog, attempt warning, and updating answer (C.1 & C.2)', async () => {
+      // Step 1: regenerate returns requiresConfirmation
+      api.post.mockResolvedValueOnce({
+        data: {
+          ok: true,
+          requiresConfirmation: true,
+          proposedAnswer: 'Nitrogen',
+          currentAnswer: 'Oxygen',
+          aiBlindAnswer: 'Nitrogen',
+          attemptCount: 15,
+          evidence: 'Nitrogen is 78% of the gas.',
+          message: 'AI giải độc lập cũng ra "Nitrogen".',
+        },
+      })
+
+      const handleUpdated = vi.fn()
+      const mutableQuestion = { ...sampleQuestion }
+
+      render(
+        <QuestionExplanationModal
+          isOpen={true}
+          onClose={vi.fn()}
+          examId={10}
+          questionNumber={1}
+          isPractice={true}
+          skill="reading"
+          question={mutableQuestion}
+          initialExplanation={sampleExplanation}
+          onExplanationUpdated={handleUpdated}
+        />
+      )
+
+      // Go to feedback tab
+      fireEvent.click(screen.getByRole('tab', { name: /Góp ý & Tạo lại/i }))
+
+      // Check static note exists (C.1)
+      expect(screen.getByText(/Góp ý chỉ điều chỉnh cách giải thích, không làm đổi đáp án chuẩn/i)).toBeInTheDocument()
+
+      // Enter proposed answer
+      const proposedInput = screen.getByPlaceholderText(/nhập đáp án mới nếu đáp án đang lưu bị sai/i)
+      fireEvent.change(proposedInput, { target: { value: 'Nitrogen' } })
+
+      // Click regenerate
+      fireEvent.click(screen.getByRole('button', { name: /Tạo lại lời giải với AI/i }))
+
+      await waitFor(() => {
+        expect(api.post).toHaveBeenCalledWith(
+          '/practice/admin/reading/10/questions/1/regenerate-explanation',
+          expect.objectContaining({
+            proposedAnswer: 'Nitrogen',
+            confirmChangeAnswer: false,
+          })
+        )
+      })
+
+      // Confirmation dialog appears!
+      await waitFor(() => {
+        expect(screen.getByText(/Xác nhận đổi đáp án chuẩn/i)).toBeInTheDocument()
+      })
+      expect(screen.getByText(/AI độc lập đồng thuận với đề xuất của bạn/i)).toBeInTheDocument()
+      expect(screen.getByText(/Cảnh báo lượt làm bài của học sinh/i)).toBeInTheDocument()
+      expect(screen.getByText('15')).toBeInTheDocument()
+      expect(screen.getByText(/"Nitrogen is 78% of the gas\."/i)).toBeInTheDocument()
+
+      // Step 2: Teacher clicks "Xác nhận đổi đáp án & tạo lời giải"
+      api.post.mockResolvedValueOnce({
+        data: {
+          ok: true,
+          updatedCorrectAnswer: 'Nitrogen',
+          explanation: {
+            ...sampleExplanation,
+            answer: 'Nitrogen',
+            status: 'teacher_reviewed',
+            teacher_note: 'Đã đổi đáp án chuẩn từ "Oxygen" sang "Nitrogen"',
+          },
+        },
+      })
+
+      const confirmBtn = screen.getByRole('button', { name: /Xác nhận đổi đáp án & tạo lời giải/i })
+      fireEvent.click(confirmBtn)
+
+      await waitFor(() => {
+        expect(api.post).toHaveBeenCalledWith(
+          '/practice/admin/reading/10/questions/1/regenerate-explanation',
+          expect.objectContaining({
+            proposedAnswer: 'Nitrogen',
+            confirmChangeAnswer: true,
+          })
+        )
+      })
+
+      // Modal switches to view tab with updated answer
+      await waitFor(() => {
+        expect(handleUpdated).toHaveBeenCalledWith(
+          expect.objectContaining({ answer: 'Nitrogen', status: 'teacher_reviewed' }),
+          1,
+          'Nitrogen'
+        )
+      })
+    })
+
+    it('shows conflict dialog with 3 options when AI disagrees with proposed answer (C.2)', async () => {
+      api.post.mockResolvedValueOnce({
+        data: {
+          ok: false,
+          conflict: true,
+          proposedAnswer: 'Carbon',
+          currentAnswer: 'Oxygen',
+          aiBlindAnswer: 'Nitrogen',
+          evidence: 'Nitrogen is 78% in text.',
+          message: 'AI giải độc lập ra "Nitrogen", KHÔNG khớp với đáp án "Carbon" bạn đề xuất.',
+        },
+      })
+
+      render(
+        <QuestionExplanationModal
+          isOpen={true}
+          onClose={vi.fn()}
+          examId={10}
+          questionNumber={1}
+          isPractice={true}
+          skill="reading"
+          question={sampleQuestion}
+          initialExplanation={sampleExplanation}
+        />
+      )
+
+      fireEvent.click(screen.getByRole('tab', { name: /Góp ý & Tạo lại/i }))
+      const proposedInput = screen.getByPlaceholderText(/nhập đáp án mới nếu đáp án đang lưu bị sai/i)
+      fireEvent.change(proposedInput, { target: { value: 'Carbon' } })
+      fireEvent.click(screen.getByRole('button', { name: /Tạo lại lời giải với AI/i }))
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: /AI giải độc lập không khớp/i })).toBeInTheDocument()
+      })
+      expect(screen.getByText(/Không tự động đổi đáp án khi chưa đồng thuận/i)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Đồng ý với đáp án của AI \("Nitrogen"\)/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Tự sửa tay ở tab "Sửa trực tiếp"/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Giữ nguyên đáp án đang lưu \("Oxygen"\)/i })).toBeInTheDocument()
     })
 
     it('allows manual editing of fields safely without dangerouslySetInnerHTML', async () => {

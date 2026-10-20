@@ -204,6 +204,43 @@ export function ExplanationStatusBadge({
   )
 }
 
+export function isSameAnswer(a, b) {
+  if (a == null || b == null) return false
+  const cleanA = String(a).trim().toLowerCase().replace(/^[A-Za-z][\.\:\)]\s*/, '').replace(/[.,;:!?]+$/, '')
+  const cleanB = String(b).trim().toLowerCase().replace(/^[A-Za-z][\.\:\)]\s*/, '').replace(/[.,;:!?]+$/, '')
+  const rawA = String(a).trim().toLowerCase().replace(/[.,;:!?]+$/, '')
+  const rawB = String(b).trim().toLowerCase().replace(/[.,;:!?]+$/, '')
+  return rawA === rawB || cleanA === cleanB || cleanA === rawB || rawA === cleanB
+}
+
+export function validateProposedAnswerFormat(val, questionType) {
+  if (!val || !val.trim()) return null
+  const trimmed = val.trim()
+  const qType = (questionType || '').toLowerCase()
+
+  if (qType === 'mcq' || qType === 'choose_title') {
+    if (!/^[A-Za-z](\.|\:|\))?(\s+.*)?$/.test(trimmed)) {
+      return 'Với câu hỏi trắc nghiệm, vui lòng bắt đầu bằng chữ cái lựa chọn (A, B, C, D...)'
+    }
+  } else if (qType === 'true_false_ng') {
+    const valid = ['TRUE', 'FALSE', 'NOT GIVEN', 'T', 'F', 'NG']
+    if (!valid.includes(trimmed.toUpperCase())) {
+      return 'Vui lòng nhập TRUE, FALSE hoặc NOT GIVEN'
+    }
+  } else if (qType === 'yes_no_ng') {
+    const valid = ['YES', 'NO', 'NOT GIVEN', 'Y', 'N', 'NG']
+    if (!valid.includes(trimmed.toUpperCase())) {
+      return 'Vui lòng nhập YES, NO hoặc NOT GIVEN'
+    }
+  } else if (qType.startsWith('matching_')) {
+    const romanOrLetter = /^(x{0,3}(?:ix|iv|v?i{1,3})|[a-z])[\.\:\)]?(\s+.*)?$/i
+    if (!romanOrLetter.test(trimmed)) {
+      return 'Với dạng nối / tiêu đề, vui lòng nhập số La Mã (i, ii, iii...) hoặc chữ cái (A, B, C...)'
+    }
+  }
+  return null
+}
+
 export default function QuestionExplanationModal({
   isOpen,
   onClose,
@@ -218,8 +255,12 @@ export default function QuestionExplanationModal({
   const [activeTab, setActiveTab] = useState('view') // 'view' | 'feedback' | 'edit'
   const [currentExplanation, setCurrentExplanation] = useState(null)
 
-  // Feedback tab state
+  // Feedback tab state (L2)
   const [feedbackText, setFeedbackText] = useState('')
+  const [proposedAnswer, setProposedAnswer] = useState('')
+  const [proposedAnswerError, setProposedAnswerError] = useState(null)
+  const [confirmDialogData, setConfirmDialogData] = useState(null)
+  const [conflictData, setConflictData] = useState(null)
   const [isRegenerating, setIsRegenerating] = useState(false)
   const [regenError, setRegenError] = useState(null)
 
@@ -258,6 +299,10 @@ export default function QuestionExplanationModal({
       prevQKeyRef.current = qKey
       setCurrentExplanation(exp)
       setFeedbackText(exp?.teacherFeedback || '')
+      setProposedAnswer('')
+      setProposedAnswerError(null)
+      setConfirmDialogData(null)
+      setConflictData(null)
       // Bước 1
       setEditPredict(exp?.predict || '')
       setEditQuestionChunks(Array.isArray(exp?.question_chunks) ? exp.question_chunks.map(c => ({ text: c.text || '', label: c.label || '' })) : [])
@@ -311,18 +356,37 @@ export default function QuestionExplanationModal({
     setTimeout(() => setToastMessage(null), 3000)
   }
 
-  // ─── 4.3 REGENERATE HANDLER ────────────────────────────────────────────────
-  const handleRegenerate = async () => {
+  // ─── 4.3 REGENERATE HANDLER (L2 SUPPORT) ──────────────────────────────────
+  const handleRegenerate = async ({ confirmChangeAnswer = false, overrideProposed = null } = {}) => {
     setIsRegenerating(true)
     setRegenError(null)
+    setConflictData(null)
+
+    const finalProposed = overrideProposed !== null ? overrideProposed : (proposedAnswer.trim() || null)
 
     try {
       const url = isPractice
         ? `/practice/admin/${skill}/${examId}/questions/${qNum}/regenerate-explanation`
         : `/admin/exams/${examId}/questions/${qId}/regenerate-explanation`
 
-      const res = await api.post(url, { teacherFeedback: feedbackText })
+      const res = await api.post(url, {
+        teacherFeedback: feedbackText,
+        proposedAnswer: finalProposed,
+        confirmChangeAnswer: Boolean(confirmChangeAnswer),
+      })
       const data = res.data
+
+      // Subcase 1: Server requires teacher confirmation to change answer
+      if (data.requiresConfirmation) {
+        setConfirmDialogData(data)
+        return
+      }
+
+      // Subcase 2: AI blind disagrees with proposed answer
+      if (data.conflict) {
+        setConflictData(data)
+        return
+      }
 
       if (data.ok === false) {
         setRegenError(data.message || 'Lỗi khi tạo lại giải thích.')
@@ -330,9 +394,15 @@ export default function QuestionExplanationModal({
       }
 
       if (data.explanation) {
+        if (data.updatedCorrectAnswer) {
+          question.correctAnswer = data.updatedCorrectAnswer
+        }
         setCurrentExplanation(data.explanation)
-        onExplanationUpdated?.(data.explanation, qNum)
+        onExplanationUpdated?.(data.explanation, qNum, data.updatedCorrectAnswer)
         setActiveTab('view')
+        setProposedAnswer('')
+        setConfirmDialogData(null)
+        setConflictData(null)
         showToast(data.message || 'Đã tạo lại giải thích thành công!')
       }
     } catch (err) {
@@ -652,6 +722,24 @@ export default function QuestionExplanationModal({
                 </div>
               )}
 
+              {/* C.4: Banner displaying which answer this explanation explains */}
+              <div className="rounded-2xl border border-zinc-200 bg-zinc-50/90 p-3 flex flex-wrap items-center justify-between gap-2.5 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-zinc-600">Lời giải này giải thích đáp án:</span>
+                  <span className="px-2.5 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 font-mono font-bold text-emerald-700 text-xs">
+                    {currentExplanation?.answer || question.correctAnswer}
+                  </span>
+                </div>
+                {currentExplanation?.answer && question.correctAnswer && !isSameAnswer(currentExplanation.answer, question.correctAnswer) && (
+                  <div className="flex items-center gap-1.5 text-amber-800 bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-200">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span className="font-medium">
+                      Cảnh báo: Lời giải đang giải thích đáp án "{currentExplanation.answer}", khác với đáp án đang lưu "{question.correctAnswer}".
+                    </span>
+                  </div>
+                )}
+              </div>
+
               {/* 4-Step Explanation View */}
               <ReviewExplanation explanation={currentExplanation} correctAnswer={question.correctAnswer} />
 
@@ -690,6 +778,34 @@ export default function QuestionExplanationModal({
                   </div>
                 </div>
               )}
+
+              {/* C.1: Proposed Answer (Optional for changing correct answer) */}
+              <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-bold text-zinc-800">
+                    Đáp án đúng theo bạn (tùy chọn):
+                  </label>
+                  <span className="text-[11px] text-zinc-400">Để trống nếu chỉ muốn góp ý cách giải thích</span>
+                </div>
+                <input
+                  type="text"
+                  value={proposedAnswer}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    setProposedAnswer(val)
+                    setProposedAnswerError(validateProposedAnswerFormat(val, question.type))
+                  }}
+                  placeholder="VD: C hoặc NOT GIVEN hoặc ii (nhập đáp án mới nếu đáp án đang lưu bị sai)"
+                  className="w-full text-sm p-3 rounded-xl border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900 font-sans"
+                  disabled={isRegenerating}
+                />
+                {proposedAnswerError && (
+                  <p className="text-xs text-amber-600 font-medium m-0">{proposedAnswerError}</p>
+                )}
+                <p className="text-xs text-zinc-500 m-0 italic">
+                  * Góp ý chỉ điều chỉnh cách giải thích, không làm đổi đáp án chuẩn. Muốn đổi đáp án, nhập vào ô "Đáp án đúng theo bạn".
+                </p>
+              </div>
 
               <div>
                 <label className="block text-sm font-bold text-zinc-700 mb-2">
@@ -1271,6 +1387,149 @@ export default function QuestionExplanationModal({
             </button>
           )}
         </div>
+
+        {/* ─── L2: CONFIRMATION DIALOG OVERLAY (AI MATCHES PROPOSAL) ───────── */}
+        {confirmDialogData && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-xs rounded-3xl animate-in fade-in duration-150">
+            <div className="bg-white rounded-2xl w-[540px] max-w-full p-6 shadow-2xl border border-zinc-200 space-y-4 max-h-[90%] overflow-y-auto">
+              <div className="flex items-center gap-2.5 text-zinc-900 border-b border-zinc-100 pb-3">
+                <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base m-0 text-zinc-900">Xác nhận đổi đáp án chuẩn</h3>
+                  <p className="text-xs text-zinc-500 m-0">AI độc lập đồng thuận với đề xuất của bạn</p>
+                </div>
+              </div>
+
+              <div className="space-y-3 text-xs text-zinc-700">
+                <p className="text-sm text-zinc-800 font-medium leading-relaxed m-0">
+                  AI giải mù độc lập cũng ra kết quả <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-mono border border-emerald-200">"{confirmDialogData.proposedAnswer}"</span> (khớp với đề xuất của bạn).
+                </p>
+
+                <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-500 font-medium">Đáp án đang lưu:</span>
+                    <span className="font-mono font-bold text-red-600 bg-red-50 px-2.5 py-0.5 rounded border border-red-200 line-through">
+                      {confirmDialogData.currentAnswer}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-700 font-bold">Đáp án chuẩn mới:</span>
+                    <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200">
+                      {confirmDialogData.proposedAnswer}
+                    </span>
+                  </div>
+                </div>
+
+                {confirmDialogData.evidence && (
+                  <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3 space-y-1">
+                    <span className="font-bold text-zinc-600">Bằng chứng AI tìm thấy trong bài:</span>
+                    <p className="text-zinc-800 italic m-0">"{confirmDialogData.evidence}"</p>
+                  </div>
+                )}
+
+                {confirmDialogData.attemptCount > 0 && (
+                  <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 text-amber-900 flex items-start gap-2.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <p className="font-bold m-0 text-amber-900">Cảnh báo lượt làm bài của học sinh:</p>
+                      <p className="m-0 text-amber-800 leading-relaxed">
+                        Đã có <strong>{confirmDialogData.attemptCount}</strong> lượt làm bài dựa trên đáp án cũ ("{confirmDialogData.currentAnswer}"). Đổi đáp án chuẩn sẽ cập nhật câu hỏi và lời giải tương ứng.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-zinc-100">
+                <button
+                  type="button"
+                  onClick={() => setConfirmDialogData(null)}
+                  disabled={isRegenerating}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-600 hover:bg-zinc-100 transition cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRegenerate({ confirmChangeAnswer: true })}
+                  disabled={isRegenerating}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
+                >
+                  {isRegenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  Xác nhận đổi đáp án & tạo lời giải
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── L2: CONFLICT OVERLAY (AI DISAGREES WITH PROPOSAL) ─────────────── */}
+        {conflictData && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-xs rounded-3xl animate-in fade-in duration-150">
+            <div className="bg-white rounded-2xl w-[540px] max-w-full p-6 shadow-2xl border border-zinc-200 space-y-4 max-h-[90%] overflow-y-auto">
+              <div className="flex items-center gap-2.5 text-zinc-900 border-b border-zinc-100 pb-3">
+                <div className="w-8 h-8 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base m-0 text-zinc-900">AI giải độc lập không khớp</h3>
+                  <p className="text-xs text-zinc-500 m-0">Không tự động đổi đáp án khi chưa đồng thuận</p>
+                </div>
+              </div>
+
+              <div className="space-y-3 text-xs text-zinc-700">
+                <p className="text-zinc-800 leading-relaxed m-0">
+                  AI giải mù độc lập dựa trên bài đọc ra kết quả <span className="font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-mono border border-amber-200">"{conflictData.aiBlindAnswer}"</span>, <strong>KHÔNG khớp</strong> với đáp án <span className="font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded font-mono border border-red-200">"{conflictData.proposedAnswer}"</span> bạn đề xuất.
+                </p>
+
+                {conflictData.evidence && (
+                  <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3 space-y-1">
+                    <span className="font-bold text-zinc-600">Bằng chứng AI tìm thấy trong bài:</span>
+                    <p className="text-zinc-800 italic m-0">"{conflictData.evidence}"</p>
+                  </div>
+                )}
+
+                <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3 text-[11px] text-zinc-600">
+                  Hệ thống <strong>không lưu đè</strong> lời giải để tránh tạo lời giải sai. Vui lòng chọn một trong các hướng xử lý bên dưới:
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 pt-2 border-t border-zinc-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const ans = conflictData.aiBlindAnswer
+                    setConflictData(null)
+                    handleRegenerate({ confirmChangeAnswer: true, overrideProposed: ans })
+                  }}
+                  disabled={isRegenerating}
+                  className="w-full py-2.5 px-3 rounded-xl text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  Đồng ý với đáp án của AI ("{conflictData.aiBlindAnswer}")
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConflictData(null)
+                    setActiveTab('edit')
+                  }}
+                  className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-zinc-700 bg-zinc-100 hover:bg-zinc-200 transition cursor-pointer text-center"
+                >
+                  Tự sửa tay ở tab "Sửa trực tiếp"
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConflictData(null)}
+                  className="w-full py-2 px-3 rounded-xl text-xs font-medium text-zinc-500 hover:text-zinc-800 transition cursor-pointer text-center"
+                >
+                  Giữ nguyên đáp án đang lưu ("{conflictData.currentAnswer}")
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

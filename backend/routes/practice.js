@@ -613,7 +613,7 @@ router.post('/admin/:skill/:id/generate-explanations', authMiddleware, teacherSt
 // ─── ADMIN: regenerate single question explanation with teacher feedback ─────────
 router.post('/admin/:skill/:id/questions/:qNum/regenerate-explanation', authMiddleware, teacherStrict, async (req, res) => {
   const { skill, id, qNum } = req.params
-  const { teacherFeedback } = req.body || {}
+  const { teacherFeedback, proposedAnswer, confirmChangeAnswer } = req.body || {}
   const practiceId = parseInt(id, 10)
   const lockKey = `practice:${practiceId}`
 
@@ -630,6 +630,8 @@ router.post('/admin/:skill/:id/questions/:qNum/regenerate-explanation', authMidd
       isPractice: true,
       skill,
       teacherFeedback,
+      proposedAnswer,
+      confirmChangeAnswer: Boolean(confirmChangeAnswer),
     })
     res.json(result)
   } catch (err) {

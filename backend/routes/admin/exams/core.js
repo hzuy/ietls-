@@ -179,7 +179,7 @@ router.post('/exams/:id/groups/:groupId/generate-explanations', authMiddleware, 
 // ─── ADMIN: REGENERATE SINGLE QUESTION EXPLANATION WITH TEACHER FEEDBACK ───
 router.post('/exams/:id/questions/:qId/regenerate-explanation', authMiddleware, teacherOnly, async (req, res) => {
   const { id, qId } = req.params
-  const { teacherFeedback } = req.body || {}
+  const { teacherFeedback, proposedAnswer, confirmChangeAnswer } = req.body || {}
   const examIdNum = parseInt(id, 10)
   const lockKey = `exam:${examIdNum}`
 
@@ -195,6 +195,8 @@ router.post('/exams/:id/questions/:qId/regenerate-explanation', authMiddleware, 
       questionId: qId,
       isPractice: false,
       teacherFeedback,
+      proposedAnswer,
+      confirmChangeAnswer: Boolean(confirmChangeAnswer),
     })
     res.json(result)
   } catch (err) {
