@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { queryClient } from '../../lib/queryClient'
 import api from '../../utils/axios'
 import { showAlert } from '../../utils/alertUtils'
@@ -15,6 +15,9 @@ import { Upload, Trash2, Eye } from 'lucide-react'
 function WritingFormPreview({ form }) {
   const [activeTask, setActiveTask] = useState(1)
   const [lightbox, setLightbox] = useState(null)
+  const [leftPct, setLeftPct] = useState(45)
+  const [dragging, setDragging] = useState(false)
+  const containerRef = useRef(null)
 
   const tasks = [
     { num: 1, data: form.task1, minWords: 150, timeHint: '20 phút' },
@@ -22,84 +25,183 @@ function WritingFormPreview({ form }) {
   ]
   const task = tasks.find(t => t.num === activeTask)
 
+  // Resizable divider drag handler
+  const onDividerPointerDown = useCallback((e) => {
+    e.preventDefault()
+    const container = containerRef.current
+    const divider = e.currentTarget
+    if (!container) return
+
+    try { divider.setPointerCapture(e.pointerId) } catch { /* unsupported */ }
+    setDragging(true)
+
+    const onPointerMove = (ev) => {
+      const rect = container.getBoundingClientRect()
+      const pct = ((ev.clientX - rect.left) / rect.width) * 100
+      setLeftPct(Math.min(75, Math.max(25, pct)))
+    }
+    const stop = () => {
+      setDragging(false)
+      try { divider.releasePointerCapture(e.pointerId) } catch { /* noop */ }
+      divider.removeEventListener('pointermove', onPointerMove)
+      divider.removeEventListener('pointerup', stop)
+      divider.removeEventListener('pointercancel', stop)
+      window.removeEventListener('mouseleave', stop)
+    }
+    divider.addEventListener('pointermove', onPointerMove)
+    divider.addEventListener('pointerup', stop)
+    divider.addEventListener('pointercancel', stop)
+    window.addEventListener('mouseleave', stop)
+  }, [])
+
+  // Escape to close lightbox
+  useEffect(() => {
+    if (!lightbox) return
+    const handleKey = (e) => { if (e.key === 'Escape') setLightbox(null) }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [lightbox])
+
   return (
-    <div>
+    <div className="flex flex-col flex-1 h-full min-h-0 overflow-hidden">
       {/* Task tabs */}
-      <div className="flex gap-1.5 mb-4">
+      <div className="flex items-center gap-2 mb-3 shrink-0">
         {tasks.map(t => (
-          <button key={t.num} type="button" onClick={() => setActiveTask(t.num)}
-            className={`px-4 py-1.5 rounded-lg border text-sm font-medium transition ${
+          <button
+            key={t.num}
+            type="button"
+            onClick={() => setActiveTask(t.num)}
+            className={`text-xs font-bold px-4 py-2 rounded-full transition flex items-center gap-2 cursor-pointer ${
               activeTask === t.num
-                ? 'bg-zinc-900 border-zinc-900 text-white shadow-xs'
-                : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'
+                ? 'bg-zinc-900 text-white shadow-xs'
+                : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+            }`}
+          >
+            <span>Task {t.num}</span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+              activeTask === t.num ? 'bg-zinc-700 text-zinc-200' : 'bg-zinc-100 text-zinc-500'
             }`}>
-            Task {t.num}
+              {t.minWords} từ
+            </span>
           </button>
         ))}
       </div>
 
-      {/* Content */}
-      <div className="flex gap-4 flex-1 h-full overflow-hidden" style={{ minHeight: 380 }}>
-        {/* Left: task prompt */}
-        <div className="flex-1 min-w-0 bg-white rounded-2xl border border-zinc-200 p-6 overflow-y-auto shadow-xs">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="px-2.5 py-0.5 rounded-lg bg-zinc-900 text-white text-xs font-bold uppercase tracking-wide">
-              TASK {task.num}
-            </span>
+      {/* Unified Split Frame */}
+      <div
+        ref={containerRef}
+        className="flex flex-1 border border-zinc-200 rounded-2xl overflow-hidden bg-white shadow-xs min-h-0"
+        style={{ userSelect: dragging ? 'none' : 'auto' }}
+      >
+        {/* Left: Task prompt & visual */}
+        <div
+          className="overflow-y-auto bg-white p-6 sm:p-7 flex flex-col"
+          style={{ width: `${leftPct}%`, flexShrink: 0 }}
+        >
+          <div className="flex items-center gap-2.5 mb-4 shrink-0">
+            <div className="w-7 h-7 rounded-full bg-zinc-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
+              {task.num}
+            </div>
+            <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider block">Task {task.num}</span>
           </div>
-          {task.num === 1 && task.data.imageUrl && (
-            <div onClick={() => setLightbox(toImgSrc(task.data.imageUrl))}
-              className="relative cursor-pointer group mb-4 inline-block w-full">
-              <img src={toImgSrc(task.data.imageUrl)} alt="Task 1 visual"
-                className="w-full rounded-lg border border-zinc-200 object-contain" />
-              <div className="absolute bottom-2 right-2 bg-black/60 text-white rounded px-2 py-0.5 text-[11px] opacity-0 group-hover:opacity-100 transition-opacity">
-                Phóng to
+
+          {/* Visual illustration (Task 1 or Task 2 image) — Constrained max-height to avoid overflow */}
+          {task.data?.imageUrl && (
+            <div
+              onClick={() => setLightbox(toImgSrc(task.data.imageUrl))}
+              className="relative cursor-pointer group mb-5 rounded-xl border border-zinc-200 bg-zinc-50/80 p-2.5 flex items-center justify-center overflow-hidden hover:border-zinc-300 transition"
+              title="Bấm để phóng to ảnh"
+            >
+              <img
+                src={toImgSrc(task.data.imageUrl)}
+                alt={`Hình ảnh minh họa Task ${task.num}`}
+                className="max-h-[260px] w-auto max-w-full rounded-lg object-contain block mx-auto transition-transform duration-200 group-hover:scale-[1.01]"
+              />
+              <div className="absolute bottom-2.5 right-2.5 bg-black/65 backdrop-blur-xs text-white rounded-lg px-2.5 py-1 text-xs flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-sm pointer-events-none">
+                <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                <span>Phóng to</span>
               </div>
             </div>
           )}
-          {task.data.prompt ? (
-            <p className="text-sm text-zinc-700 leading-7">{task.data.prompt}</p>
+
+          {/* Prompt text */}
+          {task.data?.prompt ? (
+            <p className="text-zinc-800 text-[14px] leading-relaxed whitespace-pre-line font-medium mb-4">
+              {task.data.prompt}
+            </p>
           ) : (
-            <p className="text-sm text-zinc-400 italic">Chưa có đề bài</p>
+            <p className="text-sm text-zinc-400 italic mb-4">Chưa có nội dung đề bài cho Task {task.num}</p>
           )}
-          <div className="mt-5 pt-4 border-t border-zinc-200 space-y-1">
-            <p className="text-xs text-zinc-400">Tối thiểu <span className="font-bold text-zinc-700">{task.minWords} từ</span></p>
-            <p className="text-xs text-zinc-400">Khuyến nghị: <span className="font-medium text-zinc-500">{task.timeHint}</span></p>
+
+          {/* Requirement hints */}
+          <div className="mt-auto pt-4 border-t border-zinc-100 flex items-center justify-between text-xs text-zinc-500 font-medium shrink-0">
+            <span>Tối thiểu <span className="font-bold text-zinc-800">{task.minWords} từ</span></span>
+            <span>Khuyến nghị: <span className="font-semibold text-zinc-700">{task.timeHint}</span></span>
           </div>
         </div>
 
-        {/* Right: essay area demo */}
-        <div className="w-80 shrink-0 flex flex-col gap-2">
-          <div className="bg-white rounded-xl border border-zinc-200 flex-1 flex flex-col overflow-hidden shadow-xs">
-            <div className="px-4 py-2.5 border-b border-zinc-200 flex items-center justify-between">
-              <span className="text-xs font-semibold text-zinc-500">Bài viết Task {task.num}</span>
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500">
-                0/{task.minWords} từ
-              </span>
-            </div>
+        {/* Divider */}
+        <div
+          onPointerDown={onDividerPointerDown}
+          style={{ width: 5, cursor: 'col-resize', flexShrink: 0, touchAction: 'none', background: dragging ? '#18181b' : '#e4e4e7', transition: dragging ? 'none' : 'background 0.15s' }}
+          onMouseEnter={e => { if (!dragging) e.currentTarget.style.background = '#a1a1aa' }}
+          onMouseLeave={e => { if (!dragging) e.currentTarget.style.background = '#e4e4e7' }}
+          title="Kéo để chỉnh độ rộng 2 cột"
+        />
+
+        {/* Right: Essay area simulation (Identical to Writing exam interface) */}
+        <div className="flex-1 overflow-hidden bg-zinc-50/50 p-6 sm:p-7 flex flex-col min-w-0">
+          <div className="flex items-center justify-between mb-3 shrink-0">
+            <span className="text-xs font-bold text-zinc-700 uppercase tracking-wider">Bài viết Task {task.num}</span>
+            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-white border border-zinc-200 text-zinc-600 shadow-2xs">
+              0 / {task.minWords} từ
+            </span>
+          </div>
+
+          <div className="flex-1 flex flex-col min-h-0 bg-white rounded-xl border border-zinc-200 overflow-hidden shadow-2xs">
             <textarea
               disabled
-              placeholder={`Bắt đầu viết Task ${task.num} tại đây...`}
-              style={{ backgroundColor: '#f4f4f5', flex: 1, minHeight: 200, padding: '16px', fontSize: 13, lineHeight: 1.75, resize: 'none', border: 'none', outline: 'none', color: '#a1a1aa', cursor: 'not-allowed' }}
+              placeholder={`Bắt đầu viết Task ${task.num} tại đây...\n\n(Đây là màn hình Preview mô phỏng giao diện làm bài thi thực tế của học viên)`}
+              className="w-full flex-1 p-5 text-sm leading-relaxed text-zinc-500 placeholder:text-zinc-400 bg-white resize-none focus:outline-none cursor-not-allowed"
             />
+            <div className="px-4 py-2 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between text-[11px] text-zinc-400 shrink-0">
+              <span>Chế độ xem trước — không thể nhập bài</span>
+              <span>0 từ · 0 ký tự</span>
+            </div>
           </div>
-          <p className="text-[10px] text-zinc-400 italic text-center">Khu vực demo — không nhập được trong preview</p>
-          <button type="button" disabled
-            className="w-full py-2.5 rounded-xl bg-zinc-200 text-zinc-400 text-sm font-bold cursor-not-allowed opacity-60">
-            Nộp Task {task.num} để AI chấm
-          </button>
+
+          <div className="mt-3 flex items-center justify-between gap-3 shrink-0">
+            <p className="text-[11px] text-zinc-400 italic">Mô phỏng trải nghiệm thi thực tế</p>
+            <button
+              type="button"
+              disabled
+              className="px-4 py-2 rounded-xl bg-zinc-200 text-zinc-400 text-xs font-bold cursor-not-allowed opacity-70"
+            >
+              Nộp Task {task.num} để AI chấm
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Lightbox */}
+      {/* Lightbox fullsize visual viewer */}
       {lightbox && (
-        <div onClick={() => setLightbox(null)}
-          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-6">
-          <button onClick={() => setLightbox(null)} aria-label="Đóng"
-            className="fixed top-4 right-5 z-[60] w-9 h-9 rounded-full bg-white/15 text-white text-xl flex items-center justify-center">✕</button>
-          <img src={lightbox} alt="Task visual fullsize" onClick={e => e.stopPropagation()}
-            className="max-w-full max-h-[90vh] rounded-xl object-contain"
-            style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.6)' }} />
+        <div
+          onClick={() => setLightbox(null)}
+          className="fixed inset-0 z-[10000] bg-black/80 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-150"
+        >
+          <button
+            onClick={() => setLightbox(null)}
+            aria-label="Đóng"
+            className="fixed top-4 right-5 z-[10001] w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 text-white text-xl flex items-center justify-center transition cursor-pointer"
+          >
+            ✕
+          </button>
+          <img
+            src={lightbox}
+            alt="Task visual fullsize"
+            onClick={e => e.stopPropagation()}
+            className="max-w-full max-h-[90vh] rounded-xl object-contain shadow-2xl"
+          />
         </div>
       )}
     </div>
