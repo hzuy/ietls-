@@ -249,9 +249,17 @@ function validateManualExplanation(data, { sourceText = null, family = 'GENERIC'
           chunks,
         }
       } else {
+        const hadEvidence = Boolean(prevExp?.evidence?.parts?.length > 0 || prevExp?.evidence?.text)
+        if (hadEvidence) {
+          throw new Error('Không thể để trống bằng chứng khi câu hỏi đang có bằng chứng dẫn chứng.')
+        }
         allowed.evidence = null
       }
     } else if (data.evidence === null) {
+      const hadEvidence = Boolean(prevExp?.evidence?.parts?.length > 0 || prevExp?.evidence?.text)
+      if (hadEvidence) {
+        throw new Error('Không thể để trống bằng chứng khi câu hỏi đang có bằng chứng dẫn chứng.')
+      }
       allowed.evidence = null
     }
   }
@@ -2073,8 +2081,9 @@ async function regenerateQuestionExplanation({
 /**
  * 4.4 Manual edit an explanation for a single question.
  */
-async function updateManualExplanation({ examId, questionId = null, questionNumber = null, isPractice = false, fields = {} }) {
+async function updateManualExplanation({ examId, questionId = null, questionNumber = null, isPractice = false, fields = null, updateData = null }) {
   const parsedExamId = parseInt(examId, 10)
+  const payloadFields = fields || updateData || {}
 
   if (isPractice) {
     const exam = await prisma.practiceExam.findUnique({
@@ -2114,7 +2123,7 @@ async function updateManualExplanation({ examId, questionId = null, questionNumb
       ? prevByNumber[targetNum]
       : { v: 2, answer: String(targetQItem.correctAnswer || '') }
 
-    const cleanFields = validateManualExplanation(fields, {
+    const cleanFields = validateManualExplanation(payloadFields, {
       sourceText: ctx.sourceText,
       family,
       prevExp: prev,
@@ -2200,7 +2209,7 @@ async function updateManualExplanation({ examId, questionId = null, questionNumb
       ? question.explanation
       : { v: 2, answer: String(question.correctAnswer || '') }
 
-    const cleanFields = validateManualExplanation(fields, {
+    const cleanFields = validateManualExplanation(payloadFields, {
       sourceText: ctx.sourceText,
       family,
       prevExp: prev,
