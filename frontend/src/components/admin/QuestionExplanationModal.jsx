@@ -224,7 +224,17 @@ export default function QuestionExplanationModal({
   const [regenError, setRegenError] = useState(null)
 
   // Edit tab state
+  // Bước 1
   const [editPredict, setEditPredict] = useState('')
+  const [editQuestionChunks, setEditQuestionChunks] = useState([])
+  // Bước 2
+  const [editLocateNote, setEditLocateNote] = useState('')
+  const [editLocateKeywords, setEditLocateKeywords] = useState([])
+  // Bước 3
+  const [editEvidenceParts, setEditEvidenceParts] = useState([])
+  const [editEvidenceChunks, setEditEvidenceChunks] = useState([])
+  const [editParaphrases, setEditParaphrases] = useState([])
+  // Bước 4
   const [editFullSentence, setEditFullSentence] = useState('')
   const [editTranslation, setEditTranslation] = useState('')
   const [editReasoning, setEditReasoning] = useState('')
@@ -248,7 +258,25 @@ export default function QuestionExplanationModal({
       prevQKeyRef.current = qKey
       setCurrentExplanation(exp)
       setFeedbackText(exp?.teacherFeedback || '')
+      // Bước 1
       setEditPredict(exp?.predict || '')
+      setEditQuestionChunks(Array.isArray(exp?.question_chunks) ? exp.question_chunks.map(c => ({ text: c.text || '', label: c.label || '' })) : [])
+      // Bước 2
+      setEditLocateNote(exp?.locate?.note || '')
+      setEditLocateKeywords(Array.isArray(exp?.locate?.keywords) ? [...exp.locate.keywords] : [])
+      // Bước 3
+      const parts = Array.isArray(exp?.evidence?.parts)
+        ? exp.evidence.parts.map(p => ({ text: p.text || '' }))
+        : (exp?.evidence?.text ? [{ text: exp.evidence.text }] : [])
+      setEditEvidenceParts(parts)
+      setEditEvidenceChunks(Array.isArray(exp?.evidence?.chunks) ? exp.evidence.chunks.map(c => ({ text: c.text || '', label: c.label || '' })) : [])
+      setEditParaphrases(Array.isArray(exp?.paraphrases) ? exp.paraphrases.map(p => ({
+        question: p.question || '',
+        question_label: p.question_label || '',
+        passage: p.passage || '',
+        passage_label: p.passage_label || '',
+      })) : [])
+      // Bước 4
       setEditFullSentence(exp?.full_sentence || '')
       setEditTranslation(exp?.translation || '')
       setEditReasoning(exp?.reasoning || '')
@@ -326,7 +354,29 @@ export default function QuestionExplanationModal({
         : `/admin/exams/${examId}/questions/${qId}/explanation`
 
       const payload = {
+        // Bước 1
         predict: editPredict,
+        question_chunks: editQuestionChunks.filter(c => (c.text || '').trim()),
+
+        // Bước 2
+        locate: {
+          note: editLocateNote,
+          keywords: editLocateKeywords.map(k => (k || '').trim()).filter(Boolean),
+        },
+
+        // Bước 3
+        evidence: {
+          parts: editEvidenceParts.map(p => ({ text: (p.text || '').trim() })).filter(p => p.text),
+          chunks: editEvidenceChunks.map(c => ({ text: (c.text || '').trim(), label: (c.label || '').trim() })).filter(c => c.text),
+        },
+        paraphrases: editParaphrases.map(p => ({
+          question: (p.question || '').trim(),
+          question_label: (p.question_label || '').trim(),
+          passage: (p.passage || '').trim(),
+          passage_label: (p.passage_label || '').trim(),
+        })).filter(p => p.question && p.passage),
+
+        // Bước 4
         full_sentence: editFullSentence,
         translation: editTranslation,
         reasoning: editReasoning,
@@ -374,6 +424,75 @@ export default function QuestionExplanationModal({
     }
   }
 
+  // --- Step 1 helpers ---
+  const addQuestionChunk = () => {
+    if (editQuestionChunks.length >= 12) return
+    setEditQuestionChunks([...editQuestionChunks, { text: '', label: '' }])
+  }
+  const removeQuestionChunk = (idx) => {
+    setEditQuestionChunks(editQuestionChunks.filter((_, i) => i !== idx))
+  }
+  const updateQuestionChunkField = (idx, field, value) => {
+    const next = [...editQuestionChunks]
+    next[idx] = { ...next[idx], [field]: value }
+    setEditQuestionChunks(next)
+  }
+
+  // --- Step 2 helpers ---
+  const addLocateKeyword = () => {
+    if (editLocateKeywords.length >= 5) return
+    setEditLocateKeywords([...editLocateKeywords, ''])
+  }
+  const removeLocateKeyword = (idx) => {
+    setEditLocateKeywords(editLocateKeywords.filter((_, i) => i !== idx))
+  }
+  const updateLocateKeyword = (idx, value) => {
+    const next = [...editLocateKeywords]
+    next[idx] = value
+    setEditLocateKeywords(next)
+  }
+
+  // --- Step 3 helpers ---
+  const addEvidencePart = () => {
+    if (editEvidenceParts.length >= 5) return
+    setEditEvidenceParts([...editEvidenceParts, { text: '' }])
+  }
+  const removeEvidencePart = (idx) => {
+    setEditEvidenceParts(editEvidenceParts.filter((_, i) => i !== idx))
+  }
+  const updateEvidencePart = (idx, value) => {
+    const next = [...editEvidenceParts]
+    next[idx] = { text: value }
+    setEditEvidenceParts(next)
+  }
+
+  const addEvidenceChunk = () => {
+    if (editEvidenceChunks.length >= 10) return
+    setEditEvidenceChunks([...editEvidenceChunks, { text: '', label: '' }])
+  }
+  const removeEvidenceChunk = (idx) => {
+    setEditEvidenceChunks(editEvidenceChunks.filter((_, i) => i !== idx))
+  }
+  const updateEvidenceChunkField = (idx, field, value) => {
+    const next = [...editEvidenceChunks]
+    next[idx] = { ...next[idx], [field]: value }
+    setEditEvidenceChunks(next)
+  }
+
+  const addParaphrase = () => {
+    if (editParaphrases.length >= 5) return
+    setEditParaphrases([...editParaphrases, { question: '', question_label: '', passage: '', passage_label: '' }])
+  }
+  const removeParaphrase = (idx) => {
+    setEditParaphrases(editParaphrases.filter((_, i) => i !== idx))
+  }
+  const updateParaphraseField = (idx, field, value) => {
+    const next = [...editParaphrases]
+    next[idx] = { ...next[idx], [field]: value }
+    setEditParaphrases(next)
+  }
+
+  // --- Step 4 helpers ---
   const addDistractor = () => {
     if (editDistractors.length >= 10) return
     setEditDistractors([...editDistractors, { option: '', reason: '', label: '' }])
@@ -594,7 +713,7 @@ export default function QuestionExplanationModal({
 
           {/* TAB 3: DIRECT MANUAL EDIT */}
           {activeTab === 'edit' && (
-            <div className="space-y-5">
+            <div className="space-y-6">
               {editError && (
                 <div className="rounded-2xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-700 flex items-start gap-2.5">
                   <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
@@ -602,146 +721,474 @@ export default function QuestionExplanationModal({
                 </div>
               )}
 
-              {/* Predict */}
-              <div>
-                <div className="flex justify-between items-center mb-1.5">
-                  <label className="text-sm font-bold text-zinc-700">
-                    Bước 1: Dự đoán / Phân tích câu hỏi (predict, tối đa 1000 ký tự):
-                  </label>
-                  <span className="text-xs text-zinc-400">{editPredict.length}/1000</span>
-                </div>
-                <AutoResizeTextarea
-                  minRows={3}
-                  value={editPredict}
-                  onChange={(e) => setEditPredict(e.target.value.slice(0, 1000))}
-                  placeholder="Câu hỏi cần thông tin gì..."
-                  maxLength={1000}
-                />
-              </div>
-
-              {/* Full sentence */}
-              <div>
-                <div className="flex justify-between items-center mb-1.5">
-                  <label className="text-sm font-bold text-zinc-700">
-                    Câu hoàn chỉnh sau khi điền (full_sentence, tối đa 1000 ký tự):
-                  </label>
-                  <span className="text-xs text-zinc-400">{editFullSentence.length}/1000</span>
-                </div>
-                <AutoResizeTextarea
-                  minRows={3}
-                  value={editFullSentence}
-                  onChange={(e) => setEditFullSentence(e.target.value.slice(0, 1000))}
-                  placeholder="Câu tiếng Anh đầy đủ..."
-                  maxLength={1000}
-                />
-              </div>
-
-              {/* Translation */}
-              <div>
-                <div className="flex justify-between items-center mb-1.5">
-                  <label className="text-sm font-bold text-zinc-700">
-                    Bản dịch tiếng Việt (translation, tối đa 1000 ký tự):
-                  </label>
-                  <span className="text-xs text-zinc-400">{editTranslation.length}/1000</span>
-                </div>
-                <AutoResizeTextarea
-                  minRows={3}
-                  value={editTranslation}
-                  onChange={(e) => setEditTranslation(e.target.value.slice(0, 1000))}
-                  placeholder="Dịch nghĩa tiếng Việt..."
-                  maxLength={1000}
-                />
-              </div>
-
-              {/* Reasoning */}
-              <div>
-                <div className="flex justify-between items-center mb-1.5">
-                  <label className="text-sm font-bold text-zinc-700">
-                    Bước 4: Suy luận & Giải thích chi tiết (reasoning, tối đa 2000 ký tự):
-                  </label>
-                  <span className="text-xs text-zinc-400">{editReasoning.length}/2000</span>
-                </div>
-                <AutoResizeTextarea
-                  minRows={5}
-                  value={editReasoning}
-                  onChange={(e) => setEditReasoning(e.target.value.slice(0, 2000))}
-                  placeholder="Lập luận vì sao đáp án này đúng, đối chiếu bài đọc..."
-                  maxLength={2000}
-                />
-              </div>
-
-              {/* Distractors list */}
-              <div className="space-y-3 pt-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-bold text-zinc-700">
-                    Phân tích các đáp án sai / nhiễu (distractors, tối đa 10):
-                  </label>
-                  <button
-                    type="button"
-                    onClick={addDistractor}
-                    disabled={editDistractors.length >= 10}
-                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Thêm lựa chọn nhiễu
-                  </button>
+              {/* ──────── BƯỚC 1: Phân tích câu hỏi và dự đoán ──────── */}
+              <div className="rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5 space-y-4 shadow-2xs">
+                <div className="flex items-center gap-2 border-b border-zinc-100 pb-2.5">
+                  <span className="rounded-full bg-zinc-900 text-white text-[11px] font-bold px-2 py-0.5">
+                    STEP 01
+                  </span>
+                  <h4 className="font-bold text-zinc-900 text-sm m-0">Bước 1: Phân tích câu hỏi và dự đoán</h4>
                 </div>
 
-                {editDistractors.map((d, idx) => (
-                  <div key={idx} className="rounded-2xl border border-zinc-200 bg-zinc-50/80 p-4 space-y-3 relative">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-zinc-700">Lựa chọn nhiễu #{idx + 1}</span>
+                {/* Predict */}
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-xs font-bold text-zinc-700">
+                      Dự đoán / Phân tích yêu cầu câu hỏi (predict, tối đa 1000 ký tự):
+                    </label>
+                    <span className="text-[11px] text-zinc-400">{editPredict.length}/1000</span>
+                  </div>
+                  <AutoResizeTextarea
+                    minRows={2}
+                    value={editPredict}
+                    onChange={(e) => setEditPredict(e.target.value.slice(0, 1000))}
+                    placeholder="Câu hỏi cần thông tin gì, loại đáp án cần tìm..."
+                    maxLength={1000}
+                  />
+                </div>
+
+                {/* Question Chunks */}
+                <div className="space-y-2.5 pt-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-zinc-700">
+                      Tách cụm câu hỏi (question_chunks, tối đa 12 cụm):
+                    </label>
+                    <button
+                      type="button"
+                      onClick={addQuestionChunk}
+                      disabled={editQuestionChunks.length >= 12}
+                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Thêm cụm
+                    </button>
+                  </div>
+
+                  {editQuestionChunks.map((chunk, idx) => (
+                    <div key={idx} className="flex items-center gap-2 bg-zinc-50 border border-zinc-200 rounded-xl p-2.5">
+                      <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <input
+                          type="text"
+                          value={chunk.text || ''}
+                          onChange={(e) => updateQuestionChunkField(idx, 'text', e.target.value.slice(0, 200))}
+                          placeholder="Cụm tiếng Anh (VD: the global summit)"
+                          className="text-xs p-2 rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                        />
+                        <input
+                          type="text"
+                          value={chunk.label || ''}
+                          onChange={(e) => updateQuestionChunkField(idx, 'label', e.target.value.slice(0, 80))}
+                          placeholder="Nghĩa / vai trò tiếng Việt (VD: chủ ngữ)"
+                          className="text-xs p-2 rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                        />
+                      </div>
                       <button
                         type="button"
-                        onClick={() => removeDistractor(idx)}
-                        className="w-8 h-8 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-xl transition cursor-pointer"
-                        title="Xóa lựa chọn này"
+                        onClick={() => removeQuestionChunk(idx)}
+                        className="w-7 h-7 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition shrink-0 cursor-pointer"
+                        title="Xóa cụm này"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-semibold text-zinc-600 mb-1">
-                          Lựa chọn (VD: A. false / doctors):
-                        </label>
-                        <AutoResizeTextarea
-                          minRows={2}
-                          value={d.option || ''}
-                          onChange={(e) => updateDistractorField(idx, 'option', e.target.value.slice(0, 100))}
-                          placeholder="Lựa chọn sai..."
-                          className="text-xs p-2.5"
-                          maxLength={100}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-zinc-600 mb-1">
-                          Nghĩa ngắn (tùy chọn):
-                        </label>
-                        <AutoResizeTextarea
-                          minRows={2}
-                          value={d.label || ''}
-                          onChange={(e) => updateDistractorField(idx, 'label', e.target.value.slice(0, 100))}
-                          placeholder="Nghĩa ngắn tiếng Việt..."
-                          className="text-xs p-2.5"
-                          maxLength={100}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-zinc-600 mb-1">
-                        Lý do sai hoặc bẫy từ vựng:
-                      </label>
-                      <AutoResizeTextarea
-                        minRows={2}
-                        value={d.reason || ''}
-                        onChange={(e) => updateDistractorField(idx, 'reason', e.target.value.slice(0, 500))}
-                        placeholder="Lý do vì sao lựa chọn này sai hoặc bẫy từ vựng..."
-                        className="text-xs p-2.5"
-                        maxLength={500}
-                      />
-                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ──────── BƯỚC 2: Định vị thông tin liên quan ──────── */}
+              <div className="rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5 space-y-4 shadow-2xs">
+                <div className="flex items-center gap-2 border-b border-zinc-100 pb-2.5">
+                  <span className="rounded-full bg-zinc-900 text-white text-[11px] font-bold px-2 py-0.5">
+                    STEP 02
+                  </span>
+                  <h4 className="font-bold text-zinc-900 text-sm m-0">Bước 2: Định vị thông tin liên quan</h4>
+                </div>
+
+                {/* Locate Note */}
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-xs font-bold text-zinc-700">
+                      Ghi chú định vị (locate.note, tối đa 600 ký tự):
+                    </label>
+                    <span className="text-[11px] text-zinc-400">{editLocateNote.length}/600</span>
                   </div>
-                ))}
+                  <AutoResizeTextarea
+                    minRows={2}
+                    value={editLocateNote}
+                    onChange={(e) => setEditLocateNote(e.target.value.slice(0, 600))}
+                    placeholder="Ý nào trong câu hỏi giúp tìm vùng cần đọc, tìm thấy ở đâu trong bài..."
+                    maxLength={600}
+                  />
+                </div>
+
+                {/* Locate Keywords */}
+                <div className="space-y-2.5 pt-1">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="text-xs font-bold text-zinc-700 block">
+                        Từ khóa định vị (locate.keywords, tối đa 5 từ khóa):
+                      </label>
+                      <span className="text-[11px] text-zinc-400">
+                        Mỗi từ khóa bắt buộc phải xuất hiện NGUYÊN VĂN trong bài đọc/transcript.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addLocateKeyword}
+                      disabled={editLocateKeywords.length >= 5}
+                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Thêm từ khóa
+                    </button>
+                  </div>
+
+                  {editLocateKeywords.map((kw, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={kw || ''}
+                        onChange={(e) => updateLocateKeyword(idx, e.target.value.slice(0, 120))}
+                        placeholder="Từ khóa nguyên văn trong bài đọc..."
+                        className="flex-1 text-xs p-2 rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeLocateKeyword(idx)}
+                        className="w-7 h-7 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition shrink-0 cursor-pointer"
+                        title="Xóa từ khóa"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Auto paragraph note */}
+                <div className="rounded-xl bg-sky-50 border border-sky-200 p-2.5 text-xs text-sky-800 flex items-center gap-2">
+                  <span className="font-semibold text-sky-900">Vị trí đoạn (locate.paragraph):</span>
+                  <span>Hệ thống sẽ tự động xác định số đoạn văn trong bài dựa trên bằng chứng và từ khóa hợp lệ khi lưu.</span>
+                </div>
+              </div>
+
+              {/* ──────── BƯỚC 3: Đọc thông tin liên quan (evidence) ──────── */}
+              <div className="rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5 space-y-4 shadow-2xs">
+                <div className="flex items-center gap-2 border-b border-zinc-100 pb-2.5">
+                  <span className="rounded-full bg-zinc-900 text-white text-[11px] font-bold px-2 py-0.5">
+                    STEP 03
+                  </span>
+                  <h4 className="font-bold text-zinc-900 text-sm m-0">Bước 3: Đọc thông tin liên quan (Bằng chứng)</h4>
+                </div>
+
+                {['diagram_completion', 'diagram_label', 'map_diagram'].includes(question.type) && (
+                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
+                    Câu hỏi dạng hình ảnh / sơ đồ không có văn bản bài đọc: các trường bằng chứng ở chế độ chỉ đọc.
+                  </div>
+                )}
+
+                {/* Evidence Parts */}
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="text-xs font-bold text-zinc-700 block">
+                        Câu/đoạn trích dẫn nguyên văn (evidence.parts, tối đa 5 câu):
+                      </label>
+                      <span className="text-[11px] text-zinc-400">
+                        Chép NGUYÊN VĂN từng chữ từ bài đọc/transcript, server sẽ xác thực tính nguyên văn.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addEvidencePart}
+                      disabled={editEvidenceParts.length >= 5 || ['diagram_completion', 'diagram_label', 'map_diagram'].includes(question.type)}
+                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Thêm câu trích
+                    </button>
+                  </div>
+
+                  {editEvidenceParts.map((part, idx) => (
+                    <div key={idx} className="flex items-start gap-2 bg-zinc-50 border border-zinc-200 rounded-xl p-3">
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">
+                          Trích dẫn #{idx + 1}
+                        </span>
+                        <AutoResizeTextarea
+                          minRows={2}
+                          value={part.text || ''}
+                          onChange={(e) => updateEvidencePart(idx, e.target.value.slice(0, 1200))}
+                          placeholder="Chép nguyên văn câu trong bài đọc..."
+                          disabled={['diagram_completion', 'diagram_label', 'map_diagram'].includes(question.type)}
+                          maxLength={1200}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeEvidencePart(idx)}
+                        disabled={['diagram_completion', 'diagram_label', 'map_diagram'].includes(question.type)}
+                        className="w-7 h-7 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition shrink-0 cursor-pointer mt-5"
+                        title="Xóa câu trích"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Evidence Chunks */}
+                <div className="space-y-2.5 pt-2 border-t border-zinc-100">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="text-xs font-bold text-zinc-700 block">
+                        Cụm từ quan trọng trong câu trích (evidence.chunks, tối đa 10):
+                      </label>
+                      <span className="text-[11px] text-zinc-400">
+                        Cụm tiếng Anh phải nằm NGUYÊN VĂN bên trong câu trích dẫn ở trên.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addEvidenceChunk}
+                      disabled={editEvidenceChunks.length >= 10 || ['diagram_completion', 'diagram_label', 'map_diagram'].includes(question.type)}
+                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Thêm cụm từ
+                    </button>
+                  </div>
+
+                  {editEvidenceChunks.map((chunk, idx) => (
+                    <div key={idx} className="flex items-center gap-2 bg-zinc-50 border border-zinc-200 rounded-xl p-2.5">
+                      <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <input
+                          type="text"
+                          value={chunk.text || ''}
+                          onChange={(e) => updateEvidenceChunkField(idx, 'text', e.target.value.slice(0, 200))}
+                          placeholder="Cụm từ nguyên văn trong câu trích"
+                          disabled={['diagram_completion', 'diagram_label', 'map_diagram'].includes(question.type)}
+                          className="text-xs p-2 rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                        />
+                        <input
+                          type="text"
+                          value={chunk.label || ''}
+                          onChange={(e) => updateEvidenceChunkField(idx, 'label', e.target.value.slice(0, 80))}
+                          placeholder="Nghĩa ngắn tiếng Việt"
+                          disabled={['diagram_completion', 'diagram_label', 'map_diagram'].includes(question.type)}
+                          className="text-xs p-2 rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeEvidenceChunk(idx)}
+                        disabled={['diagram_completion', 'diagram_label', 'map_diagram'].includes(question.type)}
+                        className="w-7 h-7 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition shrink-0 cursor-pointer"
+                        title="Xóa cụm từ"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Paraphrases */}
+                <div className="space-y-2.5 pt-2 border-t border-zinc-100">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="text-xs font-bold text-zinc-700 block">
+                        Đối chiếu paraphrasing (paraphrases, tối đa 5 cặp):
+                      </label>
+                      <span className="text-[11px] text-zinc-400">
+                        Cụm trong bài đọc bắt buộc phải xuất hiện NGUYÊN VĂN trong bài.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addParaphrase}
+                      disabled={editParaphrases.length >= 5 || ['diagram_completion', 'diagram_label', 'map_diagram'].includes(question.type)}
+                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Thêm cặp đối chiếu
+                    </button>
+                  </div>
+
+                  {editParaphrases.map((p, idx) => (
+                    <div key={idx} className="bg-zinc-50 border border-zinc-200 rounded-xl p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Cặp đối chiếu #{idx + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeParaphrase(idx)}
+                          className="w-6 h-6 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                          title="Xóa cặp này"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <input
+                          type="text"
+                          value={p.question || ''}
+                          onChange={(e) => updateParaphraseField(idx, 'question', e.target.value.slice(0, 160))}
+                          placeholder="Cụm trong câu hỏi..."
+                          className="text-xs p-2 rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                        />
+                        <input
+                          type="text"
+                          value={p.question_label || ''}
+                          onChange={(e) => updateParaphraseField(idx, 'question_label', e.target.value.slice(0, 80))}
+                          placeholder="Nghĩa cụm câu hỏi..."
+                          className="text-xs p-2 rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                        />
+                        <input
+                          type="text"
+                          value={p.passage || ''}
+                          onChange={(e) => updateParaphraseField(idx, 'passage', e.target.value.slice(0, 160))}
+                          placeholder="Cụm NGUYÊN VĂN trong bài..."
+                          className="text-xs p-2 rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                        />
+                        <input
+                          type="text"
+                          value={p.passage_label || ''}
+                          onChange={(e) => updateParaphraseField(idx, 'passage_label', e.target.value.slice(0, 80))}
+                          placeholder="Nghĩa cụm bài đọc..."
+                          className="text-xs p-2 rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ──────── BƯỚC 4: Chọn đáp án ──────── */}
+              <div className="rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5 space-y-4 shadow-2xs">
+                <div className="flex items-center gap-2 border-b border-zinc-100 pb-2.5">
+                  <span className="rounded-full bg-zinc-900 text-white text-[11px] font-bold px-2 py-0.5">
+                    STEP 04
+                  </span>
+                  <h4 className="font-bold text-zinc-900 text-sm m-0">Bước 4: Chọn đáp án & Suy luận</h4>
+                </div>
+
+                {/* Full sentence */}
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-xs font-bold text-zinc-700">
+                      Câu hoàn chỉnh sau khi điền (full_sentence, tối đa 1000 ký tự):
+                    </label>
+                    <span className="text-[11px] text-zinc-400">{editFullSentence.length}/1000</span>
+                  </div>
+                  <AutoResizeTextarea
+                    minRows={2}
+                    value={editFullSentence}
+                    onChange={(e) => setEditFullSentence(e.target.value.slice(0, 1000))}
+                    placeholder="Câu tiếng Anh đầy đủ sau khi điền đáp án..."
+                    maxLength={1000}
+                  />
+                </div>
+
+                {/* Translation */}
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-xs font-bold text-zinc-700">
+                      Bản dịch tiếng Việt (translation, tối đa 1000 ký tự):
+                    </label>
+                    <span className="text-[11px] text-zinc-400">{editTranslation.length}/1000</span>
+                  </div>
+                  <AutoResizeTextarea
+                    minRows={2}
+                    value={editTranslation}
+                    onChange={(e) => setEditTranslation(e.target.value.slice(0, 1000))}
+                    placeholder="Dịch nghĩa tiếng Việt của câu trên..."
+                    maxLength={1000}
+                  />
+                </div>
+
+                {/* Reasoning */}
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-xs font-bold text-zinc-700">
+                      Suy luận & Giải thích chi tiết (reasoning, tối đa 2000 ký tự):
+                    </label>
+                    <span className="text-[11px] text-zinc-400">{editReasoning.length}/2000</span>
+                  </div>
+                  <AutoResizeTextarea
+                    minRows={4}
+                    value={editReasoning}
+                    onChange={(e) => setEditReasoning(e.target.value.slice(0, 2000))}
+                    placeholder="Lập luận vì sao đáp án này đúng, đối chiếu bài đọc..."
+                    maxLength={2000}
+                  />
+                </div>
+
+                {/* Distractors list */}
+                <div className="space-y-3 pt-2 border-t border-zinc-100">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-zinc-700">
+                      Phân tích các đáp án sai / nhiễu (distractors, tối đa 10):
+                    </label>
+                    <button
+                      type="button"
+                      onClick={addDistractor}
+                      disabled={editDistractors.length >= 10}
+                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Thêm lựa chọn nhiễu
+                    </button>
+                  </div>
+
+                  {editDistractors.map((d, idx) => (
+                    <div key={idx} className="rounded-2xl border border-zinc-200 bg-zinc-50/80 p-4 space-y-3 relative">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-zinc-700">Lựa chọn nhiễu #{idx + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeDistractor(idx)}
+                          className="w-8 h-8 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-xl transition cursor-pointer"
+                          title="Xóa lựa chọn này"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-zinc-600 mb-1">
+                            Lựa chọn (VD: A. false / doctors):
+                          </label>
+                          <AutoResizeTextarea
+                            minRows={2}
+                            value={d.option || ''}
+                            onChange={(e) => updateDistractorField(idx, 'option', e.target.value.slice(0, 100))}
+                            placeholder="Lựa chọn sai..."
+                            className="text-xs p-2.5"
+                            maxLength={100}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-zinc-600 mb-1">
+                            Nghĩa ngắn (tùy chọn):
+                          </label>
+                          <AutoResizeTextarea
+                            minRows={2}
+                            value={d.label || ''}
+                            onChange={(e) => updateDistractorField(idx, 'label', e.target.value.slice(0, 100))}
+                            placeholder="Nghĩa ngắn tiếng Việt..."
+                            className="text-xs p-2.5"
+                            maxLength={100}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-zinc-600 mb-1">
+                          Lý do sai hoặc bẫy từ vựng:
+                        </label>
+                        <AutoResizeTextarea
+                          minRows={2}
+                          value={d.reason || ''}
+                          onChange={(e) => updateDistractorField(idx, 'reason', e.target.value.slice(0, 500))}
+                          placeholder="Lý do vì sao lựa chọn này sai hoặc bẫy từ vựng..."
+                          className="text-xs p-2.5"
+                          maxLength={500}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}

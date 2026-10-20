@@ -255,6 +255,111 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
       expect(handleUpdated).toHaveBeenCalled()
     })
 
+    it('allows editing all Steps 1-4 (L1) including locate keywords, evidence, and paraphrases', async () => {
+      const detailedExplanation = {
+        ...sampleExplanation,
+        predict: 'Predict something',
+        question_chunks: [{ text: 'vital element', label: 'thành phần thiết yếu' }],
+        locate: {
+          note: 'Locate in paragraph 1',
+          keywords: ['vital element', 'core layer'],
+          paragraph: 1,
+        },
+        evidence: {
+          parts: [{ text: 'Oxygen is the vital element found in the core layer.', paragraph: 1 }],
+          chunks: [{ text: 'vital element', label: 'yếu tố sống còn' }],
+        },
+        paraphrases: [
+          {
+            question: 'primary factor',
+            question_label: 'yếu tố chính',
+            passage: 'vital element',
+            passage_label: 'thành phần thiết yếu',
+          },
+        ],
+        full_sentence: 'Oxygen is the vital element.',
+        translation: 'Oxy là thành phần sống còn.',
+        reasoning: 'Detailed reasoning text.',
+        distractors: [
+          { option: 'Hydrogen', label: 'Hiđrô', reason: 'Không được nhắc tới.' },
+        ],
+      }
+
+      api.put.mockResolvedValueOnce({
+        data: {
+          success: true,
+          explanation: {
+            ...detailedExplanation,
+            status: 'teacher_edited',
+          },
+        },
+      })
+
+      const handleUpdated = vi.fn()
+      render(
+        <QuestionExplanationModal
+          isOpen={true}
+          onClose={vi.fn()}
+          examId={10}
+          questionNumber={1}
+          isPractice={true}
+          skill="reading"
+          question={sampleQuestion}
+          initialExplanation={detailedExplanation}
+          onExplanationUpdated={handleUpdated}
+        />
+      )
+
+      // Switch to tab "Sửa trực tiếp"
+      fireEvent.click(screen.getByRole('tab', { name: /Sửa trực tiếp/i }))
+
+      // Verify STEP headers are present
+      expect(screen.getByText(/Bước 1: Phân tích câu hỏi và dự đoán/i)).toBeInTheDocument()
+      expect(screen.getByText(/Bước 2: Định vị thông tin liên quan/i)).toBeInTheDocument()
+      expect(screen.getByText(/Bước 3: Đọc thông tin liên quan \(Bằng chứng\)/i)).toBeInTheDocument()
+      expect(screen.getByText(/Bước 4: Chọn đáp án & Suy luận/i)).toBeInTheDocument()
+
+      // Edit Step 1 predict
+      const predictInput = screen.getByPlaceholderText(/Câu hỏi cần thông tin gì/i)
+      fireEvent.change(predictInput, { target: { value: 'Updated prediction note.' } })
+
+      // Edit Step 2 locate note
+      const locateNoteInput = screen.getByPlaceholderText(/Ý nào trong câu hỏi giúp tìm vùng cần đọc/i)
+      fireEvent.change(locateNoteInput, { target: { value: 'Updated locate strategy note.' } })
+
+      // Add a locate keyword
+      const addKeywordBtn = screen.getByRole('button', { name: /Thêm từ khóa/i })
+      fireEvent.click(addKeywordBtn)
+      const keywordInputs = screen.getAllByPlaceholderText(/Từ khóa nguyên văn trong bài đọc/i)
+      fireEvent.change(keywordInputs[keywordInputs.length - 1], { target: { value: 'atmosphere' } })
+
+      // Click save
+      const saveBtn = screen.getByRole('button', { name: /Lưu chỉnh sửa/i })
+      fireEvent.click(saveBtn)
+
+      await waitFor(() => {
+        expect(api.put).toHaveBeenCalledWith(
+          '/practice/admin/reading/10/questions/1/explanation',
+          expect.objectContaining({
+            predict: 'Updated prediction note.',
+            locate: expect.objectContaining({
+              note: 'Updated locate strategy note.',
+              keywords: expect.arrayContaining(['vital element', 'core layer', 'atmosphere']),
+            }),
+            evidence: expect.objectContaining({
+              parts: expect.any(Array),
+              chunks: expect.any(Array),
+            }),
+            paraphrases: expect.any(Array),
+            full_sentence: 'Oxygen is the vital element.',
+            translation: 'Oxy là thành phần sống còn.',
+            reasoning: 'Detailed reasoning text.',
+          })
+        )
+      })
+      expect(handleUpdated).toHaveBeenCalled()
+    })
+
     it('has fixed dimensions, no "Đóng" button in footer, and only "X" button to close', () => {
       render(
         <QuestionExplanationModal
