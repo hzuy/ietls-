@@ -5,6 +5,9 @@ const {
   generateExplanation,
   normalizeText,
   cleanString,
+  splitParagraphs,
+  findParagraph,
+  cleanChunks,
   ExplanationValidationError,
   SKIP_FAMILIES,
 } = require('../scripts/generate-explanations')
@@ -122,41 +125,200 @@ function filterLearnerExplanation(explanation) {
   return isExplanationVisibleToLearner(explanation) ? explanation : null
 }
 
-function validateManualExplanation(data) {
+function validateManualExplanation(data, { sourceText = null, family = 'GENERIC', prevExp = {} } = {}) {
   if (!data || typeof data !== 'object') {
     throw new Error('Dữ liệu sửa giải thích không hợp lệ')
   }
 
   const allowed = {}
+  const paragraphs = sourceText ? splitParagraphs(sourceText) : []
+  const hasSource = paragraphs.length > 0
+  const isImageFamily = family === 'IMAGE'
 
+  // BƯỚC 1: Phân tích câu hỏi và dự đoán
+  if (data.predict !== undefined) {
+    if (typeof data.predict !== 'string') throw new Error('predict phải là chuỗi ký tự')
+    if (data.predict.length > 1000) throw new Error('predict không được vượt quá 1000 ký tự')
+    allowed.predict = cleanString(data.predict, 1000)
+  }
+
+  if (data.question_chunks !== undefined) {
+    if (!Array.isArray(data.question_chunks)) throw new Error('question_chunks phải là danh sách')
+    if (data.question_chunks.length > 12) throw new Error('question_chunks không được vượt quá 12 cụm')
+    allowed.question_chunks = cleanChunks(data.question_chunks, 12)
+  }
+
+  // BƯỚC 2: Định vị thông tin liên quan
+  let validatedLocate = null
+  if (data.locate !== undefined) {
+    if (data.locate && typeof data.locate === 'object') {
+      const note = cleanString(data.locate.note, 600)
+      const rawKeywords = Array.isArray(data.locate.keywords) ? data.locate.keywords : []
+      if (rawKeywords.length > 5) throw new Error('locate.keywords không được vượt quá 5 từ khóa')
+
+      const keywords = []
+      for (const rawKw of rawKeywords) {
+        const kw = cleanString(rawKw, 120)
+        if (!kw) continue
+        if (hasSource && !isImageFamily) {
+          const foundP = findParagraph(paragraphs, kw)
+          if (foundP === -1) {
+            throw new Error(`Từ khóa định vị "${kw}" không tìm thấy nguyên văn trong bài đọc/transcript.`)
+          }
+        }
+        keywords.push(kw)
+      }
+      validatedLocate = {
+        note,
+        keywords,
+        paragraph: null, // sẽ tính lại ở dưới
+      }
+    } else if (data.locate === null) {
+      validatedLocate = null
+    }
+  }
+
+  // BƯỚC 3: Đọc thông tin liên quan (evidence)
+  if (data.evidence !== undefined) {
+    if (data.evidence && typeof data.evidence === 'object' && Array.isArray(data.evidence.parts)) {
+      const rawParts = data.evidence.parts
+      if (rawParts.length > 5) throw new Error('Số đoạn trích dẫn trong bằng chứng không được vượt quá 5')
+
+      const parts = []
+      for (const rawP of rawParts) {
+        const pText = cleanString(typeof rawP === 'string' ? rawP : rawP?.text, 1200)
+        if (!pText) continue
+
+        if (hasSource && !isImageFamily) {
+          // Tái dùng logic từ enrichExplanation
+          const whole = findParagraph(paragraphs, pText)
+          if (whole !== -1) {
+            parts.push({ text: pText, paragraph: whole })
+          } else {
+            const sentences = pText.split(/(?<=[.!?;])\s+/).filter(Boolean)
+            if (sentences.length === 0) {
+              throw new Error(`Câu trích dẫn "${pText.slice(0, 80)}" không tìm thấy nguyên văn trong bài đọc/transcript.`)
+            }
+            for (const sentence of sentences) {
+              const found = findParagraph(paragraphs, sentence)
+              if (found === -1) {
+                throw new Error(`Câu trích dẫn "${sentence.slice(0, 100)}" không tìm thấy nguyên văn trong bài đọc/transcript.`)
+              }
+              parts.push({ text: sentence, paragraph: found })
+            }
+          }
+        } else {
+          parts.push({ text: pText, paragraph: null })
+        }
+      }
+
+      let chunks = []
+      if (parts.length > 0 && Array.isArray(data.evidence.chunks)) {
+        const normParts = parts.map((p) => normalizeText(p.text))
+        for (const rawChunk of data.evidence.chunks) {
+          const cText = cleanString(rawChunk?.text, 200)
+          const cLabel = cleanString(rawChunk?.label, 80)
+          if (!cText) continue
+
+          const target = normalizeText(cText)
+          let partIdx = typeof rawChunk?.part === 'number' && rawChunk.part >= 0 && rawChunk.part < parts.length
+            ? rawChunk.part
+            : -1
+
+          if (partIdx === -1 || !normParts[partIdx].includes(target)) {
+            partIdx = normParts.findIndex((np) => np.includes(target))
+          }
+
+          if (partIdx === -1) {
+            throw new Error(`Cụm từ trích dẫn "${cText}" không nằm trong câu trích dẫn của Bước 3.`)
+          }
+
+          chunks.push({
+            text: cText,
+            label: cLabel,
+            part: partIdx,
+          })
+        }
+        chunks.sort((a, b) => a.part - b.part)
+      }
+
+      if (parts.length > 0) {
+        allowed.evidence = {
+          parts,
+          paragraph: parts[0].paragraph,
+          chunks,
+        }
+      } else {
+        allowed.evidence = null
+      }
+    } else if (data.evidence === null) {
+      allowed.evidence = null
+    }
+  }
+
+  // TÍNH LẠI locate.paragraph (hoặc tính từ evidence hoặc keywords)
+  if (validatedLocate) {
+    const activeEvidence = allowed.evidence !== undefined ? allowed.evidence : prevExp?.evidence
+    if (activeEvidence?.parts?.length > 0 && activeEvidence.paragraph != null) {
+      validatedLocate.paragraph = activeEvidence.paragraph
+    } else if (validatedLocate.keywords.length > 0 && hasSource) {
+      const kwP = findParagraph(paragraphs, validatedLocate.keywords[0])
+      validatedLocate.paragraph = kwP === -1 ? null : kwP
+    } else {
+      validatedLocate.paragraph = null
+    }
+    allowed.locate = validatedLocate
+  } else if (data.locate === null) {
+    allowed.locate = null
+  }
+
+  // BƯỚC 4: Paraphrases
+  if (data.paraphrases !== undefined) {
+    if (!Array.isArray(data.paraphrases)) throw new Error('paraphrases phải là một danh sách')
+    if (data.paraphrases.length > 5) throw new Error('paraphrases không được vượt quá 5 mục')
+    const paraphrases = []
+    for (const p of data.paraphrases) {
+      if (!p || typeof p !== 'object') continue
+      const question = cleanString(p.question, 160)
+      const question_label = cleanString(p.question_label, 80)
+      const passage = cleanString(p.passage, 160)
+      const passage_label = cleanString(p.passage_label, 80)
+      if (!question || !passage) continue
+
+      if (hasSource && !isImageFamily) {
+        const found = findParagraph(paragraphs, passage)
+        if (found === -1) {
+          throw new Error(`Cụm từ đối chiếu paraphrasing "${passage}" không tìm thấy nguyên văn trong bài đọc/transcript.`)
+        }
+      }
+      paraphrases.push({ question, question_label, passage, passage_label })
+    }
+    allowed.paraphrases = paraphrases
+  }
+
+  // BƯỚC 4: Các trường văn bản suy luận
   if (data.reasoning !== undefined) {
     if (typeof data.reasoning !== 'string') throw new Error('reasoning phải là chuỗi ký tự')
     if (data.reasoning.length > 2000) throw new Error('reasoning không được vượt quá 2000 ký tự')
-    allowed.reasoning = data.reasoning.trim()
+    allowed.reasoning = cleanString(data.reasoning, 2000)
   }
 
   if (data.teacher_note !== undefined) {
     if (typeof data.teacher_note !== 'string') throw new Error('teacher_note phải là chuỗi ký tự')
     if (data.teacher_note.length > 2000) throw new Error('teacher_note không được vượt quá 2000 ký tự')
-    allowed.teacher_note = data.teacher_note.trim()
-  }
-
-  if (data.predict !== undefined) {
-    if (typeof data.predict !== 'string') throw new Error('predict phải là chuỗi ký tự')
-    if (data.predict.length > 1000) throw new Error('predict không được vượt quá 1000 ký tự')
-    allowed.predict = data.predict.trim()
+    allowed.teacher_note = cleanString(data.teacher_note, 2000)
   }
 
   if (data.translation !== undefined) {
     if (typeof data.translation !== 'string') throw new Error('translation phải là chuỗi ký tự')
     if (data.translation.length > 1000) throw new Error('translation không được vượt quá 1000 ký tự')
-    allowed.translation = data.translation.trim()
+    allowed.translation = cleanString(data.translation, 1000)
   }
 
   if (data.full_sentence !== undefined) {
     if (typeof data.full_sentence !== 'string') throw new Error('full_sentence phải là chuỗi ký tự')
     if (data.full_sentence.length > 1000) throw new Error('full_sentence không được vượt quá 1000 ký tự')
-    allowed.full_sentence = data.full_sentence.trim()
+    allowed.full_sentence = cleanString(data.full_sentence, 1000)
   }
 
   if (data.distractors !== undefined) {
@@ -164,9 +326,9 @@ function validateManualExplanation(data) {
     if (data.distractors.length > 10) throw new Error('distractors không được vượt quá 10 mục')
     allowed.distractors = data.distractors.map((d, i) => {
       if (!d || typeof d !== 'object') throw new Error(`Lựa chọn thứ ${i + 1} trong distractors không hợp lệ`)
-      const option = String(d.option || '').trim().slice(0, 100)
-      const reason = String(d.reason || '').trim().slice(0, 500)
-      const label = d.label ? String(d.label).trim().slice(0, 100) : ''
+      const option = cleanString(d.option, 100)
+      const reason = cleanString(d.reason, 500)
+      const label = d.label ? cleanString(d.label, 100) : ''
       if (!option || !reason) throw new Error(`Lựa chọn thứ ${i + 1} phải có đầy đủ option và reason`)
       return { option, reason, ...(label ? { label } : {}) }
     })
@@ -1740,7 +1902,6 @@ async function regenerateQuestionExplanation({ examId, questionId = null, questi
  * 4.4 Manual edit an explanation for a single question.
  */
 async function updateManualExplanation({ examId, questionId = null, questionNumber = null, isPractice = false, fields = {} }) {
-  const cleanFields = validateManualExplanation(fields)
   const parsedExamId = parseInt(examId, 10)
 
   if (isPractice) {
@@ -1752,6 +1913,7 @@ async function updateManualExplanation({ examId, questionId = null, questionNumb
 
     const targetNum = parseInt(questionNumber, 10)
     let targetRow = null
+    let targetGroup = null
     let targetQItem = null
 
     for (const row of exam.questions) {
@@ -1760,28 +1922,46 @@ async function updateManualExplanation({ examId, questionId = null, questionNumb
       const qItem = group.questions.find((q) => Number(q.number) === targetNum)
       if (qItem) {
         targetRow = row
+        targetGroup = group
         targetQItem = qItem
         break
       }
     }
 
-    if (!targetRow || !targetQItem) {
+    if (!targetRow || !targetQItem || !targetGroup) {
       throw new Error(`Không tìm thấy câu hỏi #${targetNum} trong bài luyện tập #${parsedExamId}`)
+    }
+
+    const qCtx = practiceQuestionContext(exam, targetGroup, targetNum)
+    if (!qCtx) throw new Error(`Không thể khởi tạo ngữ cảnh cho câu #${targetNum}`)
+    const family = classifyFamily(qCtx.type)
+    const ctx = buildContext(qCtx, family)
+
+    const prevByNumber = (targetRow.explanation && typeof targetRow.explanation === 'object' && targetRow.explanation.byNumber) || {}
+    const prev = (prevByNumber[targetNum] && typeof prevByNumber[targetNum] === 'object')
+      ? prevByNumber[targetNum]
+      : { v: 2, answer: String(targetQItem.correctAnswer || '') }
+
+    const cleanFields = validateManualExplanation(fields, {
+      sourceText: ctx.sourceText,
+      family,
+      prevExp: prev,
+    })
+
+    const updated = {
+      ...prev,
+      ...cleanFields,
+      status: 'teacher_edited',
+      manualEdit: true,
+      updatedAt: new Date().toISOString(),
+    }
+
+    if (containsInternalJargon(updated)) {
+      throw new Error('Nội dung chỉnh sửa chứa cụm từ nội bộ không phù hợp (người dùng nhập, đáp án người dùng, ngộ nhận...)')
     }
 
     let resultExp = null
     await updatePracticeQuestionExplanationTx(targetRow.id, (byNumber) => {
-      const prev = (byNumber[targetNum] && typeof byNumber[targetNum] === 'object')
-        ? byNumber[targetNum]
-        : { v: 2, answer: String(targetQItem.correctAnswer || '') }
-
-      const updated = {
-        ...prev,
-        ...cleanFields,
-        status: 'teacher_edited',
-        manualEdit: true,
-        updatedAt: new Date().toISOString(),
-      }
       byNumber[targetNum] = updated
       resultExp = updated
       return byNumber
@@ -1812,16 +1992,47 @@ async function updateManualExplanation({ examId, questionId = null, questionNumb
           },
         ],
       },
-      select: { id: true, number: true, correctAnswer: true, explanation: true },
+      select: {
+        id: true,
+        number: true,
+        type: true,
+        questionText: true,
+        options: true,
+        correctAnswer: true,
+        explanation: true,
+        passage: { select: { body: true, examId: true } },
+        listeningSection: { select: { transcript: true, context: true, examId: true } },
+        group: {
+          select: {
+            type: true,
+            passage: { select: { body: true, examId: true } },
+            section: { select: { transcript: true, context: true, examId: true } },
+            matchingOptions: { select: { optionLetter: true, optionText: true }, orderBy: { sortOrder: 'asc' } },
+            noteSections: {
+              select: { lines: { select: { contentWithTokens: true }, orderBy: { sortOrder: 'asc' } } },
+              orderBy: { sortOrder: 'asc' },
+            },
+          },
+        },
+      },
     })
 
     if (!question) {
       throw new Error(`Không tìm thấy câu hỏi #${questionId || questionNumber} trong đề #${parsedExamId}`)
     }
 
+    const family = classifyFamily(question.type)
+    const ctx = buildContext(question, family)
+
     const prev = (question.explanation && typeof question.explanation === 'object')
       ? question.explanation
       : { v: 2, answer: String(question.correctAnswer || '') }
+
+    const cleanFields = validateManualExplanation(fields, {
+      sourceText: ctx.sourceText,
+      family,
+      prevExp: prev,
+    })
 
     const updated = {
       ...prev,
@@ -1829,6 +2040,10 @@ async function updateManualExplanation({ examId, questionId = null, questionNumb
       status: 'teacher_edited',
       manualEdit: true,
       updatedAt: new Date().toISOString(),
+    }
+
+    if (containsInternalJargon(updated)) {
+      throw new Error('Nội dung chỉnh sửa chứa cụm từ nội bộ không phù hợp (người dùng nhập, đáp án người dùng, ngộ nhận...)')
     }
 
     await prisma.question.update({

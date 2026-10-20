@@ -792,6 +792,8 @@ module.exports = {
   processPracticeQuestion,
   main,
   SKIP_FAMILIES,
+  findParagraph,
+  cleanChunks,
   buildResponseSchema,
   cleanString,
   extractOptionPairs,
