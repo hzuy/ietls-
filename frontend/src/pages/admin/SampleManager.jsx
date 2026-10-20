@@ -8,6 +8,7 @@ import ImageWithFallback from '../../components/common/ImageWithFallback'
 import Select from '../../components/admin/Select'
 import { AdminTableSkeleton } from '../../components/skeletons'
 import FetchingDim from '../../components/admin/FetchingDim'
+import { RotateCcw } from 'lucide-react'
 
 import RichTextEditor from '../../components/RichTextEditor'
 import {
@@ -438,7 +439,7 @@ export default function SampleManager({ kind }) {
           <Select
             pill
             id="sample-manager-level"
-            className="w-[168px]"
+            className="w-[168px] min-w-[168px] shrink-0"
             value={filterLevel}
             onChange={setFilterLevel}
             options={levelOptions}
@@ -447,7 +448,7 @@ export default function SampleManager({ kind }) {
           <Select
             pill
             id="sample-manager-sort"
-            className="w-[168px]"
+            className="w-[168px] min-w-[168px] shrink-0"
             value={sortBy}
             onChange={setSortBy}
             options={[
@@ -456,15 +457,15 @@ export default function SampleManager({ kind }) {
               { value: 'name', label: 'Tên A→Z' },
             ]}
           />
-          {hasActiveFilter && (
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="px-3 py-2 text-xs font-medium border border-zinc-200 rounded-lg text-zinc-600 hover:bg-zinc-50 transition bg-white cursor-pointer"
-            >
-              Reset
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={resetFilters}
+            className="h-9 px-3.5 text-xs font-medium border border-zinc-200 rounded-full transition flex items-center gap-1.5 shrink-0 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 shadow-2xs cursor-pointer"
+            title="Đặt lại bộ lọc"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-zinc-400" />
+            <span>Reset</span>
+          </button>
         </div>
 
         {hasActiveFilter && (

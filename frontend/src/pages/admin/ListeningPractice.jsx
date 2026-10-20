@@ -6,7 +6,7 @@ import { useCollapsibleGroups } from '../../hooks/useCollapsibleGroups'
 import { validateAudioFile } from '../../utils/fileValidation'
 import { ConfirmDeleteModal, DraftBanner, DraftSavedHint, AdminListHeader, ThumbnailPicker } from '../../components/admin/contentPageUI'
 import { useToast } from '../../context/ToastContext'
-import { Volume2, Eye, BookOpen, Upload, Loader2 } from 'lucide-react'
+import { Volume2, Eye, BookOpen, Upload, Loader2, RotateCcw } from 'lucide-react'
 import api from '../../utils/axios'
 import PracticeGroupCard from '../../components/admin/PracticeGroupCard'
 import {
@@ -1107,7 +1107,7 @@ export default function ListeningPractice() {
           <Select
             pill
             id="listening-practice-status"
-            className="w-[168px]"
+            className="w-[168px] min-w-[168px] shrink-0"
             value={filterStatus}
             onChange={setFilterStatus}
             options={[
@@ -1122,7 +1122,7 @@ export default function ListeningPractice() {
           <Select
             pill
             id="listening-practice-sort"
-            className="w-[168px]"
+            className="w-[168px] min-w-[168px] shrink-0"
             value={sortBy}
             onChange={setSortBy}
             options={[
@@ -1132,15 +1132,15 @@ export default function ListeningPractice() {
               { value: 'questions', label: 'Nhiều câu nhất' },
             ]}
           />
-          {hasActiveFilter && (
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="px-3 py-2 text-xs font-medium border border-zinc-200 rounded-lg text-zinc-600 hover:bg-zinc-50 transition bg-white cursor-pointer"
-            >
-              Reset
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={resetFilters}
+            className="h-9 px-3.5 text-xs font-medium border border-zinc-200 rounded-full transition flex items-center gap-1.5 shrink-0 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 shadow-2xs cursor-pointer"
+            title="Đặt lại bộ lọc"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-zinc-400" />
+            <span>Reset</span>
+          </button>
         </div>
 
         {hasActiveFilter && (

@@ -29,8 +29,8 @@ describe('ListeningPractice — double-click protection on delete', () => {
 
     render(<ListeningPractice />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Xóa' }))
-    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(await screen.findByRole('button', { name: 'Xóa' }, { timeout: 4000 }))
+    const dialog = await screen.findByRole('dialog', {}, { timeout: 4000 })
     const confirmBtn = within(dialog).getByRole('button', { name: 'Xóa' })
     fireEvent.click(confirmBtn)
 

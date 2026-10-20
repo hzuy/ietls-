@@ -5,7 +5,7 @@ import { formatBand } from '../../utils/ielts'
 import useDebounce from '../../hooks/useDebounce'
 import { SkeletonTable } from '../skeletons'
 import FetchingDim from './FetchingDim'
-import { Star } from 'lucide-react'
+import { Star, RotateCcw } from 'lucide-react'
 import Modal from '../common/Modal'
 import Select from './Select'
 
@@ -249,7 +249,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
         <Select
           pill
           id="examlist-series"
-          className="w-[168px]"
+          className="w-[168px] min-w-[168px] shrink-0"
           value={filterSeries}
           onChange={handleSeriesChange}
           options={[
@@ -261,7 +261,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
         <Select
           pill
           id="examlist-status"
-          className="w-[168px]"
+          className="w-[168px] min-w-[168px] shrink-0"
           value={filterStatus}
           onChange={handleStatusChange}
           options={[
@@ -274,7 +274,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
         <Select
           pill
           id="examlist-sort"
-          className="w-[168px]"
+          className="w-[168px] min-w-[168px] shrink-0"
           value={sortBy}
           onChange={handleSortChange}
           options={[
@@ -285,12 +285,15 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
             { value: 'score', label: 'Band cao nhất' },
           ]}
         />
-        {hasActiveFilter && (
-          <button
-            onClick={resetFilters}
-            className="px-3 py-2 text-xs font-medium border border-zinc-200 rounded-lg text-zinc-600 hover:bg-zinc-50 transition bg-white"
-          >Reset</button>
-        )}
+        <button
+          type="button"
+          onClick={resetFilters}
+          className="h-9 px-3.5 text-xs font-medium border border-zinc-200 rounded-full transition flex items-center gap-1.5 shrink-0 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 shadow-2xs cursor-pointer"
+          title="Đặt lại bộ lọc"
+        >
+          <RotateCcw className="w-3.5 h-3.5 text-zinc-400" />
+          <span>Reset</span>
+        </button>
       </div>
 
       {/* Result count */}
