@@ -121,3 +121,63 @@ describe('ListeningPractice — double-click protection on delete', () => {
   })
 })
 
+describe('ListeningPractice — search, filter and sort', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.spyOn(practiceService, 'getListeningPracticeList').mockResolvedValue([
+      { id: 101, title: 'Library Registration Section 1', audioUrl: '/audio/lib.mp3', questionCount: 10, createdAt: '2026-03-01T00:00:00.000Z' },
+      { id: 102, title: 'Campus Tour Guide Section 2', audioUrl: null, questionCount: 0, createdAt: '2026-02-01T00:00:00.000Z' },
+      { id: 103, title: 'Ocean Conservation Section 4', audioUrl: '/audio/ocean.mp3', questionCount: 0, createdAt: '2026-01-01T00:00:00.000Z' },
+    ])
+  })
+
+  it('filters items by search query and shows matching count', async () => {
+    render(<ListeningPractice />)
+    expect(await screen.findByText('Library Registration Section 1')).toBeInTheDocument()
+    expect(screen.getByText('Campus Tour Guide Section 2')).toBeInTheDocument()
+    expect(screen.getByText('Ocean Conservation Section 4')).toBeInTheDocument()
+
+    const searchInput = screen.getByLabelText('Tìm kiếm')
+    fireEvent.change(searchInput, { target: { value: 'Campus' } })
+
+    expect(screen.getByText('Campus Tour Guide Section 2')).toBeInTheDocument()
+    expect(screen.queryByText('Library Registration Section 1')).not.toBeInTheDocument()
+    expect(screen.queryByText('Ocean Conservation Section 4')).not.toBeInTheDocument()
+    expect(screen.getByText('1 bài khớp bộ lọc')).toBeInTheDocument()
+  })
+
+  it('filters items by audio status (has_audio vs no_audio)', async () => {
+    render(<ListeningPractice />)
+    await screen.findByText('Library Registration Section 1')
+
+    fireEvent.click(screen.getByLabelText('Lọc theo trạng thái'))
+    fireEvent.click(screen.getByRole('option', { name: 'Chưa có audio' }))
+
+    expect(screen.getByText('Campus Tour Guide Section 2')).toBeInTheDocument()
+    expect(screen.queryByText('Library Registration Section 1')).not.toBeInTheDocument()
+    expect(screen.queryByText('Ocean Conservation Section 4')).not.toBeInTheDocument()
+
+    // Reset via Reset button
+    const resetBtn = screen.getByRole('button', { name: 'Reset' })
+    fireEvent.click(resetBtn)
+
+    expect(screen.getByText('Library Registration Section 1')).toBeInTheDocument()
+    expect(screen.getByText('Campus Tour Guide Section 2')).toBeInTheDocument()
+    expect(screen.getByText('Ocean Conservation Section 4')).toBeInTheDocument()
+  })
+
+  it('shows empty filter state with reset action when no items match', async () => {
+    render(<ListeningPractice />)
+    await screen.findByText('Library Registration Section 1')
+
+    const searchInput = screen.getByLabelText('Tìm kiếm')
+    fireEvent.change(searchInput, { target: { value: 'non-existing-keyword-xyz' } })
+
+    expect(screen.getByText('Không tìm thấy bài nào khớp với bộ lọc.')).toBeInTheDocument()
+    const resetFilterBtn = screen.getByRole('button', { name: 'Reset bộ lọc' })
+    fireEvent.click(resetFilterBtn)
+
+    expect(screen.getByText('Library Registration Section 1')).toBeInTheDocument()
+  })
+})
+

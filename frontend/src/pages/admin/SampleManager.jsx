@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useUnsavedChanges, NAV_LEAVE_MSG } from '../../hooks/useUnsavedChanges'
 import { useDraftPersistence } from '../../hooks/useDraftPersistence'
@@ -169,6 +169,52 @@ export default function SampleManager({ kind }) {
   const [loadingEditId, setLoadingEditId] = useState(null)
   const [isDirty, setIsDirty] = useState(false)
   const pristineRef = useRef('')
+
+  // Search, filter & sort state
+  const [search, setSearch] = useState('')
+  const [filterLevel, setFilterLevel] = useState('all')
+  const [sortBy, setSortBy] = useState('newest')
+
+  // Reset filters when switching between Writing and Speaking
+  useEffect(() => {
+    setSearch('')
+    setFilterLevel('all')
+    setSortBy('newest')
+  }, [kind])
+
+  const levelOptions = useMemo(() => [
+    { value: 'all', label: `Tất cả ${cfg.taskFieldLabel}` },
+    ...cfg.tasks.filter(t => t.value).map(t => ({ value: t.value, label: t.label })),
+  ], [cfg.taskFieldLabel, cfg.tasks])
+
+  const filteredList = useMemo(() => {
+    let res = list || []
+    const q = search.trim().toLowerCase()
+    if (q) {
+      res = res.filter(item =>
+        (item.title || '').toLowerCase().includes(q) ||
+        (item.examType || '').toLowerCase().includes(q) ||
+        (Array.isArray(item.tags) && item.tags.some(t => t.toLowerCase().includes(q)))
+      )
+    }
+    if (filterLevel !== 'all') {
+      res = res.filter(item => item.level === filterLevel)
+    }
+
+    return [...res].sort((a, b) => {
+      if (sortBy === 'newest') return new Date(b.createdAt) - new Date(a.createdAt)
+      if (sortBy === 'oldest') return new Date(a.createdAt) - new Date(b.createdAt)
+      if (sortBy === 'name') return (a.title || '').localeCompare(b.title || '')
+      return 0
+    })
+  }, [list, search, filterLevel, sortBy])
+
+  const hasActiveFilter = Boolean(search.trim() || filterLevel !== 'all' || sortBy !== 'newest')
+  const resetFilters = () => {
+    setSearch('')
+    setFilterLevel('all')
+    setSortBy('newest')
+  }
 
   // Cảnh báo đóng tab / F5 khi form có thay đổi chưa lưu (in-app nav xử lý ở AdminLayout).
   useUnsavedChanges(view === 'form' && isDirty)
@@ -376,12 +422,72 @@ export default function SampleManager({ kind }) {
     <>
       <div className="p-6 max-w-6xl mx-auto">
         <AdminListHeader title={cfg.listTitle} subtitle={cfg.listSubtitle} onAdd={openAdd} addLabel={cfg.addLabel} />
+
+        {/* Search & filter bar */}
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <label htmlFor="sample-manager-search" className="sr-only">Tìm kiếm</label>
+          <input
+            id="sample-manager-search"
+            type="text"
+            placeholder={kind === 'writing' ? 'Tìm theo tên bài mẫu hoặc dạng đề...' : 'Tìm theo chủ đề hoặc dạng đề...'}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="flex-1 min-w-[160px] h-9 px-3.5 text-xs border border-zinc-200 rounded-full focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 bg-white text-zinc-900 placeholder:text-zinc-400"
+          />
+          <label htmlFor="sample-manager-level" className="sr-only">Lọc theo {cfg.taskFieldLabel}</label>
+          <Select
+            pill
+            id="sample-manager-level"
+            className="w-[168px]"
+            value={filterLevel}
+            onChange={setFilterLevel}
+            options={levelOptions}
+          />
+          <label htmlFor="sample-manager-sort" className="sr-only">Sắp xếp</label>
+          <Select
+            pill
+            id="sample-manager-sort"
+            className="w-[168px]"
+            value={sortBy}
+            onChange={setSortBy}
+            options={[
+              { value: 'newest', label: 'Mới nhất' },
+              { value: 'oldest', label: 'Cũ nhất' },
+              { value: 'name', label: 'Tên A→Z' },
+            ]}
+          />
+          {hasActiveFilter && (
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="px-3 py-2 text-xs font-medium border border-zinc-200 rounded-lg text-zinc-600 hover:bg-zinc-50 transition bg-white cursor-pointer"
+            >
+              Reset
+            </button>
+          )}
+        </div>
+
+        {hasActiveFilter && (
+          <p className="text-[11px] text-zinc-500 mb-3">{filteredList.length} bài mẫu khớp bộ lọc</p>
+        )}
+
         {isPending && list.length === 0 ? (
           <AdminTableSkeleton firstColType="thumbnail" rows={6} cols={6} />
         ) : (
           <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-xs">
             {list.length === 0 ? (
               <div className="p-10 text-center text-xs text-zinc-400">Chưa có bài mẫu nào.</div>
+            ) : filteredList.length === 0 ? (
+              <div className="p-10 text-center text-xs text-zinc-400">
+                <p>Không tìm thấy bài mẫu nào khớp với bộ lọc.</p>
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="mt-2.5 px-3 py-1.5 rounded-lg border border-zinc-200 text-zinc-600 font-medium hover:bg-zinc-50 transition text-xs cursor-pointer"
+                >
+                  Reset bộ lọc
+                </button>
+              </div>
             ) : (
               <FetchingDim isFetching={isFetching && list.length > 0}>
               <div className="overflow-x-auto">
@@ -395,7 +501,7 @@ export default function SampleManager({ kind }) {
                   <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-slate-400">HÀNH ĐỘNG</th>
                 </tr></thead>
                 <tbody>
-                  {list.map(item => (
+                  {filteredList.map(item => (
                     <tr key={item.id} className="border-b border-zinc-100 hover:bg-zinc-50 transition">
                       <td className="rt-thumb px-4 py-3">
                         <div style={{ width: 60, height: 40, borderRadius: 8, overflow: 'hidden', background: '#f4f4f5', border: '1px solid #e4e4e7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

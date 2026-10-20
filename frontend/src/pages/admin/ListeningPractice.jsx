@@ -193,6 +193,43 @@ export default function ListeningPractice() {
   const [addGroupType, setAddGroupType] = useState(LISTENING_GROUP_TYPES[0].value)
   const [showPreview, setShowPreview] = useState(false)
   const [showAnswers, setShowAnswers] = useState(false)
+
+  // Search, filter & sort state
+  const [search, setSearch] = useState('')
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [sortBy, setSortBy] = useState('newest')
+
+  const filteredList = useMemo(() => {
+    let res = list || []
+    const q = search.trim().toLowerCase()
+    if (q) {
+      res = res.filter(item => (item.title || '').toLowerCase().includes(q))
+    }
+    if (filterStatus === 'has_audio') {
+      res = res.filter(item => Boolean(item.audioUrl))
+    } else if (filterStatus === 'no_audio') {
+      res = res.filter(item => !item.audioUrl)
+    } else if (filterStatus === 'has_questions') {
+      res = res.filter(item => (item.questionCount ?? 0) > 0)
+    } else if (filterStatus === 'no_questions') {
+      res = res.filter(item => (item.questionCount ?? 0) === 0)
+    }
+
+    return [...res].sort((a, b) => {
+      if (sortBy === 'newest') return new Date(b.createdAt) - new Date(a.createdAt)
+      if (sortBy === 'oldest') return new Date(a.createdAt) - new Date(b.createdAt)
+      if (sortBy === 'name') return (a.title || '').localeCompare(b.title || '')
+      if (sortBy === 'questions') return (b.questionCount ?? 0) - (a.questionCount ?? 0)
+      return 0
+    })
+  }, [list, search, filterStatus, sortBy])
+
+  const hasActiveFilter = Boolean(search.trim() || filterStatus !== 'all' || sortBy !== 'newest')
+  const resetFilters = () => {
+    setSearch('')
+    setFilterStatus('all')
+    setSortBy('newest')
+  }
   const [generatingAI, setGeneratingAI] = useState(false)
   const [aiConflicts, setAiConflicts] = useState([])
   const [conflictModalOpen, setConflictModalOpen] = useState(false)
@@ -1055,12 +1092,78 @@ export default function ListeningPractice() {
           onAdd={openAdd}
         />
 
+        {/* Search & filter bar */}
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <label htmlFor="listening-practice-search" className="sr-only">Tìm kiếm</label>
+          <input
+            id="listening-practice-search"
+            type="text"
+            placeholder="Tìm theo tên bài..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="flex-1 min-w-[160px] h-9 px-3.5 text-xs border border-zinc-200 rounded-full focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 bg-white text-zinc-900 placeholder:text-zinc-400"
+          />
+          <label htmlFor="listening-practice-status" className="sr-only">Lọc theo trạng thái</label>
+          <Select
+            pill
+            id="listening-practice-status"
+            className="w-[168px]"
+            value={filterStatus}
+            onChange={setFilterStatus}
+            options={[
+              { value: 'all', label: 'Tất cả trạng thái' },
+              { value: 'has_audio', label: 'Có audio' },
+              { value: 'no_audio', label: 'Chưa có audio' },
+              { value: 'has_questions', label: 'Có câu hỏi' },
+              { value: 'no_questions', label: 'Chưa có câu hỏi' },
+            ]}
+          />
+          <label htmlFor="listening-practice-sort" className="sr-only">Sắp xếp</label>
+          <Select
+            pill
+            id="listening-practice-sort"
+            className="w-[168px]"
+            value={sortBy}
+            onChange={setSortBy}
+            options={[
+              { value: 'newest', label: 'Mới nhất' },
+              { value: 'oldest', label: 'Cũ nhất' },
+              { value: 'name', label: 'Tên A→Z' },
+              { value: 'questions', label: 'Nhiều câu nhất' },
+            ]}
+          />
+          {hasActiveFilter && (
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="px-3 py-2 text-xs font-medium border border-zinc-200 rounded-lg text-zinc-600 hover:bg-zinc-50 transition bg-white cursor-pointer"
+            >
+              Reset
+            </button>
+          )}
+        </div>
+
+        {hasActiveFilter && (
+          <p className="text-[11px] text-zinc-500 mb-3">{filteredList.length} bài khớp bộ lọc</p>
+        )}
+
         {isPending && list.length === 0 ? (
           <AdminTableSkeleton firstColType="thumbnail" rows={6} cols={6} />
         ) : (
           <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-xs">
             {list.length === 0 ? (
               <div className="p-10 text-center text-xs text-zinc-400">Chưa có bài nào.</div>
+            ) : filteredList.length === 0 ? (
+              <div className="p-10 text-center text-xs text-zinc-400">
+                <p>Không tìm thấy bài nào khớp với bộ lọc.</p>
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="mt-2.5 px-3 py-1.5 rounded-lg border border-zinc-200 text-zinc-600 font-medium hover:bg-zinc-50 transition text-xs cursor-pointer"
+                >
+                  Reset bộ lọc
+                </button>
+              </div>
             ) : (
               <div className="overflow-x-auto">
               <table className="rtable w-full">
@@ -1075,7 +1178,7 @@ export default function ListeningPractice() {
                   </tr>
                 </thead>
                 <tbody>
-                  {list.map(item => (
+                  {filteredList.map(item => (
                     <tr key={item.id} className="border-b border-zinc-100 hover:bg-zinc-50 transition">
                       <td className="rt-thumb px-4 py-3">
                         <div style={{ width: 60, height: 40, borderRadius: 6, overflow: 'hidden', background: '#f4f4f5', border: '1px solid #e4e4e7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

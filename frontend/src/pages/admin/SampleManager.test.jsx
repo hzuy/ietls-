@@ -298,3 +298,66 @@ describe('SampleManager — smoke (Giai đoạn 0)', () => {
     await waitFor(() => expect(sampleService.getWritingSamples).toHaveBeenCalledTimes(2))
   })
 })
+
+describe('SampleManager — search, filter and sort', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+    sampleService.getWritingSamples.mockResolvedValue([
+      { id: 1, title: 'Line Graph Population Growth', level: 'task1', examType: 'Academic', tags: ['chart'], createdAt: '2026-03-01' },
+      { id: 2, title: 'Opinion Essay Environment Protection', level: 'task2', examType: 'Academic', tags: ['nature'], createdAt: '2026-02-01' },
+      { id: 3, title: 'Discussion Essay Remote Work', level: 'task2', examType: 'General', tags: ['work'], createdAt: '2026-01-01' },
+    ])
+    sampleService.getSpeakingSamples.mockResolvedValue([
+      { id: 11, title: 'Hometown and Accommodation', level: 'part1', examType: '', tags: ['home'], createdAt: '2026-03-01' },
+      { id: 12, title: 'Describe an Interesting Journey', level: 'part2', examType: '', tags: ['travel'], createdAt: '2026-02-01' },
+    ])
+  })
+
+  it('filters writing samples by search query and shows matching count', async () => {
+    render(<ToastProvider><SampleManager kind="writing" /></ToastProvider>)
+    expect(await screen.findByText('Line Graph Population Growth')).toBeInTheDocument()
+    expect(screen.getByText('Opinion Essay Environment Protection')).toBeInTheDocument()
+
+    const searchInput = screen.getByLabelText('Tìm kiếm')
+    fireEvent.change(searchInput, { target: { value: 'Population' } })
+
+    expect(screen.getByText('Line Graph Population Growth')).toBeInTheDocument()
+    expect(screen.queryByText('Opinion Essay Environment Protection')).not.toBeInTheDocument()
+    expect(screen.getByText('1 bài mẫu khớp bộ lọc')).toBeInTheDocument()
+  })
+
+  it('filters writing samples by task level (Task 1 vs Task 2)', async () => {
+    render(<ToastProvider><SampleManager kind="writing" /></ToastProvider>)
+    await screen.findByText('Line Graph Population Growth')
+
+    fireEvent.click(screen.getByLabelText('Lọc theo Task'))
+    fireEvent.click(screen.getByRole('option', { name: 'Task 1' }))
+
+    expect(screen.getByText('Line Graph Population Growth')).toBeInTheDocument()
+    expect(screen.queryByText('Opinion Essay Environment Protection')).not.toBeInTheDocument()
+    expect(screen.queryByText('Discussion Essay Remote Work')).not.toBeInTheDocument()
+
+    // Reset button
+    const resetBtn = screen.getByRole('button', { name: 'Reset' })
+    fireEvent.click(resetBtn)
+
+    expect(screen.getByText('Line Graph Population Growth')).toBeInTheDocument()
+    expect(screen.getByText('Opinion Essay Environment Protection')).toBeInTheDocument()
+    expect(screen.getByText('Discussion Essay Remote Work')).toBeInTheDocument()
+  })
+
+  it('shows empty filter state with reset action when no items match', async () => {
+    render(<ToastProvider><SampleManager kind="writing" /></ToastProvider>)
+    await screen.findByText('Line Graph Population Growth')
+
+    const searchInput = screen.getByLabelText('Tìm kiếm')
+    fireEvent.change(searchInput, { target: { value: 'non-matching-sample' } })
+
+    expect(screen.getByText('Không tìm thấy bài mẫu nào khớp với bộ lọc.')).toBeInTheDocument()
+    const resetFilterBtn = screen.getByRole('button', { name: 'Reset bộ lọc' })
+    fireEvent.click(resetFilterBtn)
+
+    expect(screen.getByText('Line Graph Population Growth')).toBeInTheDocument()
+  })
+})
