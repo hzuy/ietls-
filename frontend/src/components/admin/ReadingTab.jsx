@@ -87,15 +87,19 @@ function ReadingFormPreview({ form, showAnswers }) {
   }, [])
 
   return (
-    <div>
+    <div className="flex flex-col flex-1 h-full overflow-hidden">
       {form.passages.length > 1 && (
-        <div className="flex gap-2 mb-4">
+        <div className="flex gap-2 mb-3 shrink-0">
           {form.passages.map((p, pi) => (
             <button
               key={pi}
               type="button"
               onClick={() => setActivePassage(pi)}
-              className={`text-xs font-bold px-3 py-1.5 rounded-lg transition ${activePassage === pi ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900'}`}
+              className={`text-xs font-bold px-3 py-1.5 rounded-lg transition ${
+                activePassage === pi
+                  ? 'bg-zinc-900 text-white shadow-xs'
+                  : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+              }`}
             >
               Passage {p.number}
             </button>
@@ -105,13 +109,13 @@ function ReadingFormPreview({ form, showAnswers }) {
       {passage && (
         <div
           ref={containerRef}
-          className="flex border border-zinc-200 rounded-xl overflow-hidden"
-          style={{ minHeight: 400, userSelect: dragging ? 'none' : 'auto' }}
+          className="flex flex-1 border border-zinc-200 rounded-xl overflow-hidden bg-white shadow-xs"
+          style={{ userSelect: dragging ? 'none' : 'auto' }}
         >
           {/* Left: Passage text */}
-          <div className="overflow-y-auto bg-white p-5" style={{ width: `${leftPct}%`, maxHeight: 600, flexShrink: 0 }}>
-            {passage.title && <h2 className="font-bold text-zinc-900 text-sm mb-1">{passage.title}</h2>}
-            {passage.subtitle && <p className="text-xs text-zinc-500 italic mb-3">{passage.subtitle}</p>}
+          <div className="overflow-y-auto bg-white px-8 py-6" style={{ width: `${leftPct}%`, flexShrink: 0 }}>
+            {passage.title && <h2 className="font-bold text-zinc-900 text-base mb-1">{passage.title}</h2>}
+            {passage.subtitle && <p className="text-xs text-zinc-500 italic mb-4">{passage.subtitle}</p>}
             {passage.body ? (
               <div className="text-sm text-zinc-700 leading-7 whitespace-pre-wrap">{passage.body}</div>
             ) : (
@@ -128,15 +132,15 @@ function ReadingFormPreview({ form, showAnswers }) {
           />
 
           {/* Right: Questions */}
-          <div className="flex-1 overflow-y-auto bg-zinc-50 p-5" style={{ maxHeight: 600 }}>
+          <div className="flex-1 overflow-y-auto bg-zinc-50 px-6 py-6">
             {sortedGroups.length > 0 ? (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {sortedGroups.map((group, gi) => (
                   <AdminGroupPreview key={gi} group={group} showAnswers={showAnswers} />
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-zinc-400 italic">Chưa có câu hỏi cho passage này</p>
+              <p className="text-sm text-zinc-400 italic text-center mt-10">Chưa có câu hỏi cho passage này</p>
             )}
           </div>
         </div>
@@ -170,7 +174,7 @@ function SpeakingFormPreview({ form }) {
   const activeQuestionText = currentQuestions[safeQIdx] || ''
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 overflow-y-auto flex-1 p-1">
       {/* Part tabs */}
       <div className="flex gap-2">
         {[1, 2, 3].map(p => (
@@ -1084,7 +1088,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       <form ref={formRef} onSubmit={handleSubmit} aria-busy={loadingEdit}
         className={`bg-white rounded-2xl p-6 border shadow-xs transition-all duration-500 ${loadingEdit ? 'opacity-60 pointer-events-none select-none' : ''} ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-zinc-200'}`}>
         <h3 className="text-sm font-semibold text-zinc-900 mb-5">
-          {editingId ? `Sửa đề Reading #${editingId}` : 'Tạo đề Reading mới'}
+          {editingId ? (form.title ? `Sửa đề Reading: ${form.title}` : 'Sửa đề Reading') : 'Tạo đề Reading mới'}
         </h3>
 
         {error && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg mb-4 text-sm whitespace-pre-line">{error}</div>}
@@ -1108,7 +1112,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         {editingId && (
           <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-3 mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm font-semibold text-zinc-800">Đang sửa đề #{editingId}</span>
+              <span className="text-sm font-semibold text-zinc-800">{form.title ? `Đang sửa đề: ${form.title}` : `Đang sửa đề ${editingId}`}</span>
               <ExamExplanationOverviewBadge stats={examStats} />
             </div>
             <div className="flex items-center gap-2">
@@ -1347,7 +1351,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
           }`}
         >
           <Eye className="w-4 h-4" />
-          <span>{showPreview ? 'Thu gọn preview' : 'Xem trước nội dung đề'}</span>
+          <span>{showPreview ? 'Đóng preview' : 'Preview nội dung đề'}</span>
         </button>
       </form>
       </div>

@@ -89,7 +89,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     // Load exam 10
     fireEvent.click(screen.getByText('Edit Reading 10'))
     await waitFor(() => {
-      expect(screen.getByText('Đang sửa đề #10')).toBeInTheDocument()
+      expect(screen.getByText(/Đang sửa đề/i)).toBeInTheDocument()
     })
 
     api.post.mockResolvedValueOnce({
@@ -120,7 +120,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
 
     fireEvent.click(screen.getByText('Edit Reading 10'))
     await waitFor(() => {
-      expect(screen.getByText('Đang sửa đề #10')).toBeInTheDocument()
+      expect(screen.getByText(/Đang sửa đề/i)).toBeInTheDocument()
     })
 
     // Prepare sequential responses for group 201 and 202
@@ -168,7 +168,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
 
     fireEvent.click(screen.getByText('Edit Reading 10'))
     await waitFor(() => {
-      expect(screen.getByText('Đang sửa đề #10')).toBeInTheDocument()
+      expect(screen.getByText(/Đang sửa đề/i)).toBeInTheDocument()
     })
 
     let resolveGroup201
@@ -216,7 +216,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
 
     fireEvent.click(screen.getByText('Edit Reading 10'))
     await waitFor(() => {
-      expect(screen.getByText('Đang sửa đề #10')).toBeInTheDocument()
+      expect(screen.getByText(/Đang sửa đề/i)).toBeInTheDocument()
     })
 
     let resolveGroup201
@@ -300,7 +300,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     render(<ReadingTab exams={[]} onRefresh={vi.fn()} />)
     fireEvent.click(screen.getByText('Edit Reading 10'))
     await waitFor(() => {
-      expect(screen.getByText('Đang sửa đề #10')).toBeInTheDocument()
+      expect(screen.getByText(/Đang sửa đề/i)).toBeInTheDocument()
     })
 
     api.post.mockImplementation((url) => {
@@ -373,7 +373,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
 
     fireEvent.click(screen.getByText('Edit Listening 20'))
     await waitFor(() => {
-      expect(screen.getByText('Đang sửa đề #20')).toBeInTheDocument()
+      expect(screen.getByText(/Đang sửa đề/i)).toBeInTheDocument()
     })
 
     api.post.mockResolvedValueOnce({
@@ -398,7 +398,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
 
     fireEvent.click(screen.getByText('Edit Reading 10'))
     await waitFor(() => {
-      expect(screen.getByText('Đang sửa đề #10')).toBeInTheDocument()
+      expect(screen.getByText(/Đang sửa đề/i)).toBeInTheDocument()
     })
 
     const conflictErr = new Error('Conflict')

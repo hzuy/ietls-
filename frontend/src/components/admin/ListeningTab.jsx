@@ -57,12 +57,43 @@ import {
 
 function ListeningFormPreview({ form, showAnswers }) {
   const [activeSection, setActiveSection] = useState(0)
+  const [leftPct, setLeftPct] = useState(45)
+  const [dragging, setDragging] = useState(false)
+  const containerRef = useRef(null)
+
   const section = form.sections[activeSection]
+  const audioSrc = section?.audioUrl ? toImgSrc(section.audioUrl) : null
+
+  const onDividerPointerDown = (e) => {
+    e.preventDefault()
+    const container = containerRef.current
+    const divider = e.currentTarget
+    if (!container) return
+    try { divider.setPointerCapture(e.pointerId) } catch { /* unsupported */ }
+    setDragging(true)
+    const onPointerMove = (ev) => {
+      const rect = container.getBoundingClientRect()
+      const pct = ((ev.clientX - rect.left) / rect.width) * 100
+      setLeftPct(Math.min(75, Math.max(25, pct)))
+    }
+    const stop = () => {
+      setDragging(false)
+      try { divider.releasePointerCapture(e.pointerId) } catch { /* noop */ }
+      divider.removeEventListener('pointermove', onPointerMove)
+      divider.removeEventListener('pointerup', stop)
+      divider.removeEventListener('pointercancel', stop)
+      window.removeEventListener('mouseleave', stop)
+    }
+    divider.addEventListener('pointermove', onPointerMove)
+    divider.addEventListener('pointerup', stop)
+    divider.addEventListener('pointercancel', stop)
+    window.addEventListener('mouseleave', stop)
+  }
 
   return (
-    <div>
+    <div className="flex flex-col flex-1 h-full overflow-hidden">
       {/* Section tabs */}
-      <div className="flex gap-1.5 mb-4 flex-wrap">
+      <div className="flex gap-2 mb-3 shrink-0 flex-wrap">
         {form.sections.map((s, si) => {
           const total = s.questionGroups.reduce((acc, g) => acc + (g.qNumberEnd - g.qNumberStart + 1), 0)
           const isActive = activeSection === si
@@ -71,12 +102,11 @@ function ListeningFormPreview({ form, showAnswers }) {
               key={si}
               type="button"
               onClick={() => setActiveSection(si)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition"
-              style={{
-                background: isActive ? '#18181b' : '#fff',
-                color: isActive ? '#fff' : '#18181b',
-                borderColor: isActive ? '#18181b' : '#e4e4e7',
-              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer ${
+                isActive
+                  ? 'bg-zinc-900 text-white border-zinc-900 shadow-xs'
+                  : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'
+              }`}
             >
               Section {s.number}
               <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-zinc-100 text-zinc-600'}`}>
@@ -87,21 +117,71 @@ function ListeningFormPreview({ form, showAnswers }) {
         })}
       </div>
 
-      {/* Active section content */}
+      {/* Active section content in 2-column layout */}
       {section && (
-        <div>
-          {section.context && (
-            <p className="text-xs text-zinc-500 italic mb-3 border-l-2 border-zinc-300 pl-2">{section.context}</p>
-          )}
-          {section.questionGroups.length > 0 ? (
-            <div className="space-y-3">
-              {section.questionGroups.map((group, gi) => (
-                <AdminGroupPreview key={gi} group={group} showAnswers={showAnswers} />
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-zinc-400 italic">Chưa có câu hỏi</p>
-          )}
+        <div
+          ref={containerRef}
+          className="flex flex-1 border border-zinc-200 rounded-xl overflow-hidden bg-white shadow-xs"
+          style={{ userSelect: dragging ? 'none' : 'auto' }}
+        >
+          {/* CỘT TRÁI (Audio, Tình huống, Transcript) */}
+          <div className="overflow-y-auto bg-white p-6 space-y-4" style={{ width: `${leftPct}%`, flexShrink: 0 }}>
+            {audioSrc ? (
+              <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-200 shadow-2xs">
+                <p className="text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Volume2 className="w-3.5 h-3.5 text-zinc-600" />
+                  <span>File Audio bài nghe</span>
+                </p>
+                <audio controls src={audioSrc} key={audioSrc} className="w-full h-10 rounded-lg" />
+              </div>
+            ) : (
+              <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl text-xs text-amber-800">
+                Chưa có file Audio cho Section này.
+              </div>
+            )}
+
+            {section.context && (
+              <div className="bg-zinc-50/70 p-4 rounded-xl border border-zinc-200">
+                <p className="text-xs font-bold text-zinc-600 uppercase tracking-wider mb-1.5">Mô tả tình huống (Context)</p>
+                <p className="text-sm text-zinc-700 leading-relaxed italic">{section.context}</p>
+              </div>
+            )}
+
+            {section.transcript ? (
+              <div className="bg-white rounded-xl border border-zinc-200 p-4 shadow-2xs">
+                <div className="flex items-center justify-between mb-2 pb-2 border-b border-zinc-100">
+                  <p className="text-xs font-bold text-zinc-700 uppercase tracking-wider">Transcript (Lời thoại)</p>
+                  <span className="text-[11px] text-zinc-400">Xem kèm đối chiếu</span>
+                </div>
+                <p className="text-sm text-zinc-700 leading-7 whitespace-pre-wrap font-normal">{section.transcript}</p>
+              </div>
+            ) : (
+              !section.context && !audioSrc && (
+                <p className="text-sm text-zinc-400 italic">Chưa có thông tin bài nghe</p>
+              )
+            )}
+          </div>
+
+          {/* Divider */}
+          <div
+            onPointerDown={onDividerPointerDown}
+            style={{ width: 5, cursor: 'col-resize', flexShrink: 0, touchAction: 'none', background: dragging ? '#18181b' : '#e4e4e7', transition: dragging ? 'none' : 'background 0.15s' }}
+            onMouseEnter={e => { if (!dragging) e.currentTarget.style.background = '#a1a1aa' }}
+            onMouseLeave={e => { if (!dragging) e.currentTarget.style.background = '#e4e4e7' }}
+          />
+
+          {/* CỘT PHẢI (Danh sách câu hỏi + giải thích) */}
+          <div className="flex-1 overflow-y-auto bg-zinc-50 p-6">
+            {section.questionGroups.length > 0 ? (
+              <div className="space-y-4">
+                {section.questionGroups.map((group, gi) => (
+                  <AdminGroupPreview key={gi} group={group} showAnswers={showAnswers} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-zinc-400 italic text-center mt-10">Chưa có câu hỏi cho section này</p>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -1055,7 +1135,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       <form ref={formRef} onSubmit={handleSubmit} aria-busy={loadingEdit}
         className={`bg-white rounded-2xl p-6 border shadow-xs transition-all duration-500 ${loadingEdit ? 'opacity-60 pointer-events-none select-none' : ''} ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-zinc-200'}`}>
         <h3 className="text-sm font-semibold text-zinc-900 mb-5">
-          {editingId ? `Sửa đề Listening #${editingId}` : 'Tạo đề Listening mới'}
+          {editingId ? (form.title ? `Sửa đề Listening: ${form.title}` : 'Sửa đề Listening') : 'Tạo đề Listening mới'}
         </h3>
 
         {error && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg mb-4 text-sm whitespace-pre-line">{error}</div>}
@@ -1086,7 +1166,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         {editingId && (
           <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-3 mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm font-semibold text-zinc-800">Đang sửa đề #{editingId}</span>
+              <span className="text-sm font-semibold text-zinc-800">{form.title ? `Đang sửa đề: ${form.title}` : `Đang sửa đề ${editingId}`}</span>
               <ExamExplanationOverviewBadge stats={examStats} />
             </div>
             <div className="flex items-center gap-2">
@@ -1386,7 +1466,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
           }`}
         >
           <Eye className="w-4 h-4" />
-          <span>{showPreview ? 'Thu gọn preview' : 'Xem trước nội dung đề'}</span>
+          <span>{showPreview ? 'Đóng preview' : 'Preview nội dung đề'}</span>
         </button>
       </form>
       </div>

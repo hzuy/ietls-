@@ -230,7 +230,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
       )}
       <form ref={formRef} onSubmit={handleSubmit} aria-busy={loadingEdit}
         className={`bg-white rounded-2xl p-6 border shadow-xs transition-all duration-500 ${loadingEdit ? 'opacity-60 pointer-events-none select-none' : ''} ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-zinc-200'}`}>
-        <h3 className="text-sm font-semibold text-zinc-900 mb-5">{editingId ? `Sửa đề Speaking #${editingId}` : 'Tạo đề Speaking mới'}</h3>
+        <h3 className="text-sm font-semibold text-zinc-900 mb-5">{editingId ? (form.title ? `Sửa đề Speaking: ${form.title}` : 'Sửa đề Speaking') : 'Tạo đề Speaking mới'}</h3>
 
         {error && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg mb-4 text-sm whitespace-pre-line">{error}</div>}
 
@@ -248,7 +248,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
 
         {editingId && (
           <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-3 mb-4 flex items-center justify-between">
-            <span className="text-sm font-semibold text-zinc-800">Đang sửa đề #{editingId}</span>
+            <span className="text-sm font-semibold text-zinc-800">{form.title ? `Đang sửa đề: ${form.title}` : `Đang sửa đề ${editingId}`}</span>
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => setShowPreview(v => !v)}
                 className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 transition shadow-2xs">
@@ -430,7 +430,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
           }`}
         >
           <Eye className="w-4 h-4" />
-          <span>{showPreview ? 'Thu gọn preview' : 'Xem trước nội dung đề'}</span>
+          <span>{showPreview ? 'Đóng preview' : 'Preview nội dung đề'}</span>
         </button>
       </form>
       </div>

@@ -85,7 +85,7 @@ describe('Batch 4: Comprehensive test suite for Exam Explanations', () => {
   it('prevents launching two concurrent AI tasks from the frontend', async () => {
     render(<ReadingTab exams={[]} onRefresh={vi.fn()} />)
     fireEvent.click(screen.getByText('Edit Reading 10'))
-    await waitFor(() => expect(screen.getByText('Đang sửa đề #10')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText(/Đang sửa đề/i)).toBeInTheDocument())
 
     // Simulate slow in-flight request
     let resolveFirstTask
@@ -115,7 +115,7 @@ describe('Batch 4: Comprehensive test suite for Exam Explanations', () => {
   it('safely handles closing modals and re-opening without stale state', async () => {
     render(<ReadingTab exams={[]} onRefresh={vi.fn()} />)
     fireEvent.click(screen.getByText('Edit Reading 10'))
-    await waitFor(() => expect(screen.getByText('Đang sửa đề #10')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText(/Đang sửa đề/i)).toBeInTheDocument())
 
     // Make an unsaved edit
     const bodyInput = screen.getByPlaceholderText(/Dán toàn bộ nội dung bài đọc vào đây/i)

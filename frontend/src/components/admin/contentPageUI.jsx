@@ -62,9 +62,8 @@ export function DraftBanner({
 }) {
   if (!draft) return null
 
-  const savedAt = draft.savedAt
   const hasDiffInfo = diffInfo && typeof diffInfo === 'object'
-  const explanationCount = hasDiffInfo ? diffInfo.draftExplanationCount : null
+  const explanationCount = hasDiffInfo ? diffInfo.draftExplanationCount : (draft?.explanationCount ?? 0)
   const differentCount = hasDiffInfo ? diffInfo.differentCount : 0
 
   return (
@@ -74,16 +73,9 @@ export function DraftBanner({
         <div className="space-y-0.5">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-zinc-900">Bạn có bản nháp chưa lưu.</span>
-            {savedAt && (
-              <span className="text-[11px] text-zinc-500 font-normal">
-                (Lưu lúc {savedAt})
-              </span>
-            )}
           </div>
           <div className="text-[11px] text-zinc-600 space-y-0.5">
-            {explanationCount !== null && (
-              <p>• Nháp có {explanationCount} câu có giải thích.</p>
-            )}
+            <p>• Nháp có {explanationCount ?? 0} câu có giải thích.</p>
             {differentCount > 0 ? (
               <p className="text-amber-800 font-medium">
                 • Có {differentCount} câu có giải thích khác với dữ liệu hiện tại trong hệ thống.
