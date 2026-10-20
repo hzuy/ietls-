@@ -770,12 +770,22 @@ export default function QuestionExplanationModal({
           {activeTab === 'feedback' && (
             <div className="space-y-4">
               {regenError && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-700 flex items-start gap-2.5">
-                  <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold">Không thể tạo lại: </span>
-                    {regenError}
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-700 flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2.5">
+                    <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold">Không thể tạo lại: </span>
+                      {regenError}
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRegenerate()}
+                    disabled={isRegenerating}
+                    className="shrink-0 px-2.5 py-1 text-xs font-semibold bg-white border border-red-200 text-red-700 rounded-lg hover:bg-red-100 transition cursor-pointer"
+                  >
+                    Thử lại ngay
+                  </button>
                 </div>
               )}
 
@@ -1481,7 +1491,15 @@ export default function QuestionExplanationModal({
 
               <div className="space-y-3 text-xs text-zinc-700">
                 <p className="text-zinc-800 leading-relaxed m-0">
-                  AI giải mù độc lập dựa trên bài đọc ra kết quả <span className="font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-mono border border-amber-200">"{conflictData.aiBlindAnswer}"</span>, <strong>KHÔNG khớp</strong> với đáp án <span className="font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded font-mono border border-red-200">"{conflictData.proposedAnswer}"</span> bạn đề xuất.
+                  {conflictData.isFeedbackOnly ? (
+                    <>
+                      AI giải mù độc lập dựa trên bài đọc ra kết quả <span className="font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-mono border border-amber-200">"{conflictData.aiBlindAnswer}"</span>, <strong>KHÁC</strong> với đáp án <span className="font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded font-mono border border-red-200">"{conflictData.currentAnswer}"</span> đang lưu của câu hỏi.
+                    </>
+                  ) : (
+                    <>
+                      AI giải mù độc lập dựa trên bài đọc ra kết quả <span className="font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-mono border border-amber-200">"{conflictData.aiBlindAnswer}"</span>, <strong>KHÔNG khớp</strong> với đáp án <span className="font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded font-mono border border-red-200">"{conflictData.proposedAnswer}"</span> bạn đề xuất.
+                    </>
+                  )}
                 </p>
 
                 {conflictData.evidence && (
@@ -1501,8 +1519,21 @@ export default function QuestionExplanationModal({
                   type="button"
                   onClick={() => {
                     const ans = conflictData.aiBlindAnswer
+                    const cur = conflictData.currentAnswer
+                    const count = conflictData.attemptCount || 0
+                    const ev = conflictData.evidence || ''
+                    const re = conflictData.reasoning || ''
                     setConflictData(null)
-                    handleRegenerate({ confirmChangeAnswer: true, overrideProposed: ans })
+                    // BẮT BUỘC qua bước xác nhận đổi đáp án kèm cảnh báo lượt thi
+                    setConfirmDialogData({
+                      proposedAnswer: ans,
+                      currentAnswer: cur,
+                      aiBlindAnswer: ans,
+                      attemptCount: count,
+                      evidence: ev,
+                      reasoning: re,
+                      message: `Bạn đã chọn dùng đáp án của AI ("${ans}"). Bạn có chắc chắn muốn đổi đáp án chuẩn từ "${cur}" thành "${ans}" không?`,
+                    })
                   }}
                   disabled={isRegenerating}
                   className="w-full py-2.5 px-3 rounded-xl text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition flex items-center justify-center gap-1.5 cursor-pointer"

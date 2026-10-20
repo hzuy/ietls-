@@ -205,7 +205,7 @@ describe('PHẦN C (L2): Proposed Answer & Blind Solving Workflow', () => {
       passage: { body: 'Sample passage text', examId: 10 },
     }
 
-    it('When teacher gives feedback and AI blind solve disagrees with stored answer, does NOT defend wrong answer and sets conflict_pending', async () => {
+    it('When teacher gives feedback and AI blind solve disagrees with stored answer, does NOT defend wrong answer and returns conflict without overwriting', async () => {
       prismaMock.question.findFirst.mockResolvedValue(mockQuestion)
 
       // AI blind finds 'B' (differs from stored 'A')
@@ -223,24 +223,12 @@ describe('PHẦN C (L2): Proposed Answer & Blind Solving Workflow', () => {
         teacherFeedback: 'Explain more clearly why A is correct', // Teacher tries to steer towards wrong A
       })
 
-      expect(res.ok).toBe(true)
-      expect(res.status).toBe('conflict_pending')
+      expect(res.conflict).toBe(true)
       expect(res.isConflict).toBe(true)
-      expect(res.explanation.aiAnswer).toBe('B')
-      expect(res.explanation.teacher_note).toContain('AI chọn "B"')
-
-      // Verify that explanation saved in DB is conflict_pending
-      expect(prismaMock.question.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: 502 },
-          data: {
-            explanation: expect.objectContaining({
-              status: 'conflict_pending',
-              aiAnswer: 'B',
-            }),
-          },
-        })
-      )
+      expect(res.status).toBe('conflict_pending')
+      expect(res.isFeedbackOnly).toBe(true)
+      expect(res.aiBlindAnswer).toBe('B')
+      expect(res.currentAnswer).toBe('A')
     })
 
     it('When question was already teacher_reviewed, trusts teacher answer and skips blind check', async () => {

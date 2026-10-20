@@ -382,6 +382,86 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
       expect(screen.getByRole('button', { name: /Giữ nguyên đáp án đang lưu \("Oxygen"\)/i })).toBeInTheDocument()
     })
 
+    it('handles Flow X (feedback only with AI disagreement) and prompts confirmation when teacher picks AI answer', async () => {
+      api.post.mockResolvedValueOnce({
+        data: {
+          ok: false,
+          conflict: true,
+          isFeedbackOnly: true,
+          currentAnswer: 'Oxygen',
+          aiBlindAnswer: 'Nitrogen',
+          attemptCount: 5,
+          evidence: 'Nitrogen makes up 78% of air.',
+          message: 'AI giải độc lập ra đáp án "Nitrogen" (khác với đáp án "Oxygen" đang lưu).',
+        },
+      })
+
+      render(
+        <QuestionExplanationModal
+          isOpen={true}
+          onClose={vi.fn()}
+          examId={10}
+          questionNumber={1}
+          isPractice={true}
+          skill="reading"
+          question={sampleQuestion}
+          initialExplanation={sampleExplanation}
+        />
+      )
+
+      fireEvent.click(screen.getByRole('tab', { name: /Góp ý & Tạo lại/i }))
+      const feedbackInput = screen.getByPlaceholderText(/Hãy giải thích rõ hơn/i)
+      fireEvent.change(feedbackInput, { target: { value: 'Đáp án hình như là Nitrogen' } })
+      fireEvent.click(screen.getByRole('button', { name: /Tạo lại lời giải với AI/i }))
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: /AI giải độc lập không khớp/i })).toBeInTheDocument()
+      })
+      expect(screen.getByText(/KHÁC/i)).toBeInTheDocument()
+
+      // Teacher clicks "Đồng ý với đáp án của AI ("Nitrogen")"
+      const pickAiBtn = screen.getByRole('button', { name: /Đồng ý với đáp án của AI \("Nitrogen"\)/i })
+      fireEvent.click(pickAiBtn)
+
+      // It MUST open confirmation dialog with attempt warning
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: /Xác nhận đổi đáp án chuẩn/i })).toBeInTheDocument()
+      })
+      expect(screen.getByText(/Cảnh báo lượt làm bài của học sinh/i)).toBeInTheDocument()
+      expect(screen.getByText('5')).toBeInTheDocument()
+    })
+
+    it('shows retry button when FALLBACK_NOT_ALLOWED or AI busy occurs', async () => {
+      api.post.mockResolvedValueOnce({
+        data: {
+          ok: false,
+          error: 'FALLBACK_NOT_ALLOWED',
+          message: 'AI chính đang bận, hãy thử lại sau.',
+        },
+      })
+
+      render(
+        <QuestionExplanationModal
+          isOpen={true}
+          onClose={vi.fn()}
+          examId={10}
+          questionNumber={1}
+          isPractice={true}
+          skill="reading"
+          question={sampleQuestion}
+          initialExplanation={sampleExplanation}
+        />
+      )
+
+      fireEvent.click(screen.getByRole('tab', { name: /Góp ý & Tạo lại/i }))
+      fireEvent.click(screen.getByRole('button', { name: /Tạo lại lời giải với AI/i }))
+
+      await waitFor(() => {
+        expect(screen.getByText(/AI chính đang bận, hãy thử lại sau/i)).toBeInTheDocument()
+      })
+      expect(screen.getByRole('button', { name: /Thử lại ngay/i })).toBeInTheDocument()
+    })
+
     it('allows manual editing of fields safely without dangerouslySetInnerHTML', async () => {
       api.put.mockResolvedValueOnce({
         data: {

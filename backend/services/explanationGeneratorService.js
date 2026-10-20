@@ -1571,6 +1571,45 @@ async function updatePracticeQuestionExplanationTx(practiceQuestionId, updaterFn
  * - Proposed answer flow (blind solve, confirmation, fallback blocking, attempt warning)
  * - Teacher feedback flow (blind verify to avoid defending wrong answers)
  */
+async function solveBlindWithGeminiRetry(qCtx, family, ctx) {
+  let lastErr = null
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const exp = await generateExplanation(qCtx, family, ctx, {
+        isFixedMode: false,
+        targetAnswer: null,
+        teacherFeedback: null,
+        forceProvider: 'Gemini',
+      })
+      const isFallback = Boolean(
+        exp?.isFallback ||
+        (exp?.provider && exp.provider.toLowerCase() !== 'gemini')
+      )
+      if (!isFallback && exp && exp.answer) {
+        return { ok: true, explanation: exp }
+      }
+    } catch (err) {
+      if (err instanceof ExplanationValidationError) {
+        return {
+          ok: false,
+          error: 'EVIDENCE_NOT_FOUND',
+          message: 'Không thể xác thực bằng chứng nguyên văn khi giải mù: ' + err.message,
+        }
+      }
+      lastErr = err
+    }
+    if (attempt < 2) {
+      await new Promise((r) => setTimeout(r, 1000))
+    }
+  }
+  return {
+    ok: false,
+    error: 'FALLBACK_NOT_ALLOWED',
+    message: 'AI chính đang bận, hãy thử lại sau. (Hệ thống không dùng AI dự phòng để quyết định đổi đáp án chuẩn)',
+    details: lastErr?.message,
+  }
+}
+
 async function handleRegenerateCore({
   qCtx,
   family,
@@ -1651,41 +1690,12 @@ async function handleRegenerateCore({
         message: `Đã cập nhật đáp án chuẩn thành "${cleanProposed}" và tạo lời giải mới thành công!`,
       }
     } else {
-      // Step 1: Independent Blind Solve! (No feedback, no targetAnswer, force Gemini)
-      let blindExplanation
-      try {
-        blindExplanation = await generateExplanation(qCtx, family, ctx, {
-          isFixedMode: false,
-          targetAnswer: null,
-          teacherFeedback: null,
-          forceProvider: 'Gemini',
-        })
-      } catch (err) {
-        if (err instanceof ExplanationValidationError) {
-          return {
-            ok: false,
-            error: 'EVIDENCE_NOT_FOUND',
-            message: 'Không thể xác thực bằng chứng nguyên văn khi giải mù: ' + err.message,
-          }
-        }
-        throw err
+      // Step 1: Independent Blind Solve! (No feedback, no targetAnswer, force Gemini with retry)
+      const blindRes = await solveBlindWithGeminiRetry(qCtx, family, ctx)
+      if (!blindRes.ok) {
+        return blindRes
       }
-
-      if (!blindExplanation) {
-        return { ok: false, message: 'AI giải độc lập không đưa ra được kết quả.' }
-      }
-
-      const isFallbackResult = Boolean(
-        blindExplanation?.isFallback ||
-        (blindExplanation?.provider && blindExplanation.provider.toLowerCase() !== 'gemini')
-      )
-      if (isFallbackResult) {
-        return {
-          ok: false,
-          error: 'FALLBACK_NOT_ALLOWED',
-          message: 'AI chính đang bận hoặc gặp sự cố, hệ thống không dùng AI dự phòng để quyết định đổi đáp án chuẩn. Vui lòng thử lại sau.',
-        }
-      }
+      const blindExplanation = blindRes.explanation
 
       const aiBlindAnswer = String(blindExplanation.answer || '').trim()
       const matchProposed = isAnswerMatch(cleanProposed, aiBlindAnswer, rawOptions, qCtx.type)
@@ -1711,6 +1721,7 @@ async function handleRegenerateCore({
           proposedAnswer: cleanProposed,
           currentAnswer: inputAnswer,
           aiBlindAnswer,
+          attemptCount,
           evidence: blindExplanation.evidence?.parts?.[0]?.text || '',
           reasoning: blindExplanation.reasoning || '',
           message: `AI giải độc lập ra "${aiBlindAnswer}" (dựa trên bài đọc), KHÔNG khớp với đáp án "${cleanProposed}" bạn đề xuất. Lời giải chưa được lưu.`,
@@ -1724,29 +1735,17 @@ async function handleRegenerateCore({
     const isTeacherReviewed = oldExp && oldExp.status === 'teacher_reviewed'
     if (!isTeacherReviewed) {
       // Run 1 blind check to see if AI still supports inputAnswer
-      let blindExp
-      try {
-        blindExp = await generateExplanation(qCtx, family, ctx, {
-          isFixedMode: false,
-          targetAnswer: null,
-          teacherFeedback: null,
-        })
-      } catch (err) {
-        if (err instanceof ExplanationValidationError) {
-          return {
-            ok: false,
-            error: 'EVIDENCE_NOT_FOUND',
-            message: 'Không thể xác thực bằng chứng nguyên văn: ' + err.message,
-          }
-        }
-        throw err
+      const blindRes = await solveBlindWithGeminiRetry(qCtx, family, ctx)
+      if (!blindRes.ok) {
+        return blindRes
       }
-
+      const blindExp = blindRes.explanation
       const aiBlindAnswer = String(blindExp?.answer || '').trim()
       const matchCurrent = isAnswerMatch(inputAnswer, aiBlindAnswer, rawOptions, qCtx.type)
 
       if (!matchCurrent) {
         // AI disagrees with current answer! Do NOT manufacture false defense.
+        // Return conflict for modal selection (Flow X) without overwriting correct explanation.
         const conflictExp = {
           ...(blindExp || oldExp),
           status: 'conflict_pending',
@@ -1756,14 +1755,20 @@ async function handleRegenerateCore({
           teacherFeedback: cleanFeedback,
           updatedAt: new Date().toISOString(),
         }
-        await saveExplanation(conflictExp)
 
         return {
           ok: true,
-          status: 'conflict_pending',
+          conflict: true,
           isConflict: true,
+          status: 'conflict_pending',
+          isFeedbackOnly: true,
+          currentAnswer: inputAnswer,
+          aiBlindAnswer,
+          attemptCount,
           explanation: conflictExp,
-          message: 'AI sinh giải thích nhưng đáp án lệch so với đáp án câu hỏi. Trạng thái được đặt là Chờ duyệt (ẩn khỏi học sinh).',
+          evidence: blindExp.evidence?.parts?.[0]?.text || '',
+          reasoning: blindExp.reasoning || '',
+          message: `AI giải độc lập ra đáp án "${aiBlindAnswer}" (khác với đáp án "${inputAnswer}" đang lưu của câu hỏi). Lời giải chưa được lưu.`,
         }
       }
     }
