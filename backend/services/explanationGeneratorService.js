@@ -921,8 +921,34 @@ async function generateForPracticeExam(examId, {
     const inputAnswer = String(qCtx.correctAnswer || '').trim()
     const rawOptions = qCtx.options || (group.matchingOptions?.length ? group.matchingOptions : null)
 
+    // Nếu lần giải mù trước đó AI đã tự ra một đáp án KHÁC đáp án giáo viên muốn giữ thì
+    // không gọi AI sinh lời giải cho đáp án đó nữa (tránh bịa dẫn chứng).
+    let knownIndependentAnswer = String(existing?.aiAnswer || '').trim()
+    if (choice === 'input' && !knownIndependentAnswer) {
+      // Chưa có kết quả độc lập nào được lưu -> phải giải mù thật ở lượt gọi RIÊNG
+      // (không chứa đáp án đã chốt) rồi mới đối chiếu.
+      const blind = await solveBlindWithGeminiRetry(qCtx, family, ctx)
+      if (!blind.ok) {
+        failedQuestions.push({ number: qNum, message: blind.message || 'Không kiểm tra được đáp án độc lập' })
+        continue
+      }
+      knownIndependentAnswer = String(blind.explanation?.answer || '').trim()
+    }
+    const inputContradicted = choice === 'input'
+      && Boolean(knownIndependentAnswer)
+      && !isAnswerMatch(inputAnswer, knownIndependentAnswer, rawOptions, qCtx.type)
+
     try {
-      if (choice === 'input') {
+      if (inputContradicted) {
+        explanation = {
+          ...(existing || {}),
+          v: 2,
+          answer: inputAnswer,
+          no_support: true,
+          supportNote: `AI tự suy luận độc lập ra "${knownIndependentAnswer}", khác với đáp án "${inputAnswer}"`,
+          reasoning: '',
+        }
+      } else if (choice === 'input') {
         explanation = await withTimeout(
           generateExplanation(qCtx, family, ctx, { isFixedMode: true, targetAnswer: inputAnswer }),
           SINGLE_QUESTION_TIMEOUT_MS,
@@ -953,10 +979,20 @@ async function generateForPracticeExam(examId, {
     let adoptedAiAnswer = null
 
     if (choice === 'input') {
-      if (explanation.no_support) {
+      // Giáo viên chọn giữ đáp án của mình. Kiểm tra 2 tín hiệu độc lập (no_support +
+      // đáp án AI tự suy luận) để không lưu lời giải bịa dẫn chứng cho đáp án sai.
+      const supportCheck = evaluateFixedModeSupport({
+        explanation,
+        targetAnswer: inputAnswer,
+        rawOptions,
+        qType: qCtx.type,
+        independentAnswer: knownIndependentAnswer,
+      })
+
+      if (!supportCheck.supported) {
         explanation.status = 'needs_regeneration'
         explanation.teacherKeptAnswer = inputAnswer
-        explanation.needsRegenerationReason = 'AI không tìm thấy bằng chứng trong bài đọc ủng hộ đáp án này'
+        explanation.needsRegenerationReason = supportCheck.reason
         explanation.teacher_note = `AI không tìm thấy bằng chứng ủng hộ đáp án "${inputAnswer}". Cần sửa trực tiếp.`
       } else if (!match) {
         explanation.status = 'needs_regeneration'
@@ -1337,8 +1373,34 @@ async function generateForExam(examId, {
     const inputAnswer = String(q.correctAnswer || '').trim()
     const rawOptions = q.options || (q.group?.matchingOptions?.length ? q.group.matchingOptions : null)
 
+    // Nếu lần giải mù trước đó AI đã tự ra một đáp án KHÁC đáp án giáo viên muốn giữ thì
+    // không gọi AI sinh lời giải cho đáp án đó nữa (tránh bịa dẫn chứng).
+    let knownIndependentAnswer = String(q.explanation?.aiAnswer || '').trim()
+    if (choice === 'input' && !knownIndependentAnswer) {
+      // Chưa có kết quả độc lập nào được lưu -> phải giải mù thật ở lượt gọi RIÊNG
+      // (không chứa đáp án đã chốt) rồi mới đối chiếu.
+      const blind = await solveBlindWithGeminiRetry(q, family, ctx)
+      if (!blind.ok) {
+        failedQuestions.push({ number: q.number, message: blind.message || 'Không kiểm tra được đáp án độc lập' })
+        continue
+      }
+      knownIndependentAnswer = String(blind.explanation?.answer || '').trim()
+    }
+    const inputContradicted = choice === 'input'
+      && Boolean(knownIndependentAnswer)
+      && !isAnswerMatch(inputAnswer, knownIndependentAnswer, rawOptions, q.type)
+
     try {
-      if (choice === 'input') {
+      if (inputContradicted) {
+        explanation = {
+          ...(q.explanation || {}),
+          v: 2,
+          answer: inputAnswer,
+          no_support: true,
+          supportNote: `AI tự suy luận độc lập ra "${knownIndependentAnswer}", khác với đáp án "${inputAnswer}"`,
+          reasoning: '',
+        }
+      } else if (choice === 'input') {
         explanation = await withTimeout(
           generateExplanation(q, family, ctx, { isFixedMode: true, targetAnswer: inputAnswer }),
           SINGLE_QUESTION_TIMEOUT_MS,
@@ -1368,10 +1430,20 @@ async function generateForExam(examId, {
     const match = isAnswerMatch(inputAnswer, aiAnswer, rawOptions, q.type)
 
     if (choice === 'input') {
-      if (explanation.no_support) {
+      // Giáo viên chọn giữ đáp án của mình. Kiểm tra 2 tín hiệu độc lập (no_support +
+      // đáp án AI tự suy luận) để không lưu lời giải bịa dẫn chứng cho đáp án sai.
+      const supportCheck = evaluateFixedModeSupport({
+        explanation,
+        targetAnswer: inputAnswer,
+        rawOptions,
+        qType: q.type,
+        independentAnswer: knownIndependentAnswer,
+      })
+
+      if (!supportCheck.supported) {
         explanation.status = 'needs_regeneration'
         explanation.teacherKeptAnswer = inputAnswer
-        explanation.needsRegenerationReason = 'AI không tìm thấy bằng chứng trong bài đọc ủng hộ đáp án này'
+        explanation.needsRegenerationReason = supportCheck.reason
         explanation.teacher_note = `AI không tìm thấy bằng chứng ủng hộ đáp án "${inputAnswer}". Cần sửa trực tiếp.`
       } else if (!match) {
         explanation.status = 'needs_regeneration'
@@ -1630,6 +1702,34 @@ async function updatePracticeQuestionExplanationTx(practiceQuestionId, updaterFn
 }
 
 /**
+ * Điều kiện tra câu hỏi của một đề Cambridge.
+ * CHÚ Ý: chỉ tra theo `id` khi caller THỰC SỰ truyền questionId. Nếu chỉ có
+ * questionNumber mà lại dùng `{ id: questionNumber }` thì có thể khớp nhầm một câu
+ * hỏi của đề khác (id trùng số thứ tự) và ghi lời giải sai chỗ.
+ */
+function buildExamQuestionWhere({ questionId, questionNumber, examId }) {
+  const numericId = Number.parseInt(questionId, 10)
+  const hasId = Number.isFinite(numericId) && numericId > 0
+  const numericNumber = Number.parseInt(questionNumber, 10)
+  const hasNumber = Number.isFinite(numericNumber) && numericNumber > 0
+
+  const or = []
+  if (hasId) or.push({ id: numericId })
+  if (hasNumber) {
+    or.push({
+      number: numericNumber,
+      OR: [
+        { passage: { examId } },
+        { listeningSection: { examId } },
+        { group: { passage: { examId } } },
+        { group: { section: { examId } } },
+      ],
+    })
+  }
+  return { OR: or }
+}
+
+/**
  * Core regeneration logic shared across Practice and Exam.
  * Handles L2 requirements:
  * - Proposed answer flow (blind solve, confirmation, fallback blocking, attempt warning)
@@ -1705,41 +1805,92 @@ async function handleRegenerateCore({
 }) {
   const isChangingAnswer = Boolean(cleanProposed && !isAnswerMatch(inputAnswer, cleanProposed, rawOptions, qCtx.type))
 
+  // Đáp án AI tự suy luận độc lập (từ giải mù hoặc từ xung đột đã biết trước đó).
+  // null = chưa có tín hiệu đáng tin cậy.
+  let verifiedIndependentAnswer = String(oldExp?.aiAnswer || '').trim() || null
+
   // ─── BRANCH 1: TEACHER PROPOSES A NEW ANSWER ──────────────────────────────
   if (isChangingAnswer) {
     if (confirmChangeAnswer) {
       // Step 2: Teacher confirmed changing the answer!
+      // Xác định đáp án AI TỰ suy luận độc lập (không bị neo vào đáp án đã chốt) TRƯỚC
+      // khi sinh lời giải: tái dùng kết quả xung đột đã biết, nếu chưa có thì chạy giải mù.
+      const independent = await resolveIndependentAnswer({
+        qCtx,
+        family,
+        ctx,
+        knownAnswer: oldExp?.status === 'conflict_pending' ? oldExp?.aiAnswer : null,
+        signal,
+      })
+      if (!independent.ok) {
+        return independent.blindRes
+      }
+
       await updateCorrectAnswer(cleanProposed)
 
+      const contradicted = Boolean(
+        independent.aiAnswer &&
+        !isAnswerMatch(cleanProposed, independent.aiAnswer, rawOptions, qCtx.type)
+      )
+
       let explanation
-      try {
-        explanation = await generateExplanation(qCtx, family, ctx, {
-          isFixedMode: true,
-          targetAnswer: cleanProposed,
-          teacherFeedback: cleanFeedback,
-          signal,
-        })
-      } catch (err) {
-        if (err instanceof ExplanationValidationError) {
-          return {
-            ok: false,
-            error: 'EVIDENCE_NOT_FOUND',
-            message: 'Không thể xác thực bằng chứng nguyên văn: ' + err.message,
-          }
+      let supportCheck = null
+
+      if (contradicted) {
+        // Biết chắc bài đọc không ủng hộ đáp án mới -> KHÔNG gọi AI sinh lời giải nữa,
+        // tránh sinh ra nội dung bịa dẫn chứng. Đáp án vẫn được đổi theo xác nhận của
+        // giáo viên, nhưng lời giải bị ẩn khỏi học sinh.
+        explanation = {
+          ...(oldExp || {}),
+          v: 2,
+          status: 'needs_regeneration',
+          answer: cleanProposed,
+          teacherKeptAnswer: cleanProposed,
+          needsRegenerationReason: `AI tự suy luận độc lập ra "${independent.aiAnswer}", khác với đáp án "${cleanProposed}" vừa chốt`,
+          teacher_note: `Đã đổi đáp án sang "${cleanProposed}" nhưng AI tự suy luận ra "${independent.aiAnswer}". Không tạo lời giải tự động để tránh nội dung sai. Cần sửa trực tiếp.`,
         }
-        throw err
-      }
-
-      if (!explanation) {
-        return { ok: false, message: 'AI không tạo được giải thích cho đáp án mới này.' }
-      }
-
-      if (explanation.no_support) {
-        explanation.status = 'needs_regeneration'
-        explanation.teacher_note = `Đã đổi đáp án sang "${cleanProposed}" nhưng AI không tìm thấy bằng chứng ủng hộ. Cần sửa trực tiếp.`
       } else {
-        explanation.status = 'ai_generated'
-        explanation.teacher_note = `Đã đổi đáp án chuẩn từ "${inputAnswer}" sang "${cleanProposed}" theo xác nhận của giáo viên.`
+        try {
+          explanation = await generateExplanation(qCtx, family, ctx, {
+            isFixedMode: true,
+            targetAnswer: cleanProposed,
+            teacherFeedback: cleanFeedback,
+            signal,
+          })
+        } catch (err) {
+          if (err instanceof ExplanationValidationError) {
+            return {
+              ok: false,
+              error: 'EVIDENCE_NOT_FOUND',
+              message: 'Không thể xác thực bằng chứng nguyên văn: ' + err.message,
+            }
+          }
+          throw err
+        }
+
+        if (!explanation) {
+          return { ok: false, message: 'AI không tạo được giải thích cho đáp án mới này.' }
+        }
+
+        // CHỐT AN TOÀN: không bao giờ lưu lời giải "cố bịa dẫn chứng" cho một đáp án mà
+        // bài đọc không ủng hộ.
+        supportCheck = evaluateFixedModeSupport({
+          explanation,
+          targetAnswer: cleanProposed,
+          rawOptions,
+          qType: qCtx.type,
+          independentAnswer: independent.aiAnswer,
+        })
+
+        if (!supportCheck.supported) {
+          explanation.status = 'needs_regeneration'
+          explanation.teacherKeptAnswer = cleanProposed
+          explanation.needsRegenerationReason = supportCheck.reason
+          explanation.teacher_note = `Đã đổi đáp án sang "${cleanProposed}" nhưng ${supportCheck.reason}. Cần sửa trực tiếp.`
+        } else {
+          explanation.status = 'ai_generated'
+          explanation.teacher_note = `Đã đổi đáp án chuẩn từ "${inputAnswer}" sang "${cleanProposed}" theo xác nhận của giáo viên.`
+        }
       }
 
       if (containsInternalJargon(explanation)) {
@@ -1766,7 +1917,9 @@ async function handleRegenerateCore({
         isConflict: false,
         updatedCorrectAnswer: cleanProposed,
         explanation,
-        message: `Đã cập nhật đáp án chuẩn thành "${cleanProposed}" và tạo lời giải mới thành công!`,
+        message: explanation.status === 'ai_generated'
+          ? `Đã cập nhật đáp án chuẩn thành "${cleanProposed}" và tạo lời giải mới thành công!`
+          : `Đã cập nhật đáp án chuẩn thành "${cleanProposed}" nhưng lời giải mới chưa đạt yêu cầu${explanation.needsRegenerationReason ? `: ${explanation.needsRegenerationReason}` : ''}. Vui lòng dùng "Sửa trực tiếp" để viết lời giải.`,
       }
     } else {
       // Step 1: Independent Blind Solve! (No feedback, no targetAnswer, force Gemini with retry)
@@ -1810,7 +1963,16 @@ async function handleRegenerateCore({
   }
 
   // ─── BRANCH 2: TEACHER ONLY GIVES FEEDBACK (OR NORMAL REGENERATE) ─────────
-  if (cleanFeedback) {
+  // Chạy "giải mù" (AI tự giải độc lập, KHÔNG biết đáp án đang lưu) trước khi sinh lời giải
+  // theo đáp án đã chốt. Đây là lớp phòng thủ chính: nếu bài đọc không ủng hộ đáp án đang
+  // lưu (admin nhập sai) thì AI tự lộ đáp án đúng thay vì "cố" bịa dẫn chứng.
+  // Áp dụng cho: có góp ý, hoặc lời giải cũ đã sửa tay / đang cần sinh lại.
+  const needsBlindCheck = Boolean(cleanFeedback)
+    || oldExp?.status === 'teacher_edited'
+    || oldExp?.status === 'needs_regeneration'
+    || Boolean(oldExp?.teacherKeptAnswer)
+
+  if (needsBlindCheck) {
     const isTeacherReviewed = oldExp && oldExp.status === 'teacher_reviewed'
     if (!isTeacherReviewed) {
       // Run 1 blind check to see if AI still supports inputAnswer
@@ -1820,6 +1982,7 @@ async function handleRegenerateCore({
       }
       const blindExp = blindRes.explanation
       const aiBlindAnswer = String(blindExp?.answer || '').trim()
+      verifiedIndependentAnswer = aiBlindAnswer || verifiedIndependentAnswer
       const matchCurrent = isAnswerMatch(inputAnswer, aiBlindAnswer, rawOptions, qCtx.type)
 
       if (!matchCurrent) {
@@ -1898,7 +2061,18 @@ async function handleRegenerateCore({
     (explanation?.provider && explanation.provider.toLowerCase() !== 'gemini')
   )
 
-  if (isFallbackResult && (!match || (isFixedMode && explanation.no_support))) {
+  // Đánh giá mức độ ủng hộ của bài đọc cho đáp án đã chốt (chỉ ở chế độ cố định).
+  const fixedSupport = isFixedMode
+    ? evaluateFixedModeSupport({
+        explanation,
+        targetAnswer: inputAnswer,
+        rawOptions,
+        qType: qCtx.type,
+        independentAnswer: verifiedIndependentAnswer,
+      })
+    : null
+
+  if (isFallbackResult && (!match || (fixedSupport && !fixedSupport.supported))) {
     const retryResult = await handleFallbackMismatchRetry({
       qCtx,
       family,
@@ -1926,11 +2100,25 @@ async function handleRegenerateCore({
     }
   }
 
-  if (isFixedMode && explanation.no_support) {
-    return {
-      ok: false,
-      error: 'NO_SUPPORT',
-      message: `Không tìm thấy bằng chứng trong bài đọc ủng hộ đáp án "${inputAnswer}". Bạn vui lòng sử dụng chức năng "Sửa trực tiếp" để viết lời giải thủ công.`,
+  if (isFixedMode) {
+    // Chế độ cố định: chỉ chấp nhận lời giải khi bài đọc THỰC SỰ ủng hộ đáp án đã chốt.
+    const supportCheck = evaluateFixedModeSupport({
+      explanation,
+      targetAnswer: inputAnswer,
+      rawOptions,
+      qType: qCtx.type,
+      independentAnswer: verifiedIndependentAnswer,
+    })
+    if (!supportCheck.supported) {
+      const extra = supportCheck.aiAnswer
+        ? ` (AI tự suy luận độc lập ra "${supportCheck.aiAnswer}")`
+        : ''
+      return {
+        ok: false,
+        error: 'NO_SUPPORT',
+        aiIndependentAnswer: supportCheck.aiAnswer || null,
+        message: `Không tìm thấy bằng chứng trong bài đọc ủng hộ đáp án "${inputAnswer}"${extra}. Bạn vui lòng sử dụng chức năng "Sửa trực tiếp" để viết lời giải thủ công.`,
+      }
     }
   }
 
@@ -1975,6 +2163,72 @@ async function handleRegenerateCore({
     message: (isFixedMode || match)
       ? 'Đã tạo lại giải thích thành công!'
       : 'AI sinh giải thích nhưng đáp án lệch so với đáp án câu hỏi. Trạng thái được đặt là Chờ duyệt (ẩn khỏi học sinh).',
+  }
+}
+
+/**
+ * Đánh giá xem lời giải "chế độ cố định" (giải thích theo đáp án đã chốt) có thực sự
+ * được bài đọc ủng hộ hay không.
+ *
+ * Bối cảnh: khi AI được yêu cầu bảo vệ một đáp án cụ thể, nó có thể "cố" tìm bằng
+ * chứng cho đáp án sai. Đã kiểm chứng thực tế: nếu hỏi AI "đáp án tự suy luận" ngay
+ * trong CÙNG prompt có chứa đáp án đã chốt thì AI bị "neo" theo đáp án đó, nên tín
+ * hiệu đó KHÔNG đáng tin. Vì vậy đáp án độc lập phải đến từ một LƯỢT GỌI RIÊNG
+ * (giải mù — `solveBlindWithGeminiRetry`) hoặc từ kết quả xung đột đã biết trước đó.
+ *
+ * @param {object} params
+ * @param {object} params.explanation    lời giải AI trả về ở chế độ cố định
+ * @param {string} params.targetAnswer   đáp án đã chốt
+ * @param {string|null} params.independentAnswer  đáp án AI tự giải độc lập (từ giải mù)
+ * @returns {{supported: boolean, aiAnswer: string|null, reason: string|null}}
+ */
+function evaluateFixedModeSupport({
+  explanation,
+  targetAnswer,
+  rawOptions = null,
+  qType = null,
+  independentAnswer = null,
+}) {
+  if (!explanation) {
+    return { supported: false, aiAnswer: null, reason: 'AI không tạo được lời giải' }
+  }
+
+  if (explanation.no_support) {
+    return {
+      supported: false,
+      aiAnswer: independentAnswer || null,
+      reason: explanation.supportNote || 'AI không tìm thấy bằng chứng trong bài ủng hộ đáp án này',
+    }
+  }
+
+  const independent = String(independentAnswer || '').trim()
+  if (independent && !isAnswerMatch(targetAnswer, independent, rawOptions, qType)) {
+    return {
+      supported: false,
+      aiAnswer: independent,
+      reason: `AI tự suy luận độc lập ra đáp án "${independent}", khác với đáp án "${targetAnswer}" đã chốt`,
+    }
+  }
+
+  return { supported: true, aiAnswer: independent || null, reason: null }
+}
+
+/**
+ * Xác định đáp án AI TỰ SUY LUẬN ĐỘC LẬP (không bị neo vào đáp án đã chốt).
+ * Ưu tiên tái dùng kết quả xung đột đã biết (`aiAnswer` của lời giải cũ) để tiết
+ * kiệm 1 lượt gọi API; nếu chưa có thì chạy "giải mù" thật.
+ */
+async function resolveIndependentAnswer({ qCtx, family, ctx, knownAnswer = null, signal = null }) {
+  const known = String(knownAnswer || '').trim()
+  if (known) {
+    return { ok: true, aiAnswer: known, reused: true }
+  }
+  const blindRes = await solveBlindWithGeminiRetry(qCtx, family, ctx, { signal })
+  if (!blindRes.ok) return { ok: false, blindRes }
+  return {
+    ok: true,
+    aiAnswer: String(blindRes.explanation?.answer || '').trim(),
+    reused: false,
   }
 }
 
@@ -2100,22 +2354,8 @@ async function regenerateQuestionExplanation({
         })
       } else {
         // Cambridge / Full Exam
-        const qLookup = parseInt(questionId || questionNumber, 10)
         const question = await prisma.question.findFirst({
-          where: {
-            OR: [
-              { id: qLookup },
-              {
-                number: qLookup,
-                OR: [
-                  { passage: { examId: parsedExamId } },
-                  { listeningSection: { examId: parsedExamId } },
-                  { group: { passage: { examId: parsedExamId } } },
-                  { group: { section: { examId: parsedExamId } } },
-                ],
-              },
-            ],
-          },
+          where: buildExamQuestionWhere({ questionId, questionNumber, examId: parsedExamId }),
           select: {
             id: true,
             number: true,
@@ -2288,22 +2528,8 @@ async function updateManualExplanation({ examId, questionId = null, questionNumb
       message: 'Đã lưu chỉnh sửa lời giải thành công!',
     }
   } else {
-    const qLookup = parseInt(questionId || questionNumber, 10)
     const question = await prisma.question.findFirst({
-      where: {
-        OR: [
-          { id: qLookup },
-          {
-            number: qLookup,
-            OR: [
-              { passage: { examId: parsedExamId } },
-              { listeningSection: { examId: parsedExamId } },
-              { group: { passage: { examId: parsedExamId } } },
-              { group: { section: { examId: parsedExamId } } },
-            ],
-          },
-        ],
-      },
+      where: buildExamQuestionWhere({ questionId, questionNumber, examId: parsedExamId }),
       select: {
         id: true,
         number: true,
@@ -2443,22 +2669,8 @@ async function reviewQuestionExplanation({ examId, questionId = null, questionNu
       message: 'Đã duyệt lời giải thành công!',
     }
   } else {
-    const qLookup = parseInt(questionId || questionNumber, 10)
     const question = await prisma.question.findFirst({
-      where: {
-        OR: [
-          { id: qLookup },
-          {
-            number: qLookup,
-            OR: [
-              { passage: { examId: parsedExamId } },
-              { listeningSection: { examId: parsedExamId } },
-              { group: { passage: { examId: parsedExamId } } },
-              { group: { section: { examId: parsedExamId } } },
-            ],
-          },
-        ],
-      },
+      where: buildExamQuestionWhere({ questionId, questionNumber, examId: parsedExamId }),
       select: {
         id: true,
         number: true,
@@ -2533,6 +2745,7 @@ module.exports = {
   validateManualExplanation,
   updatePracticeQuestionExplanationTx,
   regenerateQuestionExplanation,
+  evaluateFixedModeSupport,
   updateManualExplanation,
   reviewQuestionExplanation,
 }

@@ -100,6 +100,15 @@ describe('PHẦN C (L2): Proposed Answer & Blind Solving Workflow', () => {
       prismaMock.question.findFirst.mockResolvedValue(mockQuestion)
       prismaMock.question.update.mockResolvedValue({ id: 501, correctAnswer: 'B' })
 
+      // Bước kiểm tra độc lập trước khi đổi đáp án (chưa có xung đột nào được lưu trước đó)
+      generateExplanationMock.mockResolvedValueOnce({
+        answer: 'B',
+        evidence: { parts: [{ text: 'Nitrogen makes up 78% of the atmosphere.', paragraph: 1 }] },
+        reasoning: 'Nitrogen is 78%.',
+        provider: 'Gemini',
+        isFallback: false,
+      })
+
       generateExplanationMock.mockResolvedValueOnce({
         answer: 'B',
         evidence: { parts: [{ text: 'Nitrogen makes up 78% of the atmosphere.', paragraph: 1 }] },
@@ -127,7 +136,7 @@ describe('PHẦN C (L2): Proposed Answer & Blind Solving Workflow', () => {
       )
 
       // 2. Verify generation in fixed mode with targetAnswer = 'B'
-      const [qCtx, family, ctx, options] = generateExplanationMock.mock.calls[0]
+      const [qCtx, family, ctx, options] = generateExplanationMock.mock.calls[1]
       expect(options.isFixedMode).toBe(true)
       expect(options.targetAnswer).toBe('B')
       expect(options.teacherFeedback).toBe('Focus on 78% figure')
@@ -288,6 +297,15 @@ describe('PHẦN C (L2): Proposed Answer & Blind Solving Workflow', () => {
       prismaMock.practiceExam.findUnique.mockResolvedValue(mockPracticeExam)
       prismaMock.practiceQuestion.findUnique.mockResolvedValue(mockPracticeExam.questions[0])
       prismaMock.practiceQuestion.update.mockResolvedValue({})
+
+      // Bước kiểm tra độc lập trước khi đổi đáp án (chưa có xung đột nào được lưu trước đó)
+      generateExplanationMock.mockResolvedValueOnce({
+        answer: 'sunlight',
+        evidence: { parts: [{ text: 'Plants need sunlight to grow.', paragraph: 1 }] },
+        reasoning: 'Plants need sunlight.',
+        provider: 'Gemini',
+        isFallback: false,
+      })
 
       generateExplanationMock.mockResolvedValueOnce({
         answer: 'sunlight',

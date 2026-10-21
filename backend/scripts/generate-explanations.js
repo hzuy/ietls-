@@ -412,12 +412,13 @@ function buildPrompt(q, family, ctx, previousError = null, teacherFeedback = nul
 2. Bạn hãy đóng vai gia sư IELTS giải thích theo phương pháp Linear thinking vì sao đáp án "${targetAnswer}" là đúng dựa trên ${sourceName}.
 3. Mọi bằng chứng trích dẫn trong "evidence_quote" bắt buộc phải chép NGUYÊN VĂN từ ${sourceName}.
 4. QUY TẮC BẮT BUỘC VỀ "no_support":
-   - Nếu trong ${sourceName} HOÀN TOÀN KHÔNG CÓ BẰNG CHỨNG ủng hộ đáp án "${targetAnswer}", hoặc ${sourceName} trực tiếp mâu thuẫn/bác bỏ đáp án này: Bạn TUYỆT ĐỐI KHÔNG ĐƯỢC BỊA ĐẶT DẪN CHỨNG!
-   - Trong trường hợp đó, bạn PHẢI trả về "no_support": true (kèm reasoning ngắn gọn chỉ rõ bài không hỗ trợ).
-   - Nếu tìm thấy bằng chứng hợp lệ ủng hộ đáp án, đặt "no_support": false hoặc không cần trả trường này.`
+   - Nếu ${sourceName} trực tiếp mâu thuẫn/bác bỏ đáp án "${targetAnswer}", HOẶC ${sourceName} KHÔNG CÓ bất kỳ bằng chứng nào ủng hộ "${targetAnswer}": bạn PHẢI đặt "no_support": true và TUYỆT ĐỐI KHÔNG BỊA ĐẶT DẪN CHỨNG.
+   - Chỉ đặt "no_support": false khi bạn THỰC SỰ tìm được câu trong ${sourceName} chứng tỏ "${targetAnswer}" đúng.
+   - Khi "no_support": true, điền "support_note" giải thích ngắn gọn bài đang ủng hộ đáp án nào / vì sao bài không ủng hộ "${targetAnswer}".`
 
     jsonFieldsInstruction = `{
   "no_support": false,
+  "support_note": "nếu no_support=true: giải thích ngắn gọn bài không ủng hộ đáp án đã chốt; nếu no_support=false thì để rỗng",
   "question_chunks": [{ "text": "cụm tiếng Anh của câu hỏi", "label": "nghĩa/vai trò của cụm, 2-6 từ tiếng Việt" }],
   "predict": "1-2 câu: câu hỏi cần thông tin gì, dự đoán loại đáp án",
   "locate_note": "1-2 câu: ý nào trong câu hỏi giúp tìm vùng cần đọc, tìm thấy ở đâu",
@@ -618,12 +619,20 @@ function buildResponseSchema(type, rawOptions = null, schemaOpts = {}) {
 
   if (isFixedMode) {
     properties.no_support = { type: 'BOOLEAN' }
+    properties.support_note = { type: 'STRING' }
+  }
+
+  // Chế độ cố định (giải thích theo đáp án đã chốt) BẮT BUỘC phải khai báo no_support
+  // để hệ thống biết khi nào AI không tìm được bằng chứng cho đáp án đó.
+  const required = ['question_chunks', 'predict', 'evidence_quote', 'answer', 'reasoning']
+  if (isFixedMode) {
+    required.push('no_support')
   }
 
   return {
     type: 'OBJECT',
     properties,
-    required: ['question_chunks', 'predict', 'evidence_quote', 'answer', 'reasoning'],
+    required,
   }
 }
 
@@ -719,6 +728,7 @@ async function generateExplanation(q, family, ctx, { teacherFeedback = null, isF
         no_support: true,
         answer: targetAnswer || q.correctAnswer,
         reasoning: cleanString(payload.reasoning, 900) || '',
+        supportNote: cleanString(payload.support_note, 500) || null,
         provider: aiResult?.provider,
         model: aiResult?.model,
         isFallback: aiResult?.isFallback || false,
@@ -730,7 +740,10 @@ async function generateExplanation(q, family, ctx, { teacherFeedback = null, isF
       if (aiResult?.provider) explanation.provider = aiResult.provider
       if (aiResult?.model) explanation.model = aiResult.model
       if (aiResult?.isFallback) explanation.isFallback = true
-      if (isFixedMode) explanation.no_support = false
+      if (isFixedMode) {
+        explanation.no_support = false
+        explanation.supportNote = cleanString(payload.support_note, 500) || null
+      }
       return explanation
     } catch (err) {
       if (!(err instanceof ExplanationValidationError) || attempt === 1) throw err

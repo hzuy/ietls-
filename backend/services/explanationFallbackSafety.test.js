@@ -282,6 +282,16 @@ describe('PHẦN 1: AN TOÀN KHI DÙNG FALLBACK (GROQ)', () => {
         passage: { body: 'Passage text', examId: 6 },
       })
 
+      // Bước giải mù (bắt buộc trước khi sinh lời giải cho câu needs_regeneration):
+      // AI tự giải độc lập ra B -> khớp đáp án đang lưu, được phép đi tiếp.
+      generateExplanationMock.mockResolvedValueOnce({
+        answer: 'B',
+        explanation: 'Blind solve matched B',
+        evidence: 'Passage text',
+        isFallback: false,
+        provider: 'Gemini',
+        model: 'gemini-3.5-flash-lite',
+      })
       // Lần đầu Groq trả về A (lệch)
       generateExplanationMock.mockResolvedValueOnce({
         answer: 'A',
