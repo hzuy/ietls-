@@ -1,0 +1,28 @@
+# ─── Bảo mật: KHÔNG đưa bí mật vào image ─────────────────────────────────────
+# docker-compose.yml nạp biến môi trường lúc CHẠY qua `env_file: ./backend/.env`
+# nên .env không cần (và không được) nằm trong image.
+# Trước khi có file này, `COPY . .` trong Dockerfile đã đưa backend/.env vào image
+# (kèm DATABASE_URL/DIRECT_URL Supabase production, JWT_SECRET, API key...), tức
+# là bí mật bị nhúng vào layer image và các bản image lưu trên server.
+.env
+.env.*
+!.env.example
+docker-dev.env
+
+# ─── Không cần cho runtime: giảm dung lượng image, tăng tốc build ─────────────
+node_modules
+coverage
+.vitest
+.cache
+uploads
+*.log
+npm-debug.log*
+
+# ─── Không chạy test trong image production ───────────────────────────────────
+**/*.test.js
+**/__tests__/**
+
+# ─── Metadata build, không cần trong context ──────────────────────────────────
+Dockerfile
+.dockerignore
+README.md
