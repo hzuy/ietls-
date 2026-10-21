@@ -17,6 +17,7 @@
     "db:dev:seed": "node scripts/with-dev-db.js -- node prisma/seed-dev.js",
     "db:dev:studio": "node scripts/with-dev-db.js -- npx prisma studio",
     "db:dev:gen-explanations": "node scripts/with-dev-db.js -- node scripts/generate-explanations.js",
+    "benchmark:l2": "node scripts/with-dev-db.js -- node scripts/benchmark-l2-flows.js",
     "kill-ports": "node ../scripts/kill-dev-ports.js"
   },
   "keywords": [],
