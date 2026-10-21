@@ -572,12 +572,22 @@ describe('writingGrading module', () => {
       expect(result.appliedCaps).toContain('RULE_C_VOCAB_ERROR_DENSITY_LR_5.5')
     })
 
-    it('Ca 14: nếu có khóa API và người dùng có bài mẫu thật trong thư mục dự án: chạy chấm thật một lần và báo điểm, KHÔNG làm test thất bại nếu không có khóa', async () => {
+    // Ca 14 gọi Groq THẬT (tốn quota, phụ thuộc mạng, kết quả không tất định) nên
+    // mặc định KHÔNG chạy trong `vitest run`; chỉ chạy khi bật rõ ràng:
+    //   RUN_REAL_GROQ_E2E=1 npx vitest run lib/writingGrading.test.js
+    it('Ca 14: (chạy thật, opt-in) chấm một bài mẫu thật bằng Groq và báo điểm', async () => {
+      if (process.env.RUN_REAL_GROQ_E2E !== '1') {
+        console.log('Ca 14: bỏ qua chấm thật (bật bằng RUN_REAL_GROQ_E2E=1 nếu muốn chạy).')
+        return
+      }
+
       const path = require('path')
+      // Chỉ nạp backend/.env khi thực sự chạy thật, để không đẩy DATABASE_URL (prod)
+      // và các khóa thật vào process.env của toàn bộ tiến trình test.
       require('dotenv').config({ path: path.join(__dirname, '../.env') })
       const apiKey = process.env.GROQ_API_KEY
       if (!apiKey) {
-        console.log('Ca 14: Không có GROQ_API_KEY, bỏ qua chấm thật an toàn.')
+        console.log('Ca 14: đã bật RUN_REAL_GROQ_E2E nhưng thiếu GROQ_API_KEY, bỏ qua.')
         return
       }
 
