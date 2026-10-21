@@ -156,7 +156,39 @@ function cleanChunks(list, max = 10) {
 
 class ExplanationValidationError extends Error {}
 
-function enrichExplanation(raw, ctx, correctAnswer, family = 'GENERIC') {
+const VIETNAMESE_DIACRITICS_REGEX = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i
+
+function isVietnameseTranslation(text) {
+  if (!text || typeof text !== 'string') return false
+  const trimmed = text.trim()
+  if (trimmed.length < 2) return false
+
+  const letters = trimmed.match(/[\p{L}]/gu) || []
+  if (letters.length === 0) return false
+
+  let accentedCount = 0
+  for (const ch of letters) {
+    if (VIETNAMESE_DIACRITICS_REGEX.test(ch)) {
+      accentedCount++
+    }
+  }
+
+  // Phải có ít nhất 1 ký tự mang dấu thanh/ký tự đặc trưng tiếng Việt
+  if (accentedCount === 0) return false
+
+  // Tỷ lệ ký tự có dấu trên tổng số chữ cái:
+  // Văn bản tiếng Việt chuẩn có tỷ lệ ký tự có dấu từ 15% - 40%.
+  // Nếu tỷ lệ ký tự không dấu > 88% (tức ký tự có dấu < 12%), chuỗi đó là câu tiếng Anh
+  // bị ghép thêm một vài từ tiếng Việt (hoặc câu lai tạp).
+  const accentedRatio = accentedCount / letters.length
+  if (letters.length >= 15 && accentedRatio < 0.12) {
+    return false
+  }
+
+  return true
+}
+
+function enrichExplanation(raw, ctx, correctAnswer, family = 'GENERIC', { attempt = 0 } = {}) {
   if (!raw || typeof raw !== 'object') throw new ExplanationValidationError('JSON trả về không phải object')
   const questionChunks = cleanChunks(raw.question_chunks, 12)
   const predict = cleanString(raw.predict)
@@ -229,6 +261,29 @@ function enrichExplanation(raw, ctx, correctAnswer, family = 'GENERIC') {
     .filter(d => family !== 'COMPLETION' || !hasSource || findParagraph(paragraphs, d.option) !== -1)
     .slice(0, 4)
 
+  let fullSentence = ''
+  let translation = ''
+
+  if (family === 'COMPLETION') {
+    const rawTranslation = cleanString(raw.translation)
+    const rawFullSentence = cleanString(raw.full_sentence)
+
+    if (rawTranslation && isVietnameseTranslation(rawTranslation)) {
+      fullSentence = rawFullSentence
+      translation = rawTranslation
+    } else {
+      if (attempt === 0) {
+        throw new ExplanationValidationError(
+          'Bản dịch (translation) cho câu điền từ phải là câu tiếng Việt hoàn chỉnh có dấu thanh, không được để tiếng Anh hoặc ghép cả hai ngôn ngữ.'
+        )
+      } else {
+        // Sau khi retry tối đa vẫn vi phạm -> bỏ trường translation / full_sentence thay vì lưu nội dung sai
+        fullSentence = ''
+        translation = ''
+      }
+    }
+  }
+
   return {
     v: 2,
     question_chunks: questionChunks,
@@ -240,8 +295,8 @@ function enrichExplanation(raw, ctx, correctAnswer, family = 'GENERIC') {
     },
     evidence,
     answer,
-    full_sentence: cleanString(raw.full_sentence),
-    translation: cleanString(raw.translation),
+    full_sentence: fullSentence,
+    translation,
     reasoning,
     teacher_note: cleanString(raw.teacher_note, 1000) || null,
     paraphrases,
@@ -610,7 +665,7 @@ async function generateExplanation(q, family, ctx, { teacherFeedback = null, isF
     }
 
     try {
-      const explanation = enrichExplanation(payload, ctx, targetAnswer || q.correctAnswer, family)
+      const explanation = enrichExplanation(payload, ctx, targetAnswer || q.correctAnswer, family, { attempt })
       if (aiResult?.provider) explanation.provider = aiResult.provider
       if (aiResult?.model) explanation.model = aiResult.model
       if (aiResult?.isFallback) explanation.isFallback = true
@@ -799,4 +854,6 @@ module.exports = {
   extractOptionPairs,
   ROMAN_NUMERALS,
   stripTrailingPunctuation,
+  isVietnameseTranslation,
+  VIETNAMESE_DIACRITICS_REGEX,
 }

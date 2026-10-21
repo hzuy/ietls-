@@ -77,6 +77,7 @@ const {
   ExplanationValidationError,
   callAi,
   generateExplanation,
+  isVietnameseTranslation,
 } = mod
 
 function mockGroqResponse(content, finishReason = 'stop') {
@@ -440,3 +441,105 @@ describe('Batch 2: generateExplanation — ghi nhận metadata provider và mode
     expect(result.isFallback).toBe(true)
   })
 })
+
+describe('Requirement 2.5: full_sentence & translation validation', () => {
+  const dummyCtx = {
+    skill: 'reading',
+    sourceText: PASSAGE,
+    parts: [{ label: 'Đoạn 1', text: PASSAGE }],
+  }
+
+  describe('isVietnameseTranslation helper', () => {
+    it('nhận diện đúng câu tiếng Việt có dấu', () => {
+      expect(isVietnameseTranslation('Người ông đã xây dựng khối tài sản của mình từ ngành gỗ.')).toBe(true)
+      expect(isVietnameseTranslation('Khối của cải được tạo dựng nhờ buôn bán gỗ.')).toBe(true)
+      expect(isVietnameseTranslation('Biểu cảm vi mô rất phổ biến ở tất cả mọi người.')).toBe(true)
+    })
+
+    it('từ chối câu chỉ toàn tiếng Anh', () => {
+      expect(isVietnameseTranslation('Micro-expressions are common to all people.')).toBe(false)
+      expect(isVietnameseTranslation('The grandfather built his wealth on timber.')).toBe(false)
+    })
+
+    it('từ chối câu bị trộn lẫn nhiều tiếng Anh với ít tiếng Việt', () => {
+      // Câu ghép tiếng Anh dài với một câu tiếng Việt cụt
+      expect(isVietnameseTranslation('Micro-expressions are common to all people and cannot be suppressed. Vì biểu cảm.')).toBe(false)
+    })
+
+    it('từ chối chuỗi rỗng hoặc không hợp lệ', () => {
+      expect(isVietnameseTranslation('')).toBe(false)
+      expect(isVietnameseTranslation(null)).toBe(false)
+      expect(isVietnameseTranslation('   ')).toBe(false)
+    })
+  })
+
+  describe('enrichExplanation — giới hạn họ câu hỏi cho full_sentence & translation', () => {
+    it('chỉ lưu full_sentence và translation cho họ COMPLETION khi bản dịch tiếng Việt hợp lệ', () => {
+      const res = enrichExplanation(VALID_EXPLANATION, dummyCtx, 'timber', 'COMPLETION')
+      expect(res.full_sentence).toBe('the grandfather built his wealth on timber')
+      expect(res.translation).toBe('người ông gây dựng của cải từ gỗ')
+    })
+
+    it('ném lỗi ExplanationValidationError ở attempt 0 nếu câu COMPLETION có translation không phải tiếng Việt', () => {
+      const invalidTranslationExp = {
+        ...VALID_EXPLANATION,
+        translation: 'The grandfather built his wealth on timber and trading.',
+      }
+      expect(() => {
+        enrichExplanation(invalidTranslationExp, dummyCtx, 'timber', 'COMPLETION', { attempt: 0 })
+      }).toThrow(ExplanationValidationError)
+    })
+
+    it('bỏ trường full_sentence và translation ở attempt 1 (sau khi retry) nếu vẫn không có tiếng Việt hợp lệ', () => {
+      const invalidTranslationExp = {
+        ...VALID_EXPLANATION,
+        translation: 'The grandfather built his wealth on timber and trading.',
+      }
+      const res = enrichExplanation(invalidTranslationExp, dummyCtx, 'timber', 'COMPLETION', { attempt: 1 })
+      expect(res.full_sentence).toBe('')
+      expect(res.translation).toBe('')
+    })
+
+    it('luôn để rỗng full_sentence và translation cho họ MCQ', () => {
+      const mcqExp = {
+        ...VALID_EXPLANATION,
+        answer: 'A',
+      }
+      const res = enrichExplanation(mcqExp, dummyCtx, 'A', 'MCQ')
+      expect(res.full_sentence).toBe('')
+      expect(res.translation).toBe('')
+    })
+
+    it('luôn để rỗng full_sentence và translation cho họ TFNG', () => {
+      const tfngExp = {
+        ...VALID_EXPLANATION,
+        answer: 'TRUE',
+      }
+      const res = enrichExplanation(tfngExp, dummyCtx, 'TRUE', 'TFNG')
+      expect(res.full_sentence).toBe('')
+      expect(res.translation).toBe('')
+    })
+
+    it('luôn để rỗng full_sentence và translation cho họ MATCHING', () => {
+      const matchingExp = {
+        ...VALID_EXPLANATION,
+        answer: 'i',
+      }
+      const res = enrichExplanation(matchingExp, dummyCtx, 'i', 'MATCHING')
+      expect(res.full_sentence).toBe('')
+      expect(res.translation).toBe('')
+    })
+
+    it('luôn để rỗng full_sentence và translation cho họ IMAGE', () => {
+      const imageExp = {
+        ...VALID_EXPLANATION,
+        evidence_quote: '',
+        answer: 'water cycle',
+      }
+      const res = enrichExplanation(imageExp, { ...dummyCtx, sourceText: '' }, 'water cycle', 'IMAGE')
+      expect(res.full_sentence).toBe('')
+      expect(res.translation).toBe('')
+    })
+  })
+})
+

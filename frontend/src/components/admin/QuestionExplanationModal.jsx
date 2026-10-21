@@ -288,6 +288,17 @@ export default function QuestionExplanationModal({
   const [toastMessage, setToastMessage] = useState(null)
   const prevQKeyRef = useRef(null)
 
+  const qType = (question?.type || question?.group?.type || '').toLowerCase()
+  const nonCompletionTypes = new Set([
+    'mcq', 'multiple_choice', 'mcq_multi', 'list_selection', 'choose_title',
+    'true_false_ng', 'yes_no_ng', 'true_false_not_given', 'yes_no_not_given',
+    'matching', 'matching_headings', 'matching_features', 'matching_paragraph', 'matching_endings',
+    'map_diagram', 'diagram_label', 'diagram_completion'
+  ])
+  const isCompletion = qType
+    ? !nonCompletionTypes.has(qType)
+    : Boolean(question?.explanation?.full_sentence || initialExplanation?.full_sentence || !question?.options)
+
   useEffect(() => {
     if (!isOpen) {
       prevQKeyRef.current = null
@@ -447,8 +458,8 @@ export default function QuestionExplanationModal({
         })).filter(p => p.question && p.passage),
 
         // Bước 4
-        full_sentence: editFullSentence,
-        translation: editTranslation,
+        full_sentence: isCompletion ? editFullSentence : '',
+        translation: isCompletion ? editTranslation : '',
         reasoning: editReasoning,
         distractors: editDistractors.filter(d => (d.option || '').trim() && (d.reason || '').trim()),
       }
@@ -1191,39 +1202,43 @@ export default function QuestionExplanationModal({
                   <h4 className="font-bold text-zinc-900 text-sm m-0">Bước 4: Chọn đáp án & Suy luận</h4>
                 </div>
 
-                {/* Full sentence */}
-                <div>
-                  <div className="flex justify-between items-center mb-1.5">
-                    <label className="text-xs font-bold text-zinc-700">
-                      Câu hoàn chỉnh sau khi điền (full_sentence, tối đa 1000 ký tự):
-                    </label>
-                    <span className="text-[11px] text-zinc-400">{editFullSentence.length}/1000</span>
-                  </div>
-                  <AutoResizeTextarea
-                    minRows={2}
-                    value={editFullSentence}
-                    onChange={(e) => setEditFullSentence(e.target.value.slice(0, 1000))}
-                    placeholder="Câu tiếng Anh đầy đủ sau khi điền đáp án..."
-                    maxLength={1000}
-                  />
-                </div>
+                {isCompletion && (
+                  <>
+                    {/* Full sentence */}
+                    <div>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <label className="text-xs font-bold text-zinc-700">
+                          Câu hoàn chỉnh sau khi điền (full_sentence, tối đa 1000 ký tự):
+                        </label>
+                        <span className="text-[11px] text-zinc-400">{editFullSentence.length}/1000</span>
+                      </div>
+                      <AutoResizeTextarea
+                        minRows={2}
+                        value={editFullSentence}
+                        onChange={(e) => setEditFullSentence(e.target.value.slice(0, 1000))}
+                        placeholder="Câu tiếng Anh đầy đủ sau khi điền đáp án..."
+                        maxLength={1000}
+                      />
+                    </div>
 
-                {/* Translation */}
-                <div>
-                  <div className="flex justify-between items-center mb-1.5">
-                    <label className="text-xs font-bold text-zinc-700">
-                      Bản dịch tiếng Việt (translation, tối đa 1000 ký tự):
-                    </label>
-                    <span className="text-[11px] text-zinc-400">{editTranslation.length}/1000</span>
-                  </div>
-                  <AutoResizeTextarea
-                    minRows={2}
-                    value={editTranslation}
-                    onChange={(e) => setEditTranslation(e.target.value.slice(0, 1000))}
-                    placeholder="Dịch nghĩa tiếng Việt của câu trên..."
-                    maxLength={1000}
-                  />
-                </div>
+                    {/* Translation */}
+                    <div>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <label className="text-xs font-bold text-zinc-700">
+                          Bản dịch tiếng Việt (translation, tối đa 1000 ký tự):
+                        </label>
+                        <span className="text-[11px] text-zinc-400">{editTranslation.length}/1000</span>
+                      </div>
+                      <AutoResizeTextarea
+                        minRows={2}
+                        value={editTranslation}
+                        onChange={(e) => setEditTranslation(e.target.value.slice(0, 1000))}
+                        placeholder="Dịch nghĩa tiếng Việt của câu trên..."
+                        maxLength={1000}
+                      />
+                    </div>
+                  </>
+                )}
 
                 {/* Reasoning */}
                 <div>

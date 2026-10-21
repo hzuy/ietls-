@@ -670,6 +670,57 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
       expect(screen.getByRole('button', { name: /Lưu chỉnh sửa/i })).toBeInTheDocument()
       expect(screen.queryByText(/Sửa tay an toàn \(3\.7\)/i)).not.toBeInTheDocument()
     })
+
+    it('only renders full_sentence and translation inputs for completion questions, hides them for MCQ', () => {
+      // 1. MCQ question -> must hide full_sentence & translation
+      const mcqQ = {
+        number: 2,
+        type: 'mcq',
+        questionText: 'Which invention revolutionized glassmaking?',
+        options: ['A. stained glass', 'B. glassblowing'],
+        correctAnswer: 'B',
+      }
+      const { rerender } = render(
+        <QuestionExplanationModal
+          isOpen={true}
+          onClose={vi.fn()}
+          examId={10}
+          questionNumber={2}
+          isPractice={false}
+          skill="reading"
+          question={mcqQ}
+          initialExplanation={{ v: 2, answer: 'B', reasoning: 'Reason' }}
+        />
+      )
+
+      fireEvent.click(screen.getByRole('tab', { name: /Sửa trực tiếp/i }))
+      expect(screen.queryByPlaceholderText(/Câu tiếng Anh đầy đủ sau khi điền đáp án/i)).not.toBeInTheDocument()
+      expect(screen.queryByPlaceholderText(/Dịch nghĩa tiếng Việt của câu trên/i)).not.toBeInTheDocument()
+
+      // 2. Completion question -> must show both inputs
+      const completionQ = {
+        number: 3,
+        type: 'fill_blank',
+        questionText: 'Amazonian farmers added [GAP].',
+        correctAnswer: 'charcoal',
+      }
+      rerender(
+        <QuestionExplanationModal
+          isOpen={true}
+          onClose={vi.fn()}
+          examId={10}
+          questionNumber={3}
+          isPractice={false}
+          skill="reading"
+          question={completionQ}
+          initialExplanation={{ v: 2, answer: 'charcoal', reasoning: 'Reason' }}
+        />
+      )
+
+      fireEvent.click(screen.getByRole('tab', { name: /Sửa trực tiếp/i }))
+      expect(screen.getByPlaceholderText(/Câu tiếng Anh đầy đủ sau khi điền đáp án/i)).toBeInTheDocument()
+      expect(screen.getByPlaceholderText(/Dịch nghĩa tiếng Việt của câu trên/i)).toBeInTheDocument()
+    })
   })
 })
 

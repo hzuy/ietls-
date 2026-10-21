@@ -323,13 +323,17 @@ function validateManualExplanation(data, { sourceText = null, family = 'GENERIC'
   if (data.translation !== undefined) {
     if (typeof data.translation !== 'string') throw new Error('translation phải là chuỗi ký tự')
     if (data.translation.length > 1000) throw new Error('translation không được vượt quá 1000 ký tự')
-    allowed.translation = cleanString(data.translation, 1000)
+    allowed.translation = family === 'COMPLETION' ? cleanString(data.translation, 1000) : ''
+  } else if (family !== 'COMPLETION') {
+    allowed.translation = ''
   }
 
   if (data.full_sentence !== undefined) {
     if (typeof data.full_sentence !== 'string') throw new Error('full_sentence phải là chuỗi ký tự')
     if (data.full_sentence.length > 1000) throw new Error('full_sentence không được vượt quá 1000 ký tự')
-    allowed.full_sentence = cleanString(data.full_sentence, 1000)
+    allowed.full_sentence = family === 'COMPLETION' ? cleanString(data.full_sentence, 1000) : ''
+  } else if (family !== 'COMPLETION') {
+    allowed.full_sentence = ''
   }
 
   if (data.distractors !== undefined) {
