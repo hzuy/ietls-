@@ -44,6 +44,12 @@ export function useExplanationGenerationLock({
   // Banner dismissed state
   const [bannerDismissed, setBannerDismissed] = useState(false)
 
+  // Bộ đếm "bằng chứng chạy AI" (localStorage ai_exp_evidence_*). hasLocalEvidence
+  // chỉ đọc localStorage một lần theo storageEvidenceKey, nên khi bằng chứng được
+  // ghi/xóa ngay trong phiên hiện tại thì memo cũ vẫn còn (stale). Bộ đếm này được
+  // tăng mỗi lần ghi/xóa để memo tính lại đúng.
+  const [evidenceVersion, setEvidenceVersion] = useState(0)
+
   // Exit confirm modal state
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false)
   const pendingExitActionRef = useRef(null)
@@ -294,6 +300,7 @@ export function useExplanationGenerationLock({
     try {
       localStorage.setItem(storageActiveKey, JSON.stringify(activePayload))
       localStorage.setItem(storageEvidenceKey, JSON.stringify({ startedAt: Date.now(), total }))
+      setEvidenceVersion((v) => v + 1)
     } catch {}
 
     // 3. Notify other tabs
@@ -367,6 +374,7 @@ export function useExplanationGenerationLock({
       localStorage.removeItem(storageActiveKey)
       if (completed && !cancelled) {
         localStorage.removeItem(storageEvidenceKey)
+        setEvidenceVersion((v) => v + 1)
       }
     } catch {}
 
@@ -482,7 +490,7 @@ export function useExplanationGenerationLock({
     } catch {
       return false
     }
-  }, [storageEvidenceKey])
+  }, [storageEvidenceKey, evidenceVersion])
 
   const resumeBanner = useMemo(() => {
     if (bannerDismissed || isGenerating) return null
