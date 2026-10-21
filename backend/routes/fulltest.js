@@ -5,6 +5,7 @@ const prisma = require('../lib/prisma')
 const { ieltsOverall } = require('../lib/scoreUtils')
 const { averageBand } = require('../lib/speakingAttempt')
 const { speakingAttempts, writingAttempts } = require('../lib/attemptGroups')
+const { sendServerError } = require('../lib/httpErrors')
 
 const router = express.Router()
 
@@ -126,7 +127,7 @@ router.get('/status', authMiddleware, learnerOnly, async (req, res) => {
     const status = await getFullTestStatus(userId, exam.seriesId, exam.bookNumber, exam.testNumber)
     res.json(status)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -145,7 +146,7 @@ router.get('/result', authMiddleware, learnerOnly, async (req, res) => {
     ])
     res.json({ ...status, seriesName: series?.name ?? '' })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -272,7 +273,7 @@ router.get('/user-progress', authMiddleware, learnerOnly, async (req, res) => {
 
     res.json(result)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 

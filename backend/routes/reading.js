@@ -6,6 +6,7 @@ const { objectiveSubmitLimiter } = require('../middleware/rateLimiter')
 const { readingSubmitSchema, resultDetailQuerySchema } = require('../validators/submissionValidator')
 const { getReadingBand } = require('../lib/scoreUtils')
 const { getOrSet, TTL_EXAM_DETAIL } = require('../utils/cache')
+const { sendServerError } = require('../lib/httpErrors')
 
 const router = express.Router()
 const prisma = require('../lib/prisma')
@@ -45,7 +46,7 @@ router.get('/exams', authMiddleware, async (req, res) => {
     }))
     res.json(result)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -110,7 +111,7 @@ router.get('/exams/:id', authMiddleware, async (req, res) => {
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy đề' })
     res.json(exam)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -236,7 +237,7 @@ router.post('/exams/:id/submit', authMiddleware, learnerOnly, objectiveSubmitLim
 
     res.json({ score: band, correct, total: totalSlots, result, attemptId: attempt.id })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -562,7 +563,7 @@ router.get('/exams/:id/result-detail', authMiddleware, learnerOnly, validate(res
       sections
     })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 

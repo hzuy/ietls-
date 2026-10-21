@@ -3,6 +3,7 @@ const authMiddleware = require('../middleware/auth')
 const { learnerOnly } = require('../lib/roles')
 const prisma = require('../lib/prisma')
 const { requestGradingJson } = require('../lib/groqClient')
+const { sendServerError } = require('../lib/httpErrors')
 
 const router = express.Router()
 
@@ -329,7 +330,7 @@ router.get('/error-breakdown', authMiddleware, learnerOnly, async (req, res) => 
     const result = await fetchErrorBreakdown(targetUserId, req.query.skill)
     res.json(result)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server khi tính toán thống kê lỗi', error: error.message })
+    sendServerError(res, error, 'Lỗi server khi tính toán thống kê lỗi')
   }
 })
 
@@ -345,7 +346,7 @@ router.get('/trend', authMiddleware, learnerOnly, async (req, res) => {
     const result = await fetchTrendData(targetUserId, req.query.skill, limit)
     res.json(result)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server khi lấy xu hướng điểm số', error: error.message })
+    sendServerError(res, error, 'Lỗi server khi lấy xu hướng điểm số')
   }
 })
 
@@ -360,7 +361,7 @@ router.get('/writing-criteria', authMiddleware, learnerOnly, async (req, res) =>
     const result = await fetchWritingCriteriaStats(targetUserId)
     res.json(result)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server khi tính toán thống kê tiêu chí Writing', error: error.message })
+    sendServerError(res, error, 'Lỗi server khi tính toán thống kê tiêu chí Writing')
   }
 })
 
@@ -375,7 +376,7 @@ router.get('/speaking-criteria', authMiddleware, learnerOnly, async (req, res) =
     const result = await fetchSpeakingCriteriaStats(targetUserId)
     res.json(result)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server khi tính toán thống kê tiêu chí Speaking', error: error.message })
+    sendServerError(res, error, 'Lỗi server khi tính toán thống kê tiêu chí Speaking')
   }
 })
 
@@ -542,7 +543,7 @@ YÊU CẦU BẮT BUỘC KHI TẠO CÂU TRẢ LỜI:
       advice: adviceObj,
     })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server khi sinh nhận xét AI', error: error.message })
+    sendServerError(res, error, 'Lỗi server khi sinh nhận xét AI')
   }
 })
 

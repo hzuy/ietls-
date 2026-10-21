@@ -12,6 +12,7 @@ const { createSampleSchema, updateSampleSchema } = require('../validators/conten
 const { sanitizeRichText } = require('../lib/sanitizeHtml')
 const { logAuditEvent } = require('../lib/auditLog')
 const { AUDIT_ACTIONS } = require('../lib/auditActions')
+const { sendServerError } = require('../lib/httpErrors')
 
 const router = express.Router()
 
@@ -45,7 +46,7 @@ function makeSampleListHandler(skill) {
     try {
       res.json(await getSampleListCached(skill, limit))
     } catch (err) {
-      res.status(500).json({ message: 'Lỗi server', error: err.message })
+      sendServerError(res, err, 'Lỗi server')
     }
   }
 }
@@ -61,7 +62,7 @@ router.get('/writing/:id', async (req, res) => {
     if (!s) return res.status(404).json({ message: 'Không tìm thấy' })
     res.json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
   } catch (err) {
-    res.status(500).json({ message: 'Lỗi server', error: err.message })
+    sendServerError(res, err, 'Lỗi server')
   }
 })
 
@@ -75,7 +76,7 @@ router.get('/speaking/:id', async (req, res) => {
     if (!s) return res.status(404).json({ message: 'Không tìm thấy' })
     res.json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
   } catch (err) {
-    res.status(500).json({ message: 'Lỗi server', error: err.message })
+    sendServerError(res, err, 'Lỗi server')
   }
 })
 
@@ -89,7 +90,7 @@ router.get('/admin/writing', authMiddleware, teacherStrict, async (req, res) => 
     })
     res.json(rows.map(r => ({ ...r, tags: r.tags ? JSON.parse(r.tags) : [] })))
   } catch (err) {
-    res.status(500).json({ message: 'Lỗi server', error: err.message })
+    sendServerError(res, err, 'Lỗi server')
   }
 })
 
@@ -102,7 +103,7 @@ router.get('/admin/speaking', authMiddleware, teacherStrict, async (req, res) =>
     })
     res.json(rows.map(r => ({ ...r, tags: r.tags ? JSON.parse(r.tags) : [] })))
   } catch (err) {
-    res.status(500).json({ message: 'Lỗi server', error: err.message })
+    sendServerError(res, err, 'Lỗi server')
   }
 })
 
@@ -113,7 +114,7 @@ router.get('/admin/writing/:id', authMiddleware, teacherStrict, async (req, res)
     if (!s) return res.status(404).json({ message: 'Không tìm thấy' })
     res.json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
   } catch (err) {
-    res.status(500).json({ message: 'Lỗi server', error: err.message })
+    sendServerError(res, err, 'Lỗi server')
   }
 })
 
@@ -126,7 +127,7 @@ router.get('/admin/speaking/:id', authMiddleware, teacherStrict, async (req, res
     if (!s) return res.status(404).json({ message: 'Không tìm thấy' })
     res.json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
   } catch (err) {
-    res.status(500).json({ message: 'Lỗi server', error: err.message })
+    sendServerError(res, err, 'Lỗi server')
   }
 })
 
@@ -146,7 +147,7 @@ router.post('/admin/writing', authMiddleware, teacherStrict, validate(createSamp
     })
     res.status(201).json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
   } catch (err) {
-    res.status(500).json({ message: 'Lỗi tạo', error: err.message })
+    sendServerError(res, err, 'Lỗi tạo')
   }
 })
 
@@ -165,7 +166,7 @@ router.post('/admin/speaking', authMiddleware, teacherStrict, validate(createSam
     })
     res.status(201).json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
   } catch (err) {
-    res.status(500).json({ message: 'Lỗi tạo', error: err.message })
+    sendServerError(res, err, 'Lỗi tạo')
   }
 })
 
@@ -190,7 +191,7 @@ router.put('/admin/writing/:id', authMiddleware, teacherStrict, validate(updateS
     })
     res.json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
   } catch (err) {
-    res.status(500).json({ message: 'Lỗi cập nhật', error: err.message })
+    sendServerError(res, err, 'Lỗi cập nhật')
   }
 })
 
@@ -214,7 +215,7 @@ router.put('/admin/speaking/:id', authMiddleware, teacherStrict, validate(update
     })
     res.json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
   } catch (err) {
-    res.status(500).json({ message: 'Lỗi cập nhật', error: err.message })
+    sendServerError(res, err, 'Lỗi cập nhật')
   }
 })
 
@@ -227,7 +228,7 @@ const uploadThumbToUrl = async (req, res) => {
   try {
     const { url } = await uploadOptimizedCover(req.file, { dir: thumbDir, urlPrefix: '/uploads/thumbnails', folder: 'thumbnails' })
     res.json({ url })
-  } catch (err) { res.status(500).json({ message: 'Lỗi upload', error: err.message }) }
+  } catch (err) { sendServerError(res, err, 'Lỗi upload') }
 }
 router.post('/admin/writing/upload-thumbnail', authMiddleware, teacherStrict, thumbUpload.single('thumbnail'), uploadThumbToUrl)
 router.post('/admin/speaking/upload-thumbnail', authMiddleware, teacherStrict, thumbUpload.single('thumbnail'), uploadThumbToUrl)
@@ -249,7 +250,7 @@ router.post('/admin/writing/:id/thumbnail', authMiddleware, teacherStrict,
         metadata: { resource: 'thumbnail' }
       })
       res.json(s)
-    } catch (err) { res.status(500).json({ message: 'Lỗi upload', error: err.message }) }
+    } catch (err) { sendServerError(res, err, 'Lỗi upload') }
   }
 )
 
@@ -269,7 +270,7 @@ router.post('/admin/speaking/:id/thumbnail', authMiddleware, teacherStrict,
         metadata: { resource: 'thumbnail' }
       })
       res.json(s)
-    } catch (err) { res.status(500).json({ message: 'Lỗi upload', error: err.message }) }
+    } catch (err) { sendServerError(res, err, 'Lỗi upload') }
   }
 )
 
@@ -288,7 +289,7 @@ router.delete('/admin/writing/:id', authMiddleware, teacherStrict, async (req, r
       entityLabel: existing?.title ?? null
     })
     res.json({ message: 'Đã xóa' })
-  } catch (err) { res.status(500).json({ message: 'Lỗi xóa', error: err.message }) }
+  } catch (err) { sendServerError(res, err, 'Lỗi xóa') }
 })
 
 router.delete('/admin/speaking/:id', authMiddleware, teacherStrict, async (req, res) => {
@@ -304,7 +305,7 @@ router.delete('/admin/speaking/:id', authMiddleware, teacherStrict, async (req, 
       entityLabel: existing?.title ?? null
     })
     res.json({ message: 'Đã xóa' })
-  } catch (err) { res.status(500).json({ message: 'Lỗi xóa', error: err.message }) }
+  } catch (err) { sendServerError(res, err, 'Lỗi xóa') }
 })
 
 module.exports = router

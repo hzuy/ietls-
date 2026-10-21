@@ -10,6 +10,7 @@ const { aiSubmitLimiter } = require('../middleware/rateLimiter')
 const { speakingSubmitSchema, transcribeSchema } = require('../validators/submissionValidator')
 const { sanitizeCorrections } = require('../lib/inlineCorrections')
 const { uploadAudio } = require('../services/storageService')
+const { sendServerError } = require('../lib/httpErrors')
 
 const router = express.Router()
 const prisma = require('../lib/prisma')
@@ -63,7 +64,7 @@ router.get('/exams', authMiddleware, async (req, res) => {
     })
     res.json(exams)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -81,7 +82,7 @@ router.get('/exams/:id', authMiddleware, async (req, res) => {
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy đề' })
     res.json(exam)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -158,7 +159,7 @@ router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res
 
     res.json(results)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -199,7 +200,7 @@ router.post('/sample-answer', authMiddleware, async (req, res) => {
     res.json(result)
   } catch (error) {
     console.error('[Speaking sample-answer error]', error.message)
-    res.status(500).json({ message: 'Lỗi sinh câu trả lời gợi ý', error: error.message })
+    sendServerError(res, error, 'Lỗi sinh câu trả lời gợi ý')
   }
 })
 
@@ -242,7 +243,7 @@ router.post('/transcribe', authMiddleware, learnerOnly, audioUpload.single('audi
     // Clean up file nếu có lỗi xảy ra
     if (filePath) fs.unlink(filePath, () => {})
     console.error('[Whisper transcribe error]', error.message)
-    res.status(500).json({ message: 'Lỗi nhận dạng giọng nói', error: error.message })
+    sendServerError(res, error, 'Lỗi nhận dạng giọng nói')
   }
 })
 
@@ -394,7 +395,7 @@ router.post('/exams/:id/submit', authMiddleware, learnerOnly, aiSubmitLimiter, v
     // Return response immediately
     res.json({ answerId: speakingAnswer.id, status: 'pending' })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi nộp bài', error: error.message })
+    sendServerError(res, error, 'Lỗi nộp bài')
   }
 })
 
@@ -434,7 +435,7 @@ router.get('/answers/:id/status', authMiddleware, learnerOnly, async (req, res) 
       status: answer.status
     })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -481,7 +482,7 @@ router.post('/answers/:id/retry', authMiddleware, learnerOnly, aiSubmitLimiter, 
 
     res.json({ answerId, status: 'pending' })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 

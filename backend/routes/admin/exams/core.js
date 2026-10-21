@@ -1,4 +1,5 @@
 const express = require('express')
+const { sendServerError } = require('../../../lib/httpErrors')
 const router = express.Router()
 const prisma = require('../../../lib/prisma')
 const authMiddleware = require('../../../middleware/auth')
@@ -32,7 +33,7 @@ router.get('/exams/counts', authMiddleware, teacherOnly, async (req, res) => {
     })
     res.json(countMap)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -118,7 +119,7 @@ router.get('/exams/:id/explanation-status', authMiddleware, teacherOnly, async (
     })
   } catch (err) {
     console.error('[GET EXAM EXPLANATION STATUS ERROR]', err)
-    res.status(500).json({ message: 'Lỗi server khi lấy trạng thái giải thích AI', error: err.message })
+    sendServerError(res, err, 'Lỗi server khi lấy trạng thái giải thích AI')
   }
 })
 
@@ -448,7 +449,7 @@ router.get('/exams', authMiddleware, teacherOnly, async (req, res) => {
       stats
     })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -503,7 +504,7 @@ router.get('/exams/:id', authMiddleware, teacherOnly, async (req, res) => {
     })
     res.json(exam)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -1222,7 +1223,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
     res.status(400).json({ message: 'Skill không hợp lệ' })
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: 'Lỗi cập nhật đề', error: error.message })
+    sendServerError(res, error, 'Lỗi cập nhật đề')
   }
 })
 
@@ -1244,7 +1245,7 @@ router.delete('/exams/:id', authMiddleware, teacherOnly, async (req, res) => {
     res.json({ message: 'Xóa đề thành công' })
   } catch (error) {
     console.error('[Delete exam]', error)
-    res.status(500).json({ message: 'Lỗi xóa đề', error: error.message })
+    sendServerError(res, error, 'Lỗi xóa đề')
   }
 })
 

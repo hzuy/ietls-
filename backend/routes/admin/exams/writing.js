@@ -1,4 +1,5 @@
 const express = require('express')
+const { sendServerError } = require('../../../lib/httpErrors')
 const router = express.Router()
 const prisma = require('../../../lib/prisma')
 const authMiddleware = require('../../../middleware/auth')
@@ -68,7 +69,7 @@ router.post('/exams/writing', authMiddleware, teacherOnly, validate(createWritin
     res.status(201).json(exam)
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: 'Lỗi tạo đề Writing', error: error.message })
+    sendServerError(res, error, 'Lỗi tạo đề Writing')
   }
 })
 

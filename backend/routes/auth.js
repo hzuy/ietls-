@@ -2,6 +2,7 @@ const express = require('express')
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const { OAuth2Client } = require('google-auth-library')
+const { sendServerError } = require('../lib/httpErrors')
 const router = express.Router()
 const prisma = require('../lib/prisma')
 const authMiddleware = require('../middleware/auth')
@@ -85,7 +86,7 @@ router.post('/register', authLimiter, validate(registerSchema), async (req, res)
       mailSent,
     })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -166,7 +167,7 @@ router.post('/google', validate(googleAuthSchema), async (req, res) => {
       requirePasswordChange: user.requirePasswordChange === true,
     })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -207,7 +208,7 @@ router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
 
     res.json(loginResponse(user))
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -235,7 +236,7 @@ router.post('/verify-email', emailCodeLimiter, validate(verifyEmailSchema), asyn
 
     res.json(loginResponse(user))
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -263,7 +264,7 @@ router.post('/resend-verification', emailCodeLimiter, validate(resendVerificatio
 
     res.json({ message: 'Đã gửi mã xác thực mới tới email của bạn.', retryAfter: RESEND_COOLDOWN_MS / 1000 })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -287,7 +288,7 @@ router.put('/change-password', authMiddleware, validate(changePasswordSchema), a
     })
     res.json({ message: 'Đổi mật khẩu thành công' })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -301,7 +302,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     if (!user) return res.status(404).json({ message: 'Không tìm thấy người dùng' })
     res.json(user)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -317,7 +318,7 @@ router.put('/profile', authMiddleware, validate(updateProfileSchema), async (req
     })
     res.json(user)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 

@@ -1,4 +1,5 @@
 const express = require('express')
+const { sendServerError } = require('../lib/httpErrors')
 const router = express.Router()
 const prisma = require('../lib/prisma')
 const authMiddleware = require('../middleware/auth')
@@ -62,7 +63,7 @@ router.get('/stats', authMiddleware, learnerOnly, async (req, res) => {
 
     res.json({ totalAttempts, avgBand, streak, bandBySkill, sampleBySkill, recentCount: RECENT_COUNT, activityMap, freezeCount: 0 })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -216,7 +217,7 @@ router.get('/history', authMiddleware, learnerOnly, validate(historyQuerySchema,
       speakingAttemptsByExam
     })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 

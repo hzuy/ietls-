@@ -1,4 +1,5 @@
 const express = require('express')
+const { sendServerError } = require('../../lib/httpErrors')
 const router = express.Router()
 const prisma = require('../../lib/prisma')
 const authMiddleware = require('../../middleware/auth')
@@ -84,7 +85,7 @@ router.get('/audit-logs', authMiddleware, adminOnly, validate(auditLogsQuerySche
 
     res.json({ logs: logs.map(formatLog), total, page, pages: Math.ceil(total / limit) })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -122,7 +123,7 @@ router.get('/audit-logs/filters', authMiddleware, adminOnly, async (req, res) =>
       })),
     })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 

@@ -1,5 +1,6 @@
 const express = require('express')
 const path = require('path')
+const { sendServerError } = require('../../lib/httpErrors')
 const router = express.Router()
 const prisma = require('../../lib/prisma')
 const authMiddleware = require('../../middleware/auth')
@@ -20,7 +21,7 @@ router.get('/full-tests', async (req, res) => {
   try {
     res.json(await getFullTestsCached())
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -36,7 +37,7 @@ router.get('/exam-series', authMiddleware, async (req, res) => {
     }, TTL_CAMBRIDGE)
     res.json(series)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -47,7 +48,7 @@ router.post('/exam-series', authMiddleware, teacherOnly, validate(examSeriesSche
     invalidateExamCaches()
     res.json(s)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -62,7 +63,7 @@ router.put('/exam-series/:id', authMiddleware, teacherOnly, validate(examSeriesS
     invalidateExamCaches()
     res.json(s)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -74,7 +75,7 @@ router.delete('/exam-series/:id', authMiddleware, teacherOnly, async (req, res) 
     invalidateExamCaches()
     res.json({ ok: true })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -89,7 +90,7 @@ router.get('/exam-series/:id/books', authMiddleware, async (req, res) => {
     }, TTL_CAMBRIDGE)
     res.json(books)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -106,7 +107,7 @@ router.post('/exam-series/:id/books', authMiddleware, teacherOnly, async (req, r
     invalidateExamCaches()
     res.json(book)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -143,7 +144,7 @@ router.put('/exam-series/:seriesId/books/:bookNumber', authMiddleware, teacherOn
     invalidateExamCaches()
     res.json({ ok: true, bookNumber: newNumber })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -160,7 +161,7 @@ router.delete('/exam-series/:seriesId/books/:bookNumber', authMiddleware, teache
     invalidateExamCaches()
     res.json({ ok: true })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -179,7 +180,7 @@ router.post('/exam-series/:seriesId/covers/:bookNumber', authMiddleware, teacher
     invalidateExamCaches()
     res.json({ seriesId, bookNumber, coverImageUrl })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi lưu ảnh bìa', error: error.message })
+    sendServerError(res, error, 'Lỗi lưu ảnh bìa')
   }
 })
 

@@ -1,4 +1,5 @@
 const express = require('express')
+const { sendServerError } = require('../../lib/httpErrors')
 const router = express.Router()
 const prisma = require('../../lib/prisma')
 const authMiddleware = require('../../middleware/auth')
@@ -71,7 +72,7 @@ router.get('/trash/count', authMiddleware, teacherOrAdmin, async (req, res) => {
     ])
     res.json({ count: practices + writings + speakings + exams + examSeriesList + books })
   } catch (err) {
-    res.status(500).json({ message: 'Lỗi server', error: err.message })
+    sendServerError(res, err, 'Lỗi server')
   }
 })
 
@@ -181,7 +182,7 @@ router.get('/trash', authMiddleware, teacherOrAdmin, async (req, res) => {
 
     res.json({ items, page: parseInt(page), limit: take })
   } catch (err) {
-    res.status(500).json({ message: 'Lỗi server', error: err.message })
+    sendServerError(res, err, 'Lỗi server')
   }
 })
 
@@ -250,7 +251,7 @@ router.post('/trash/:type/:id/restore', authMiddleware, teacherOrAdmin, async (r
     })
     res.json({ message: 'Đã khôi phục' })
   } catch (err) {
-    res.status(500).json({ message: 'Lỗi khôi phục', error: err.message })
+    sendServerError(res, err, 'Lỗi khôi phục')
   }
 })
 
@@ -282,7 +283,7 @@ router.delete('/trash/purge', authMiddleware, teacherOrAdmin, async (req, res) =
     })
     res.json({ message: 'Đã dọn sạch thùng rác' })
   } catch (err) {
-    res.status(500).json({ message: 'Lỗi dọn rác', error: err.message })
+    sendServerError(res, err, 'Lỗi dọn rác')
   }
 })
 
@@ -355,7 +356,7 @@ router.delete('/trash/:type/:id/permanent', authMiddleware, teacherOrAdmin, asyn
     })
     res.json({ message: 'Đã xóa vĩnh viễn' })
   } catch (err) {
-    res.status(500).json({ message: 'Lỗi xóa vĩnh viễn', error: err.message })
+    sendServerError(res, err, 'Lỗi xóa vĩnh viễn')
   }
 })
 

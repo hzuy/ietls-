@@ -1,6 +1,7 @@
 const express = require('express')
 const path = require('path')
 const fs = require('fs')
+const { sendServerError } = require('../../lib/httpErrors')
 const router = express.Router()
 const authMiddleware = require('../../middleware/auth')
 const validate = require('../../middleware/validate')
@@ -25,7 +26,7 @@ router.post('/upload-audio', authMiddleware, teacherOnly, upload.single('audio')
     const { url: audioUrl, filename } = await uploadAudio(req.file, { subdir: 'audio', folder: 'audio' })
     res.json({ audioUrl, filename })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi upload audio', error: error.message })
+    sendServerError(res, error, 'Lỗi upload audio')
   }
 })
 
@@ -36,7 +37,7 @@ router.post('/upload-image', authMiddleware, teacherOnly, imageUpload.single('im
     const { url: imageUrl, filename } = await uploadImage(req.file, { subdir: 'questions', folder: 'questions' })
     res.json({ imageUrl, filename })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi upload ảnh', error: error.message })
+    sendServerError(res, error, 'Lỗi upload ảnh')
   }
 })
 

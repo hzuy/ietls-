@@ -1,6 +1,7 @@
 const express = require('express')
 const os = require('os')
 const ExcelJS = require('exceljs')
+const { sendServerError } = require('../../lib/httpErrors')
 const router = express.Router()
 const prisma = require('../../lib/prisma')
 const authMiddleware = require('../../middleware/auth')
@@ -269,7 +270,7 @@ router.get('/dashboard', authMiddleware, teacherOrAdmin, async (req, res) => {
     res.json(result)
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') console.error('[Dashboard Error]', error)
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -332,7 +333,7 @@ router.get('/attempts', authMiddleware, teacherOnly, validate(attemptsQuerySchem
 
     res.json({ attempts, total, page, pages: Math.ceil(total / limit) })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -424,7 +425,7 @@ router.post('/attempts/export', authMiddleware, teacherOnly, async (req, res) =>
   } catch (error) {
     if (!res.headersSent) {
       console.error('[Export Pre-Stream Error]', error)
-      return res.status(500).json({ message: 'Lỗi server khi xuất dữ liệu', error: error.message })
+      return sendServerError(res, error, 'Lỗi server khi xuất dữ liệu')
     } else {
       console.error(`[Export Mid-Stream Error] Lỗi xảy ra tại batch:`, error)
       try {
@@ -565,7 +566,7 @@ router.get('/analytics', authMiddleware, teacherOnly, validate(analyticsQuerySch
     const result = await getOrRevalidate(cacheKey, () => fetchAnalyticsData(isCustom ? { from, to } : { period }))
     res.json(result)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 

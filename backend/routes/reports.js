@@ -9,6 +9,7 @@ const { verifySession } = require('../lib/authUser')
 const authMiddleware = require('../middleware/auth')
 const { teacherOrAdmin } = require('../lib/roles')
 const { uploadImage } = require('../services/storageService')
+const { sendServerError } = require('../lib/httpErrors')
 
 const router = express.Router()
 
@@ -126,7 +127,7 @@ router.post('/', reportLimiter, optionalAuth, reportUpload.single('image'), asyn
       try { fs.unlinkSync(req.file.path) } catch {}
     }
     console.error('[POST /api/reports Error]', err)
-    res.status(500).json({ message: 'Lỗi server khi gửi báo lỗi', error: err.message })
+    sendServerError(res, err, 'Lỗi server khi gửi báo lỗi')
   }
 })
 
@@ -169,7 +170,7 @@ router.get('/admin', authMiddleware, teacherOrAdmin, async (req, res) => {
     })
   } catch (err) {
     console.error('[GET /api/reports/admin Error]', err)
-    res.status(500).json({ message: 'Lỗi server', error: err.message })
+    sendServerError(res, err, 'Lỗi server')
   }
 })
 
@@ -197,7 +198,7 @@ router.patch('/admin/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ message: 'Không tìm thấy báo lỗi' })
     console.error('[PATCH /api/reports/admin/:id Error]', err)
-    res.status(500).json({ message: 'Lỗi server', error: err.message })
+    sendServerError(res, err, 'Lỗi server')
   }
 })
 

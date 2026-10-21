@@ -5,6 +5,7 @@ const validate = require('../middleware/validate')
 const { aiSubmitLimiter } = require('../middleware/rateLimiter')
 const { writingSubmitSchema } = require('../validators/submissionValidator')
 const { sanitizeCorrections } = require('../lib/inlineCorrections')
+const { sendServerError } = require('../lib/httpErrors')
 
 const router = express.Router()
 const prisma = require('../lib/prisma')
@@ -30,7 +31,7 @@ router.get('/exams', authMiddleware, async (req, res) => {
     })
     res.json(exams)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -43,7 +44,7 @@ router.get('/exams/:id', authMiddleware, async (req, res) => {
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy đề' })
     res.json(exam)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -108,7 +109,7 @@ router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res
 
     res.json(results)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -347,7 +348,7 @@ router.post('/exams/:id/submit', authMiddleware, learnerOnly, aiSubmitLimiter, v
     // Return response immediately
     res.json({ answerId: writingAnswer.id, status: 'pending', wordCount })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi nộp bài', error: error.message })
+    sendServerError(res, error, 'Lỗi nộp bài')
   }
 })
 
@@ -387,7 +388,7 @@ router.get('/answers/:id/status', authMiddleware, learnerOnly, async (req, res) 
       status: answer.status
     })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -421,7 +422,7 @@ router.post('/answers/:id/retry', authMiddleware, learnerOnly, aiSubmitLimiter, 
 
     res.json({ answerId, status: 'pending' })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 

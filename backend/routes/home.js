@@ -1,4 +1,5 @@
 const express = require('express')
+const { sendServerError } = require('../lib/httpErrors')
 const router = express.Router()
 const {
   getPracticeListCached,
@@ -25,7 +26,7 @@ router.get('/', async (req, res) => {
     ])
     res.json({ fullTests, reading, listening, writingSamples, speakingSamples })
   } catch (err) {
-    res.status(500).json({ message: 'Lỗi server', error: err.message })
+    sendServerError(res, err, 'Lỗi server')
   }
 })
 

@@ -1,5 +1,6 @@
 const express = require('express')
 const bcrypt = require('bcryptjs')
+const { sendServerError } = require('../../lib/httpErrors')
 const router = express.Router()
 const prisma = require('../../lib/prisma')
 const authMiddleware = require('../../middleware/auth')
@@ -37,7 +38,7 @@ router.post('/make-admin', authMiddleware, adminOnly, validate(userIdSchema), as
     })
     res.json({ message: 'Đã nâng quyền admin!', user })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -107,7 +108,7 @@ router.get('/users', authMiddleware, adminOnly, async (req, res) => {
       pages: Math.ceil(total / parseInt(limit))
     })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -135,7 +136,7 @@ router.get('/users/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
 
     res.json({ user, attempts, skillStats, avgBand: summary.avgBand, submissionCount: summary.submissionCount, totalAttempts: totalAttemptsCount, shownAttempts: attempts.length })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -154,7 +155,7 @@ router.put('/users/:id/toggle-lock', authMiddleware, adminOnly, async (req, res)
     })
     res.json({ isLocked: updated.isLocked })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -173,7 +174,7 @@ router.delete('/users/:id', authMiddleware, adminOnly, async (req, res) => {
     })
     res.json({ message: 'Đã xóa user (soft delete)' })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -187,7 +188,7 @@ router.get('/me', authMiddleware, teacherOrAdmin, async (req, res) => {
     if (!user) return res.status(404).json({ message: 'Không tìm thấy tài khoản' })
     res.json(user)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -201,7 +202,7 @@ router.put('/me/password', authMiddleware, teacherOrAdmin, validate(adminChangeP
     await prisma.user.update({ where: { id: req.user.userId }, data: { password: hashed } })
     res.json({ message: 'Đổi mật khẩu thành công' })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -222,7 +223,7 @@ router.get('/accounts', authMiddleware, teacherOrAdmin, async (req, res) => {
     })
     res.json(accounts)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -244,7 +245,7 @@ router.post('/accounts', authMiddleware, adminOnly, validate(createAccountSchema
     })
     res.status(201).json(user)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -285,7 +286,7 @@ router.put('/accounts/:id', authMiddleware, teacherOrAdmin, validate(updateAccou
     })
     res.json(user)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -304,7 +305,7 @@ router.delete('/accounts/:id', authMiddleware, adminOnly, async (req, res) => {
     })
     res.json({ message: 'Đã xóa tài khoản' })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -326,7 +327,7 @@ router.get('/settings', authMiddleware, adminOnly, async (req, res) => {
     const obj = Object.fromEntries(settings.map(s => [s.key, s.value]))
     res.json(obj)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -347,7 +348,7 @@ router.put('/settings', authMiddleware, adminOnly, validate(updateSettingsSchema
     })
     res.json({ message: 'Đã lưu cài đặt' })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -361,7 +362,7 @@ router.get('/staff', authMiddleware, adminOnly, async (req, res) => {
     })
     res.json(staff)
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -384,7 +385,7 @@ router.post('/make-teacher', authMiddleware, adminOnly, validate(userIdSchema), 
     })
     res.json({ message: 'Đã nâng quyền teacher!', user })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -408,7 +409,7 @@ router.post('/remove-staff', authMiddleware, adminOnly, validate(userIdSchema), 
     })
     res.json({ message: 'Đã xóa quyền staff', user })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 
@@ -437,7 +438,7 @@ router.post('/users/:id/reset-password', authMiddleware, adminOnly, async (req, 
     // Return plaintext ONCE — never log it
     res.json({ newPassword: pwd })
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message })
+    sendServerError(res, error, 'Lỗi server')
   }
 })
 

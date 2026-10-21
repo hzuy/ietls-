@@ -22,6 +22,7 @@ const { logAuditEvent } = require('../lib/auditLog')
 const { AUDIT_ACTIONS } = require('../lib/auditActions')
 const { acquireLock, releaseLock, isLocked } = require('../lib/explanationLock')
 const { bindRequestAbort } = require('../lib/requestAbort')
+const { sendServerError } = require('../lib/httpErrors')
 
 const router = express.Router()
 
@@ -149,7 +150,7 @@ function makePracticeListHandler(skill) {
     const limit = req.query.limit !== undefined ? parseInt(req.query.limit) : 4
     try {
       res.json(await getPracticeListCached(skill, limit))
-    } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
+    } catch (err) { sendServerError(res, err, 'Lỗi server') }
   }
 }
 
@@ -171,7 +172,7 @@ router.get('/attempts/:skill', authMiddleware, learnerOnly, async (req, res) => 
     const byExam = {}
     for (const a of rows) (byExam[a.practiceExamId] ||= []).push(attemptSummary(a, skill))
     res.json(byExam)
-  } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
+  } catch (err) { sendServerError(res, err, 'Lỗi server') }
 })
 
 router.post('/attempts/:skill/:id', authMiddleware, learnerOnly, validate(practiceAttemptSchema), async (req, res) => {
@@ -187,7 +188,7 @@ router.post('/attempts/:skill/:id', authMiddleware, learnerOnly, validate(practi
       select: { id: true, practiceExamId: true, correct: true, total: true, createdAt: true },
     })
     res.status(201).json(attemptSummary(created, skill))
-  } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
+  } catch (err) { sendServerError(res, err, 'Lỗi server') }
 })
 
 router.get('/attempts/:skill/:id/:attemptId', authMiddleware, learnerOnly, async (req, res) => {
@@ -201,7 +202,7 @@ router.get('/attempts/:skill/:id/:attemptId', authMiddleware, learnerOnly, async
     })
     if (!attempt) return res.status(404).json({ message: 'Không tìm thấy lượt làm bài' })
     res.json({ ...attemptSummary(attempt, skill), answers: attempt.answers })
-  } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
+  } catch (err) { sendServerError(res, err, 'Lỗi server') }
 })
 
 router.get('/reading', makePracticeListHandler('reading'))
@@ -218,7 +219,7 @@ router.get('/reading/:id', authMiddleware, async (req, res) => {
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy' })
     const groups = practiceGroupsWithExplanations(exam.questions, { forAdmin: false })
     res.json({ ...exam, questions: { groups } })
-  } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
+  } catch (err) { sendServerError(res, err, 'Lỗi server') }
 })
 
 router.get('/listening/:id', authMiddleware, async (req, res) => {
@@ -231,7 +232,7 @@ router.get('/listening/:id', authMiddleware, async (req, res) => {
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy' })
     const groups = practiceGroupsWithExplanations(exam.questions, { forAdmin: false })
     res.json({ ...exam, questions: { groups } })
-  } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
+  } catch (err) { sendServerError(res, err, 'Lỗi server') }
 })
 
 // ─── ADMIN: list ──────────────────────────────────────────────────────────────
@@ -255,7 +256,7 @@ router.get('/admin/reading', authMiddleware, teacherStrict, async (req, res) => 
       questionCount: getQuestionCount(r),
       questions: undefined
     })))
-  } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
+  } catch (err) { sendServerError(res, err, 'Lỗi server') }
 })
 
 router.get('/admin/listening', authMiddleware, teacherStrict, async (req, res) => {
@@ -275,7 +276,7 @@ router.get('/admin/listening', authMiddleware, teacherStrict, async (req, res) =
       questionCount: getQuestionCount(r),
       questions: undefined
     })))
-  } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
+  } catch (err) { sendServerError(res, err, 'Lỗi server') }
 })
 
 // ─── ADMIN: detail for editing ────────────────────────────────────────────────
@@ -290,7 +291,7 @@ router.get('/admin/:skill/:id', authMiddleware, teacherStrict, async (req, res) 
     // Map to JSON for editor (bao gồm cả explanations đã lưu)
     const groups = practiceGroupsWithExplanations(exam.questions, { forAdmin: true })
     res.json({ ...exam, questions: JSON.stringify({ groups }) })
-  } catch (err) { res.status(500).json({ message: 'Lỗi server', error: err.message }) }
+  } catch (err) { sendServerError(res, err, 'Lỗi server') }
 })
 
 // ─── ADMIN: create (FIXED) ────────────────────────────────────────────────────
@@ -429,7 +430,7 @@ router.post('/admin/:skill/upload-thumbnail', authMiddleware, teacherStrict, thu
       metadata: { resource: 'thumbnail' }
     })
     res.json({ url })
-  } catch (err) { res.status(500).json({ message: 'Lỗi upload', error: err.message }) }
+  } catch (err) { sendServerError(res, err, 'Lỗi upload') }
 })
 
 router.post('/admin/listening/upload-audio', authMiddleware, teacherStrict, audioUpload.single('audio'), async (req, res) => {
@@ -443,7 +444,7 @@ router.post('/admin/listening/upload-audio', authMiddleware, teacherStrict, audi
       metadata: { resource: 'audio' }
     })
     res.json({ url })
-  } catch (err) { res.status(500).json({ message: 'Lỗi upload audio', error: err.message }) }
+  } catch (err) { sendServerError(res, err, 'Lỗi upload audio') }
 })
 
 // ─── ADMIN: upload thumbnail (gắn thẳng vào record :id — giữ cho tương thích) ──
@@ -464,7 +465,7 @@ router.post('/admin/:skill/:id/thumbnail', authMiddleware, teacherStrict, thumbU
       metadata: { resource: 'thumbnail' }
     })
     res.json(exam)
-  } catch (err) { res.status(500).json({ message: 'Lỗi upload', error: err.message }) }
+  } catch (err) { sendServerError(res, err, 'Lỗi upload') }
 })
 
 // ─── ADMIN: upload audio (listening only) ────────────────────────────────────
@@ -485,7 +486,7 @@ router.post('/admin/listening/:id/audio', authMiddleware, teacherStrict, audioUp
       metadata: { resource: 'audio' }
     })
     res.json(exam)
-  } catch (err) { res.status(500).json({ message: 'Lỗi upload audio', error: err.message }) }
+  } catch (err) { sendServerError(res, err, 'Lỗi upload audio') }
 })
 
 // ─── ADMIN: delete (soft) ─────────────────────────────────────────────────────
@@ -512,7 +513,7 @@ router.delete('/admin/:skill/:id', authMiddleware, teacherStrict, async (req, re
       entityLabel: existing?.title ?? null
     })
     res.json({ message: 'Đã xóa' })
-  } catch (err) { res.status(500).json({ message: 'Lỗi xóa', error: err.message }) }
+  } catch (err) { sendServerError(res, err, 'Lỗi xóa') }
 })
 
 // ─── ADMIN: GET EXPLANATION STATUS FOR PRACTICE (READ-ONLY) ─────────────────
@@ -598,7 +599,7 @@ router.get('/admin/:skill/:id/explanation-status', authMiddleware, teacherStrict
     })
   } catch (err) {
     console.error('[GET PRACTICE EXPLANATION STATUS ERROR]', err)
-    res.status(500).json({ message: 'Lỗi server khi lấy trạng thái giải thích AI', error: err.message })
+    sendServerError(res, err, 'Lỗi server khi lấy trạng thái giải thích AI')
   }
 })
 
