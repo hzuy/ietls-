@@ -74,8 +74,10 @@ router.get('/exams/:id', authMiddleware, async (req, res) => {
 
     const cacheKey = `exam:reading:${req.params.id}${withAnswers ? ':preview' : ''}`
     const exam = await getOrSet(cacheKey, async () => {
-      return prisma.exam.findUnique({
-        where: { id: parseInt(req.params.id) },
+      // findFirst (không phải findUnique) để lọc được deletedAt: đề đã xóa mềm
+      // không được trả cho học sinh nữa, dù ID còn nguyên trong DB.
+      return prisma.exam.findFirst({
+        where: { id: parseInt(req.params.id), deletedAt: null },
         include: {
           passages: {
             orderBy: { number: 'asc' },

@@ -56,7 +56,8 @@ router.get('/speaking', makeSampleListHandler('speaking'))
 // ─── PUBLIC: detail ───────────────────────────────────────────────────────────
 router.get('/writing/:id', async (req, res) => {
   try {
-    const s = await prisma.writingSample.findUnique({ where: { id: parseInt(req.params.id) } })
+    // deletedAt: null — bài mẫu đã xóa mềm không còn hiển thị công khai.
+    const s = await prisma.writingSample.findFirst({ where: { id: parseInt(req.params.id), deletedAt: null } })
     if (!s) return res.status(404).json({ message: 'Không tìm thấy' })
     res.json({ ...s, tags: s.tags ? JSON.parse(s.tags) : [] })
   } catch (err) {
@@ -66,8 +67,9 @@ router.get('/writing/:id', async (req, res) => {
 
 router.get('/speaking/:id', async (req, res) => {
   try {
-    const s = await prisma.speakingSample.findUnique({ 
-      where: { id: parseInt(req.params.id) },
+    // deletedAt: null — bài mẫu đã xóa mềm không còn hiển thị công khai.
+    const s = await prisma.speakingSample.findFirst({
+      where: { id: parseInt(req.params.id), deletedAt: null },
       include: { parts: { include: { questions: { orderBy: { orderNum: 'asc' } } }, orderBy: { partNumber: 'asc' } } }
     })
     if (!s) return res.status(404).json({ message: 'Không tìm thấy' })

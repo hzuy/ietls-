@@ -93,7 +93,9 @@ function stripCorrectAnswer(exam) {
 
 const prismaMock = {
   exam: {
-    findUnique: vi.fn(({ where, include }) => {
+    // Route chi tiết dùng findFirst (kèm lọc deletedAt: null) chứ không phải
+    // findUnique — xem thêm routes/learnerSoftDelete.test.js
+    findFirst: vi.fn(({ where, include }) => {
       if (where.id === 1) {
         // Check if question select (without correctAnswer) was applied
         const readingSelectApplied = include?.passages?.include?.questions?.select

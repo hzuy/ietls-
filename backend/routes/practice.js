@@ -210,8 +210,9 @@ router.get('/listening', makePracticeListHandler('listening'))
 // ─── AUTH: detail ─────────────────────────────────────────────────────────────
 router.get('/reading/:id', authMiddleware, async (req, res) => {
   try {
-    const exam = await prisma.practiceExam.findUnique({ 
-      where: { id: parseInt(req.params.id) },
+    // deletedAt: null — bài luyện tập đã xóa mềm không được trả cho học sinh.
+    const exam = await prisma.practiceExam.findFirst({
+      where: { id: parseInt(req.params.id), deletedAt: null },
       include: { questions: { orderBy: { orderNum: 'asc' } } }
     })
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy' })
@@ -222,8 +223,9 @@ router.get('/reading/:id', authMiddleware, async (req, res) => {
 
 router.get('/listening/:id', authMiddleware, async (req, res) => {
   try {
-    const exam = await prisma.practiceExam.findUnique({ 
-      where: { id: parseInt(req.params.id) },
+    // deletedAt: null — bài luyện tập đã xóa mềm không được trả cho học sinh.
+    const exam = await prisma.practiceExam.findFirst({
+      where: { id: parseInt(req.params.id), deletedAt: null },
       include: { questions: { orderBy: { orderNum: 'asc' } } }
     })
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy' })
