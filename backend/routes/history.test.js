@@ -107,7 +107,7 @@ describeIntegration('GET /api/user/history (postgres-dev integration)', () => {
     await cleanupUsers(leftoverUsers.map(u => u.id))
   })
 
-  it('trả về lịch sử reading+listening mới nhất trước, correct/total tính từ QuestionAnswer, loại trừ writing/speaking và lượt chưa hoàn thành', async () => {
+  it('trả về lịch sử cả 4 kỹ năng mới nhất trước, correct/total tính từ QuestionAnswer, loại trừ lượt chưa hoàn thành', async () => {
     const { exam: readingExam, questions: rq } = await createReadingExam('history-basic-reading', [
       { number: 1, correctAnswer: 'yes' }, { number: 2, correctAnswer: 'no' }
     ])
@@ -132,29 +132,33 @@ describeIntegration('GET /api/user/history (postgres-dev integration)', () => {
           { questionId: lq[1].id, userAnswer: 'b', isCorrect: true },
         ]
       })
-      // Writing attempt — không thuộc phạm vi, không được xuất hiện trong history
-      await createAttempt(user.id, writingExam.id, { score: 7.0, finishedAt: new Date(now), answers: [] })
+      // Writing attempt — thuộc phạm vi 4 kỹ năng
+      const writingAttempt = await createAttempt(user.id, writingExam.id, { score: 7.0, finishedAt: new Date(now), answers: [] })
       // Lượt chưa hoàn thành (finishedAt null) — không được xuất hiện
       await prisma.attempt.create({ data: { userId: user.id, examId: readingExam.id, score: null, finishedAt: null } })
 
       const res = await request(app).get('/api/user/history').set('Authorization', `Bearer ${userToken}`).expect(200)
 
-      expect(res.body.history).toHaveLength(2)
-      // Mới nhất trước: listening (finishedAt now-1min) trước reading (now-2min)
-      expect(res.body.history[0].attemptId).toBe(listeningAttempt.id)
-      expect(res.body.history[0].skill).toBe('listening')
-      expect(res.body.history[0].correct).toBe(2)
-      expect(res.body.history[0].total).toBe(2)
-      expect(res.body.history[0].bandScore).toBe(8.0)
+      expect(res.body.history).toHaveLength(3)
+      // Mới nhất trước: writing (finishedAt now), listening (now-1min), reading (now-2min)
+      expect(res.body.history[0].attemptId).toBe(writingAttempt.id)
+      expect(res.body.history[0].skill).toBe('writing')
+      expect(res.body.history[0].bandScore).toBe(7.0)
 
-      expect(res.body.history[1].attemptId).toBe(readingAttempt.id)
-      expect(res.body.history[1].skill).toBe('reading')
-      expect(res.body.history[1].correct).toBe(1)
+      expect(res.body.history[1].attemptId).toBe(listeningAttempt.id)
+      expect(res.body.history[1].skill).toBe('listening')
+      expect(res.body.history[1].correct).toBe(2)
       expect(res.body.history[1].total).toBe(2)
-      expect(res.body.history[1].examTitle).toContain('history-basic-reading')
+      expect(res.body.history[1].bandScore).toBe(8.0)
 
-      expect(res.body.history.some(h => h.skill === 'writing')).toBe(false)
-      expect(res.body.total).toBe(2)
+      expect(res.body.history[2].attemptId).toBe(readingAttempt.id)
+      expect(res.body.history[2].skill).toBe('reading')
+      expect(res.body.history[2].correct).toBe(1)
+      expect(res.body.history[2].total).toBe(2)
+      expect(res.body.history[2].examTitle).toContain('history-basic-reading')
+
+      expect(res.body.history.some(h => h.skill === 'writing')).toBe(true)
+      expect(res.body.total).toBe(3)
     } finally {
       await cleanupExams([readingExam.id, listeningExam.id, writingExam.id])
     }
