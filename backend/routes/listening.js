@@ -419,7 +419,7 @@ router.get('/exams/:id/result-detail', authMiddleware, learnerOnly, validate(res
           rawCorrectAnswer,
           options: parsedOpts,
           type: q.type,
-          explanation: filterLearnerExplanation(q.explanation),
+          explanation: filterLearnerExplanation(q.explanation, q.type),
           grouped: false
         })
       }
@@ -499,7 +499,7 @@ router.get('/exams/:id/result-detail', authMiddleware, learnerOnly, validate(res
               statuses,
               options: parsedOpts,
               type: g.type,
-              explanation: filterLearnerExplanation(q.explanation)
+              explanation: filterLearnerExplanation(q.explanation, g.type || q.type)
             })
           } else {
             // All other group types — flatten to individual questions
@@ -529,7 +529,7 @@ router.get('/exams/:id/result-detail', authMiddleware, learnerOnly, validate(res
               rawCorrectAnswer,
               options: parsedOpts,
               type: g.type || q.type,
-              explanation: filterLearnerExplanation(q.explanation),
+              explanation: filterLearnerExplanation(q.explanation, g.type || q.type),
               grouped: false
             })
           }

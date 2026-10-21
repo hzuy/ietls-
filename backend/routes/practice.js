@@ -12,6 +12,8 @@ const { uploadAudio, uploadOptimizedCover } = require('../services/storageServic
 const {
   generateForPracticeExam,
   isExplanationVisibleToLearner,
+  filterLearnerExplanation,
+  sanitizeExplanationForRead,
   regenerateQuestionExplanation,
   updateManualExplanation,
   reviewQuestionExplanation,
@@ -71,12 +73,23 @@ function practiceGroupsWithExplanations(rows, { forAdmin = false } = {}) {
     const group = JSON.parse(pq.content)
     const byNumber = pq.explanation?.byNumber
     if (!byNumber) return group
-    if (forAdmin) return { ...group, explanations: byNumber }
-    // 3.1: Ẩn lời giải chưa duyệt hoặc conflict khỏi học sinh
+    const qTypeMap = {}
+    for (const q of group.questions || []) {
+      qTypeMap[q.number] = q.type || group.type || pq.type
+    }
+    if (forAdmin) {
+      const sanitizedByNumber = {}
+      for (const [k, exp] of Object.entries(byNumber)) {
+        sanitizedByNumber[k] = sanitizeExplanationForRead(exp, qTypeMap[k] || group.type || pq.type)
+      }
+      return { ...group, explanations: sanitizedByNumber }
+    }
+    // 3.1: Ẩn lời giải chưa duyệt hoặc conflict khỏi học sinh; lọc translation/full_sentence theo 2.3
     const filteredByNumber = {}
     for (const [k, exp] of Object.entries(byNumber)) {
-      if (isExplanationVisibleToLearner(exp)) {
-        filteredByNumber[k] = exp
+      const filtered = filterLearnerExplanation(exp, qTypeMap[k] || group.type || pq.type)
+      if (filtered) {
+        filteredByNumber[k] = filtered
       }
     }
     return Object.keys(filteredByNumber).length ? { ...group, explanations: filteredByNumber } : group

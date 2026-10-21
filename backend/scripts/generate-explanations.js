@@ -52,7 +52,15 @@ const FAMILY = {
   MCQ: ['mcq', 'mcq_multi', 'choose_title', 'list_selection'],
   TFNG: ['true_false_ng', 'yes_no_ng'],
   MATCHING: ['matching', 'matching_headings', 'matching_features', 'matching_paragraph', 'matching_endings'],
-  COMPLETION: ['fill_blank', 'short_answer', 'table_completion'],
+  COMPLETION: [
+    'fill_blank',
+    'short_answer',
+    'table_completion',
+    'note_completion',
+    'sentence_completion',
+    'summary_completion',
+    'flow_chart_completion',
+  ],
   // diagram_label: xác nhận có thật trong dữ liệu production (không có trong comment
   // schema.prisma lẫn getTypeName của routes/reading.js|listening.js — có lẽ sinh ra
   // ngoài các map hiện có) — cùng họ với diagram_completion/map_diagram.
@@ -173,26 +181,28 @@ function isVietnameseTranslation(text) {
     }
   }
 
-  // Phải có ít nhất 1 ký tự mang dấu thanh/ký tự đặc trưng tiếng Việt
+  // 1. Phải có ít nhất 1 ký tự mang dấu thanh/ký tự đặc trưng tiếng Việt
   if (accentedCount === 0) return false
 
-  // Tỷ lệ ký tự có dấu trên tổng số chữ cái:
-  // Văn bản tiếng Việt chuẩn có tỷ lệ ký tự có dấu từ 15% - 40%.
-  // Nếu tỷ lệ ký tự không dấu > 88% (tức ký tự có dấu < 12%), chuỗi đó là câu tiếng Anh
-  // bị ghép thêm một vài từ tiếng Việt (hoặc câu lai tạp).
+  // 2. Tỷ lệ ký tự có dấu trên tổng số chữ cái:
+  // Tiếng Việt chuẩn có tỷ lệ ký tự có dấu từ 15% - 40%.
+  // Nếu tỷ lệ ký tự có dấu < 12% trên chuỗi dài >= 15 chữ cái -> chuỗi lai tạp hoặc câu tiếng Anh bị chèn vài từ.
   const accentedRatio = accentedCount / letters.length
   if (letters.length >= 15 && accentedRatio < 0.12) {
     return false
   }
 
-  // Kiểm tra phần đầu chuỗi: văn bản tiếng Việt thật phải bắt đầu bằng ký tự có dấu
-  // ngay trong 40 ký tự đầu. Chuỗi dạng "English sentence. Câu tiếng Việt." bị loại
-  // vì prefix tiếng Anh thuần không mang dấu thanh tiếng Việt nào.
-  if (letters.length >= 20) {
-    const prefixLetters = trimmed.slice(0, 40).match(/[\p{L}]/gu) || []
-    if (prefixLetters.length >= 10) {
-      const prefixAccented = prefixLetters.filter((ch) => VIETNAMESE_DIACRITICS_REGEX.test(ch)).length
-      if (prefixAccented === 0) return false
+  // 3. Phân tách theo mệnh đề / câu độc lập (dấu chấm, chấm phẩy, chấm hỏi, chấm cảm, hai chấm, xuống dòng, ngoặc đơn, ngoặc vuông, gạch ngang — – hoặc " - ").
+  // Nếu tồn tại một mệnh đề độc lập tiếng Anh dài (>= 12 ký tự chữ cái và >= 3 từ) mà không chứa bất kỳ dấu tiếng Việt nào -> bị coi là câu lai tạp/chưa dịch (kể cả tiếng Anh ở đầu hay ở CUỐI chuỗi).
+  const clauses = trimmed.split(/[\.\!\?;\:\n\r\(\)\[\]—–]|\s+-\s+/).map((s) => s.trim()).filter(Boolean)
+  for (const clause of clauses) {
+    const clauseLetters = clause.match(/[\p{L}]/gu) || []
+    const clauseWords = clause.split(/\s+/).filter(Boolean)
+    if (clauseLetters.length >= 12 && clauseWords.length >= 3) {
+      const hasDiacritic = clauseLetters.some((ch) => VIETNAMESE_DIACRITICS_REGEX.test(ch))
+      if (!hasDiacritic) {
+        return false
+      }
     }
   }
 

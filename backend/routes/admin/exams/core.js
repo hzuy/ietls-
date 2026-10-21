@@ -14,6 +14,7 @@ const {
   regenerateQuestionExplanation,
   updateManualExplanation,
   reviewQuestionExplanation,
+  sanitizeExplanationForRead,
 } = require('../../../services/explanationGeneratorService')
 
 // ─── GET EXAM COUNTS BY SKILL ───────────────────────────────────────────────
@@ -456,7 +457,10 @@ router.get('/exams/:id', authMiddleware, teacherOnly, async (req, res) => {
     const parseQ = q => ({
       ...q,
       options: q.options ? JSON.parse(q.options) : null,
-      explanation: typeof q.explanation === 'string' ? (() => { try { return JSON.parse(q.explanation) } catch { return q.explanation } })() : q.explanation,
+      explanation: sanitizeExplanationForRead(
+        typeof q.explanation === 'string' ? (() => { try { return JSON.parse(q.explanation) } catch { return q.explanation } })() : q.explanation,
+        q.type
+      ),
     })
     exam.passages?.forEach(p => {
       p.questions = p.questions.map(parseQ)

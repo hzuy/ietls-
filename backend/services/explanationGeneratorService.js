@@ -10,6 +10,7 @@ const {
   cleanChunks,
   ExplanationValidationError,
   SKIP_FAMILIES,
+  isVietnameseTranslation,
 } = require('../scripts/generate-explanations')
 const { practiceQuestionContext } = require('../scripts/import-practice-explanations')
 const { invalidate } = require('../lib/swrCache')
@@ -128,8 +129,38 @@ function isExplanationVisibleToLearner(explanation) {
   return true
 }
 
-function filterLearnerExplanation(explanation) {
-  return isExplanationVisibleToLearner(explanation) ? explanation : null
+function sanitizeExplanationForRead(explanation, questionType = null) {
+  if (!explanation || typeof explanation !== 'object') return explanation
+
+  // Nếu là wrapper byNumber (dùng trong PracticeQuestion)
+  if (explanation.byNumber && typeof explanation.byNumber === 'object') {
+    const sanitizedByNumber = {}
+    for (const [key, subExp] of Object.entries(explanation.byNumber)) {
+      sanitizedByNumber[key] = sanitizeExplanationForRead(subExp, questionType)
+    }
+    return { ...explanation, byNumber: sanitizedByNumber }
+  }
+
+  const family = questionType ? classifyFamily(questionType) : null
+  const res = { ...explanation }
+
+  if (family && family !== 'COMPLETION') {
+    // 2.3: Họ khác Completion thì không trả hai trường translation và full_sentence
+    delete res.translation
+    delete res.full_sentence
+  } else if (family === 'COMPLETION' || !family) {
+    // Completion (hoặc khi không rõ loại) có translation không hợp lệ thì chỉ ẩn trường đó, không ẩn cả lời giải
+    if (res.translation && !isVietnameseTranslation(res.translation)) {
+      delete res.translation
+    }
+  }
+
+  return res
+}
+
+function filterLearnerExplanation(explanation, questionType = null) {
+  if (!isExplanationVisibleToLearner(explanation)) return null
+  return sanitizeExplanationForRead(explanation, questionType)
 }
 
 function validateManualExplanation(data, { sourceText = null, family = 'GENERIC', prevExp = {}, targetAnswer = null } = {}) {
@@ -2495,6 +2526,7 @@ module.exports = {
   containsInternalJargon,
   isExplanationVisibleToLearner,
   filterLearnerExplanation,
+  sanitizeExplanationForRead,
   validateManualExplanation,
   updatePracticeQuestionExplanationTx,
   regenerateQuestionExplanation,

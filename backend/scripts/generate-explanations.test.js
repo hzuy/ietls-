@@ -471,6 +471,17 @@ describe('Requirement 2.5: full_sentence & translation validation', () => {
       expect(isVietnameseTranslation('Micro-expressions are common to all people. Vì biểu cảm phổ biến ở tất cả mọi người.')).toBe(false)
     })
 
+    it('từ chối chuỗi có câu tiếng Anh nằm ở CUỐI', () => {
+      expect(isVietnameseTranslation('Vì biểu cảm phổ biến ở tất cả mọi người. Micro-expressions are common to all people.')).toBe(false)
+      expect(isVietnameseTranslation('Vì biểu cảm phổ biến ở tất cả mọi người (Micro-expressions are common to all people).')).toBe(false)
+      expect(isVietnameseTranslation('Vì biểu cảm phổ biến ở tất cả mọi người - Micro-expressions are common to all people.')).toBe(false)
+    })
+
+    it('chấp nhận câu tiếng Việt hợp lệ có chứa tên riêng tiếng Anh như Ekman', () => {
+      expect(isVietnameseTranslation('Ekman nghiên cứu về biểu cảm vi mô trên khuôn mặt.')).toBe(true)
+      expect(isVietnameseTranslation('Paul Ekman đã dành nhiều năm nghiên cứu về biểu cảm vi mô.')).toBe(true)
+      expect(isVietnameseTranslation('Nghiên cứu được thực hiện bởi giáo sư Paul Ekman tại đại học Stanford.')).toBe(true)
+    })
 
     it('từ chối chuỗi rỗng hoặc không hợp lệ', () => {
       expect(isVietnameseTranslation('')).toBe(false)

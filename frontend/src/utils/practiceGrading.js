@@ -31,6 +31,25 @@ function isListeningCorrect(group, userRaw, correctRaw) {
   return userRaw.toLowerCase() === correctRaw.toLowerCase()
 }
 
+const VIETNAMESE_DIACRITICS_REGEX = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i
+const COMPLETION_TYPES = new Set(['note_completion', 'table_completion', 'fill_blank', 'short_answer', 'drag_word_bank'])
+
+function sanitizeExplanationForLearner(exp, type) {
+  if (!exp || typeof exp !== 'object') return exp
+  const isCompletion = COMPLETION_TYPES.has(type)
+  const res = { ...exp }
+  if (!isCompletion) {
+    delete res.translation
+    delete res.full_sentence
+  } else if (res.translation) {
+    const hasDiacritic = VIETNAMESE_DIACRITICS_REGEX.test(res.translation)
+    if (!hasDiacritic) {
+      delete res.translation
+    }
+  }
+  return res
+}
+
 export function gradePractice(skill, exam, answers = {}) {
   const groups = exam?.questions?.groups || []
   const questions = []
@@ -66,8 +85,10 @@ export function gradePractice(skill, exam, answers = {}) {
           const exp = g.explanations?.[q.number] || null
           if (!exp) return null
           if (containsInternalJargon(exp)) return null
-          if (!exp.status) return exp
-          return ['ai_generated', 'teacher_reviewed', 'teacher_edited'].includes(exp.status) ? exp : null
+          if (exp.status && !['ai_generated', 'teacher_reviewed', 'teacher_edited'].includes(exp.status)) {
+            return null
+          }
+          return sanitizeExplanationForLearner(exp, g.type || q.type)
         })(),
       })
     })

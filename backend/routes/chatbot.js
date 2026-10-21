@@ -14,7 +14,7 @@ const {
   fetchWritingCriteriaStats,
   fetchSpeakingCriteriaStats,
 } = require('./stats')
-const { isExplanationVisibleToLearner } = require('../services/explanationGeneratorService')
+const { isExplanationVisibleToLearner, filterLearnerExplanation } = require('../services/explanationGeneratorService')
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Rate Limiter: chatbotRateLimiter (Max 20 requests per user per hour)
@@ -262,14 +262,15 @@ function parsePageContext(pageContext) {
   return { path, title, skill: m?.[1] || null, examId: m ? Number(m[2]) : null, attemptId }
 }
 
-function explanationSnippet(exp) {
+function explanationSnippet(exp, questionType = null) {
   if (!exp || typeof exp !== 'object') return ''
-  if (!isExplanationVisibleToLearner(exp)) return ''
-  if (exp.v === 2) {
-    const quote = (exp.evidence?.parts || []).map(p => p.text).join(' … ')
-    return clip([quote && `Bằng chứng trong bài: "${quote}"`, exp.reasoning && `Lý do: ${exp.reasoning}`].filter(Boolean).join('. '), 420)
+  const sanitized = filterLearnerExplanation(exp, questionType)
+  if (!sanitized) return ''
+  if (sanitized.v === 2) {
+    const quote = (sanitized.evidence?.parts || []).map(p => p.text).join(' … ')
+    return clip([quote && `Bằng chứng trong bài: "${quote}"`, sanitized.reasoning && `Lý do: ${sanitized.reasoning}`].filter(Boolean).join('. '), 420)
   }
-  return clip([exp.evidence, exp.reasoning || exp.conclusion].filter(Boolean).join('. '), 420)
+  return clip([sanitized.evidence, sanitized.reasoning || sanitized.conclusion].filter(Boolean).join('. '), 420)
 }
 
 function mentionedQuestionNumbers(message) {
@@ -314,7 +315,7 @@ async function buildAttemptContext(userId, page, focus = new Set()) {
     const head = `- Câu ${q.number} (${QUESTION_TYPE_LABEL[q.type] || q.type}): học viên ${user}, đáp án đúng "${clip(q.correctAnswer, 60)}".`
     if (!detailed.has(q.number)) return head
     const text = q.questionText ? ` Câu hỏi: "${clip(q.questionText, 140)}".` : ''
-    const exp = explanationSnippet(q.explanation)
+    const exp = explanationSnippet(q.explanation, q.type)
     return `${head}${text}${exp ? ` ${exp}` : ' (chưa có giải thích chi tiết trong hệ thống)'}`
   })
   const focusedCorrect = answers.filter(a => a.isCorrect && focus.has(a.question.number))

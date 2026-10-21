@@ -5,6 +5,7 @@ import {
   containsInternalJargon,
   isExplanationVisibleToLearner,
   filterLearnerExplanation,
+  sanitizeExplanationForRead,
 } from './explanationGeneratorService'
 
 describe('B.3 Content Blocker & Internal Jargon Detection', () => {
@@ -160,6 +161,81 @@ describe('B.3 Content Blocker & Internal Jargon Detection', () => {
       }
       expect(isExplanationVisibleToLearner(exp)).toBe(true)
       expect(filterLearnerExplanation(exp)).toEqual(exp)
+    })
+  })
+
+  describe('2.3 & E.4 Read-time filtering of translation and full_sentence', () => {
+    const legacyMcqExp = {
+      status: 'ai_generated',
+      answer: 'B',
+      reasoning: 'Đoạn 1 nêu rõ B là câu trả lời.',
+      full_sentence: 'Micro-expressions are common to all people.',
+      translation: 'Biểu cảm vi mô rất phổ biến ở tất cả mọi người.',
+    }
+
+    const legacyCompletionValid = {
+      status: 'ai_generated',
+      answer: 'timber',
+      reasoning: 'Đoạn 2 nêu rõ việc buôn bán gỗ.',
+      full_sentence: 'The grandfather built his wealth on timber.',
+      translation: 'Người ông đã xây dựng khối tài sản của mình từ ngành gỗ.',
+    }
+
+    const legacyCompletionInvalidTrans = {
+      status: 'ai_generated',
+      answer: 'timber',
+      reasoning: 'Đoạn 2 nêu rõ việc buôn bán gỗ.',
+      full_sentence: 'The grandfather built his wealth on timber.',
+      translation: 'Vì biểu cảm phổ biến ở tất cả mọi người. Micro-expressions are common to all people.',
+    }
+
+    it('loại bỏ translation và full_sentence cho các câu không phải họ COMPLETION (MCQ, TFNG, Matching...)', () => {
+      const sanitizedMcq = sanitizeExplanationForRead(legacyMcqExp, 'mcq')
+      expect(sanitizedMcq.translation).toBeUndefined()
+      expect(sanitizedMcq.full_sentence).toBeUndefined()
+      expect(sanitizedMcq.answer).toBe('B')
+      expect(sanitizedMcq.reasoning).toBe('Đoạn 1 nêu rõ B là câu trả lời.')
+
+      const sanitizedTfng = sanitizeExplanationForRead(legacyMcqExp, 'true_false_ng')
+      expect(sanitizedTfng.translation).toBeUndefined()
+      expect(sanitizedTfng.full_sentence).toBeUndefined()
+
+      const sanitizedMatching = sanitizeExplanationForRead(legacyMcqExp, 'matching')
+      expect(sanitizedMatching.translation).toBeUndefined()
+      expect(sanitizedMatching.full_sentence).toBeUndefined()
+    })
+
+    it('giữ nguyên translation và full_sentence cho câu COMPLETION có bản dịch tiếng Việt hợp lệ', () => {
+      const sanitized = sanitizeExplanationForRead(legacyCompletionValid, 'fill_blank')
+      expect(sanitized.translation).toBe('Người ông đã xây dựng khối tài sản của mình từ ngành gỗ.')
+      expect(sanitized.full_sentence).toBe('The grandfather built his wealth on timber.')
+      expect(sanitized.answer).toBe('timber')
+    })
+
+    it('họ COMPLETION có translation không hợp lệ thì chỉ ẩn translation, không ẩn cả lời giải', () => {
+      const sanitized = sanitizeExplanationForRead(legacyCompletionInvalidTrans, 'note_completion')
+      expect(sanitized.translation).toBeUndefined()
+      expect(sanitized.full_sentence).toBe('The grandfather built his wealth on timber.')
+      expect(sanitized.reasoning).toBe('Đoạn 2 nêu rõ việc buôn bán gỗ.')
+      expect(sanitized.answer).toBe('timber')
+
+      // Phía học sinh: lời giải vẫn hiển thị nhưng translation bị ẩn
+      const learnerExp = filterLearnerExplanation(legacyCompletionInvalidTrans, 'note_completion')
+      expect(learnerExp).not.toBeNull()
+      expect(learnerExp.translation).toBeUndefined()
+      expect(learnerExp.reasoning).toBe('Đoạn 2 nêu rõ việc buôn bán gỗ.')
+    })
+
+    it('hỗ trợ cấu trúc wrapper byNumber cho PracticeQuestion', () => {
+      const practiceExp = {
+        byNumber: {
+          '1': { ...legacyMcqExp },
+          '2': { ...legacyCompletionValid },
+        },
+      }
+      const sanitized = sanitizeExplanationForRead(practiceExp, 'mcq')
+      expect(sanitized.byNumber['1'].translation).toBeUndefined()
+      expect(sanitized.byNumber['1'].full_sentence).toBeUndefined()
     })
   })
 })
