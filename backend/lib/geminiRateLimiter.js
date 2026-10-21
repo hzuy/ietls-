@@ -89,9 +89,15 @@ function notifyTelemetry(event) { for (const l of telemetryListeners) { try { l(
 
 function scheduleGeminiCall(fn, { signal = null } = {}) {
   const queuedAt = Date.now()
+  if (signal?.aborted) {
+    const err = new Error('Yêu cầu AI đã bị hủy trước khi vào hàng đợi')
+    err.name = 'AbortError'
+    return Promise.reject(err)
+  }
+
   const executeCall = async () => {
     if (signal?.aborted) {
-      const err = new Error('Yêu cầu AI đã bị hủy trước khi vào hàng đợi')
+      const err = new Error('Yêu cầu AI đã bị hủy trước khi chạy')
       err.name = 'AbortError'
       throw err
     }
@@ -135,7 +141,31 @@ function scheduleGeminiCall(fn, { signal = null } = {}) {
 
   const nextCall = queuePromise.then(executeCall, executeCall)
   queuePromise = nextCall.catch(() => {})
-  return nextCall
+
+  if (!signal) {
+    return nextCall
+  }
+
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      signal.removeEventListener('abort', onAbort)
+      const err = new Error('Yêu cầu AI đã bị hủy trong hàng đợi')
+      err.name = 'AbortError'
+      reject(err)
+    }
+    signal.addEventListener('abort', onAbort)
+
+    nextCall.then(
+      (res) => {
+        signal.removeEventListener('abort', onAbort)
+        resolve(res)
+      },
+      (err) => {
+        signal.removeEventListener('abort', onAbort)
+        reject(err)
+      }
+    )
+  })
 }
 
 function recordGeminiCooldown(waitMs) {

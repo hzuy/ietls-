@@ -183,12 +183,17 @@ async function requestGeminiJson(prompt, {
 /**
  * Request structured JSON from Groq API (Secondary / Fallback provider).
  */
-async function requestGroqGradingJson(prompt, { attempts = 2, image = null, model = null, temperature = 0.1, max_tokens = 4096 } = {}) {
+async function requestGroqGradingJson(prompt, { attempts = 2, image = null, model = null, temperature = 0.1, max_tokens = 4096, signal = null } = {}) {
   const { repairTruncatedJson } = require('../services/json/jsonSanitizer')
   const groq = getGroqClient()
   const targetModel = model || (image ? getGroqVisionModel() : getGroqModel())
   let lastError
   for (let i = 0; i < attempts; i++) {
+    if (signal?.aborted) {
+      const err = new Error('Yêu cầu AI đã bị hủy')
+      err.name = 'AbortError'
+      throw err
+    }
     try {
       const messages = image
         ? [
@@ -202,17 +207,21 @@ async function requestGroqGradingJson(prompt, { attempts = 2, image = null, mode
           ]
         : [{ role: 'user', content: prompt }]
 
-      const completion = await groq.chat.completions.create({
+      const payload = {
         messages,
         model: targetModel,
         temperature,
         max_tokens,
         ...gradingParams(targetModel),
-      })
+      }
+      const completion = signal
+        ? await groq.chat.completions.create(payload, { signal })
+        : await groq.chat.completions.create(payload)
       const text = completion.choices[0]?.message?.content || ''
       return JSON.parse(repairTruncatedJson(text, completion.choices[0]?.finish_reason || null))
     } catch (err) {
       lastError = err
+      if (signal?.aborted) throw err
       if (!(err instanceof SyntaxError) && err?.status !== 400) throw err
     }
   }
@@ -229,6 +238,7 @@ async function requestGradingJson(prompt, options = {}) {
     try {
       return await requestGeminiJson(prompt, options)
     } catch (geminiErr) {
+      if (options?.signal?.aborted || geminiErr.name === 'AbortError') throw geminiErr
       console.warn(`[AI] Gemini gặp sự cố (${geminiErr.status || geminiErr.message}), tự động chuyển sang Groq dự phòng...`)
     }
   }

@@ -469,18 +469,27 @@ function rateLimitWaitMs(err) {
   return 20000
 }
 
-async function callGroq(prompt, { maxRateLimitRetries = 6 } = {}) {
+async function callGroq(prompt, { maxRateLimitRetries = 6, signal = null } = {}) {
   const groq = getGroqClient()
   let completion
   for (let attempt = 0; ; attempt++) {
+    if (signal?.aborted) {
+      const err = new Error('Yêu cầu AI đã bị hủy')
+      err.name = 'AbortError'
+      throw err
+    }
     try {
-      completion = await groq.chat.completions.create({
+      const payload = {
         messages: [{ role: 'user', content: prompt }],
         model: getGroqModel(),
         temperature: 0.3,
-      })
+      }
+      completion = signal
+        ? await groq.chat.completions.create(payload, { signal })
+        : await groq.chat.completions.create(payload)
       break
     } catch (err) {
+      if (signal?.aborted) throw err
       const wait = rateLimitWaitMs(err)
       if (wait === null || attempt >= maxRateLimitRetries) throw err
       console.log(`   … Groq giới hạn tốc độ hoặc mất kết nối, chờ ${Math.round(wait / 1000)}s rồi thử lại`)
@@ -606,7 +615,7 @@ async function callAi(prompt, { questionType = null, rawOptions = null, model: c
   const model = customModel || process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite'
 
   if (forceProvider === 'Groq') {
-    const groqData = await callGroq(prompt, { maxRateLimitRetries })
+    const groqData = await callGroq(prompt, { maxRateLimitRetries, signal })
     return {
       data: groqData,
       provider: 'Groq',
@@ -659,7 +668,7 @@ async function callAi(prompt, { questionType = null, rawOptions = null, model: c
     throw new Error('Gemini API key is not configured or requestGeminiJson is unavailable')
   }
 
-  const groqData = await callGroq(prompt, { maxRateLimitRetries })
+  const groqData = await callGroq(prompt, { maxRateLimitRetries, signal })
   return {
     data: groqData,
     provider: 'Groq',

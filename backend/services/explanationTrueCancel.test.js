@@ -231,4 +231,97 @@ describe('MỤC B: XEM LẠI BẢN VÁ HỦY (afe48ff) & ATOMIC CANCEL FLAG & 60
     expect(acquireLock(lockKey)).toBe(true)
     releaseLock(lockKey)
   })
+
+  it('F.1 Tín hiệu hủy đến được fetch của Gemini (signal.aborted / AbortError)', async () => {
+    const { requestGeminiJson } = require('../lib/groqClient')
+    const originalFetch = global.fetch
+    const originalKey = process.env.GEMINI_API_KEY
+    process.env.GEMINI_API_KEY = 'test-fake-key'
+    let interceptedSignal = null
+
+    const controller = new AbortController()
+
+    global.fetch = vi.fn().mockImplementation((url, opts) => {
+      interceptedSignal = opts?.signal
+      // Giả lập fetch đang diễn ra thì người dùng bấm Hủy
+      controller.abort()
+      return new Promise((resolve, reject) => {
+        if (interceptedSignal?.aborted) {
+          const err = new Error('The operation was aborted')
+          err.name = 'AbortError'
+          return reject(err)
+        }
+        if (interceptedSignal) {
+          interceptedSignal.addEventListener('abort', () => {
+            const err = new Error('The operation was aborted')
+            err.name = 'AbortError'
+            reject(err)
+          })
+        }
+      })
+    })
+
+    const promise = requestGeminiJson('Test prompt', { signal: controller.signal })
+
+    await expect(promise).rejects.toThrow(/hủy|aborted|AbortError/i)
+    expect(interceptedSignal).toBeTruthy()
+    expect(interceptedSignal.aborted).toBe(true)
+
+    global.fetch = originalFetch
+    process.env.GEMINI_API_KEY = originalKey
+  })
+
+  it('F.1 Tín hiệu hủy đến được Groq API (signal.aborted / AbortError)', async () => {
+    const { requestGroqGradingJson } = require('../lib/groqClient')
+    const controller = new AbortController()
+    controller.abort()
+
+    await expect(
+      requestGroqGradingJson('Test prompt', { signal: controller.signal })
+    ).rejects.toThrow(/hủy|aborted|AbortError/i)
+  })
+
+  it('F.2 Request chưa tới lượt trong hàng đợi rate limiter bị loại khỏi hàng đợi, không chiếm chỗ', async () => {
+    const { scheduleGeminiCall, resetRateLimiterState } = require('../lib/geminiRateLimiter')
+    resetRateLimiterState()
+
+    let req1Finished = false
+    let req2Ran = false
+    let req3Ran = false
+
+    // Request 1: Giả lập chạy chậm 120ms
+    const p1 = scheduleGeminiCall(async () => {
+      await new Promise(r => setTimeout(r, 120))
+      req1Finished = true
+      return 'REQ1_OK'
+    })
+
+    // Request 2: Được xếp hàng sau Request 1, nhưng bị hủy sớm sau 20ms
+    const controller2 = new AbortController()
+    const p2 = scheduleGeminiCall(async () => {
+      req2Ran = true
+      return 'REQ2_OK'
+    }, { signal: controller2.signal })
+
+    // Request 3: Xếp sau Request 2
+    const p3 = scheduleGeminiCall(async () => {
+      req3Ran = true
+      return 'REQ3_OK'
+    })
+
+    // Hủy Request 2 sau 20ms (khi Req 1 vẫn đang chạy)
+    await new Promise(r => setTimeout(r, 20))
+    controller2.abort()
+
+    // Request 2 phải reject NGAY LẬP TỨC với AbortError mà KHÔNG chờ Req 1 chạy hết
+    await expect(p2).rejects.toThrow(/hủy|AbortError/i)
+    expect(req1Finished).toBe(false) // Req 1 vẫn chưa xong
+
+    // Chờ tất cả xong
+    const [res1, res3] = await Promise.all([p1, p3])
+    expect(res1).toBe('REQ1_OK')
+    expect(res3).toBe('REQ3_OK')
+    expect(req2Ran).toBe(false) // Request 2 bị loại khỏi hàng đợi, hoàn toàn không được thực thi
+    resetRateLimiterState()
+  })
 })
