@@ -6,6 +6,11 @@ const {
   regenerateQuestionExplanation,
   isAnswerMatch,
 } = require('../services/explanationGeneratorService')
+const {
+  addGeminiTelemetryListener,
+  removeGeminiTelemetryListener,
+  scheduleGeminiCall,
+} = require('../lib/geminiRateLimiter')
 
 // ─── CHỐT AN TOÀN: CHỈ CHẠY TRÊN DB DEV (127.0.0.1:5433) ──────────────────────
 if (!process.env.DATABASE_URL || !process.env.DATABASE_URL.includes('127.0.0.1:5433')) {
@@ -453,6 +458,44 @@ const BENCHMARK_CASES = [
   },
 ]
 
+const REAL_GROUND_TRUTH_MAP = {
+  'R-SAI-01': 'C (students)',
+  'R-SAI-02': 'B (glassblowing)',
+  'R-SAI-03': 'B, C (patients, students)',
+  'R-SAI-04': 'TRUE',
+  'R-SAI-05': 'FALSE',
+  'R-SAI-06': 'NOT GIVEN',
+  'R-SAI-07': 'YES',
+  'R-SAI-08': 'NO',
+  'R-SAI-09': 'NOT GIVEN',
+  'R-SAI-10': 'i (Paragraph A)',
+  'R-SAI-11': 'iv (Paragraph B)',
+  'R-SAI-12': 'charcoal',
+  'L-SAI-13': '8:30 AM',
+  'L-SAI-14': 'Conference Hall B',
+  'L-SAI-15': 'B (Conference Hall B)',
+  'L-SAI-16': 'A (Main Foyer)',
+  'L-SAI-17': 'B (Prof. Marcus Vance)',
+  'L-SAI-18': 'slow-wave sleep',
+  'R-DUNG-19': 'B (glassblowing)',
+  'R-DUNG-20': 'TRUE',
+  'R-DUNG-21': 'FALSE',
+  'R-DUNG-22': 'YES',
+  'L-DUNG-23': '8:30 AM',
+  'L-DUNG-24': 'B (Conference Hall B)',
+  'R-DUNG-25': 'B, C (patients, students)',
+  'R-DUNG-26': 'NO',
+  'R-DUNG-27': 'i (Paragraph A)',
+  'R-DUNG-28': 'charcoal',
+  'L-DUNG-29': 'Conference Hall B',
+  'L-DUNG-30': 'slow-wave sleep',
+  'FB-SIM-31': 'C (students)',
+}
+
+BENCHMARK_CASES.forEach((c) => {
+  c.realGroundTruth = REAL_GROUND_TRUTH_MAP[c.id] || c.storedAnswer
+})
+
 async function runBenchmark() {
   printDbBanner()
   console.log('='.repeat(80))
@@ -564,6 +607,9 @@ async function runBenchmark() {
     let retryCount = 0
     let provider = 'Gemini'
     let durationMs = 0
+    const telemetryEvents = []
+    const telListener = (evt) => telemetryEvents.push(evt)
+    addGeminiTelemetryListener(telListener)
 
     try {
       if (c.mode === 'simulate_fallback') {
@@ -609,9 +655,15 @@ async function runBenchmark() {
       }
     } catch (err) {
       res = { ok: false, error: 'EXCEPTION', message: err.message }
+    } finally {
+      removeGeminiTelemetryListener(telListener)
     }
 
     durationMs = Date.now() - startTime
+    const queueWaitMs = telemetryEvents.reduce((acc, e) => acc + (e.queueWaitMs || 0), 0)
+    const apiMs = telemetryEvents.reduce((acc, e) => acc + (e.apiMs || 0), 0)
+    const callEvents = telemetryEvents.filter((e) => e.type === 'call')
+    retryCount = Math.max(0, callEvents.length - 1)
 
     // Đọc lại DB để kiểm tra DB có bị sửa lén không
     const freshQ = await prisma.question.findUnique({
@@ -648,7 +700,7 @@ async function runBenchmark() {
       }
     }
 
-    console.log(`   ⏱ Thời gian:         ${(durationMs / 1000).toFixed(2)}s`)
+    console.log(`   ⏱ Thời gian:         ${(durationMs / 1000).toFixed(2)}s (queueWait: ${queueWaitMs}ms, apiMs: ${apiMs}ms, retry: ${retryCount})`)
     console.log(`   🤖 AI giải mù:       "${aiBlindAnswer}"`)
     console.log(`   📌 Trạng thái cuối:  ${finalStatus}`)
     console.log(`   🔒 correctAnswer DB: "${finalStoredAnswer}" (Giữ nguyên: ${finalStoredAnswer === c.storedAnswer ? '✅' : '❌'})`)
@@ -660,11 +712,14 @@ async function runBenchmark() {
       category: c.category,
       skill: c.skill,
       type: c.type,
+      realGroundTruth: c.realGroundTruth,
       storedAnswer: c.storedAnswer,
       proposedAnswer: c.proposedAnswer || (c.feedback ? `[Feedback: ${c.feedback.slice(0, 30)}...]` : '-'),
       aiBlindAnswer,
       provider: c.mode === 'simulate_fallback' ? 'Simulated Fallback' : provider,
       retries: retryCount,
+      queueWaitMs,
+      apiMs,
       status: finalStatus,
       finalStoredAnswer,
       durationMs,
@@ -678,16 +733,46 @@ async function runBenchmark() {
     await sleep(3000)
   }
 
-  // Bước 4: In Bảng kết quả từng ca (đầy đủ các cột theo yêu cầu F)
-  console.log('\n' + '='.repeat(130))
-  console.log('📊 BẢNG TỪNG CA BENCHMARK THÔ L2 (GEMINI THẬT - 31 CA TRÊN DEV DB)')
-  console.log('='.repeat(130))
+  // Bước 3b: Giả lập tải hàng đợi (Chatbot / Trợ lý thống kê chạy song song với Luồng X)
+  console.log('\n[3b/4] Giả lập tải hàng đợi (Chatbot / Trợ lý thống kê gọi song song với Luồng X)...')
+  const bgPromises = [1, 2].map((id) =>
+    scheduleGeminiCall(async () => {
+      await sleep(1000)
+      return `BG_CHATBOT_${id}_OK`
+    })
+  )
+  const parallelStart = Date.now()
+  let parallelRes = null
+  let parallelErr = null
+  try {
+    parallelRes = await regenerateQuestionExplanation({
+      examId: exam.id,
+      questionId: createdQuestions['R-SAI-07'].id,
+      isPractice: false,
+      teacherFeedback: 'Kiểm tra lại xem sinh viên có hỏi Ekman về biểu cảm lừa dối không.',
+      confirmChangeAnswer: false,
+    })
+  } catch (err) {
+    parallelErr = err
+  }
+  const parallelMs = Date.now() - parallelStart
+  const bgResults = await Promise.all(bgPromises)
+  const isParallel504 = Boolean(parallelErr && (parallelErr.code === 'ETIMEDOUT' || parallelErr.status === 504))
+  console.log(`   Kết quả tải song song: Luồng X hoàn tất trong ${(parallelMs / 1000).toFixed(2)}s`)
+  console.log(`   Trạng thái Luồng X:   ${parallelRes ? parallelRes.status : parallelErr?.message}`)
+  console.log(`   Tỷ lệ 504 khi có tải: ${isParallel504 ? '100% (LỖI)' : '0% (ĐẠT ✅)'}`)
+  console.log(`   Background tasks:    ${bgResults.join(', ')}`)
 
-  console.log('| ID | Kỹ năng | Loại câu | correctAnswer lưu | Đáp án đề xuất | AI giải mù | Provider | Retry | Trạng thái cuối | correctAnswer cuối | Lưu lời giải sai? | Thời gian |')
-  console.log('|---|---|---|---|---|---|---|---|---|---|---|---|')
+  // Bước 4: In Bảng kết quả từng ca (đầy đủ các cột theo yêu cầu G)
+  console.log('\n' + '='.repeat(140))
+  console.log('📊 BẢNG TỪNG CA BENCHMARK THÔ L2 (GEMINI THẬT - 31 CA TRÊN DEV DB)')
+  console.log('='.repeat(140))
+
+  console.log('| ID | Kỹ năng | Loại câu | Đáp án đúng thật | correctAnswer lưu | Đáp án đề xuất / Góp ý | AI giải mù | Provider | queueWaitMs | apiMs | Trạng thái cuối | correctAnswer cuối | Lưu lời giải sai? | Thời gian |')
+  console.log('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|')
   for (const r of results) {
     const wrongCol = r.wrongExplanationSaved ? 'CÓ (VI PHẠM)' : 'KHÔNG (AN TOÀN)'
-    console.log(`| ${r.id} | ${r.skill} | ${r.type} | ${r.storedAnswer} | ${r.proposedAnswer} | ${r.aiBlindAnswer} | ${r.provider} | ${r.retries} | ${r.status} | ${r.finalStoredAnswer} | ${wrongCol} | ${r.durationSec}s |`)
+    console.log(`| ${r.id} | ${r.skill} | ${r.type} | ${r.realGroundTruth} | ${r.storedAnswer} | ${r.proposedAnswer} | ${r.aiBlindAnswer} | ${r.provider} | ${r.queueWaitMs}ms | ${r.apiMs}ms | ${r.status} | ${r.finalStoredAnswer} | ${wrongCol} | ${r.durationSec}s |`)
   }
 
   // Tính toán 5 chỉ số nghiệm thu bắt buộc (M1 - M5)
