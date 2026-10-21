@@ -223,5 +223,60 @@ describe('B.4: Manual Edit Steps 1-4 Tests (Sửa trực tiếp)', () => {
       expect(res.explanation.status).toBe('teacher_edited')
       expect(res.explanation.manualEdit).toBe(true)
     })
+
+    describe('Empty evidence validation (Requirement 2.3)', () => {
+      it('allows empty evidence for TFNG when answer is NOT GIVEN', () => {
+        const prevExp = {
+          v: 2,
+          answer: 'NOT GIVEN',
+          evidence: { parts: [{ text: 'Some quote', paragraph: 1 }] },
+        }
+        const cleaned = validateManualExplanation(
+          { evidence: { parts: [] } },
+          { sourceText: samplePassage, family: 'TFNG', prevExp, targetAnswer: 'NOT GIVEN' }
+        )
+        expect(cleaned.evidence).toBeNull()
+      })
+
+      it('allows empty evidence for IMAGE family questions', () => {
+        const prevExp = {
+          v: 2,
+          answer: 'A',
+          evidence: { parts: [{ text: 'Old label', paragraph: null }] },
+        }
+        const cleaned = validateManualExplanation(
+          { evidence: { parts: [] } },
+          { sourceText: samplePassage, family: 'IMAGE', prevExp }
+        )
+        expect(cleaned.evidence).toBeNull()
+      })
+
+      it('allows empty evidence when source text (passage/transcript) is absent', () => {
+        const prevExp = {
+          v: 2,
+          answer: 'B',
+          evidence: { parts: [{ text: 'Old', paragraph: null }] },
+        }
+        const cleaned = validateManualExplanation(
+          { evidence: { parts: [] } },
+          { sourceText: '', family: 'MCQ', prevExp }
+        )
+        expect(cleaned.evidence).toBeNull()
+      })
+
+      it('blocks emptying evidence when question had evidence and requires source support', () => {
+        const prevExp = {
+          v: 2,
+          answer: 'TRUE',
+          evidence: { parts: [{ text: 'Old proof', paragraph: 0 }] },
+        }
+        expect(() => {
+          validateManualExplanation(
+            { evidence: { parts: [] } },
+            { sourceText: samplePassage, family: 'TFNG', prevExp, targetAnswer: 'TRUE' }
+          )
+        }).toThrow(/Không thể để trống bằng chứng/)
+      })
+    })
   })
 })

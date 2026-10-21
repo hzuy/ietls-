@@ -125,7 +125,7 @@ function filterLearnerExplanation(explanation) {
   return isExplanationVisibleToLearner(explanation) ? explanation : null
 }
 
-function validateManualExplanation(data, { sourceText = null, family = 'GENERIC', prevExp = {} } = {}) {
+function validateManualExplanation(data, { sourceText = null, family = 'GENERIC', prevExp = {}, targetAnswer = null } = {}) {
   if (!data || typeof data !== 'object') {
     throw new Error('Dữ liệu sửa giải thích không hợp lệ')
   }
@@ -134,6 +134,9 @@ function validateManualExplanation(data, { sourceText = null, family = 'GENERIC'
   const paragraphs = sourceText ? splitParagraphs(sourceText) : []
   const hasSource = paragraphs.length > 0
   const isImageFamily = family === 'IMAGE'
+  const effectiveAnswer = String(data.answer || targetAnswer || prevExp?.answer || '').trim().toUpperCase()
+  const isNotGiven = (family === 'TFNG') && (effectiveAnswer === 'NOT GIVEN' || effectiveAnswer === 'NG' || effectiveAnswer === 'NOTGIVEN')
+  const allowEmptyEvidence = isNotGiven || isImageFamily || !hasSource
 
   // BƯỚC 1: Phân tích câu hỏi và dự đoán
   if (data.predict !== undefined) {
@@ -250,14 +253,14 @@ function validateManualExplanation(data, { sourceText = null, family = 'GENERIC'
         }
       } else {
         const hadEvidence = Boolean(prevExp?.evidence?.parts?.length > 0 || prevExp?.evidence?.text)
-        if (hadEvidence) {
+        if (hadEvidence && !allowEmptyEvidence) {
           throw new Error('Không thể để trống bằng chứng khi câu hỏi đang có bằng chứng dẫn chứng.')
         }
         allowed.evidence = null
       }
     } else if (data.evidence === null) {
       const hadEvidence = Boolean(prevExp?.evidence?.parts?.length > 0 || prevExp?.evidence?.text)
-      if (hadEvidence) {
+      if (hadEvidence && !allowEmptyEvidence) {
         throw new Error('Không thể để trống bằng chứng khi câu hỏi đang có bằng chứng dẫn chứng.')
       }
       allowed.evidence = null
@@ -2132,6 +2135,7 @@ async function updateManualExplanation({ examId, questionId = null, questionNumb
       sourceText: ctx.sourceText,
       family,
       prevExp: prev,
+      targetAnswer: String(targetQItem.correctAnswer || ''),
     })
 
     const updated = {
@@ -2218,6 +2222,7 @@ async function updateManualExplanation({ examId, questionId = null, questionNumb
       sourceText: ctx.sourceText,
       family,
       prevExp: prev,
+      targetAnswer: String(question.correctAnswer || ''),
     })
 
     const updated = {
