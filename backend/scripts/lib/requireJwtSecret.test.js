@@ -3,10 +3,10 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { requireJwtSecret } from './requireJwtSecret'
 
 /**
- * HỒI QUY: 4 script verify/capture từng hardcode đúng JWT_SECRET production
- * ('ielts_super_secret_key_2024') làm giá trị mặc định, tức là bí mật production
- * nằm trong mã nguồn đã commit. Helper này thay thế chúng, không còn secret nào
- * trong repo và báo lỗi rõ ràng nếu thiếu biến môi trường.
+ * HỒI QUY: 4 script verify/capture từng hardcode JWT_SECRET production thật (giá
+ * trị trùng với JWT_SECRET trong backend/.env) làm giá trị mặc định, tức là bí mật
+ * production nằm trong mã nguồn đã commit. Helper này thay thế chúng: không còn
+ * secret nào trong repo và báo lỗi rõ ràng nếu thiếu biến môi trường.
  */
 describe('requireJwtSecret', () => {
   const original = process.env.JWT_SECRET
