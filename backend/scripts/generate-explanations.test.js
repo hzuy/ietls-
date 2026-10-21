@@ -466,6 +466,12 @@ describe('Requirement 2.5: full_sentence & translation validation', () => {
       expect(isVietnameseTranslation('Micro-expressions are common to all people and cannot be suppressed. Vì biểu cảm.')).toBe(false)
     })
 
+    it('từ chối chuỗi tiếng Anh prefix dài, kèm câu tiếng Việt đủ dài ở cuối (ratio > 12% nhưng prefix là tiếng Anh)', () => {
+      // Trường hợp này có ratio ~16.7% (vượt ngưỡng 12%) nhưng prefix là tiếng Anh thuần — phải bị loại
+      expect(isVietnameseTranslation('Micro-expressions are common to all people. Vì biểu cảm phổ biến ở tất cả mọi người.')).toBe(false)
+    })
+
+
     it('từ chối chuỗi rỗng hoặc không hợp lệ', () => {
       expect(isVietnameseTranslation('')).toBe(false)
       expect(isVietnameseTranslation(null)).toBe(false)

@@ -185,6 +185,17 @@ function isVietnameseTranslation(text) {
     return false
   }
 
+  // Kiểm tra phần đầu chuỗi: văn bản tiếng Việt thật phải bắt đầu bằng ký tự có dấu
+  // ngay trong 40 ký tự đầu. Chuỗi dạng "English sentence. Câu tiếng Việt." bị loại
+  // vì prefix tiếng Anh thuần không mang dấu thanh tiếng Việt nào.
+  if (letters.length >= 20) {
+    const prefixLetters = trimmed.slice(0, 40).match(/[\p{L}]/gu) || []
+    if (prefixLetters.length >= 10) {
+      const prefixAccented = prefixLetters.filter((ch) => VIETNAMESE_DIACRITICS_REGEX.test(ch)).length
+      if (prefixAccented === 0) return false
+    }
+  }
+
   return true
 }
 
