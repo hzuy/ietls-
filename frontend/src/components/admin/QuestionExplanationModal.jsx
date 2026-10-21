@@ -400,7 +400,20 @@ export default function QuestionExplanationModal({
       }
 
       if (data.ok === false) {
-        setRegenError(data.message || 'Lỗi khi tạo lại giải thích.')
+        let userFriendlyMsg = data.message
+        if (data.error === 'FALLBACK_NOT_ALLOWED') {
+          userFriendlyMsg = 'AI chính đang bận, hãy thử lại sau. (Mô hình dự phòng không được phép quyết định đổi đáp án)'
+        } else if (data.error === 'TIMEOUT' || (typeof userFriendlyMsg === 'string' && (userFriendlyMsg.includes('quá 48s') || userFriendlyMsg.includes('Hết thời gian')))) {
+          userFriendlyMsg = 'Hết thời gian xử lý AI (quá 48s). Vui lòng bấm Thử lại để AI thực hiện lại.'
+        } else if (data.error === 'RATE_LIMIT' || (typeof userFriendlyMsg === 'string' && userFriendlyMsg.includes('429'))) {
+          userFriendlyMsg = 'Hệ thống AI đang quá tải (giới hạn lượt gọi / 429). Vui lòng chờ vài giây rồi thử lại.'
+        } else if (data.error === 'SERVICE_UNAVAILABLE' || (typeof userFriendlyMsg === 'string' && userFriendlyMsg.includes('503'))) {
+          userFriendlyMsg = 'Dịch vụ AI hiện không khả dụng (503). Vui lòng thử lại sau.'
+        } else if (!userFriendlyMsg) {
+          userFriendlyMsg = 'Lỗi khi tạo lại giải thích.'
+        }
+        setRegenError(userFriendlyMsg)
+        setActiveTab('feedback')
         return
       }
 
@@ -418,7 +431,25 @@ export default function QuestionExplanationModal({
       }
     } catch (err) {
       console.error('[REGENERATE ERROR]', err)
-      setRegenError(err?.response?.data?.message || err?.message || 'Lỗi khi tạo lại giải thích.')
+      const status = err?.response?.status
+      const serverErr = err?.response?.data?.error
+      const serverMsg = err?.response?.data?.message
+      let userFriendlyMsg = serverMsg
+
+      if (status === 429 || serverErr === 'RATE_LIMIT' || (typeof serverMsg === 'string' && serverMsg.includes('429'))) {
+        userFriendlyMsg = 'Hệ thống AI đang quá tải (giới hạn lượt gọi / 429). Vui lòng chờ vài giây rồi thử lại.'
+      } else if (status === 503 || serverErr === 'SERVICE_UNAVAILABLE' || (typeof serverMsg === 'string' && serverMsg.includes('503'))) {
+        userFriendlyMsg = 'Dịch vụ AI hiện không khả dụng (503). Vui lòng thử lại sau.'
+      } else if (status === 504 || serverErr === 'TIMEOUT' || err.code === 'ECONNABORTED' || (typeof serverMsg === 'string' && (serverMsg.includes('quá 48s') || serverMsg.includes('timeout') || serverMsg.includes('Hết thời gian')))) {
+        userFriendlyMsg = 'Hết thời gian xử lý AI (quá 48s). Vui lòng bấm Thử lại để AI thực hiện lại.'
+      } else if (serverErr === 'FALLBACK_NOT_ALLOWED') {
+        userFriendlyMsg = 'AI chính đang bận, hãy thử lại sau. (Mô hình dự phòng không được phép quyết định đổi đáp án)'
+      } else if (!userFriendlyMsg) {
+        userFriendlyMsg = err?.message || 'Lỗi khi tạo lại giải thích.'
+      }
+
+      setRegenError(userFriendlyMsg)
+      setActiveTab('feedback')
     } finally {
       setIsRegenerating(false)
     }
@@ -795,7 +826,7 @@ export default function QuestionExplanationModal({
                     disabled={isRegenerating}
                     className="shrink-0 px-2.5 py-1 text-xs font-semibold bg-white border border-red-200 text-red-700 rounded-lg hover:bg-red-100 transition cursor-pointer"
                   >
-                    Thử lại ngay
+                    Thử lại
                   </button>
                 </div>
               )}

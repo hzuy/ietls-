@@ -459,7 +459,7 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
       await waitFor(() => {
         expect(screen.getByText(/AI chính đang bận, hãy thử lại sau/i)).toBeInTheDocument()
       })
-      expect(screen.getByRole('button', { name: /Thử lại ngay/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Thử lại/i })).toBeInTheDocument()
     })
 
     it('allows manual editing of fields safely without dangerouslySetInnerHTML', async () => {
@@ -720,6 +720,77 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
       fireEvent.click(screen.getByRole('tab', { name: /Sửa trực tiếp/i }))
       expect(screen.getByPlaceholderText(/Câu tiếng Anh đầy đủ sau khi điền đáp án/i)).toBeInTheDocument()
       expect(screen.getByPlaceholderText(/Dịch nghĩa tiếng Việt của câu trên/i)).toBeInTheDocument()
+    })
+
+    it('displays user-friendly Vietnamese error messages and retry button for Gemini failures (429, 503, 504, FALLBACK_NOT_ALLOWED)', async () => {
+      const sampleQuestion = {
+        number: 1,
+        type: 'mcq',
+        questionText: 'Test question',
+        options: ['A', 'B'],
+        correctAnswer: 'A',
+      }
+
+      // 1. Test 429 error
+      api.post.mockRejectedValueOnce({
+        response: { status: 429, data: { error: 'RATE_LIMIT', message: 'Rate limit exceeded' } },
+      })
+
+      render(
+        <QuestionExplanationModal
+          isOpen={true}
+          onClose={vi.fn()}
+          examId={10}
+          questionNumber={1}
+          isPractice={true}
+          skill="reading"
+          question={sampleQuestion}
+          initialExplanation={{ v: 2, answer: 'A', reasoning: 'Reason' }}
+        />
+      )
+
+      fireEvent.click(screen.getByRole('tab', { name: /Góp ý & Tạo lại/i }))
+      fireEvent.click(screen.getByRole('button', { name: /Tạo lại lời giải với AI/i }))
+
+      await waitFor(() => {
+        expect(screen.getByText(/Hệ thống AI đang quá tải \(giới hạn lượt gọi \/ 429\)/i)).toBeInTheDocument()
+      })
+      const retryBtn = screen.getByRole('button', { name: /^Thử lại$/i })
+      expect(retryBtn).toBeInTheDocument()
+
+      // 2. Click retry with 504 timeout error
+      api.post.mockRejectedValueOnce({
+        response: { status: 504, data: { error: 'TIMEOUT', message: 'Hết thời gian xử lý AI khi tạo lại giải thích (quá 48s)' } },
+      })
+      fireEvent.click(retryBtn)
+
+      await waitFor(() => {
+        expect(screen.getByText(/Hết thời gian xử lý AI \(quá 48s\)\. Vui lòng bấm Thử lại để AI thực hiện lại\./i)).toBeInTheDocument()
+      })
+
+      // 3. Click retry with 503 service unavailable
+      api.post.mockRejectedValueOnce({
+        response: { status: 503, data: { error: 'SERVICE_UNAVAILABLE', message: 'Service Unavailable' } },
+      })
+      fireEvent.click(screen.getByRole('button', { name: /^Thử lại$/i }))
+
+      await waitFor(() => {
+        expect(screen.getByText(/Dịch vụ AI hiện không khả dụng \(503\)\. Vui lòng thử lại sau\./i)).toBeInTheDocument()
+      })
+
+      // 4. Test FALLBACK_NOT_ALLOWED response (ok: false)
+      api.post.mockResolvedValueOnce({
+        data: {
+          ok: false,
+          error: 'FALLBACK_NOT_ALLOWED',
+          message: 'Không được dùng fallback để đổi đáp án',
+        },
+      })
+      fireEvent.click(screen.getByRole('button', { name: /^Thử lại$/i }))
+
+      await waitFor(() => {
+        expect(screen.getByText(/Mô hình dự phòng không được phép quyết định đổi đáp án/i)).toBeInTheDocument()
+      })
     })
   })
 })
