@@ -3,6 +3,7 @@ import { queryClient } from '../../lib/queryClient'
 import api from '../../utils/axios'
 import { showAlert } from '../../utils/alertUtils'
 import { notifyTrashChanged } from '../../services/adminService'
+import { isExamFormDirty, normalizeFormForDirtyCheck } from '../../utils/examExplanationUtils'
 import { emptyWritingForm, inputCls, labelCls, btnPrimary, btnSecondary, toImgSrc, useExamSeriesList, useSeriesBooks } from './adminConstants'
 import Select from './Select'
 import ExamList from './ExamList'
@@ -211,6 +212,9 @@ function WritingFormPreview({ form }) {
 // ─── TAB: WRITING ─────────────────────────────────────────────────────────────
 
 const DRAFT_PREFIX = 'draft_writing_'
+// Mốc "sạch" khi form còn ở trạng thái rỗng (chưa mở đề nào). Cùng mục đích với
+// mốc pristine của ReadingTab: chặn autosave tạo "nháp ma" y hệt dữ liệu DB.
+const EMPTY_DRAFT_SIG = normalizeFormForDirtyCheck(emptyWritingForm())
 const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
 
 function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchExams, loading, loadError }) {
@@ -229,6 +233,8 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   const formRef = useRef(null)
   const previewRef = useRef(null)
   const imgRef = useRef(null)
+  // Mốc so sánh cho autosave nháp: dữ liệu lúc mở đề / lúc lưu gần nhất.
+  const draftBaselineSigRef = useRef(null)
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
@@ -280,6 +286,10 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
 
   useEffect(() => {
     if (!form.title && !editingId) return
+    // Chỉ autosave khi form đã thực sự thay đổi so với mốc sạch (dữ liệu DB lúc mở
+    // đề/sau khi lưu). Không có mốc này thì vừa mở đề để sửa là autosave ghi ngay
+    // một bản nháp GIỐNG Y dữ liệu DB ("nháp ma") và spam toast "Đã lưu bản nháp".
+    if (!isExamFormDirty(form, draftBaselineSigRef.current || EMPTY_DRAFT_SIG)) return
     const key = `draft_writing_${editingId || 'new'}`
     const timer = setTimeout(() => {
       try {
@@ -304,14 +314,16 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       const exam = res.data
       const t1 = exam.writingTasks.find(t => t.number === 1)
       const t2 = exam.writingTasks.find(t => t.number === 2)
-      setForm({
+      const loadedForm = {
         title: exam.title,
         bookNumber: exam.bookNumber?.toString() || '',
         testNumber: exam.testNumber?.toString() || '',
         seriesId: exam.seriesId?.toString() || '',
         task1: { prompt: t1?.prompt || '', imageUrl: t1?.imageUrl || '' },
         task2: { prompt: t2?.prompt || '' }
-      })
+      }
+      setForm(loadedForm)
+      draftBaselineSigRef.current = normalizeFormForDirtyCheck(loadedForm)
       setEditingId(id)
       setEditHighlight(true)
       setTimeout(() => setEditHighlight(false), 2000)
@@ -327,6 +339,7 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
 
   const cancelEdit = () => {
     if (editingId) localStorage.removeItem(`draft_writing_${editingId}`)
+    draftBaselineSigRef.current = EMPTY_DRAFT_SIG
     setEditingId(null); setForm(emptyWritingForm()); setEditHighlight(false); setDraftBanner(null)
   }
 
@@ -360,6 +373,7 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       if (editingId) {
         await api.put(`/admin/exams/${editingId}`, payload)
         localStorage.removeItem(`draft_writing_${editingId}`)
+        draftBaselineSigRef.current = normalizeFormForDirtyCheck(form)
         showToast('Cập nhật đề thành công!')
         queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
         queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
@@ -369,6 +383,7 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       } else {
         await api.post('/admin/exams/writing', payload)
         localStorage.removeItem('draft_writing_new')
+        draftBaselineSigRef.current = EMPTY_DRAFT_SIG
         showToast('Tạo đề thành công!')
         setForm(emptyWritingForm())
         queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })

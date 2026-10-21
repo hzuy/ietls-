@@ -834,6 +834,10 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
 
   useEffect(() => {
     if (!form.title && !editingId) return
+    // Chỉ autosave khi form đã thực sự thay đổi so với mốc sạch (dữ liệu DB lúc mở
+    // đề/sau khi lưu). Không có mốc này thì vừa mở đề để sửa là autosave ghi ngay
+    // một bản nháp GIỐNG Y dữ liệu DB ("nháp ma") và spam toast "Đã lưu bản nháp".
+    if (!isExamFormDirty(form, pristineFormSigRef.current || normalizeFormForDirtyCheck(emptyReadingForm()))) return
     const key = `draft_reading_${editingId || 'new'}`
     const timer = setTimeout(() => {
       try {

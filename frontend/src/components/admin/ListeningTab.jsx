@@ -845,6 +845,10 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
 
   useEffect(() => {
     if (!form.title && !editingId) return
+    // Chỉ autosave khi form đã thực sự thay đổi so với mốc sạch (dữ liệu DB lúc mở
+    // đề/sau khi lưu). Không có mốc này thì vừa mở đề để sửa là autosave ghi ngay
+    // một bản nháp GIỐNG Y dữ liệu DB ("nháp ma") và spam toast "Đã lưu bản nháp".
+    if (!isExamFormDirty(form, pristineFormSigRef.current || normalizeFormForDirtyCheck(emptyListeningForm()))) return
     const key = `draft_listening_${editingId || 'new'}`
     const timer = setTimeout(() => {
       try {

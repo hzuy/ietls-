@@ -3,6 +3,7 @@ import { queryClient } from '../../lib/queryClient'
 import api from '../../utils/axios'
 import { showAlert } from '../../utils/alertUtils'
 import { notifyTrashChanged } from '../../services/adminService'
+import { isExamFormDirty, normalizeFormForDirtyCheck } from '../../utils/examExplanationUtils'
 import { emptySpeakingForm, inputCls, labelCls, btnPrimary, btnSecondary, useExamSeriesList, useSeriesBooks } from './adminConstants'
 import Select from './Select'
 import ExamList from './ExamList'
@@ -17,6 +18,8 @@ import { Eye } from 'lucide-react'
 // ─── TAB: SPEAKING ────────────────────────────────────────────────────────────
 
 const DRAFT_PREFIX = 'draft_speaking_'
+// Mốc "sạch" khi form còn ở trạng thái rỗng (chưa mở đề nào) — xem WritingTab.
+const EMPTY_DRAFT_SIG = normalizeFormForDirtyCheck(emptySpeakingForm())
 const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
 
 function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchExams, loading, loadError }) {
@@ -33,6 +36,8 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
   const [editHighlight, setEditHighlight] = useState(false)
   const formRef = useRef(null)
   const previewRef = useRef(null)
+  // Mốc so sánh cho autosave nháp: dữ liệu lúc mở đề / lúc lưu gần nhất.
+  const draftBaselineSigRef = useRef(null)
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
@@ -70,6 +75,10 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
 
   useEffect(() => {
     if (!form.title && !editingId) return
+    // Chỉ autosave khi form đã thực sự thay đổi so với mốc sạch (dữ liệu DB lúc mở
+    // đề/sau khi lưu). Không có mốc này thì vừa mở đề để sửa là autosave ghi ngay
+    // một bản nháp GIỐNG Y dữ liệu DB ("nháp ma") và spam toast "Đã lưu bản nháp".
+    if (!isExamFormDirty(form, draftBaselineSigRef.current || EMPTY_DRAFT_SIG)) return
     const key = `draft_speaking_${editingId || 'new'}`
     const timer = setTimeout(() => {
       try {
@@ -96,7 +105,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
       const p2 = exam.speakingParts.find(p => p.number === 2)
       const p3 = exam.speakingParts.find(p => p.number === 3)
 
-      setForm({
+      const loadedForm = {
         title: exam.title,
         bookNumber: exam.bookNumber?.toString() || '',
         testNumber: exam.testNumber?.toString() || '',
@@ -110,7 +119,9 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
             : { instructions: raw.slice(0, sep), cueCard: raw.slice(sep + 5), questions: p2?.questions.map(q => q.questionText) || [''] }
         })(),
         part3: { description: p3?.cueCard || '', questions: p3?.questions.filter(q => !q.questionText.startsWith('##TOPIC##:')).map(q => q.questionText) || [''] }
-      })
+      }
+      setForm(loadedForm)
+      draftBaselineSigRef.current = normalizeFormForDirtyCheck(loadedForm)
       setEditingId(id)
       setEditHighlight(true)
       setTimeout(() => setEditHighlight(false), 2000)
@@ -126,6 +137,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
 
   const cancelEdit = () => {
     if (editingId) localStorage.removeItem(`draft_speaking_${editingId}`)
+    draftBaselineSigRef.current = EMPTY_DRAFT_SIG
     setEditingId(null); setForm(emptySpeakingForm()); setEditHighlight(false); setDraftBanner(null)
   }
 
@@ -180,6 +192,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
       if (editingId) {
         await api.put(`/admin/exams/${editingId}`, speakingPayload)
         localStorage.removeItem(`draft_speaking_${editingId}`)
+        draftBaselineSigRef.current = normalizeFormForDirtyCheck(form)
         showToast('Cập nhật đề thành công!')
         queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
         queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
@@ -189,6 +202,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
       } else {
         await api.post('/admin/exams/speaking', speakingPayload)
         localStorage.removeItem('draft_speaking_new')
+        draftBaselineSigRef.current = EMPTY_DRAFT_SIG
         showToast('Tạo đề thành công!')
         setForm(emptySpeakingForm())
         queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
