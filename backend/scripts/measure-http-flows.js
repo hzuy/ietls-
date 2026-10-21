@@ -12,6 +12,7 @@ const jwt = require('jsonwebtoken')
 const app = require('../server')
 const prisma = require('../lib/prisma')
 const { printDbBanner } = require('../lib/dbInfo')
+const { requireJwtSecret } = require('./lib/requireJwtSecret')
 const {
   addGeminiTelemetryListener,
   removeGeminiTelemetryListener,
@@ -74,7 +75,7 @@ async function main() {
 
     const token = jwt.sign(
       { userId: testUser.id, email: testUser.email, role: 'teacher' },
-      process.env.JWT_SECRET || 'test-jwt-secret-key-12345',
+      requireJwtSecret(),
       { expiresIn: '1h' }
     )
 

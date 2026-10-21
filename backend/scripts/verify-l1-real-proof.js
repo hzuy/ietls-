@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken')
 const app = require('../server')
 const prisma = require('../lib/prisma')
 const { printDbBanner } = require('../lib/dbInfo')
+const { requireJwtSecret } = require('./lib/requireJwtSecret')
 
 // ─── CHỐT AN TOÀN: CHỈ CHẠY TRÊN DB DEV (127.0.0.1:5433) ──────────────────────
 if (!process.env.DATABASE_URL || !process.env.DATABASE_URL.includes('127.0.0.1:5433')) {
@@ -22,7 +23,7 @@ async function runProof() {
   console.log('🚀 BẮT ĐẦU CHỨNG MINH THẬT MỤC A: L1 MANUAL EDIT & CHẶN GIAN LẬN QUA HTTP THẬT')
   console.log('='.repeat(90))
 
-  const secret = process.env.JWT_SECRET || 'ielts_super_secret_key_2024'
+  const secret = requireJwtSecret()
   let teacherUser = await prisma.user.findFirst({
     where: { role: 'teacher', deletedAt: null, isLocked: false }
   })

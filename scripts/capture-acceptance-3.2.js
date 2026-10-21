@@ -3,11 +3,12 @@
 const { chromium } = require('d:/Duy/ielts-app/backend/node_modules/playwright')
 const path = require('path')
 const jwt = require('d:/Duy/ielts-app/backend/node_modules/jsonwebtoken')
+const { requireJwtSecret } = require('d:/Duy/ielts-app/backend/scripts/lib/requireJwtSecret')
 
 const ARTIFACT_DIR = 'C:/Users/ADMIN/.gemini/antigravity-ide/brain/fe99e17e-7027-46a5-a539-efc5e5d4aee0'
 
 async function getAuthToken() {
-  const secret = process.env.JWT_SECRET || 'ielts_super_secret_key_2024'
+  const secret = requireJwtSecret()
   const user = { id: 3, userId: 3, email: 'minh@gmail.com', role: 'teacher', name: 'Minh Teacher' }
   const token = jwt.sign({ userId: 3, email: 'minh@gmail.com', role: 'teacher' }, secret, { expiresIn: '1d' })
   return { token, user }
