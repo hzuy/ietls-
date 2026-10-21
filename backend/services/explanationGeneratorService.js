@@ -1680,6 +1680,7 @@ async function solveBlindWithGeminiRetry(qCtx, family, ctx, options = {}) {
   }
   return {
     ok: false,
+    status: 'fallback_blocked',
     error: 'FALLBACK_NOT_ALLOWED',
     message: 'AI chính đang bận, hãy thử lại sau. (Hệ thống không dùng AI dự phòng để quyết định đổi đáp án chuẩn)',
     details: lastErr?.message,
@@ -1960,9 +1961,11 @@ async function handleRegenerateCore({
   }
   explanation.teacherFeedback = cleanFeedback || ''
   explanation.feedbackHistory = [feedbackEntry, ...oldHistory].slice(0, 5)
-  explanation.updatedAt = new Date().toISOString()
-
-  await saveExplanation(explanation)
+  // CHỐT AN TOÀN M1: Nếu AI sinh đáp án lệch (!match) khi chưa có xác nhận từ giáo viên (!isFixedMode),
+  // TUYỆT ĐỐI KHÔNG lưu vào DB. Chỉ trả về kết quả cho modal đối chiếu của giáo viên.
+  if (match || isFixedMode) {
+    await saveExplanation(explanation)
+  }
 
   return {
     ok: true,

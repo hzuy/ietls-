@@ -67,7 +67,7 @@ const BENCHMARK_CASES = [
   {
     id: 'R-SAI-03',
     category: 'Reading SAI',
-    type: 'mcq',
+    type: 'mcq_multi',
     passage: EKMAN_PASSAGE,
     skill: 'reading',
     questionText: "Which TWO groups of people are mentioned in connection with Ekman's early observations? Choose TWO letters, A-E.",
@@ -118,46 +118,43 @@ const BENCHMARK_CASES = [
   },
   {
     id: 'R-SAI-07',
-    category: 'Reading SAI',
+    category: 'Reading SAI (Luồng X)',
     type: 'yes_no_ng',
     passage: EKMAN_PASSAGE,
     skill: 'reading',
     questionText: 'Paul Ekman initial fascination with deception was stimulated by inquiries from his students.',
     options: [],
     storedAnswer: 'NO', // SAI
-    proposedAnswer: 'YES', // ĐÚNG
-    expectedAiAnswer: 'YES',
-    mode: 'proposed',
+    feedback: 'Kiểm tra lại xem sinh viên có hỏi Ekman về biểu cảm lừa dối không.',
+    mode: 'feedback_only',
   },
   {
     id: 'R-SAI-08',
-    category: 'Reading SAI',
+    category: 'Reading SAI (Luồng X)',
     type: 'yes_no_ng',
     passage: EKMAN_PASSAGE,
     skill: 'reading',
     questionText: 'Patients specifically suggested to Ekman that deceptive expressions could be detected.',
     options: [],
     storedAnswer: 'YES', // SAI
-    proposedAnswer: 'NO', // ĐÚNG
-    expectedAiAnswer: 'NO',
-    mode: 'proposed',
+    feedback: 'Đối chiếu xem bệnh nhân hay sinh viên là người gợi ý.',
+    mode: 'feedback_only',
   },
   {
     id: 'R-SAI-09',
-    category: 'Reading SAI',
+    category: 'Reading SAI (Luồng X)',
     type: 'yes_no_ng',
     passage: EKMAN_PASSAGE,
     skill: 'reading',
     questionText: 'Ekman published his first comprehensive handbook on facial micro-expressions in 1978.',
     options: [],
     storedAnswer: 'YES', // SAI
-    proposedAnswer: 'NOT GIVEN', // ĐÚNG
-    expectedAiAnswer: 'NOT GIVEN',
-    mode: 'proposed',
+    feedback: 'Kiểm tra xem bài đọc có nhắc đến năm xuất bản handbook 1978 không.',
+    mode: 'feedback_only',
   },
   {
     id: 'R-SAI-10',
-    category: 'Reading SAI',
+    category: 'Reading SAI (Luồng Z - Đề xuất sai)',
     type: 'matching_headings',
     passage: BIODIVERSITY_PASSAGE,
     skill: 'reading',
@@ -170,13 +167,13 @@ const BENCHMARK_CASES = [
       'v. Sustainable conservation frameworks for the future',
     ],
     storedAnswer: 'iv', // SAI
-    proposedAnswer: 'i', // ĐÚNG
+    proposedAnswer: 'ii', // CŨNG SAI (ii là Đoạn C) -> AI sẽ bác bỏ
     expectedAiAnswer: 'i',
     mode: 'proposed',
   },
   {
     id: 'R-SAI-11',
-    category: 'Reading SAI',
+    category: 'Reading SAI (Luồng Z - Đề xuất sai)',
     type: 'matching_headings',
     passage: BIODIVERSITY_PASSAGE,
     skill: 'reading',
@@ -189,28 +186,28 @@ const BENCHMARK_CASES = [
       'v. Sustainable conservation frameworks for the future',
     ],
     storedAnswer: 'i', // SAI
-    proposedAnswer: 'iv', // ĐÚNG
+    proposedAnswer: 'v', // CŨNG SAI (v là Đoạn D) -> AI sẽ bác bỏ
     expectedAiAnswer: 'iv',
     mode: 'proposed',
   },
   {
     id: 'R-SAI-12',
-    category: 'Reading SAI',
+    category: 'Reading SAI (Luồng Z - Đề xuất sai)',
     type: 'fill_blank',
     passage: BIODIVERSITY_PASSAGE,
     skill: 'reading',
     questionText: 'Indigenous farmers enhanced Amazonian soils by adding materials such as bone fragments and [GAP].',
     options: [],
     storedAnswer: 'chemical fertilizers', // SAI
-    proposedAnswer: 'charcoal', // ĐÚNG
+    proposedAnswer: 'plastic waste', // CŨNG SAI -> AI sẽ bác bỏ
     expectedAiAnswer: 'charcoal',
     mode: 'proposed',
   },
 
-  // ── 6 Ca Listening correctAnswer SAI ─────────────────────────────────────
+  // ── 6 Ca Listening correctAnswer SAI (Đủ Luồng Y, X, Z) ──────────────────
   {
     id: 'L-SAI-13',
-    category: 'Listening SAI',
+    category: 'Listening SAI (Luồng Y)',
     type: 'fill_blank',
     passage: CONFERENCE_TRANSCRIPT,
     skill: 'listening',
@@ -223,7 +220,7 @@ const BENCHMARK_CASES = [
   },
   {
     id: 'L-SAI-14',
-    category: 'Listening SAI',
+    category: 'Listening SAI (Luồng Y)',
     type: 'fill_blank',
     passage: CONFERENCE_TRANSCRIPT,
     skill: 'listening',
@@ -236,7 +233,7 @@ const BENCHMARK_CASES = [
   },
   {
     id: 'L-SAI-15',
-    category: 'Listening SAI',
+    category: 'Listening SAI (Luồng Y)',
     type: 'mcq',
     passage: CONFERENCE_TRANSCRIPT,
     skill: 'listening',
@@ -249,40 +246,39 @@ const BENCHMARK_CASES = [
   },
   {
     id: 'L-SAI-16',
-    category: 'Listening SAI',
+    category: 'Listening SAI (Luồng X)',
     type: 'mcq',
     passage: CONFERENCE_TRANSCRIPT,
     skill: 'listening',
     questionText: 'Delegates must collect their badges from:',
     options: ['A. Main Foyer', 'B. Room 101', 'C. Second floor'],
     storedAnswer: 'C', // SAI
-    proposedAnswer: 'A', // ĐÚNG
-    expectedAiAnswer: 'A',
-    mode: 'proposed',
+    feedback: 'Kiểm tra lại nơi nhận thẻ đại biểu theo thông báo ở đầu bài nói.',
+    mode: 'feedback_only',
   },
   {
     id: 'L-SAI-17',
-    category: 'Listening SAI',
+    category: 'Listening SAI (Luồng Z - Đề xuất sai)',
     type: 'matching',
     passage: RESEARCH_TRANSCRIPT,
     skill: 'listening',
     questionText: 'Which researcher highlighted the role of emotional valence in memory retention?',
-    options: ['A. Dr. Elizabeth Hayes', 'B. Prof. Marcus Vance'],
+    options: ['A. Dr. Elizabeth Hayes', 'B. Prof. Marcus Vance', 'C. Dr. Alan Grant'],
     storedAnswer: 'A', // SAI
-    proposedAnswer: 'B', // ĐÚNG (Prof. Marcus Vance)
+    proposedAnswer: 'C', // CŨNG SAI (Luồng Z) -> AI sẽ bác bỏ
     expectedAiAnswer: 'B',
     mode: 'proposed',
   },
   {
     id: 'L-SAI-18',
-    category: 'Listening SAI',
+    category: 'Listening SAI (Luồng Z - Đề xuất sai)',
     type: 'fill_blank',
     passage: RESEARCH_TRANSCRIPT,
     skill: 'listening',
     questionText: 'Consolidation of visual memories relies heavily on [GAP] cycles.',
     options: [],
     storedAnswer: 'long-term memory', // SAI
-    proposedAnswer: 'slow-wave sleep', // ĐÚNG
+    proposedAnswer: 'REM sleep', // CŨNG SAI -> AI sẽ bác bỏ
     expectedAiAnswer: 'slow-wave sleep',
     mode: 'proposed',
   },
@@ -366,7 +362,7 @@ const BENCHMARK_CASES = [
   {
     id: 'R-DUNG-25',
     category: 'Reading ĐÚNG (Luồng Y)',
-    type: 'mcq',
+    type: 'mcq_multi',
     passage: EKMAN_PASSAGE,
     skill: 'reading',
     questionText: "Which TWO groups of people are mentioned in connection with Ekman's early observations? Choose TWO letters, A-E.",
@@ -488,12 +484,23 @@ async function runBenchmark() {
     },
   })
 
+  const listeningSection = await prisma.listeningSection.create({
+    data: {
+      examId: exam.id,
+      number: 1,
+      transcript: 'See question level transcript',
+      context: 'Conference and research topics',
+    },
+  })
+
   // Tạo toàn bộ 31 questions trong DB
   const createdQuestions = {}
   for (const c of BENCHMARK_CASES) {
+    const isListening = c.skill === 'listening'
     const q = await prisma.question.create({
       data: {
-        passageId: passage.id,
+        passageId: isListening ? null : passage.id,
+        listeningSectionId: isListening ? listeningSection.id : null,
         number: parseInt(c.id.replace(/\D/g, ''), 10),
         type: c.type,
         questionText: c.questionText,
@@ -518,24 +525,40 @@ async function runBenchmark() {
     const startTime = Date.now()
 
     console.log(`\n── [${i + 1}/${BENCHMARK_CASES.length}] Đang chạy ${c.id}: ${c.category} (${c.type}) ──`)
+    console.log(`   Kỹ năng:             ${c.skill.toUpperCase()}`)
     console.log(`   Đáp án lưu trong DB: "${c.storedAnswer}"`)
     if (c.proposedAnswer) console.log(`   Đáp án đề xuất:      "${c.proposedAnswer}"`)
     if (c.feedback) console.log(`   Góp ý bằng chữ:      "${c.feedback}"`)
 
-    // Gán passage tương ứng vào passage body của DB để service đọc
-    await prisma.passage.update({
-      where: { id: passage.id },
-      data: { body: c.passage },
-    })
-
-    // Reset lại câu hỏi về trạng thái ban đầu
-    await prisma.question.update({
-      where: { id: qDb.id },
-      data: {
-        correctAnswer: c.storedAnswer,
-        explanation: null,
-      },
-    })
+    if (c.skill === 'listening') {
+      await prisma.listeningSection.update({
+        where: { id: listeningSection.id },
+        data: { transcript: c.passage },
+      })
+      await prisma.question.update({
+        where: { id: qDb.id },
+        data: {
+          passageId: null,
+          listeningSectionId: listeningSection.id,
+          correctAnswer: c.storedAnswer,
+          explanation: null,
+        },
+      })
+    } else {
+      await prisma.passage.update({
+        where: { id: passage.id },
+        data: { body: c.passage },
+      })
+      await prisma.question.update({
+        where: { id: qDb.id },
+        data: {
+          passageId: passage.id,
+          listeningSectionId: null,
+          correctAnswer: c.storedAnswer,
+          explanation: null,
+        },
+      })
+    }
 
     let res
     let retryCount = 0
@@ -544,13 +567,17 @@ async function runBenchmark() {
 
     try {
       if (c.mode === 'simulate_fallback') {
-        // Giả lập ca Gemini lỗi hoàn toàn, rơi vào fallback:
-        // Mock solveBlindWithGeminiRetry trả về FALLBACK_NOT_ALLOWED
+        // Giả lập ca Gemini lỗi hoàn toàn ở Luồng Y:
+        // Hệ thống PHẢI kích hoạt chốt chặn FALLBACK_NOT_ALLOWED, không được dùng Groq để đổi đáp án chuẩn
         const originalFetch = global.fetch
         try {
-          // Buộc Gemini ném lỗi để kiểm tra chốt an toàn Fallback Blocking
-          global.fetch = async () => {
-            throw new Error('Simulated Gemini 503 Service Unavailable')
+          global.fetch = async (url, opts) => {
+            if (typeof url === 'string' && url.includes('generativelanguage.googleapis.com')) {
+              const err = new Error('Simulated Gemini 503 Service Unavailable')
+              err.status = 503
+              throw err
+            }
+            return originalFetch(url, opts)
           }
           res = await regenerateQuestionExplanation({
             examId: exam.id,
@@ -626,44 +653,63 @@ async function runBenchmark() {
     console.log(`   📌 Trạng thái cuối:  ${finalStatus}`)
     console.log(`   🔒 correctAnswer DB: "${finalStoredAnswer}" (Giữ nguyên: ${finalStoredAnswer === c.storedAnswer ? '✅' : '❌'})`)
 
+    const wrongExpSaved = Boolean(explanationSaved && c.category.includes('SAI'))
+
     results.push({
       id: c.id,
       category: c.category,
+      skill: c.skill,
       type: c.type,
       storedAnswer: c.storedAnswer,
-      proposedAnswer: c.proposedAnswer || '(None - Feedback)',
+      proposedAnswer: c.proposedAnswer || (c.feedback ? `[Feedback: ${c.feedback.slice(0, 30)}...]` : '-'),
       aiBlindAnswer,
       provider: c.mode === 'simulate_fallback' ? 'Simulated Fallback' : provider,
       retries: retryCount,
       status: finalStatus,
       finalStoredAnswer,
+      durationMs,
       durationSec: (durationMs / 1000).toFixed(2),
       isFalseConflict,
       safeAnswerPreserved: finalStoredAnswer === c.storedAnswer,
+      wrongExplanationSaved: wrongExpSaved,
     })
 
-    // Khoảng nghỉ 1.5s giữa các lượt để giữ nhịp tốc độ API
-    await sleep(1500)
+    // Khoảng nghỉ 3s giữa các lượt để giữ nhịp tốc độ API tránh rate limit Gemini
+    await sleep(3000)
   }
 
-  // Bước 4: In Bảng kết quả tổng hợp
-  console.log('\n' + '='.repeat(100))
-  console.log('📊 BẢNG TỔNG HỢP KẾT QUẢ BENCHMARK THÔ L2 (GEMINI THẬT)')
-  console.log('='.repeat(100))
+  // Bước 4: In Bảng kết quả từng ca (đầy đủ các cột theo yêu cầu F)
+  console.log('\n' + '='.repeat(130))
+  console.log('📊 BẢNG TỪNG CA BENCHMARK THÔ L2 (GEMINI THẬT - 31 CA TRÊN DEV DB)')
+  console.log('='.repeat(130))
 
-  console.log('| ID | Danh mục | Loại câu | Đáp án lưu | Đề xuất | AI giải mù | Provider | Trạng thái | Đ.án cuối DB | Thời gian |')
-  console.log('|---|---|---|---|---|---|---|---|---|---|---|')
+  console.log('| ID | Kỹ năng | Loại câu | correctAnswer lưu | Đáp án đề xuất | AI giải mù | Provider | Retry | Trạng thái cuối | correctAnswer cuối | Lưu lời giải sai? | Thời gian |')
+  console.log('|---|---|---|---|---|---|---|---|---|---|---|---|')
   for (const r of results) {
-    console.log(`| ${r.id} | ${r.category} | ${r.type} | ${r.storedAnswer} | ${r.proposedAnswer} | ${r.aiBlindAnswer} | ${r.provider} | ${r.status} | ${r.finalStoredAnswer} | ${r.durationSec}s |`)
+    const wrongCol = r.wrongExplanationSaved ? 'CÓ (VI PHẠM)' : 'KHÔNG (AN TOÀN)'
+    console.log(`| ${r.id} | ${r.skill} | ${r.type} | ${r.storedAnswer} | ${r.proposedAnswer} | ${r.aiBlindAnswer} | ${r.provider} | ${r.retries} | ${r.status} | ${r.finalStoredAnswer} | ${wrongCol} | ${r.durationSec}s |`)
   }
 
+  // Tính toán 5 chỉ số nghiệm thu bắt buộc (M1 - M5)
+  const durationsSec = results.map(r => r.durationMs / 1000).sort((a, b) => a - b)
+  const p95Index = Math.ceil(0.95 * durationsSec.length) - 1
+  const p95Sec = durationsSec[Math.max(0, p95Index)]
+  const successCount = results.filter(r => r.status !== 'failed' && r.status !== '504' && r.status !== 'TIMEOUT' && r.status !== 'EXCEPTION').length
+  const successRate = (successCount / results.length) * 100
+
+  const m1 = unauthorizedWrongExplanationSavedCount
+  const m2 = unauthorizedAnswerChangeCount
+  const m3 = falseConflictCount
+  const m4Passed = successRate >= 95
+  const m5Passed = p95Sec < 48
+
   console.log('\n' + '='.repeat(100))
-  console.log('📈 TỔNG KẾT CHỈ SỐ AN TOÀN & ĐỘ CHÍNH XÁC L2:')
-  console.log(`• Tổng số ca đã đo:                              ${results.length}`)
-  console.log(`• Ca lưu lời giải ủng hộ đáp án sai (khi chưa confirm): ${unauthorizedWrongExplanationSavedCount} (Yêu cầu: 0)`)
-  console.log(`• Ca tự tiện đổi correctAnswer (khi chưa confirm):      ${unauthorizedAnswerChangeCount} (Yêu cầu: 0)`)
-  console.log(`• Ca Xung đột giả trên đề đúng:                  ${falseConflictCount} (Yêu cầu: 0)`)
-  console.log(`• Tỷ lệ xung đột giả:                            ${((falseConflictCount / 12) * 100).toFixed(1)}%`)
+  console.log('📈 TỔNG KẾT NĂM CHỈ SỐ NGHIỆM THU BẮT BUỘC (M1 - M5):')
+  console.log(`• M1: Lưu lời giải ủng hộ đáp án sai khi chưa có xác nhận = ${m1} (Ngưỡng: = 0) -> ${m1 === 0 ? 'ĐẠT ✅' : 'KHÔNG ĐẠT ❌'}`)
+  console.log(`• M2: Đổi correctAnswer khi chưa có xác nhận             = ${m2} (Ngưỡng: = 0) -> ${m2 === 0 ? 'ĐẠT ✅' : 'KHÔNG ĐẠT ❌'}`)
+  console.log(`• M3: Xung đột giả trên ca correctAnswer đúng           = ${m3} (Ngưỡng: = 0) -> ${m3 === 0 ? 'ĐẠT ✅' : 'KHÔNG ĐẠT ❌'}`)
+  console.log(`• M4: Tỷ lệ thành công Luồng X, Y, Z (không 504, ko lỗi) = ${successRate.toFixed(1)}% (${successCount}/${results.length}) (Ngưỡng: >= 95%) -> ${m4Passed ? 'ĐẠT ✅' : 'KHÔNG ĐẠT ❌'}`)
+  console.log(`• M5: p95 mỗi request                                  = ${p95Sec.toFixed(2)}s (Ngưỡng: < 48s) -> ${m5Passed ? 'ĐẠT ✅' : 'KHÔNG ĐẠT ❌'}`)
   console.log('='.repeat(100))
 
   // Bước 5: Dọn sạch dữ liệu test [TEST]
@@ -674,12 +720,13 @@ async function runBenchmark() {
   })
   console.log(`Số bản ghi [TEST] còn sót lại trong DB: ${remainingCount} (Yêu cầu: 0)`)
 
-  // Trả về báo cáo
   return {
     results,
     unauthorizedWrongExplanationSavedCount,
     unauthorizedAnswerChangeCount,
     falseConflictCount,
+    successRate,
+    p95Sec,
     remainingCount,
   }
 }
@@ -694,7 +741,12 @@ async function cleanupTestData(marker) {
     for (const p of passages) {
       await prisma.question.deleteMany({ where: { passageId: p.id } })
     }
+    const sections = await prisma.listeningSection.findMany({ where: { examId: e.id }, select: { id: true } })
+    for (const s of sections) {
+      await prisma.question.deleteMany({ where: { listeningSectionId: s.id } })
+    }
     await prisma.passage.deleteMany({ where: { examId: e.id } })
+    await prisma.listeningSection.deleteMany({ where: { examId: e.id } })
     await prisma.exam.delete({ where: { id: e.id } })
   }
 }

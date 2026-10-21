@@ -46,7 +46,7 @@ async function requestGeminiJson(prompt, {
   thinkingConfig = null,
   max_tokens = 8192,
   withMetadata = false,
-  retriesPerModel = 2,
+  retriesPerModel = 1,
   signal = null,
 } = {}) {
   const apiKey = process.env.GEMINI_API_KEY

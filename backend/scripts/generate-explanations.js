@@ -75,7 +75,7 @@ function classifyFamily(type) {
 }
 
 const TYPE_INSTRUCTION = {
-  MCQ: 'Đây là câu trắc nghiệm. "question_chunks" là phần thân câu hỏi. "distractors" PHẢI liệt kê TỪNG lựa chọn sai (ghi cả chữ cái, ví dụ "B. ...") kèm lý do sai dựa trên bài.',
+  MCQ: 'Đây là câu trắc nghiệm. "question_chunks" là phần thân câu hỏi. Nếu câu hỏi yêu cầu chọn nhiều chữ cái (như Choose TWO letters hoặc loại câu mcq_multi), "answer" PHẢI ghi đầy đủ các chữ cái cách nhau bằng dấu phẩy theo thứ tự chữ cái (ví dụ "B, C"). "distractors" PHẢI liệt kê TỪNG lựa chọn sai (ghi cả chữ cái, ví dụ "B. ...") kèm lý do sai dựa trên bài.',
   TFNG: 'Đây là câu True/False/Not Given hoặc Yes/No/Not Given. "question_chunks" là nhận định cần xét. Trong "reasoning" phân biệt rõ "bài nói ngược lại" (False/No) với "bài không đề cập" (Not Given). Nếu đáp án là NOT GIVEN và bài không có câu nào liên quan trực tiếp thì để "evidence_quote" là chuỗi rỗng. "distractors" là 2 đáp án còn lại kèm lý do loại.',
   MATCHING: 'Đây là câu nối thông tin. "question_chunks" là nhận định/câu hỏi cần nối. "distractors" là 1-3 lựa chọn dễ nhầm nhất trong danh sách để nối, kèm lý do không phù hợp.',
   COMPLETION: 'Đây là câu điền từ. "question_chunks" là câu chứa chỗ trống, viết chỗ trống thành "<số câu>. ___". "full_sentence" là câu hoàn chỉnh sau khi điền đáp án, "translation" là bản dịch tiếng Việt của câu đó. Trong "reasoning" nhắc giới hạn số từ nếu đề có. "distractors" là 1-3 từ trong bài dễ điền nhầm, kèm lý do.',
@@ -417,7 +417,7 @@ function buildPrompt(q, family, ctx, previousError = null, teacherFeedback = nul
   } else {
     modeInstruction = `QUY TẮC TỰ GIẢI ĐỘC LẬP:
 1. Bạn là chuyên gia IELTS có TƯ DUY PHẢN BIỆN ĐỘC LẬP. Bạn PHẢI tự mình giải câu hỏi độc lập 100% dựa trên bằng chứng trong ${sourceName}.
-2. Trường "answer": PHẢI là đáp án THỰC TẾ CHÍNH XÁC NHẤT theo ${sourceName} (nếu có lựa chọn A/B/C/D hoặc số La Mã, ghi đúng ký hiệu lựa chọn).
+2. Trường "answer": PHẢI là đáp án THỰC TẾ CHÍNH XÁC NHẤT theo ${sourceName} (nếu có lựa chọn A/B/C/D hoặc số La Mã, ghi đúng ký hiệu lựa chọn. Nếu câu hỏi yêu cầu chọn từ 2 chữ cái trở lên hoặc loại câu mcq_multi, ghi đầy đủ các chữ cái cách nhau bằng dấu phẩy theo thứ tự chữ cái, ví dụ: "B, C").
 3. Trường "reasoning": 2-3 câu chứng minh mạch tư duy vì sao đáp án đúng theo phương pháp Linear thinking. Đây là phần DÀNH CHO HỌC SINH ĐỌC. TUYỆT ĐỐI KHÔNG nhắc đến "người dùng", "người nhập", "giáo viên", "ngộ nhận", "thử thách", và KHÔNG phán xét người nhập. Chỉ tập trung vào dữ liệu ${sourceName} và mạch suy luận để ra đáp án đúng.
 4. Trường "distractors": Phân tích trung thực lý do các phương án nhiễu khác bị sai.`
 
@@ -428,7 +428,7 @@ function buildPrompt(q, family, ctx, previousError = null, teacherFeedback = nul
   "locate_keywords": ["1-3 cụm NGUYÊN VĂN trong ${sourceName} giúp định vị"],
   "evidence_quote": "1-2 câu liên tiếp chép NGUYÊN VĂN từ ${sourceName} chứa thông tin trả lời, không viết tắt, không dùng dấu ... — nếu cần nhiều chỗ khác nhau trong ${sourceName}, chép riêng từng chỗ và ngăn cách bằng \\" | \\"",
   "evidence_chunks": [{ "text": "cụm quan trọng NGUYÊN VĂN nằm trong evidence_quote", "label": "nghĩa tiếng Việt 2-8 từ" }],
-  "answer": "đáp án thực tế chính xác nhất theo ${sourceName} (ghi rõ chữ cái hoặc số La Mã và nội dung nếu là trắc nghiệm/nối)",
+  "answer": "đáp án thực tế chính xác nhất theo ${sourceName} (ghi rõ chữ cái hoặc số La Mã và nội dung nếu là trắc nghiệm/nối; nếu chọn nhiều chữ cái ghi dạng \\"B, C\\")",
   "full_sentence": "câu hoàn chỉnh sau khi điền đáp án (chỉ cho câu điền từ, còn lại để rỗng)",
   "translation": "dịch tiếng Việt của full_sentence (để rỗng nếu full_sentence rỗng)",
   "reasoning": "2-3 câu: chứng minh mạch tư duy vì sao đáp án này đúng theo ${sourceName}. Dành cho học sinh đọc — TUYỆT ĐỐI KHÔNG nhắc người dùng, người nhập, giáo viên, ngộ nhận.",
@@ -617,7 +617,8 @@ async function callAi(prompt, { questionType = null, rawOptions = null, model: c
 
   if (useGemini && typeof requestGeminiJson === 'function') {
     const responseSchema = buildResponseSchema(questionType, rawOptions, { isFixedMode })
-    for (let geminiAttempt = 0; geminiAttempt < 3; geminiAttempt++) {
+    const maxGeminiAttempts = forceProvider === 'Gemini' ? 1 : 2
+    for (let geminiAttempt = 0; geminiAttempt < maxGeminiAttempts; geminiAttempt++) {
       if (signal?.aborted) {
         const err = new Error('Yêu cầu AI đã bị hủy')
         err.name = 'AbortError'
