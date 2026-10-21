@@ -21,9 +21,30 @@ const MAX_REQUEST_HARD_TIMEOUT_MS = 48000 // Trần cứng: không bao giờ đ�
 const SINGLE_QUESTION_TIMEOUT_MS = 20000 // Timeout cứng cho MỖI lần xử lý 1 câu (kể cả retry/backoff)
 const MIN_REMAINING_FOR_NEXT_CALL_MS = 14000 // Trước khi bắt đầu câu mới, cần ít nhất 14s (đủ cho 1 lần gọi đầy đủ)
 
-function withTimeout(promiseOrFactory, timeoutMs, timeoutErrorMessage = 'Quá thời gian xử lý AI cho câu hỏi này', onCancel = null) {
+function withTimeout(promiseOrFactory, timeoutMs, timeoutErrorMessage = 'Quá thời gian xử lý AI cho câu hỏi này', onCancel = null, externalSignal = null) {
   let timer
   const abortController = new AbortController()
+
+  const buildAbortError = () => {
+    const err = new Error('Yêu cầu AI đã bị hủy do client ngắt kết nối')
+    err.name = 'AbortError'
+    return err
+  }
+
+  // Client ngắt kết nối -> abort luôn công việc đang chạy (kể cả khi chưa hết timeout)
+  let rejectExternal = () => {}
+  const externalPromise = new Promise((_, reject) => { rejectExternal = reject })
+  const onExternalAbort = () => {
+    try { abortController.abort() } catch {}
+    if (typeof onCancel === 'function') onCancel(abortController.signal)
+    rejectExternal(buildAbortError())
+  }
+
+  if (externalSignal) {
+    if (externalSignal.aborted) return Promise.reject(buildAbortError())
+    externalSignal.addEventListener('abort', onExternalAbort, { once: true })
+  }
+
   const promise = typeof promiseOrFactory === 'function'
     ? promiseOrFactory(abortController.signal)
     : promiseOrFactory
@@ -38,7 +59,12 @@ function withTimeout(promiseOrFactory, timeoutMs, timeoutErrorMessage = 'Quá th
       reject(err)
     }, timeoutMs)
   })
-  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer))
+  return Promise.race([promise, timeoutPromise, externalPromise]).finally(() => {
+    clearTimeout(timer)
+    if (externalSignal) {
+      try { externalSignal.removeEventListener('abort', onExternalAbort) } catch {}
+    }
+  })
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -824,6 +850,7 @@ async function generateForPracticeExam(examId, {
   overwriteProtected = false,
   questionNumbers = null,
   timeBudgetMs = null,
+  signal = null,
 } = {}) {
   const requestedBudget = (typeof timeBudgetMs === 'number' && timeBudgetMs > 0)
     ? timeBudgetMs
@@ -899,6 +926,13 @@ async function generateForPracticeExam(examId, {
   let generatedCount = 0
 
   for (const item of candidateItems) {
+    // Client đã ngắt kết nối (đóng tab / bấm Hủy / chuyển trang) -> dừng ngay,
+    // không gọi AI và không ghi thêm dữ liệu "ma" vào DB.
+    if (signal?.aborted) {
+      console.log(`[CLIENT_ABORT] Practice #${examId}: client đã ngắt kết nối, dừng sau ${generatedCount} câu.`)
+      break
+    }
+
     // 3.1: Kiểm tra thời gian còn lại đủ cho một lần gọi đầy đủ (kể cả backoff tối đa)
     const elapsedBeforeItem = Date.now() - startTime
     const remainingTime = effectiveTimeBudget - elapsedBeforeItem
@@ -927,7 +961,7 @@ async function generateForPracticeExam(examId, {
     if (choice === 'input' && !knownIndependentAnswer) {
       // Chưa có kết quả độc lập nào được lưu -> phải giải mù thật ở lượt gọi RIÊNG
       // (không chứa đáp án đã chốt) rồi mới đối chiếu.
-      const blind = await solveBlindWithGeminiRetry(qCtx, family, ctx)
+      const blind = await solveBlindWithGeminiRetry(qCtx, family, ctx, { signal })
       if (!blind.ok) {
         failedQuestions.push({ number: qNum, message: blind.message || 'Không kiểm tra được đáp án độc lập' })
         continue
@@ -950,18 +984,23 @@ async function generateForPracticeExam(examId, {
         }
       } else if (choice === 'input') {
         explanation = await withTimeout(
-          generateExplanation(qCtx, family, ctx, { isFixedMode: true, targetAnswer: inputAnswer }),
+          generateExplanation(qCtx, family, ctx, { isFixedMode: true, targetAnswer: inputAnswer, signal }),
           SINGLE_QUESTION_TIMEOUT_MS,
           `Hết thời gian xử lý AI (${SINGLE_QUESTION_TIMEOUT_MS}ms) cho câu #${qNum}`
         )
       } else {
         explanation = await withTimeout(
-          generateExplanation(qCtx, family, ctx),
+          generateExplanation(qCtx, family, ctx, { signal }),
           SINGLE_QUESTION_TIMEOUT_MS,
           `Hết thời gian xử lý AI (${SINGLE_QUESTION_TIMEOUT_MS}ms) cho câu #${qNum}`
         )
       }
     } catch (err) {
+      // Client ngắt kết nối -> thoát vòng lặp ngay, không ghi thêm gì.
+      if (err.name === 'AbortError' || signal?.aborted) {
+        console.log(`[CLIENT_ABORT] Practice #${examId}: dừng giữa câu #${qNum}.`)
+        break
+      }
       if (err.isTimeout || err.code === 'ETIMEDOUT') {
         console.warn(`[TIMEOUT_STALL] Practice #${examId} Câu #${qNum} bị timeout sau ${SINGLE_QUESTION_TIMEOUT_MS}ms. Coi là chưa xong, ngắt request để trả về client gọi lại câu này.`)
         break
@@ -1234,6 +1273,7 @@ async function generateForExam(examId, {
   groupId = null,
   questionNumbers = null,
   timeBudgetMs = null,
+  signal = null,
 } = {}) {
   const requestedBudget = (typeof timeBudgetMs === 'number' && timeBudgetMs > 0)
     ? timeBudgetMs
@@ -1358,6 +1398,13 @@ async function generateForExam(examId, {
   let generatedCount = 0
 
   for (const { q, family } of candidateQuestions) {
+    // Client đã ngắt kết nối (đóng tab / bấm Hủy / chuyển trang) -> dừng ngay,
+    // không gọi AI và không ghi thêm dữ liệu "ma" vào DB.
+    if (signal?.aborted) {
+      console.log(`[CLIENT_ABORT] Exam #${examId}: client đã ngắt kết nối, dừng sau ${generatedCount} câu.`)
+      break
+    }
+
     // 3.1: Kiểm tra thời gian còn lại đủ cho một lần gọi đầy đủ (kể cả backoff tối đa)
     const elapsedBeforeItem = Date.now() - startTime
     const remainingTime = effectiveTimeBudget - elapsedBeforeItem
@@ -1379,7 +1426,7 @@ async function generateForExam(examId, {
     if (choice === 'input' && !knownIndependentAnswer) {
       // Chưa có kết quả độc lập nào được lưu -> phải giải mù thật ở lượt gọi RIÊNG
       // (không chứa đáp án đã chốt) rồi mới đối chiếu.
-      const blind = await solveBlindWithGeminiRetry(q, family, ctx)
+      const blind = await solveBlindWithGeminiRetry(q, family, ctx, { signal })
       if (!blind.ok) {
         failedQuestions.push({ number: q.number, message: blind.message || 'Không kiểm tra được đáp án độc lập' })
         continue
@@ -1402,13 +1449,13 @@ async function generateForExam(examId, {
         }
       } else if (choice === 'input') {
         explanation = await withTimeout(
-          generateExplanation(q, family, ctx, { isFixedMode: true, targetAnswer: inputAnswer }),
+          generateExplanation(q, family, ctx, { isFixedMode: true, targetAnswer: inputAnswer, signal }),
           SINGLE_QUESTION_TIMEOUT_MS,
           `Hết thời gian xử lý AI (${SINGLE_QUESTION_TIMEOUT_MS}ms) cho câu #${q.number}`
         )
       } else {
         explanation = await withTimeout(
-          generateExplanation(q, family, ctx),
+          generateExplanation(q, family, ctx, { signal }),
           SINGLE_QUESTION_TIMEOUT_MS,
           `Hết thời gian xử lý AI (${SINGLE_QUESTION_TIMEOUT_MS}ms) cho câu #${q.number}`
         )
@@ -1416,6 +1463,11 @@ async function generateForExam(examId, {
     } catch (err) {
       if (err.isTimeout || err.code === 'ETIMEDOUT') {
         console.warn(`[TIMEOUT_STALL] Exam #${examId} Câu #${q.number} bị timeout sau ${SINGLE_QUESTION_TIMEOUT_MS}ms. Coi là chưa xong, ngắt request để trả về client gọi lại câu này.`)
+        break
+      }
+      // Client ngắt kết nối -> thoát vòng lặp ngay, không ghi thêm gì.
+      if (err.name === 'AbortError' || signal?.aborted) {
+        console.log(`[CLIENT_ABORT] Exam #${examId}: dừng giữa câu #${q.number}.`)
         break
       }
       failedQuestions.push({ number: q.number, message: err.message })
@@ -2246,6 +2298,7 @@ async function regenerateQuestionExplanation({
   proposedAnswer = null,
   confirmChangeAnswer = false,
   timeoutMs = MAX_REQUEST_HARD_TIMEOUT_MS,
+  signal = null,
 }) {
   // cancelFlag: ngăn saveExplanation ghi DB sau khi HTTP 504 đã được trả về
   const cancelFlag = { cancelled: false }
@@ -2444,7 +2497,8 @@ async function regenerateQuestionExplanation({
     },
     timeoutMs,
     `Hết thời gian xử lý AI (${Math.round(timeoutMs / 1000)}s) khi tạo lại giải thích cho câu hỏi.`,
-    () => { cancelFlag.cancelled = true } // onCancel: set flag khi timeout fires
+    () => { cancelFlag.cancelled = true }, // onCancel: set flag khi timeout fires
+    signal // externalSignal: client ngắt kết nối
   )
 }
 

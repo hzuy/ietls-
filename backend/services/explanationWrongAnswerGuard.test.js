@@ -560,3 +560,94 @@ describe('4. ĐỔI ĐÁP ÁN CÓ XÁC NHẬN (Luồng Y) — không bao giờ c
     expect(savedExp.needsRegenerationReason).toContain('nông nghiệp')
   })
 })
+
+describe('5. CLIENT NGẮT KẾT NỐI — server phải dừng, không ghi dữ liệu "ma"', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    prismaMock.question.update.mockResolvedValue({})
+  })
+
+  it('signal đã abort trước khi chạy -> không gọi AI, không ghi DB', async () => {
+    prismaMock.exam.findUnique.mockResolvedValue({ id: 70, title: 'Exam 70', skill: 'reading' })
+    prismaMock.question.findMany.mockResolvedValue([
+      {
+        id: 7001,
+        number: 1,
+        type: 'mcq',
+        questionText: 'What has grown rapidly?',
+        options: ['A. Farming', 'B. Urban beekeeping'],
+        correctAnswer: 'B',
+        explanation: null,
+        passage: { body: PASSAGE },
+      },
+      {
+        id: 7002,
+        number: 2,
+        type: 'mcq',
+        questionText: 'Where do hives sit?',
+        options: ['A. On rooftops', 'B. In gardens'],
+        correctAnswer: 'A',
+        explanation: null,
+        passage: { body: PASSAGE },
+      },
+    ])
+
+    const controller = new AbortController()
+    controller.abort()
+
+    const res = await generateForExam(70, { force: true, signal: controller.signal })
+
+    expect(res.ok).toBe(true)
+    expect(res.generatedCount).toBe(0)
+    expect(generateExplanationMock).not.toHaveBeenCalled()
+    expect(prismaMock.question.update).not.toHaveBeenCalled()
+  })
+
+  it('abort giữa chừng -> dừng ngay, chỉ lưu kết quả đã sinh xong', async () => {
+    prismaMock.exam.findUnique.mockResolvedValue({ id: 71, title: 'Exam 71', skill: 'reading' })
+    prismaMock.question.findMany.mockResolvedValue([
+      {
+        id: 7101,
+        number: 1,
+        type: 'mcq',
+        questionText: 'What has grown rapidly?',
+        options: ['A. Farming', 'B. Urban beekeeping'],
+        correctAnswer: 'B',
+        explanation: null,
+        passage: { body: PASSAGE },
+      },
+      {
+        id: 7102,
+        number: 2,
+        type: 'mcq',
+        questionText: 'Where do hives sit?',
+        options: ['A. On rooftops', 'B. In gardens'],
+        correctAnswer: 'A',
+        explanation: null,
+        passage: { body: PASSAGE },
+      },
+    ])
+
+    const controller = new AbortController()
+    generateExplanationMock.mockImplementationOnce(async () => {
+      // Mô phỏng: câu 1 sinh xong thì client đóng tab
+      controller.abort()
+      return {
+        v: 2,
+        answer: 'B',
+        reasoning: 'Beekeeping grew rapidly.',
+        evidence: { parts: [{ text: 'Urban beekeeping has grown rapidly in recent years.' }] },
+        provider: 'Gemini',
+      }
+    })
+
+    const res = await generateForExam(71, { force: true, signal: controller.signal })
+
+    expect(res.ok).toBe(true)
+    // Chỉ 1 lượt gọi AI (câu 2 không được gọi)
+    expect(generateExplanationMock).toHaveBeenCalledTimes(1)
+    // Chỉ câu 1 được lưu
+    expect(prismaMock.question.update).toHaveBeenCalledTimes(1)
+    expect(prismaMock.question.update.mock.calls[0][0].where.id).toBe(7101)
+  })
+})

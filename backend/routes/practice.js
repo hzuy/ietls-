@@ -21,6 +21,7 @@ const {
 const { logAuditEvent } = require('../lib/auditLog')
 const { AUDIT_ACTIONS } = require('../lib/auditActions')
 const { acquireLock, releaseLock, isLocked } = require('../lib/explanationLock')
+const { bindRequestAbort } = require('../lib/requestAbort')
 
 const router = express.Router()
 
@@ -612,13 +613,27 @@ router.post('/admin/:skill/:id/generate-explanations', authMiddleware, teacherSt
     })
   }
 
+  const abort = bindRequestAbort(req, res)
+
   try {
-    const result = await generateForPracticeExam(practiceId, { force, resolveChoices, overwriteProtected, questionNumbers, timeBudgetMs })
+    const result = await generateForPracticeExam(practiceId, {
+      force,
+      resolveChoices,
+      overwriteProtected,
+      questionNumbers,
+      timeBudgetMs,
+      signal: abort.signal,
+    })
     res.json(result)
   } catch (err) {
+    if (err.name === 'AbortError' || abort.signal.aborted) {
+      console.log(`[CLIENT_ABORT] Practice #${practiceId}: client ngắt kết nối, bỏ qua phản hồi.`)
+      return
+    }
     console.error('[GENERATE PRACTICE EXPLANATIONS ERROR]', err)
     res.status(500).json({ message: err.message || 'Lỗi khi tạo giải thích bằng AI' })
   } finally {
+    abort.dispose()
     releaseLock(lockKey)
   }
 })
@@ -636,6 +651,8 @@ router.post('/admin/:skill/:id/questions/:qNum/regenerate-explanation', authMidd
     })
   }
 
+  const abort = bindRequestAbort(req, res)
+
   try {
     const result = await regenerateQuestionExplanation({
       examId: practiceId,
@@ -645,9 +662,14 @@ router.post('/admin/:skill/:id/questions/:qNum/regenerate-explanation', authMidd
       teacherFeedback,
       proposedAnswer,
       confirmChangeAnswer: Boolean(confirmChangeAnswer),
+      signal: abort.signal,
     })
     res.json(result)
   } catch (err) {
+    if (err.name === 'AbortError' || abort.signal.aborted) {
+      console.log(`[CLIENT_ABORT] Practice #${practiceId} câu #${qNum}: client ngắt kết nối, bỏ qua phản hồi.`)
+      return
+    }
     console.error('[REGENERATE PRACTICE QUESTION EXPLANATION ERROR]', err)
     if (err.isTimeout || err.code === 'ETIMEDOUT') {
       return res.status(504).json({
@@ -658,6 +680,7 @@ router.post('/admin/:skill/:id/questions/:qNum/regenerate-explanation', authMidd
     }
     res.status(500).json({ message: err.message || 'Lỗi khi tạo lại giải thích' })
   } finally {
+    abort.dispose()
     releaseLock(lockKey)
   }
 })

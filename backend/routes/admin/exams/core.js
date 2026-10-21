@@ -9,6 +9,7 @@ const { invalidate } = require('../../../lib/swrCache')
 const { invalidateExamCaches } = require('../../../utils/cache')
 const { logAuditEvent } = require('../../../lib/auditLog')
 const { AUDIT_ACTIONS } = require('../../../lib/auditActions')
+const { bindRequestAbort } = require('../../../lib/requestAbort')
 const {
   generateForExam,
   regenerateQuestionExplanation,
@@ -134,13 +135,27 @@ router.post('/exams/:id/generate-explanations', authMiddleware, teacherOnly, asy
     })
   }
 
+  const abort = bindRequestAbort(req, res)
+
   try {
-    const result = await generateForExam(examIdNum, { force, resolveChoices, overwriteProtected, questionNumbers, timeBudgetMs })
+    const result = await generateForExam(examIdNum, {
+      force,
+      resolveChoices,
+      overwriteProtected,
+      questionNumbers,
+      timeBudgetMs,
+      signal: abort.signal,
+    })
     res.json(result)
   } catch (err) {
+    if (err.name === 'AbortError' || abort.signal.aborted) {
+      console.log(`[CLIENT_ABORT] Exam #${examIdNum}: client ngắt kết nối, bỏ qua phản hồi.`)
+      return
+    }
     console.error('[GENERATE EXAM EXPLANATIONS ERROR]', err)
     res.status(500).json({ message: err.message || 'Lỗi khi tạo giải thích bằng AI' })
   } finally {
+    abort.dispose()
     releaseLock(lockKey)
   }
 })
@@ -159,6 +174,8 @@ router.post('/exams/:id/groups/:groupId/generate-explanations', authMiddleware, 
     })
   }
 
+  const abort = bindRequestAbort(req, res)
+
   try {
     const result = await generateForExam(examIdNum, {
       force,
@@ -167,12 +184,18 @@ router.post('/exams/:id/groups/:groupId/generate-explanations', authMiddleware, 
       groupId: groupIdNum,
       questionNumbers,
       timeBudgetMs,
+      signal: abort.signal,
     })
     res.json(result)
   } catch (err) {
+    if (err.name === 'AbortError' || abort.signal.aborted) {
+      console.log(`[CLIENT_ABORT] Exam #${examIdNum} group #${groupIdNum}: client ngắt kết nối, bỏ qua phản hồi.`)
+      return
+    }
     console.error('[GENERATE GROUP EXPLANATIONS ERROR]', err)
     res.status(500).json({ message: err.message || 'Lỗi khi tạo giải thích cho nhóm câu hỏi' })
   } finally {
+    abort.dispose()
     releaseLock(lockKey)
   }
 })
@@ -190,6 +213,8 @@ router.post('/exams/:id/questions/:qId/regenerate-explanation', authMiddleware, 
     })
   }
 
+  const abort = bindRequestAbort(req, res)
+
   try {
     const result = await regenerateQuestionExplanation({
       examId: examIdNum,
@@ -198,9 +223,14 @@ router.post('/exams/:id/questions/:qId/regenerate-explanation', authMiddleware, 
       teacherFeedback,
       proposedAnswer,
       confirmChangeAnswer: Boolean(confirmChangeAnswer),
+      signal: abort.signal,
     })
     res.json(result)
   } catch (err) {
+    if (err.name === 'AbortError' || abort.signal.aborted) {
+      console.log(`[CLIENT_ABORT] Exam #${examIdNum} question #${qId}: client ngắt kết nối, bỏ qua phản hồi.`)
+      return
+    }
     console.error('[REGENERATE EXAM QUESTION EXPLANATION ERROR]', err)
     if (err.isTimeout || err.code === 'ETIMEDOUT') {
       return res.status(504).json({
@@ -211,6 +241,7 @@ router.post('/exams/:id/questions/:qId/regenerate-explanation', authMiddleware, 
     }
     res.status(500).json({ message: err.message || 'Lỗi khi tạo lại giải thích' })
   } finally {
+    abort.dispose()
     releaseLock(lockKey)
   }
 })
