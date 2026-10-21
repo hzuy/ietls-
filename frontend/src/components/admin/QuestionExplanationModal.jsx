@@ -262,7 +262,9 @@ export default function QuestionExplanationModal({
   const [confirmDialogData, setConfirmDialogData] = useState(null)
   const [conflictData, setConflictData] = useState(null)
   const [isRegenerating, setIsRegenerating] = useState(false)
+  const [regenStepLabel, setRegenStepLabel] = useState(null)
   const [regenError, setRegenError] = useState(null)
+  const abortControllerRef = useRef(null)
 
   // Edit tab state
   // Bước 1
@@ -368,10 +370,31 @@ export default function QuestionExplanationModal({
   }
 
   // ─── 4.3 REGENERATE HANDLER (L2 SUPPORT) ──────────────────────────────────
+  const handleCancelRegenerate = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    setIsRegenerating(false)
+    setRegenStepLabel(null)
+    showToast('Đã hủy yêu cầu tạo lại lời giải.')
+  }
+
   const handleRegenerate = async ({ confirmChangeAnswer = false, overrideProposed = null } = {}) => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    const ac = new AbortController()
+    abortControllerRef.current = ac
+
     setIsRegenerating(true)
     setRegenError(null)
     setConflictData(null)
+    setRegenStepLabel('Bước 1/2: Đang giải độc lập & kiểm chứng...')
+
+    const stepTimer = setTimeout(() => {
+      setRegenStepLabel('Bước 2/2: Đang tạo lời giải chi tiết...')
+    }, 10000)
 
     const finalProposed = overrideProposed !== null ? overrideProposed : (proposedAnswer.trim() || null)
 
@@ -384,7 +407,7 @@ export default function QuestionExplanationModal({
         teacherFeedback: feedbackText,
         proposedAnswer: finalProposed,
         confirmChangeAnswer: Boolean(confirmChangeAnswer),
-      })
+      }, { signal: ac.signal })
       const data = res.data
 
       // Subcase 1: Server requires teacher confirmation to change answer
@@ -430,6 +453,10 @@ export default function QuestionExplanationModal({
         showToast(data.message || 'Đã tạo lại giải thích thành công!')
       }
     } catch (err) {
+      if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED' || ac.signal.aborted) {
+        // Hủy thao tác theo yêu cầu của người dùng, không báo lỗi
+        return
+      }
       console.error('[REGENERATE ERROR]', err)
       const status = err?.response?.status
       const serverErr = err?.response?.data?.error
@@ -451,7 +478,10 @@ export default function QuestionExplanationModal({
       setRegenError(userFriendlyMsg)
       setActiveTab('feedback')
     } finally {
+      clearTimeout(stepTimer)
       setIsRegenerating(false)
+      setRegenStepLabel(null)
+      abortControllerRef.current = null
     }
   }
 
@@ -1400,25 +1430,37 @@ export default function QuestionExplanationModal({
           )}
 
           {activeTab === 'feedback' && (
-            <button
-              type="button"
-              onClick={handleRegenerate}
-              disabled={isRegenerating || isAIBusy}
-              className="py-2.5 px-5 rounded-xl bg-zinc-900 text-white text-sm font-bold hover:bg-zinc-800 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shadow-xs"
-              title={isAIBusy ? "Đang có tác vụ AI khác đang chạy..." : undefined}
-            >
-              {isRegenerating ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
-                  AI đang suy luận và tạo lại lời giải...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 text-amber-400" />
-                  Tạo lại lời giải với AI
-                </>
+            <div className="flex items-center gap-2">
+              {isRegenerating && (
+                <button
+                  type="button"
+                  onClick={handleCancelRegenerate}
+                  className="py-2.5 px-4 rounded-xl border border-zinc-300 text-zinc-700 text-sm font-semibold hover:bg-zinc-100 transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <X className="w-4 h-4 text-zinc-500" />
+                  Hủy
+                </button>
               )}
-            </button>
+              <button
+                type="button"
+                onClick={handleRegenerate}
+                disabled={isRegenerating || isAIBusy}
+                className="py-2.5 px-5 rounded-xl bg-zinc-900 text-white text-sm font-bold hover:bg-zinc-800 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shadow-xs"
+                title={isAIBusy ? "Đang có tác vụ AI khác đang chạy..." : undefined}
+              >
+                {isRegenerating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+                    {regenStepLabel || 'AI đang suy luận và tạo lại lời giải...'}
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                    Tạo lại lời giải với AI
+                  </>
+                )}
+              </button>
+            </div>
           )}
 
           {activeTab === 'edit' && (
@@ -1486,12 +1528,30 @@ export default function QuestionExplanationModal({
                 )}
 
                 {confirmDialogData.attemptCount > 0 && (
-                  <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 text-amber-900 flex items-start gap-2.5">
-                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div className={`rounded-xl p-3.5 flex items-start gap-2.5 ${
+                    confirmDialogData.attemptCount >= 10
+                      ? 'bg-rose-50 border border-rose-300 text-rose-950 ring-1 ring-rose-400'
+                      : 'bg-amber-50 border border-amber-300 text-amber-900'
+                  }`}>
+                    <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${
+                      confirmDialogData.attemptCount >= 10 ? 'text-rose-600' : 'text-amber-600'
+                    }`} />
                     <div className="space-y-0.5">
-                      <p className="font-bold m-0 text-amber-900">Cảnh báo lượt làm bài của học sinh:</p>
-                      <p className="m-0 text-amber-800 leading-relaxed">
-                        Đã có <strong>{confirmDialogData.attemptCount}</strong> lượt làm bài dựa trên đáp án cũ ("{confirmDialogData.currentAnswer}"). Đổi đáp án chuẩn sẽ cập nhật câu hỏi và lời giải tương ứng.
+                      <p className={`font-bold m-0 ${
+                        confirmDialogData.attemptCount >= 10 ? 'text-rose-900 font-extrabold text-[13px]' : 'text-amber-900'
+                      }`}>
+                        {confirmDialogData.attemptCount >= 10
+                          ? '⚠️ CẢNH BÁO ĐẶC BIỆT: SỐ LƯỢNG LƯỢT THI LỚN'
+                          : 'Cảnh báo lượt làm bài của học sinh:'}
+                      </p>
+                      <p className={`m-0 leading-relaxed ${
+                        confirmDialogData.attemptCount >= 10 ? 'text-rose-800 font-medium' : 'text-amber-800'
+                      }`}>
+                        Đã có <strong>{confirmDialogData.attemptCount}</strong> lượt làm bài dựa trên đáp án cũ ("{confirmDialogData.currentAnswer}"). {
+                          confirmDialogData.attemptCount >= 10
+                            ? 'Việc đổi đáp án chuẩn có thể ảnh hưởng lớn đến kết quả xếp hạng và điểm số của nhiều thí sinh đã hoàn thành bài thi này.'
+                            : 'Đổi đáp án chuẩn sẽ cập nhật câu hỏi và lời giải tương ứng.'
+                        }
                       </p>
                     </div>
                   </div>

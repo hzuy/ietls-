@@ -200,7 +200,8 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
       await waitFor(() => {
         expect(api.post).toHaveBeenCalledWith(
           '/practice/admin/reading/10/questions/1/regenerate-explanation',
-          expect.objectContaining({ teacherFeedback: 'Giải thích ngắn hơn' })
+          expect.objectContaining({ teacherFeedback: 'Giải thích ngắn hơn' }),
+          expect.anything()
         )
       })
       expect(handleUpdated).toHaveBeenCalled()
@@ -292,7 +293,8 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
           expect.objectContaining({
             proposedAnswer: 'Nitrogen',
             confirmChangeAnswer: false,
-          })
+          }),
+          expect.anything()
         )
       })
 
@@ -301,7 +303,7 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
         expect(screen.getByText(/Xác nhận đổi đáp án chuẩn/i)).toBeInTheDocument()
       })
       expect(screen.getByText(/AI độc lập đồng thuận với đề xuất của bạn/i)).toBeInTheDocument()
-      expect(screen.getByText(/Cảnh báo lượt làm bài của học sinh/i)).toBeInTheDocument()
+      expect(screen.getByText(/CẢNH BÁO ĐẶC BIỆT: SỐ LƯỢNG LƯỢT THI LỚN/i)).toBeInTheDocument()
       expect(screen.getByText('15')).toBeInTheDocument()
       expect(screen.getByText(/"Nitrogen is 78% of the gas\."/i)).toBeInTheDocument()
 
@@ -328,7 +330,8 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
           expect.objectContaining({
             proposedAnswer: 'Nitrogen',
             confirmChangeAnswer: true,
-          })
+          }),
+          expect.anything()
         )
       })
 
@@ -790,6 +793,177 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
 
       await waitFor(() => {
         expect(screen.getByText(/Mô hình dự phòng không được phép quyết định đổi đáp án/i)).toBeInTheDocument()
+      })
+    })
+
+    describe('Mục D: Cảnh báo lượt làm bài (1, 3, 12 lượt) và Tiến độ Bước 1/2 & Nút Hủy (Mục C)', () => {
+      const sampleQuestion = {
+        number: 1,
+        type: 'mcq',
+        questionText: 'Test question',
+        options: ['A', 'B', 'C', 'D'],
+        correctAnswer: 'A',
+      }
+
+      it('displays amber warning when attemptCount = 1', async () => {
+        api.post.mockResolvedValueOnce({
+          data: {
+            ok: true,
+            requiresConfirmation: true,
+            proposedAnswer: 'B',
+            currentAnswer: 'A',
+            aiBlindAnswer: 'B',
+            attemptCount: 1,
+            evidence: 'Evidence text',
+          },
+        })
+
+        render(
+          <QuestionExplanationModal
+            isOpen={true}
+            onClose={vi.fn()}
+            examId={10}
+            questionNumber={1}
+            isPractice={true}
+            skill="reading"
+            question={sampleQuestion}
+            initialExplanation={{ v: 2, answer: 'A', reasoning: 'Old reasoning' }}
+          />
+        )
+
+        fireEvent.click(screen.getByRole('tab', { name: /Góp ý & Tạo lại/i }))
+        fireEvent.change(screen.getByPlaceholderText(/nhập đáp án mới nếu đáp án đang lưu bị sai/i), {
+          target: { value: 'B' },
+        })
+        fireEvent.click(screen.getByRole('button', { name: /Tạo lại lời giải với AI/i }))
+
+        await waitFor(() => {
+          expect(screen.getByText(/Xác nhận đổi đáp án chuẩn/i)).toBeInTheDocument()
+        })
+        expect(screen.getByText(/Cảnh báo lượt làm bài của học sinh:/i)).toBeInTheDocument()
+        expect(screen.getByText(/Đã có/)).toHaveTextContent('1 lượt làm bài')
+        expect(screen.queryByText(/CẢNH BÁO ĐẶC BIỆT/i)).not.toBeInTheDocument()
+      })
+
+      it('displays amber warning when attemptCount = 3', async () => {
+        api.post.mockResolvedValueOnce({
+          data: {
+            ok: true,
+            requiresConfirmation: true,
+            proposedAnswer: 'B',
+            currentAnswer: 'A',
+            aiBlindAnswer: 'B',
+            attemptCount: 3,
+            evidence: 'Evidence text',
+          },
+        })
+
+        render(
+          <QuestionExplanationModal
+            isOpen={true}
+            onClose={vi.fn()}
+            examId={10}
+            questionNumber={1}
+            isPractice={true}
+            skill="reading"
+            question={sampleQuestion}
+            initialExplanation={{ v: 2, answer: 'A', reasoning: 'Old reasoning' }}
+          />
+        )
+
+        fireEvent.click(screen.getByRole('tab', { name: /Góp ý & Tạo lại/i }))
+        fireEvent.change(screen.getByPlaceholderText(/nhập đáp án mới nếu đáp án đang lưu bị sai/i), {
+          target: { value: 'B' },
+        })
+        fireEvent.click(screen.getByRole('button', { name: /Tạo lại lời giải với AI/i }))
+
+        await waitFor(() => {
+          expect(screen.getByText(/Xác nhận đổi đáp án chuẩn/i)).toBeInTheDocument()
+        })
+        expect(screen.getByText(/Cảnh báo lượt làm bài của học sinh:/i)).toBeInTheDocument()
+        expect(screen.getByText(/Đã có/)).toHaveTextContent('3 lượt làm bài')
+        expect(screen.queryByText(/CẢNH BÁO ĐẶC BIỆT/i)).not.toBeInTheDocument()
+      })
+
+      it('displays emphasized rose alert with ⚠️ CẢNH BÁO ĐẶC BIỆT when attemptCount = 12', async () => {
+        api.post.mockResolvedValueOnce({
+          data: {
+            ok: true,
+            requiresConfirmation: true,
+            proposedAnswer: 'B',
+            currentAnswer: 'A',
+            aiBlindAnswer: 'B',
+            attemptCount: 12,
+            evidence: 'Evidence text',
+          },
+        })
+
+        render(
+          <QuestionExplanationModal
+            isOpen={true}
+            onClose={vi.fn()}
+            examId={10}
+            questionNumber={1}
+            isPractice={true}
+            skill="reading"
+            question={sampleQuestion}
+            initialExplanation={{ v: 2, answer: 'A', reasoning: 'Old reasoning' }}
+          />
+        )
+
+        fireEvent.click(screen.getByRole('tab', { name: /Góp ý & Tạo lại/i }))
+        fireEvent.change(screen.getByPlaceholderText(/nhập đáp án mới nếu đáp án đang lưu bị sai/i), {
+          target: { value: 'B' },
+        })
+        fireEvent.click(screen.getByRole('button', { name: /Tạo lại lời giải với AI/i }))
+
+        await waitFor(() => {
+          expect(screen.getByText(/⚠️ CẢNH BÁO ĐẶC BIỆT: SỐ LƯỢNG LƯỢT THI LỚN/i)).toBeInTheDocument()
+        })
+        expect(screen.getByText(/Đã có/)).toHaveTextContent('12 lượt làm bài')
+        expect(screen.getByText(/Việc đổi đáp án chuẩn có thể ảnh hưởng lớn đến kết quả xếp hạng và điểm số của nhiều thí sinh/i)).toBeInTheDocument()
+      })
+
+      it('shows "Bước 1/2" progress and allows cancelling in-flight regeneration via "Hủy" button', async () => {
+        let resolvePost
+        api.post.mockImplementationOnce(() => new Promise((resolve) => {
+          resolvePost = resolve
+        }))
+
+        render(
+          <QuestionExplanationModal
+            isOpen={true}
+            onClose={vi.fn()}
+            examId={10}
+            questionNumber={1}
+            isPractice={true}
+            skill="reading"
+            question={sampleQuestion}
+            initialExplanation={{ v: 2, answer: 'A', reasoning: 'Old reasoning' }}
+          />
+        )
+
+        fireEvent.click(screen.getByRole('tab', { name: /Góp ý & Tạo lại/i }))
+        fireEvent.click(screen.getByRole('button', { name: /Tạo lại lời giải với AI/i }))
+
+        // 1. Phải hiển thị tiến độ Bước 1/2
+        expect(screen.getByText(/Bước 1\/2: Đang giải độc lập & kiểm chứng\.\.\./i)).toBeInTheDocument()
+
+        // 2. Phải xuất hiện nút Hủy
+        const cancelBtn = screen.getByRole('button', { name: /^Hủy$/i })
+        expect(cancelBtn).toBeInTheDocument()
+
+        // 3. Bấm Hủy
+        fireEvent.click(cancelBtn)
+
+        // 4. Trạng thái regenerating được khôi phục, hiện thông báo hủy
+        await waitFor(() => {
+          expect(screen.queryByText(/Bước 1\/2/i)).not.toBeInTheDocument()
+          expect(screen.getByText(/Đã hủy yêu cầu tạo lại lời giải\./i)).toBeInTheDocument()
+        })
+
+        // Dọn resolvePost
+        if (resolvePost) resolvePost({ data: { ok: true } })
       })
     })
   })
