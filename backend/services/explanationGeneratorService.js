@@ -20,10 +20,11 @@ const MAX_REQUEST_HARD_TIMEOUT_MS = 48000 // Trần cứng: không bao giờ đ�
 const SINGLE_QUESTION_TIMEOUT_MS = 20000 // Timeout cứng cho MỖI lần xử lý 1 câu (kể cả retry/backoff)
 const MIN_REMAINING_FOR_NEXT_CALL_MS = 14000 // Trước khi bắt đầu câu mới, cần ít nhất 14s (đủ cho 1 lần gọi đầy đủ)
 
-function withTimeout(promise, timeoutMs, timeoutErrorMessage = 'Quá thời gian xử lý AI cho câu hỏi này') {
+function withTimeout(promise, timeoutMs, timeoutErrorMessage = 'Quá thời gian xử lý AI cho câu hỏi này', onCancel = null) {
   let timer
   const timeoutPromise = new Promise((_, reject) => {
     timer = setTimeout(() => {
+      if (typeof onCancel === 'function') onCancel()
       const err = new Error(timeoutErrorMessage)
       err.code = 'ETIMEDOUT'
       err.isTimeout = true
@@ -1914,6 +1915,8 @@ async function regenerateQuestionExplanation({
   confirmChangeAnswer = false,
   timeoutMs = MAX_REQUEST_HARD_TIMEOUT_MS,
 }) {
+  // cancelFlag: ngăn saveExplanation ghi DB sau khi HTTP 504 đã được trả về
+  const cancelFlag = { cancelled: false }
   return withTimeout(
     (async () => {
       const cleanFeedback = teacherFeedback ? cleanString(teacherFeedback, 1000) : null
@@ -1990,6 +1993,7 @@ async function regenerateQuestionExplanation({
             })
           },
           saveExplanation: async (exp) => {
+            if (cancelFlag.cancelled) return // True Cancel: bỏ qua nếu HTTP đã timeout
             await updatePracticeQuestionExplanationTx(targetRow.id, (byNumber) => {
               byNumber[targetNum] = exp
               return byNumber
@@ -2083,6 +2087,7 @@ async function regenerateQuestionExplanation({
             })
           },
           saveExplanation: async (exp) => {
+            if (cancelFlag.cancelled) return // True Cancel: bỏ qua nếu HTTP đã timeout
             await prisma.question.update({
               where: { id: question.id },
               data: { explanation: exp },
@@ -2093,7 +2098,8 @@ async function regenerateQuestionExplanation({
       }
     })(),
     timeoutMs,
-    `Hết thời gian xử lý AI (${Math.round(timeoutMs / 1000)}s) khi tạo lại giải thích cho câu hỏi.`
+    `Hết thời gian xử lý AI (${Math.round(timeoutMs / 1000)}s) khi tạo lại giải thích cho câu hỏi.`,
+    () => { cancelFlag.cancelled = true } // onCancel: set flag khi timeout fires
   )
 }
 

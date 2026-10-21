@@ -292,5 +292,83 @@ describe('PHẦN 2: TIMEOUT THEO NGÂN SÁCH THỜI GIAN (40s Time Budget Loop)'
       await expect(timeoutPromise).rejects.toHaveProperty('code', 'ETIMEDOUT')
       await expect(timeoutPromise).rejects.toHaveProperty('isTimeout', true)
     })
+
+    it('True Cancel: does not write to DB if execution completes after timeout has fired (practice)', async () => {
+      prismaMock.practiceExam.findUnique.mockResolvedValue({
+        id: 30,
+        skill: 'reading',
+        questions: [
+          {
+            id: 301,
+            orderNum: 1,
+            content: JSON.stringify({
+              type: 'mcq',
+              questions: [{ number: 1, question: 'Q1', options: ['A', 'B'], correctAnswer: 'A' }],
+            }),
+          },
+        ],
+      })
+
+      generateExplanationMock.mockImplementation(async () => {
+        await new Promise((r) => setTimeout(r, 60))
+        return {
+          v: 2,
+          answer: 'A',
+          reasoning: 'AI reasoning done after timeout',
+        }
+      })
+
+      const promise = regenerateQuestionExplanation({
+        examId: 30,
+        questionNumber: 1,
+        isPractice: true,
+        timeoutMs: 20,
+      })
+
+      await expect(promise).rejects.toThrow(/Hết thời gian xử lý AI/)
+
+      // Chờ AI chạy xong ngầm và cố gắng gọi saveExplanation
+      await new Promise((r) => setTimeout(r, 80))
+
+      // Kiểm chứng True Cancel: không có bất kỳ lệnh update nào vào DB
+      expect(prismaMock.practiceQuestion.update).not.toHaveBeenCalled()
+    })
+
+    it('True Cancel: does not write to DB if execution completes after timeout has fired (exam)', async () => {
+      prismaMock.question.findFirst.mockResolvedValue({
+        id: 101,
+        number: 1,
+        type: 'mcq',
+        questionText: 'Q1',
+        options: ['A', 'B'],
+        correctAnswer: 'A',
+        explanation: null,
+        passage: { body: 'Passage text' },
+      })
+
+      generateExplanationMock.mockImplementation(async () => {
+        await new Promise((r) => setTimeout(r, 60))
+        return {
+          v: 2,
+          answer: 'A',
+          reasoning: 'AI reasoning for exam done after timeout',
+        }
+      })
+
+      const promise = regenerateQuestionExplanation({
+        examId: 10,
+        questionNumber: 1,
+        isPractice: false,
+        timeoutMs: 20,
+      })
+
+      await expect(promise).rejects.toThrow(/Hết thời gian xử lý AI/)
+
+      // Chờ AI chạy xong ngầm và cố gắng gọi saveExplanation
+      await new Promise((r) => setTimeout(r, 80))
+
+      // Kiểm chứng True Cancel: không ghi đè DB cho câu hỏi exam
+      expect(prismaMock.question.update).not.toHaveBeenCalled()
+    })
   })
 })
