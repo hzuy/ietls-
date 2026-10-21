@@ -924,7 +924,7 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
         expect(screen.getByText(/Việc đổi đáp án chuẩn có thể ảnh hưởng lớn đến kết quả xếp hạng và điểm số của nhiều thí sinh/i)).toBeInTheDocument()
       })
 
-      it('shows "Bước 1/2" progress and allows cancelling in-flight regeneration via "Hủy" button', async () => {
+      it('shows real progress timer "Đang xử lý... (0s)" without fake steps and allows cancelling via "Hủy" button (Decision 2.1)', async () => {
         let resolvePost
         api.post.mockImplementationOnce(() => new Promise((resolve) => {
           resolvePost = resolve
@@ -946,8 +946,9 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
         fireEvent.click(screen.getByRole('tab', { name: /Góp ý & Tạo lại/i }))
         fireEvent.click(screen.getByRole('button', { name: /Tạo lại lời giải với AI/i }))
 
-        // 1. Phải hiển thị tiến độ Bước 1/2
-        expect(screen.getByText(/Bước 1\/2: Đang giải độc lập & kiểm chứng\.\.\./i)).toBeInTheDocument()
+        // 1. Phải hiển thị tiến độ thật với bộ đếm giây, không có bước giả Bước 1/2
+        expect(screen.getByText(/Đang xử lý\.\.\. \(0s\)/i)).toBeInTheDocument()
+        expect(screen.queryByText(/Bước 1\/2/i)).not.toBeInTheDocument()
 
         // 2. Phải xuất hiện nút Hủy
         const cancelBtn = screen.getByRole('button', { name: /^Hủy$/i })
@@ -958,12 +959,87 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
 
         // 4. Trạng thái regenerating được khôi phục, hiện thông báo hủy
         await waitFor(() => {
-          expect(screen.queryByText(/Bước 1\/2/i)).not.toBeInTheDocument()
+          expect(screen.queryByText(/Đang xử lý/i)).not.toBeInTheDocument()
           expect(screen.getByText(/Đã hủy yêu cầu tạo lại lời giải\./i)).toBeInTheDocument()
         })
 
         // Dọn resolvePost
         if (resolvePost) resolvePost({ data: { ok: true } })
+      })
+
+      it('shows attempt warning when teacher accepts AI blind answer in Flow X (Decision 2.3)', async () => {
+        // Mock conflict response from backend (Flow X: feedback only, AI blind disagreed with stored answer 'A')
+        api.post.mockResolvedValueOnce({
+          data: {
+            ok: false,
+            conflict: true,
+            isConflict: true,
+            isFeedbackOnly: true,
+            currentAnswer: 'A',
+            aiBlindAnswer: 'B',
+            attemptCount: 3,
+            evidence: 'Evidence for B',
+            reasoning: 'Reasoning for B',
+          },
+        })
+
+        render(
+          <QuestionExplanationModal
+            isOpen={true}
+            onClose={vi.fn()}
+            examId={10}
+            questionNumber={1}
+            isPractice={true}
+            skill="reading"
+            question={sampleQuestion}
+            initialExplanation={{ v: 2, answer: 'A', reasoning: 'Old reasoning' }}
+          />
+        )
+
+        fireEvent.click(screen.getByRole('tab', { name: /Góp ý & Tạo lại/i }))
+        fireEvent.change(screen.getByPlaceholderText(/Hãy giải thích rõ hơn/i), {
+          target: { value: 'Kiểm tra lại xem câu này có đúng không' },
+        })
+        fireEvent.click(screen.getByRole('button', { name: /Tạo lại lời giải với AI/i }))
+
+        // 1. Phải hiện modal xung đột
+        await waitFor(() => {
+          expect(screen.getByText(/AI giải độc lập không khớp/i)).toBeInTheDocument()
+        })
+        const acceptAiBtn = screen.getByRole('button', { name: /Đồng ý với đáp án của AI \("B"\)/i })
+        expect(acceptAiBtn).toBeInTheDocument()
+
+        // 2. Bấm "Đồng ý với đáp án của AI" -> Phải chuyển sang modal xác nhận kèm cảnh báo lượt thi (attemptCount = 3)
+        fireEvent.click(acceptAiBtn)
+
+        await waitFor(() => {
+          expect(screen.getByText(/Cảnh báo lượt làm bài của học sinh:/i)).toBeInTheDocument()
+          expect(screen.getByText(/Đã có/i)).toHaveTextContent('3 lượt làm bài')
+        })
+
+        // 3. Mock tiếp lần gọi xác nhận đổi đáp án
+        api.post.mockResolvedValueOnce({
+          data: {
+            ok: true,
+            status: 'ai_generated',
+            updatedCorrectAnswer: 'B',
+            explanation: { v: 2, answer: 'B', status: 'ai_generated', teacher_note: 'Đã đổi đáp án chuẩn từ "A" sang "B" theo xác nhận của giáo viên.' },
+          },
+        })
+
+        const confirmBtn = screen.getByRole('button', { name: /Xác nhận đổi đáp án & tạo lời giải/i })
+        fireEvent.click(confirmBtn)
+
+        await waitFor(() => {
+          expect(api.post).toHaveBeenCalledWith(
+            '/practice/admin/reading/10/questions/1/regenerate-explanation',
+            expect.objectContaining({
+              confirmChangeAnswer: true,
+              proposedAnswer: 'B',
+            }),
+            expect.anything()
+          )
+        })
       })
     })
   })

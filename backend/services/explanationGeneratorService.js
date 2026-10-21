@@ -1738,8 +1738,8 @@ async function handleRegenerateCore({
         explanation.status = 'needs_regeneration'
         explanation.teacher_note = `Đã đổi đáp án sang "${cleanProposed}" nhưng AI không tìm thấy bằng chứng ủng hộ. Cần sửa trực tiếp.`
       } else {
-        explanation.status = 'teacher_reviewed'
-        explanation.teacher_note = `Đã đổi đáp án chuẩn từ "${inputAnswer}" sang "${cleanProposed}" (xác nhận bởi giáo viên).`
+        explanation.status = 'ai_generated'
+        explanation.teacher_note = `Đã đổi đáp án chuẩn từ "${inputAnswer}" sang "${cleanProposed}" theo xác nhận của giáo viên.`
       }
 
       if (containsInternalJargon(explanation)) {

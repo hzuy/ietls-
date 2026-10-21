@@ -262,7 +262,8 @@ export default function QuestionExplanationModal({
   const [confirmDialogData, setConfirmDialogData] = useState(null)
   const [conflictData, setConflictData] = useState(null)
   const [isRegenerating, setIsRegenerating] = useState(false)
-  const [regenStepLabel, setRegenStepLabel] = useState(null)
+  const [regenElapsedSeconds, setRegenElapsedSeconds] = useState(0)
+  const regenTimerRef = useRef(null)
   const [regenError, setRegenError] = useState(null)
   const abortControllerRef = useRef(null)
 
@@ -371,12 +372,16 @@ export default function QuestionExplanationModal({
 
   // ─── 4.3 REGENERATE HANDLER (L2 SUPPORT) ──────────────────────────────────
   const handleCancelRegenerate = () => {
+    if (regenTimerRef.current) {
+      clearInterval(regenTimerRef.current)
+      regenTimerRef.current = null
+    }
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
       abortControllerRef.current = null
     }
     setIsRegenerating(false)
-    setRegenStepLabel(null)
+    setRegenElapsedSeconds(0)
     showToast('Đã hủy yêu cầu tạo lại lời giải.')
   }
 
@@ -390,11 +395,11 @@ export default function QuestionExplanationModal({
     setIsRegenerating(true)
     setRegenError(null)
     setConflictData(null)
-    setRegenStepLabel('Bước 1/2: Đang giải độc lập & kiểm chứng...')
-
-    const stepTimer = setTimeout(() => {
-      setRegenStepLabel('Bước 2/2: Đang tạo lời giải chi tiết...')
-    }, 10000)
+    setRegenElapsedSeconds(0)
+    if (regenTimerRef.current) clearInterval(regenTimerRef.current)
+    regenTimerRef.current = setInterval(() => {
+      setRegenElapsedSeconds((prev) => prev + 1)
+    }, 1000)
 
     const finalProposed = overrideProposed !== null ? overrideProposed : (proposedAnswer.trim() || null)
 
@@ -478,9 +483,12 @@ export default function QuestionExplanationModal({
       setRegenError(userFriendlyMsg)
       setActiveTab('feedback')
     } finally {
-      clearTimeout(stepTimer)
+      if (regenTimerRef.current) {
+        clearInterval(regenTimerRef.current)
+        regenTimerRef.current = null
+      }
       setIsRegenerating(false)
-      setRegenStepLabel(null)
+      setRegenElapsedSeconds(0)
       abortControllerRef.current = null
     }
   }
@@ -1451,7 +1459,7 @@ export default function QuestionExplanationModal({
                 {isRegenerating ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
-                    {regenStepLabel || 'AI đang suy luận và tạo lại lời giải...'}
+                    Đang xử lý... ({regenElapsedSeconds}s)
                   </>
                 ) : (
                   <>
@@ -1569,7 +1577,10 @@ export default function QuestionExplanationModal({
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleRegenerate({ confirmChangeAnswer: true })}
+                  onClick={() => handleRegenerate({
+                    confirmChangeAnswer: true,
+                    overrideProposed: confirmDialogData.proposedAnswer,
+                  })}
                   disabled={isRegenerating}
                   className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
                 >

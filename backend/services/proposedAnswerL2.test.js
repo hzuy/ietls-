@@ -135,8 +135,9 @@ describe('PHẦN C (L2): Proposed Answer & Blind Solving Workflow', () => {
       // 3. Verify response
       expect(res.ok).toBe(true)
       expect(res.updatedCorrectAnswer).toBe('B')
-      expect(res.status).toBe('teacher_reviewed')
-      expect(res.explanation.teacher_note).toContain('Đã đổi đáp án chuẩn từ "A" sang "B"')
+      expect(res.status).toBe('ai_generated')
+      expect(res.explanation.status).toBe('ai_generated')
+      expect(res.explanation.teacher_note).toBe('Đã đổi đáp án chuẩn từ "A" sang "B" theo xác nhận của giáo viên.')
     })
 
     it('When AI blind solve does NOT match teacher proposedAnswer, rejects change and does not update DB', async () => {
