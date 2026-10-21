@@ -65,6 +65,12 @@ export function DraftBanner({
   const hasDiffInfo = diffInfo && typeof diffInfo === 'object'
   const explanationCount = hasDiffInfo ? diffInfo.draftExplanationCount : (draft?.explanationCount ?? 0)
   const differentCount = hasDiffInfo ? diffInfo.differentCount : 0
+  const recommendedChoice = hasDiffInfo && diffInfo.recommendedChoice === 'keep_draft'
+    ? 'keep_draft'
+    : 'keep_db'
+  const draftNewerCount = hasDiffInfo && Array.isArray(diffInfo.draftMayBeNewer)
+    ? diffInfo.draftMayBeNewer.length
+    : 0
 
   return (
     <div data-testid="smart-draft-banner" className="bg-zinc-100 border border-zinc-200 rounded-xl p-3.5 mb-4 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
@@ -81,6 +87,11 @@ export function DraftBanner({
                 • Có {differentCount} câu có giải thích khác với dữ liệu hiện tại trong hệ thống.
               </p>
             ) : null}
+            {draftNewerCount > 0 ? (
+              <p className="text-sky-800 font-medium">
+                • Bản nháp được lưu sau lần cập nhật gần nhất của {draftNewerCount} câu, nên các câu đó trong nháp có thể mới hơn.
+              </p>
+            ) : null}
           </div>
         </div>
       </div>
@@ -90,9 +101,19 @@ export function DraftBanner({
           type="button"
           onClick={onRestore}
           className="text-xs font-semibold px-3.5 py-1.5 rounded-lg bg-zinc-900 text-white hover:bg-zinc-800 transition shadow-xs cursor-pointer"
-          title={differentCount > 0 ? 'Khôi phục nội dung bài và giữ nguyên giải thích mới từ hệ thống' : 'Khôi phục bản nháp'}
+          title={
+            differentCount > 0
+              ? (recommendedChoice === 'keep_draft'
+                ? 'Khôi phục nội dung bài và dùng giải thích trong nháp (nháp mới hơn dữ liệu hệ thống)'
+                : 'Khôi phục nội dung bài và giữ nguyên giải thích mới từ hệ thống')
+              : 'Khôi phục bản nháp'
+          }
         >
-          {differentCount > 0 ? 'Khôi phục (giữ giải thích DB)' : 'Khôi phục'}
+          {differentCount > 0
+            ? (recommendedChoice === 'keep_draft'
+              ? 'Khôi phục (dùng giải thích nháp mới hơn)'
+              : 'Khôi phục (giữ giải thích DB)')
+            : 'Khôi phục'}
         </button>
 
         {differentCount > 0 && onRestoreKeepDraft && (

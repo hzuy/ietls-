@@ -430,20 +430,30 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   // Analyze differences between draft in localStorage and active DB form
   const draftDiffInfo = useMemo(() => {
     if (!draftBanner?.data) return null
-    return analyzeDraftDifferences({ draftData: draftBanner.data, currentDbForm: form })
+    return analyzeDraftDifferences({
+      draftData: draftBanner.data,
+      currentDbForm: form,
+      draftSavedAt: draftBanner.savedAt ?? null,
+    })
   }, [draftBanner, form])
 
-  const handleRestoreDraft = (resolutionChoice = 'keep_db') => {
+  const handleRestoreDraft = (resolutionChoice = null) => {
     if (!draftBanner?.data) return
+    // Không có lựa chọn rõ ràng -> dùng khuyến nghị dựa trên mốc thời gian
+    // (nháp lưu sau lần cập nhật cuối của DB thì ưu tiên bản nháp).
+    const effectiveChoice = resolutionChoice
+      || draftDiffInfo?.recommendedChoice
+      || 'keep_db'
     const merged = smartMergeDraft({
       draftData: draftBanner.data,
       currentDbForm: form,
-      resolutionChoice,
+      resolutionChoice: effectiveChoice,
+      draftSavedAt: draftBanner.savedAt ?? null,
     })
     setForm(merged)
     setDraftBanner(null)
     showToast(
-      resolutionChoice === 'keep_draft'
+      effectiveChoice === 'keep_draft'
         ? 'Đã khôi phục bản nháp gồm các giải thích đã sửa'
         : 'Đã khôi phục bản nháp (giữ nguyên giải thích mới nhất từ hệ thống)'
     )
@@ -1101,7 +1111,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         <DraftBanner
           draft={draftBanner}
           diffInfo={draftDiffInfo}
-          onRestore={() => handleRestoreDraft('keep_db')}
+          onRestore={() => handleRestoreDraft()}
           onRestoreKeepDraft={() => handleRestoreDraft('keep_draft')}
           onDismiss={() => {
             if (draftBanner?.key) localStorage.removeItem(draftBanner.key)

@@ -202,4 +202,149 @@ describe('draftMergeUtils', () => {
       expect(merged.questionGroups[0].explanations[1].steps.predict).toBe('Teacher Manual Edit')
     })
   })
+
+  describe('so sánh mốc thời gian khi nháp và DB khác nhau', () => {
+    const makeDbForm = (updatedAt) => ({
+      questionGroups: [
+        {
+          id: 'g1',
+          questions: [{ number: 1, explanation: { steps: { predict: 'DB Exp' }, updatedAt } }],
+          explanations: { 1: { steps: { predict: 'DB Exp' }, updatedAt } },
+        },
+      ],
+    })
+
+    const makeDraft = () => ({
+      questionGroups: [
+        {
+          id: 'g1',
+          questions: [{ number: 1, explanation: { steps: { predict: 'Draft Exp' } } }],
+          explanations: { 1: { steps: { predict: 'Draft Exp' } } },
+        },
+      ],
+    })
+
+    it('nháp lưu SAU cập nhật cuối của DB -> ưu tiên bản nháp (không cần người dùng chọn)', () => {
+      const dbUpdatedAt = '2026-10-20T08:00:00.000Z'
+      const draftSavedAt = Date.parse('2026-10-20T09:00:00.000Z')
+
+      const merged = smartMergeDraft({
+        draftData: makeDraft(),
+        currentDbForm: makeDbForm(dbUpdatedAt),
+        draftSavedAt,
+      })
+
+      expect(merged.questionGroups[0].explanations[1].steps.predict).toBe('Draft Exp')
+    })
+
+    it('DB được cập nhật SAU khi lưu nháp -> giữ giải thích DB', () => {
+      const dbUpdatedAt = '2026-10-20T10:00:00.000Z'
+      const draftSavedAt = Date.parse('2026-10-20T09:00:00.000Z')
+
+      const merged = smartMergeDraft({
+        draftData: makeDraft(),
+        currentDbForm: makeDbForm(dbUpdatedAt),
+        draftSavedAt,
+      })
+
+      expect(merged.questionGroups[0].explanations[1].steps.predict).toBe('DB Exp')
+    })
+
+    it('thiếu mốc thời gian -> mặc định an toàn là giữ DB', () => {
+      const merged = smartMergeDraft({
+        draftData: makeDraft(),
+        currentDbForm: makeDbForm(null),
+      })
+
+      expect(merged.questionGroups[0].explanations[1].steps.predict).toBe('DB Exp')
+    })
+
+    it('lựa chọn rõ ràng của người dùng luôn thắng mốc thời gian', () => {
+      const merged = smartMergeDraft({
+        draftData: makeDraft(),
+        currentDbForm: makeDbForm('2026-10-20T08:00:00.000Z'),
+        draftSavedAt: Date.parse('2026-10-20T09:00:00.000Z'),
+        resolutionChoice: 'keep_db',
+      })
+
+      expect(merged.questionGroups[0].explanations[1].steps.predict).toBe('DB Exp')
+    })
+
+    it('analyzeDraftDifferences báo câu nào trong nháp mới hơn + khuyến nghị', () => {
+      const diff = analyzeDraftDifferences({
+        draftData: makeDraft(),
+        currentDbForm: makeDbForm('2026-10-20T08:00:00.000Z'),
+        draftSavedAt: Date.parse('2026-10-20T09:00:00.000Z'),
+      })
+
+      expect(diff.differentCount).toBe(1)
+      expect(diff.draftMayBeNewer).toEqual([1])
+      expect(diff.recommendedChoice).toBe('keep_draft')
+    })
+  })
+
+  describe('không làm mất dữ liệu chỉ có ở DB', () => {
+    it('giữ nhóm câu hỏi được thêm vào DB sau khi lưu nháp', () => {
+      const currentDbForm = {
+        questionGroups: [
+          { id: 'g1', questions: [{ number: 1 }], explanations: { 1: { steps: { predict: 'DB 1' } } } },
+          { id: 'g2', questions: [{ number: 6 }], explanations: { 6: { steps: { predict: 'DB 6' } } } },
+        ],
+      }
+      const draftData = {
+        questionGroups: [
+          { id: 'g1', questions: [{ number: 1 }], explanations: { 1: { steps: { predict: 'Draft 1' } } } },
+        ],
+      }
+
+      const merged = smartMergeDraft({ draftData, currentDbForm, resolutionChoice: 'keep_db' })
+
+      expect(merged.questionGroups).toHaveLength(2)
+      expect(merged.questionGroups[1].id).toBe('g2')
+      expect(merged.questionGroups[1].explanations[6].steps.predict).toBe('DB 6')
+    })
+
+    it('giữ câu hỏi được thêm vào DB trong cùng nhóm', () => {
+      const currentDbForm = {
+        questionGroups: [
+          {
+            id: 'g1',
+            questions: [{ number: 1 }, { number: 2, explanation: { steps: { predict: 'DB 2' } } }],
+            explanations: { 2: { steps: { predict: 'DB 2' } } },
+          },
+        ],
+      }
+      const draftData = {
+        questionGroups: [
+          { id: 'g1', questions: [{ number: 1 }], explanations: {} },
+        ],
+      }
+
+      const merged = smartMergeDraft({ draftData, currentDbForm })
+
+      const questions = merged.questionGroups[0].questions
+      expect(questions.map((q) => q.number)).toEqual([1, 2])
+      expect(merged.questionGroups[0].explanations[2].steps.predict).toBe('DB 2')
+    })
+
+    it('giữ passage được thêm vào DB sau khi lưu nháp', () => {
+      const currentDbForm = {
+        passages: [
+          { id: 'p1', questionGroups: [{ id: 'g1', questions: [{ number: 1 }] }] },
+          { id: 'p2', questionGroups: [{ id: 'g2', questions: [{ number: 6 }] }] },
+        ],
+      }
+      const draftData = {
+        passages: [
+          { id: 'p1', questionGroups: [{ id: 'g1', questions: [{ number: 1, questionText: 'Sửa trong nháp' }] }] },
+        ],
+      }
+
+      const merged = smartMergeDraft({ draftData, currentDbForm })
+
+      expect(merged.passages).toHaveLength(2)
+      expect(merged.passages[0].questionGroups[0].questions[0].questionText).toBe('Sửa trong nháp')
+      expect(merged.passages[1].id).toBe('p2')
+    })
+  })
 })
