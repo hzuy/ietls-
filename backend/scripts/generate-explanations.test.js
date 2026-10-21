@@ -483,6 +483,13 @@ describe('Requirement 2.5: full_sentence & translation validation', () => {
       expect(isVietnameseTranslation('Nghiên cứu được thực hiện bởi giáo sư Paul Ekman tại đại học Stanford.')).toBe(true)
     })
 
+    it('chấp nhận chuỗi hợp lệ có thuật ngữ tiếng Anh trong ngoặc (...)', () => {
+      expect(isVietnameseTranslation('Ekman nghiên cứu về các biểu cảm vi mô (micro-expressions) trên khuôn mặt.')).toBe(true)
+      expect(isVietnameseTranslation('Nghiên cứu về chuyển động mắt nhanh (rapid eye movement) và giấc ngủ sâu.')).toBe(true)
+      expect(isVietnameseTranslation('Giấc ngủ sóng chậm (slow-wave sleep) đóng vai trò quyết định trong việc củng cố trí nhớ.')).toBe(true)
+      expect(isVietnameseTranslation('Nông dân sử dụng phương pháp cải tạo đất đen (terra preta) từ xa xưa.')).toBe(true)
+    })
+
     it('từ chối chuỗi rỗng hoặc không hợp lệ', () => {
       expect(isVietnameseTranslation('')).toBe(false)
       expect(isVietnameseTranslation(null)).toBe(false)

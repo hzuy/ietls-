@@ -192,9 +192,26 @@ function isVietnameseTranslation(text) {
     return false
   }
 
-  // 3. Phân tách theo mệnh đề / câu độc lập (dấu chấm, chấm phẩy, chấm hỏi, chấm cảm, hai chấm, xuống dòng, ngoặc đơn, ngoặc vuông, gạch ngang — – hoặc " - ").
-  // Nếu tồn tại một mệnh đề độc lập tiếng Anh dài (>= 12 ký tự chữ cái và >= 3 từ) mà không chứa bất kỳ dấu tiếng Việt nào -> bị coi là câu lai tạp/chưa dịch (kể cả tiếng Anh ở đầu hay ở CUỐI chuỗi).
-  const clauses = trimmed.split(/[\.\!\?;\:\n\r\(\)\[\]—–]|\s+-\s+/).map((s) => s.trim()).filter(Boolean)
+  // 3. Phân tách theo mệnh đề / câu độc lập:
+  // (a) Kiểm tra các cụm trong ngoặc (...) hoặc [...]:
+  //     - Thuật ngữ ngắn (<= 4 từ hoặc < 25 chữ cái) được phép (thuật ngữ khoa học đối chiếu).
+  //     - Nếu trong ngoặc là cả một câu tiếng Anh dài (>= 5 từ và >= 25 chữ cái) không có dấu -> từ chối.
+  const parentheticalMatches = trimmed.match(/\([^\)]+\)|\[[^\]]+\]/g) || []
+  for (const p of parentheticalMatches) {
+    const inner = p.slice(1, -1).trim()
+    const pLetters = inner.match(/[\p{L}]/gu) || []
+    const pWords = inner.split(/\s+/).filter(Boolean)
+    if (pWords.length >= 5 && pLetters.length >= 25) {
+      const hasDiacritic = pLetters.some((ch) => VIETNAMESE_DIACRITICS_REGEX.test(ch))
+      if (!hasDiacritic) {
+        return false
+      }
+    }
+  }
+
+  // (b) Loại bỏ các cụm trong ngoặc trước khi kiểm tra các mệnh đề chính
+  const textWithoutParens = trimmed.replace(/\([^\)]+\)|\[[^\]]+\]/g, ' ')
+  const clauses = textWithoutParens.split(/[\.\!\?;\:\n\r—–]|\s+-\s+/).map((s) => s.trim()).filter(Boolean)
   for (const clause of clauses) {
     const clauseLetters = clause.match(/[\p{L}]/gu) || []
     const clauseWords = clause.split(/\s+/).filter(Boolean)
