@@ -20,11 +20,17 @@ const MAX_REQUEST_HARD_TIMEOUT_MS = 48000 // Trần cứng: không bao giờ đ�
 const SINGLE_QUESTION_TIMEOUT_MS = 20000 // Timeout cứng cho MỖI lần xử lý 1 câu (kể cả retry/backoff)
 const MIN_REMAINING_FOR_NEXT_CALL_MS = 14000 // Trước khi bắt đầu câu mới, cần ít nhất 14s (đủ cho 1 lần gọi đầy đủ)
 
-function withTimeout(promise, timeoutMs, timeoutErrorMessage = 'Quá thời gian xử lý AI cho câu hỏi này', onCancel = null) {
+function withTimeout(promiseOrFactory, timeoutMs, timeoutErrorMessage = 'Quá thời gian xử lý AI cho câu hỏi này', onCancel = null) {
   let timer
+  const abortController = new AbortController()
+  const promise = typeof promiseOrFactory === 'function'
+    ? promiseOrFactory(abortController.signal)
+    : promiseOrFactory
+
   const timeoutPromise = new Promise((_, reject) => {
     timer = setTimeout(() => {
-      if (typeof onCancel === 'function') onCancel()
+      abortController.abort()
+      if (typeof onCancel === 'function') onCancel(abortController.signal)
       const err = new Error(timeoutErrorMessage)
       err.code = 'ETIMEDOUT'
       err.isTimeout = true
@@ -711,8 +717,14 @@ async function handleFallbackMismatchRetry({
   effectiveTimeBudget,
   isFixedMode = false,
   targetAnswer = null,
+  signal = null,
 }) {
   for (let retry = 1; retry <= 2; retry++) {
+    if (signal?.aborted) {
+      const err = new Error('Yêu cầu AI đã bị hủy')
+      err.name = 'AbortError'
+      throw err
+    }
     const elapsed = Date.now() - startTime
     const remainingTime = effectiveTimeBudget - elapsed
     // Cần tối thiểu 6s cho một lần thử Gemini
@@ -723,6 +735,11 @@ async function handleFallbackMismatchRetry({
 
     const backoffMs = retry * 1000
     await sleep(backoffMs)
+    if (signal?.aborted) {
+      const err = new Error('Yêu cầu AI đã bị hủy')
+      err.name = 'AbortError'
+      throw err
+    }
 
     try {
       console.log(`[FALLBACK_RETRY] Kết quả dự phòng lệch đáp án đề. Thử lại với Gemini lần ${retry}/2 (đã chạy ${Date.now() - startTime}ms)...`)
@@ -730,6 +747,7 @@ async function handleFallbackMismatchRetry({
         forceProvider: 'Gemini',
         isFixedMode,
         targetAnswer,
+        signal,
       })
 
       if (geminiExp && (!geminiExp.provider || geminiExp.provider.toLowerCase() === 'gemini') && !geminiExp.isFallback) {
@@ -1552,16 +1570,23 @@ async function generateForExam(examId, {
  * Atomic helper for modifying PracticeQuestion.explanation.byNumber safely in transaction.
  * 3.6 CONCURRENCY SAFE
  */
-async function updatePracticeQuestionExplanationTx(practiceQuestionId, updaterFn) {
+async function updatePracticeQuestionExplanationTx(practiceQuestionId, updaterFn, options = {}) {
+  const { cancelFlag } = options
   return prisma.$transaction(async (tx) => {
+    if (cancelFlag && cancelFlag.cancelled) return null
+
     const row = await tx.practiceQuestion.findUnique({
       where: { id: practiceQuestionId },
       select: { id: true, explanation: true, content: true },
     })
     if (!row) throw new Error(`Không tìm thấy PracticeQuestion #${practiceQuestionId}`)
 
+    if (cancelFlag && cancelFlag.cancelled) return null
+
     const currentByNumber = (row.explanation && typeof row.explanation === 'object' && row.explanation.byNumber) || {}
     const updatedByNumber = updaterFn({ ...currentByNumber }, row)
+
+    if (cancelFlag && cancelFlag.cancelled) return null
 
     const updated = await tx.practiceQuestion.update({
       where: { id: practiceQuestionId },
@@ -1579,15 +1604,22 @@ async function updatePracticeQuestionExplanationTx(practiceQuestionId, updaterFn
  * - Proposed answer flow (blind solve, confirmation, fallback blocking, attempt warning)
  * - Teacher feedback flow (blind verify to avoid defending wrong answers)
  */
-async function solveBlindWithGeminiRetry(qCtx, family, ctx) {
+async function solveBlindWithGeminiRetry(qCtx, family, ctx, options = {}) {
+  const { signal } = options
   let lastErr = null
   for (let attempt = 1; attempt <= 2; attempt++) {
+    if (signal?.aborted) {
+      const err = new Error('Yêu cầu AI đã bị hủy')
+      err.name = 'AbortError'
+      throw err
+    }
     try {
       const exp = await generateExplanation(qCtx, family, ctx, {
         isFixedMode: false,
         targetAnswer: null,
         teacherFeedback: null,
         forceProvider: 'Gemini',
+        signal,
       })
       const isFallback = Boolean(
         exp?.isFallback ||
@@ -1607,7 +1639,12 @@ async function solveBlindWithGeminiRetry(qCtx, family, ctx) {
       lastErr = err
     }
     if (attempt < 2) {
-      await new Promise((r) => setTimeout(r, 1000))
+      if (signal?.aborted) {
+        const err = new Error('Yêu cầu AI đã bị hủy')
+        err.name = 'AbortError'
+        throw err
+      }
+      await sleep(1000)
     }
   }
   return {
@@ -1632,6 +1669,7 @@ async function handleRegenerateCore({
   updateCorrectAnswer,
   saveExplanation,
   questionNumber,
+  signal = null,
 }) {
   const isChangingAnswer = Boolean(cleanProposed && !isAnswerMatch(inputAnswer, cleanProposed, rawOptions, qCtx.type))
 
@@ -1647,6 +1685,7 @@ async function handleRegenerateCore({
           isFixedMode: true,
           targetAnswer: cleanProposed,
           teacherFeedback: cleanFeedback,
+          signal,
         })
       } catch (err) {
         if (err instanceof ExplanationValidationError) {
@@ -1699,7 +1738,7 @@ async function handleRegenerateCore({
       }
     } else {
       // Step 1: Independent Blind Solve! (No feedback, no targetAnswer, force Gemini with retry)
-      const blindRes = await solveBlindWithGeminiRetry(qCtx, family, ctx)
+      const blindRes = await solveBlindWithGeminiRetry(qCtx, family, ctx, { signal })
       if (!blindRes.ok) {
         return blindRes
       }
@@ -1743,7 +1782,7 @@ async function handleRegenerateCore({
     const isTeacherReviewed = oldExp && oldExp.status === 'teacher_reviewed'
     if (!isTeacherReviewed) {
       // Run 1 blind check to see if AI still supports inputAnswer
-      const blindRes = await solveBlindWithGeminiRetry(qCtx, family, ctx)
+      const blindRes = await solveBlindWithGeminiRetry(qCtx, family, ctx, { signal })
       if (!blindRes.ok) {
         return blindRes
       }
@@ -1797,9 +1836,13 @@ async function handleRegenerateCore({
         isFixedMode: true,
         targetAnswer: inputAnswer,
         teacherFeedback: cleanFeedback,
+        signal,
       })
     } else {
-      explanation = await generateExplanation(qCtx, family, ctx, { teacherFeedback: cleanFeedback })
+      explanation = await generateExplanation(qCtx, family, ctx, {
+        teacherFeedback: cleanFeedback,
+        signal,
+      })
     }
   } catch (err) {
     if (err instanceof ExplanationValidationError) {
@@ -1834,6 +1877,7 @@ async function handleRegenerateCore({
       effectiveTimeBudget: 30000,
       isFixedMode,
       targetAnswer: isFixedMode ? inputAnswer : null,
+      signal,
     })
     if (retryResult.resolvedWithGemini) {
       explanation = retryResult.explanation
@@ -1918,7 +1962,7 @@ async function regenerateQuestionExplanation({
   // cancelFlag: ngăn saveExplanation ghi DB sau khi HTTP 504 đã được trả về
   const cancelFlag = { cancelled: false }
   return withTimeout(
-    (async () => {
+    async (signal) => {
       const cleanFeedback = teacherFeedback ? cleanString(teacherFeedback, 1000) : null
       const cleanProposed = proposedAnswer ? cleanString(proposedAnswer, 200).trim() : null
       const parsedExamId = parseInt(examId, 10)
@@ -1985,20 +2029,39 @@ async function regenerateQuestionExplanation({
           confirmChangeAnswer: Boolean(confirmChangeAnswer),
           attemptCount,
           questionNumber: targetNum,
+          signal,
           updateCorrectAnswer: async (newAnswer) => {
-            targetQItem.correctAnswer = newAnswer
-            await prisma.practiceQuestion.update({
-              where: { id: targetRow.id },
-              data: { content: JSON.stringify(targetGroup) },
+            await prisma.$transaction(async (tx) => {
+              if (cancelFlag.cancelled) return
+              const row = await tx.practiceQuestion.findUnique({
+                where: { id: targetRow.id },
+                select: { content: true },
+              })
+              if (!row) return
+              let grp = row.content
+              try { if (typeof grp === 'string') grp = JSON.parse(grp) } catch {}
+              const qItem = (grp.questions || []).find((q) => Number(q.questionNumber || q.number) === Number(targetNum))
+              if (qItem) {
+                qItem.correctAnswer = newAnswer
+                await tx.practiceQuestion.update({
+                  where: { id: targetRow.id },
+                  data: { content: JSON.stringify(grp) },
+                })
+              }
             })
           },
           saveExplanation: async (exp) => {
-            if (cancelFlag.cancelled) return // True Cancel: bỏ qua nếu HTTP đã timeout
-            await updatePracticeQuestionExplanationTx(targetRow.id, (byNumber) => {
-              byNumber[targetNum] = exp
-              return byNumber
-            })
-            invalidate('practice:')
+            const res = await updatePracticeQuestionExplanationTx(
+              targetRow.id,
+              (byNumber) => {
+                byNumber[targetNum] = exp
+                return byNumber
+              },
+              { cancelFlag }
+            )
+            if (!cancelFlag.cancelled && res) {
+              invalidate('practice:')
+            }
           },
         })
       } else {
@@ -2080,23 +2143,31 @@ async function regenerateQuestionExplanation({
           confirmChangeAnswer: Boolean(confirmChangeAnswer),
           attemptCount,
           questionNumber: question.number,
+          signal,
           updateCorrectAnswer: async (newAnswer) => {
-            await prisma.question.update({
-              where: { id: question.id },
-              data: { correctAnswer: newAnswer },
+            await prisma.$transaction(async (tx) => {
+              if (cancelFlag.cancelled) return
+              await tx.question.update({
+                where: { id: question.id },
+                data: { correctAnswer: newAnswer },
+              })
             })
           },
           saveExplanation: async (exp) => {
-            if (cancelFlag.cancelled) return // True Cancel: bỏ qua nếu HTTP đã timeout
-            await prisma.question.update({
-              where: { id: question.id },
-              data: { explanation: exp },
+            await prisma.$transaction(async (tx) => {
+              if (cancelFlag.cancelled) return // True Cancel: atomic check inside transaction
+              await tx.question.update({
+                where: { id: question.id },
+                data: { explanation: exp },
+              })
             })
-            invalidateExamCaches(parsedExamId)
+            if (!cancelFlag.cancelled) {
+              invalidateExamCaches(parsedExamId)
+            }
           },
         })
       }
-    })(),
+    },
     timeoutMs,
     `Hết thời gian xử lý AI (${Math.round(timeoutMs / 1000)}s) khi tạo lại giải thích cho câu hỏi.`,
     () => { cancelFlag.cancelled = true } // onCancel: set flag khi timeout fires

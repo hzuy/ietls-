@@ -82,11 +82,28 @@ let lastRequestTime = 0
 let cooldownUntil = 0
 let queuePromise = Promise.resolve()
 
-function scheduleGeminiCall(fn) {
+let telemetryListeners = []
+function addGeminiTelemetryListener(fn) { telemetryListeners.push(fn) }
+function removeGeminiTelemetryListener(fn) { telemetryListeners = telemetryListeners.filter(l => l !== fn) }
+function notifyTelemetry(event) { for (const l of telemetryListeners) { try { l(event) } catch {} } }
+
+function scheduleGeminiCall(fn, { signal = null } = {}) {
+  const queuedAt = Date.now()
   const executeCall = async () => {
-    const now = Date.now()
-    if (cooldownUntil > now) {
-      await sleep(cooldownUntil - now)
+    if (signal?.aborted) {
+      const err = new Error('Yêu cầu AI đã bị hủy trước khi vào hàng đợi')
+      err.name = 'AbortError'
+      throw err
+    }
+
+    const queueStart = Date.now()
+    if (cooldownUntil > queueStart) {
+      await sleep(cooldownUntil - queueStart)
+      if (signal?.aborted) {
+        const err = new Error('Yêu cầu AI đã bị hủy trong khi chờ cooldown')
+        err.name = 'AbortError'
+        throw err
+      }
     }
 
     const timeSinceLast = Date.now() - lastRequestTime
@@ -94,10 +111,26 @@ function scheduleGeminiCall(fn) {
 
     if (lastRequestTime > 0 && timeSinceLast < minInterval) {
       await sleep(minInterval - timeSinceLast)
+      if (signal?.aborted) {
+        const err = new Error('Yêu cầu AI đã bị hủy trong khi chờ rate limit')
+        err.name = 'AbortError'
+        throw err
+      }
     }
 
+    const queueWaitMs = Date.now() - queuedAt
     lastRequestTime = Date.now()
-    return fn()
+    const apiStart = Date.now()
+    try {
+      const res = await fn()
+      const apiMs = Date.now() - apiStart
+      notifyTelemetry({ type: 'call', queueWaitMs, apiMs, ok: true })
+      return res
+    } catch (err) {
+      const apiMs = Date.now() - apiStart
+      notifyTelemetry({ type: 'call', queueWaitMs, apiMs, ok: false, error: err.message, status: err.status })
+      throw err
+    }
   }
 
   const nextCall = queuePromise.then(executeCall, executeCall)
@@ -109,6 +142,7 @@ function recordGeminiCooldown(waitMs) {
   if (typeof waitMs === 'number' && waitMs > 0) {
     const capped = Math.min(MAX_ACCEPTABLE_RETRY_WAIT_MS, waitMs)
     cooldownUntil = Math.max(cooldownUntil, Date.now() + capped)
+    notifyTelemetry({ type: 'cooldown', waitMs: capped })
   }
 }
 
@@ -125,4 +159,7 @@ module.exports = {
   scheduleGeminiCall,
   recordGeminiCooldown,
   resetRateLimiterState,
+  addGeminiTelemetryListener,
+  removeGeminiTelemetryListener,
 }
+

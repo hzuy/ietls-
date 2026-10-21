@@ -591,7 +591,7 @@ function buildResponseSchema(type, rawOptions = null, schemaOpts = {}) {
   }
 }
 
-async function callAi(prompt, { questionType = null, rawOptions = null, model: customModel = null, maxRateLimitRetries = 6, isFixedMode = false, forceProvider = null } = {}) {
+async function callAi(prompt, { questionType = null, rawOptions = null, model: customModel = null, maxRateLimitRetries = 6, isFixedMode = false, forceProvider = null, signal = null } = {}) {
   const useGemini = process.env.GEMINI_API_KEY && (process.env.NODE_ENV !== 'test' || process.env.ENABLE_GEMINI_IN_TEST === 'true')
   const model = customModel || process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite'
 
@@ -608,6 +608,11 @@ async function callAi(prompt, { questionType = null, rawOptions = null, model: c
   if (useGemini && typeof requestGeminiJson === 'function') {
     const responseSchema = buildResponseSchema(questionType, rawOptions, { isFixedMode })
     for (let geminiAttempt = 0; geminiAttempt < 3; geminiAttempt++) {
+      if (signal?.aborted) {
+        const err = new Error('Yêu cầu AI đã bị hủy')
+        err.name = 'AbortError'
+        throw err
+      }
       try {
         const res = await requestGeminiJson(prompt, {
           model,
@@ -615,6 +620,7 @@ async function callAi(prompt, { questionType = null, rawOptions = null, model: c
           responseSchema,
           max_tokens: 8192,
           withMetadata: true,
+          signal,
         })
         return {
           data: res.data || res,
@@ -623,6 +629,7 @@ async function callAi(prompt, { questionType = null, rawOptions = null, model: c
           isFallback: false,
         }
       } catch (geminiErr) {
+        if (signal?.aborted) throw geminiErr
         const isTransient = geminiErr.status === 503 || geminiErr.status === 429 || /503|429|high demand/i.test(geminiErr.message)
         if (isTransient && geminiAttempt < 2) {
           const waitMs = geminiErr.retryWaitMs || ((geminiAttempt + 1) * 3000)
@@ -650,9 +657,14 @@ async function callAi(prompt, { questionType = null, rawOptions = null, model: c
   }
 }
 
-async function generateExplanation(q, family, ctx, { teacherFeedback = null, isFixedMode = false, targetAnswer = null, forceProvider = null } = {}) {
+async function generateExplanation(q, family, ctx, { teacherFeedback = null, isFixedMode = false, targetAnswer = null, forceProvider = null, signal = null } = {}) {
   let previousError = null
   for (let attempt = 0; attempt < 2; attempt++) {
+    if (signal?.aborted) {
+      const err = new Error('Yêu cầu AI đã bị hủy')
+      err.name = 'AbortError'
+      throw err
+    }
     const rawOptions = q.options || (q.group?.matchingOptions?.length ? q.group.matchingOptions : null)
     const prompt = buildPrompt(q, family, ctx, previousError, teacherFeedback, { isFixedMode, targetAnswer })
     const aiResult = await callAi(prompt, {
@@ -660,6 +672,7 @@ async function generateExplanation(q, family, ctx, { teacherFeedback = null, isF
       rawOptions,
       isFixedMode,
       forceProvider,
+      signal,
     })
     const payload = aiResult?.data || aiResult
 

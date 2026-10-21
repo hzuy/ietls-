@@ -47,6 +47,7 @@ async function requestGeminiJson(prompt, {
   max_tokens = 8192,
   withMetadata = false,
   retriesPerModel = 2,
+  signal = null,
 } = {}) {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) throw new Error('GEMINI_API_KEY is not configured')
@@ -115,7 +116,18 @@ async function requestGeminiJson(prompt, {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`
 
     for (let attempt = 0; attempt <= retriesPerModel; attempt++) {
+      if (signal?.aborted) {
+        const err = new Error('Yêu cầu AI đã bị hủy')
+        err.name = 'AbortError'
+        throw err
+      }
       try {
+        const fetchSignals = [AbortSignal.timeout(22000)]
+        if (signal) fetchSignals.push(signal)
+        const combinedSignal = (typeof AbortSignal.any === 'function')
+          ? AbortSignal.any(fetchSignals)
+          : fetchSignals[0]
+
         const res = await scheduleGeminiCall(() =>
           fetch(url, {
             method: 'POST',
@@ -124,8 +136,9 @@ async function requestGeminiJson(prompt, {
               contents: [{ parts }],
               generationConfig,
             }),
-            signal: AbortSignal.timeout(22000),
-          })
+            signal: combinedSignal,
+          }),
+          { signal }
         )
 
         if (!res.ok) {
@@ -152,6 +165,7 @@ async function requestGeminiJson(prompt, {
         return parsed
       } catch (err) {
         lastError = err
+        if (signal?.aborted) throw err
         const isTransient = err.status === 503 || err.status === 429 || err instanceof SyntaxError
         if (isTransient && attempt < retriesPerModel) {
           const waitMs = err.retryWaitMs || ((attempt + 1) * 2500)
