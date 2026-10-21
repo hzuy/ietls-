@@ -1566,6 +1566,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         onConfirmExit={expLock.confirmExit}
         currentCount={expLock.localProgress?.current || 0}
         totalCount={expLock.localProgress?.total || 0}
+        isCancelling={expLock.isCancelling}
       />
     </div>
   )

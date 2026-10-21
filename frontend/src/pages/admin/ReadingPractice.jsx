@@ -810,6 +810,7 @@ export default function ReadingPractice() {
           onConfirmExit={expLock.confirmExit}
           currentCount={expLock.localProgress?.current || 0}
           totalCount={expLock.localProgress?.total || 0}
+          isCancelling={expLock.isCancelling}
         />
       </>
     )

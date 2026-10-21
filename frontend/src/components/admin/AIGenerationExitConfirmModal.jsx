@@ -16,11 +16,12 @@ export default function AIGenerationExitConfirmModal({
   onConfirmExit,
   currentCount = 0,
   totalCount = 0,
+  isCancelling = false,
 }) {
   if (!isOpen) return null
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Rời khỏi trang khi AI đang sinh?">
+    <Modal isOpen={isOpen} onClose={isCancelling ? undefined : onClose} title="Rời khỏi trang khi AI đang sinh?">
       <div className="space-y-4 pt-1" data-testid="ai-exit-confirm-modal">
         <div className="flex items-start gap-3 p-3.5 bg-amber-50 rounded-xl border border-amber-200 text-amber-900">
           <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
@@ -45,16 +46,18 @@ export default function AIGenerationExitConfirmModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 transition cursor-pointer"
+            disabled={isCancelling}
+            className="px-4 py-2 text-xs font-semibold rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Ở lại tiếp tục
           </button>
           <button
             type="button"
             onClick={onConfirmExit}
-            className="px-4 py-2 text-xs font-semibold rounded-xl bg-rose-600 hover:bg-rose-700 text-white transition cursor-pointer shadow-xs"
+            disabled={isCancelling}
+            className="px-4 py-2 text-xs font-semibold rounded-xl bg-rose-600 hover:bg-rose-700 text-white transition cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Dừng và thoát
+            {isCancelling ? 'Đang dừng...' : 'Dừng và thoát'}
           </button>
         </div>
       </div>

@@ -1451,6 +1451,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         onConfirmExit={expLock.confirmExit}
         currentCount={expLock.localProgress?.current || 0}
         totalCount={expLock.localProgress?.total || 0}
+        isCancelling={expLock.isCancelling}
       />
     </div>
   )
