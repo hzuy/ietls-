@@ -1912,182 +1912,189 @@ async function regenerateQuestionExplanation({
   teacherFeedback = null,
   proposedAnswer = null,
   confirmChangeAnswer = false,
+  timeoutMs = MAX_REQUEST_HARD_TIMEOUT_MS,
 }) {
-  const cleanFeedback = teacherFeedback ? cleanString(teacherFeedback, 1000) : null
-  const cleanProposed = proposedAnswer ? cleanString(proposedAnswer, 200).trim() : null
-  const parsedExamId = parseInt(examId, 10)
+  return withTimeout(
+    (async () => {
+      const cleanFeedback = teacherFeedback ? cleanString(teacherFeedback, 1000) : null
+      const cleanProposed = proposedAnswer ? cleanString(proposedAnswer, 200).trim() : null
+      const parsedExamId = parseInt(examId, 10)
 
-  if (isPractice) {
-    const exam = await prisma.practiceExam.findUnique({
-      where: { id: parsedExamId },
-      include: { questions: { orderBy: { orderNum: 'asc' } } },
-    })
-    if (!exam) throw new Error(`Không tìm thấy bài luyện tập #${parsedExamId}`)
-
-    const targetNum = parseInt(questionNumber, 10)
-    let targetRow = null
-    let targetGroup = null
-    let targetQItem = null
-
-    for (const row of exam.questions) {
-      const group = parseGroup(row)
-      if (!group || !Array.isArray(group.questions)) continue
-      const qItem = group.questions.find((q) => Number(q.number) === targetNum)
-      if (qItem) {
-        targetRow = row
-        targetGroup = group
-        targetQItem = qItem
-        break
-      }
-    }
-
-    if (!targetRow || !targetQItem) {
-      throw new Error(`Không tìm thấy câu hỏi #${targetNum} trong bài luyện tập #${parsedExamId}`)
-    }
-
-    const inputAnswer = String(targetQItem.correctAnswer ?? '').trim()
-    if (!inputAnswer) {
-      throw new Error(`Câu #${targetNum} chưa có đáp án đúng, không thể tạo giải thích bằng AI.`)
-    }
-
-    const qCtx = practiceQuestionContext(exam, targetGroup, targetNum)
-    if (!qCtx) throw new Error(`Không thể khởi tạo ngữ cảnh cho câu #${targetNum}`)
-    const family = classifyFamily(qCtx.type)
-    const ctx = buildContext(qCtx, family)
-
-    const oldExp = targetRow.explanation?.byNumber?.[targetNum] || {}
-    const rawOptions = qCtx.options || (targetGroup.matchingOptions?.length ? targetGroup.matchingOptions : null)
-
-    let attemptCount = 0
-    try {
-      if (prisma.practiceAttempt && typeof prisma.practiceAttempt.count === 'function') {
-        attemptCount = await prisma.practiceAttempt.count({ where: { practiceExamId: parsedExamId } })
-      }
-    } catch {
-      attemptCount = 0
-    }
-
-    return await handleRegenerateCore({
-      qCtx,
-      family,
-      ctx,
-      inputAnswer,
-      rawOptions,
-      oldExp,
-      cleanFeedback,
-      cleanProposed,
-      confirmChangeAnswer: Boolean(confirmChangeAnswer),
-      attemptCount,
-      questionNumber: targetNum,
-      updateCorrectAnswer: async (newAnswer) => {
-        targetQItem.correctAnswer = newAnswer
-        await prisma.practiceQuestion.update({
-          where: { id: targetRow.id },
-          data: { content: JSON.stringify(targetGroup) },
+      if (isPractice) {
+        const exam = await prisma.practiceExam.findUnique({
+          where: { id: parsedExamId },
+          include: { questions: { orderBy: { orderNum: 'asc' } } },
         })
-      },
-      saveExplanation: async (exp) => {
-        await updatePracticeQuestionExplanationTx(targetRow.id, (byNumber) => {
-          byNumber[targetNum] = exp
-          return byNumber
+        if (!exam) throw new Error(`Không tìm thấy bài luyện tập #${parsedExamId}`)
+
+        const targetNum = parseInt(questionNumber, 10)
+        let targetRow = null
+        let targetGroup = null
+        let targetQItem = null
+
+        for (const row of exam.questions) {
+          const group = parseGroup(row)
+          if (!group || !Array.isArray(group.questions)) continue
+          const qItem = group.questions.find((q) => Number(q.number) === targetNum)
+          if (qItem) {
+            targetRow = row
+            targetGroup = group
+            targetQItem = qItem
+            break
+          }
+        }
+
+        if (!targetRow || !targetQItem) {
+          throw new Error(`Không tìm thấy câu hỏi #${targetNum} trong bài luyện tập #${parsedExamId}`)
+        }
+
+        const inputAnswer = String(targetQItem.correctAnswer ?? '').trim()
+        if (!inputAnswer) {
+          throw new Error(`Câu #${targetNum} chưa có đáp án đúng, không thể tạo giải thích bằng AI.`)
+        }
+
+        const qCtx = practiceQuestionContext(exam, targetGroup, targetNum)
+        if (!qCtx) throw new Error(`Không thể khởi tạo ngữ cảnh cho câu #${targetNum}`)
+        const family = classifyFamily(qCtx.type)
+        const ctx = buildContext(qCtx, family)
+
+        const oldExp = targetRow.explanation?.byNumber?.[targetNum] || {}
+        const rawOptions = qCtx.options || (targetGroup.matchingOptions?.length ? targetGroup.matchingOptions : null)
+
+        let attemptCount = 0
+        try {
+          if (prisma.practiceAttempt && typeof prisma.practiceAttempt.count === 'function') {
+            attemptCount = await prisma.practiceAttempt.count({ where: { practiceExamId: parsedExamId } })
+          }
+        } catch {
+          attemptCount = 0
+        }
+
+        return await handleRegenerateCore({
+          qCtx,
+          family,
+          ctx,
+          inputAnswer,
+          rawOptions,
+          oldExp,
+          cleanFeedback,
+          cleanProposed,
+          confirmChangeAnswer: Boolean(confirmChangeAnswer),
+          attemptCount,
+          questionNumber: targetNum,
+          updateCorrectAnswer: async (newAnswer) => {
+            targetQItem.correctAnswer = newAnswer
+            await prisma.practiceQuestion.update({
+              where: { id: targetRow.id },
+              data: { content: JSON.stringify(targetGroup) },
+            })
+          },
+          saveExplanation: async (exp) => {
+            await updatePracticeQuestionExplanationTx(targetRow.id, (byNumber) => {
+              byNumber[targetNum] = exp
+              return byNumber
+            })
+            invalidate('practice:')
+          },
         })
-        invalidate('practice:')
-      },
-    })
-  } else {
-    // Cambridge / Full Exam
-    const qLookup = parseInt(questionId || questionNumber, 10)
-    const question = await prisma.question.findFirst({
-      where: {
-        OR: [
-          { id: qLookup },
-          {
-            number: qLookup,
+      } else {
+        // Cambridge / Full Exam
+        const qLookup = parseInt(questionId || questionNumber, 10)
+        const question = await prisma.question.findFirst({
+          where: {
             OR: [
-              { passage: { examId: parsedExamId } },
-              { listeningSection: { examId: parsedExamId } },
-              { group: { passage: { examId: parsedExamId } } },
-              { group: { section: { examId: parsedExamId } } },
+              { id: qLookup },
+              {
+                number: qLookup,
+                OR: [
+                  { passage: { examId: parsedExamId } },
+                  { listeningSection: { examId: parsedExamId } },
+                  { group: { passage: { examId: parsedExamId } } },
+                  { group: { section: { examId: parsedExamId } } },
+                ],
+              },
             ],
           },
-        ],
-      },
-      select: {
-        id: true,
-        number: true,
-        type: true,
-        questionText: true,
-        options: true,
-        correctAnswer: true,
-        explanation: true,
-        passage: { select: { body: true, examId: true } },
-        listeningSection: { select: { transcript: true, context: true, examId: true } },
-        group: {
           select: {
+            id: true,
+            number: true,
             type: true,
+            questionText: true,
+            options: true,
+            correctAnswer: true,
+            explanation: true,
             passage: { select: { body: true, examId: true } },
-            section: { select: { transcript: true, context: true, examId: true } },
-            matchingOptions: { select: { optionLetter: true, optionText: true }, orderBy: { sortOrder: 'asc' } },
-            noteSections: {
-              select: { lines: { select: { contentWithTokens: true }, orderBy: { sortOrder: 'asc' } } },
-              orderBy: { sortOrder: 'asc' },
+            listeningSection: { select: { transcript: true, context: true, examId: true } },
+            group: {
+              select: {
+                type: true,
+                passage: { select: { body: true, examId: true } },
+                section: { select: { transcript: true, context: true, examId: true } },
+                matchingOptions: { select: { optionLetter: true, optionText: true }, orderBy: { sortOrder: 'asc' } },
+                noteSections: {
+                  select: { lines: { select: { contentWithTokens: true }, orderBy: { sortOrder: 'asc' } } },
+                  orderBy: { sortOrder: 'asc' },
+                },
+              },
             },
           },
-        },
-      },
-    })
+        })
 
-    if (!question) {
-      throw new Error(`Không tìm thấy câu hỏi #${questionId || questionNumber} trong đề #${parsedExamId}`)
-    }
+        if (!question) {
+          throw new Error(`Không tìm thấy câu hỏi #${questionId || questionNumber} trong đề #${parsedExamId}`)
+        }
 
-    const inputAnswer = String(question.correctAnswer ?? '').trim()
-    if (!inputAnswer) {
-      throw new Error(`Câu #${question.number} chưa có đáp án đúng, không thể tạo giải thích bằng AI.`)
-    }
+        const inputAnswer = String(question.correctAnswer ?? '').trim()
+        if (!inputAnswer) {
+          throw new Error(`Câu #${question.number} chưa có đáp án đúng, không thể tạo giải thích bằng AI.`)
+        }
 
-    const family = classifyFamily(question.type)
-    const ctx = buildContext(question, family)
+        const family = classifyFamily(question.type)
+        const ctx = buildContext(question, family)
 
-    const oldExp = (question.explanation && typeof question.explanation === 'object') ? question.explanation : {}
-    const rawOptions = question.options || (question.group?.matchingOptions?.length ? question.group.matchingOptions : null)
+        const oldExp = (question.explanation && typeof question.explanation === 'object') ? question.explanation : {}
+        const rawOptions = question.options || (question.group?.matchingOptions?.length ? question.group.matchingOptions : null)
 
-    let attemptCount = 0
-    try {
-      if (prisma.attempt && typeof prisma.attempt.count === 'function') {
-        attemptCount = await prisma.attempt.count({ where: { examId: parsedExamId } })
+        let attemptCount = 0
+        try {
+          if (prisma.attempt && typeof prisma.attempt.count === 'function') {
+            attemptCount = await prisma.attempt.count({ where: { examId: parsedExamId } })
+          }
+        } catch {
+          attemptCount = 0
+        }
+
+        return await handleRegenerateCore({
+          qCtx: question,
+          family,
+          ctx,
+          inputAnswer,
+          rawOptions,
+          oldExp,
+          cleanFeedback,
+          cleanProposed,
+          confirmChangeAnswer: Boolean(confirmChangeAnswer),
+          attemptCount,
+          questionNumber: question.number,
+          updateCorrectAnswer: async (newAnswer) => {
+            await prisma.question.update({
+              where: { id: question.id },
+              data: { correctAnswer: newAnswer },
+            })
+          },
+          saveExplanation: async (exp) => {
+            await prisma.question.update({
+              where: { id: question.id },
+              data: { explanation: exp },
+            })
+            invalidateExamCaches(parsedExamId)
+          },
+        })
       }
-    } catch {
-      attemptCount = 0
-    }
-
-    return await handleRegenerateCore({
-      qCtx: question,
-      family,
-      ctx,
-      inputAnswer,
-      rawOptions,
-      oldExp,
-      cleanFeedback,
-      cleanProposed,
-      confirmChangeAnswer: Boolean(confirmChangeAnswer),
-      attemptCount,
-      questionNumber: question.number,
-      updateCorrectAnswer: async (newAnswer) => {
-        await prisma.question.update({
-          where: { id: question.id },
-          data: { correctAnswer: newAnswer },
-        })
-      },
-      saveExplanation: async (exp) => {
-        await prisma.question.update({
-          where: { id: question.id },
-          data: { explanation: exp },
-        })
-        invalidateExamCaches(parsedExamId)
-      },
-    })
-  }
+    })(),
+    timeoutMs,
+    `Hết thời gian xử lý AI (${Math.round(timeoutMs / 1000)}s) khi tạo lại giải thích cho câu hỏi.`
+  )
 }
 
 /**

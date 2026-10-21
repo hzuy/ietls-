@@ -33,6 +33,7 @@ require.cache[generateExpModulePath] = {
 const {
   generateForExam,
   generateForPracticeExam,
+  regenerateQuestionExplanation,
 } = require('./explanationGeneratorService')
 
 describe('PHẦN 2: TIMEOUT THEO NGÂN SÁCH THỜI GIAN (40s Time Budget Loop)', () => {
@@ -257,6 +258,39 @@ describe('PHẦN 2: TIMEOUT THEO NGÂN SÁCH THỜI GIAN (40s Time Budget Loop)'
       expect(res.totalQuestions).toBe(2)
 
       expect(prismaMock.practiceQuestion.update).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('regenerateQuestionExplanation hard timeout ceiling', () => {
+    it('aborts with ETIMEDOUT when execution exceeds timeoutMs', async () => {
+      prismaMock.practiceExam.findUnique.mockImplementation(async () => {
+        await new Promise((r) => setTimeout(r, 60))
+        return {
+          id: 30,
+          skill: 'reading',
+          questions: [
+            {
+              id: 301,
+              orderNum: 1,
+              content: JSON.stringify({
+                type: 'mcq',
+                questions: [{ number: 1, question: 'Q1', options: ['A', 'B'], correctAnswer: 'A' }],
+              }),
+            },
+          ],
+        }
+      })
+
+      const timeoutPromise = regenerateQuestionExplanation({
+        examId: 30,
+        questionNumber: 1,
+        isPractice: true,
+        timeoutMs: 15,
+      })
+
+      await expect(timeoutPromise).rejects.toThrow(/Hết thời gian xử lý AI/)
+      await expect(timeoutPromise).rejects.toHaveProperty('code', 'ETIMEDOUT')
+      await expect(timeoutPromise).rejects.toHaveProperty('isTimeout', true)
     })
   })
 })

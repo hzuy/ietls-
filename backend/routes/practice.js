@@ -636,6 +636,13 @@ router.post('/admin/:skill/:id/questions/:qNum/regenerate-explanation', authMidd
     res.json(result)
   } catch (err) {
     console.error('[REGENERATE PRACTICE QUESTION EXPLANATION ERROR]', err)
+    if (err.isTimeout || err.code === 'ETIMEDOUT') {
+      return res.status(504).json({
+        ok: false,
+        error: 'TIMEOUT',
+        message: 'Hết thời gian xử lý AI khi tạo lại giải thích (quá 48s). Vui lòng thử lại.',
+      })
+    }
     res.status(500).json({ message: err.message || 'Lỗi khi tạo lại giải thích' })
   } finally {
     releaseLock(lockKey)
