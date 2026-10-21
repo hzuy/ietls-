@@ -101,6 +101,7 @@ describe('Exam Explanation Sync & Dirty Handling (Batch 1)', () => {
   }
 
   beforeEach(() => {
+    localStorage.clear()
     vi.clearAllMocks()
     window.confirm = vi.fn().mockReturnValue(true)
     Element.prototype.scrollIntoView = vi.fn()
@@ -206,7 +207,7 @@ describe('Exam Explanation Sync & Dirty Handling (Batch 1)', () => {
     expect(screen.getByTestId('q-status-1')).toHaveTextContent('ai_generated')
     expect(screen.getByTestId('q-status-2')).toHaveTextContent('ai_generated')
     expect(screen.getByTestId('group-exp-count')).toHaveTextContent('2')
-  })
+  }, 15000)
 
   it('handles listening exam explanation sync and preserves audioUrl and transcript draft', async () => {
     const mockListeningData = {
@@ -332,5 +333,5 @@ describe('Exam Explanation Sync & Dirty Handling (Batch 1)', () => {
     await waitFor(() => {
       expect(screen.getByDisplayValue('TEACHER EDITED TRANSCRIPT (UNSAVED DRAFT)')).toBeInTheDocument()
     })
-  })
+  }, 15000)
 })

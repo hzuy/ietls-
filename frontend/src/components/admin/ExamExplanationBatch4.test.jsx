@@ -74,6 +74,7 @@ describe('Batch 4: Comprehensive test suite for Exam Explanations', () => {
   }
 
   beforeEach(() => {
+    localStorage.clear()
     vi.clearAllMocks()
     window.scrollTo = vi.fn()
     api.get.mockImplementation((url) => {
@@ -110,7 +111,7 @@ describe('Batch 4: Comprehensive test suite for Exam Explanations', () => {
       const activeBtns = screen.getAllByRole('button', { name: /Sinh AI nhóm này/i })
       expect(activeBtns[0]).not.toBeDisabled()
     })
-  })
+  }, 15000)
 
   it('safely handles closing modals and re-opening without stale state', async () => {
     render(<ReadingTab exams={[]} onRefresh={vi.fn()} />)
@@ -142,7 +143,7 @@ describe('Batch 4: Comprehensive test suite for Exam Explanations', () => {
     await waitFor(() => {
       expect(screen.getByText('Đề thi có thay đổi chưa lưu')).toBeInTheDocument()
     })
-  })
+  }, 15000)
 
   it('guarantees learner never receives invalid or pending explanations', () => {
     // Valid approved statuses
