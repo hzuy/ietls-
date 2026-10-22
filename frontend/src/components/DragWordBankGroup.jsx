@@ -10,7 +10,7 @@ function WordBankOptionList({ wordBank, currentAnswer, usedLetters, onSelect, on
     <div
       role="listbox"
       aria-label="Chọn đáp án từ Word Bank"
-      className="max-h-60 overflow-y-auto p-1 text-xs leading-normal font-sans"
+      className="max-h-60 overflow-y-auto p-1 text-sm leading-normal font-sans"
     >
       {wordBank.map(wb => {
         const isCurrent = currentAnswer === wb.optionLetter
@@ -25,7 +25,7 @@ function WordBankOptionList({ wordBank, currentAnswer, usedLetters, onSelect, on
             aria-disabled={isUsedElsewhere}
             disabled={isUsedElsewhere}
             onClick={() => onSelect(wb.optionLetter)}
-            className={`w-full flex items-center gap-2 py-1.5 px-3 rounded-full transition-colors text-left whitespace-nowrap
+            className={`w-full flex items-center gap-2 py-1.5 px-3 rounded-full transition-colors text-left text-sm whitespace-nowrap
               ${isUsedElsewhere
                 ? 'opacity-40 pointer-events-none cursor-not-allowed select-none bg-zinc-50 text-zinc-400'
                 : isCurrent
@@ -41,7 +41,7 @@ function WordBankOptionList({ wordBank, currentAnswer, usedLetters, onSelect, on
         <button
           type="button"
           onClick={onClear}
-          className="w-full flex items-center gap-2 py-1.5 px-3 rounded-full cursor-pointer transition-colors text-left whitespace-nowrap text-red-500 hover:bg-red-50 mt-1 border-t border-zinc-100 pt-2"
+          className="w-full flex items-center gap-2 py-1.5 px-3 rounded-full cursor-pointer transition-colors text-left text-sm whitespace-nowrap text-red-500 hover:bg-red-50 mt-1 border-t border-zinc-100 pt-2"
         >
           Xóa đáp án
         </button>
@@ -174,7 +174,7 @@ export default function DragWordBankGroup({ group, answers, onAnswer, previewMod
               if (previewMode) return
               if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleBlankClick(qNum) }
             }}
-            className={`inline-flex items-center gap-1 mx-1 min-w-[80px] text-[13px] leading-tight align-baseline transition-colors
+            className={`inline-flex items-center gap-1 mx-1 min-w-[80px] text-sm leading-tight align-baseline transition-colors
               ${answer
                 ? 'font-normal px-2.5 py-0.5 rounded-full border border-zinc-200 bg-zinc-100 text-zinc-900'
                 : 'px-2.5 py-0.5 rounded-full border border-dashed border-zinc-300'}
@@ -227,7 +227,7 @@ export default function DragWordBankGroup({ group, answers, onAnswer, previewMod
     <div className="mb-6">
       <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-3 text-sm">
         <p className="font-semibold text-zinc-900 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
-        {group.instruction && <p className="text-zinc-600 text-xs mb-1">{group.instruction}</p>}
+        {group.instruction && <p className="text-zinc-500 text-xs mb-1">{group.instruction}</p>}
         {!previewMode && <p className="text-zinc-500 text-xs italic">Kéo từ Word Bank vào ô trống, hoặc click vào ô để chọn nhanh.</p>}
       </div>
 

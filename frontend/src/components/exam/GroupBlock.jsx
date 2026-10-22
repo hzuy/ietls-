@@ -178,7 +178,7 @@ function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, 
       <div id={`q-${from}`} className="mb-6 scroll-mt-4">
         <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-3 text-sm">
           <p className="font-semibold text-zinc-900 mb-1">Questions {from}–{to}</p>
-          {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
+          {group.instruction && <p className="text-zinc-500 text-xs">{group.instruction}</p>}
         </div>
         {questions.map((q, qi) => {
           const qStart = from + qi * maxChoices
@@ -204,7 +204,7 @@ function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, 
             <div key={q.id} className="mb-4">
               {q.questionText && (
                 <p className="text-sm text-zinc-900 mb-2 leading-relaxed flex gap-2">
-                  <span className="font-bold text-zinc-700 shrink-0">{qStart}–{qEnd}.</span>
+                  <span className="inline-flex items-center justify-center h-6 px-2 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-xs shrink-0 mt-0.5">{qStart}–{qEnd}</span>
                   <span>{q.questionText}</span>
                 </p>
               )}

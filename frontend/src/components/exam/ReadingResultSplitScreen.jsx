@@ -159,7 +159,6 @@ function QuestionResultCard({ q, passageIndex, activeLocator, setActiveLocator }
 export default function ReadingResultSplitScreen({ data, onRetry, isPractice, onClose }) {
   const [activePassage, setActivePassage] = useState(0)
   const [activeLocator, setActiveLocator] = useState(null)
-  const [fontSize, setFontSize] = useState('base')
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
   const [mobileView, setMobileView] = useState('questions') // 'passage' | 'questions'
 
@@ -265,8 +264,6 @@ export default function ReadingResultSplitScreen({ data, onRetry, isPractice, on
           <ResultPassagePanel
             passage={passage}
             activePassage={activePassage}
-            fontSize={fontSize}
-            setFontSize={setFontSize}
             activeLocator={activeLocator}
           />
         </div>

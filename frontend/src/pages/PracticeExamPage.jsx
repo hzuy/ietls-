@@ -5,7 +5,7 @@ import Navbar from '../components/Navbar'
 import { getPractice, savePracticeAttempt, getPracticeAttempt } from '../services/practiceService'
 import { queryClient } from '../lib/queryClient'
 import { gradePractice } from '../utils/practiceGrading'
-import { Clock, Type } from 'lucide-react'
+import { Clock } from 'lucide-react'
 import MatchingTickGrid from '../components/MatchingTickGrid'
 import DragWordBankGroup from '../components/DragWordBankGroup'
 import MatchingDragGroup from '../components/MatchingDragGroup'
@@ -79,7 +79,6 @@ function ReadingPracticeExam({ exam, onBack }) {
   const bodyRef = useRef(null)
   const isDraggingRef = useRef(false)
   const [isDragging, setIsDragging] = useState(false)
-  const [fontSize, setFontSize] = useState('base')
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
   const [splitRatio, setSplitRatio] = useState(() => {
     const saved = localStorage.getItem('reading-split-ratio')
@@ -284,37 +283,13 @@ function ReadingPracticeExam({ exam, onBack }) {
         <div
           className="overflow-y-auto bg-white px-8 py-6 border-b md:border-b-0 md:border-r border-zinc-200"
           style={{ width: isMobile ? '100%' : `${splitRatio}%` }}>
-          {/* Passage Toolbar — font size control */}
+          {/* Passage Toolbar */}
           <div className="sticky -top-6 -mx-8 px-8 py-2.5 mb-5 bg-white/95 backdrop-blur-xs border-b border-zinc-100 flex items-center justify-between z-10">
             <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Passage</span>
-            <div className="flex items-center gap-1 bg-zinc-100 p-0.5 rounded-full border border-zinc-200/80">
-              <span className="text-[11px] font-medium text-zinc-400 px-1.5 flex items-center gap-1">
-                <Type className="w-3.5 h-3.5" />
-              </span>
-              {[
-                { label: 'A-', size: 'sm', desc: '14px' },
-                { label: 'A',  size: 'base', desc: '16px' },
-                { label: 'A+', size: 'lg', desc: '18px' },
-              ].map(({ label, size, desc }) => (
-                <button
-                  key={size}
-                  type="button"
-                  onClick={() => setFontSize(size)}
-                  title={`Cỡ chữ ${desc}`}
-                  className={`exam-chip ${
-                    fontSize === size
-                      ? 'bg-white text-zinc-900 shadow-xs font-semibold'
-                      : 'bg-transparent text-zinc-500 hover:text-zinc-900'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
           </div>
           <h2 className="text-lg font-semibold text-zinc-900 text-center mb-1 leading-snug">{exam.title}</h2>
           <div className="w-16 h-0.5 bg-zinc-900 mx-auto mb-6" />
-          <div className={`text-zinc-800 font-normal ${fontSize === 'sm' ? 'text-sm leading-relaxed' : fontSize === 'lg' ? 'text-lg leading-loose' : 'text-base leading-relaxed'}`}>
+          <div className="text-zinc-800 font-normal text-base leading-relaxed">
             {(exam.passage || '').split(/\n\s*\n|\n/).map(s => s.trim()).filter(Boolean).map((para, i) => {
               const capitalized = para.charAt(0).toUpperCase() + para.slice(1)
               const paraHighlights = scopeHighlights.filter(h => h.paraIndex === i)

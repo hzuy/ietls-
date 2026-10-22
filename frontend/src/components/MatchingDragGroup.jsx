@@ -47,7 +47,7 @@ export default function MatchingDragGroup({ group, answers, onAnswer, previewMod
     <div className="mb-6">
       <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-3 text-sm">
         <p className="font-semibold text-zinc-900 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
-        {group.instruction && <p className="text-zinc-600 text-xs mb-1">{group.instruction}</p>}
+        {group.instruction && <p className="text-zinc-500 text-xs mb-1">{group.instruction}</p>}
         {!previewMode && <p className="text-zinc-500 text-xs italic">Kéo đáp án từ cột phải vào ô, hoặc click chọn → click ô.</p>}
       </div>
 
@@ -80,14 +80,14 @@ export default function MatchingDragGroup({ group, answers, onAnswer, previewMod
                 >
                   {answer ? (
                     <div className="flex items-center gap-2 w-full">
-                      <span className="font-bold text-zinc-900 text-xs shrink-0">{answer}</span>
-                      <span className="text-zinc-900 font-medium text-xs flex-1 leading-snug">{answerOpt?.optionText}</span>
+                      <span className="font-bold text-zinc-900 text-sm shrink-0">{answer}</span>
+                      <span className="text-zinc-900 font-medium text-sm flex-1 leading-snug">{answerOpt?.optionText}</span>
                       {!previewMode && (
-                        <button onClick={e => clearSlot(q.id, e)} className="text-zinc-400 hover:text-red-500 text-base leading-none shrink-0">×</button>
+                        <button onClick={e => clearSlot(q.id, e)} className="text-zinc-400 hover:text-red-500 text-sm leading-none shrink-0">×</button>
                       )}
                     </div>
                   ) : (
-                    <span className="text-zinc-400 text-xs italic">
+                    <span className="text-zinc-400 text-sm italic">
                       {previewMode ? '—' : 'Kéo hoặc click đáp án...'}
                     </span>
                   )}
@@ -117,7 +117,7 @@ export default function MatchingDragGroup({ group, answers, onAnswer, previewMod
                     onDragStart={() => { setDraggingLetter(opt.optionLetter); setSelectedLetter(null) }}
                     onDragEnd={() => { setDraggingLetter(null); setDragOverQId(null) }}
                   onClick={() => handleOptionClick(opt.optionLetter)}
-                  className={`flex items-start gap-2 px-3.5 py-2 rounded-full border text-xs transition select-none
+                  className={`flex items-start gap-2 px-3.5 py-2 rounded-full border text-sm transition select-none
                     ${previewMode
                       ? 'border-zinc-200 bg-white cursor-default'
                       : isSelectedOpt

@@ -9,7 +9,7 @@ import { saveDraft, loadDraft, clearDraft, formatSavedAt } from '../services/dra
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
-import { BookOpen, Type, Clock, LayoutGrid, ChevronUp, ChevronDown, ArrowRight } from 'lucide-react'
+import { BookOpen, Clock, LayoutGrid, ChevronUp, ChevronDown, ArrowRight } from 'lucide-react'
 import HighlightLayer, { getOffsetWithinElement } from '../components/exam/HighlightLayer'
 import HighlightPopovers from '../components/exam/HighlightPopovers'
 import { useTextHighlight } from '../hooks/useTextHighlight'
@@ -85,7 +85,6 @@ export default function ReadingExam() {
     return (!isNaN(n) && n >= 25 && n <= 75) ? n : 50
   })
   const [isDragging, setIsDragging] = useState(false)
-  const [fontSize, setFontSize] = useState('base')
 
   // ── Highlight text (kiểu IELTS on Computer: đoạn văn, câu hỏi, tiêu đề...) ────
   const examContainerRef = useRef(null)
@@ -549,36 +548,12 @@ export default function ReadingExam() {
           {/* Passage Toolbar */}
           <div className="sticky -top-6 -mx-8 px-8 py-2.5 mb-5 bg-white/95 backdrop-blur-xs border-b border-zinc-100 flex items-center justify-between z-10">
             <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Passage {activePassage + 1}</span>
-            <div className="flex items-center gap-1 bg-zinc-100 p-0.5 rounded-full border border-zinc-200/80">
-              <span className="text-[11px] font-medium text-zinc-400 px-1.5 flex items-center gap-1">
-                <Type className="w-3.5 h-3.5" />
-              </span>
-              {[
-                { label: 'A-', size: 'sm', desc: '14px' },
-                { label: 'A',  size: 'base', desc: '16px' },
-                { label: 'A+', size: 'lg', desc: '18px' },
-              ].map(({ label, size, desc }) => (
-                <button
-                  key={size}
-                  type="button"
-                  onClick={() => setFontSize(size)}
-                  title={`Cỡ chữ ${desc}`}
-                  className={`exam-chip ${
-                    fontSize === size
-                      ? 'bg-white text-zinc-900 shadow-xs font-semibold'
-                      : 'bg-transparent text-zinc-500 hover:text-zinc-900'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
           </div>
 
           <h2 className="text-lg font-semibold text-zinc-900 text-center mb-1 leading-snug">{passage.title}</h2>
           {passage.subtitle && <p className="text-sm text-zinc-500 text-center mb-2 italic">{passage.subtitle}</p>}
           <div className="w-16 h-0.5 bg-zinc-900 mx-auto mb-6" />
-          <div className={`text-zinc-800 font-normal ${fontSize === 'sm' ? 'text-sm leading-relaxed' : fontSize === 'lg' ? 'text-lg leading-loose' : 'text-base leading-relaxed'}`}>
+          <div className="text-zinc-800 font-normal text-base leading-relaxed">
             {passage.body
               ? passage.body
                   .split(/\n\s*\n|\n/)

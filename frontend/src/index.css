@@ -571,6 +571,7 @@ button.chatbot-chip { font-size: 0.875rem; line-height: 1.25rem; }
   background: transparent;
   border: none; border-bottom: 2px solid var(--border);
   padding: 0.25rem 0.5rem;
+  font-size: var(--fs-sm);
   outline: none !important;
   box-shadow: none !important;
   transition: border-color var(--transition);
