@@ -106,7 +106,7 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
     })
 
     it('renders view tab by default with question details and explanation', () => {
-      render(
+      const { container } = render(
         <QuestionExplanationModal
           isOpen={true}
           onClose={vi.fn()}
@@ -121,7 +121,9 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
 
       expect(screen.getByRole('dialog')).toBeInTheDocument()
       expect(screen.getAllByText(/Câu 1/i)[0]).toBeInTheDocument()
-      expect(screen.getByText(/Oxygen is the vital element found in the core layer/i)).toBeInTheDocument()
+      // Câu trích dẫn có thể bị chia thành nhiều node (gạch chân đáp án) nên so khớp
+      // trên textContent của cả cây thay vì một text node duy nhất.
+      expect(container.textContent).toContain('Oxygen is the vital element found in the core layer')
       expect(screen.getByText(/The text directly mentions oxygen/i)).toBeInTheDocument()
     })
 

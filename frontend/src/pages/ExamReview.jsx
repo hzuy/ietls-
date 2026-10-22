@@ -366,11 +366,18 @@ export default function ExamReview({ skill = 'reading', practice = null }) {
   const [showAnswerSheet, setShowAnswerSheet] = useState(false)
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches)
   const [footerHeight, setFooterHeight] = useState(64)
+  const [splitRatio, setSplitRatio] = useState(() => {
+    const saved = parseFloat(localStorage.getItem('review-split-ratio'))
+    return Number.isFinite(saved) && saved >= 25 && saved <= 75 ? saved : 50
+  })
+  const [isDragging, setIsDragging] = useState(false)
 
   const rightPaneRef = useRef(null)
   const passagePaneRef = useRef(null)
   const sheetBodyRef = useRef(null)
   const footerRef = useRef(null)
+  const bodyRef = useRef(null)
+  const isDraggingRef = useRef(false)
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 767px)')
@@ -378,6 +385,37 @@ export default function ExamReview({ skill = 'reading', practice = null }) {
     mq.addEventListener('change', onChange)
     return () => mq.removeEventListener('change', onChange)
   }, [])
+
+  const handleDividerMouseDown = e => {
+    e.preventDefault()
+    if (!bodyRef.current) return
+    isDraggingRef.current = true
+    setIsDragging(true)
+
+    const onMouseMove = ev => {
+      if (!isDraggingRef.current || !bodyRef.current) return
+      const rect = bodyRef.current.getBoundingClientRect()
+      const ratio = ((ev.clientX - rect.left) / rect.width) * 100
+      const clamped = Math.min(75, Math.max(25, ratio))
+      setSplitRatio(clamped)
+      localStorage.setItem('review-split-ratio', String(clamped))
+    }
+
+    const onMouseUp = () => {
+      isDraggingRef.current = false
+      setIsDragging(false)
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }
+
+  const resetSplit = () => {
+    setSplitRatio(50)
+    localStorage.setItem('review-split-ratio', '50')
+  }
 
   const load = useCallback(() => {
     setLoading(true)
@@ -557,14 +595,39 @@ export default function ExamReview({ skill = 'reading', practice = null }) {
         {attemptSelect && <div className="md:hidden px-3 pb-2.5">{attemptSelect}</div>}
       </header>
 
-      <div className="flex-1 min-h-0 flex">
+      <div ref={bodyRef} className="flex-1 min-h-0 flex overflow-hidden">
         {!isMobile && (
-          <div ref={passagePaneRef} className="w-1/2 overflow-y-auto bg-white border-r border-zinc-200 px-8 py-6">
-            {isListening ? <TranscriptView section={passage} targets={targets} /> : <PassageView passage={passage} targets={targets} />}
-          </div>
+          <>
+            <div
+              ref={passagePaneRef}
+              className="overflow-y-auto bg-white border-r border-zinc-200 px-8 py-6"
+              style={{ width: `calc(${splitRatio}% - 4px)`, flexShrink: 0 }}
+            >
+              {isListening ? <TranscriptView section={passage} targets={targets} /> : <PassageView passage={passage} targets={targets} />}
+            </div>
+            <div
+              className="group relative flex-shrink-0 flex flex-col items-center justify-center w-2 hover:w-3 transition-all duration-100 cursor-col-resize select-none"
+              style={{ backgroundColor: isDragging ? '#d4d4d8' : undefined }}
+              onMouseDown={handleDividerMouseDown}
+              onDoubleClick={resetSplit}
+              role="separator"
+              aria-orientation="vertical"
+              title="Kéo để chỉnh độ rộng · Double-click để về 50/50"
+            >
+              <div className={`w-full h-full absolute inset-0 transition-colors ${isDragging ? 'bg-zinc-400' : 'bg-zinc-200 group-hover:bg-zinc-300'}`} />
+              <div className="relative z-10 flex flex-col gap-1 pointer-events-none">
+                <div className={`w-0.5 h-4 rounded-full transition-colors ${isDragging ? 'bg-zinc-900' : 'bg-zinc-400 group-hover:bg-zinc-600'}`} />
+                <div className={`w-0.5 h-4 rounded-full transition-colors ${isDragging ? 'bg-zinc-900' : 'bg-zinc-400 group-hover:bg-zinc-600'}`} />
+              </div>
+            </div>
+          </>
         )}
 
-        <div ref={rightPaneRef} className="flex-1 min-w-0 overflow-y-auto px-4 sm:px-6 py-5 max-md:pb-36">
+        <div
+          ref={rightPaneRef}
+          className="min-w-0 overflow-y-auto px-4 sm:px-6 py-5 max-md:pb-36"
+          style={isMobile ? undefined : { width: `calc(${100 - splitRatio}% - 4px)`, flexShrink: 0 }}
+        >
           <div className="max-w-3xl mx-auto flex flex-col gap-4">
             <div className="bg-white border border-zinc-200 rounded-2xl p-4 sm:p-5 shadow-xs">
               {activeGroup && LISTENING_ONLY_TYPES.has(activeGroup.type) ? (

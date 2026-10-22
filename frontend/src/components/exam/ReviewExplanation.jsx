@@ -84,7 +84,19 @@ function EvidencePart({ part, chunks, answer }) {
     .sort((a, b) => a.at - b.at)
 
   if (!placed.length) {
-    return <p className="m-0 italic text-zinc-600">“{part.text}”</p>
+    // Không đặt được chunk nào (AI diễn đạt lại) → vẫn gạch chân đáp án nếu tìm thấy
+    // trong câu trích dẫn, để bước "Đọc thông tin liên quan" không bị mất dấu.
+    const range = answer ? findRange(part.text, answer) : null
+    if (!range) return <p className="m-0 italic text-zinc-600">“{part.text}”</p>
+    return (
+      <p className="m-0 italic text-zinc-600">
+        “{part.text.slice(0, range.start)}
+        <span className="not-italic text-emerald-700 font-semibold underline decoration-emerald-500 decoration-2 underline-offset-4">
+          {part.text.slice(range.start, range.end)}
+        </span>
+        {part.text.slice(range.end)}”
+      </p>
+    )
   }
 
   const nodes = []
@@ -129,7 +141,7 @@ function V2Steps({ explanation: ex, paragraphLabel, correctAnswer }) {
             <div className="flex flex-wrap items-center gap-2">
               {ex.locate?.paragraph != null && <ParagraphTag>{paragraphLabel(ex.locate.paragraph)}</ParagraphTag>}
               {(ex.locate?.keywords || []).map((k, i) => (
-                <span key={i} className="text-zinc-900 font-medium">{k}</span>
+                <span key={i} className="text-zinc-900 font-medium underline decoration-indigo-400 decoration-2 underline-offset-4">{k}</span>
               ))}
             </div>
           )}
