@@ -11,6 +11,7 @@ const { speakingSubmitSchema, transcribeSchema } = require('../validators/submis
 const { sanitizeCorrections } = require('../lib/inlineCorrections')
 const { uploadAudio } = require('../services/storageService')
 const { sendServerError } = require('../lib/httpErrors')
+const { classifyAiError, toLearnerAiErrorMessage, logAiError } = require('../lib/aiErrors')
 
 const router = express.Router()
 const prisma = require('../lib/prisma')
@@ -138,7 +139,7 @@ router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res
           partId: a.partId,
           answerId: a.id,
           status: 'failed',
-          error: a.error || 'Lỗi nhận xét AI',
+          error: toLearnerAiErrorMessage(a.error),
           transcript: a.transcript,
           createdAt: a.createdAt
         })
@@ -340,12 +341,14 @@ async function processSpeakingAI(answerId, partNumber, partQuestions, transcript
       }
     }
   } catch (error) {
-    if (process.env.NODE_ENV !== 'production') console.error('[Speaking AI Error]', error)
+    // Không lưu message thô của provider vào DB (tránh rò rỉ hạ tầng cho học
+    // sinh); chi tiết được ghi log ở server, DB chỉ giữ mã lỗi ổn định.
+    logAiError('[Speaking AI Error]', error)
     await prisma.speakingAnswer.update({
       where: { id: answerId },
       data: {
         status: 'failed',
-        error: error.message || 'Lỗi nhận xét AI'
+        error: classifyAiError(error)
       }
     }).catch(() => {})
   }
@@ -426,7 +429,7 @@ router.get('/answers/:id/status', authMiddleware, learnerOnly, async (req, res) 
       return res.json({
         answerId: answer.id,
         status: 'failed',
-        error: answer.error || 'Lỗi nhận xét'
+        error: toLearnerAiErrorMessage(answer.error)
       })
     }
 

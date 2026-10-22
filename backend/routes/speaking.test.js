@@ -297,7 +297,9 @@ describe('Speaking Routes & AI Criterion Logging', () => {
       const byPartId = Object.fromEntries(res.body.map(r => [r.partId, r]))
       expect(byPartId[20]).toMatchObject({ status: 'graded' })
       expect(byPartId[21]).toBeUndefined()
-      expect(byPartId[22]).toMatchObject({ status: 'failed', answerId: 1003, error: 'model_not_found' })
+      expect(byPartId[22]).toMatchObject({ status: 'failed', answerId: 1003, error: 'Hệ thống chấm bài AI đang gặp sự cố. Vui lòng thử lại sau ít phút.' })
+      // Không được rò rỉ message thô của provider cho học sinh
+      expect(byPartId[22].error).not.toContain('model_not_found')
     })
 
     it('omits parts that were never submitted', async () => {

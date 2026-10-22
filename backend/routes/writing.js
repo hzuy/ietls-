@@ -6,6 +6,7 @@ const { aiSubmitLimiter } = require('../middleware/rateLimiter')
 const { writingSubmitSchema } = require('../validators/submissionValidator')
 const { sanitizeCorrections } = require('../lib/inlineCorrections')
 const { sendServerError } = require('../lib/httpErrors')
+const { classifyAiError, toLearnerAiErrorMessage, logAiError } = require('../lib/aiErrors')
 
 const router = express.Router()
 const prisma = require('../lib/prisma')
@@ -102,7 +103,7 @@ router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res
           taskId: a.taskId,
           answerId: a.id,
           status: 'failed',
-          error: a.error || 'Lỗi chấm bài AI'
+          error: toLearnerAiErrorMessage(a.error)
         })
       }
     }
@@ -265,12 +266,14 @@ async function processWritingAI(answerId, taskPrompt, taskNumber, essay, imageUr
       }
     }
   } catch (error) {
-    if (process.env.NODE_ENV !== 'production') console.error('[Writing AI Error]', error)
+    // Không lưu message thô của provider vào DB (tránh rò rỉ hạ tầng cho học
+    // sinh); chi tiết được ghi log ở server, DB chỉ giữ mã lỗi ổn định.
+    logAiError('[Writing AI Error]', error)
     await prisma.writingAnswer.update({
       where: { id: answerId },
       data: {
         status: 'failed',
-        error: error.message || 'Lỗi chấm bài AI'
+        error: classifyAiError(error)
       }
     }).catch(() => {})
   }
@@ -379,7 +382,7 @@ router.get('/answers/:id/status', authMiddleware, learnerOnly, async (req, res) 
       return res.json({
         answerId: answer.id,
         status: 'failed',
-        error: answer.error || 'Lỗi chấm bài'
+        error: toLearnerAiErrorMessage(answer.error)
       })
     }
 

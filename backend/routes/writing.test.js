@@ -284,7 +284,9 @@ describe('Writing Submission Routes', () => {
       const byTaskId = Object.fromEntries(res.body.map(r => [r.taskId, r]))
       expect(byTaskId[10]).toMatchObject({ status: 'graded' })
       expect(byTaskId[11]).toBeUndefined()
-      expect(byTaskId[12]).toMatchObject({ status: 'failed', answerId: 603, error: 'model_not_found' })
+      expect(byTaskId[12]).toMatchObject({ status: 'failed', answerId: 603, error: 'Hệ thống chấm bài AI đang gặp sự cố. Vui lòng thử lại sau ít phút.' })
+      // Không được rò rỉ message thô của provider cho học sinh
+      expect(byTaskId[12].error).not.toContain('model_not_found')
     })
 
     it('omits tasks that were never submitted', async () => {
