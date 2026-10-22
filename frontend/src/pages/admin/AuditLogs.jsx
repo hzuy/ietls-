@@ -10,7 +10,7 @@ import Pagination from '../../components/admin/Pagination'
 import { useDebounce } from '../../hooks/useDebounce'
 import { AuditLogDetailModal, ENTITY_TYPE_LABEL, fmtDateTime } from '../../components/admin/AuditLogDetailModal'
 
-import { Search, RotateCcw, Eye, ScrollText, Bot, UserX, X } from 'lucide-react'
+import { Search, RotateCcw, Eye, ScrollText, UserX, X } from 'lucide-react'
 
 const ACTION_KINDS = [
   { value: 'create', label: 'Tạo mới', match: a => a.endsWith('.create') },
@@ -30,14 +30,9 @@ function actionsForKind(kind, actionOptions) {
 function ActorCell({ log }) {
   if (log.actorType === 'system') {
     return (
-      <div className="flex items-center gap-2">
-        <span className="w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center shrink-0">
-          <Bot className="w-3.5 h-3.5 text-zinc-500" />
-        </span>
-        <div>
-          <p className="font-medium text-zinc-900 text-xs">Hệ thống</p>
-          <p className="text-[11px] text-zinc-500">Tác vụ tự động</p>
-        </div>
+      <div className="min-w-0">
+        <p className="font-medium text-zinc-900 text-xs">Hệ thống</p>
+        <p className="text-[11px] text-zinc-500">Tác vụ tự động</p>
       </div>
     )
   }
