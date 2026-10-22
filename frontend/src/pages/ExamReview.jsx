@@ -212,7 +212,7 @@ function TranscriptView({ section, targets }) {
                 ref={el => utteranceRefs.current[i] = el}
                 onClick={() => { if (isScript) handleSeek(blocks[i]?.start) }}
                 data-target={marks ? 'true' : undefined}
-                className={`transition-colors duration-200 p-3 rounded-xl cursor-pointer ${dimOthers && !marks ? 'opacity-35' : ''} ${isActive ? 'bg-blue-600 text-white font-medium shadow-md' : 'hover:bg-zinc-50'}`}
+                className={`transition-colors duration-200 p-3 rounded-xl cursor-pointer ${dimOthers && !marks ? 'opacity-35' : ''} ${isActive ? 'bg-blue-50 text-zinc-900 ring-1 ring-blue-200 font-medium' : 'hover:bg-zinc-50'}`}
               >
                 {marks ? <MarkedParagraph text={para} marks={marks} /> : para}
               </p>
@@ -270,7 +270,7 @@ function TranscriptView({ section, targets }) {
                   
                   <div 
                     className={`px-5 py-3.5 text-[15px] leading-relaxed transition-all shadow-sm ${
-                      isActive ? 'bg-blue-600 text-white border-transparent' : 'bg-white border border-zinc-200 text-zinc-800'
+                      isActive ? 'bg-blue-50 text-zinc-900 ring-1 ring-blue-200' : 'bg-white border border-zinc-200 text-zinc-800'
                     } ${showAvatar ? (isLeft ? 'rounded-2xl rounded-tl-none' : 'rounded-2xl rounded-tr-none') : 'rounded-2xl'}`}
                   >
                     {marks ? <MarkedParagraph text={b.text} marks={marks} /> : b.text}

@@ -67,7 +67,7 @@ export default function ListeningTranscript({ section, audioRef }) {
                 ref={el => utteranceRefs.current[idx] = el}
                 onClick={() => handleSeek(b.start)}
                 className={`text-[15px] leading-relaxed cursor-pointer transition-colors duration-200 px-2 py-1 -mx-2 rounded-lg ${
-                  isActive ? 'bg-amber-100 text-amber-900 font-medium' : 'text-zinc-800 hover:bg-zinc-50'
+                  isActive ? 'bg-blue-50 text-zinc-900 ring-1 ring-blue-200 font-medium' : 'text-zinc-800 hover:bg-zinc-50'
                 }`}
               >
                 {b.text}
@@ -111,7 +111,7 @@ export default function ListeningTranscript({ section, audioRef }) {
                   <div 
                     className={`px-5 py-3.5 text-[15px] leading-relaxed transition-all shadow-sm ${
                       isActive 
-                        ? 'bg-blue-600 text-white border-transparent' 
+                        ? 'bg-blue-50 text-zinc-900 ring-1 ring-blue-200' 
                         : 'bg-white border border-zinc-200 text-zinc-800'
                     } ${showAvatar ? (isLeft ? 'rounded-2xl rounded-tl-none' : 'rounded-2xl rounded-tr-none') : 'rounded-2xl'}`}
                   >
