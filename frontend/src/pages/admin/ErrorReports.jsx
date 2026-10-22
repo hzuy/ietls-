@@ -26,15 +26,15 @@ const ISSUE_LABELS = {
 }
 
 // Writing/Speaking trước đây không có trong bộ lọc dù học viên đã gửi được
-// (WritingExam/SpeakingExam truyền skill tương ứng) → bổ sung cho đủ 4 kỹ năng
-// + "Chung" (báo lỗi không gắn với đề cụ thể) đúng với ALLOWED_SKILLS ở backend.
+// (WritingExam/SpeakingExam truyền skill tương ứng) → bổ sung cho đủ 4 kỹ năng.
+// "Chung" đã bỏ khỏi bộ lọc vì trùng ý với "Tất cả" (báo lỗi general vẫn hiện
+// badge "Chung" trong danh sách và vẫn xem được khi chọn "Tất cả").
 const SKILL_OPTIONS = [
   { id: '', label: 'Tất cả' },
   { id: 'reading', label: SKILL_LABEL.reading },
   { id: 'listening', label: SKILL_LABEL.listening },
   { id: 'writing', label: SKILL_LABEL.writing },
   { id: 'speaking', label: SKILL_LABEL.speaking },
-  { id: 'general', label: 'Chung' },
 ]
 
 const STATUS_OPTIONS = [
@@ -167,9 +167,9 @@ export default function ErrorReports() {
 
       {/* Filters */}
       <div className="bg-white rounded-2xl border border-zinc-200 p-4 sm:p-5 shadow-xs mb-6">
-        <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
-          <div>
-            <p className="text-[11px] font-medium text-zinc-500 mb-1.5">Trạng thái</p>
+        <div className="flex flex-wrap items-start gap-x-6 gap-y-4">
+          <div className="flex flex-col gap-2">
+            <span className="pl-1 text-[11px] font-medium text-zinc-500 leading-4">Trạng thái</span>
             <div className={pillGroupCls + ' max-w-full'}>
               {STATUS_OPTIONS.map(s => (
                 <button
@@ -185,8 +185,8 @@ export default function ErrorReports() {
             </div>
           </div>
 
-          <div>
-            <p className="text-[11px] font-medium text-zinc-500 mb-1.5">Kỹ năng</p>
+          <div className="flex flex-col gap-2">
+            <span className="pl-1 text-[11px] font-medium text-zinc-500 leading-4">Kỹ năng</span>
             <div className={pillGroupCls + ' max-w-full'}>
               {SKILL_OPTIONS.map(sk => (
                 <button
@@ -196,20 +196,13 @@ export default function ErrorReports() {
                   aria-pressed={skillFilter === sk.id}
                   className={pillCls(skillFilter === sk.id)}
                 >
-                  {sk.id && ADMIN_SKILL_COLORS[sk.id] && (
-                    <span
-                      className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle"
-                      style={{ background: ADMIN_SKILL_COLORS[sk.id].base }}
-                      aria-hidden="true"
-                    />
-                  )}
                   {sk.label}
                 </button>
               ))}
             </div>
           </div>
 
-          <span className="ml-auto text-xs font-medium text-zinc-400 tabular-nums pb-1.5">
+          <span className="ml-auto self-end pb-2 text-xs font-medium text-zinc-400 tabular-nums">
             Tổng cộng: <strong className="text-zinc-600">{total}</strong> báo lỗi
           </span>
         </div>

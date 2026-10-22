@@ -49,16 +49,21 @@ describe('ErrorReports Admin Page', () => {
     })
   })
 
-  it('lọc được đủ 4 kỹ năng (Reading/Listening/Writing/Speaking) + Chung', async () => {
+  it('lọc được đủ 4 kỹ năng (Reading/Listening/Writing/Speaking), không còn "Chung"', async () => {
     api.get.mockResolvedValue({ data: { total: 0, reports: [] } })
 
     renderPage()
 
-    for (const label of ['Reading', 'Listening', 'Writing', 'Speaking', 'Chung']) {
+    for (const label of ['Reading', 'Listening', 'Writing', 'Speaking']) {
       expect(screen.getByRole('button', { name: label })).toBeInTheDocument()
     }
+    expect(screen.queryByRole('button', { name: 'Chung' })).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Writing' }))
+    // Không còn chấm màu trang trí trong các nút lọc kỹ năng
+    const writingBtn = screen.getByRole('button', { name: 'Writing' })
+    expect(writingBtn.querySelector('span')).toBeNull()
+
+    fireEvent.click(writingBtn)
 
     await waitFor(() => {
       expect(api.get).toHaveBeenLastCalledWith('/reports/admin', {
