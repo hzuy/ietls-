@@ -18,10 +18,6 @@ import AcademicCover from './AcademicCover'
  *  - academicCover: ReactNode hoặc true → render <AcademicCover> cực nét thay vì placeholder rỗng.
  *  - thumbAspect  : tỉ lệ khung ảnh. '16/9' | '4/5' | … (aspect-ratio) HOẶC
  *                   chuỗi px cố định như '160px' (dùng height). Mặc định '16/9'.
- *  - thumbFit     : 'cover' (mặc định, phủ kín khung) | 'contain' (giữ trọn ảnh,
- *                   dùng cho thumbnail là sơ đồ/ảnh chụp bài mẫu để không bị crop).
- *  - thumbPadding : padding quanh ảnh (number px) — hữu ích khi thumbFit='contain'.
- *  - thumbBg      : màu nền khung ảnh (dùng với 'contain' để viền hai bên đồng bộ).
  *  - title        : tiêu đề (string). Style/size/màu đã chuẩn hoá, KHÔNG param.
  *  - titleClamp   : số dòng giới hạn tiêu đề (number). Bỏ trống = không clamp.
  *  - meta         : ReactNode  HOẶC  { type:'count', text }  HOẶC
@@ -149,9 +145,6 @@ export default function ContentCard({
   placeholder,
   academicCover,
   thumbAspect = '16/9',
-  thumbFit = 'cover',
-  thumbPadding = 0,
-  thumbBg = null,
   thumbOverlay,
   title,
   titleClamp,
@@ -178,8 +171,6 @@ export default function ContentCard({
     width: '100%',
     ...(isPx ? { height: thumbAspect } : { aspectRatio: String(thumbAspect).replace('/', ' / ') }),
     overflow: 'hidden', flexShrink: 0, position: 'relative',
-    ...(thumbPadding ? { padding: `${thumbPadding}px` } : null),
-    ...(thumbBg ? { background: thumbBg } : null),
   }
 
   const rootStyle = isShowcase
@@ -223,11 +214,11 @@ export default function ContentCard({
             loading="lazy"
             decoding="async"
             onError={handleImgError}
-            className="w-full h-full block"
+            className="w-full h-full object-cover block"
             style={{
-              width: '100%', height: '100%', objectFit: thumbFit, display: 'block',
-              transition: isShowcase && thumbFit === 'cover' ? 'transform 0.45s cubic-bezier(0.16, 1, 0.3, 1)' : undefined,
-              transform: activeHover && thumbFit === 'cover' ? 'scale(1.02)' : 'scale(1)',
+              width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+              transition: isShowcase ? 'transform 0.45s cubic-bezier(0.16, 1, 0.3, 1)' : undefined,
+              transform: activeHover ? 'scale(1.02)' : 'scale(1)',
             }}
           />
         ) : placeholder ? (

@@ -51,25 +51,6 @@ describe('ContentCard — thumb / title / placeholder', () => {
     render(<ContentCard {...base} thumbOverlay={<span data-testid="test-overlay">Badge</span>} />)
     expect(screen.getByTestId('test-overlay')).toBeInTheDocument()
   })
-
-  it("thumbFit='contain' → giữ trọn ảnh, không crop", () => {
-    render(<ContentCard {...base} image="/uploads/x.png" imageAlt="cover" thumbFit="contain" />)
-    expect(screen.getByAltText('cover').style.objectFit).toBe('contain')
-  })
-
-  it('thumbFit mặc định là cover', () => {
-    render(<ContentCard {...base} image="/uploads/x.png" imageAlt="cover" />)
-    expect(screen.getByAltText('cover').style.objectFit).toBe('cover')
-  })
-
-  it('thumbPadding + thumbBg áp lên khung ảnh (dùng cho thumbnail bài mẫu)', () => {
-    const { container } = render(
-      <ContentCard {...base} thumbPadding={10} thumbBg="var(--surface-raised)" />
-    )
-    const thumb = container.querySelector('.cc-thumb')
-    expect(thumb.style.padding).toBe('10px')
-    expect(thumb.style.background).toBe('var(--surface-raised)')
-  })
 })
 
 describe('ContentCard — meta (3 dạng)', () => {

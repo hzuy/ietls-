@@ -194,9 +194,6 @@ export default function SamplesPage({ skill }) {
                       />
                     }
                     thumbAspect="4/3"
-                    thumbFit="contain"
-                    thumbPadding={8}
-                    thumbBg="var(--surface-raised)"
                     title={item.title}
                     meta={{ type: 'chips', chips: buildSampleChips(skill, item) }}
                     hoverStyle="subtle"
