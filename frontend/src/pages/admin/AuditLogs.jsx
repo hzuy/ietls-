@@ -66,9 +66,9 @@ function ActorCell({ log }) {
 }
 
 export default function AuditLogs() {
-  // Đọc entityType/entityId ban đầu từ query string (vd link "Xem tất cả" từ
-  // khối Lịch sử thay đổi ở trang sửa đề) — chỉ dùng để khởi tạo state lúc
-  // mount, không đồng bộ 2 chiều: đổi filter trong trang này không đổi URL.
+  // Đọc entityType/entityId ban đầu từ query string (hỗ trợ deep-link, vd
+  // /admin/audit-logs?entityType=Exam&entityId=10) — chỉ dùng để khởi tạo state
+  // lúc mount, không đồng bộ 2 chiều: đổi filter trong trang này không đổi URL.
   const [searchParams] = useSearchParams()
   const initialEntityType = searchParams.get('entityType') || ''
   const initialEntityId = searchParams.get('entityId') || ''

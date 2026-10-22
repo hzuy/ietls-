@@ -7,7 +7,6 @@ import { isExamFormDirty, normalizeFormForDirtyCheck } from '../../utils/examExp
 import { emptyWritingForm, inputCls, labelCls, btnPrimary, btnSecondary, toImgSrc, useExamSeriesList, useSeriesBooks } from './adminConstants'
 import Select from './Select'
 import ExamList from './ExamList'
-import ExamAuditHistory from './ExamAuditHistory'
 import InlinePreviewPanel from '../common/InlinePreviewPanel'
 import { Upload, Trash2, Eye } from 'lucide-react'
 
@@ -377,8 +376,6 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         showToast('Cập nhật đề thành công!')
         queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
         queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
-        // Log audit vừa ghi ở backend — invalidate để khối "Lịch sử thay đổi" hiện ngay, không đợi hết staleTime.
-        queryClient.invalidateQueries({ queryKey: ['admin', 'auditLogs', 'exam', editingId] })
         onRefresh()
       } else {
         await api.post('/admin/exams/writing', payload)
@@ -595,12 +592,6 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
           >
             <WritingFormPreview form={form} />
           </InlinePreviewPanel>
-        </div>
-      )}
-
-      {editingId && (
-        <div className="mb-6">
-          <ExamAuditHistory examId={editingId} />
         </div>
       )}
 

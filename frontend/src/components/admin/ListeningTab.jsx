@@ -16,7 +16,6 @@ import {
 } from './adminConstants'
 import Select from './Select'
 import ExamList from './ExamList'
-import ExamAuditHistory from './ExamAuditHistory'
 import DiagramLabelEditor from '../practice/DiagramLabelEditor'
 import SummaryCompletionEditor from '../practice/SummaryCompletionEditor'
 import InlinePreviewPanel from '../common/InlinePreviewPanel'
@@ -1093,8 +1092,6 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         showToast('Cập nhật đề thành công!')
         queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
         queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
-        // Log audit vừa ghi ở backend — invalidate để khối "Lịch sử thay đổi" hiện ngay, không đợi hết staleTime.
-        queryClient.invalidateQueries({ queryKey: ['admin', 'auditLogs', 'exam', editingId] })
         pristineFormSigRef.current = normalizeFormForDirtyCheck(form)
         pristineExplanationsRef.current = extractExplanationsMap(form)
         onRefresh()
@@ -1511,12 +1508,6 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
           >
             <ListeningFormPreview form={form} showAnswers={showAnswers} />
           </InlinePreviewPanel>
-        </div>
-      )}
-
-      {editingId && (
-        <div className="mb-6">
-          <ExamAuditHistory examId={editingId} />
         </div>
       )}
 

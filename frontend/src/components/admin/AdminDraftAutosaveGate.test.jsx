@@ -25,10 +25,6 @@ vi.mock('./ExamList', () => ({
   )
 }))
 
-vi.mock('./ExamAuditHistory', () => ({
-  default: () => <div data-testid="exam-audit-history" />
-}))
-
 vi.mock('./editors/ReadingGroupEditor', () => ({
   default: () => <div data-testid="mock-reading-group-editor" />
 }))

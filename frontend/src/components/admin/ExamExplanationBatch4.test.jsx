@@ -26,10 +26,6 @@ vi.mock('./ExamList', () => ({
   )
 }))
 
-vi.mock('./ExamAuditHistory', () => ({
-  default: () => <div data-testid="exam-audit-history" />
-}))
-
 describe('Batch 4: Comprehensive test suite for Exam Explanations', () => {
   const mockReadingExam = {
     id: 10,

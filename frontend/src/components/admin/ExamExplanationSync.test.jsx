@@ -21,10 +21,6 @@ vi.mock('./ExamList', () => ({
   )
 }))
 
-vi.mock('./ExamAuditHistory', () => ({
-  default: () => null
-}))
-
 vi.mock('./editors/ReadingGroupEditor', () => ({
   default: ({ group, onChange }) => (
     <div data-testid="mock-reading-group-editor">

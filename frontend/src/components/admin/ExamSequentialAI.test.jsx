@@ -27,10 +27,6 @@ vi.mock('./ExamList', () => ({
   )
 }))
 
-vi.mock('./ExamAuditHistory', () => ({
-  default: () => <div data-testid="exam-audit-history" />
-}))
-
 describe('Batch 3: Group AI generation & Sequential generation with cancel & 409 conflict', () => {
   const mockReadingExam = {
     id: 10,

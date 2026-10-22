@@ -14,7 +14,6 @@ import {
 import InlinePreviewPanel from '../common/InlinePreviewPanel'
 import Select from './Select'
 import ExamList from './ExamList'
-import ExamAuditHistory from './ExamAuditHistory'
 import AdminGroupPreview from '../practice/AdminGroupPreview'
 import ReadingGroupEditor from './editors/ReadingGroupEditor'
 import { Eye, ChevronDown, Volume2, History, BookOpen, Loader2 } from 'lucide-react'
@@ -1045,8 +1044,6 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         showToast('Cập nhật đề thành công!')
         queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
         queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
-        // Log audit vừa ghi ở backend — invalidate để khối "Lịch sử thay đổi" hiện ngay, không đợi hết staleTime.
-        queryClient.invalidateQueries({ queryKey: ['admin', 'auditLogs', 'exam', editingId] })
         pristineFormSigRef.current = normalizeFormForDirtyCheck(form)
         pristineExplanationsRef.current = extractExplanationsMap(form)
         onRefresh()
@@ -1397,12 +1394,6 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
           >
             <ReadingFormPreview form={form} showAnswers={showAnswers} />
           </InlinePreviewPanel>
-        </div>
-      )}
-
-      {editingId && (
-        <div className="mb-6">
-          <ExamAuditHistory examId={editingId} />
         </div>
       )}
 
