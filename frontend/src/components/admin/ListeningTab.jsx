@@ -42,6 +42,7 @@ import {
   executeTimedAIGenerationLoop,
 } from '../../utils/examExplanationUtils'
 import { useExplanationGenerationLock } from '../../hooks/useExplanationGenerationLock'
+import { useAIExitGuard } from '../../hooks/useAIExitGuard'
 import AIGenerationStickyProgress from './AIGenerationStickyProgress'
 import AIGenerationExitConfirmModal from './AIGenerationExitConfirmModal'
 import AIGenerationResumeBanner from './AIGenerationResumeBanner'
@@ -420,6 +421,13 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     onResumeGenerate: (unprocessedNums) => {
       handleGenerateSequentialAll({ questionNumbers: unprocessedNums })
     },
+  })
+
+  // Chặn rời trang (sidebar/tab/link) khi AI đang chạy: mở modal xác nhận thay
+  // vì âm thầm unmount để request tiếp tục ghi dữ liệu ngầm.
+  useAIExitGuard({
+    active: expLock.isGenerating,
+    onBlocked: expLock.openExitConfirm,
   })
 
   // Compare explanations with DB snapshot to detect unsaved changes
@@ -1178,33 +1186,44 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         />
 
         {editingId && (
-          <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-3 mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm font-semibold text-zinc-800">{form.title ? `Đang sửa đề: ${form.title}` : `Đang sửa đề ${editingId}`}</span>
-              <ExamExplanationOverviewBadge stats={examStats} />
+          <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-3 mb-4 flex flex-nowrap items-center justify-between gap-3">
+            <div className="flex flex-nowrap items-center gap-3 min-w-0">
+              <span
+                className="min-w-0 truncate text-sm font-semibold text-zinc-800"
+                title={form.title ? `Đang sửa đề: ${form.title}` : `Đang sửa đề ${editingId}`}
+              >
+                {form.title ? `Đang sửa đề: ${form.title}` : `Đang sửa đề ${editingId}`}
+              </span>
+              <div className="flex shrink-0 items-center gap-2">
+                <ExamExplanationOverviewBadge stats={examStats} />
+              </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               {generatingAI ? (
-                <div className={`flex items-center gap-2 rounded-lg px-2.5 py-1 text-xs border ${
-                  isCancellingAI
-                    ? 'bg-amber-50 border-amber-300 text-amber-900'
-                    : 'bg-zinc-100 border-zinc-300 text-zinc-800'
-                }`}>
-                  <Loader2 className={`w-3.5 h-3.5 animate-spin shrink-0 ${isCancellingAI ? 'text-amber-700' : 'text-zinc-700'}`} />
-                  <span className="font-semibold">
-                    {isCancellingAI ? 'Đang hoàn tất nhóm hiện tại...' : `Đang xử lý ${aiProgress?.groupLabel || '...'}`}
+                <>
+                  <span
+                    className={`inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 text-xs font-medium ${
+                      isCancellingAI
+                        ? 'bg-amber-50 border-amber-300 text-amber-900'
+                        : 'bg-zinc-100 border-zinc-300 text-zinc-800'
+                    }`}
+                    title={isCancellingAI ? 'Đang hoàn tất nhóm hiện tại rồi dừng' : `Đang xử lý ${aiProgress?.groupLabel || '...'}`}
+                    aria-live="polite"
+                  >
+                    <Loader2 className={`w-3.5 h-3.5 animate-spin shrink-0 ${isCancellingAI ? 'text-amber-700' : 'text-zinc-700'}`} />
+                    <span>{isCancellingAI ? 'Đang dừng…' : 'Đang sinh AI…'}</span>
                   </span>
                   {!isCancellingAI && (
                     <button
                       type="button"
                       onClick={handleCancelAI}
-                      className="ml-1 h-6 px-3 rounded-full text-xs font-medium border border-zinc-300 bg-white hover:bg-zinc-50 text-zinc-700 transition cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
+                      className="h-7 px-3 rounded-full text-xs font-medium border border-zinc-300 bg-white hover:bg-zinc-50 text-zinc-700 transition cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
                       title="Hủy giữa chừng (hoàn tất nhóm hiện tại rồi dừng)"
                     >
                       Hủy
                     </button>
                   )}
-                </div>
+                </>
               ) : (
                 <button
                   type="button"
@@ -1220,16 +1239,13 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
               <button
                 type="button"
                 onClick={() => setShowPreview(v => !v)}
-                disabled={expLock.isLockedOperation}
-                title={expLock.isLockedOperation ? "Đang sinh giải thích AI, vui lòng chờ" : undefined}
-                className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 transition shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed">
+                className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 transition shadow-2xs">
                 {showPreview ? 'Ẩn preview' : 'Preview'}
               </button>
               <button
                 type="button"
                 onClick={cancelEdit}
-                disabled={generatingAI || expLock.isLockedOperation}
-                title={expLock.isLockedOperation ? "Đang sinh giải thích AI, vui lòng chờ" : undefined}
+                disabled={generatingAI}
                 className={btnSecondary + ' text-xs disabled:opacity-50 disabled:cursor-not-allowed'}>
                 Hủy sửa
               </button>

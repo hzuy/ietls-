@@ -144,8 +144,14 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
 
     // Verify progress label is displayed during group 1
     await waitFor(() => {
-      expect(screen.getByText(/Đang xử lý nhóm 1\/2/i)).toBeInTheDocument()
+      expect(screen.getByText(/Đang sinh AI/)).toBeInTheDocument()
     })
+
+    // Nhãn nhóm câu chỉ nằm trong tooltip để thanh trạng thái luôn gọn 1 dòng
+    expect(screen.getByText(/Đang sinh AI/).parentElement).toHaveAttribute(
+      'title',
+      expect.stringContaining('Câu 1–2')
+    )
 
     // Verify cancel button is present
     expect(screen.getByRole('button', { name: /^Hủy$/ })).toBeInTheDocument()
@@ -185,16 +191,16 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     fireEvent.click(toolbarAIBtn)
 
     await waitFor(() => {
-      expect(screen.getByText(/Đang xử lý nhóm 1\/2/i)).toBeInTheDocument()
+      expect(screen.getByText(/Đang sinh AI/)).toBeInTheDocument()
     })
 
     // Click Hủy
     const cancelBtn = screen.getByRole('button', { name: /^Hủy$/ })
     fireEvent.click(cancelBtn)
 
-    // Displays "Đang hoàn tất nhóm hiện tại..." until in-flight finishes
+    // Displays "Đang dừng…" until in-flight finishes
     await waitFor(() => {
-      expect(screen.getByText('Đang hoàn tất nhóm hiện tại...')).toBeInTheDocument()
+      expect(screen.getAllByText(/Đang dừng/).length).toBeGreaterThan(0)
     })
 
     // Now resolve in-flight group 201
@@ -202,7 +208,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
 
     // UI returns to idle and group 202 was NEVER called!
     await waitFor(() => {
-      expect(screen.queryByText('Đang hoàn tất nhóm hiện tại...')).not.toBeInTheDocument()
+      expect(screen.queryAllByText(/Đang dừng/)).toHaveLength(0)
     })
     expect(api.post).not.toHaveBeenCalledWith(
       expect.stringContaining('/groups/202/'),
@@ -231,7 +237,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     fireEvent.click(toolbarAIBtn)
 
     await waitFor(() => {
-      expect(screen.getByText(/Đang xử lý nhóm 1\/2/i)).toBeInTheDocument()
+      expect(screen.getByText(/Đang sinh AI/)).toBeInTheDocument()
     })
 
     // "Hủy sửa" button must be disabled

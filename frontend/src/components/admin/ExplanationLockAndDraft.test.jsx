@@ -107,6 +107,22 @@ describe('Explanation Lock, Safe Exit, Resume Banner, and Smart Draft Merge', ()
       expect(screen.getByText(/Các nút thao tác đang được tạm khóa để tránh xung đột dữ liệu/i)).toBeInTheDocument()
     })
 
+    it('Trường hợp 1b: banner running hiển thị thanh tiến độ theo số câu đã xong', () => {
+      render(
+        <AIGenerationResumeBanner
+          banner={{
+            variant: 'running',
+            current: 3,
+            total: 10,
+            message: 'Đang có tiến trình sinh AI cho bài này (3/10 câu đã hoàn tất)...',
+          }}
+        />
+      )
+      const bar = screen.getByRole('progressbar', { name: /Tiến độ sinh giải thích AI/i })
+      expect(bar).toHaveAttribute('aria-valuenow', '30')
+      expect(screen.getByText(/đã xong 30%/i)).toBeInTheDocument()
+    })
+
     it('Trường hợp 2: Lần sinh trước chưa hoàn tất có bằng chứng (interrupted)', () => {
       const onAction = vi.fn()
       render(

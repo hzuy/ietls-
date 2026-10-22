@@ -15,7 +15,7 @@ export default function AIGenerationResumeBanner({
 }) {
   if (!banner) return null
 
-  const { variant, title, message, actionLabel, onAction, onDismiss } = banner
+  const { variant, title, message, actionLabel, onAction, onDismiss, current, total } = banner
 
   if (variant === 'checking') {
     return (
@@ -30,20 +30,38 @@ export default function AIGenerationResumeBanner({
   }
 
   if (variant === 'running') {
+    const doneCount = Number(current) || 0
+    const totalCount = Number(total) || 0
+    const pct = totalCount > 0 ? Math.min(100, Math.round((doneCount / totalCount) * 100)) : null
+
     return (
       <div
         data-testid="ai-resume-banner-running"
-        className={`bg-sky-50 border border-sky-200 rounded-xl p-3.5 mb-4 flex items-center justify-between gap-3 text-xs text-sky-900 ${className}`}
+        className={`bg-sky-50 border border-sky-200 rounded-xl p-3.5 mb-4 flex flex-col gap-2.5 text-xs text-sky-900 ${className}`}
       >
-        <div className="flex items-center gap-2.5 min-w-0">
-          <Loader2 className="w-4 h-4 animate-spin text-sky-600 shrink-0" />
-          <div className="min-w-0">
+        <div className="flex items-start gap-2.5 min-w-0">
+          <Loader2 className="w-4 h-4 animate-spin text-sky-600 shrink-0 mt-0.5" />
+          <div className="min-w-0 flex-1">
             <span className="font-semibold">{message}</span>
             <p className="text-[11px] text-sky-700 mt-0.5">
-              Các nút thao tác đang được tạm khóa để tránh xung đột dữ liệu.
+              Các nút thao tác đang được tạm khóa để tránh xung đột dữ liệu (trừ Preview/Hủy sửa).
+              Trạng thái tự cập nhật{pct !== null ? ` — đã xong ${pct}%.` : '.'}
             </p>
           </div>
         </div>
+
+        {pct !== null && (
+          <div
+            className="h-1.5 w-full rounded-full bg-sky-100 overflow-hidden"
+            role="progressbar"
+            aria-valuenow={pct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Tiến độ sinh giải thích AI"
+          >
+            <div className="h-full rounded-full bg-sky-500 transition-all duration-500" style={{ width: `${pct}%` }} />
+          </div>
+        )}
       </div>
     )
   }

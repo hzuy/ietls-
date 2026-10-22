@@ -70,4 +70,57 @@ describe('useExplanationGenerationLock — banner nháp/bằng chứng không b�
     expect(localStorage.getItem(EVIDENCE_KEY)).not.toBeNull()
     expect(result.current.resumeBanner?.variant).toBe('interrupted')
   })
+
+  it('khi vào lại lúc server đang chạy: banner running có tiến độ và tự mở khóa sau khi server xong', async () => {
+    const locked = {
+      isLocked: true,
+      generatedCount: 3,
+      totalQuestions: 10,
+      unprocessedCount: 7,
+      unprocessedQuestionNumbers: [4, 5, 6, 7, 8, 9, 10],
+    }
+    const unlocked = {
+      isLocked: false,
+      generatedCount: 10,
+      totalQuestions: 10,
+      unprocessedCount: 0,
+      unprocessedQuestionNumbers: [],
+    }
+    let currentStatus = locked
+    api.get.mockImplementation(() => Promise.resolve({ data: currentStatus }))
+
+    const { result } = renderHook(() =>
+      useExplanationGenerationLock({ examId: 1, type: 'exam', skill: 'reading' })
+    )
+
+    await waitFor(() => expect(result.current.isServerRunning).toBe(true))
+    expect(result.current.resumeBanner).toMatchObject({ variant: 'running', current: 3, total: 10 })
+
+    // Server hoàn tất → polling (50ms trong test env) thấy khóa đã nhả và mở
+    // khóa nút ngay, không cần F5.
+    currentStatus = unlocked
+    await waitFor(() => expect(result.current.isServerRunning).toBe(false), { timeout: 2000 })
+    expect(result.current.isLockedOperation).toBe(false)
+  })
+
+  it('abort request sinh AI đang chạy và dọn heartbeat khi component unmount', async () => {
+    const { result, unmount } = renderHook(() =>
+      useExplanationGenerationLock({ examId: 1, type: 'exam', skill: 'reading' })
+    )
+    await waitFor(() => expect(result.current.isCheckingStatus).toBe(false))
+
+    const controller = new AbortController()
+    await act(async () => {
+      await result.current.startLocalGeneration({ abortController: controller, total: 10, current: 0 })
+    })
+
+    expect(controller.signal.aborted).toBe(false)
+    expect(localStorage.getItem('ai_exp_active_exam_1')).not.toBeNull()
+
+    unmount()
+
+    // Rời trang khi AI còn chạy: request bị abort để server dừng ghi và nhả khóa
+    expect(controller.signal.aborted).toBe(true)
+    expect(localStorage.getItem('ai_exp_active_exam_1')).toBeNull()
+  })
 })

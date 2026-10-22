@@ -257,7 +257,57 @@ export function useExplanationGenerationLock({
     }
   }, [isTargetValid, type, numericId, fetchServerStatus, checkBrowserConcurrency])
 
+  // Khi server báo đang có tiến trình sinh AI (ví dụ vào lại trang sau khi rời
+  // đi giữa chừng), tự động hỏi lại trạng thái định kỳ để:
+  // - cập nhật số câu đã xong trên banner,
+  // - tự mở khóa các nút ngay khi server hoàn tất / hết TTL khóa (180s),
+  // thay vì bắt người dùng F5 mới thấy trạng thái mới.
+  useEffect(() => {
+    if (!isTargetValid || !isServerRunning) return
+
+    const isTestEnv = typeof process !== 'undefined' && process.env?.NODE_ENV === 'test'
+    const intervalMs = isTestEnv ? 50 : 4000
+    let cancelled = false
+
+    const timer = setInterval(async () => {
+      const status = await fetchServerStatus()
+      if (cancelled || !status) return
+      setServerStatus(status)
+      setIsServerRunning(Boolean(status.isLocked))
+    }, intervalMs)
+
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [isTargetValid, isServerRunning, fetchServerStatus])
+
   // ── 3. LOCAL GENERATION LIFECYCLE MANAGERS ─────────────────────────────────
+
+  // Khi component bị unmount giữa lúc đang sinh (chuyển trang, back trình duyệt,
+  // đóng tab SPA…), abort request để server dừng ghi dữ liệu và nhả khóa ngay,
+  // đồng thời dọn heartbeat để tab khác không thấy "đang chạy" treo.
+  const lockKeyRef = useRef(lockKey)
+  const storageActiveKeyRef = useRef(storageActiveKey)
+  lockKeyRef.current = lockKey
+  storageActiveKeyRef.current = storageActiveKey
+
+  useEffect(() => () => {
+    const controller = abortControllerRef.current
+    if (!controller) return
+    abortControllerRef.current = null
+    try { controller.abort() } catch {}
+    try { localStorage.removeItem(storageActiveKeyRef.current) } catch {}
+    try { webLockReleaseRef.current?.() } catch {}
+    webLockReleaseRef.current = null
+    try {
+      broadcastChannelRef.current?.postMessage({
+        type: 'AI_GEN_STOPPED',
+        targetKey: lockKeyRef.current,
+      })
+    } catch {}
+  }, [])
+
 
   const broadcastMessage = useCallback((type, data = {}) => {
     try {
@@ -505,11 +555,17 @@ export function useExplanationGenerationLock({
 
     // 2. Active running banner (either in browser or on server)
     if (isBrowserRunning || isServerRunning) {
-      const p = browserProgress || (serverStatus ? { current: serverStatus.generatedCount, total: serverStatus.totalQuestions } : null)
+      // Ưu tiên số liệu server khi server đang giữ khóa: số câu đã ghi vào DB là
+      // chính xác nhất (heartbeat localStorage có thể còn sót từ tab vừa đóng).
+      const p = (isServerRunning && serverStatus)
+        ? { current: serverStatus.generatedCount, total: serverStatus.totalQuestions }
+        : browserProgress
       const current = p?.current || 0
       const total = p?.total || 0
       return {
         variant: 'running',
+        current,
+        total,
         message: total > 0
           ? `Đang có tiến trình sinh AI cho bài này (${current}/${total} câu đã hoàn tất)...`
           : 'Đang có tiến trình sinh AI cho bài này...',
