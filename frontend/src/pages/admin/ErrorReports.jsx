@@ -3,18 +3,19 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  Filter,
   Image as ImageIcon,
-  ExternalLink,
   Loader2,
   RefreshCw,
-  Search,
   MapPin,
   User,
   X,
 } from 'lucide-react'
 import api from '../../utils/axios'
 import { useToast } from '../../context/ToastContext'
+import Pagination from '../../components/admin/Pagination'
+import { ADMIN_SKILL_COLORS, SKILL_LABEL } from '../../utils/adminSkillColors'
+
+const PAGE_SIZE = 15
 
 const ISSUE_LABELS = {
   content_wrong: { label: 'Đáp án sai', color: 'bg-red-50 text-red-700 border-red-200' },
@@ -22,6 +23,70 @@ const ISSUE_LABELS = {
   lost_work: { label: 'Mất bài làm', color: 'bg-amber-50 text-amber-700 border-amber-200' },
   slow_hang: { label: 'Tải chậm / Treo', color: 'bg-orange-50 text-orange-700 border-orange-200' },
   other: { label: 'Khác', color: 'bg-zinc-100 text-zinc-700 border-zinc-200' },
+}
+
+// Writing/Speaking trước đây không có trong bộ lọc dù học viên đã gửi được
+// (WritingExam/SpeakingExam truyền skill tương ứng) → bổ sung cho đủ 4 kỹ năng
+// + "Chung" (báo lỗi không gắn với đề cụ thể) đúng với ALLOWED_SKILLS ở backend.
+const SKILL_OPTIONS = [
+  { id: '', label: 'Tất cả' },
+  { id: 'reading', label: SKILL_LABEL.reading },
+  { id: 'listening', label: SKILL_LABEL.listening },
+  { id: 'writing', label: SKILL_LABEL.writing },
+  { id: 'speaking', label: SKILL_LABEL.speaking },
+  { id: 'general', label: 'Chung' },
+]
+
+const STATUS_OPTIONS = [
+  { id: '', label: 'Tất cả' },
+  { id: 'pending', label: 'Chờ xử lý' },
+  { id: 'resolved', label: 'Đã giải quyết' },
+  { id: 'dismissed', label: 'Bỏ qua' },
+]
+
+const pillGroupCls = 'inline-flex flex-wrap items-center gap-0.5 bg-zinc-100 p-1 rounded-full'
+const pillCls = (active) =>
+  `h-7 px-3 rounded-full text-xs font-medium transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 ${
+    active ? 'bg-white text-zinc-900 shadow-2xs' : 'text-zinc-500 hover:text-zinc-900'
+  }`
+
+function SkillBadge({ skill }) {
+  const meta = ADMIN_SKILL_COLORS[skill]
+  const label = SKILL_LABEL[skill] || (skill === 'general' ? 'Chung' : skill)
+  if (!label) return null
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border ${
+        meta ? '' : 'bg-zinc-100 text-zinc-700 border-zinc-200'
+      }`}
+      style={meta ? { background: meta.bg, color: meta.text, borderColor: `${meta.base}33` } : undefined}
+    >
+      {meta && <span className="w-1.5 h-1.5 rounded-full" style={{ background: meta.base }} aria-hidden="true" />}
+      {label}
+    </span>
+  )
+}
+
+function StatusPill({ status }) {
+  if (status === 'resolved') {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+        <CheckCircle2 className="w-3 h-3" /> Đã giải quyết
+      </span>
+    )
+  }
+  if (status === 'dismissed') {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-100 text-zinc-500 border border-zinc-200 whitespace-nowrap">
+        <XCircle className="w-3 h-3" /> Đã bỏ qua
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200 whitespace-nowrap">
+      <Clock className="w-3 h-3" /> Chờ xử lý
+    </span>
+  )
 }
 
 export default function ErrorReports() {
@@ -38,7 +103,7 @@ export default function ErrorReports() {
   const fetchReports = useCallback(async () => {
     setLoading(true)
     try {
-      const params = { page, limit: 15 }
+      const params = { page, limit: PAGE_SIZE }
       if (statusFilter) params.status = statusFilter
       if (skillFilter) params.skill = skillFilter
 
@@ -69,14 +134,23 @@ export default function ErrorReports() {
     }
   }
 
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-6 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-xl font-bold text-zinc-900 tracking-tight mb-1">Phản hồi & Báo lỗi từ học viên</h1>
-          <p className="text-xs sm:text-sm text-zinc-500">
-            Theo dõi, phân loại và xử lý các phản hồi về câu hỏi, đề thi hoặc lỗi giao diện.
+          <h1 className="text-xl font-semibold text-zinc-900 tracking-tight flex items-center gap-2.5 whitespace-nowrap">
+            Báo lỗi đề thi
+            {total > 0 && (
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200">
+                {total} báo lỗi
+              </span>
+            )}
+          </h1>
+          <p className="text-xs text-zinc-500 mt-1">
+            Theo dõi và xử lý báo lỗi học viên gửi từ đề Reading, Listening, Writing và Speaking.
           </p>
         </div>
 
@@ -84,7 +158,7 @@ export default function ErrorReports() {
           type="button"
           onClick={fetchReports}
           disabled={loading}
-          className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 text-xs font-semibold shadow-2xs transition cursor-pointer"
+          className="self-start sm:self-auto h-9 px-4 whitespace-nowrap rounded-full border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 text-xs font-medium inline-flex items-center gap-2 shadow-2xs transition disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 cursor-pointer"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           Làm mới
@@ -92,75 +166,71 @@ export default function ErrorReports() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2 bg-white p-3 rounded-2xl border border-zinc-200 shadow-xs">
-        <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5 px-2">
-          <Filter className="w-3.5 h-3.5" /> Bộ lọc:
-        </span>
+      <div className="bg-white rounded-2xl border border-zinc-200 p-4 sm:p-5 shadow-xs mb-6">
+        <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
+          <div>
+            <p className="text-[11px] font-medium text-zinc-500 mb-1.5">Trạng thái</p>
+            <div className={pillGroupCls + ' max-w-full'}>
+              {STATUS_OPTIONS.map(s => (
+                <button
+                  key={s.id || 'all'}
+                  type="button"
+                  onClick={() => { setStatusFilter(s.id); setPage(1) }}
+                  aria-pressed={statusFilter === s.id}
+                  className={pillCls(statusFilter === s.id)}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-        {/* Status filters */}
-        <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-xl">
-          {[
-            { id: '', label: 'Tất cả' },
-            { id: 'pending', label: 'Chờ xử lý' },
-            { id: 'resolved', label: 'Đã giải quyết' },
-            { id: 'dismissed', label: 'Bỏ qua' },
-          ].map(s => (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => { setStatusFilter(s.id); setPage(1) }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                statusFilter === s.id
-                  ? 'bg-white text-zinc-900 shadow-2xs'
-                  : 'text-zinc-500 hover:text-zinc-900'
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
+          <div>
+            <p className="text-[11px] font-medium text-zinc-500 mb-1.5">Kỹ năng</p>
+            <div className={pillGroupCls + ' max-w-full'}>
+              {SKILL_OPTIONS.map(sk => (
+                <button
+                  key={sk.id || 'all-skills'}
+                  type="button"
+                  onClick={() => { setSkillFilter(sk.id); setPage(1) }}
+                  aria-pressed={skillFilter === sk.id}
+                  className={pillCls(skillFilter === sk.id)}
+                >
+                  {sk.id && ADMIN_SKILL_COLORS[sk.id] && (
+                    <span
+                      className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle"
+                      style={{ background: ADMIN_SKILL_COLORS[sk.id].base }}
+                      aria-hidden="true"
+                    />
+                  )}
+                  {sk.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <span className="ml-auto text-xs font-medium text-zinc-400 tabular-nums pb-1.5">
+            Tổng cộng: <strong className="text-zinc-600">{total}</strong> báo lỗi
+          </span>
         </div>
-
-        {/* Skill filters */}
-        <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-xl">
-          {[
-            { id: '', label: 'Mọi kỹ năng' },
-            { id: 'reading', label: 'Reading' },
-            { id: 'listening', label: 'Listening' },
-          ].map(sk => (
-            <button
-              key={sk.id}
-              type="button"
-              onClick={() => { setSkillFilter(sk.id); setPage(1) }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                skillFilter === sk.id
-                  ? 'bg-white text-zinc-900 shadow-2xs'
-                  : 'text-zinc-500 hover:text-zinc-900'
-              }`}
-            >
-              {sk.label}
-            </button>
-          ))}
-        </div>
-
-        <span className="ml-auto text-xs font-medium text-zinc-400 tabular-nums px-2">
-          Tổng cộng: <strong>{total}</strong> báo lỗi
-        </span>
       </div>
 
       {/* List */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center p-16 bg-white rounded-3xl border border-zinc-200">
-          <Loader2 className="w-8 h-8 text-blue-600 animate-spin mb-3" />
-          <p className="text-sm text-zinc-500">Đang tải danh sách báo lỗi...</p>
+        <div className="flex flex-col items-center justify-center p-16 bg-white rounded-2xl border border-zinc-200">
+          <Loader2 className="w-7 h-7 text-zinc-400 animate-spin mb-3" />
+          <p className="text-xs text-zinc-500">Đang tải danh sách báo lỗi...</p>
         </div>
       ) : reports.length === 0 ? (
-        <div className="p-16 text-center bg-white rounded-3xl border border-dashed border-zinc-300">
-          <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-3" />
-          <h3 className="text-base font-bold text-zinc-800 mb-1">Không có báo lỗi nào</h3>
-          <p className="text-xs text-zinc-400">Tất cả các báo lỗi đã được xử lý hoặc không khớp bộ lọc.</p>
+        <div className="min-h-[300px] flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 bg-white/50 p-8 text-center">
+          <div className="w-12 h-12 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-400 mb-3">
+            <CheckCircle2 size={20} strokeWidth={1.5} />
+          </div>
+          <p className="text-sm font-medium text-zinc-900">Không có báo lỗi nào</p>
+          <p className="text-xs text-zinc-500 mt-1">Tất cả báo lỗi đã được xử lý hoặc không khớp bộ lọc.</p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {reports.map((report) => {
             const meta = ISSUE_LABELS[report.issueType] || ISSUE_LABELS.other
             const isResolved = report.status === 'resolved'
@@ -168,88 +238,68 @@ export default function ErrorReports() {
             const isBusy = updatingId === report.id
 
             return (
-              <div
+              <article
                 key={report.id}
-                className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-xs hover:border-zinc-300 transition-all flex flex-col gap-4"
+                className="bg-white border border-zinc-200 rounded-2xl p-4 sm:p-5 shadow-xs hover:border-zinc-300 transition-colors"
               >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${meta.color}`}>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2 min-w-0">
+                    <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${meta.color}`}>
                       {meta.label}
                     </span>
-
-                    <span className="uppercase text-[11px] font-bold text-zinc-500 bg-zinc-100 px-2 py-0.5 rounded-md">
-                      {report.skill}
-                    </span>
-
-                    <span className="text-xs text-zinc-400 tabular-nums">
-                      {new Date(report.createdAt).toLocaleString('vi-VN')}
+                    <SkillBadge skill={report.skill} />
+                    <span className="text-[11px] text-zinc-400 tabular-nums">
+                      {new Date(report.createdAt).toLocaleString('vi-VN', {
+                        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+                      })}
                     </span>
                   </div>
 
-                  {/* Status pill */}
-                  <div>
-                    {isResolved ? (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Đã giải quyết
-                      </span>
-                    ) : isDismissed ? (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-zinc-100 text-zinc-500 border border-zinc-200">
-                        <XCircle className="w-3.5 h-3.5" /> Đã bỏ qua
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 animate-pulse">
-                        <Clock className="w-3.5 h-3.5" /> Chờ xử lý
-                      </span>
-                    )}
-                  </div>
+                  <StatusPill status={report.status} />
                 </div>
 
-                {/* Location and User Info */}
-                <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-600 bg-zinc-50/80 p-3 rounded-xl border border-zinc-100">
+                {/* Vị trí + người gửi */}
+                <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-zinc-600 bg-zinc-50 border border-zinc-100 rounded-xl px-3 py-2">
                   {report.location && (
-                    <div className="flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-zinc-400" />
-                      <strong className="text-zinc-800">{report.location}</strong>
-                    </div>
+                    <span className="inline-flex items-center gap-1.5 min-w-0">
+                      <MapPin className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                      <span className="text-zinc-800 font-medium truncate">{report.location}</span>
+                    </span>
                   )}
-
-                  <div className="flex items-center gap-1.5">
-                    <User className="w-3.5 h-3.5 text-zinc-400" />
-                    <span>Người gửi: </span>
-                    <strong className="text-zinc-800">
+                  <span className="inline-flex items-center gap-1.5 min-w-0">
+                    <User className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                    <span className="truncate">
                       {report.user ? `${report.user.name} (${report.user.email})` : 'Khách vãng lai'}
-                    </strong>
-                  </div>
+                    </span>
+                  </span>
                 </div>
 
-                {/* Description Body */}
-                <div className="text-sm text-zinc-800 leading-relaxed whitespace-pre-wrap bg-white p-1">
+                <p className="mt-3 text-sm text-zinc-800 leading-relaxed whitespace-pre-wrap break-words">
                   {report.description}
-                </div>
+                </p>
 
-                {/* Attached Screenshot */}
-                {report.imageUrl && (
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedImage(report.imageUrl)}
-                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 text-xs font-medium text-zinc-700 transition cursor-pointer"
-                    >
-                      <ImageIcon className="w-3.5 h-3.5 text-blue-600" />
-                      Xem ảnh đính kèm
-                    </button>
-                  </div>
+                {report.adminNote && (
+                  <p className="mt-2 text-xs text-zinc-500 italic">Ghi chú xử lý: {report.adminNote}</p>
                 )}
 
-                {/* Actions */}
-                <div className="pt-2 border-t border-zinc-100 flex items-center justify-end gap-2.5">
+                {report.imageUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedImage(report.imageUrl)}
+                    className="mt-3 inline-flex items-center gap-2 h-8 px-3 rounded-full border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700 transition shadow-2xs cursor-pointer"
+                  >
+                    <ImageIcon className="w-3.5 h-3.5 text-zinc-500" />
+                    Xem ảnh đính kèm
+                  </button>
+                )}
+
+                <div className="mt-4 pt-3 border-t border-zinc-100 flex flex-wrap items-center justify-end gap-2">
                   {!isResolved && (
                     <button
                       type="button"
                       disabled={isBusy}
                       onClick={() => handleUpdateStatus(report.id, 'resolved')}
-                      className="px-4 py-1.5 rounded-full text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      className="h-8 px-3.5 rounded-full text-xs font-medium bg-zinc-900 text-white hover:bg-zinc-800 transition shadow-2xs inline-flex items-center gap-1.5 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 cursor-pointer whitespace-nowrap"
                     >
                       {isBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                       Đánh dấu đã sửa
@@ -261,7 +311,7 @@ export default function ErrorReports() {
                       type="button"
                       disabled={isBusy}
                       onClick={() => handleUpdateStatus(report.id, 'dismissed')}
-                      className="px-4 py-1.5 rounded-full text-xs font-semibold text-zinc-600 border border-zinc-200 hover:bg-zinc-100 transition cursor-pointer disabled:opacity-50"
+                      className="h-8 px-3.5 rounded-full text-xs font-medium text-zinc-700 border border-zinc-200 bg-white hover:bg-zinc-50 transition shadow-2xs disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 cursor-pointer whitespace-nowrap"
                     >
                       Bỏ qua
                     </button>
@@ -272,15 +322,28 @@ export default function ErrorReports() {
                       type="button"
                       disabled={isBusy}
                       onClick={() => handleUpdateStatus(report.id, 'pending')}
-                      className="px-3.5 py-1.5 rounded-full text-xs font-semibold text-zinc-500 hover:text-zinc-900 transition cursor-pointer"
+                      className="h-8 px-3 rounded-full text-xs font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50 transition disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 cursor-pointer whitespace-nowrap"
                     >
                       Mở lại
                     </button>
                   )}
                 </div>
-              </div>
+              </article>
             )
           })}
+        </div>
+      )}
+
+      {/* Pagination — trước đây chỉ tải 15 báo lỗi đầu tiên và không có cách xem tiếp */}
+      {!loading && total > PAGE_SIZE && (
+        <div className="mt-4 bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
+          <Pagination
+            page={page}
+            pages={pages}
+            onChange={setPage}
+            disabled={loading}
+            summary={`${total} báo lỗi · Trang ${page} / ${pages}`}
+          />
         </div>
       )}
 
@@ -289,18 +352,22 @@ export default function ErrorReports() {
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-200"
           onClick={() => setSelectedImage(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Ảnh đính kèm báo lỗi"
         >
           <div className="relative max-w-4xl max-h-[90vh] bg-transparent flex flex-col items-center">
             <button
               type="button"
               onClick={() => setSelectedImage(null)}
               className="absolute -top-10 right-0 text-white hover:text-zinc-300 transition p-2 cursor-pointer"
+              aria-label="Đóng ảnh"
             >
               <X className="w-6 h-6" />
             </button>
             <img
               src={selectedImage}
-              alt="Screenshot full"
+              alt="Ảnh đính kèm báo lỗi"
               className="max-h-[85vh] max-w-full object-contain rounded-2xl shadow-2xl"
             />
           </div>
