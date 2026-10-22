@@ -3,6 +3,7 @@ const multer = require('multer')
 const path = require('path')
 const fs = require('fs')
 const authMiddleware = require('../middleware/auth')
+const { aiExplanationLimiter } = require('../middleware/rateLimiter')
 const validate = require('../middleware/validate')
 const prisma = require('../lib/prisma')
 const { invalidate } = require('../lib/swrCache')
@@ -604,7 +605,7 @@ router.get('/admin/:skill/:id/explanation-status', authMiddleware, teacherStrict
 })
 
 // ─── ADMIN: generate AI explanations with conflict detection ──────────────────
-router.post('/admin/:skill/:id/generate-explanations', authMiddleware, teacherStrict, async (req, res) => {
+router.post('/admin/:skill/:id/generate-explanations', authMiddleware, teacherStrict, aiExplanationLimiter, async (req, res) => {
   const { id } = req.params
   const { force = false, resolveChoices = {}, overwriteProtected = false, questionNumbers = null, timeBudgetMs = null } = req.body || {}
   const practiceId = parseInt(id, 10)
@@ -642,7 +643,7 @@ router.post('/admin/:skill/:id/generate-explanations', authMiddleware, teacherSt
 })
 
 // ─── ADMIN: regenerate single question explanation with teacher feedback ─────────
-router.post('/admin/:skill/:id/questions/:qNum/regenerate-explanation', authMiddleware, teacherStrict, async (req, res) => {
+router.post('/admin/:skill/:id/questions/:qNum/regenerate-explanation', authMiddleware, teacherStrict, aiExplanationLimiter, async (req, res) => {
   const { skill, id, qNum } = req.params
   const { teacherFeedback, proposedAnswer, confirmChangeAnswer } = req.body || {}
   const practiceId = parseInt(id, 10)

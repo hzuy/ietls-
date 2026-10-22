@@ -3,6 +3,7 @@ const rateLimit = require('express-rate-limit')
 const DEFAULT_WINDOW_MS = (parseInt(process.env.RATE_LIMIT_WINDOW_MINUTES) || 15) * 60 * 1000
 const DEFAULT_OBJECTIVE_MAX = parseInt(process.env.RATE_LIMIT_SUBMIT_OBJECTIVE_MAX) || 20
 const DEFAULT_AI_MAX = parseInt(process.env.RATE_LIMIT_SUBMIT_AI_MAX) || 10
+const DEFAULT_AI_EXPLANATION_MAX = parseInt(process.env.RATE_LIMIT_AI_EXPLANATION_MAX) || 30
 
 /**
  * Key generator distinguishing by authenticated userId when available,
@@ -74,6 +75,15 @@ const aiSubmitLimiter = createSubmitRateLimiter({
   message: 'Bạn đã gửi yêu cầu chấm điểm AI quá giới hạn. Vui lòng thử lại sau 15 phút.',
 })
 
+// ── Rate limiter cho endpoint sinh/AI giải thích (admin exam + practice) ─────
+// Mặc định: tối đa 30 lượt / user trong 15 phút. Tách riêng khỏi quota nộp bài
+// để 1 tài khoản không spam sinh giải thích làm cạn quota Gemini.
+const aiExplanationLimiter = createSubmitRateLimiter({
+  windowMs: DEFAULT_WINDOW_MS,
+  max: DEFAULT_AI_EXPLANATION_MAX,
+  message: 'Bạn đã yêu cầu AI giải thích quá giới hạn. Vui lòng thử lại sau 15 phút.',
+})
+
 const authLimiter = createSubmitRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -95,8 +105,10 @@ module.exports = {
   clientIpKey,
   objectiveSubmitLimiter,
   aiSubmitLimiter,
+  aiExplanationLimiter,
   defaultKeyGenerator,
   DEFAULT_WINDOW_MS,
   DEFAULT_OBJECTIVE_MAX,
   DEFAULT_AI_MAX,
+  DEFAULT_AI_EXPLANATION_MAX,
 }

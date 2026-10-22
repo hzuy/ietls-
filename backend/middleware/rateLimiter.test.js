@@ -5,9 +5,11 @@ const {
   createSubmitRateLimiter,
   objectiveSubmitLimiter,
   aiSubmitLimiter,
+  aiExplanationLimiter,
   defaultKeyGenerator,
   DEFAULT_OBJECTIVE_MAX,
   DEFAULT_AI_MAX,
+  DEFAULT_AI_EXPLANATION_MAX,
 } = require('./rateLimiter')
 
 describe('Rate Limiter Middleware', () => {
@@ -109,6 +111,26 @@ describe('Rate Limiter Middleware', () => {
     it('aiSubmitLimiter has default limit 10 and Vietnamese message', () => {
       expect(DEFAULT_AI_MAX).toBe(10)
       expect(typeof aiSubmitLimiter).toBe('function')
+    })
+
+    it('aiExplanationLimiter mặc định 30 lượt/15 phút cho endpoint sinh giải thích', () => {
+      expect(DEFAULT_AI_EXPLANATION_MAX).toBe(30)
+      expect(typeof aiExplanationLimiter).toBe('function')
+    })
+
+    it('aiExplanationLimiter trả 429 với thông báo tiếng Việt khi vượt giới hạn', async () => {
+      const app = express()
+      const limiter = createSubmitRateLimiter({
+        max: 1,
+        message: 'Bạn đã yêu cầu AI giải thích quá giới hạn. Vui lòng thử lại sau 15 phút.',
+        skip: () => false,
+      })
+      app.post('/explain', limiter, (req, res) => res.json({ ok: true }))
+
+      await request(app).post('/explain')
+      const blocked = await request(app).post('/explain')
+      expect(blocked.status).toBe(429)
+      expect(blocked.body.message).toContain('yêu cầu AI giải thích quá giới hạn')
     })
 
     it('responds with friendly Vietnamese message on 429 for objectiveSubmitLimiter', async () => {

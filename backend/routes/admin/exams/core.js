@@ -5,6 +5,7 @@ const prisma = require('../../../lib/prisma')
 const authMiddleware = require('../../../middleware/auth')
 const validate = require('../../../middleware/validate')
 const { teacherOnly } = require('../../../lib/roles')
+const { aiExplanationLimiter } = require('../../../middleware/rateLimiter')
 const { updateExamSchema } = require('../../../validators/adminExamValidator')
 const { invalidate } = require('../../../lib/swrCache')
 const { invalidateExamCaches } = require('../../../utils/cache')
@@ -124,7 +125,7 @@ router.get('/exams/:id/explanation-status', authMiddleware, teacherOnly, async (
 })
 
 // ─── ADMIN: GENERATE EXPLANATIONS FOR EXAM WITH CONFLICT DETECTION ──────────
-router.post('/exams/:id/generate-explanations', authMiddleware, teacherOnly, async (req, res) => {
+router.post('/exams/:id/generate-explanations', authMiddleware, teacherOnly, aiExplanationLimiter, async (req, res) => {
   const { id } = req.params
   const { force = false, resolveChoices = {}, overwriteProtected = false, questionNumbers = null, timeBudgetMs = null } = req.body || {}
   const examIdNum = parseInt(id, 10)
@@ -162,7 +163,7 @@ router.post('/exams/:id/generate-explanations', authMiddleware, teacherOnly, asy
 })
 
 // ─── ADMIN: GENERATE EXPLANATIONS FOR SINGLE QUESTION GROUP ─────────────────
-router.post('/exams/:id/groups/:groupId/generate-explanations', authMiddleware, teacherOnly, async (req, res) => {
+router.post('/exams/:id/groups/:groupId/generate-explanations', authMiddleware, teacherOnly, aiExplanationLimiter, async (req, res) => {
   const { id, groupId } = req.params
   const { force = false, resolveChoices = {}, overwriteProtected = false, questionNumbers = null, timeBudgetMs = null } = req.body || {}
   const examIdNum = parseInt(id, 10)
@@ -202,7 +203,7 @@ router.post('/exams/:id/groups/:groupId/generate-explanations', authMiddleware, 
 })
 
 // ─── ADMIN: REGENERATE SINGLE QUESTION EXPLANATION WITH TEACHER FEEDBACK ───
-router.post('/exams/:id/questions/:qId/regenerate-explanation', authMiddleware, teacherOnly, async (req, res) => {
+router.post('/exams/:id/questions/:qId/regenerate-explanation', authMiddleware, teacherOnly, aiExplanationLimiter, async (req, res) => {
   const { id, qId } = req.params
   const { teacherFeedback, proposedAnswer, confirmChangeAnswer } = req.body || {}
   const examIdNum = parseInt(id, 10)
