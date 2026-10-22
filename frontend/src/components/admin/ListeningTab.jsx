@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { queryClient } from '../../lib/queryClient'
 import api from '../../utils/axios'
 import { showAlert } from '../../utils/alertUtils'
+import { useToast } from '../../context/ToastContext'
 import { validateExamListening, formatValidationAlert } from '../../utils/questionValidation'
 import { notifyTrashChanged } from '../../services/adminService'
 import { validateAudioFile } from '../../utils/fileValidation'
@@ -373,6 +374,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   const [showPreview, setShowPreview] = useState(false)
   const [showAnswers, setShowAnswers] = useState(false)
   const [toast, setToast] = useState('')
+  const { showToast: showGlobalToast } = useToast()
   const [draftBanner, setDraftBanner] = useState(null)
   const [editHighlight, setEditHighlight] = useState(false)
   const [generatingAI, setGeneratingAI] = useState(false)
@@ -604,7 +606,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       })
 
       if (loopResult.cancelled) {
-        showToast('Đã dừng tác vụ sinh AI. Các câu đã xong đã được lưu lại.')
+        showGlobalToast('Đã dừng tác vụ sinh AI. Các câu đã xong đã được lưu lại.', 'info')
       } else if (loopResult.hasConflicts) {
         setAiConflicts(loopResult.conflicts || [])
         setConflictModalOpen(true)
@@ -796,7 +798,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     onRefresh()
 
     if (wasAborted) {
-      showToast('Đã dừng tác vụ sinh AI. Nhóm đang chạy đã được hoàn tất và lưu lại.')
+      showGlobalToast('Đã dừng tác vụ sinh AI. Các câu đã xong đã được lưu lại.', 'info')
     } else if (failedGroups.length > 0) {
       showAlert(
         `Đã hoàn thành ${allGroups.length - failedGroups.length}/${allGroups.length} nhóm. Các nhóm gặp lỗi: ${failedGroups.map(f => `Câu ${f.group.qNumberStart}-${f.group.qNumberEnd}`).join(', ')}. Bạn có thể bấm "Sinh AI nhóm này" để thử lại.`,
