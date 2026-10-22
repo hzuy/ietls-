@@ -3,7 +3,7 @@ const { sendServerError } = require('../../lib/httpErrors')
 const router = express.Router()
 const prisma = require('../../lib/prisma')
 const authMiddleware = require('../../middleware/auth')
-const { teacherOrAdmin } = require('../../lib/roles')
+const { teacherOrAdmin, adminOnly } = require('../../lib/roles')
 const { invalidate } = require('../../lib/swrCache')
 const { invalidateExamCaches } = require('../../utils/cache')
 const { logAuditEvent } = require('../../lib/auditLog')
@@ -255,7 +255,9 @@ router.post('/trash/:type/:id/restore', authMiddleware, teacherOrAdmin, async (r
   }
 })
 
-router.delete('/trash/purge', authMiddleware, teacherOrAdmin, async (req, res) => {
+// Xoá vĩnh viễn (purge) không thể hoàn tác và xoá luôn bài làm của học sinh
+// (hardDeleteExams xoá Attempt/Answer...) → chỉ admin được phép.
+router.delete('/trash/purge', authMiddleware, adminOnly, async (req, res) => {
   try {
     const where = { deletedAt: { not: null } }
     const [practices, writings, speakings, examSeriesDeleted, books] = await Promise.all([
@@ -287,7 +289,7 @@ router.delete('/trash/purge', authMiddleware, teacherOrAdmin, async (req, res) =
   }
 })
 
-router.delete('/trash/:type/:id/permanent', authMiddleware, teacherOrAdmin, async (req, res) => {
+router.delete('/trash/:type/:id/permanent', authMiddleware, adminOnly, async (req, res) => {
   const { type, id } = req.params
   const numId = parseInt(id)
   try {

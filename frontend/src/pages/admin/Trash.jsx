@@ -6,6 +6,7 @@ import Select from '../../components/admin/Select'
 import { MobileFilterToggle } from '../../components/admin/contentPageUI'
 
 import { getAdminTrash, restoreTrashItem, permanentDeleteTrashItem, purgeTrash, notifyTrashChanged } from '../../services/adminService'
+import { useAuth } from '../../context/AuthContext'
 import { Trash2, RotateCcw, AlertTriangle, Search } from 'lucide-react'
 import { showAlert } from '../../utils/alertUtils'
 
@@ -60,6 +61,10 @@ const daysUntilPurge = (deletedAt) =>
 
 export default function Trash() {
   const queryClient = useQueryClient()
+  // Xoá vĩnh viễn/dọn sạch thùng rác là thao tác không thể hoàn tác và xoá luôn
+  // bài làm của học sinh → backend chỉ cho admin, UI cũng chỉ hiện nút cho admin.
+  const { role } = useAuth() || {}
+  const isAdmin = role === 'admin'
   const { data: items = [], isPending } = useQuery({
     queryKey: ['admin', 'trash'],
     queryFn: async () => {
@@ -185,9 +190,12 @@ export default function Trash() {
                 </span>
               )}
             </h1>
-            <p className="text-xs text-zinc-500 mt-1">Các mục đã xóa — tự động dọn sau {PURGE_DAYS} ngày</p>
+            <p className="text-xs text-zinc-500 mt-1">
+              Các mục đã xóa — tự động dọn sau {PURGE_DAYS} ngày
+              {!isAdmin && ' · chỉ quản trị viên có thể xoá vĩnh viễn'}
+            </p>
           </div>
-          {items.length > 0 && (
+          {items.length > 0 && isAdmin && (
             <button
               onClick={() => setPurgeConfirm(true)}
               className="h-9 px-4 whitespace-nowrap rounded-full text-xs font-medium bg-zinc-100 text-zinc-800 hover:bg-zinc-200 border border-zinc-200 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 cursor-pointer"
@@ -319,12 +327,14 @@ export default function Trash() {
                           >
                             Khôi phục
                           </button>
-                          <button
-                            onClick={() => setConfirming({ ...item, action: 'delete' })}
-                            className="h-8 px-3.5 rounded-full text-xs font-medium bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 cursor-pointer shrink-0 whitespace-nowrap"
-                          >
-                            {err ? 'Thử lại' : 'Xóa vĩnh viễn'}
-                          </button>
+                          {isAdmin && (
+                            <button
+                              onClick={() => setConfirming({ ...item, action: 'delete' })}
+                              className="h-8 px-3.5 rounded-full text-xs font-medium bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 cursor-pointer shrink-0 whitespace-nowrap"
+                            >
+                              {err ? 'Thử lại' : 'Xóa vĩnh viễn'}
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

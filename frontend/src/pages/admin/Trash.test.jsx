@@ -3,6 +3,7 @@ import { render as rtlRender, screen, fireEvent, waitFor, within } from '@testin
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Trash from './Trash'
 import * as adminService from '../../services/adminService'
+import * as authContext from '../../context/AuthContext'
 
 const createTestQueryClient = () => new QueryClient({
   defaultOptions: {
@@ -29,6 +30,7 @@ const SAMPLE = [
 describe('Trash page — P3 modal + a11y + error handling', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.spyOn(authContext, 'useAuth').mockReturnValue({ role: 'admin' })
     vi.spyOn(adminService, 'getAdminTrash').mockResolvedValue(structuredClone(SAMPLE))
   })
 
@@ -163,5 +165,27 @@ describe('Trash page — P3 modal + a11y + error handling', () => {
     expect(screen.getByText('Bộ đề X')).toBeInTheDocument()          // row still present
     expect(screen.getByText('Thử lại')).toBeInTheDocument()          // retry affordance
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()     // confirm modal closed
+  })
+
+  it('teacher: không thấy nút xoá vĩnh viễn / dọn sạch thùng rác nhưng vẫn khôi phục được', async () => {
+    authContext.useAuth.mockReturnValue({ role: 'teacher' })
+    render(<Trash />)
+    await screen.findByText('Đề Reading A')
+
+    expect(screen.queryByText('Dọn sạch thùng rác')).not.toBeInTheDocument()
+    expect(screen.queryByText('Xóa vĩnh viễn')).not.toBeInTheDocument()
+    expect(screen.queryByText('Thử lại')).not.toBeInTheDocument()
+    // Khôi phục (không phá dữ liệu) vẫn cho giáo viên
+    expect(screen.getAllByText('Khôi phục').length).toBe(SAMPLE.length)
+    expect(screen.getByText(/chỉ quản trị viên có thể xoá vĩnh viễn/)).toBeInTheDocument()
+  })
+
+  it('admin: vẫn thấy đủ nút xoá vĩnh viễn và dọn sạch thùng rác', async () => {
+    render(<Trash />)
+    await screen.findByText('Đề Reading A')
+
+    expect(screen.getByText('Dọn sạch thùng rác')).toBeInTheDocument()
+    expect(screen.getAllByText('Xóa vĩnh viễn').length).toBe(SAMPLE.length)
+    expect(screen.queryByText(/chỉ quản trị viên có thể xoá vĩnh viễn/)).not.toBeInTheDocument()
   })
 })
