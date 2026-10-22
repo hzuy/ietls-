@@ -36,7 +36,7 @@ const LOG_SYSTEM = {
   id: 2,
   createdAt: '2026-03-06T08:00:00.000Z',
   action: 'trash.auto_purge',
-  actionLabel: 'Tự động xóa vĩnh viễn (hệ thống)',
+  actionLabel: 'Tự động xóa vĩnh viễn',
   entityType: 'Trash',
   entityId: null,
   entityLabel: 'auto purge batch',
