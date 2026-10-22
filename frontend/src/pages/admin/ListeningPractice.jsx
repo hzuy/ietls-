@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useUnsavedChanges, NAV_LEAVE_MSG } from '../../hooks/useUnsavedChanges'
 import { useDraftPersistence } from '../../hooks/useDraftPersistence'
@@ -29,6 +30,7 @@ import { showAlert } from '../../utils/alertUtils'
 import { validatePracticeListening, formatValidationAlert } from '../../utils/questionValidation'
 import { executeTimedAIGenerationLoop } from '../../utils/examExplanationUtils'
 import { useExplanationGenerationLock } from '../../hooks/useExplanationGenerationLock'
+import { useAIExitGuard } from '../../hooks/useAIExitGuard'
 import AIGenerationStickyProgress from '../../components/admin/AIGenerationStickyProgress'
 import AIGenerationExitConfirmModal from '../../components/admin/AIGenerationExitConfirmModal'
 import AIGenerationResumeBanner from '../../components/admin/AIGenerationResumeBanner'
@@ -175,6 +177,7 @@ const formSig = (f) => JSON.stringify([f.title, f.context, f.transcript, f.quest
 export default function ListeningPractice() {
   const { showToast } = useToast()
   const queryClient = useQueryClient()
+  const location = useLocation()
   const { data: list = [], isPending } = useQuery({
     queryKey: ['admin', 'practice', 'listening'],
     queryFn: getListeningPracticeList,
@@ -273,6 +276,13 @@ export default function ListeningPractice() {
     },
   })
 
+  // Chặn điều hướng (sidebar/tab/link) khi AI đang chạy — mở modal xác nhận,
+  // đồng bộ hành vi với trang sửa đề thi.
+  useAIExitGuard({
+    active: expLock.isGenerating,
+    onBlocked: expLock.openExitConfirm,
+  })
+
   // Compare explanations with DB snapshot to detect unsaved changes
   const unsavedQuestionNumbers = useMemo(() => {
     if (!editing || !pristineExplanationsRef.current) return new Set()
@@ -323,13 +333,23 @@ export default function ListeningPractice() {
     )
   }
 
-  const handleCancelOrBack = () => {
-    expLock.handleSafeActionOrExit(() => {
+  const { handleSafeActionOrExit } = expLock
+  const handleCancelOrBack = useCallback(() => {
+    handleSafeActionOrExit(() => {
       if (isDirty && !window.confirm(NAV_LEAVE_MSG)) return
       setIsDirty(false)
       setView('list')
     })
-  }
+  }, [handleSafeActionOrExit, isDirty])
+
+  // Đã bỏ nút ← và nút Hủy ở form: bấm lại mục "Listening Practice" trên sidebar
+  // khi đang mở form sẽ quay về danh sách (cùng pathname nên component không remount).
+  const lastLocationKeyRef = useRef(location.key)
+  useEffect(() => {
+    if (location.key === lastLocationKeyRef.current) return
+    lastLocationKeyRef.current = location.key
+    if (view === 'form') handleCancelOrBack()
+  }, [location.key, view, handleCancelOrBack])
 
   const openAdd = () => {
     pristineRef.current = formSig(EMPTY_FORM)
@@ -698,16 +718,6 @@ export default function ListeningPractice() {
           {/* Top Bar: Tiêu đề + Bộ nút thao tác chính (Sticky top) */}
           <div className="sticky top-0 z-20 bg-zinc-50/95 backdrop-blur-xs py-3.5 mb-5 border-b border-zinc-200 -mx-4 sm:-mx-6 px-4 sm:px-6 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
             <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={handleCancelOrBack}
-                disabled={expLock.isLockedOperation}
-                title={expLock.lockTooltip || 'Quay lại danh sách'}
-                aria-label="Quay lại danh sách"
-                className="w-8 h-8 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-600 flex items-center justify-center text-sm font-semibold transition cursor-pointer shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                ←
-              </button>
               <div>
                 <h1 className="text-base sm:text-lg font-bold text-zinc-900 tracking-tight">
                   {editing ? 'Chỉnh sửa bài Listening Practice' : 'Thêm bài Listening Practice mới'}
@@ -744,14 +754,6 @@ export default function ListeningPractice() {
               >
                 <Eye className="w-3.5 h-3.5 text-zinc-500" />
                 <span className="hidden sm:inline">Preview</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleCancelOrBack}
-                disabled={saving || expLock.isLockedOperation}
-                className="h-9 px-3.5 rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 text-xs font-semibold transition shadow-2xs flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Hủy
               </button>
               <button
                 type="button"

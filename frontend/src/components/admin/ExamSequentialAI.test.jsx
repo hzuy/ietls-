@@ -149,8 +149,9 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
       expect.stringContaining('Câu 1–2')
     )
 
-    // Verify cancel button is present
-    expect(screen.getByRole('button', { name: /^Hủy$/ })).toBeInTheDocument()
+    // Chỉ còn 1 nút hủy sinh trong thanh tiến độ (đã bỏ nút Hủy trùng cạnh Preview)
+    expect(screen.getByRole('button', { name: /Hủy sinh/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Hủy$/ })).not.toBeInTheDocument()
 
     // Resolve group 1
     resolveGroup201({ data: { success: true, generatedCount: 2 } })
@@ -190,8 +191,8 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
       expect(screen.getByText(/Đang sinh AI/)).toBeInTheDocument()
     })
 
-    // Click Hủy
-    const cancelBtn = screen.getByRole('button', { name: /^Hủy$/ })
+    // Click Hủy sinh (nút duy nhất, nằm trong thanh tiến độ)
+    const cancelBtn = screen.getByRole('button', { name: /Hủy sinh/i })
     fireEvent.click(cancelBtn)
 
     // Displays "Đang dừng…" until in-flight finishes

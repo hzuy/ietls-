@@ -863,6 +863,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   }, [form, editingId])
 
   const loadForEdit = async (id) => {
+    setError('')
     setLoadingEdit(true)
     try {
       const res = await api.get(`/admin/exams/${id}`)
@@ -932,6 +933,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
 
   const cancelEdit = () => {
     expLock.handleSafeActionOrExit(() => {
+      setError('')
       if (editingId) localStorage.removeItem(`draft_reading_${editingId}`)
       pristineFormSigRef.current = ''
       pristineExplanationsRef.current = {}
@@ -1143,30 +1145,18 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
             </div>
             <div className="flex shrink-0 items-center gap-2">
               {generatingAI ? (
-                <>
-                  <span
-                    className={`inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 text-xs font-medium ${
-                      isCancellingAI
-                        ? 'bg-amber-50 border-amber-300 text-amber-900'
-                        : 'bg-zinc-100 border-zinc-300 text-zinc-800'
-                    }`}
-                    title={isCancellingAI ? 'Đang hoàn tất nhóm hiện tại rồi dừng' : `Đang xử lý ${aiProgress?.groupLabel || '...'}`}
-                    aria-live="polite"
-                  >
-                    <Loader2 className={`w-3.5 h-3.5 animate-spin shrink-0 ${isCancellingAI ? 'text-amber-700' : 'text-zinc-700'}`} />
-                    <span>{isCancellingAI ? 'Đang dừng…' : 'Đang sinh AI…'}</span>
-                  </span>
-                  {!isCancellingAI && (
-                    <button
-                      type="button"
-                      onClick={handleCancelAI}
-                      className="h-7 px-3 rounded-full text-xs font-medium border border-zinc-300 bg-white hover:bg-zinc-50 text-zinc-700 transition cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
-                      title="Hủy giữa chừng (hoàn tất nhóm hiện tại rồi dừng)"
-                    >
-                      Hủy
-                    </button>
-                  )}
-                </>
+                <span
+                  className={`inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 text-xs font-medium ${
+                    isCancellingAI
+                      ? 'bg-amber-50 border-amber-300 text-amber-900'
+                      : 'bg-zinc-100 border-zinc-300 text-zinc-800'
+                  }`}
+                  title={isCancellingAI ? 'Đang hoàn tất nhóm hiện tại rồi dừng' : `Đang xử lý ${aiProgress?.groupLabel || '...'}`}
+                  aria-live="polite"
+                >
+                  <Loader2 className={`w-3.5 h-3.5 animate-spin shrink-0 ${isCancellingAI ? 'text-amber-700' : 'text-zinc-700'}`} />
+                  <span>{isCancellingAI ? 'Đang dừng…' : 'Đang sinh AI…'}</span>
+                </span>
               ) : (
                 <button
                   type="button"

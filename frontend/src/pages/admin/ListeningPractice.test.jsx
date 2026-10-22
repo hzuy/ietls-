@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render as rtlRender, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import ListeningPractice from './ListeningPractice'
 import { ToastProvider } from '../../context/ToastContext'
@@ -8,9 +9,11 @@ import * as practiceService from '../../services/practiceService'
 function render(ui) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return rtlRender(
-    <QueryClientProvider client={queryClient}>
-      <ToastProvider>{ui}</ToastProvider>
-    </QueryClientProvider>
+    <MemoryRouter>
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>{ui}</ToastProvider>
+      </QueryClientProvider>
+    </MemoryRouter>
   )
 }
 
@@ -105,10 +108,11 @@ describe('ListeningPractice — double-click protection on delete', () => {
     const addBtn = await screen.findByRole('button', { name: /\+ Thêm mới/i })
     fireEvent.click(addBtn)
 
-    // Verify top action bar
+    // Verify top action bar: chỉ còn AI/Preview/Lưu bài (đã bỏ nút ← và Hủy)
     expect(screen.getByRole('button', { name: 'Lưu bài' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Preview/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Hủy' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Hủy' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Quay lại danh sách' })).not.toBeInTheDocument()
 
     // Verify left column inputs
     expect(screen.getByPlaceholderText(/VD: Listening — Section 1/i)).toBeInTheDocument()
