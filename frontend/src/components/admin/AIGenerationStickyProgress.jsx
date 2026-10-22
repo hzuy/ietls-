@@ -41,7 +41,7 @@ export default function AIGenerationStickyProgress({
                 {isCancelling ? 'Đang dừng tiến trình sinh AI...' : `Đang sinh giải thích AI (${label})`}
               </span>
               {total > 0 && (
-                <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded ${
+                <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded-full ${
                   isCancelling ? 'bg-amber-100 text-amber-800' : 'bg-zinc-800 text-zinc-300'
                 }`}>
                   {pct}%
@@ -63,7 +63,7 @@ export default function AIGenerationStickyProgress({
             type="button"
             onClick={onCancel}
             disabled={isCancelling}
-            className={`h-7 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${
+            className={`h-8 px-3.5 rounded-full text-xs font-medium flex items-center gap-1.5 transition cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 ${
               isCancelling
                 ? 'bg-amber-200 text-amber-800 hover:bg-amber-200'
                 : 'bg-white/10 hover:bg-white/20 text-white border border-white/15'

@@ -1198,7 +1198,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
                     <button
                       type="button"
                       onClick={handleCancelAI}
-                      className="ml-1 text-xs font-semibold px-2 py-0.5 rounded border border-zinc-400 bg-white hover:bg-zinc-50 text-zinc-700 transition cursor-pointer"
+                      className="ml-1 h-6 px-3 rounded-full text-xs font-medium border border-zinc-300 bg-white hover:bg-zinc-50 text-zinc-700 transition cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
                       title="Hủy giữa chừng (hoàn tất nhóm hiện tại rồi dừng)"
                     >
                       Hủy
