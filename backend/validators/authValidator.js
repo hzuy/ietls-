@@ -48,6 +48,12 @@ const adminChangePasswordSchema = z.object({
   newPassword: passwordSchema(),
 })
 
+// Validate request shape first. The service checks the current password before
+// applying the new-password policy, so policy errors cannot mask wrong credentials.
+const newPasswordInput = z.string({ message: 'Mật khẩu mới là bắt buộc' }).min(1, { message: 'Vui lòng nhập mật khẩu mới' })
+const changePasswordInputSchema = changePasswordSchema.extend({ newPassword: newPasswordInput })
+const adminChangePasswordInputSchema = adminChangePasswordSchema.extend({ newPassword: newPasswordInput })
+
 // 7. Tạo tài khoản staff/admin
 const createAccountSchema = z.object({
   name: z.string({ message: 'Tên là bắt buộc' }).trim().min(1, { message: 'Tên không được để trống' }),
@@ -82,6 +88,8 @@ module.exports = {
   verifyEmailSchema,
   resendVerificationSchema,
   changePasswordSchema,
+  changePasswordInputSchema,
+  adminChangePasswordInputSchema,
   updateProfileSchema,
   adminChangePasswordSchema,
   createAccountSchema,

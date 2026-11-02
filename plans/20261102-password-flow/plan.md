@@ -46,5 +46,7 @@ a fresh DB read; timeout after successful write can require signing in again.
 Implementation and verification complete: backend 86 tests; frontend 53 tests;
 three-role browser verification; build, targeted lint, Prisma validation and
 isolated client generation passed. Dependency audit findings are documented in
-docs/password-change-hardening.md. Real DB migration and runtime restart await
-explicit approval required by AGENTS.md; no deployment has been performed.
+docs/password-change-hardening.md. The user subsequently approved the Supabase
+migration and backend restart. Migration applied, default client regenerated,
+backend restarted on 3001, frontend running on 5173. Read-only live schema/API/CORS
+checks passed; no real user's password was changed for verification.

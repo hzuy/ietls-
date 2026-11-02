@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getAdminMe, changeAdminPassword } from '../../services/adminService'
 import { usePasswordChange } from '../../hooks/usePasswordChange'
+import PasswordInput from '../../components/common/PasswordInput'
+import { readPasswordForm } from '../../utils/passwordUtils'
 
 
 const ROLE_LABEL = { admin: 'Admin', teacher: 'Teacher' }
@@ -69,9 +71,13 @@ export default function Profile() {
     placeholderData: (prev) => prev,
   })
 
+  const syncPasswordValues = values => {
+    setPwForm({ currentPassword: values.currentPassword, newPassword: values.newPassword, confirm: values.confirmation })
+  }
+
   const handlePasswordChange = async (e) => {
     e.preventDefault()
-    await passwordChange.submit(pwForm.currentPassword, pwForm.newPassword, pwForm.confirm)
+    await passwordChange.submitForm(e.currentTarget, syncPasswordValues)
   }
 
   const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
@@ -148,20 +154,19 @@ export default function Profile() {
         <section className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-6">
           <div className="mb-5">
             <h2 className="text-sm font-semibold text-zinc-900">Đổi mật khẩu</h2>
-            <p className="text-xs text-zinc-500 mt-0.5">Mật khẩu mới cần ít nhất 8 ký tự, tối đa 72 byte UTF-8 và khác mật khẩu hiện tại. Sau khi đổi, bạn cần đăng nhập lại trên mọi thiết bị.</p>
           </div>
           {profile.hasPassword === false ? (
             <p className="text-sm text-zinc-600">Tài khoản này đăng nhập bằng Google và chưa có mật khẩu riêng. Vui lòng quản lý mật khẩu trong tài khoản Google của bạn.</p>
           ) : <form onSubmit={handlePasswordChange} className="space-y-4" aria-busy={passwordChange.saving}>
             <div>
               <label htmlFor="admin-current-password" className={labelCls}>Mật khẩu hiện tại</label>
-              <input
+              <PasswordInput
                 id="admin-current-password"
+                visibilityLabel="mật khẩu hiện tại"
                 name="currentPassword"
                 disabled={passwordChange.saving}
-                type="password"
                 value={pwForm.currentPassword}
-                onChange={e => setPwForm(p => ({ ...p, currentPassword: e.target.value }))}
+                onChange={event => syncPasswordValues(readPasswordForm(event.currentTarget.form))}
                 className={inputCls}
                 autoComplete="current-password"
                 required
@@ -169,13 +174,13 @@ export default function Profile() {
             </div>
             <div>
               <label htmlFor="admin-new-password" className={labelCls}>Mật khẩu mới</label>
-              <input
+              <PasswordInput
                 id="admin-new-password"
+                visibilityLabel="mật khẩu mới"
                 name="newPassword"
                 disabled={passwordChange.saving}
-                type="password"
                 value={pwForm.newPassword}
-                onChange={e => setPwForm(p => ({ ...p, newPassword: e.target.value }))}
+                onChange={event => syncPasswordValues(readPasswordForm(event.currentTarget.form))}
                 className={inputCls}
                 autoComplete="new-password"
                 required
@@ -183,13 +188,13 @@ export default function Profile() {
             </div>
             <div>
               <label htmlFor="admin-confirm-password" className={labelCls}>Xác nhận mật khẩu mới</label>
-              <input
+              <PasswordInput
                 id="admin-confirm-password"
+                visibilityLabel="mật khẩu xác nhận"
                 name="confirmPassword"
                 disabled={passwordChange.saving}
-                type="password"
                 value={pwForm.confirm}
-                onChange={e => setPwForm(p => ({ ...p, confirm: e.target.value }))}
+                onChange={event => syncPasswordValues(readPasswordForm(event.currentTarget.form))}
                 className={inputCls}
                 autoComplete="new-password"
                 required

@@ -62,7 +62,7 @@ describe('Profile page — TanStack Query & Skeleton caching', () => {
     expect(screen.getAllByText('admin@manager.com').length).toBeGreaterThan(0)
   })
 
-  it('validates password mismatch and length before calling mutation', async () => {
+  it('checks confirmation locally and shows server password-policy errors', async () => {
     const qc = createTestQueryClient()
     qc.setQueryData(['admin', 'profile'], mockProfile)
     vi.spyOn(adminService, 'getAdminMe').mockResolvedValue(mockProfile)
@@ -87,12 +87,13 @@ describe('Profile page — TanStack Query & Skeleton caching', () => {
     expect(adminService.changeAdminPassword).not.toHaveBeenCalled()
 
     // Short password (< 8 chars)
+    adminService.changeAdminPassword.mockRejectedValueOnce({ response: { data: { message: 'Mật khẩu mới phải có ít nhất 8 ký tự' } } })
     fireEvent.change(newPwInput, { target: { value: '123' } })
     fireEvent.change(confirmPwInput, { target: { value: '123' } })
     fireEvent.click(submitBtn)
 
-    expect(window.alert).toHaveBeenCalledWith('Mật khẩu mới phải có ít nhất 8 ký tự')
-    expect(adminService.changeAdminPassword).not.toHaveBeenCalled()
+    await waitFor(() => expect(window.alert).toHaveBeenCalledWith('Mật khẩu mới phải có ít nhất 8 ký tự'))
+    expect(adminService.changeAdminPassword).toHaveBeenCalledWith('oldpass123', '123')
   })
 
   it.each(['admin', 'teacher'])('changes %s passwords with an alert and logs out', async (role) => {

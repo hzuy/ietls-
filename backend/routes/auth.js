@@ -16,7 +16,7 @@ const {
   googleAuthSchema,
   verifyEmailSchema,
   resendVerificationSchema,
-  changePasswordSchema,
+  changePasswordInputSchema,
   updateProfileSchema,
 } = require('../validators/authValidator')
 
@@ -260,7 +260,7 @@ router.post('/resend-verification', emailCodeLimiter, validate(resendVerificatio
 })
 
 // Đổi mật khẩu bắt buộc
-router.put('/change-password', authMiddleware, ...passwordChangeLimiters, validate(changePasswordSchema), async (req, res) => {
+router.put('/change-password', authMiddleware, ...passwordChangeLimiters, validate(changePasswordInputSchema), async (req, res) => {
   try {
     const { status, ...body } = await changePassword(req.user, req.body.oldPassword, req.body.newPassword)
     res.status(status).json(body)

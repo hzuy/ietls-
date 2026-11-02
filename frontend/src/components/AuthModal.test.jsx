@@ -44,6 +44,48 @@ describe('AuthModal email verification', () => {
     localStorage.clear()
   })
 
+  it.each(['login', 'register'])('provides a working password visibility toggle for %s', tab => {
+    setup(tab)
+    const password = screen.getByLabelText('Mật khẩu')
+    fireEvent.change(password, { target: { value: 'Newpass8' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Hiện mật khẩu' }))
+    expect(password).toHaveAttribute('type', 'text')
+    expect(password).toHaveValue('Newpass8')
+    fireEvent.click(screen.getByRole('button', { name: 'Ẩn mật khẩu' }))
+    expect(password).toHaveAttribute('type', 'password')
+    expect(register).not.toHaveBeenCalled()
+    expect(login).not.toHaveBeenCalled()
+  })
+
+  it('reads eight-character registration passwords from live autofilled inputs', async () => {
+    register.mockResolvedValue({ email: 'lan@example.com', mailSent: true, message: 'Đã gửi mã' })
+    setup('register')
+    screen.getByLabelText('Họ và tên').value = 'Lan'
+    screen.getByLabelText('Email').value = 'lan@example.com'
+    screen.getByLabelText('Mật khẩu').value = 'Newpass8'
+    fireEvent.submit(screen.getByLabelText('Mật khẩu').closest('form'))
+    await waitFor(() => expect(register).toHaveBeenCalledWith({ name: 'Lan', email: 'lan@example.com', password: 'Newpass8' }))
+    expect(await screen.findByText('Xác thực email')).toBeInTheDocument()
+  })
+
+  it('clears a stale registration length error when the password is edited', async () => {
+    setup('register')
+    fireEvent.change(screen.getByLabelText('Mật khẩu'), { target: { value: 'short' } })
+    fireEvent.submit(screen.getByLabelText('Mật khẩu').closest('form'))
+    expect(screen.getByText('Mật khẩu phải có ít nhất 8 ký tự')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Mật khẩu'), { target: { value: 'Newpass8' } })
+    expect(screen.queryByText('Mật khẩu phải có ít nhất 8 ký tự')).not.toBeInTheDocument()
+  })
+
+  it('reads live login credentials even when browser autofill does not emit change events', async () => {
+    login.mockResolvedValue({ token: 'test-token', user: { id: 1 }, requirePasswordChange: false })
+    setup('login')
+    screen.getByLabelText('Email').value = 'lan@example.com'
+    screen.getByLabelText('Mật khẩu').value = 'Newpass8'
+    fireEvent.submit(screen.getByLabelText('Mật khẩu').closest('form'))
+    await waitFor(() => expect(login).toHaveBeenCalledWith('lan@example.com', 'Newpass8'))
+  })
+
   it('shows the code step after registering instead of logging in', async () => {
     register.mockResolvedValue({ email: 'lan@example.com', mailSent: true, message: 'Đã gửi mã' })
     setup('register')

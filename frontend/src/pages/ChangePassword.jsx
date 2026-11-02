@@ -3,7 +3,8 @@ import { Link, Navigate } from 'react-router-dom'
 import { changePassword, getMe } from '../services/userService'
 import { usePasswordChange } from '../hooks/usePasswordChange'
 import PillButton from '../components/common/PillButton'
-import PillInput from '../components/common/PillInput'
+import PasswordInput from '../components/common/PasswordInput'
+import { readPasswordForm } from '../utils/passwordUtils'
 
 export default function ChangePassword() {
   const [form, setForm] = useState({ oldPassword: '', newPassword: '', confirm: '' })
@@ -28,10 +29,14 @@ export default function ChangePassword() {
     return () => { active = false }
   }, [token])
 
+  const syncPasswordValues = values => {
+    setForm({ oldPassword: values.currentPassword, newPassword: values.newPassword, confirm: values.confirmation })
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (hasPassword !== true) return
-    await passwordChange.submit(form.oldPassword, form.newPassword, form.confirm)
+    await passwordChange.submitForm(e.currentTarget, syncPasswordValues)
   }
 
   if (!token) return <Navigate to="/" replace state={{ authModal: 'login' }} />
@@ -49,9 +54,6 @@ export default function ChangePassword() {
 
         <div className="mb-6">
           <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--ink)', marginBottom: 4 }}>Đổi mật khẩu</h1>
-          <p style={{ fontSize: 14, color: 'var(--muted)' }}>
-            Mật khẩu mới cần ít nhất 8 ký tự, tối đa 72 byte UTF-8 và khác mật khẩu hiện tại. Sau khi đổi, bạn cần đăng nhập lại trên mọi thiết bị.
-          </p>
         </div>
 
         {loadError && <p role="alert" className="text-sm text-red-600 mb-4">Không thể tải thông tin tài khoản. Vui lòng tải lại trang để thử lại.</p>}
@@ -63,42 +65,42 @@ export default function ChangePassword() {
         ) : <form onSubmit={handleSubmit} className="space-y-4" aria-busy={passwordChange.saving}>
           <div>
             <label htmlFor="cp-old" className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Mật khẩu hiện tại</label>
-            <PillInput
+            <PasswordInput
               id="cp-old"
+              visibilityLabel="mật khẩu hiện tại"
               name="currentPassword"
-              type="password"
               disabled={passwordChange.saving}
               placeholder="••••••••"
               value={form.oldPassword}
-              onChange={e => setForm({ ...form, oldPassword: e.target.value })}
+              onChange={event => syncPasswordValues(readPasswordForm(event.currentTarget.form))}
               required
               autoComplete="current-password"
             />
           </div>
           <div>
             <label htmlFor="cp-new" className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Mật khẩu mới</label>
-            <PillInput
+            <PasswordInput
               id="cp-new"
+              visibilityLabel="mật khẩu mới"
               name="newPassword"
-              type="password"
               disabled={passwordChange.saving}
               placeholder="Tối thiểu 8 ký tự"
               value={form.newPassword}
-              onChange={e => setForm({ ...form, newPassword: e.target.value })}
+              onChange={event => syncPasswordValues(readPasswordForm(event.currentTarget.form))}
               required
               autoComplete="new-password"
             />
           </div>
           <div>
             <label htmlFor="cp-confirm" className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Xác nhận mật khẩu mới</label>
-            <PillInput
+            <PasswordInput
               id="cp-confirm"
+              visibilityLabel="mật khẩu xác nhận"
               name="confirmPassword"
-              type="password"
               disabled={passwordChange.saving}
               placeholder="Nhập lại mật khẩu mới"
               value={form.confirm}
-              onChange={e => setForm({ ...form, confirm: e.target.value })}
+              onChange={event => syncPasswordValues(readPasswordForm(event.currentTarget.form))}
               required
               autoComplete="new-password"
             />

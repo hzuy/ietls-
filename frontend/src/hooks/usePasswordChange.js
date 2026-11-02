@@ -1,15 +1,17 @@
 import { useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { showAlert } from '../utils/alertUtils'
-import { PASSWORD_CHANGED_MESSAGE, passwordErrorMessage, validatePasswordChange } from '../utils/passwordUtils'
+import { PASSWORD_CHANGED_MESSAGE, passwordErrorMessage, readPasswordForm, validatePasswordChange } from '../utils/passwordUtils'
 
 export function usePasswordChange(requestChange, resetForm) {
   const { handleLogout } = useAuth()
   const busy = useRef(false)
   const [saving, setSaving] = useState(false)
 
-  async function submit(currentPassword, newPassword, confirmation) {
+  async function submitForm(form, syncValues) {
     if (busy.current) return
+    const { currentPassword, newPassword, confirmation } = readPasswordForm(form)
+    syncValues?.({ currentPassword, newPassword, confirmation })
     const validation = validatePasswordChange(currentPassword, newPassword, confirmation)
     if (validation) {
       showAlert.error(validation)
@@ -33,5 +35,5 @@ export function usePasswordChange(requestChange, resetForm) {
     handleLogout()
   }
 
-  return { submit, saving }
+  return { submitForm, saving }
 }

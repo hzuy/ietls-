@@ -4,12 +4,14 @@ import { useAuth } from '../context/AuthContext'
 import Card from '../components/common/Card'
 import PillButton from '../components/common/PillButton'
 import PillInput from '../components/common/PillInput'
+import PasswordInput from '../components/common/PasswordInput'
 import { UserProfileSkeleton } from '../components/skeletons'
 import { getMe, updateProfile, changePassword, getUserStats } from '../services/userService'
 import { User, BarChart2, Lock } from 'lucide-react'
 import { formatBand } from '../utils/ielts'
 import { showAlert } from '../utils/alertUtils'
 import { usePasswordChange } from '../hooks/usePasswordChange'
+import { readPasswordForm } from '../utils/passwordUtils'
 
 const TABS = [
   { id: 'info',     label: 'Thông tin cá nhân', Icon: User },
@@ -84,10 +86,16 @@ export default function UserProfile() {
     }
   }
 
+  function syncPasswordValues(values) {
+    setOldPwd(values.currentPassword)
+    setNewPwd(values.newPassword)
+    setConfirmPwd(values.confirmation)
+  }
+
   async function handleChangePassword(e) {
     e.preventDefault()
     if (hasPassword !== true) return
-    await passwordChange.submit(oldPwd, newPwd, confirmPwd)
+    await passwordChange.submitForm(e.currentTarget, syncPasswordValues)
   }
 
   const avatarLetter = (user?.name || 'U').charAt(0).toUpperCase()
@@ -139,7 +147,7 @@ export default function UserProfile() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 min-w-0">
+        <div className="w-full flex-1 min-w-0">
 
           {/* Tab: Thông tin cá nhân */}
           {activeTab === 'info' && (
@@ -278,25 +286,24 @@ export default function UserProfile() {
               {hasPassword === false ? (
                 <p className="text-sm text-zinc-600">Tài khoản này đăng nhập bằng Google và chưa có mật khẩu riêng. Vui lòng quản lý mật khẩu trong tài khoản Google của bạn.</p>
               ) : <form onSubmit={handleChangePassword} aria-busy={passwordChange.saving}>
-                <p className="text-sm text-zinc-500 mb-5">Mật khẩu mới cần ít nhất 8 ký tự, tối đa 72 byte UTF-8 và khác mật khẩu hiện tại. Sau khi đổi, bạn cần đăng nhập lại trên mọi thiết bị.</p>
                 <div className="flex flex-col gap-5">
                   {[
-                    { id: 'up-old', label: 'Mật khẩu hiện tại',     value: oldPwd,     set: setOldPwd },
-                    { id: 'up-new', label: 'Mật khẩu mới',           value: newPwd,     set: setNewPwd },
-                    { id: 'up-confirm', label: 'Xác nhận mật khẩu mới',  value: confirmPwd, set: setConfirmPwd },
-                  ].map(({ id, label, value, set }) => (
+                    { id: 'up-old', label: 'Mật khẩu hiện tại', value: oldPwd },
+                    { id: 'up-new', label: 'Mật khẩu mới', value: newPwd },
+                    { id: 'up-confirm', label: 'Xác nhận mật khẩu mới', value: confirmPwd },
+                  ].map(({ id, label, value }) => (
                     <div key={id}>
                       <label htmlFor={id} className="block text-xs font-semibold text-zinc-700 mb-1.5">
                         {label}
                       </label>
-                      <PillInput
+                      <PasswordInput
                         id={id}
                         name={id === 'up-old' ? 'currentPassword' : id === 'up-new' ? 'newPassword' : 'confirmPassword'}
-                        type="password"
+                        visibilityLabel={id === 'up-old' ? 'mật khẩu hiện tại' : id === 'up-new' ? 'mật khẩu mới' : 'mật khẩu xác nhận'}
                         autoComplete={id === 'up-old' ? 'current-password' : 'new-password'}
                         disabled={passwordChange.saving}
                         value={value}
-                        onChange={e => set(e.target.value)}
+                        onChange={event => syncPasswordValues(readPasswordForm(event.currentTarget.form))}
                         required
                       />
                     </div>

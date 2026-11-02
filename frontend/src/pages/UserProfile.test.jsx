@@ -56,7 +56,6 @@ describe('UserProfile alert feedback', () => {
   })
 
   it.each([
-    ['short', 'short', 'Mật khẩu mới phải có ít nhất 8 ký tự'],
     ['new-password', 'different-password', 'Mật khẩu xác nhận không khớp'],
   ])('alerts validation errors without sending a password request (%s)', async (password, confirmation, message) => {
     await openProfile()
@@ -75,6 +74,39 @@ describe('UserProfile alert feedback', () => {
     await waitFor(() => expect(screen.getByLabelText('Mật khẩu hiện tại')).toHaveValue(''))
     expect(screen.getByLabelText('Mật khẩu mới')).toHaveValue('')
     expect(screen.getByLabelText('Xác nhận mật khẩu mới')).toHaveValue('')
+  })
+
+  it('submits live autofilled values instead of stale React state', async () => {
+    changePassword.mockResolvedValue({})
+    await openProfile()
+    fireEvent.click(screen.getByRole('button', { name: 'Đổi mật khẩu' }))
+    fireEvent.change(screen.getByLabelText('Mật khẩu mới'), { target: { value: 'short' } })
+    fireEvent.change(screen.getByLabelText('Xác nhận mật khẩu mới'), { target: { value: 'short' } })
+    // Password managers may fill native values without a React change event.
+    screen.getByLabelText('Mật khẩu hiện tại').value = 'old-password'
+    screen.getByLabelText('Mật khẩu mới').value = 'Newpass8'
+    screen.getByLabelText('Xác nhận mật khẩu mới').value = 'Newpass8'
+    fireEvent.click(screen.getByRole('button', { name: 'Hiện mật khẩu mới' }))
+    expect(screen.getByLabelText('Mật khẩu hiện tại')).toHaveValue('old-password')
+    expect(screen.getByLabelText('Xác nhận mật khẩu mới')).toHaveValue('Newpass8')
+    fireEvent.submit(screen.getByLabelText('Mật khẩu hiện tại').closest('form'))
+    await waitFor(() => expect(changePassword).toHaveBeenCalledWith('old-password', 'Newpass8'))
+  })
+
+  it('checks the server again after correcting a short password to eight characters', async () => {
+    changePassword.mockRejectedValueOnce({ response: { data: { message: 'Mật khẩu mới phải có ít nhất 8 ký tự' } } })
+      .mockRejectedValueOnce({ response: { data: { code: 'CURRENT_PASSWORD_INCORRECT', message: 'Mật khẩu hiện tại không đúng' } } })
+    await openProfile()
+    submitPassword('short')
+    await waitFor(() => expect(window.alert).toHaveBeenLastCalledWith('Mật khẩu mới phải có ít nhất 8 ký tự'))
+    fireEvent.change(screen.getByLabelText('Mật khẩu mới'), { target: { value: 'Newpass8' } })
+    fireEvent.change(screen.getByLabelText('Xác nhận mật khẩu mới'), { target: { value: 'Newpass8' } })
+    fireEvent.submit(screen.getByLabelText('Mật khẩu hiện tại').closest('form'))
+    await waitFor(() => expect(window.alert).toHaveBeenLastCalledWith('Mật khẩu hiện tại không đúng'))
+    expect(changePassword).toHaveBeenLastCalledWith('old-password', 'Newpass8')
+    expect(handleLogout).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('Mật khẩu mới')).toHaveValue('Newpass8')
+    expect(screen.queryByText(/Mật khẩu mới cần ít nhất/)).not.toBeInTheDocument()
   })
 
   it('blocks duplicate submissions while a password change is pending', async () => {

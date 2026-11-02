@@ -73,10 +73,10 @@ ALTER TABLE "User" ADD COLUMN "tokenVersion" INTEGER NOT NULL DEFAULT 0;
 ```
 
 The configured DATABASE_URL and DIRECT_URL point to Supabase, not an isolated
-local test DB. This task has **not applied this migration or changed real data**.
-AGENTS.md requires explicit confirmation before real database writes.
+local test DB. The user explicitly approved this migration after reviewing its
+scope. It has now been applied successfully; all 12 migrations are up to date.
 
-After confirmation, use this order:
+Application order used:
 
 1. Inspect migration status. If unrelated migrations are pending, stop before
    deploying them and assess their scope separately.
@@ -86,7 +86,33 @@ After confirmation, use this order:
 4. Verify an authenticated profile read, then use a confirmed test account to
    verify change/login/revocation. Do not change a real user's password for QA.
 
-Without the new column, the new backend cannot validate authenticated sessions.
-Do not treat the code as activated on the running app until migration and restart
-are complete. Reverting application code can leave the additive column in place;
-do not remove it or roll back token versions, which could restore revoked tokens.
+The previous backend and nodemon were stopped, default Prisma Client generation
+completed, and the backend was restarted on localhost:3001. The frontend is on
+localhost:5173. A read-only live check confirmed the new column, HTTP 200 from
+both services, working protected middleware DB lookup using a nonexistent test
+principal, and CORS for http://localhost:5173. No real user's password was changed
+for verification. The earlier P2022 error for User.tokenVersion is resolved.
+
+Reverting application code can leave the additive column in place; do not remove
+it or roll back token versions, which could restore revoked tokens.
+
+## Follow-up: form validation and password visibility
+
+The requested long password guidance was removed from user, staff and mandatory
+change forms. Password-change requests now validate their shape first, verify the
+current password, then enforce the same new-password policy in the shared service.
+An incorrect current password therefore takes precedence over the new password's
+length. Presence and confirmation checks still run in the browser.
+
+All five forms read live named FormData values and synchronize the whole form,
+including browser autofill that did not emit React change events. Registration
+clears outdated errors when editing. A shared PasswordInput supplies independent
+accessible visibility toggles without submitting, clearing sibling inputs or
+persisting the visibility choice.
+
+Regression results: 92 backend tests and 62 frontend tests passed, including exact
+eight-character passwords. Browser checks passed for user/admin/teacher changes
+and mobile login/registration. Targeted lint is clean; build passed. Security
+review confirmed that auth, rate limits, password byte limits, atomic writes and
+session revocation still apply. Dependencies and DB schema were unchanged; the
+existing dependency audit findings above remain outstanding.

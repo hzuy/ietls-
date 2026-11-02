@@ -46,11 +46,13 @@ describe('mandatory password change', () => {
     expect(screen.getByLabelText('Mật khẩu mới')).toHaveValue('')
   })
 
-  it.each(['old-password', 'ế'.repeat(25), '1234567'])('rejects invalid new passwords before calling the API', async password => {
+  it.each(['old-password', 'ế'.repeat(25), '1234567'])('shows server validation after checking the current password', async password => {
+    changePassword.mockRejectedValue({ response: { data: { message: 'Mật khẩu mới không hợp lệ' } } })
     await openPage()
     fill(password)
-    expect(window.alert).toHaveBeenCalledOnce()
-    expect(changePassword).not.toHaveBeenCalled()
+    await waitFor(() => expect(window.alert).toHaveBeenCalledWith('Mật khẩu mới không hợp lệ'))
+    expect(changePassword).toHaveBeenCalledWith('old-password', password)
+    expect(handleLogout).not.toHaveBeenCalled()
   })
 
   it('keeps the form and session usable after network failure', async () => {

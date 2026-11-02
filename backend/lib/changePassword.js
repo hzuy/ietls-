@@ -1,5 +1,7 @@
 const bcrypt = require('bcryptjs')
 const prisma = require('./prisma')
+const { passwordSchema } = require('./passwordPolicy')
+const newPasswordPolicy = passwordSchema()
 
 // Both public endpoints retain their request shape but use the same safeguards.
 async function changePassword(session, currentPassword, newPassword) {
@@ -13,6 +15,15 @@ async function changePassword(session, currentPassword, newPassword) {
   if (!user.password) return { status: 400, code: 'PASSWORD_NOT_SET', message: 'Tài khoản này đăng nhập bằng Google, chưa có mật khẩu để đổi' }
   if (!await bcrypt.compare(currentPassword, user.password)) {
     return { status: 400, code: 'CURRENT_PASSWORD_INCORRECT', message: 'Mật khẩu hiện tại không đúng' }
+  }
+  const validation = newPasswordPolicy.safeParse(newPassword)
+  if (!validation.success) {
+    return {
+      status: 400,
+      code: 'PASSWORD_POLICY_INVALID',
+      message: validation.error.issues[0].message,
+      errors: [{ field: 'newPassword', message: validation.error.issues[0].message }],
+    }
   }
   if (await bcrypt.compare(newPassword, user.password)) {
     return { status: 400, code: 'PASSWORD_UNCHANGED', message: 'Mật khẩu mới phải khác mật khẩu hiện tại' }

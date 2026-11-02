@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGoogleLogin } from '@react-oauth/google'
 import { login, register, googleAuth, verifyEmail, resendVerification } from '../services/userService'
@@ -6,6 +6,8 @@ import { showAlert } from '../utils/alertUtils'
 import { AlertCircle, MailCheck, ArrowLeft } from 'lucide-react'
 import PillButton from './common/PillButton'
 import PillInput from './common/PillInput'
+import PasswordInput from './common/PasswordInput'
+import { passwordErrorMessage, validateNewPassword } from '../utils/passwordUtils'
 
 export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
   const navigate = useNavigate()
@@ -19,6 +21,15 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
   const [regForm, setRegForm]       = useState({ name: '', email: '', password: '' })
   const [regError, setRegError]     = useState('')
   const [regLoading, setRegLoading] = useState(false)
+
+  const syncLoginForm = event => {
+    setLoginForm(Object.fromEntries(new FormData(event.currentTarget.form)))
+    setLoginError('')
+  }
+  const syncRegisterForm = event => {
+    setRegForm(Object.fromEntries(new FormData(event.currentTarget.form)))
+    setRegError('')
+  }
 
   // Google Sign-In state (dùng chung cho cả 2 tab)
   const [googleError, setGoogleError] = useState('')
@@ -134,14 +145,17 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
 
   const handleLogin = async (e) => {
     e.preventDefault()
+    const values = new FormData(e.currentTarget)
+    const credentials = { email: String(values.get('email') ?? ''), password: String(values.get('password') ?? '') }
+    setLoginForm(credentials)
     setLoginLoading(true)
     setLoginError('')
     try {
-      finishLogin(await login(loginForm.email, loginForm.password))
+      finishLogin(await login(credentials.email, credentials.password))
     } catch (err) {
       const data = err.response?.data
       if (data?.code === 'EMAIL_NOT_VERIFIED') {
-        startVerify(data.email || loginForm.email, data.mailSent, data.message)
+        startVerify(data.email || credentials.email, data.mailSent, data.message)
         return
       }
       const msg = data?.message || 'Đăng nhập thất bại'
@@ -154,8 +168,12 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
 
   const handleRegister = async (e) => {
     e.preventDefault()
-    if (regForm.password.length < 8) {
-      const msg = 'Mật khẩu phải có ít nhất 8 ký tự'
+    const values = new FormData(e.currentTarget)
+    const registration = { name: String(values.get('name') ?? ''), email: String(values.get('email') ?? ''), password: String(values.get('password') ?? '') }
+    setRegForm(registration)
+    const validation = validateNewPassword(registration.password)
+    if (validation) {
+      const msg = validation
       setRegError(msg)
       showAlert(msg, 'error')
       return
@@ -163,10 +181,10 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
     setRegLoading(true)
     setRegError('')
     try {
-      const data = await register(regForm)
-      startVerify(data.email || regForm.email, data.mailSent, data.message)
+      const data = await register(registration)
+      startVerify(data.email || registration.email, data.mailSent, data.message)
     } catch (err) {
-      const msg = err.response?.data?.message || 'Đăng ký thất bại'
+      const msg = passwordErrorMessage(err, 'Đăng ký thất bại')
       setRegError(msg)
       showAlert(msg, 'error')
     } finally {
@@ -385,24 +403,25 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
                 <label htmlFor="login-email" className={labelCls} style={{ color: 'var(--text)' }}>Email</label>
                 <PillInput
                   id="login-email"
+                  name="email"
                   type="email"
                   autoComplete="email"
                   placeholder="example@gmail.com"
                   value={loginForm.email}
-                  onChange={e => setLoginForm({ ...loginForm, email: e.target.value })}
+                  onChange={syncLoginForm}
                   required
                   autoFocus
                 />
               </div>
               <div>
                 <label htmlFor="login-password" className={labelCls} style={{ color: 'var(--text)' }}>Mật khẩu</label>
-                <PillInput
+                <PasswordInput
                   id="login-password"
-                  type="password"
+                  name="password"
                   autoComplete="current-password"
                   placeholder="••••••••"
                   value={loginForm.password}
-                  onChange={e => setLoginForm({ ...loginForm, password: e.target.value })}
+                  onChange={syncLoginForm}
                   required
                 />
               </div>
@@ -437,11 +456,12 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
                 <label htmlFor="reg-name" className={labelCls} style={{ color: 'var(--text)' }}>Họ và tên</label>
                 <PillInput
                   id="reg-name"
+                  name="name"
                   type="text"
                   autoComplete="name"
                   placeholder="Nguyễn Văn A"
                   value={regForm.name}
-                  onChange={e => setRegForm({ ...regForm, name: e.target.value })}
+                  onChange={syncRegisterForm}
                   required
                   autoFocus
                 />
@@ -450,23 +470,24 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
                 <label htmlFor="reg-email" className={labelCls} style={{ color: 'var(--text)' }}>Email</label>
                 <PillInput
                   id="reg-email"
+                  name="email"
                   type="email"
                   autoComplete="email"
                   placeholder="example@gmail.com"
                   value={regForm.email}
-                  onChange={e => setRegForm({ ...regForm, email: e.target.value })}
+                  onChange={syncRegisterForm}
                   required
                 />
               </div>
               <div>
                 <label htmlFor="reg-password" className={labelCls} style={{ color: 'var(--text)' }}>Mật khẩu</label>
-                <PillInput
+                <PasswordInput
                   id="reg-password"
-                  type="password"
+                  name="password"
                   autoComplete="new-password"
                   placeholder="Tối thiểu 8 ký tự"
                   value={regForm.password}
-                  onChange={e => setRegForm({ ...regForm, password: e.target.value })}
+                  onChange={syncRegisterForm}
                   required
                 />
               </div>

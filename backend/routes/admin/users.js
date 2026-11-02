@@ -11,7 +11,7 @@ const validate = require('../../middleware/validate')
 const { loadSubmissionsByUser, bandSummary } = require('../../lib/currentBand')
 const { adminOnly, teacherOrAdmin } = require('../../lib/roles')
 const {
-  adminChangePasswordSchema,
+  adminChangePasswordInputSchema,
   createAccountSchema,
   updateAccountSchema,
   userIdSchema,
@@ -192,7 +192,7 @@ router.get('/me', authMiddleware, teacherOrAdmin, async (req, res) => {
   }
 })
 
-router.put('/me/password', authMiddleware, teacherOrAdmin, ...passwordChangeLimiters, validate(adminChangePasswordSchema), async (req, res) => {
+router.put('/me/password', authMiddleware, teacherOrAdmin, ...passwordChangeLimiters, validate(adminChangePasswordInputSchema), async (req, res) => {
   try {
     const { status, ...body } = await changePassword(req.user, req.body.currentPassword, req.body.newPassword)
     res.status(status).json(body)

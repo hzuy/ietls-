@@ -93,6 +93,7 @@ describe.each(endpoints)('%s password flow', (role, path, currentKey) => {
 
   it.each([
     ['wrong-password', 'changed-password', 'CURRENT_PASSWORD_INCORRECT'],
+    ['wrong-password', 'short', 'CURRENT_PASSWORD_INCORRECT'],
     [initialPassword, initialPassword, 'PASSWORD_UNCHANGED'],
   ])('rejects incorrect or unchanged credentials (%s)', async (current, next, code) => {
     const response = await change(seed(role), path, { [currentKey]: current, newPassword: next })
@@ -106,6 +107,13 @@ describe.each(endpoints)('%s password flow', (role, path, currentKey) => {
     expect(response.status).toBe(400)
     expect(response.body.errors[0].field).toBe('newPassword')
     expect(prisma.user.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('accepts a new password of exactly eight characters after verifying the current password', async () => {
+    const user = seed(role)
+    const response = await change(user, path, { [currentKey]: initialPassword, newPassword: 'Newpass8' })
+    expect(response.status).toBe(200)
+    expect(await bcrypt.compare('Newpass8', users.get(user.id).password)).toBe(true)
   })
 
   it('handles Google-only accounts without a bcrypt exception and never exposes the hash', async () => {
