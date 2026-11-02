@@ -1,45 +1,40 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { changePassword } from '../services/userService'
-import { showAlert } from '../utils/alertUtils'
+import { useEffect, useState } from 'react'
+import { Link, Navigate } from 'react-router-dom'
+import { changePassword, getMe } from '../services/userService'
+import { usePasswordChange } from '../hooks/usePasswordChange'
 import PillButton from '../components/common/PillButton'
 import PillInput from '../components/common/PillInput'
 
 export default function ChangePassword() {
   const [form, setForm] = useState({ oldPassword: '', newPassword: '', confirm: '' })
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-  const navigate = useNavigate()
+  const [hasPassword, setHasPassword] = useState(null)
+  const [loadError, setLoadError] = useState(false)
+  const token = localStorage.getItem('token')
+  const passwordChange = usePasswordChange(changePassword, () => {
+    setForm({ oldPassword: '', newPassword: '', confirm: '' })
+  })
+
+  useEffect(() => {
+    if (!token) return
+    let active = true
+    getMe().then(data => {
+      if (active) {
+        setHasPassword(data.hasPassword !== false)
+        if (data.hasPassword === false) localStorage.removeItem('requirePasswordChange')
+      }
+    }).catch(() => {
+      if (active) setLoadError(true)
+    })
+    return () => { active = false }
+  }, [token])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setError('')
-    if (form.newPassword.length < 8) {
-      const msg = 'Mật khẩu mới phải có ít nhất 8 ký tự'
-      setError(msg)
-      showAlert(msg, 'error')
-      return
-    }
-    if (form.newPassword !== form.confirm) {
-      const msg = 'Mật khẩu xác nhận không khớp'
-      setError(msg)
-      showAlert(msg, 'error')
-      return
-    }
-    setLoading(true)
-    try {
-      await changePassword(form.oldPassword, form.newPassword)
-      localStorage.removeItem('requirePasswordChange')
-      showAlert('Đổi mật khẩu thành công!', 'success')
-      navigate('/')
-    } catch (err) {
-      const msg = err.response?.data?.message || 'Đổi mật khẩu thất bại'
-      setError(msg)
-      showAlert(msg, 'error')
-    } finally {
-      setLoading(false)
-    }
+    if (hasPassword !== true) return
+    await passwordChange.submit(form.oldPassword, form.newPassword, form.confirm)
   }
+
+  if (!token) return <Navigate to="/" replace state={{ authModal: 'login' }} />
 
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
@@ -55,25 +50,24 @@ export default function ChangePassword() {
         <div className="mb-6">
           <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--ink)', marginBottom: 4 }}>Đổi mật khẩu</h1>
           <p style={{ fontSize: 14, color: 'var(--muted)' }}>
-            Tài khoản của bạn cần đặt lại mật khẩu mới để tiếp tục.
+            Mật khẩu mới cần ít nhất 8 ký tự, tối đa 72 byte UTF-8 và khác mật khẩu hiện tại. Sau khi đổi, bạn cần đăng nhập lại trên mọi thiết bị.
           </p>
         </div>
 
-        {error && (
-          <div
-            role="alert"
-            className="p-3 rounded-xl mb-4 text-sm font-medium bg-error-bg border border-error-border text-error-text"
-          >
-            {error}
+        {loadError && <p role="alert" className="text-sm text-red-600 mb-4">Không thể tải thông tin tài khoản. Vui lòng tải lại trang để thử lại.</p>}
+        {hasPassword === false ? (
+          <div className="text-sm text-zinc-600">
+            <p>Tài khoản này đăng nhập bằng Google và chưa có mật khẩu riêng. Vui lòng quản lý mật khẩu trong tài khoản Google của bạn.</p>
+            <Link to="/" className="inline-block mt-4 underline">Về trang chủ</Link>
           </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
+        ) : <form onSubmit={handleSubmit} className="space-y-4" aria-busy={passwordChange.saving}>
           <div>
             <label htmlFor="cp-old" className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Mật khẩu hiện tại</label>
             <PillInput
               id="cp-old"
+              name="currentPassword"
               type="password"
+              disabled={passwordChange.saving}
               placeholder="••••••••"
               value={form.oldPassword}
               onChange={e => setForm({ ...form, oldPassword: e.target.value })}
@@ -85,7 +79,9 @@ export default function ChangePassword() {
             <label htmlFor="cp-new" className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Mật khẩu mới</label>
             <PillInput
               id="cp-new"
+              name="newPassword"
               type="password"
+              disabled={passwordChange.saving}
               placeholder="Tối thiểu 8 ký tự"
               value={form.newPassword}
               onChange={e => setForm({ ...form, newPassword: e.target.value })}
@@ -97,7 +93,9 @@ export default function ChangePassword() {
             <label htmlFor="cp-confirm" className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Xác nhận mật khẩu mới</label>
             <PillInput
               id="cp-confirm"
+              name="confirmPassword"
               type="password"
+              disabled={passwordChange.saving}
               placeholder="Nhập lại mật khẩu mới"
               value={form.confirm}
               onChange={e => setForm({ ...form, confirm: e.target.value })}
@@ -105,10 +103,10 @@ export default function ChangePassword() {
               autoComplete="new-password"
             />
           </div>
-          <PillButton type="submit" disabled={loading} fullWidth className="mt-2">
-            {loading ? 'Đang lưu...' : 'Xác nhận đổi mật khẩu'}
+          <PillButton type="submit" disabled={passwordChange.saving || hasPassword !== true} fullWidth className="mt-2 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:ring-offset-2">
+            {passwordChange.saving ? 'Đang đổi mật khẩu…' : 'Xác nhận đổi mật khẩu'}
           </PillButton>
-        </form>
+        </form>}
       </div>
     </div>
   )

@@ -92,6 +92,7 @@ export function RoleRoute({ roles, children }) {
   const location = useLocation()
   const token = localStorage.getItem('token')
   if (!token) return <Navigate to="/" replace state={{ authModal: 'login', redirectTo: location.pathname }} />
+  if (localStorage.getItem('requirePasswordChange') === 'true') return <Navigate to="/change-password" replace />
   if (!roles.includes(role)) return <Navigate to={homePathFor(role)} replace />
   return children
 }

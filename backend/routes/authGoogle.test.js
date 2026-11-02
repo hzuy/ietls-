@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import request from 'supertest'
+import jwt from 'jsonwebtoken'
 
 process.env.JWT_SECRET = 'test_secret_key'
 process.env.GOOGLE_CLIENT_ID = 'test-google-client-id'
@@ -82,7 +83,7 @@ describe('POST /api/auth/google — soft-delete guard', () => {
   it('vẫn đăng nhập bình thường khi tài khoản khớp googleId chưa bị xóa', async () => {
     mockGooglePayload({ googleId: 'google-sub-active' })
     prismaMock.user.findUnique.mockResolvedValueOnce({
-      id: 3, name: 'Active User', email: 'active@example.com', role: 'user', isLocked: false, deletedAt: null, requirePasswordChange: false
+      id: 3, name: 'Active User', email: 'active@example.com', role: 'user', isLocked: false, deletedAt: null, requirePasswordChange: true, password: null, tokenVersion: 4
     })
 
     const res = await request(app)
@@ -92,6 +93,8 @@ describe('POST /api/auth/google — soft-delete guard', () => {
 
     expect(res.body.token).toBeTruthy()
     expect(res.body.user.email).toBe('active@example.com')
+    expect(jwt.verify(res.body.token, process.env.JWT_SECRET).tokenVersion).toBe(4)
+    expect(res.body.requirePasswordChange).toBe(false)
   })
 
   it('đăng nhập thành công với accessToken hợp lệ từ Google UserInfo API', async () => {

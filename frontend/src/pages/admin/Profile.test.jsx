@@ -5,11 +5,15 @@ import { MemoryRouter } from 'react-router-dom'
 import Profile from './Profile'
 import * as adminService from '../../services/adminService'
 
+const { handleLogout } = vi.hoisted(() => ({ handleLogout: vi.fn() }))
+vi.mock('../../context/AuthContext', () => ({ useAuth: () => ({ handleLogout }) }))
+
 const mockProfile = {
   id: 1,
   name: 'Admin Manager',
   email: 'admin@manager.com',
   role: 'admin',
+  hasPassword: true,
   createdAt: '2026-01-01T00:00:00.000Z',
 }
 
@@ -79,21 +83,21 @@ describe('Profile page — TanStack Query & Skeleton caching', () => {
     const submitBtn = screen.getByRole('button', { name: 'Đổi mật khẩu' })
     fireEvent.click(submitBtn)
 
-    expect(screen.getByText('Mật khẩu xác nhận không khớp')).toBeInTheDocument()
+    expect(window.alert).toHaveBeenCalledWith('Mật khẩu xác nhận không khớp')
     expect(adminService.changeAdminPassword).not.toHaveBeenCalled()
 
-    // Short password (< 6 chars)
+    // Short password (< 8 chars)
     fireEvent.change(newPwInput, { target: { value: '123' } })
     fireEvent.change(confirmPwInput, { target: { value: '123' } })
     fireEvent.click(submitBtn)
 
-    expect(screen.getAllByText('Mật khẩu mới phải ít nhất 6 ký tự').length).toBe(2)
+    expect(window.alert).toHaveBeenCalledWith('Mật khẩu mới phải có ít nhất 8 ký tự')
     expect(adminService.changeAdminPassword).not.toHaveBeenCalled()
   })
 
-  it('calls changeAdminPassword on valid form submission and displays success message', async () => {
+  it.each(['admin', 'teacher'])('changes %s passwords with an alert and logs out', async (role) => {
     const qc = createTestQueryClient()
-    qc.setQueryData(['admin', 'profile'], mockProfile)
+    qc.setQueryData(['admin', 'profile'], { ...mockProfile, role })
     vi.spyOn(adminService, 'getAdminMe').mockResolvedValue(mockProfile)
     vi.spyOn(adminService, 'changeAdminPassword').mockResolvedValue({ message: 'Password updated' })
 
@@ -111,6 +115,32 @@ describe('Profile page — TanStack Query & Skeleton caching', () => {
       expect(adminService.changeAdminPassword).toHaveBeenCalledWith('oldpass123', 'validpassword')
     })
 
-    expect(await screen.findByText('✓ Đổi mật khẩu thành công')).toBeInTheDocument()
+    await waitFor(() => expect(window.alert).toHaveBeenCalledWith('Đổi mật khẩu thành công. Vui lòng đăng nhập lại.'))
+    expect(handleLogout).toHaveBeenCalledOnce()
+    expect(screen.getByLabelText('Mật khẩu hiện tại')).toHaveValue('')
+  })
+
+  it('prevents duplicate submissions and disables the fields during the request', () => {
+    const qc = createTestQueryClient()
+    qc.setQueryData(['admin', 'profile'], mockProfile)
+    vi.spyOn(adminService, 'changeAdminPassword').mockReturnValue(new Promise(() => {}))
+    renderProfile(qc)
+    fireEvent.change(screen.getByLabelText('Mật khẩu hiện tại'), { target: { value: 'old-password' } })
+    fireEvent.change(screen.getByLabelText('Mật khẩu mới'), { target: { value: 'new-password' } })
+    fireEvent.change(screen.getByLabelText('Xác nhận mật khẩu mới'), { target: { value: 'new-password' } })
+    const form = screen.getByLabelText('Mật khẩu hiện tại').closest('form')
+    fireEvent.submit(form)
+    fireEvent.submit(form)
+    expect(adminService.changeAdminPassword).toHaveBeenCalledOnce()
+    expect(screen.getByRole('button', { name: 'Đang đổi mật khẩu…' })).toBeDisabled()
+    expect(screen.getByLabelText('Mật khẩu hiện tại')).toBeDisabled()
+  })
+
+  it('shows Google guidance for staff accounts without a local password', () => {
+    const qc = createTestQueryClient()
+    qc.setQueryData(['admin', 'profile'], { ...mockProfile, hasPassword: false })
+    renderProfile(qc)
+    expect(screen.getByText(/Vui lòng quản lý mật khẩu trong tài khoản Google/)).toBeInTheDocument()
+    expect(screen.queryByLabelText('Mật khẩu hiện tại')).not.toBeInTheDocument()
   })
 })

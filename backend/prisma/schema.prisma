@@ -18,6 +18,7 @@ model User {
   isLocked              Boolean   @default(false)
   emailVerified         Boolean   @default(true)
   requirePasswordChange Boolean   @default(false)
+  tokenVersion          Int       @default(0)
   createdAt             DateTime  @default(now())
   deletedAt             DateTime? // soft-delete — DELETE /admin/users/:id (khác staff.delete ở /admin/accounts/:id, vốn hard-delete)
 

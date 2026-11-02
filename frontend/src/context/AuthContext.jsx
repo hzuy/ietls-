@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import AuthModal from '../components/AuthModal'
+import { queryClient } from '../lib/queryClient'
 
 const AuthContext = createContext(null)
 
@@ -46,6 +47,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     localStorage.removeItem('requirePasswordChange')
+    queryClient.clear()
     setUser(null)
     navigate('/')
   }, [navigate])

@@ -6,7 +6,7 @@ require.cache[prismaPath] = { id: prismaPath, filename: prismaPath, loaded: true
 
 const authUserPath = require.resolve('./authUser')
 delete require.cache[authUserPath]
-const { verifySession, invalidateAuthUser } = require('./authUser')
+const { verifySession } = require('./authUser')
 
 let nextId = 1000
 const freshId = () => ++nextId
@@ -47,16 +47,34 @@ describe('verifySession — role and account state come from the database, not t
     expect(prismaMock.user.findUnique).not.toHaveBeenCalled()
   })
 
-  it('caches the lookup briefly and drops the cache when an admin changes the account', async () => {
+  it('reads security state fresh on every request, including other process updates', async () => {
     const id = freshId()
     prismaMock.user.findUnique.mockResolvedValue({ id, role: 'user', isLocked: false, deletedAt: null })
     await verifySession({ userId: id, role: 'user' })
     await verifySession({ userId: id, role: 'user' })
-    expect(prismaMock.user.findUnique).toHaveBeenCalledTimes(1)
+    expect(prismaMock.user.findUnique).toHaveBeenCalledTimes(2)
 
     prismaMock.user.findUnique.mockResolvedValue({ id, role: 'user', isLocked: true, deletedAt: null })
-    invalidateAuthUser(id)
     expect(await verifySession({ userId: id, role: 'user' })).toMatchObject({ status: 403 })
-    expect(prismaMock.user.findUnique).toHaveBeenCalledTimes(2)
+    expect(prismaMock.user.findUnique).toHaveBeenCalledTimes(3)
+  })
+
+  it('accepts legacy tokens only while the account version remains zero', async () => {
+    const id = freshId()
+    prismaMock.user.findUnique.mockResolvedValue({ id, role: 'user', tokenVersion: 0 })
+    expect(await verifySession({ userId: id, role: 'user' })).toBeNull()
+    prismaMock.user.findUnique.mockResolvedValue({ id, role: 'user', tokenVersion: 1 })
+    expect(await verifySession({ userId: id, role: 'user' })).toMatchObject({ status: 401, code: 'SESSION_REVOKED' })
+    expect(await verifySession({ userId: id, role: 'user', tokenVersion: 1 })).toBeNull()
+  })
+
+  it('enforces mandatory changes unless explicitly allowed, without trapping Google-only accounts', async () => {
+    const id = freshId()
+    prismaMock.user.findUnique.mockResolvedValue({ id, role: 'teacher', password: 'hash', requirePasswordChange: true })
+    const token = { userId: id, role: 'teacher' }
+    expect(await verifySession(token)).toMatchObject({ status: 403, code: 'PASSWORD_CHANGE_REQUIRED' })
+    expect(await verifySession(token, { allowPasswordChange: true })).toBeNull()
+    prismaMock.user.findUnique.mockResolvedValue({ id, role: 'teacher', password: null, requirePasswordChange: true })
+    expect(await verifySession(token)).toBeNull()
   })
 })

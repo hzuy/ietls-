@@ -6,8 +6,10 @@ import PillButton from '../components/common/PillButton'
 import PillInput from '../components/common/PillInput'
 import { UserProfileSkeleton } from '../components/skeletons'
 import { getMe, updateProfile, changePassword, getUserStats } from '../services/userService'
-import { User, BarChart2, Lock, CheckCircle2, AlertCircle } from 'lucide-react'
+import { User, BarChart2, Lock } from 'lucide-react'
 import { formatBand } from '../utils/ielts'
+import { showAlert } from '../utils/alertUtils'
+import { usePasswordChange } from '../hooks/usePasswordChange'
 
 const TABS = [
   { id: 'info',     label: 'Thông tin cá nhân', Icon: User },
@@ -22,27 +24,6 @@ const SKILLS = [
   { key: 'speaking',  label: 'Speaking' },
 ]
 
-function Alert({ msg }) {
-  if (!msg) return null
-  const isSuccess = msg.type === 'success'
-  const Icon = isSuccess ? CheckCircle2 : AlertCircle
-
-  return (
-    <div
-      role="alert"
-      className={`mt-4 px-5 py-3 rounded-full font-medium border flex items-center gap-2.5 ${
-        isSuccess
-          ? 'bg-success-bg text-success-text border-success-border'
-          : 'bg-error-bg text-error-text border-error-border'
-      }`}
-      style={{ fontSize: 'var(--fs-sm)' }}
-    >
-      <Icon className={`w-4 h-4 shrink-0 stroke-[2] ${isSuccess ? 'text-success' : 'text-error'}`} />
-      <span>{msg.text}</span>
-    </div>
-  )
-}
-
 export default function UserProfile() {
   const navigate = useNavigate()
   const { user, setUser } = useAuth()
@@ -51,7 +32,8 @@ export default function UserProfile() {
   // --- Info tab ---
   const [name, setName] = useState(user?.name || '')
   const [joinDate, setJoinDate] = useState('—')
-  const [infoMsg, setInfoMsg] = useState(null)
+  const [hasPassword, setHasPassword] = useState(null)
+  const [profileError, setProfileError] = useState(false)
 
   // --- Stats tab ---
   const [stats, setStats] = useState(null)
@@ -63,7 +45,9 @@ export default function UserProfile() {
   const [oldPwd, setOldPwd]       = useState('')
   const [newPwd, setNewPwd]       = useState('')
   const [confirmPwd, setConfirmPwd] = useState('')
-  const [pwdMsg, setPwdMsg]       = useState(null)
+  const passwordChange = usePasswordChange(changePassword, () => {
+    setOldPwd(''); setNewPwd(''); setConfirmPwd('')
+  })
 
   useEffect(() => {
     document.title = 'Hồ sơ học tập | IELTS Pro'
@@ -72,7 +56,8 @@ export default function UserProfile() {
         year: 'numeric', month: 'long', day: 'numeric',
       }))
       setName(data.name)
-    }).catch(() => {})
+      setHasPassword(data.hasPassword !== false)
+    }).catch(() => setProfileError(true))
   }, [])
 
   useEffect(() => {
@@ -88,36 +73,21 @@ export default function UserProfile() {
 
   async function handleSaveInfo(e) {
     e.preventDefault()
-    setInfoMsg(null)
     try {
       const data = await updateProfile(name)
       const updated = { ...user, name: data.name }
       localStorage.setItem('user', JSON.stringify(updated))
       setUser(updated)
-      setInfoMsg({ type: 'success', text: 'Cập nhật thành công!' })
+      showAlert.success('Cập nhật thành công!')
     } catch (err) {
-      setInfoMsg({ type: 'error', text: err.response?.data?.message || 'Có lỗi xảy ra' })
+      showAlert.error(err.response?.data?.message || 'Có lỗi xảy ra')
     }
   }
 
   async function handleChangePassword(e) {
     e.preventDefault()
-    setPwdMsg(null)
-    if (newPwd.length < 8) {
-      setPwdMsg({ type: 'error', text: 'Mật khẩu mới phải có ít nhất 8 ký tự' })
-      return
-    }
-    if (newPwd !== confirmPwd) {
-      setPwdMsg({ type: 'error', text: 'Mật khẩu xác nhận không khớp' })
-      return
-    }
-    try {
-      await changePassword(oldPwd, newPwd)
-      setPwdMsg({ type: 'success', text: 'Đổi mật khẩu thành công!' })
-      setOldPwd(''); setNewPwd(''); setConfirmPwd('')
-    } catch (err) {
-      setPwdMsg({ type: 'error', text: err.response?.data?.message || 'Có lỗi xảy ra' })
-    }
+    if (hasPassword !== true) return
+    await passwordChange.submit(oldPwd, newPwd, confirmPwd)
   }
 
   const avatarLetter = (user?.name || 'U').charAt(0).toUpperCase()
@@ -211,7 +181,6 @@ export default function UserProfile() {
                     />
                   </div>
                 </div>
-                <Alert msg={infoMsg} />
                 <PillButton type="submit" className="mt-6">
                   Lưu thay đổi
                 </PillButton>
@@ -306,7 +275,10 @@ export default function UserProfile() {
               <h2 className="text-xl font-bold text-zinc-900 m-0 mb-6">
                 Đổi mật khẩu
               </h2>
-              <form onSubmit={handleChangePassword}>
+              {hasPassword === false ? (
+                <p className="text-sm text-zinc-600">Tài khoản này đăng nhập bằng Google và chưa có mật khẩu riêng. Vui lòng quản lý mật khẩu trong tài khoản Google của bạn.</p>
+              ) : <form onSubmit={handleChangePassword} aria-busy={passwordChange.saving}>
+                <p className="text-sm text-zinc-500 mb-5">Mật khẩu mới cần ít nhất 8 ký tự, tối đa 72 byte UTF-8 và khác mật khẩu hiện tại. Sau khi đổi, bạn cần đăng nhập lại trên mọi thiết bị.</p>
                 <div className="flex flex-col gap-5">
                   {[
                     { id: 'up-old', label: 'Mật khẩu hiện tại',     value: oldPwd,     set: setOldPwd },
@@ -319,7 +291,10 @@ export default function UserProfile() {
                       </label>
                       <PillInput
                         id={id}
+                        name={id === 'up-old' ? 'currentPassword' : id === 'up-new' ? 'newPassword' : 'confirmPassword'}
                         type="password"
+                        autoComplete={id === 'up-old' ? 'current-password' : 'new-password'}
+                        disabled={passwordChange.saving}
                         value={value}
                         onChange={e => set(e.target.value)}
                         required
@@ -327,11 +302,11 @@ export default function UserProfile() {
                     </div>
                   ))}
                 </div>
-                <Alert msg={pwdMsg} />
-                <PillButton type="submit" className="mt-6">
-                  Đổi mật khẩu
+                {profileError && <p role="alert" className="text-sm text-zinc-500 mt-4">Không thể tải thông tin tài khoản. Vui lòng tải lại trang để thử lại.</p>}
+                <PillButton type="submit" className="mt-6 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:ring-offset-2" disabled={passwordChange.saving || hasPassword !== true}>
+                  {passwordChange.saving ? 'Đang đổi mật khẩu…' : 'Đổi mật khẩu'}
                 </PillButton>
-              </form>
+              </form>}
             </div>
           )}
 

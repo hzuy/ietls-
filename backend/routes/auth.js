@@ -7,7 +7,8 @@ const router = express.Router()
 const prisma = require('../lib/prisma')
 const authMiddleware = require('../middleware/auth')
 const validate = require('../middleware/validate')
-const { authLimiter, emailCodeLimiter } = require('../middleware/rateLimiter')
+const { changePassword } = require('../lib/changePassword')
+const { authLimiter, emailCodeLimiter, passwordChangeLimiters } = require('../middleware/rateLimiter')
 const { issueVerificationCode, verifyCode, getCooldownSeconds, RESEND_COOLDOWN_MS } = require('../lib/emailVerification')
 const {
   registerSchema,
@@ -30,14 +31,14 @@ function getGoogleClient() {
 
 function loginResponse(user) {
   const token = jwt.sign(
-    { userId: user.id, email: user.email, role: user.role },
+    { userId: user.id, email: user.email, role: user.role, tokenVersion: user.tokenVersion ?? 0 },
     process.env.JWT_SECRET,
     { expiresIn: '7d' }
   )
   return {
     token,
     user: { id: user.id, name: user.name, email: user.email, role: user.role },
-    requirePasswordChange: user.requirePasswordChange === true,
+    requirePasswordChange: user.requirePasswordChange === true && Boolean(user.password),
   }
 }
 
@@ -155,17 +156,7 @@ router.post('/google', validate(googleAuthSchema), async (req, res) => {
       return res.status(403).json({ message: 'Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên.' })
     }
 
-    const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    )
-
-    res.json({
-      token,
-      user: { id: user.id, name: user.name, email: user.email, role: user.role },
-      requirePasswordChange: user.requirePasswordChange === true,
-    })
+    res.json(loginResponse(user))
   } catch (error) {
     sendServerError(res, error, 'Lỗi server')
   }
@@ -269,24 +260,10 @@ router.post('/resend-verification', emailCodeLimiter, validate(resendVerificatio
 })
 
 // Đổi mật khẩu bắt buộc
-router.put('/change-password', authMiddleware, validate(changePasswordSchema), async (req, res) => {
+router.put('/change-password', authMiddleware, ...passwordChangeLimiters, validate(changePasswordSchema), async (req, res) => {
   try {
-    const { oldPassword, newPassword } = req.body
-
-    const user = await prisma.user.findUnique({ where: { id: req.user.userId } })
-    if (!user.password) {
-      return res.status(400).json({ message: 'Tài khoản này đăng nhập bằng Google, chưa có mật khẩu để đổi' })
-    }
-    const valid = await bcrypt.compare(oldPassword, user.password)
-    if (!valid) {
-      return res.status(400).json({ message: 'Mật khẩu hiện tại không đúng' })
-    }
-    const hashed = await bcrypt.hash(newPassword, 10)
-    await prisma.user.update({
-      where: { id: req.user.userId },
-      data: { password: hashed, requirePasswordChange: false },
-    })
-    res.json({ message: 'Đổi mật khẩu thành công' })
+    const { status, ...body } = await changePassword(req.user, req.body.oldPassword, req.body.newPassword)
+    res.status(status).json(body)
   } catch (error) {
     sendServerError(res, error, 'Lỗi server')
   }
@@ -297,10 +274,11 @@ router.get('/me', authMiddleware, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
-      select: { id: true, name: true, email: true, role: true, createdAt: true },
+      select: { id: true, name: true, email: true, role: true, createdAt: true, password: true, requirePasswordChange: true },
     })
     if (!user) return res.status(404).json({ message: 'Không tìm thấy người dùng' })
-    res.json(user)
+    const { password, ...profile } = user
+    res.json({ ...profile, hasPassword: Boolean(password) })
   } catch (error) {
     sendServerError(res, error, 'Lỗi server')
   }

@@ -33,11 +33,19 @@ api.interceptors.response.use(
 
     const isLockedAccount = status === 403 && error.response?.data?.code === 'ACCOUNT_LOCKED'
 
+    if (status === 403 && error.response?.data?.code === 'PASSWORD_CHANGE_REQUIRED') {
+      localStorage.setItem('requirePasswordChange', 'true')
+      queryClient.clear()
+      if (window.location.pathname !== '/change-password') window.location.href = '/change-password'
+      return Promise.reject(error)
+    }
+
     if ((status === 401 || isLockedAccount) && !isAuthEndpoint && !isSettingsEndpoint) {
       // Chỉ xóa token và redirect khi thực sự bị hết hạn session trên protected route
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       localStorage.removeItem('requirePasswordChange')
+      queryClient.clear()
 
       if (window.location.pathname !== '/' && !window.location.pathname.startsWith('/login')) {
         window.location.href = '/'

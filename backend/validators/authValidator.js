@@ -1,9 +1,10 @@
 const { z } = require('zod')
+const { passwordSchema } = require('../lib/passwordPolicy')
 
 // 1. Đăng ký tài khoản
 const registerSchema = z.object({
   email: z.string({ message: 'Email là bắt buộc' }).email({ message: 'Email không đúng định dạng' }),
-  password: z.string({ message: 'Mật khẩu là bắt buộc' }).min(8, { message: 'Mật khẩu phải có ít nhất 8 ký tự' }),
+  password: passwordSchema('Mật khẩu'),
   name: z.string({ message: 'Tên là bắt buộc' }).trim().min(1, { message: 'Tên không được để trống' }),
 })
 
@@ -33,7 +34,7 @@ const resendVerificationSchema = z.object({
 // 4. Đổi mật khẩu người dùng
 const changePasswordSchema = z.object({
   oldPassword: z.string({ message: 'Mật khẩu cũ là bắt buộc' }).min(1, { message: 'Thiếu thông tin mật khẩu cũ' }),
-  newPassword: z.string({ message: 'Mật khẩu mới là bắt buộc' }).min(8, { message: 'Mật khẩu mới phải có ít nhất 8 ký tự' }),
+  newPassword: passwordSchema(),
 })
 
 // 5. Cập nhật profile người dùng
@@ -44,14 +45,14 @@ const updateProfileSchema = z.object({
 // 6. Đổi mật khẩu admin/teacher
 const adminChangePasswordSchema = z.object({
   currentPassword: z.string({ message: 'Mật khẩu hiện tại là bắt buộc' }).min(1, { message: 'Thiếu thông tin mật khẩu hiện tại' }),
-  newPassword: z.string({ message: 'Mật khẩu mới là bắt buộc' }).min(6, { message: 'Mật khẩu mới phải ít nhất 6 ký tự' }),
+  newPassword: passwordSchema(),
 })
 
 // 7. Tạo tài khoản staff/admin
 const createAccountSchema = z.object({
   name: z.string({ message: 'Tên là bắt buộc' }).trim().min(1, { message: 'Tên không được để trống' }),
   email: z.string({ message: 'Email là bắt buộc' }).email({ message: 'Email không đúng định dạng' }),
-  password: z.string({ message: 'Mật khẩu là bắt buộc' }).min(8, { message: 'Mật khẩu phải có ít nhất 8 ký tự' }),
+  password: passwordSchema('Mật khẩu'),
   role: z.enum(['admin', 'teacher'], { message: 'Role không hợp lệ' }),
 })
 
@@ -60,7 +61,7 @@ const updateAccountSchema = z.object({
   name: z.string().trim().min(1, { message: 'Tên không được để trống' }).optional(),
   role: z.enum(['admin', 'teacher'], { message: 'Role không hợp lệ' }).optional(),
   isLocked: z.boolean({ message: 'isLocked phải là kiểu boolean' }).optional(),
-  password: z.string().refine(val => !val || val.length >= 8, { message: 'Mật khẩu mới phải có ít nhất 8 ký tự' }).optional(),
+  password: z.union([z.literal(''), passwordSchema()]).optional(),
 })
 
 // 9. Thao tác ID nhân sự (make-admin, make-teacher, remove-staff)

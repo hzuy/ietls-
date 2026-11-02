@@ -1,5 +1,8 @@
 const express = require('express')
 const bcrypt = require('bcryptjs')
+const { randomInt } = require('node:crypto')
+const { changePassword } = require('../../lib/changePassword')
+const { passwordChangeLimiters } = require('../../middleware/rateLimiter')
 const { sendServerError } = require('../../lib/httpErrors')
 const router = express.Router()
 const prisma = require('../../lib/prisma')
@@ -7,7 +10,6 @@ const authMiddleware = require('../../middleware/auth')
 const validate = require('../../middleware/validate')
 const { loadSubmissionsByUser, bandSummary } = require('../../lib/currentBand')
 const { adminOnly, teacherOrAdmin } = require('../../lib/roles')
-const { invalidateAuthUser } = require('../../lib/authUser')
 const {
   adminChangePasswordSchema,
   createAccountSchema,
@@ -28,7 +30,6 @@ router.post('/make-admin', authMiddleware, adminOnly, validate(userIdSchema), as
       data: { role: 'admin' },
       select: { id: true, name: true, email: true, role: true }
     })
-    invalidateAuthUser(targetId)
     await logAuditEvent(req, {
       action: AUDIT_ACTIONS.USER_ROLE_CHANGE,
       entityType: 'User',
@@ -146,7 +147,6 @@ router.put('/users/:id/toggle-lock', authMiddleware, adminOnly, async (req, res)
     const user = await prisma.user.findUnique({ where: { id }, select: { isLocked: true, email: true } })
     if (!user) return res.status(404).json({ message: 'Không tìm thấy user' })
     const updated = await prisma.user.update({ where: { id }, data: { isLocked: !user.isLocked } })
-    invalidateAuthUser(id)
     await logAuditEvent(req, {
       action: updated.isLocked ? AUDIT_ACTIONS.USER_LOCK : AUDIT_ACTIONS.USER_UNLOCK,
       entityType: 'User',
@@ -165,7 +165,6 @@ router.delete('/users/:id', authMiddleware, adminOnly, async (req, res) => {
     if (id === req.user.userId) return res.status(400).json({ message: 'Không thể xóa tài khoản đang dùng' })
     const existing = await prisma.user.findUnique({ where: { id }, select: { email: true } })
     await prisma.user.update({ where: { id }, data: { deletedAt: new Date(), isLocked: true } })
-    invalidateAuthUser(id)
     await logAuditEvent(req, {
       action: AUDIT_ACTIONS.USER_DELETE,
       entityType: 'User',
@@ -183,24 +182,20 @@ router.get('/me', authMiddleware, teacherOrAdmin, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
-      select: { id: true, name: true, email: true, role: true, isLocked: true, createdAt: true }
+      select: { id: true, name: true, email: true, role: true, isLocked: true, createdAt: true, password: true, requirePasswordChange: true }
     })
     if (!user) return res.status(404).json({ message: 'Không tìm thấy tài khoản' })
-    res.json(user)
+    const { password, ...profile } = user
+    res.json({ ...profile, hasPassword: Boolean(password) })
   } catch (error) {
     sendServerError(res, error, 'Lỗi server')
   }
 })
 
-router.put('/me/password', authMiddleware, teacherOrAdmin, validate(adminChangePasswordSchema), async (req, res) => {
+router.put('/me/password', authMiddleware, teacherOrAdmin, ...passwordChangeLimiters, validate(adminChangePasswordSchema), async (req, res) => {
   try {
-    const { currentPassword, newPassword } = req.body
-    const user = await prisma.user.findUnique({ where: { id: req.user.userId } })
-    const valid = await bcrypt.compare(currentPassword, user.password)
-    if (!valid) return res.status(400).json({ message: 'Mật khẩu hiện tại không đúng' })
-    const hashed = await bcrypt.hash(newPassword, 10)
-    await prisma.user.update({ where: { id: req.user.userId }, data: { password: hashed } })
-    res.json({ message: 'Đổi mật khẩu thành công' })
+    const { status, ...body } = await changePassword(req.user, req.body.currentPassword, req.body.newPassword)
+    res.status(status).json(body)
   } catch (error) {
     sendServerError(res, error, 'Lỗi server')
   }
@@ -234,7 +229,7 @@ router.post('/accounts', authMiddleware, adminOnly, validate(createAccountSchema
     if (existing) return res.status(409).json({ message: 'Email đã tồn tại' })
     const hashed = await bcrypt.hash(password, 10)
     const user = await prisma.user.create({
-      data: { name, email, password: hashed, role },
+      data: { name, email, password: hashed, role, requirePasswordChange: true },
       select: { id: true, name: true, email: true, role: true, isLocked: true, createdAt: true }
     })
     await logAuditEvent(req, {
@@ -261,8 +256,14 @@ router.put('/accounts/:id', authMiddleware, teacherOrAdmin, validate(updateAccou
     }
     const data = {}
     if (name) data.name = name
-    if (password && password.trim()) {
-      data.password = await bcrypt.hash(password.trim(), 10)
+    if (password) {
+      if (id === req.user.userId) {
+        return res.status(400).json({ message: 'Vui lòng đổi mật khẩu tại trang hồ sơ và nhập mật khẩu hiện tại.' })
+      }
+      if (req.user.role !== 'admin') return res.status(403).json({ message: 'Chỉ admin mới có thể đặt lại mật khẩu tài khoản khác.' })
+      data.password = await bcrypt.hash(password, 10)
+      data.requirePasswordChange = true
+      data.tokenVersion = { increment: 1 }
     }
     if (req.user.role === 'admin') {
       if (role) data.role = role
@@ -273,7 +274,6 @@ router.put('/accounts/:id', authMiddleware, teacherOrAdmin, validate(updateAccou
       data,
       select: { id: true, name: true, email: true, role: true, isLocked: true, createdAt: true }
     })
-    invalidateAuthUser(id)
     const changedFields = {}
     if (data.role !== undefined) changedFields.role = data.role
     if (data.isLocked !== undefined) changedFields.isLocked = data.isLocked
@@ -296,7 +296,6 @@ router.delete('/accounts/:id', authMiddleware, adminOnly, async (req, res) => {
     if (id === req.user.userId) return res.status(400).json({ message: 'Không thể xóa tài khoản đang dùng' })
     const existing = await prisma.user.findUnique({ where: { id }, select: { email: true } })
     await prisma.user.delete({ where: { id } })
-    invalidateAuthUser(id)
     await logAuditEvent(req, {
       action: AUDIT_ACTIONS.STAFF_DELETE,
       entityType: 'User',
@@ -375,7 +374,6 @@ router.post('/make-teacher', authMiddleware, adminOnly, validate(userIdSchema), 
       data: { role: 'teacher' },
       select: { id: true, name: true, email: true, role: true }
     })
-    invalidateAuthUser(userId)
     await logAuditEvent(req, {
       action: AUDIT_ACTIONS.USER_ROLE_CHANGE,
       entityType: 'User',
@@ -399,7 +397,6 @@ router.post('/remove-staff', authMiddleware, adminOnly, validate(userIdSchema), 
       data: { role: 'user' },
       select: { id: true, name: true, email: true, role: true }
     })
-    invalidateAuthUser(userId)
     await logAuditEvent(req, {
       action: AUDIT_ACTIONS.USER_ROLE_CHANGE,
       entityType: 'User',
@@ -417,16 +414,17 @@ router.post('/remove-staff', authMiddleware, adminOnly, validate(userIdSchema), 
 router.post('/users/:id/reset-password', authMiddleware, adminOnly, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
+    if (id === req.user.userId) return res.status(400).json({ message: 'Vui lòng đổi mật khẩu tại trang hồ sơ và nhập mật khẩu hiện tại.' })
     const user = await prisma.user.findUnique({ where: { id }, select: { id: true, email: true } })
     if (!user) return res.status(404).json({ message: 'Không tìm thấy user' })
 
-    // Generate 8-char password: uppercase + lowercase + digits (no ambiguous chars)
+    // Generate 12-char password: uppercase + lowercase + digits (no ambiguous chars)
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
     let pwd = ''
-    for (let i = 0; i < 8; i++) pwd += chars[Math.floor(Math.random() * chars.length)]
+    for (let i = 0; i < 12; i++) pwd += chars[randomInt(chars.length)]
 
     const hashed = await bcrypt.hash(pwd, 10)
-    await prisma.user.update({ where: { id }, data: { password: hashed } })
+    await prisma.user.update({ where: { id }, data: { password: hashed, requirePasswordChange: true, tokenVersion: { increment: 1 } } })
 
     await logAuditEvent(req, {
       action: AUDIT_ACTIONS.USER_PASSWORD_RESET,

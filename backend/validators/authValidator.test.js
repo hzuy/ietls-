@@ -52,10 +52,14 @@ describe('authValidator', () => {
       expect(res.error.issues[0].message).toBe('Mật khẩu mới phải có ít nhất 8 ký tự')
     })
 
-    it('allows 6 chars for admin password change per policy', () => {
+    it('requires 8 chars for admin/teacher password changes too', () => {
       const payload = { currentPassword: 'pass', newPassword: '123456' }
       const res = adminChangePasswordSchema.safeParse(payload)
-      expect(res.success).toBe(true)
+      expect(res.success).toBe(false)
+    })
+    it.each([['a'.repeat(73), false], ['ế'.repeat(25), false], ['ế'.repeat(24), true]])('checks UTF-8 bytes for %s', (newPassword, accepted) => {
+      expect(changePasswordSchema.safeParse({ oldPassword: 'old-password', newPassword }).success).toBe(accepted)
+      expect(adminChangePasswordSchema.safeParse({ currentPassword: 'old-password', newPassword }).success).toBe(accepted)
     })
   })
 

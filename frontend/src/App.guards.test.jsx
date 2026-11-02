@@ -13,6 +13,7 @@ function renderAt(path, role, element) {
       <Routes>
         <Route path="/" element={<div>Trang người học</div>} />
         <Route path="/admin" element={<div>Bảng điều khiển staff</div>} />
+        <Route path="/change-password" element={<div>Bắt buộc đổi mật khẩu</div>} />
         <Route path={path.split('?')[0]} element={element} />
       </Routes>
     </MemoryRouter>
@@ -49,6 +50,13 @@ describe('LearnerRoute — learner pages are only for learner accounts', () => {
 
 describe('RoleRoute — admin pages follow the menu shown for each role', () => {
   const page = (path, label) => <RoleRoute roles={ADMIN_PAGE_ROLES[path]}><div>{label}</div></RoleRoute>
+
+  it.each(['admin', 'teacher'])('requires %s to change a temporary password before accessing staff pages', role => {
+    localStorage.setItem('requirePasswordChange', 'true')
+    renderAt('/admin/profile', role, page('/admin/profile', 'Hồ sơ'))
+    expect(screen.getByText('Bắt buộc đổi mật khẩu')).toBeInTheDocument()
+    expect(screen.queryByText('Hồ sơ')).not.toBeInTheDocument()
+  })
 
   it('admin cannot open teacher-only Practice/Samples pages', () => {
     renderAt('/admin/reading-practice', 'admin', page('/admin/reading-practice', 'Reading Practice'))

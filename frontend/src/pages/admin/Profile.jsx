@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { getAdminMe, changeAdminPassword } from '../../services/adminService'
+import { usePasswordChange } from '../../hooks/usePasswordChange'
 
 
 const ROLE_LABEL = { admin: 'Admin', teacher: 'Teacher' }
@@ -47,11 +48,11 @@ function ProfileSkeleton() {
 }
 
 export default function Profile() {
-  const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [pwForm, setPwForm]     = useState({ currentPassword: '', newPassword: '', confirm: '' })
-  const [pwError, setPwError]   = useState('')
-  const [pwSaved, setPwSaved]   = useState(false)
+  const passwordChange = usePasswordChange(changeAdminPassword, () => {
+    setPwForm({ currentPassword: '', newPassword: '', confirm: '' })
+  })
 
   const { data: profile, isPending } = useQuery({
     queryKey: ['admin', 'profile'],
@@ -68,37 +69,9 @@ export default function Profile() {
     placeholderData: (prev) => prev,
   })
 
-  const changePasswordMutation = useMutation({
-    mutationFn: ({ currentPassword, newPassword }) =>
-      changeAdminPassword(currentPassword, newPassword),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin', 'profile'] })
-      setPwSaved(true)
-      setPwForm({ currentPassword: '', newPassword: '', confirm: '' })
-      setTimeout(() => setPwSaved(false), 3000)
-    },
-    onError: (err) => {
-      setPwError(err.response?.data?.message || 'Lỗi đổi mật khẩu')
-    },
-  })
-
-  const pwSaving = changePasswordMutation.isPending
-
-  const handlePasswordChange = (e) => {
+  const handlePasswordChange = async (e) => {
     e.preventDefault()
-    setPwError('')
-    if (pwForm.newPassword !== pwForm.confirm) {
-      setPwError('Mật khẩu xác nhận không khớp')
-      return
-    }
-    if (pwForm.newPassword.length < 6) {
-      setPwError('Mật khẩu mới phải ít nhất 6 ký tự')
-      return
-    }
-    changePasswordMutation.mutate({
-      currentPassword: pwForm.currentPassword,
-      newPassword: pwForm.newPassword,
-    })
+    await passwordChange.submit(pwForm.currentPassword, pwForm.newPassword, pwForm.confirm)
   }
 
   const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
@@ -175,12 +148,17 @@ export default function Profile() {
         <section className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-6">
           <div className="mb-5">
             <h2 className="text-sm font-semibold text-zinc-900">Đổi mật khẩu</h2>
-            <p className="text-xs text-zinc-500 mt-0.5">Mật khẩu mới phải ít nhất 6 ký tự</p>
+            <p className="text-xs text-zinc-500 mt-0.5">Mật khẩu mới cần ít nhất 8 ký tự, tối đa 72 byte UTF-8 và khác mật khẩu hiện tại. Sau khi đổi, bạn cần đăng nhập lại trên mọi thiết bị.</p>
           </div>
-          <form onSubmit={handlePasswordChange} className="space-y-4">
+          {profile.hasPassword === false ? (
+            <p className="text-sm text-zinc-600">Tài khoản này đăng nhập bằng Google và chưa có mật khẩu riêng. Vui lòng quản lý mật khẩu trong tài khoản Google của bạn.</p>
+          ) : <form onSubmit={handlePasswordChange} className="space-y-4" aria-busy={passwordChange.saving}>
             <div>
-              <label className={labelCls}>Mật khẩu hiện tại</label>
+              <label htmlFor="admin-current-password" className={labelCls}>Mật khẩu hiện tại</label>
               <input
+                id="admin-current-password"
+                name="currentPassword"
+                disabled={passwordChange.saving}
                 type="password"
                 value={pwForm.currentPassword}
                 onChange={e => setPwForm(p => ({ ...p, currentPassword: e.target.value }))}
@@ -190,8 +168,11 @@ export default function Profile() {
               />
             </div>
             <div>
-              <label className={labelCls}>Mật khẩu mới</label>
+              <label htmlFor="admin-new-password" className={labelCls}>Mật khẩu mới</label>
               <input
+                id="admin-new-password"
+                name="newPassword"
+                disabled={passwordChange.saving}
                 type="password"
                 value={pwForm.newPassword}
                 onChange={e => setPwForm(p => ({ ...p, newPassword: e.target.value }))}
@@ -201,8 +182,11 @@ export default function Profile() {
               />
             </div>
             <div>
-              <label className={labelCls}>Xác nhận mật khẩu mới</label>
+              <label htmlFor="admin-confirm-password" className={labelCls}>Xác nhận mật khẩu mới</label>
               <input
+                id="admin-confirm-password"
+                name="confirmPassword"
+                disabled={passwordChange.saving}
                 type="password"
                 value={pwForm.confirm}
                 onChange={e => setPwForm(p => ({ ...p, confirm: e.target.value }))}
@@ -211,18 +195,16 @@ export default function Profile() {
                 required
               />
             </div>
-            {pwError && <p className="text-xs text-red-500">{pwError}</p>}
-            {pwSaved && <p className="text-xs text-green-600 font-medium">✓ Đổi mật khẩu thành công</p>}
             <div className="pt-1">
               <button
                 type="submit"
-                disabled={pwSaving}
-                className="px-3.5 py-2 rounded-lg bg-zinc-900 text-white text-xs font-medium hover:bg-zinc-800 transition disabled:opacity-60 shadow-xs"
+                disabled={passwordChange.saving}
+                className="px-3.5 py-2 rounded-lg bg-zinc-900 text-white text-xs font-medium hover:bg-zinc-800 transition disabled:opacity-60 shadow-xs focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
               >
-                {pwSaving ? 'Đang lưu...' : 'Đổi mật khẩu'}
+                {passwordChange.saving ? 'Đang đổi mật khẩu…' : 'Đổi mật khẩu'}
               </button>
             </div>
-          </form>
+          </form>}
         </section>
 
         </div>

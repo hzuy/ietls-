@@ -98,7 +98,30 @@ const emailCodeLimiter = createSubmitRateLimiter({
   message: 'Bạn đã thao tác với mã xác thực quá nhiều lần. Vui lòng thử lại sau 15 phút.',
 })
 
+function passwordLimiter(max, keyGenerator) {
+  return rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: max,
+    keyGenerator,
+    validate: { keyGeneratorIpFallback: false },
+    skip: shouldSkip,
+    standardHeaders: 'draft-6',
+    legacyHeaders: false,
+    handler: (req, res) => {
+      const retryAfter = Math.max(1, Math.ceil((req.rateLimit.resetTime.getTime() - Date.now()) / 1000))
+      res.status(429).json({ code: 'PASSWORD_CHANGE_RATE_LIMIT', retryAfter, message: `Bạn đã thử đổi mật khẩu quá nhiều lần. Vui lòng thử lại sau ${retryAfter} giây.` })
+    },
+  })
+}
+
+// Shared instances ensure neither endpoint can bypass the other one's quota.
+const passwordChangeLimiters = [
+  passwordLimiter(20, req => rateLimit.ipKeyGenerator(req.ip || req.socket?.remoteAddress || 'unknown')),
+  passwordLimiter(5, req => `password_${req.user.userId}`),
+]
+
 module.exports = {
+  passwordChangeLimiters,
   createSubmitRateLimiter,
   authLimiter,
   emailCodeLimiter,
