@@ -16,6 +16,7 @@ vi.mock('../services/examService', () => ({
 
 vi.mock('../services/adminService', () => ({
   getAdminSettings: vi.fn(() => Promise.resolve({ data: {} })),
+  getPublicSettings: vi.fn(() => Promise.resolve({ writing_time: '20' })),
 }))
 
 vi.mock('../services/draftService', () => ({

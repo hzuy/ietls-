@@ -10,13 +10,18 @@
  * Nếu vẫn không có secret, script phải DỪNG với thông báo rõ ràng, thay vì âm
  * thầm dùng một secret mặc định nằm trong mã nguồn.
  *
- * @param {{ loadEnv?: boolean }} [options] loadEnv=false để bỏ bước nạp .env (dùng khi test).
+ * @param {{ loadEnv?: boolean, envPath?: string }} [options]
+ *   loadEnv=false để bỏ bước nạp .env (dùng khi test).
+ *   envPath để chỉ định file .env khác (dùng khi test, mặc định backend/.env).
  */
-function requireJwtSecret({ loadEnv = true } = {}) {
+function requireJwtSecret({
+  loadEnv = true,
+  envPath = require('path').join(__dirname, '..', '..', '.env'),
+} = {}) {
   if (!process.env.JWT_SECRET && loadEnv) {
     try {
       require('dotenv').config({
-        path: require('path').join(__dirname, '..', '..', '.env'),
+        path: envPath,
         quiet: true,
       })
     } catch {

@@ -4,7 +4,7 @@ import { useNavigate, useNavigationType, useParams, useSearchParams } from 'reac
 import { queryClient } from '../lib/queryClient'
 import { getReadingExam, getReadingExamWithAnswers, submitReadingExam } from '../services/examService'
 import api from '../utils/axios'
-import { getAdminSettings } from '../services/adminService'
+import { getPublicSettings } from '../services/adminService'
 import { saveDraft, loadDraft, clearDraft, formatSavedAt } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -177,7 +177,7 @@ export default function ReadingExam() {
   const loadExam = useCallback(() => {
     setLoading(true)
     setError(null)
-    getAdminSettings()
+    getPublicSettings()
       .then(settings => {
         const mins = parseInt(settings.reading_time)
         if (!isNaN(mins) && mins > 0) setTimeLeft(mins * 60)

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { getWritingExam, submitWritingExam, getWritingStatus, getFullTestStatus, getWritingMyResults, retryWritingGrading } from '../services/examService'
-import { getAdminSettings } from '../services/adminService'
+import { getPublicSettings } from '../services/adminService'
 import { saveDraft, loadDraft, clearDraft, isDataEmpty } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -775,7 +775,7 @@ export default function WritingExam() {
   const loadExam = useCallback(() => {
     setLoading(true)
     setError(null)
-    getAdminSettings()
+    getPublicSettings()
       .then(settings => {
         const mins = parseInt(settings.writing_time)
         if (!isNaN(mins) && mins > 0) { setTimeLeft(mins * 60) }

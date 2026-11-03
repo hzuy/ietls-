@@ -363,7 +363,7 @@ describe('SpeakingExam Part 2 flow', () => {
         },
         corrections: [{ start: 0, end: 5, original: 'hello', corrected: 'hi', answer: 0 }],
         transcript: JSON.stringify([
-          { questionId: 1, text: 'I am from Hanoi capital.', audioUrl: '/uploads/audio.webm' },
+          { questionId: 1, text: 'I am from Hanoi capital.', audioUrl: '/uploads/user_audio/answer.webm' },
         ]),
       },
     ])
@@ -382,6 +382,25 @@ describe('SpeakingExam Part 2 flow', () => {
 
     // Question 1 (answered) is rendered with its transcript
     expect(screen.getByText('I am from Hanoi capital.')).toBeInTheDocument()
+    const audio = document.querySelector('audio')
+    expect(audio).toHaveAttribute('src', 'http://localhost:3001/uploads/user_audio/answer.webm')
+
+    // WebM can report an infinite duration; playback must not seek to an
+    // impossible timestamp before calling play().
+    const play = vi.fn().mockResolvedValue(undefined)
+    const seek = vi.fn()
+    audio.play = play
+    Object.defineProperty(audio, 'duration', { configurable: true, value: Infinity })
+    Object.defineProperty(audio, 'currentTime', {
+      configurable: true,
+      get: () => 0,
+      set: seek,
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Phát bản ghi âm' }))
+    await waitFor(() => expect(play).toHaveBeenCalledOnce())
+    expect(seek).not.toHaveBeenCalled()
+    fireEvent.error(audio)
+    expect(screen.getByRole('alert')).toHaveTextContent('Không tải được bản ghi âm')
 
     // Question 2 (unanswered) is also rendered with score 0!
     expect(screen.getByText('What do you like about it?')).toBeInTheDocument()

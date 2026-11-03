@@ -3,7 +3,7 @@ import { useNavigate, useNavigationType, useParams, useSearchParams } from 'reac
 
 import { queryClient } from '../lib/queryClient'
 import { getListeningExam, getListeningExamWithAnswers, submitListeningExam } from '../services/examService'
-import { getAdminSettings } from '../services/adminService'
+import { getPublicSettings } from '../services/adminService'
 import { saveDraft, loadDraft, clearDraft, formatSavedAt } from '../services/draftService'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -166,7 +166,7 @@ export default function ListeningExam() {
   const loadExam = useCallback(() => {
     setLoading(true)
     setError(null)
-    getAdminSettings()
+    getPublicSettings()
       .then(settings => {
         const mins = parseInt(settings.listening_time)
         if (!isNaN(mins) && mins > 0) setTimeLeft(mins * 60)

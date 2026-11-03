@@ -245,9 +245,12 @@ describe('Speaking Routes & AI Criterion Logging', () => {
 
     it('returns the LATEST graded answer per part when a part was submitted multiple times, incl. transcript', async () => {
       prismaMock.speakingPart.findMany.mockResolvedValue([{ id: 20 }, { id: 21 }])
+      const savedTranscript = JSON.stringify([
+        { questionId: 7, text: 'My answer', audioUrl: '/uploads/user_audio/answer.webm' },
+      ])
       // route queries orderBy createdAt desc → newest first
       prismaMock.speakingAnswer.findMany.mockResolvedValue([
-        { id: 902, partId: 20, status: 'graded', transcript: 'newest answer', aiFeedback: fb(7) },
+        { id: 902, partId: 20, status: 'graded', transcript: savedTranscript, aiFeedback: fb(7) },
         { id: 901, partId: 20, status: 'graded', transcript: 'older answer', aiFeedback: fb(5.5) },
         { id: 911, partId: 21, status: 'graded', transcript: 'part 21 answer', aiFeedback: fb(6) },
       ])
@@ -261,7 +264,8 @@ describe('Speaking Routes & AI Criterion Logging', () => {
       const p20 = res.body.find(r => r.partId === 20)
       expect(p20.answerId).toBe(902)
       expect(p20.overall).toBe(7)
-      expect(p20.transcript).toBe('newest answer')
+      expect(p20.transcript).toBe(savedTranscript)
+      expect(JSON.parse(p20.transcript)[0].audioUrl).toBe('/uploads/user_audio/answer.webm')
       expect(p20.status).toBe('graded')
     })
 

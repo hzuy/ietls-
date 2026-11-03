@@ -338,25 +338,20 @@ function CustomAudioPlayer({ src }) {
   const [progress, setProgress] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
-  const [isDurationHacked, setIsDurationHacked] = useState(false)
+  const [playbackError, setPlaybackError] = useState('')
 
-  const togglePlay = () => {
-    if (!audioRef.current) return
+  const togglePlay = async () => {
+    const audio = audioRef.current
+    if (!audio) return
     if (isPlaying) {
-       audioRef.current.pause()
-       setIsPlaying(false)
+      audio.pause()
     } else {
-      if (audioRef.current.duration === Infinity && !isDurationHacked) {
-        audioRef.current.currentTime = 1e101;
-        setTimeout(() => {
-           audioRef.current.currentTime = 0;
-           setIsDurationHacked(true);
-           audioRef.current.play();
-           setIsPlaying(true)
-        }, 200);
-      } else {
-        audioRef.current.play()
-        setIsPlaying(true)
+      setPlaybackError('')
+      try {
+        await audio.play()
+      } catch {
+        setIsPlaying(false)
+        setPlaybackError('Không thể phát bản ghi âm. Hãy thử tải lại trang.')
       }
     }
   }
@@ -366,7 +361,7 @@ function CustomAudioPlayer({ src }) {
     const time = audioRef.current.currentTime
     const dur = audioRef.current.duration
     setCurrentTime(time)
-    if (dur && dur !== Infinity && !isNaN(dur)) {
+    if (Number.isFinite(dur) && dur > 0) {
       setDuration(dur)
       setProgress((time / dur) * 100)
     }
@@ -375,14 +370,30 @@ function CustomAudioPlayer({ src }) {
   const handleLoadedMetadata = () => {
     if (!audioRef.current) return;
     const dur = audioRef.current.duration;
-    if (dur && dur !== Infinity && !isNaN(dur)) {
+    if (Number.isFinite(dur) && dur > 0) {
       setDuration(dur);
     }
+  }
+
+  const handleSeek = (e) => {
+    if (!audioRef.current || !Number.isFinite(duration) || duration <= 0) return
+    const bounds = e.currentTarget.getBoundingClientRect()
+    if (!bounds.width) return
+    const percent = Math.max(0, Math.min(1, (e.clientX - bounds.left) / bounds.width))
+    const newTime = percent * duration
+    audioRef.current.currentTime = newTime
+    setCurrentTime(newTime)
+    setProgress(percent * 100)
   }
 
   const handleEnded = () => {
      setIsPlaying(false)
      setProgress(100)
+  }
+
+  const handleAudioError = () => {
+    setIsPlaying(false)
+    setPlaybackError('Không tải được bản ghi âm. Tệp có thể đã bị xóa hoặc không còn truy cập được.')
   }
 
   const formatTime = (time) => {
@@ -392,33 +403,30 @@ function CustomAudioPlayer({ src }) {
     return m + ":" + s.toString().padStart(2, '0')
   }
 
-  const handleSeek = (e) => {
-    if (!audioRef.current) return
-    const bounds = e.currentTarget.getBoundingClientRect()
-    const x = e.clientX - bounds.left
-    const percent = Math.max(0, Math.min(1, x / bounds.width))
-    const dur = duration || audioRef.current.duration || 0;
-    const newTime = percent * dur
-    if (!isNaN(newTime) && isFinite(newTime)) {
-       audioRef.current.currentTime = newTime
-       setCurrentTime(newTime)
-    }
-    if (dur) setProgress(percent * 100)
-  }
-
   return (
     <div className="flex items-center gap-3 w-full">
-      <audio ref={audioRef} src={src} onTimeUpdate={handleTimeUpdate} onEnded={handleEnded} onLoadedMetadata={handleLoadedMetadata} />
-      <button onClick={togglePlay} className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full border-2 border-teal-400 text-teal-500 bg-white shadow-sm hover:bg-teal-50 transition-colors">
+      <audio
+        ref={audioRef}
+        src={src}
+        preload="metadata"
+        onTimeUpdate={handleTimeUpdate}
+        onEnded={handleEnded}
+        onLoadedMetadata={handleLoadedMetadata}
+        onPlay={() => { setIsPlaying(true); setPlaybackError('') }}
+        onPause={() => setIsPlaying(false)}
+        onError={handleAudioError}
+      />
+      <button onClick={togglePlay} aria-label={isPlaying ? 'Tạm dừng bản ghi âm' : 'Phát bản ghi âm'} className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full border-2 border-teal-400 text-teal-500 bg-white shadow-sm hover:bg-teal-50 transition-colors">
         {isPlaying ? <Pause className="w-5 h-5" fill="currentColor" /> : <Play className="w-5 h-5 ml-1" fill="currentColor" />}
       </button>
-      <div className="flex-1 h-2 bg-teal-100 rounded-full cursor-pointer relative" onClick={handleSeek}>
+      <div className={`flex-1 h-2 bg-teal-100 rounded-full relative ${duration > 0 ? 'cursor-pointer' : 'cursor-default'}`} onClick={handleSeek}>
         <div className="absolute left-0 top-0 bottom-0 bg-teal-400 rounded-full transition-all duration-100" style={{ width: progress + '%' }} />
         <div className="absolute w-3 h-3 bg-white border-2 border-teal-400 rounded-full top-1/2 -translate-y-1/2 -ml-1.5 transition-all duration-100" style={{ left: progress + '%' }} />
       </div>
       <div className="text-xs font-mono text-zinc-500 font-medium whitespace-nowrap">
         {formatTime(currentTime)} / {formatTime(duration)}
       </div>
+      {playbackError && <span role="alert" className="text-[11px] text-red-600 leading-tight">{playbackError}</span>}
     </div>
   )
 }

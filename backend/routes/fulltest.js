@@ -14,7 +14,7 @@ const router = express.Router()
 // Sau:   max(4 queries) = ~30ms / lần gọi
 async function getFullTestStatus(userId, seriesId, bookNumber, testNumber) {
   const exams = await prisma.exam.findMany({
-    where: { seriesId, bookNumber, testNumber },
+    where: { seriesId, bookNumber, testNumber, deletedAt: null, series: { deletedAt: null } },
     select: {
       id: true, skill: true,
       writingTasks:  { select: { id: true } },
@@ -117,7 +117,7 @@ router.get('/status', authMiddleware, learnerOnly, async (req, res) => {
     if (!examId) return res.status(400).json({ message: 'examId required' })
 
     const exam = await prisma.exam.findUnique({
-      where: { id: examId },
+      where: { id: examId, deletedAt: null, series: { deletedAt: null } },
       select: { seriesId: true, bookNumber: true, testNumber: true }
     })
     if (!exam || !exam.seriesId || !exam.bookNumber || !exam.testNumber) {
@@ -139,7 +139,7 @@ router.get('/result', authMiddleware, learnerOnly, async (req, res) => {
 
     const [series, status] = await Promise.all([
       prisma.examSeries.findUnique({
-        where: { id: parseInt(seriesId) },
+        where: { id: parseInt(seriesId), deletedAt: null },
         select: { name: true }
       }),
       getFullTestStatus(userId, parseInt(seriesId), parseInt(bookNumber), parseInt(testNumber))
@@ -160,7 +160,7 @@ router.get('/user-progress', authMiddleware, learnerOnly, async (req, res) => {
 
     // Step 1: Lấy tất cả exam thuộc full-test (1 query, bao gồm writingTasks + speakingParts)
     const allExams = await prisma.exam.findMany({
-      where: { seriesId: { not: null }, bookNumber: { not: null }, testNumber: { not: null }, deletedAt: null },
+      where: { seriesId: { not: null }, series: { deletedAt: null }, bookNumber: { not: null }, testNumber: { not: null }, deletedAt: null },
       select: {
         id: true, skill: true, seriesId: true, bookNumber: true, testNumber: true,
         writingTasks:  { select: { id: true } },

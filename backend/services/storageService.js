@@ -1,6 +1,7 @@
 const cloudinary = require('cloudinary').v2
 const path = require('path')
 const fs = require('fs')
+const { MAX_AUDIO_BYTES, DOWNLOAD_TIMEOUT_MS, ALLOWED_AUDIO_EXTENSIONS, validateRemoteAudioUrl } = require('../lib/safeAudioSource')
 const { uploadsDir, moveToSubdir } = require('../lib/adminUploads')
 const { resizeUploadedCover } = require('../lib/imageResize')
 
@@ -142,50 +143,67 @@ async function uploadOptimizedCover(file, { dir, urlPrefix, folder = 'covers' })
  * Returns { filePath, isTemp, cleanup: () => void }
  */
 async function resolveAudioForTranscription(audioUrl) {
-  if (audioUrl.startsWith('http://') || audioUrl.startsWith('https://')) {
-    const tmpDir = path.join(uploadsDir, 'tmp')
-    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true })
-    let ext = '.mp3'
-    try {
-      ext = path.extname(new URL(audioUrl).pathname) || '.mp3'
-    } catch {
-      // fallback
-    }
-    const tempFilePath = path.join(tmpDir, `transcribe-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`)
-
-    const response = await fetch(audioUrl)
-    if (!response.ok) {
-      throw new Error(`Không thể tải file audio từ cloud (${response.status} ${response.statusText})`)
-    }
-    const arrayBuffer = await response.arrayBuffer()
-    fs.writeFileSync(tempFilePath, Buffer.from(arrayBuffer))
-
-    return {
-      filePath: tempFilePath,
-      isTemp: true,
-      cleanup: () => {
-        try {
-          if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath)
-        } catch {
-          // ignore
-        }
-      },
-    }
+  const invalidSource = message => Object.assign(new Error(message), { code: 'INVALID_AUDIO_SOURCE' })
+  if (typeof audioUrl !== 'string' || !audioUrl.trim()) throw invalidSource('Audio source is required')
+  if (audioUrl.startsWith('/uploads/')) {
+    if (/%2f|%5c|%00/i.test(audioUrl) || audioUrl.includes('\\') || audioUrl.includes('?') || audioUrl.includes('#')) throw invalidSource('Invalid audio path')
+    let relative
+    try { relative = decodeURIComponent(audioUrl.slice('/uploads/'.length)) } catch { throw invalidSource('Invalid audio path') }
+    if (!relative || path.isAbsolute(relative) || relative.split(/[\\/]/).some(part => !part || part === '.' || part === '..' || part.includes(':')) || !ALLOWED_AUDIO_EXTENSIONS.has(path.extname(relative).toLowerCase())) throw invalidSource('Invalid audio path or format')
+    const root = fs.realpathSync(uploadsDir)
+    let filePath
+    try { filePath = fs.realpathSync(path.join(root, relative)) } catch { throw invalidSource('Audio file does not exist on server') }
+    const fileStat = fs.statSync(filePath)
+    if (!filePath.startsWith(`${root}${path.sep}`) || !fileStat.isFile()) throw invalidSource('Invalid audio path')
+    if (fileStat.size > MAX_AUDIO_BYTES) throw invalidSource('Audio file exceeds 50 MB limit')
+    return { filePath, isTemp: false, cleanup: () => {} }
   }
-
-  const filename = audioUrl.replace('/uploads/', '')
-  const filePath = path.join(uploadsDir, filename)
-  if (!fs.existsSync(filePath)) {
-    throw new Error('File audio không tồn tại trên server')
+  const { url, addresses } = await validateRemoteAudioUrl(audioUrl)
+  const tmpDir = path.join(uploadsDir, 'tmp')
+  fs.mkdirSync(tmpDir, { recursive: true })
+  const tempFilePath = path.join(tmpDir, `transcribe-${process.pid}-${Date.now()}-${require('node:crypto').randomBytes(8).toString('hex')}${path.extname(url.pathname).toLowerCase()}`)
+  let cleaned = false
+  const cleanup = () => {
+    if (cleaned) return
+    cleaned = true
+    try { fs.unlinkSync(tempFilePath) } catch (error) { if (error.code !== 'ENOENT') throw error }
   }
+  try {
+    const transport = url.protocol === 'https:' ? require('node:https') : require('node:http')
+    const net = require('node:net')
+    await new Promise((resolve, reject) => {
+      const pinned = addresses[0]
+      let req
+      const wholeTimer = setTimeout(() => req?.destroy(new Error('Audio download timed out')), DOWNLOAD_TIMEOUT_MS)
+      const finish = callback => value => { clearTimeout(wholeTimer); callback(value) }
+      try {
+        req = transport.get(url, {
+          agent: false,
+          lookup: (_host, _options, callback) => callback(null, pinned.address, net.isIP(pinned.address)),
+          timeout: DOWNLOAD_TIMEOUT_MS,
+        }, async response => {
+          if (response.statusCode < 200 || response.statusCode >= 300) {
+            response.resume(); finish(reject)(new Error('Unable to download audio from managed storage')); return
+          }
+          const length = Number(response.headers['content-length'])
+          if (Number.isFinite(length) && length > MAX_AUDIO_BYTES) {
+            response.destroy(); finish(reject)(new Error('Audio file exceeds 50 MB limit')); return
+          }
+          let received = 0
+          response.on('data', chunk => {
+            received += chunk.length
+            if (received > MAX_AUDIO_BYTES) response.destroy(new Error('Audio file exceeds 50 MB limit'))
+          })
+          try { await require('node:stream/promises').pipeline(response, fs.createWriteStream(tempFilePath, { flags: 'wx' })); finish(resolve)() } catch (error) { finish(reject)(error) }
+        })
+        req.setTimeout(DOWNLOAD_TIMEOUT_MS, () => req.destroy(new Error('Audio download timed out')))
+        req.on('error', finish(reject))
 
-  return {
-    filePath,
-    isTemp: false,
-    cleanup: () => {},
-  }
+      } catch (error) { finish(reject)(error) }
+    })
+    return { filePath: tempFilePath, isTemp: true, cleanup }
+  } catch (error) { cleanup(); throw error }
 }
-
 module.exports = {
   isCloudConfigured,
   initCloudinary,

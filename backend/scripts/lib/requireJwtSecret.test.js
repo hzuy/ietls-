@@ -1,4 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 
 import { requireJwtSecret } from './requireJwtSecret'
 
@@ -31,10 +34,16 @@ describe('requireJwtSecret', () => {
     expect(() => requireJwtSecret({ loadEnv: false })).toThrow(/Thiếu JWT_SECRET/)
   })
 
-  it('nạp backend/.env khi biến môi trường chưa có (giống server.js)', () => {
+  it('nạp file .env khi biến môi trường chưa có (giống server.js)', () => {
     delete process.env.JWT_SECRET
-    const secret = requireJwtSecret()
-    expect(typeof secret).toBe('string')
-    expect(secret.trim().length).toBeGreaterThan(0)
+    // Tạo .env tạm để test không phụ thuộc backend/.env có sẵn trên máy hay không.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jwt-secret-'))
+    const envPath = path.join(dir, '.env')
+    fs.writeFileSync(envPath, 'JWT_SECRET=secret-tu-file-env\n')
+    try {
+      expect(requireJwtSecret({ envPath })).toBe('secret-tu-file-env')
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
   })
 })

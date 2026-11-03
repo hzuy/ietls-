@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo } 
 import { useNavigate, useLocation } from 'react-router-dom'
 import AuthModal from '../components/AuthModal'
 import { queryClient } from '../lib/queryClient'
+import { clearAdminSettingsCache } from '../services/adminService'
 
 const AuthContext = createContext(null)
 
@@ -33,6 +34,7 @@ export function AuthProvider({ children }) {
   }, [])
 
   const handleAuthSuccess = (userData) => {
+    clearAdminSettingsCache()
     setUser(userData)
     const redirectTo = modal.redirectTo
     setModal({ open: false, tab: 'login', redirectTo: null })
@@ -44,6 +46,7 @@ export function AuthProvider({ children }) {
   }
 
   const handleLogout = useCallback(() => {
+    clearAdminSettingsCache()
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     localStorage.removeItem('requirePasswordChange')

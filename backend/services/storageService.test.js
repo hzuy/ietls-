@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 const path = require('path')
 const fs = require('fs')
+const https = require('node:https')
+const dns = require('node:dns').promises
+const { EventEmitter } = require('node:events')
+const { Readable } = require('node:stream')
+const { MAX_AUDIO_BYTES } = require('../lib/safeAudioSource')
 const cloudinary = require('cloudinary').v2
 const {
   isCloudConfigured,
@@ -149,32 +154,70 @@ describe('Storage Service', () => {
   })
 
   describe('resolveAudioForTranscription', () => {
-    it('downloads remote audio via fetch when audioUrl starts with http', async () => {
-      const fakeText = 'fake audio data for whisper'
-      const fakeAudioBuffer = new TextEncoder().encode(fakeText).buffer
-      const originalFetch = global.fetch
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        arrayBuffer: vi.fn().mockResolvedValue(fakeAudioBuffer),
-      })
-
-      try {
-        const { filePath, isTemp, cleanup } = await resolveAudioForTranscription('https://res.cloudinary.com/mycloud/audio/test.mp3')
-        expect(isTemp).toBe(true)
-        expect(fs.existsSync(filePath)).toBe(true)
-        expect(fs.readFileSync(filePath).toString()).toBe('fake audio data for whisper')
-
-        cleanup()
-        expect(fs.existsSync(filePath)).toBe(false)
-      } finally {
-        global.fetch = originalFetch
-      }
+    it('rejects an untrusted remote source before any network request', async () => {
+      const fetchSpy = vi.spyOn(global, 'fetch')
+      await expect(resolveAudioForTranscription('https://127.0.0.1/private.mp3')).rejects.toThrow()
+      expect(fetchSpy).not.toHaveBeenCalled()
     })
 
-    it('throws error if local file does not exist', async () => {
-      await expect(resolveAudioForTranscription('/uploads/audio/non-existent-12345.mp3'))
-        .rejects
-        .toThrow('File audio không tồn tại trên server')
+    it('resolves a managed local file and rejects traversal and missing files', async () => {
+      const { uploadsDir } = require('../lib/adminUploads')
+      const testFile = path.join(uploadsDir, 'safety-test.mp3')
+      fs.writeFileSync(testFile, Buffer.from('test audio'))
+      try {
+        const resolved = await resolveAudioForTranscription('/uploads/safety-test.mp3')
+        expect(resolved.isTemp).toBe(false)
+        expect(fs.realpathSync(resolved.filePath)).toBe(fs.realpathSync(testFile))
+        await expect(resolveAudioForTranscription('/uploads/..%2fprivate.mp3')).rejects.toThrow()
+        await expect(resolveAudioForTranscription('/uploads/missing-safety-test.mp3')).rejects.toThrow('Audio file does not exist on server')
+      } finally { fs.unlinkSync(testFile) }
+    })
+
+    it('rejects unsupported remote schemes and untrusted hosts', async () => {
+      await expect(resolveAudioForTranscription('http://example.com/audio.mp3')).rejects.toThrow()
+      await expect(resolveAudioForTranscription('file:///etc/passwd')).rejects.toThrow()
+    })
+
+    it('pins managed remote downloads to validated DNS and cleans temporary audio', async () => {
+      process.env.CLOUDINARY_CLOUD_NAME = 'mycloud'
+      vi.spyOn(dns, 'lookup').mockResolvedValue([{ address: '1.1.1.1', family: 4 }])
+      vi.spyOn(https, 'get').mockImplementation((url, options, onResponse) => {
+        const req = new EventEmitter()
+        req.setTimeout = vi.fn()
+        req.destroy = vi.fn()
+        const response = Readable.from([Buffer.alloc(4096, 1)])
+        response.statusCode = 200
+        response.headers = { 'content-length': '4096' }
+        queueMicrotask(() => onResponse(response))
+        expect(options.lookup).toBeTypeOf('function')
+        expect(url.hostname).toBe('res.cloudinary.com')
+        return req
+      })
+
+      const resolved = await resolveAudioForTranscription('https://res.cloudinary.com/mycloud/video/upload/ielts-app/audio/test.mp3')
+      expect(resolved.isTemp).toBe(true)
+      expect(fs.statSync(resolved.filePath).size).toBe(4096)
+      resolved.cleanup()
+      expect(fs.existsSync(resolved.filePath)).toBe(false)
+    })
+
+    it.each([
+      ['redirect', 302, { location: 'http://127.0.0.1/latest/meta-data' }],
+      ['oversized response', 200, { 'content-length': String(MAX_AUDIO_BYTES + 1) }],
+    ])('rejects a managed remote %s without following redirects or buffering oversized files', async (_case, statusCode, headers) => {
+      process.env.CLOUDINARY_CLOUD_NAME = 'mycloud'
+      vi.spyOn(dns, 'lookup').mockResolvedValue([{ address: '1.1.1.1', family: 4 }])
+      vi.spyOn(https, 'get').mockImplementation((_url, _options, onResponse) => {
+        const req = new EventEmitter()
+        req.setTimeout = vi.fn()
+        req.destroy = vi.fn()
+        const response = Readable.from([])
+        response.statusCode = statusCode
+        response.headers = headers
+        queueMicrotask(() => onResponse(response))
+        return req
+      })
+      await expect(resolveAudioForTranscription('https://res.cloudinary.com/mycloud/video/upload/ielts-app/audio/test.mp3')).rejects.toThrow()
     })
   })
 })

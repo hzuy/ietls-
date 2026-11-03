@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useGoogleLogin } from '@react-oauth/google'
 import { login, register, googleAuth, verifyEmail, resendVerification } from '../services/userService'
 import { showAlert } from '../utils/alertUtils'
-import { AlertCircle, MailCheck, ArrowLeft } from 'lucide-react'
+import { MailCheck, ArrowLeft } from 'lucide-react'
 import PillButton from './common/PillButton'
 import PillInput from './common/PillInput'
 import PasswordInput from './common/PasswordInput'
@@ -14,31 +14,24 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
 
   // Login state
   const [loginForm, setLoginForm]       = useState({ email: '', password: '' })
-  const [loginError, setLoginError]     = useState('')
   const [loginLoading, setLoginLoading] = useState(false)
 
   // Register state
   const [regForm, setRegForm]       = useState({ name: '', email: '', password: '' })
-  const [regError, setRegError]     = useState('')
   const [regLoading, setRegLoading] = useState(false)
 
   const syncLoginForm = event => {
     setLoginForm(Object.fromEntries(new FormData(event.currentTarget.form)))
-    setLoginError('')
   }
   const syncRegisterForm = event => {
     setRegForm(Object.fromEntries(new FormData(event.currentTarget.form)))
-    setRegError('')
   }
 
   // Google Sign-In state (dùng chung cho cả 2 tab)
-  const [googleError, setGoogleError] = useState('')
   const [googleLoading, setGoogleLoading] = useState(false)
 
   const [verifyFor, setVerifyFor]         = useState(null)
   const [verifyCode, setVerifyCode]       = useState('')
-  const [verifyError, setVerifyError]     = useState('')
-  const [verifyInfo, setVerifyInfo]       = useState('')
   const [verifyLoading, setVerifyLoading] = useState(false)
   const [resendIn, setResendIn]           = useState(0)
 
@@ -48,12 +41,14 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
     return () => clearTimeout(t)
   }, [resendIn])
 
-  const startVerify = (email, mailSent, message) => {
+  const startVerify = (email, mailSent) => {
     setVerifyFor(email)
     setVerifyCode('')
-    setVerifyError(mailSent ? '' : message)
-    setVerifyInfo(mailSent ? message : '')
     setResendIn(mailSent ? 60 : 0)
+    showAlert(
+      mailSent ? `Mã OTP đã được gửi tới ${email}.` : `Chưa gửi được mã OTP tới ${email}. Bạn có thể thử gửi lại.`,
+      mailSent ? 'success' : 'warning',
+    )
   }
 
   const finishLogin = (data) => {
@@ -72,11 +67,10 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
   const handleVerify = async (e) => {
     e.preventDefault()
     if (!/^\d{6}$/.test(verifyCode)) {
-      setVerifyError('Mã xác thực gồm 6 chữ số')
+      showAlert('Mã xác thực gồm 6 chữ số', 'warning')
       return
     }
     setVerifyLoading(true)
-    setVerifyError('')
     try {
       finishLogin(await verifyEmail(verifyFor, verifyCode))
     } catch (err) {
@@ -88,7 +82,7 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
         showAlert(data.message, 'info')
         return
       }
-      setVerifyError(data?.message || 'Xác thực thất bại')
+      showAlert(data?.message || 'Xác thực thất bại', 'error')
       if (data?.reason === 'too_many' || data?.reason === 'expired') setVerifyCode('')
     } finally {
       setVerifyLoading(false)
@@ -96,15 +90,13 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
   }
 
   const handleResend = async () => {
-    setVerifyError('')
-    setVerifyInfo('')
     try {
       const data = await resendVerification(verifyFor)
-      setVerifyInfo(data.message)
       setResendIn(data.retryAfter || 60)
+      showAlert('Mã OTP mới đã được gửi.', 'success')
     } catch (err) {
       const data = err.response?.data
-      setVerifyError(data?.message || 'Không gửi lại được mã')
+      showAlert(data?.message || 'Không gửi lại được mã OTP', 'error')
       if (data?.retryAfter) setResendIn(data.retryAfter)
     }
   }
@@ -112,7 +104,6 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
   // Xử lý đăng nhập / đăng ký qua Google OAuth2 popup:
   // Nhận access_token từ Google popup -> gửi backend xác thực qua Google UserInfo API.
   const handleGoogleSuccess = async (tokenResponse) => {
-    setGoogleError('')
     setGoogleLoading(true)
     try {
       const data = await googleAuth({ accessToken: tokenResponse.access_token })
@@ -128,7 +119,6 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
       }
     } catch (err) {
       const msg = err.response?.data?.message || 'Đăng nhập Google thất bại'
-      setGoogleError(msg)
       showAlert(msg, 'error')
     } finally {
       setGoogleLoading(false)
@@ -138,7 +128,6 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
   const triggerGoogleLogin = useGoogleLogin({
     onSuccess: handleGoogleSuccess,
     onError: () => {
-      setGoogleError('Đăng nhập Google thất bại')
       showAlert('Đăng nhập Google thất bại', 'error')
     },
   })
@@ -149,17 +138,15 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
     const credentials = { email: String(values.get('email') ?? ''), password: String(values.get('password') ?? '') }
     setLoginForm(credentials)
     setLoginLoading(true)
-    setLoginError('')
     try {
       finishLogin(await login(credentials.email, credentials.password))
     } catch (err) {
       const data = err.response?.data
       if (data?.code === 'EMAIL_NOT_VERIFIED') {
-        startVerify(data.email || credentials.email, data.mailSent, data.message)
+        startVerify(data.email || credentials.email, data.mailSent)
         return
       }
       const msg = data?.message || 'Đăng nhập thất bại'
-      setLoginError(msg)
       showAlert(msg, 'error')
     } finally {
       setLoginLoading(false)
@@ -174,18 +161,15 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
     const validation = validateNewPassword(registration.password)
     if (validation) {
       const msg = validation
-      setRegError(msg)
       showAlert(msg, 'error')
       return
     }
     setRegLoading(true)
-    setRegError('')
     try {
       const data = await register(registration)
-      startVerify(data.email || registration.email, data.mailSent, data.message)
+      startVerify(data.email || registration.email, data.mailSent)
     } catch (err) {
       const msg = passwordErrorMessage(err, 'Đăng ký thất bại')
-      setRegError(msg)
       showAlert(msg, 'error')
     } finally {
       setRegLoading(false)
@@ -212,12 +196,6 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
   // nằm ngoài tầm với của CSS trang chủ.
   const googleSection = (
     <>
-      {googleError && (
-        <div role="alert" className="p-3 rounded-2xl mb-4 mt-4 text-xs font-medium bg-error-bg border border-error-border text-error-text flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-error shrink-0" />
-          <span>{googleError}</span>
-        </div>
-      )}
       <div className="flex items-center gap-3 my-5">
         <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
         <span className="text-xs font-medium" style={{ color: 'var(--subtle)' }}>hoặc</span>
@@ -322,17 +300,6 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
               </p>
             </div>
 
-            {verifyError && (
-              <div role="alert" className="p-3 rounded-2xl mb-4 text-xs font-medium bg-error-bg border border-error-border text-error-text flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-error shrink-0" />
-                <span>{verifyError}</span>
-              </div>
-            )}
-            {verifyInfo && !verifyError && (
-              <div role="status" className="p-3 rounded-2xl mb-4 text-xs font-medium" style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)', color: 'var(--text)' }}>
-                {verifyInfo}
-              </div>
-            )}
 
             <form onSubmit={handleVerify} className="space-y-4">
               <div>
@@ -391,12 +358,6 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
         {/* LOGIN */}
         {tab === 'login' && (
           <>
-            {loginError && (
-              <div role="alert" className="p-3 rounded-2xl mb-4 text-xs font-medium bg-error-bg border border-error-border text-error-text flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-error shrink-0" />
-                <span>{loginError}</span>
-              </div>
-            )}
 
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
@@ -444,12 +405,6 @@ export default function AuthModal({ tab, onTabChange, onSuccess, onClose }) {
         {/* REGISTER */}
         {tab === 'register' && (
           <>
-            {regError && (
-              <div role="alert" className="p-3 rounded-2xl mb-4 text-xs font-medium bg-error-bg border border-error-border text-error-text flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-error shrink-0" />
-                <span>{regError}</span>
-              </div>
-            )}
 
             <form onSubmit={handleRegister} className="space-y-4">
               <div>

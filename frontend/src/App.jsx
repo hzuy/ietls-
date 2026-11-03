@@ -16,7 +16,7 @@ import AIChatbotDrawer from './components/common/AIChatbotDrawer'
 import TopProgressBar from './components/common/TopProgressBar'
 import ScrollToTop from './components/common/ScrollToTop'
 import UserPageSkeleton from './components/skeletons/UserPageSkeleton'
-import { getAdminSettings } from './services/adminService'
+import { getPublicSettings } from './services/adminService'
 import { purgeExpiredDrafts } from './services/draftService'
 
 // Eagerly loaded — critical path pages (always needed on first render)
@@ -122,7 +122,7 @@ function FooterWrapper() {
 function AppEffects() {
   useEffect(() => {
     purgeExpiredDrafts() // dọn draft localStorage quá 7 ngày (1 lần / phiên)
-    getAdminSettings()
+    getPublicSettings()
       .then(settings => {
         if (settings.site_name && settings.site_name.trim()) {
           document.title = settings.site_name.trim()

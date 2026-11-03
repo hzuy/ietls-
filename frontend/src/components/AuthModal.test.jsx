@@ -17,6 +17,7 @@ vi.mock('../services/userService', () => ({
 
 import AuthModal from './AuthModal'
 import { login, register, verifyEmail, resendVerification } from '../services/userService'
+import { showAlert } from '../utils/alertUtils'
 
 function setup(tab = 'register') {
   const onSuccess = vi.fn()
@@ -68,13 +69,14 @@ describe('AuthModal email verification', () => {
     expect(await screen.findByText('Xác thực email')).toBeInTheDocument()
   })
 
-  it('clears a stale registration length error when the password is edited', async () => {
+  it('uses a browser alert for password validation and clears silently when edited', async () => {
     setup('register')
     fireEvent.change(screen.getByLabelText('Mật khẩu'), { target: { value: 'short' } })
     fireEvent.submit(screen.getByLabelText('Mật khẩu').closest('form'))
-    expect(screen.getByText('Mật khẩu phải có ít nhất 8 ký tự')).toBeInTheDocument()
+    expect(showAlert).toHaveBeenCalledWith('Mật khẩu phải có ít nhất 8 ký tự', 'error')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Mật khẩu'), { target: { value: 'Newpass8' } })
-    expect(screen.queryByText('Mật khẩu phải có ít nhất 8 ký tự')).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('reads live login credentials even when browser autofill does not emit change events', async () => {
@@ -87,12 +89,15 @@ describe('AuthModal email verification', () => {
   })
 
   it('shows the code step after registering instead of logging in', async () => {
-    register.mockResolvedValue({ email: 'lan@example.com', mailSent: true, message: 'Đã gửi mã' })
+    register.mockResolvedValue({ email: 'lan@example.com', mailSent: true, message: 'Long backend text with detailed instructions that should not be shown in the OTP notification.' })
     setup('register')
     fillRegister()
 
     expect(await screen.findByText('Xác thực email')).toBeInTheDocument()
     expect(screen.getByText('lan@example.com')).toBeInTheDocument()
+    expect(showAlert).toHaveBeenCalledWith('Mã OTP đã được gửi tới lan@example.com.', 'success')
+    expect(screen.queryByText(/Long backend text/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
     expect(screen.getByText(/Gửi lại sau 60s/)).toBeInTheDocument()
     expect(login).not.toHaveBeenCalled()
     expect(localStorage.getItem('token')).toBeNull()
@@ -114,7 +119,7 @@ describe('AuthModal email verification', () => {
     expect(localStorage.getItem('token')).toBe('t')
   })
 
-  it('shows the server error for a wrong code', async () => {
+  it('shows a browser alert for a wrong verification code', async () => {
     register.mockResolvedValue({ email: 'lan@example.com', mailSent: true, message: 'Đã gửi mã' })
     verifyEmail.mockRejectedValue({ response: { data: { code: 'INVALID_CODE', reason: 'invalid', message: 'Mã xác thực không đúng. Bạn còn 4 lần thử.' } } })
     const { onSuccess } = setup('register')
@@ -123,7 +128,8 @@ describe('AuthModal email verification', () => {
     fireEvent.change(await screen.findByLabelText('Mã xác thực'), { target: { value: '000000' } })
     fireEvent.click(screen.getByRole('button', { name: 'Xác thực' }))
 
-    expect(await screen.findByText('Mã xác thực không đúng. Bạn còn 4 lần thử.')).toBeInTheDocument()
+    await waitFor(() => expect(showAlert).toHaveBeenCalledWith('Mã xác thực không đúng. Bạn còn 4 lần thử.', 'error'))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(onSuccess).not.toHaveBeenCalled()
   })
 
@@ -133,10 +139,10 @@ describe('AuthModal email verification', () => {
     setup('register')
     fillRegister()
 
-    expect(await screen.findByText('Chưa gửi được email')).toBeInTheDocument()
+    await waitFor(() => expect(showAlert).toHaveBeenCalledWith('Chưa gửi được mã OTP tới lan@example.com. Bạn có thể thử gửi lại.', 'warning'))
     fireEvent.click(screen.getByRole('button', { name: 'Gửi lại mã' }))
 
-    expect(await screen.findByText('Đã gửi mã mới')).toBeInTheDocument()
+    await waitFor(() => expect(showAlert).toHaveBeenCalledWith('Mã OTP mới đã được gửi.', 'success'))
     expect(resendVerification).toHaveBeenCalledWith('lan@example.com')
     expect(screen.getByText(/Gửi lại sau 60s/)).toBeInTheDocument()
   })
@@ -149,7 +155,8 @@ describe('AuthModal email verification', () => {
     fireEvent.click(submit('Đăng nhập'))
 
     expect(await screen.findByText('Xác thực email')).toBeInTheDocument()
-    expect(screen.getByText('Email chưa được xác thực')).toBeInTheDocument()
+    expect(showAlert).toHaveBeenCalledWith('Mã OTP đã được gửi tới lan@example.com.', 'success')
+    expect(screen.queryByText('Email chưa được xác thực')).not.toBeInTheDocument()
   })
 
   it('renders native Google button and handles google login', async () => {

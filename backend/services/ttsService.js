@@ -65,6 +65,9 @@ async function processSpeakingTts(partsArray) {
           q = { questionText: q }
           part.questions[qIndex] = q
         }
+
+        // Topic labels are structural rows used by the learner UI, not spoken prompts.
+        if (q.questionText && q.questionText.startsWith('##TOPIC##:')) continue
         
         if (!q.audioUrl) {
           const textToSpeak = q.ttsScript || q.questionText
