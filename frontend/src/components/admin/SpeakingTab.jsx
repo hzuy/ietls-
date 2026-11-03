@@ -4,7 +4,7 @@ import api from '../../utils/axios'
 import { showAlert } from '../../utils/alertUtils'
 import { notifyTrashChanged } from '../../services/adminService'
 import { isExamFormDirty, normalizeFormForDirtyCheck } from '../../utils/examExplanationUtils'
-import { emptySpeakingForm, inputCls, labelCls, btnPrimary, btnSecondary, useExamSeriesList, useSeriesBooks } from './adminConstants'
+import { emptySpeakingForm, inputCls, labelCls, btnSecondary, useExamSeriesList, useSeriesBooks } from './adminConstants'
 import Select from './Select'
 import ExamList from './ExamList'
 import InlinePreviewPanel from '../common/InlinePreviewPanel'
@@ -13,6 +13,7 @@ import InlinePreviewPanel from '../common/InlinePreviewPanel'
 // deferred to a later refactor.
 import { SpeakingFormPreview } from './ReadingTab'
 import { Eye } from 'lucide-react'
+import { addSpeakingQuestion, loadSpeakingQuestions, removeSpeakingQuestion, restoreSpeakingDraft, serializeSpeakingQuestions } from '../../utils/speakingForm'
 
 // ─── TAB: SPEAKING ────────────────────────────────────────────────────────────
 
@@ -109,15 +110,15 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
         bookNumber: exam.bookNumber?.toString() || '',
         testNumber: exam.testNumber?.toString() || '',
         seriesId: exam.seriesId?.toString() || '',
-        part1: { description: p1?.cueCard || '', questions: p1?.questions.map(q => q.questionText) || [''] },
+        part1: { description: p1?.cueCard || '', introAudioUrl: p1?.introAudioUrl ?? null, introTtsScript: p1?.introTtsScript ?? null, ...loadSpeakingQuestions(p1?.questions) },
         part2: (() => {
           const raw = p2?.cueCard || ''
           const sep = raw.indexOf('\n===\n')
           return sep === -1
-            ? { instructions: '', cueCard: raw, questions: p2?.questions.map(q => q.questionText) || [''] }
-            : { instructions: raw.slice(0, sep), cueCard: raw.slice(sep + 5), questions: p2?.questions.map(q => q.questionText) || [''] }
+            ? { instructions: '', cueCard: raw, introAudioUrl: p2?.introAudioUrl ?? null, introTtsScript: p2?.introTtsScript ?? null, ...loadSpeakingQuestions(p2?.questions) }
+            : { instructions: raw.slice(0, sep), cueCard: raw.slice(sep + 5), introAudioUrl: p2?.introAudioUrl ?? null, introTtsScript: p2?.introTtsScript ?? null, ...loadSpeakingQuestions(p2?.questions) }
         })(),
-        part3: { description: p3?.cueCard || '', questions: p3?.questions.filter(q => !q.questionText.startsWith('##TOPIC##:')).map(q => q.questionText) || [''] }
+        part3: { description: p3?.cueCard || '', introAudioUrl: p3?.introAudioUrl ?? null, introTtsScript: p3?.introTtsScript ?? null, ...loadSpeakingQuestions(p3?.questions, true) }
       }
       setForm(loadedForm)
       draftBaselineSigRef.current = normalizeFormForDirtyCheck(loadedForm)
@@ -146,10 +147,9 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
     setForm({ ...form, part1: { ...form.part1, questions: qs } })
   }
   const addP1Question = () =>
-    setForm(f => ({ ...f, part1: { ...f.part1, questions: [...f.part1.questions, ''] } }))
+    setForm(f => ({ ...f, part1: addSpeakingQuestion(f.part1) }))
   const removeP1Question = (idx) => {
-    const qs = form.part1.questions.filter((_, i) => i !== idx)
-    setForm(f => ({ ...f, part1: { ...f.part1, questions: qs.length ? qs : [''] } }))
+    setForm(f => ({ ...f, part1: removeSpeakingQuestion(f.part1, idx) }))
   }
 
 
@@ -173,8 +173,6 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
 
     setSubmitting(true)
     try {
-      const part3Questions = form.part3.questions.filter(q => q.trim())
-
       const p2CueCard = form.part2.instructions.trim()
         ? `${form.part2.instructions.trim()}\n===\n${form.part2.cueCard}`
         : form.part2.cueCard
@@ -184,9 +182,9 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
         bookNumber: form.bookNumber ? parseInt(form.bookNumber) : null,
         testNumber: form.testNumber ? parseInt(form.testNumber) : null,
         seriesId: form.seriesId ? parseInt(form.seriesId) : null,
-        part1: { cueCard: form.part1.description, questions: form.part1.questions.filter(q => q.trim()) },
-        part2: { cueCard: p2CueCard, questions: form.part2.questions.filter(q => q.trim()) },
-        part3: { cueCard: form.part3.description, questions: part3Questions }
+        part1: { cueCard: form.part1.description, introAudioUrl: form.part1.introAudioUrl, introTtsScript: form.part1.introTtsScript, questions: serializeSpeakingQuestions(form.part1) },
+        part2: { cueCard: p2CueCard, introAudioUrl: form.part2.introAudioUrl, introTtsScript: form.part2.introTtsScript, questions: serializeSpeakingQuestions(form.part2) },
+        part3: { cueCard: form.part3.description, introAudioUrl: form.part3.introAudioUrl, introTtsScript: form.part3.introTtsScript, questions: serializeSpeakingQuestions(form.part3) }
       }
       if (editingId) {
         await api.put(`/admin/exams/${editingId}`, speakingPayload)
@@ -249,7 +247,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex items-center justify-between">
             <span className="text-sm text-amber-700">Có bản nháp chưa lưu. Khôi phục?</span>
             <div className="flex gap-2">
-              <button type="button" onClick={() => { setForm(draftBanner.data); setDraftBanner(null) }}
+              <button type="button" onClick={() => { setForm(current => restoreSpeakingDraft(draftBanner.data, current)); setDraftBanner(null) }}
                 className="text-xs px-2.5 py-1 bg-amber-500 text-white rounded-lg font-semibold hover:bg-amber-600 transition">Khôi phục</button>
               <button type="button" onClick={() => { localStorage.removeItem(draftBanner.key); setDraftBanner(null) }}
                 className="text-xs px-2.5 py-1 border border-amber-300 text-amber-700 rounded-lg hover:bg-amber-100 transition">Bỏ qua</button>
@@ -406,7 +404,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className={labelCls}>Câu hỏi</label>
-              <button type="button" onClick={() => setForm({ ...form, part3: { ...form.part3, questions: [...form.part3.questions, ''] } })} className="text-xs font-semibold text-zinc-900 hover:text-zinc-700 transition">+ Thêm câu</button>
+              <button type="button" onClick={() => setForm(current => ({ ...current, part3: addSpeakingQuestion(current.part3) }))} className="text-xs font-semibold text-zinc-900 hover:text-zinc-700 transition">+ Thêm câu</button>
             </div>
             <div className="space-y-2">
               {form.part3.questions.map((q, idx) => (
@@ -415,7 +413,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
                     placeholder={`VD: What kinds of rules are common in a school?`}
                     value={q} onChange={e => { const qs = [...form.part3.questions]; qs[idx] = e.target.value; setForm({ ...form, part3: { ...form.part3, questions: qs } }) }} />
                   {form.part3.questions.length > 1 && (
-                    <button type="button" onClick={() => { const qs = form.part3.questions.filter((_, i) => i !== idx); setForm({ ...form, part3: { ...form.part3, questions: qs.length ? qs : [''] } }) }}
+                    <button type="button" onClick={() => setForm(current => ({ ...current, part3: removeSpeakingQuestion(current.part3, idx) }))}
                       className="text-red-400 hover:text-red-600 px-2 flex-shrink-0">×</button>
                   )}
                 </div>

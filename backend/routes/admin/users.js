@@ -20,6 +20,14 @@ const {
 const { logAuditEvent } = require('../../lib/auditLog')
 const { AUDIT_ACTIONS } = require('../../lib/auditActions')
 
+async function countOtherActiveAdmins(id) {
+  return prisma.user.count({ where: { id: { not: id }, role: 'admin', isLocked: false, deletedAt: null } })
+}
+router.param('id', (req, res, next, value) => {
+  if (!/^[1-9]\d*$/.test(value)) return res.status(400).json({ message: 'ID không hợp lệ' })
+  next()
+})
+
 // ─── MAKE ADMIN ──────────────────────────────────────────────────────────────
 router.post('/make-admin', authMiddleware, adminOnly, validate(userIdSchema), async (req, res) => {
   try {
@@ -46,8 +54,10 @@ router.post('/make-admin', authMiddleware, adminOnly, validate(userIdSchema), as
 // ─── USERS ───────────────────────────────────────────────────────────────────
 router.get('/users', authMiddleware, adminOnly, async (req, res) => {
   try {
-    const { search = '', page = 1, limit = 20, status = '', sort = 'newest' } = req.query
-    const skip = (parseInt(page) - 1) * parseInt(limit)
+    const { search = '', status = '', sort = 'newest' } = req.query
+    const pageNum = Math.max(1, Number.parseInt(req.query.page, 10) || 1)
+    const limitNum = Math.min(100, Math.max(1, Number.parseInt(req.query.limit, 10) || 20))
+    const skip = (pageNum - 1) * limitNum
     const baseWhere = { role: 'user', deletedAt: null }
 
     // Apply status filter
@@ -67,9 +77,10 @@ router.get('/users', authMiddleware, adminOnly, async (req, res) => {
     if (sort === 'oldest') orderBy = { createdAt: 'asc' }
     else if (sort === 'az') orderBy = { name: 'asc' }
 
-    const [users, total, totalActive, totalLocked] = await Promise.all([
+    const [fetchedUsers, total, totalActive, totalLocked] = await Promise.all([
       prisma.user.findMany({
-        where, skip, take: parseInt(limit),
+        where,
+        ...(sort === 'band' ? {} : { skip, take: limitNum }),
         orderBy,
         select: {
           id: true, name: true, email: true, role: true,
@@ -82,9 +93,9 @@ router.get('/users', authMiddleware, adminOnly, async (req, res) => {
       prisma.user.count({ where: { role: 'user', isLocked: true, deletedAt: null } }),
     ])
 
-    const submissionsByUser = await loadSubmissionsByUser(prisma, users.map(u => u.id))
+    const submissionsByUser = await loadSubmissionsByUser(prisma, fetchedUsers.map(u => u.id))
 
-    let mergedUsers = users.map(u => {
+    let mergedUsers = fetchedUsers.map(u => {
       const summary = bandSummary(submissionsByUser[u.id] || [])
       return {
         ...u,
@@ -97,7 +108,11 @@ router.get('/users', authMiddleware, adminOnly, async (req, res) => {
 
     // Band sort: sort merged array by avgScore descending
     if (sort === 'band') {
-      mergedUsers.sort((a, b) => (b.avgScore ?? -1) - (a.avgScore ?? -1))
+      mergedUsers.sort((a, b) =>
+        (b.avgScore ?? -1) - (a.avgScore ?? -1) ||
+        String(a.name || '').localeCompare(String(b.name || ''), 'vi') || a.id - b.id
+      )
+      mergedUsers = mergedUsers.slice(skip, skip + limitNum)
     }
 
     res.json({
@@ -105,8 +120,8 @@ router.get('/users', authMiddleware, adminOnly, async (req, res) => {
       total,
       totalActive,
       totalLocked,
-      page: parseInt(page),
-      pages: Math.ceil(total / parseInt(limit))
+      page: pageNum,
+      pages: Math.ceil(total / limitNum)
     })
   } catch (error) {
     sendServerError(res, error, 'Lỗi server')
@@ -144,8 +159,9 @@ router.get('/users/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
 router.put('/users/:id/toggle-lock', authMiddleware, adminOnly, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
-    const user = await prisma.user.findUnique({ where: { id }, select: { isLocked: true, email: true } })
+    const user = await prisma.user.findFirst({ where: { id, role: 'user', deletedAt: null }, select: { isLocked: true, email: true, role: true } })
     if (!user) return res.status(404).json({ message: 'Không tìm thấy user' })
+    if (!user.isLocked && id === req.user.userId) return res.status(400).json({ message: 'Không thể khóa tài khoản đang đăng nhập' })
     const updated = await prisma.user.update({ where: { id }, data: { isLocked: !user.isLocked } })
     await logAuditEvent(req, {
       action: updated.isLocked ? AUDIT_ACTIONS.USER_LOCK : AUDIT_ACTIONS.USER_UNLOCK,
@@ -163,7 +179,11 @@ router.delete('/users/:id', authMiddleware, adminOnly, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
     if (id === req.user.userId) return res.status(400).json({ message: 'Không thể xóa tài khoản đang dùng' })
-    const existing = await prisma.user.findUnique({ where: { id }, select: { email: true } })
+    const existing = await prisma.user.findUnique({ where: { id }, select: { email: true, role: true, isLocked: true, deletedAt: true } })
+    if (!existing) return res.status(404).json({ message: 'Không tìm thấy tài khoản' })
+    if (existing.role === 'admin' && !existing.isLocked && !existing.deletedAt && await countOtherActiveAdmins(id) === 0) {
+      return res.status(409).json({ message: 'Không thể xóa quản trị viên hoạt động cuối cùng' })
+    }
     await prisma.user.update({ where: { id }, data: { deletedAt: new Date(), isLocked: true } })
     await logAuditEvent(req, {
       action: AUDIT_ACTIONS.USER_DELETE,
@@ -269,6 +289,19 @@ router.put('/accounts/:id', authMiddleware, teacherOrAdmin, validate(updateAccou
       if (role) data.role = role
       if (isLocked !== undefined) data.isLocked = isLocked
     }
+    if (id === req.user.userId && data.isLocked === true) {
+      return res.status(400).json({ message: 'Không thể khóa tài khoản đang đăng nhập' })
+    }
+    if (id === req.user.userId && data.role !== undefined && data.role !== 'admin') {
+      return res.status(400).json({ message: 'Không thể tự hạ quyền tài khoản đang đăng nhập' })
+    }
+    const existingAccount = await prisma.user.findUnique({ where: { id }, select: { role: true, isLocked: true, deletedAt: true } })
+    if (!existingAccount) return res.status(404).json({ message: 'Không tìm thấy tài khoản' })
+    const deactivatesLastAdmin = existingAccount.role === 'admin' && !existingAccount.isLocked && !existingAccount.deletedAt &&
+      ((data.role !== undefined && data.role !== 'admin') || data.isLocked === true)
+    if (deactivatesLastAdmin && await countOtherActiveAdmins(id) === 0) {
+      return res.status(409).json({ message: 'Không thể vô hiệu hóa quản trị viên hoạt động cuối cùng' })
+    }
     const user = await prisma.user.update({
       where: { id },
       data,
@@ -294,7 +327,11 @@ router.delete('/accounts/:id', authMiddleware, adminOnly, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
     if (id === req.user.userId) return res.status(400).json({ message: 'Không thể xóa tài khoản đang dùng' })
-    const existing = await prisma.user.findUnique({ where: { id }, select: { email: true } })
+    const existing = await prisma.user.findUnique({ where: { id }, select: { email: true, role: true, isLocked: true, deletedAt: true } })
+    if (!existing) return res.status(404).json({ message: 'Không tìm thấy tài khoản' })
+    if (existing.role === 'admin' && !existing.isLocked && !existing.deletedAt && await countOtherActiveAdmins(id) === 0) {
+      return res.status(409).json({ message: 'Không thể xóa quản trị viên hoạt động cuối cùng' })
+    }
     await prisma.user.delete({ where: { id } })
     await logAuditEvent(req, {
       action: AUDIT_ACTIONS.STAFF_DELETE,
@@ -368,7 +405,13 @@ router.get('/staff', authMiddleware, adminOnly, async (req, res) => {
 router.post('/make-teacher', authMiddleware, adminOnly, validate(userIdSchema), async (req, res) => {
   try {
     const { userId } = req.body
+    if (userId === req.user.userId) return res.status(400).json({ message: 'Không thể tự hạ quyền tài khoản đang đăng nhập' })
     const before = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } })
+    if (!before) return res.status(404).json({ message: 'Không tìm thấy tài khoản' })
+    const target = await prisma.user.findUnique({ where: { id: userId }, select: { isLocked: true, deletedAt: true } })
+    if (before.role === 'admin' && !target.isLocked && !target.deletedAt && await countOtherActiveAdmins(userId) === 0) {
+      return res.status(409).json({ message: 'Không thể hạ quyền quản trị viên hoạt động cuối cùng' })
+    }
     const user = await prisma.user.update({
       where: { id: userId },
       data: { role: 'teacher' },
@@ -392,6 +435,11 @@ router.post('/remove-staff', authMiddleware, adminOnly, validate(userIdSchema), 
     const { userId } = req.body
     if (userId === req.user.userId) return res.status(400).json({ message: 'Không thể tự xóa quyền của mình' })
     const before = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } })
+    if (!before) return res.status(404).json({ message: 'Không tìm thấy tài khoản' })
+    const target = await prisma.user.findUnique({ where: { id: userId }, select: { isLocked: true, deletedAt: true } })
+    if (before.role === 'admin' && !target.isLocked && !target.deletedAt && await countOtherActiveAdmins(userId) === 0) {
+      return res.status(409).json({ message: 'Không thể hạ quyền quản trị viên hoạt động cuối cùng' })
+    }
     const user = await prisma.user.update({
       where: { id: userId },
       data: { role: 'user' },

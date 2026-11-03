@@ -10,6 +10,7 @@ const { invalidate } = require('../../../lib/swrCache')
 const { checkDuplicateExamTest } = require('./core')
 const { logAuditEvent } = require('../../../lib/auditLog')
 const { AUDIT_ACTIONS } = require('../../../lib/auditActions')
+const { findTitleConflict } = require('../../../lib/titleConflict')
 
 // ─── CREATE READING EXAM ─────────────────────────────────────────────────────
 router.post('/exams/reading', authMiddleware, teacherOnly, validate(createReadingExamSchema), async (req, res) => {
@@ -18,6 +19,8 @@ router.post('/exams/reading', authMiddleware, teacherOnly, validate(createReadin
 
     const existing = await prisma.exam.findFirst({ where: { title: { equals: title, mode: 'insensitive' }, skill: 'reading' } })
     if (existing) return res.status(409).json({ message: `Đã tồn tại đề Reading có tên "${existing.title}". Vui lòng đặt tên khác.` })
+    const normalizedConflict = await findTitleConflict(prisma.exam, title)
+    if (normalizedConflict) return res.status(409).json({ message: 'Tên đề thi đã tồn tại trong kỹ năng này' })
 
     // BUG-08: Chặn trùng testNumber trong cùng seriesId và bookNumber
     if (seriesId && bookNumber && testNumber) {

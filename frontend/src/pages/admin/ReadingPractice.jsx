@@ -123,7 +123,7 @@ export default function ReadingPractice() {
   const { showToast } = useToast()
   const queryClient = useQueryClient()
   const location = useLocation()
-  const { data: list = [], isPending } = useQuery({
+  const { data: list = [], isPending, isError, error, refetch } = useQuery({
     queryKey: ['admin', 'practice', 'reading'],
     queryFn: getReadingPracticeList,
     placeholderData: (prev) => prev,
@@ -883,6 +883,11 @@ export default function ReadingPractice() {
 
         {isPending && list.length === 0 ? (
           <AdminTableSkeleton firstColType="thumbnail" rows={6} cols={5} />
+        ) : isError ? (
+          <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+            <p>{error?.response?.data?.message || error?.message || 'Không tải được danh sách bài luyện Reading.'}</p>
+            <button type="button" onClick={() => refetch()} className="mt-3 rounded-full border border-red-300 px-3 py-1.5 font-medium">Thử tải lại</button>
+          </div>
         ) : (
           <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-xs">
             {list.length === 0 ? (

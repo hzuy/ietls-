@@ -3,8 +3,8 @@ const { z } = require('zod')
 // ─── BASE GROUP FIELDS ───────────────────────────────────────────────────────
 const baseGroupFields = {
   id: z.coerce.number().optional(),
-  qNumberStart: z.coerce.number({ message: 'qNumberStart phải là số' }),
-  qNumberEnd: z.coerce.number({ message: 'qNumberEnd phải là số' }),
+  qNumberStart: z.coerce.number({ message: 'qNumberStart phải là số' }).int().positive(),
+  qNumberEnd: z.coerce.number({ message: 'qNumberEnd phải là số' }).int().positive(),
   instruction: z.string().optional().default(''),
   imageUrl: z.string().nullable().optional(),
   sortOrder: z.coerce.number().optional(),
@@ -163,6 +163,27 @@ const questionGroupSchema = z.discriminatedUnion('type', [
   // MCQ correctAnswer is stored/scored by matching option TEXT, so two options
   // with identical trimmed text in the same question are ambiguous (ticking one
   // reads as ticking all, and scoring can't tell them apart). Reject them.
+  if (group.qNumberEnd < group.qNumberStart) {
+    ctx.addIssue({ code: 'custom', path: ['qNumberEnd'], message: 'Số câu kết thúc phải lớn hơn hoặc bằng số câu bắt đầu' })
+  }
+  const questionNumbers = (group.questions || []).map(question => question.number)
+  const seenNumbers = new Set()
+  questionNumbers.forEach((number, index) => {
+    if (!Number.isInteger(number) || number < group.qNumberStart || number > group.qNumberEnd) {
+      ctx.addIssue({ code: 'custom', path: ['questions', index, 'number'], message: 'Số câu phải nằm trong khoảng của nhóm' })
+    }
+    if (seenNumbers.has(number)) ctx.addIssue({ code: 'custom', path: ['questions', index, 'number'], message: 'Số câu không được trùng trong cùng nhóm' })
+    seenNumbers.add(number)
+  })
+  if (group.type === 'true_false_ng' || group.type === 'yes_no_ng') {
+    const allowed = group.type === 'true_false_ng'
+      ? new Set(['TRUE', 'FALSE', 'NOT GIVEN', 'NOT_GIVEN', 'T', 'F', 'NG'])
+      : new Set(['YES', 'NO', 'NOT GIVEN', 'NOT_GIVEN', 'Y', 'N', 'NG'])
+    ;(group.questions || []).forEach((question, index) => {
+      const answer = String(question.correctAnswer || '').trim().toUpperCase()
+      if (answer && !allowed.has(answer)) ctx.addIssue({ code: 'custom', path: ['questions', index, 'correctAnswer'], message: 'Đáp án không hợp lệ với dạng câu hỏi này' })
+    })
+  }
   if (group.type !== 'mcq' && group.type !== 'mcq_multi') return
   ;(group.questions || []).forEach((q, qi) => {
     const seen = new Set()
@@ -204,9 +225,9 @@ const sectionSchema = z.object({
 // ─── EXAM COMMON FIELDS ──────────────────────────────────────────────────────
 const examCommonFields = {
   title: z.string({ message: 'Tên đề thi là bắt buộc' }).trim().min(1, { message: 'Tên đề thi không được để trống' }),
-  bookNumber: z.coerce.number().nullable().optional(),
-  testNumber: z.coerce.number().nullable().optional(),
-  seriesId: z.coerce.number().nullable().optional(),
+  bookNumber: z.coerce.number().int().positive().nullable().optional(),
+  testNumber: z.coerce.number().int().positive().nullable().optional(),
+  seriesId: z.coerce.number().int().positive().nullable().optional(),
 }
 
 // ─── CREATE SCHEMAS ──────────────────────────────────────────────────────────
@@ -241,6 +262,7 @@ const createSpeakingExamSchema = z.object({
       z.union([
         z.string(),
         z.object({
+          id: z.coerce.number().optional(),
           questionText: z.string(),
           audioUrl: z.string().nullable().optional(),
           ttsScript: z.string().nullable().optional(),
@@ -256,6 +278,7 @@ const createSpeakingExamSchema = z.object({
       z.union([
         z.string(),
         z.object({
+          id: z.coerce.number().optional(),
           questionText: z.string(),
           audioUrl: z.string().nullable().optional(),
           ttsScript: z.string().nullable().optional(),
@@ -271,6 +294,7 @@ const createSpeakingExamSchema = z.object({
       z.union([
         z.string(),
         z.object({
+          id: z.coerce.number().optional(),
           questionText: z.string(),
           audioUrl: z.string().nullable().optional(),
           ttsScript: z.string().nullable().optional(),
@@ -283,9 +307,9 @@ const createSpeakingExamSchema = z.object({
 // ─── UPDATE SCHEMA ───────────────────────────────────────────────────────────
 const updateExamSchema = z.object({
   title: z.string().trim().min(1, { message: 'Tên đề thi không được để trống' }).optional(),
-  bookNumber: z.coerce.number().nullable().optional(),
-  testNumber: z.coerce.number().nullable().optional(),
-  seriesId: z.coerce.number().nullable().optional(),
+  bookNumber: z.coerce.number().int().positive().nullable().optional(),
+  testNumber: z.coerce.number().int().positive().nullable().optional(),
+  seriesId: z.coerce.number().int().positive().nullable().optional(),
   passages: z.array(passageSchema).optional(),
   sections: z.array(sectionSchema).optional(),
   task1: z.object({
@@ -303,12 +327,13 @@ const updateExamSchema = z.object({
       z.union([
         z.string(),
         z.object({
+          id: z.coerce.number().optional(),
           questionText: z.string(),
           audioUrl: z.string().nullable().optional(),
           ttsScript: z.string().nullable().optional(),
         })
       ])
-    ).optional().default([]),
+    ).optional(),
   }).optional(),
   part2: z.object({
     cueCard: z.string().nullable().optional(),
@@ -318,12 +343,13 @@ const updateExamSchema = z.object({
       z.union([
         z.string(),
         z.object({
+          id: z.coerce.number().optional(),
           questionText: z.string(),
           audioUrl: z.string().nullable().optional(),
           ttsScript: z.string().nullable().optional(),
         })
       ])
-    ).optional().default([]),
+    ).optional(),
   }).optional(),
   part3: z.object({
     cueCard: z.string().nullable().optional(),
@@ -333,12 +359,13 @@ const updateExamSchema = z.object({
       z.union([
         z.string(),
         z.object({
+          id: z.coerce.number().optional(),
           questionText: z.string(),
           audioUrl: z.string().nullable().optional(),
           ttsScript: z.string().nullable().optional(),
         })
       ])
-    ).optional().default([]),
+    ).optional(),
   }).optional(),
 })
 

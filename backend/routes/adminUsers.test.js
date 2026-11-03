@@ -48,6 +48,7 @@ describe('Admin Users & Accounts Role Guards (BUG-21)', () => {
 
   describe('PUT /api/admin/accounts/:id - Role Change Security Guard', () => {
     it('allows admin to change another user role to admin or teacher', async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce({ role: 'teacher', isLocked: false, deletedAt: null })
       prismaMock.user.update.mockResolvedValueOnce({
         id: 2,
         name: 'Teacher Minh',
@@ -168,6 +169,7 @@ describe('Admin Users & Accounts Role Guards (BUG-21)', () => {
     })
 
     it('allows admin to promote user to teacher', async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce({ role: 'user', isLocked: false, deletedAt: null })
       prismaMock.user.update.mockResolvedValueOnce({
         id: 5,
         name: 'Student To Teacher',

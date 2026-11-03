@@ -67,12 +67,12 @@ router.post('/transcribe', authMiddleware, teacherOnly, validate(transcribeUploa
     if (process.env.NODE_ENV !== 'production') console.log('[Transcribe] Xong, độ dài script:', utterances.length)
     res.json({ transcript: utterances })
   } catch (error) {
-    if (process.env.NODE_ENV !== 'production') console.error('[Transcribe] Lỗi:', error.message)
-    let userMsg = error.message
-    if (userMsg.includes('failed to process audio') || userMsg.includes('corrupt or unsupported data')) {
-      userMsg = 'File audio bị hỏng hoặc không đúng định dạng âm thanh chuẩn. Vui lòng kiểm tra lại file audio.'
-    }
-    res.status(500).json({ message: 'Lỗi phiên âm: ' + userMsg })
+    if (process.env.NODE_ENV !== 'production') console.error('[Transcribe] Error:', error.message)
+    const safeClientError = error.code === 'INVALID_AUDIO_SOURCE'
+    const message = safeClientError
+      ? 'Nguồn audio không hợp lệ, không được hỗ trợ hoặc vượt quá giới hạn cho phép.'
+      : 'Không thể phiên âm file audio. Vui lòng kiểm tra định dạng hoặc thử lại sau.'
+    res.status(safeClientError ? 400 : 500).json({ message })
   } finally {
     if (audioResolution?.cleanup) audioResolution.cleanup()
   }

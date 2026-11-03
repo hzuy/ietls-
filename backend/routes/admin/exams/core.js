@@ -1,7 +1,12 @@
 const express = require('express')
 const { sendServerError } = require('../../../lib/httpErrors')
+const { findTitleConflict } = require('../../../lib/titleConflict')
 const router = express.Router()
 const prisma = require('../../../lib/prisma')
+router.param('id', (req, res, next, value) => {
+  if (!/^[1-9]\d*$/.test(value)) return res.status(400).json({ message: 'ID đề thi không hợp lệ' })
+  next()
+})
 const authMiddleware = require('../../../middleware/auth')
 const validate = require('../../../middleware/validate')
 const { teacherOnly } = require('../../../lib/roles')
@@ -648,29 +653,39 @@ function planQuestionDiff(existingQuestions, submittedQuestions, fieldMapper) {
     }
     return {}
   }
+  function mergeExisting(ex, q) {
+    if (!ex) return q
+    let existingOptions = ex.options
+    if (typeof existingOptions === 'string') {
+      try { existingOptions = JSON.parse(existingOptions) } catch { existingOptions = [] }
+    }
+    return { ...ex, ...(existingOptions !== undefined ? { options: existingOptions } : {}), ...q }
+  }
 
   // Phase 1: match by q.id if provided and exists in this group
   for (const q of submittedQuestions) {
-    const fields = fieldMapper(q)
     const qId = q.id ? parseInt(q.id) : null
     if (qId && existingById.has(qId)) {
       const ex = existingById.get(qId)
+      const fields = fieldMapper(mergeExisting(ex, q))
       matchedExistingIds.add(qId)
       const stalePatch = getStalePatch(ex, fields)
       toUpdate.push({ id: qId, data: { number: q.number, ...fields, ...stalePatch } })
     } else {
-      unmatchedSubmitted.push({ q, fields })
+      unmatchedSubmitted.push({ q })
     }
   }
 
   // Phase 2: match remaining submitted by number
-  for (const { q, fields } of unmatchedSubmitted) {
+  for (const { q } of unmatchedSubmitted) {
     const ex = existingByNumber.get(q.number)
     if (ex && !matchedExistingIds.has(ex.id)) {
+      const fields = fieldMapper(mergeExisting(ex, q))
       matchedExistingIds.add(ex.id)
       const stalePatch = getStalePatch(ex, fields)
       toUpdate.push({ id: ex.id, data: { number: q.number, ...fields, ...stalePatch } })
     } else {
+      const fields = fieldMapper(q)
       toCreate.push({ number: q.number, ...fields })
     }
   }
@@ -692,36 +707,54 @@ function planGroupUpdate(tx, oldGroup, g, gi, skill, operations) {
   const isReading = skill === 'reading'
   const matchingTypes = isReading ? READING_MATCHING_GROUP_TYPES : LISTENING_MATCHING_GROUP_TYPES
   const mapFn = isReading ? mapReadingQuestionFields : mapListeningQuestionFields
-
-  operations.push(() => tx.questionGroup.update({
-    where: { id: oldGroup.id },
-    data: {
-      qNumberStart: g.qNumberStart, qNumberEnd: g.qNumberEnd,
-      instruction: g.instruction || '', type: g.type, imageUrl: g.imageUrl || null,
-      sortOrder: gi, maxChoices: g.maxChoices || 2,
-      ...(isReading ? { canReuse: g.canReuse || false } : {})
+  const noteSections = g.noteSections === undefined ? undefined : g.noteSections.map((section, index) => {
+    const previous = oldGroup.noteSections?.find(item => section.id != null && item.id === section.id) || oldGroup.noteSections?.[index]
+    const oldLines = previous?.lines || []
+    return {
+      ...previous,
+      ...section,
+      lines: section.lines === undefined ? oldLines : section.lines.map((line, lineIndex) => ({
+        ...oldLines.find(item => line.id != null && item.id === line.id) || oldLines[lineIndex],
+        ...line,
+      })),
     }
+  })
+  const matchingOptions = g.matchingOptions === undefined ? undefined : g.matchingOptions.map((option, index) => ({
+    ...oldGroup.matchingOptions?.find(item => option.id != null && item.id === option.id) || oldGroup.matchingOptions?.[index],
+    ...option,
   }))
 
-  operations.push(() => tx.noteSection.deleteMany({ where: { groupId: oldGroup.id } }))
-  operations.push(() => tx.matchingOption.deleteMany({ where: { groupId: oldGroup.id } }))
+  const groupPatch = {
+      ...(g.qNumberStart !== undefined ? { qNumberStart: g.qNumberStart } : {}),
+      ...(g.qNumberEnd !== undefined ? { qNumberEnd: g.qNumberEnd } : {}),
+      ...(g.instruction !== undefined ? { instruction: g.instruction } : {}),
+      ...(g.type !== undefined ? { type: g.type } : {}),
+      ...(g.imageUrl !== undefined ? { imageUrl: g.imageUrl } : {}),
+      ...(gi !== undefined ? { sortOrder: gi } : {}),
+      ...(g.maxChoices !== undefined ? { maxChoices: g.maxChoices } : {}),
+      ...(isReading && g.canReuse !== undefined ? { canReuse: g.canReuse } : {})
+    }
+  if (Object.keys(groupPatch).length) operations.push(() => tx.questionGroup.update({ where: { id: oldGroup.id }, data: groupPatch }))
 
-  if (NOTE_GROUP_TYPES.includes(g.type)) {
-    for (const ns of buildNoteSectionsRaw(g)) {
+  if (g.noteSections !== undefined) operations.push(() => tx.noteSection.deleteMany({ where: { groupId: oldGroup.id } }))
+  if (g.matchingOptions !== undefined) operations.push(() => tx.matchingOption.deleteMany({ where: { groupId: oldGroup.id } }))
+
+  if (noteSections !== undefined && NOTE_GROUP_TYPES.includes(g.type || oldGroup.type)) {
+    for (const ns of buildNoteSectionsRaw({ ...g, noteSections })) {
       operations.push(() => tx.noteSection.create({ data: { groupId: oldGroup.id, title: ns.title, sortOrder: ns.sortOrder, lines: { create: ns.lines } } }))
     }
   }
-  if (matchingTypes.includes(g.type)) {
-    const opts = buildMatchingOptionsRaw(g)
+  if (matchingOptions !== undefined && matchingTypes.includes(g.type || oldGroup.type)) {
+    const opts = buildMatchingOptionsRaw({ ...g, matchingOptions })
     if (opts.length) operations.push(() => tx.matchingOption.createMany({ data: opts.map(o => ({ ...o, groupId: oldGroup.id })) }))
   }
 
-  const plan = planQuestionDiff(oldGroup.questions, g.questions || [], q => mapFn(g.type, q))
+  const plan = g.questions === undefined ? { toUpdate: [], toCreate: [], toPrune: [] } : planQuestionDiff(oldGroup.questions, g.questions, q => mapFn(g.type || oldGroup.type, q))
   for (const u of plan.toUpdate) operations.push(() => tx.question.update({ where: { id: u.id }, data: u.data }))
   if (plan.toCreate.length) operations.push(() => tx.question.createMany({ data: plan.toCreate.map(q => ({ ...q, groupId: oldGroup.id })) }))
   // created/updated dùng cho audit log (exam.update, xem PUT /exams/:id) — số lượng
   // bản ghi con bị đổi, không phải diff nội dung.
-  return { toPrune: plan.toPrune, created: plan.toCreate.length, updated: 1 + plan.toUpdate.length }
+  return { toPrune: plan.toPrune, created: plan.toCreate.length, updated: (Object.keys(g).some(key => key !== 'id' && key !== 'questions' && key !== 'noteSections' && key !== 'matchingOptions') || g.questions !== undefined || g.noteSections !== undefined || g.matchingOptions !== undefined ? 1 : 0) + plan.toUpdate.length }
 }
 
 // Nested-create payload for a brand new QuestionGroup (no positional match in
@@ -771,18 +804,21 @@ async function checkDuplicateExamTest({ seriesId, bookNumber, testNumber, skill,
 }
 
 // ─── UPDATE EXAM ──────────────────────────────────────────────────────────────
-router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema), async (req, res) => {
+router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema, 'body', { preserveOmissions: true }), async (req, res) => {
   try {
     const id = parseInt(req.params.id)
-    const existing = await prisma.exam.findUnique({ where: { id }, select: { skill: true, seriesId: true } })
+    const existing = await prisma.exam.findUnique({ where: { id }, select: { skill: true, seriesId: true, bookNumber: true, testNumber: true, title: true } })
     if (!existing) return res.status(404).json({ message: 'Không tìm thấy đề' })
 
     const { title, bookNumber, testNumber, seriesId } = req.body
+    if (title !== undefined && existing.title !== undefined && title !== existing.title && await findTitleConflict(prisma.exam, title, { skill: existing.skill }, id)) {
+      return res.status(409).json({ message: 'Tên đề thi đã tồn tại trong kỹ năng này' })
+    }
     const targetSeriesId = seriesId !== undefined
       ? (seriesId ? parseInt(seriesId) : null)
       : existing.seriesId
-    const bn = bookNumber ? parseInt(bookNumber) : null
-    const tn = testNumber ? parseInt(testNumber) : null
+    const bn = bookNumber !== undefined ? (bookNumber == null ? null : parseInt(bookNumber)) : existing.bookNumber
+    const tn = testNumber !== undefined ? (testNumber == null ? null : parseInt(testNumber)) : existing.testNumber
 
     // BUG-08: Chặn trùng testNumber trong cùng seriesId và bookNumber
     if (targetSeriesId && bn && tn) {
@@ -796,6 +832,29 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
       if (isDup) {
         return res.status(409).json({ message: 'Đề thi với số Test này đã tồn tại trong cùng cuốn/bộ đề' })
       }
+    }
+
+    // Metadata-only PATCH-style requests must not be interpreted as empty
+    // content collections (which would delete every passage/task/question).
+    const contentKeys = { reading: 'passages', listening: 'sections', writing: ['task1', 'task2'], speaking: ['part1', 'part2', 'part3'] }
+    const requiredContent = contentKeys[existing.skill]
+    const hasContent = Array.isArray(requiredContent)
+      ? requiredContent.some(key => req.body[key] !== undefined)
+      : req.body[requiredContent] !== undefined
+    if (!hasContent) {
+      const updated = await prisma.$transaction(async tx => {
+        await tx.exam.update({ where: { id }, data: {
+          ...(title !== undefined ? { title } : {}),
+          ...(bookNumber !== undefined ? { bookNumber: bn } : {}),
+          ...(testNumber !== undefined ? { testNumber: tn } : {}),
+          ...(seriesId !== undefined ? { seriesId: targetSeriesId } : {}),
+        } })
+        return tx.exam.findUnique({ where: { id } })
+      }, EXAM_UPDATE_TX_OPTIONS)
+      invalidate('fulltests:')
+      invalidateExamCaches(id)
+      await logAuditEvent(req, { action: AUDIT_ACTIONS.EXAM_UPDATE, entityType: 'Exam', entityId: id, entityLabel: updated.title, metadata: { created: 0, updated: 0, deleted: 0 } })
+      return res.json(updated)
     }
 
     if (existing.skill === 'reading') {
@@ -812,14 +871,14 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
           // deferred into `operations` and only executed once we've confirmed
           // (further down) that nothing answer-blocked needs deleting — so a
           // blocked request leaves the DB completely untouched.
-          const operations = [() => tx.exam.update({ where: { id }, data: { title, bookNumber: bn, testNumber: tn } })]
+          const operations = [() => tx.exam.update({ where: { id }, data: { ...(title !== undefined ? { title } : {}), bookNumber: bn, testNumber: tn, ...(seriesId !== undefined ? { seriesId: targetSeriesId } : {}) } })]
 
           const oldPassages = await tx.passage.findMany({
             where: { examId: id },
             orderBy: { number: 'asc' },
             include: {
-              questions: { where: { groupId: null }, select: { id: true, number: true, questionText: true, correctAnswer: true, explanation: true } },
-              questionGroups: { orderBy: { sortOrder: 'asc' }, include: { questions: { select: { id: true, number: true, questionText: true, correctAnswer: true, explanation: true } } } }
+              questions: { where: { groupId: null }, select: { id: true, number: true, type: true, questionText: true, options: true, correctAnswer: true, imageUrl: true, explanation: true } },
+              questionGroups: { orderBy: { sortOrder: 'asc' }, include: { questions: { select: { id: true, number: true, type: true, questionText: true, options: true, correctAnswer: true, imageUrl: true, explanation: true } }, noteSections: { include: { lines: true } }, matchingOptions: true } }
             }
           })
           const oldByNumber = new Map(oldPassages.map(p => [p.number, p]))
@@ -833,13 +892,15 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
           for (const p of submittedPassages) {
             const oldP = oldByNumber.get(p.number)
             if (oldP) {
-              operations.push(() => tx.passage.update({ where: { id: oldP.id }, data: {
-                title: p.title, subtitle: p.subtitle || null,
-                letteredParagraphs: p.letteredParagraphs || false, body: p.body
-              }}))
-              counts.updated++
+              const passagePatch = {
+                ...(p.title !== undefined ? { title: p.title } : {}),
+                ...(p.subtitle !== undefined ? { subtitle: p.subtitle } : {}),
+                ...(p.letteredParagraphs !== undefined ? { letteredParagraphs: p.letteredParagraphs } : {}),
+                ...(p.body !== undefined ? { body: p.body } : {}),
+              }
+              if (Object.keys(passagePatch).length) { operations.push(() => tx.passage.update({ where: { id: oldP.id }, data: passagePatch })); counts.updated++ }
 
-              const directPlan = planQuestionDiff(oldP.questions, p.questions || [], mapStandaloneQuestionFields)
+              const directPlan = p.questions === undefined ? { toUpdate: [], toCreate: [], toPrune: [] } : planQuestionDiff(oldP.questions, p.questions, mapStandaloneQuestionFields)
               for (const u of directPlan.toUpdate) operations.push(() => tx.question.update({ where: { id: u.id }, data: u.data }))
               if (directPlan.toCreate.length) operations.push(() => tx.question.createMany({ data: directPlan.toCreate.map(q => ({ ...q, passageId: oldP.id })) }))
               counts.created += directPlan.toCreate.length
@@ -850,12 +911,12 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
                 counts.deleted++
               })
 
-              const submittedGroups = p.questionGroups || []
+              const submittedGroups = p.questionGroups === undefined ? null : p.questionGroups
               const oldGroups = oldP.questionGroups
               const oldGroupsById = new Map(oldGroups.map(og => [og.id, og]))
               const matchedOldGroupIds = new Set()
 
-              for (let gi = 0; gi < submittedGroups.length; gi++) {
+              for (let gi = 0; submittedGroups && gi < submittedGroups.length; gi++) {
                 const g = submittedGroups[gi]
                 const gId = g.id ? parseInt(g.id) : null
                 let oldG = gId && oldGroupsById.has(gId) ? oldGroupsById.get(gId) : oldGroups[gi]
@@ -877,7 +938,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
                   counts.created += 1 + (g.questions || []).length
                 }
               }
-              for (const oldG of oldGroups) {
+              for (const oldG of (submittedGroups === null ? [] : oldGroups)) {
                 if (matchedOldGroupIds.has(oldG.id)) continue
                 const qIds = oldG.questions.map(q => q.id)
                 const labelsByQId = new Map(oldG.questions.map(q => [q.id, { passageNumber: p.number, groupSortOrder: oldG.sortOrder, questionNumber: q.number }]))
@@ -960,14 +1021,14 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
       try {
         const updated = await prisma.$transaction(async (tx) => {
           // Same defer-then-check-then-apply pattern as Reading above.
-          const operations = [() => tx.exam.update({ where: { id }, data: { title, bookNumber: bn, testNumber: tn } })]
+          const operations = [() => tx.exam.update({ where: { id }, data: { ...(title !== undefined ? { title } : {}), bookNumber: bn, testNumber: tn, ...(seriesId !== undefined ? { seriesId: targetSeriesId } : {}) } })]
 
           const oldSections = await tx.listeningSection.findMany({
             where: { examId: id },
             orderBy: { number: 'asc' },
             include: {
-              questions: { where: { groupId: null }, select: { id: true, number: true, questionText: true, correctAnswer: true, explanation: true } },
-              questionGroups: { orderBy: { sortOrder: 'asc' }, include: { questions: { select: { id: true, number: true, questionText: true, correctAnswer: true, explanation: true } } } }
+              questions: { where: { groupId: null }, select: { id: true, number: true, type: true, questionText: true, options: true, correctAnswer: true, imageUrl: true, explanation: true } },
+              questionGroups: { orderBy: { sortOrder: 'asc' }, include: { questions: { select: { id: true, number: true, type: true, questionText: true, options: true, correctAnswer: true, imageUrl: true, explanation: true } }, noteSections: { include: { lines: true } }, matchingOptions: true } }
             }
           })
           const oldByNumber = new Map(oldSections.map(s => [s.number, s]))
@@ -981,12 +1042,14 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
           for (const s of submittedSections) {
             const oldS = oldByNumber.get(s.number)
             if (oldS) {
-              operations.push(() => tx.listeningSection.update({ where: { id: oldS.id }, data: {
-                context: s.context || '', audioUrl: s.audioUrl || null, transcript: s.transcript || null
-              }}))
-              counts.updated++
+              const sectionPatch = {
+                ...(s.context !== undefined ? { context: s.context } : {}),
+                ...(s.audioUrl !== undefined ? { audioUrl: s.audioUrl } : {}),
+                ...(s.transcript !== undefined ? { transcript: s.transcript } : {}),
+              }
+              if (Object.keys(sectionPatch).length) { operations.push(() => tx.listeningSection.update({ where: { id: oldS.id }, data: sectionPatch })); counts.updated++ }
 
-              const directPlan = planQuestionDiff(oldS.questions, s.questions || [], mapStandaloneQuestionFields)
+              const directPlan = s.questions === undefined ? { toUpdate: [], toCreate: [], toPrune: [] } : planQuestionDiff(oldS.questions, s.questions, mapStandaloneQuestionFields)
               for (const u of directPlan.toUpdate) operations.push(() => tx.question.update({ where: { id: u.id }, data: u.data }))
               if (directPlan.toCreate.length) operations.push(() => tx.question.createMany({ data: directPlan.toCreate.map(q => ({ ...q, listeningSectionId: oldS.id })) }))
               counts.created += directPlan.toCreate.length
@@ -997,12 +1060,12 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
                 counts.deleted++
               })
 
-              const submittedGroups = s.questionGroups || []
+              const submittedGroups = s.questionGroups === undefined ? null : s.questionGroups
               const oldGroups = oldS.questionGroups
               const oldGroupsById = new Map(oldGroups.map(og => [og.id, og]))
               const matchedOldGroupIds = new Set()
 
-              for (let gi = 0; gi < submittedGroups.length; gi++) {
+              for (let gi = 0; submittedGroups && gi < submittedGroups.length; gi++) {
                 const g = submittedGroups[gi]
                 const gId = g.id ? parseInt(g.id) : null
                 let oldG = gId && oldGroupsById.has(gId) ? oldGroupsById.get(gId) : oldGroups[gi]
@@ -1024,7 +1087,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
                   counts.created += 1 + (g.questions || []).length
                 }
               }
-              for (const oldG of oldGroups) {
+              for (const oldG of (submittedGroups === null ? [] : oldGroups)) {
                 if (matchedOldGroupIds.has(oldG.id)) continue
                 const qIds = oldG.questions.map(q => q.id)
                 const labelsByQId = new Map(oldG.questions.map(q => [q.id, { sectionNumber: s.number, groupSortOrder: oldG.sortOrder, questionNumber: q.number }]))
@@ -1108,18 +1171,24 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
       const existingTasks = await prisma.writingTask.findMany({ where: { examId: id }, select: { id: true, number: true } })
       const taskIdByNumber = new Map(existingTasks.map(t => [t.number, t.id]))
       const specs = [
-        { number: 1, prompt: task1.prompt, imageUrl: task1.imageUrl || null, minWords: 150 },
-        { number: 2, prompt: task2.prompt, imageUrl: null, minWords: 250 }
+        ...(task1 ? [{ number: 1, prompt: task1.prompt, imageUrl: task1.imageUrl, minWords: 150 }] : []),
+        ...(task2 ? [{ number: 2, prompt: task2.prompt, minWords: 250 }] : [])
       ]
 
       const counts = { created: 0, updated: 0, deleted: 0 }
       const updated = await prisma.$transaction(async (tx) => {
-        await tx.exam.update({ where: { id }, data: { title, bookNumber: bn, testNumber: tn } })
+        await tx.exam.update({ where: { id }, data: { ...(title !== undefined ? { title } : {}), bookNumber: bn, testNumber: tn, ...(seriesId !== undefined ? { seriesId: targetSeriesId } : {}) } })
         for (const spec of specs) {
           const existingId = taskIdByNumber.get(spec.number)
           if (existingId) {
-            await tx.writingTask.update({ where: { id: existingId }, data: { prompt: spec.prompt, imageUrl: spec.imageUrl, minWords: spec.minWords } })
-            counts.updated++
+            const taskPatch = {
+              ...(spec.prompt !== undefined ? { prompt: spec.prompt } : {}),
+              ...(spec.imageUrl !== undefined ? { imageUrl: spec.imageUrl } : {}),
+            }
+            if (Object.keys(taskPatch).length) {
+              await tx.writingTask.update({ where: { id: existingId }, data: taskPatch })
+              counts.updated++
+            }
           } else {
             await tx.writingTask.create({ data: { examId: id, ...spec } })
             counts.created++
@@ -1141,10 +1210,6 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
 
     if (existing.skill === 'speaking') {
       const { part1, part2, part3 } = req.body
-      
-      const { processSpeakingTts } = require('../../../services/ttsService')
-      await processSpeakingTts([part1, part2, part3])
-
       const srcByNumber = { 1: part1, 2: part2, 3: part3 }
 
       // Speaking has NO Attempt row — SpeakingAnswer (transcript + AI scores of past
@@ -1154,13 +1219,40 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
       // (which carry no incoming FK). SpeakingAnswer rows keep their partId link and
       // are fully preserved — no data loss, not even orphaned.
       const existingParts = await prisma.speakingPart.findMany({
-        where: { examId: id }, select: { id: true, number: true }
+        where: { examId: id }, include: { questions: { orderBy: { orderNum: 'asc' } } }
       })
       const partIdByNumber = new Map(existingParts.map(p => [p.number, p.id]))
+      const oldPartByNumber = new Map(existingParts.map(p => [p.number, p]))
+      for (const number of [1, 2, 3]) {
+        const incoming = srcByNumber[number]
+        const previous = oldPartByNumber.get(number)
+        if (!incoming) {
+          srcByNumber[number] = previous ? {
+            cueCard: previous.cueCard, introAudioUrl: previous.introAudioUrl, introTtsScript: previous.introTtsScript,
+            questions: previous.questions || [],
+          } : {}
+          continue
+        }
+        const priorQuestions = previous?.questions || []
+        srcByNumber[number] = {
+          ...incoming,
+          cueCard: incoming.cueCard !== undefined ? incoming.cueCard : previous?.cueCard,
+          introAudioUrl: incoming.introAudioUrl !== undefined ? incoming.introAudioUrl : previous?.introAudioUrl,
+          introTtsScript: incoming.introTtsScript !== undefined ? incoming.introTtsScript : previous?.introTtsScript,
+          questions: incoming.questions !== undefined ? incoming.questions.map(question => {
+            if (typeof question === 'string') return question
+            const prior = priorQuestions.find(old => (question.id != null && old.id === question.id) || old.questionText === question.questionText)
+            return prior ? { ...prior, ...question } : question
+          }) : priorQuestions,
+        }
+      }
+
+      const { processSpeakingTts } = require('../../../services/ttsService')
+      await processSpeakingTts([srcByNumber[1], srcByNumber[2], srcByNumber[3]])
       const counts = { created: 0, updated: 0, deleted: 0 }
 
       await prisma.$transaction(async (tx) => {
-        await tx.exam.update({ where: { id }, data: { title, bookNumber: bn, testNumber: tn, seriesId: targetSeriesId } })
+        await tx.exam.update({ where: { id }, data: { ...(title !== undefined ? { title } : {}), bookNumber: bn, testNumber: tn, ...(seriesId !== undefined ? { seriesId: targetSeriesId } : {}) } })
 
         for (const number of [1, 2, 3]) {
           const src = srcByNumber[number] || {}
@@ -1171,13 +1263,14 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
           const rawQuestions = (src.questions || []).filter(q => typeof q === 'string' ? q.trim() : (q.questionText || '').trim())
           const questions = rawQuestions.map((q, i) => {
             if (typeof q === 'string') {
-              return { orderNum: i + 1, questionText: q }
+              return { orderNum: i + 1, questionText: q, audioUrl: null, ttsScript: null }
             }
             return {
+              ...(q.id != null ? { id: q.id } : {}),
               orderNum: i + 1,
               questionText: q.questionText,
-              audioUrl: q.audioUrl || null,
-              ttsScript: q.ttsScript || null
+              audioUrl: q.audioUrl ?? null,
+              ttsScript: q.ttsScript ?? null
             }
           })
 
@@ -1185,11 +1278,30 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema)
           if (partId) {
             await tx.speakingPart.update({ where: { id: partId }, data: { cueCard, introAudioUrl, introTtsScript } })
             counts.updated++
-            const deleted = await tx.speakingQuestion.deleteMany({ where: { partId } })
-            counts.deleted += deleted.count
-            if (questions.length) {
-              await tx.speakingQuestion.createMany({ data: questions.map(q => ({ ...q, partId })) })
-              counts.created += questions.length
+            const oldQuestions = oldPartByNumber.get(number)?.questions || []
+            const oldById = new Map(oldQuestions.map(question => [question.id, question]))
+            const oldByText = new Map()
+            for (const question of oldQuestions) oldByText.set(question.questionText, [...(oldByText.get(question.questionText) || []), question])
+            const matchedIds = new Set()
+            const toCreate = []
+            for (const question of questions) {
+              let old = question.id != null ? oldById.get(question.id) : null
+              if (!old) old = oldByText.get(question.questionText)?.find(candidate => !matchedIds.has(candidate.id))
+              if (!old) { toCreate.push(question); continue }
+              matchedIds.add(old.id)
+              await tx.speakingQuestion.update({ where: { id: old.id }, data: {
+                orderNum: question.orderNum, questionText: question.questionText,
+                audioUrl: question.audioUrl, ttsScript: question.ttsScript,
+              } })
+            }
+            const removedIds = oldQuestions.filter(question => !matchedIds.has(question.id)).map(question => question.id)
+            if (removedIds.length) {
+              const deleted = await tx.speakingQuestion.deleteMany({ where: { id: { in: removedIds }, partId } })
+              counts.deleted += deleted.count
+            }
+            if (toCreate.length) {
+              await tx.speakingQuestion.createMany({ data: toCreate.map(q => ({ ...Object.fromEntries(Object.entries(q).filter(([key]) => key !== 'id')), partId })) })
+              counts.created += toCreate.length
             }
           } else {
             await tx.speakingPart.create({

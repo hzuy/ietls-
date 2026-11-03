@@ -5,7 +5,7 @@ import { AdminTableSkeleton } from '../../components/skeletons'
 import Select from '../../components/admin/Select'
 import { MobileFilterToggle } from '../../components/admin/contentPageUI'
 
-import { getAdminTrash, restoreTrashItem, permanentDeleteTrashItem, purgeTrash, notifyTrashChanged } from '../../services/adminService'
+import { getAdminTrash, restoreTrashItem, permanentDeleteTrashItem, purgeTrash, purgeExpiredTrash, notifyTrashChanged } from '../../services/adminService'
 import { useAuth } from '../../context/AuthContext'
 import { Trash2, RotateCcw, AlertTriangle, Search } from 'lucide-react'
 import { showAlert } from '../../utils/alertUtils'
@@ -85,6 +85,7 @@ export default function Trash() {
   const moreFiltersCls = filtersOpen ? '' : 'max-sm:hidden'
   const [confirming, setConfirming] = useState(null)
   const [purgeConfirm, setPurgeConfirm] = useState(false)
+  const [expiredPurgeConfirm, setExpiredPurgeConfirm] = useState(false)
   const [busy, setBusy] = useState(false)
   const [rowErrors, setRowErrors] = useState({})
   const [toast, setToast] = useState(null)
@@ -160,6 +161,25 @@ export default function Trash() {
     }
   }
 
+  const handlePurgeExpired = async () => {
+    try {
+      setBusy(true)
+      const result = await purgeExpiredTrash()
+      notifyTrashChanged({ action: 'purged-expired' })
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'trash'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
+      setExpiredPurgeConfirm(false)
+      const deletedCount = Object.values(result.counts || {}).reduce((total, count) => total + count, 0)
+      showToast(`Đã dọn ${deletedCount} mục quá hạn`)
+    } catch (err) {
+      setExpiredPurgeConfirm(false)
+      showToast(err.response?.data?.message || 'Không thể dọn các mục quá hạn', 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const countByType = {}
   for (const item of items) countByType[item.type] = (countByType[item.type] || 0) + 1
   const activeType = countByType[type] ? type : ''
@@ -175,6 +195,7 @@ export default function Trash() {
     .filter(x => (!activeType || x.type === activeType) && (!keyword || String(x.title || '').toLowerCase().includes(keyword)))
     .sort((a, b) => (sort === 'purge' ? deletedTime(a) - deletedTime(b) : deletedTime(b) - deletedTime(a)))
   const hasActiveFilters = !!(activeType || keyword)
+  const hasExpiredItems = items.some(item => new Date(item.deletedAt).getTime() < Date.now() - PURGE_DAYS * 86_400_000)
   const resetFilters = () => { setSearch(''); setType(''); setSort('recent') }
 
   return (
@@ -196,12 +217,22 @@ export default function Trash() {
             </p>
           </div>
           {items.length > 0 && isAdmin && (
-            <button
-              onClick={() => setPurgeConfirm(true)}
-              className="h-9 px-4 whitespace-nowrap rounded-full text-xs font-medium bg-zinc-100 text-zinc-800 hover:bg-zinc-200 border border-zinc-200 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 cursor-pointer"
-            >
-              Dọn sạch thùng rác
-            </button>
+            <div className="flex flex-wrap gap-2">
+              {hasExpiredItems && (
+                <button
+                  onClick={() => setExpiredPurgeConfirm(true)}
+                  className="h-9 px-4 whitespace-nowrap rounded-full text-xs font-medium bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 cursor-pointer"
+                >
+                  Dọn mục quá 30 ngày
+                </button>
+              )}
+              <button
+                onClick={() => setPurgeConfirm(true)}
+                className="h-9 px-4 whitespace-nowrap rounded-full text-xs font-medium bg-zinc-100 text-zinc-800 hover:bg-zinc-200 border border-zinc-200 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 cursor-pointer"
+              >
+                Dọn sạch thùng rác
+              </button>
+            </div>
           )}
         </div>
 
@@ -392,6 +423,17 @@ export default function Trash() {
                 {busy ? '...' : confirming.action === 'restore' ? 'Khôi phục' : 'Xóa vĩnh viễn'}
               </button>
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Confirm purge */}
+      {expiredPurgeConfirm && (
+        <Modal onClose={() => setExpiredPurgeConfirm(false)} title="Dọn mục quá 30 ngày?" size="sm" className="p-6">
+          <p className="text-xs text-zinc-600 mb-5">Các mục đã xóa quá 30 ngày sẽ bị xóa vĩnh viễn. Nếu mục còn dữ liệu con đang hoạt động, hệ thống sẽ giữ nguyên và báo lỗi.</p>
+          <div className="flex gap-2.5 justify-end">
+            <button onClick={() => setExpiredPurgeConfirm(false)} className="h-9 px-5 rounded-full border border-zinc-200 text-xs text-zinc-600 hover:bg-zinc-50 font-medium">Hủy</button>
+            <button disabled={busy} onClick={handlePurgeExpired} className="h-9 px-5 rounded-full bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 disabled:opacity-60">{busy ? '...' : 'Dọn mục quá hạn'}</button>
           </div>
         </Modal>
       )}

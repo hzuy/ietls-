@@ -32,6 +32,11 @@ const prismaMock = {
     findFirst: vi.fn(),
     update: vi.fn().mockResolvedValue({})
   },
+  examSeries: {
+    findMany: vi.fn().mockResolvedValue([]),
+    create: vi.fn(),
+    update: vi.fn()
+  },
   attempt: {
     groupBy: vi.fn().mockResolvedValue([
       { examId: 1, _avg: { score: 7.5 } }
@@ -89,6 +94,7 @@ const prismaMock = {
   },
   speakingQuestion: {
     deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+    update: vi.fn().mockResolvedValue({}),
     createMany: vi.fn().mockResolvedValue({})
   },
   auditLog: {
@@ -113,6 +119,32 @@ describe('Admin Exams Router & Pagination', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  it('rejects an exam title that already exists, including on another skill', async () => {
+    prismaMock.exam.findFirst.mockResolvedValueOnce(null)
+    prismaMock.exam.findMany.mockResolvedValueOnce([{ id: 44, title: 'Old Exam', skill: 'listening' }])
+
+    const res = await request(app)
+      .post('/api/admin/exams/reading')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send({ title: ' Old   Exam ', passages: [] })
+      .expect(409)
+
+    expect(res.body.message).toBeTruthy()
+  })
+
+  it('rejects an exam series title that already exists', async () => {
+    prismaMock.examSeries.findMany.mockResolvedValueOnce([{ id: 13, name: 'Cambridge 19' }])
+
+    const res = await request(app)
+      .post('/api/admin/exam-series')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send({ name: ' Cambridge 19 ' })
+      .expect(409)
+
+    expect(res.body.message).toContain('bộ đề')
+    expect(prismaMock.examSeries.create).not.toHaveBeenCalled()
   })
 
   it('GET /api/admin/exams/counts returns skill count mapping', async () => {
@@ -190,7 +222,7 @@ describe('Admin Exams Router — PUT (diff-based upsert)', () => {
   })
 
   const readingGroup = (questions) => ({
-    type: 'mcq', qNumberStart: 1, qNumberEnd: questions.length, instruction: '', maxChoices: 2, canReuse: false,
+    type: 'mcq', qNumberStart: questions.length ? Math.min(...questions.map(q => q.number)) : 1, qNumberEnd: questions.length ? Math.max(...questions.map(q => q.number)) : 1, instruction: '', maxChoices: 2, canReuse: false,
     questions
   })
 
@@ -201,6 +233,35 @@ describe('Admin Exams Router — PUT (diff-based upsert)', () => {
       questionGroups: [readingGroup(questions)],
       questions: []
     }]
+  })
+
+  it('keeps all exam content and series coordinates when updating only the title', async () => {
+    prismaMock.exam.findUnique.mockResolvedValueOnce({ skill: 'reading', seriesId: 4, bookNumber: 12, testNumber: 3, title: 'Old title' }).mockResolvedValueOnce({ id: 10, title: 'New title' })
+
+    await request(app)
+      .put('/api/admin/exams/10')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send({ title: 'New title' })
+      .expect(200)
+
+    expect(prismaMock.passage.findMany).not.toHaveBeenCalled()
+    expect(prismaMock.exam.update).toHaveBeenCalledWith({ where: { id: 10 }, data: { title: 'New title' } })
+  })
+
+  it('preserves omitted fields and nested question collections in a partial passage edit', async () => {
+    prismaMock.exam.findUnique.mockResolvedValueOnce({ skill: 'reading', seriesId: 4, bookNumber: 12, testNumber: 3 }).mockResolvedValueOnce({ id: 10, passages: [] })
+    prismaMock.passage.findMany.mockResolvedValueOnce([oldReadingPassage()])
+
+    await request(app)
+      .put('/api/admin/exams/10')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send({ passages: [{ number: 1, title: 'Renamed passage' }] })
+      .expect(200)
+
+    expect(prismaMock.passage.update).toHaveBeenCalledWith({ where: { id: 501 }, data: { title: 'Renamed passage' } })
+    expect(prismaMock.question.update).not.toHaveBeenCalled()
+    expect(prismaMock.question.delete).not.toHaveBeenCalled()
+    expect(prismaMock.questionGroup.delete).not.toHaveBeenCalled()
   })
 
   it('PUT reading exam with no question removed updates in place and preserves ids (never touches answer tables)', async () => {
@@ -353,7 +414,7 @@ describe('Admin Exams Router — PUT (diff-based upsert)', () => {
   })
 
   const listeningGroup = (questions) => ({
-    type: 'matching', qNumberStart: 1, qNumberEnd: questions.length, instruction: '', maxChoices: 2,
+    type: 'matching', qNumberStart: questions.length ? Math.min(...questions.map(q => q.number)) : 1, qNumberEnd: questions.length ? Math.max(...questions.map(q => q.number)) : 1, instruction: '', maxChoices: 2,
     matchingOptions: [{ letter: 'A', text: 'Opt A' }],
     questions
   })
@@ -742,9 +803,35 @@ describe('Admin Exams Router — PUT (diff-based upsert)', () => {
       .expect(200)
 
     expect(prismaMock.speakingPart.update).toHaveBeenCalledTimes(3)
-    expect(prismaMock.speakingQuestion.deleteMany).toHaveBeenCalledTimes(3)
+    expect(prismaMock.speakingQuestion.deleteMany).not.toHaveBeenCalled()
     expect(prismaMock.speakingQuestion.createMany).toHaveBeenCalledTimes(2) // Part 1 (2 qs) and Part 3 (3 qs)
   }, 15000)
+
+  it('PUT speaking preserves question IDs and custom audio/script metadata', async () => {
+    prismaMock.exam.findUnique
+      .mockResolvedValueOnce({ skill: 'speaking', seriesId: 1, bookNumber: 18, testNumber: 1 })
+      .mockResolvedValueOnce({ id: 40, title: 'Speaking', speakingParts: [] })
+    prismaMock.speakingPart.findMany.mockResolvedValueOnce([
+      { id: 101, number: 1, cueCard: 'Old cue', introAudioUrl: '/intro.mp3', introTtsScript: 'Intro voice', questions: [
+        { id: 501, orderNum: 1, questionText: 'Existing question?', audioUrl: '/q.mp3', ttsScript: 'Custom voice' },
+      ] },
+    ])
+
+    await request(app)
+      .put('/api/admin/exams/40')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send({ part1: { questions: [{ id: 501, questionText: 'Existing question?', audioUrl: '/q.mp3', ttsScript: 'Custom voice' }] } })
+      .expect(200)
+
+    expect(prismaMock.speakingQuestion.update).toHaveBeenCalledWith({ where: { id: 501 }, data: {
+      orderNum: 1, questionText: 'Existing question?', audioUrl: '/q.mp3', ttsScript: 'Custom voice',
+    } })
+    expect(prismaMock.speakingQuestion.deleteMany).not.toHaveBeenCalled()
+    expect(prismaMock.speakingQuestion.createMany).not.toHaveBeenCalled()
+    expect(prismaMock.speakingPart.update).toHaveBeenCalledWith({ where: { id: 101 }, data: {
+      cueCard: 'Old cue', introAudioUrl: '/intro.mp3', introTtsScript: 'Intro voice',
+    } })
+  })
 
   it('POST /api/admin/exams/speaking creates all 3 parts with questions and cueCards', async () => {
     prismaMock.exam.findFirst
@@ -807,7 +894,7 @@ describe('Admin Exams Router — Audit Log', () => {
   })
 
   const readingGroup = (questions) => ({
-    type: 'mcq', qNumberStart: 1, qNumberEnd: questions.length, instruction: '', maxChoices: 2, canReuse: false,
+    type: 'mcq', qNumberStart: questions.length ? Math.min(...questions.map(q => q.number)) : 1, qNumberEnd: questions.length ? Math.max(...questions.map(q => q.number)) : 1, instruction: '', maxChoices: 2, canReuse: false,
     questions
   })
 

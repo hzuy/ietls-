@@ -24,6 +24,7 @@ const { AUDIT_ACTIONS } = require('../lib/auditActions')
 const { acquireLock, releaseLock, isLocked } = require('../lib/explanationLock')
 const { bindRequestAbort } = require('../lib/requestAbort')
 const { sendServerError } = require('../lib/httpErrors')
+const { findTitleConflict } = require('../lib/titleConflict')
 
 const router = express.Router()
 
@@ -156,6 +157,14 @@ function makePracticeListHandler(skill) {
 }
 
 const PRACTICE_SKILLS = new Set(['reading', 'listening'])
+router.param('id', (req, res, next, value) => {
+  if (!/^[1-9]\d*$/.test(value)) return res.status(400).json({ message: 'ID không hợp lệ' })
+  next()
+})
+router.param('skill', (req, res, next, skill) => {
+  if (!PRACTICE_SKILLS.has(skill)) return res.status(400).json({ message: 'Kỹ năng không hợp lệ' })
+  next()
+})
 
 function attemptSummary(a, skill) {
   return { attemptId: a.id, examId: a.practiceExamId, skill, finishedAt: a.createdAt, correct: a.correct, total: a.total, bandScore: null }
@@ -244,7 +253,6 @@ router.get('/admin/reading', authMiddleware, teacherStrict, async (req, res) => 
   try {
     const rows = await prisma.practiceExam.findMany({
       where: { skill: 'reading', deletedAt: null },
-      take: 100,
       orderBy: { createdAt: 'desc' },
       select: {
         id: true, title: true, skill: true, level: true,
@@ -264,7 +272,6 @@ router.get('/admin/listening', authMiddleware, teacherStrict, async (req, res) =
   try {
     const rows = await prisma.practiceExam.findMany({
       where: { skill: 'listening', deletedAt: null },
-      take: 100,
       orderBy: { createdAt: 'desc' },
       select: {
         id: true, title: true, skill: true, level: true,
@@ -283,8 +290,8 @@ router.get('/admin/listening', authMiddleware, teacherStrict, async (req, res) =
 // ─── ADMIN: detail for editing ────────────────────────────────────────────────
 router.get('/admin/:skill/:id', authMiddleware, teacherStrict, async (req, res) => {
   try {
-    const exam = await prisma.practiceExam.findUnique({ 
-      where: { id: parseInt(req.params.id) },
+    const exam = await prisma.practiceExam.findFirst({
+      where: { id: parseInt(req.params.id), skill: req.params.skill, deletedAt: null },
       include: { questions: { orderBy: { orderNum: 'asc' } } }
     })
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy' })
@@ -301,6 +308,7 @@ router.post('/admin/:skill', authMiddleware, teacherStrict, validate(createPract
   const { title, level, thumbnailUrl, audioUrl, passage, transcript, questions } = req.body
 
   try {
+    if (await findTitleConflict(prisma.practiceExam, title, { skill })) return res.status(409).json({ message: 'Tên bài luyện tập đã tồn tại trong kỹ năng này' })
     const exam = await prisma.practiceExam.create({
       data: {
         title: title.trim(),
@@ -361,6 +369,11 @@ router.put('/admin/:skill/:id', authMiddleware, teacherStrict, validate(updatePr
   try {
     // Trả về bản ghi sau khi update (kèm questions) để dùng cho audit log bên
     // dưới — không đổi response cho client, vẫn chỉ res.json({ ok: true }).
+    const target = await prisma.practiceExam.findFirst({ where: { id: practiceId, skill, deletedAt: null }, select: { id: true } })
+    if (!target) return res.status(404).json({ message: 'Không tìm thấy bài luyện tập' })
+    if (title !== undefined && await findTitleConflict(prisma.practiceExam, title, { skill }, practiceId)) {
+      return res.status(409).json({ message: 'Tên bài luyện tập đã tồn tại trong kỹ năng này' })
+    }
     const updatedExam = await prisma.$transaction(async (tx) => {
       const oldRows = Array.isArray(questions)
         ? await tx.practiceQuestion.findMany({ where: { examId: parseInt(id) }, select: { content: true, explanation: true } })
@@ -453,8 +466,10 @@ router.post('/admin/:skill/:id/thumbnail', authMiddleware, teacherStrict, thumbU
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
   try {
     const { url: thumbnailUrl } = await uploadOptimizedCover(req.file, { dir: thumbDir, urlPrefix: '/uploads/thumbnails', folder: 'thumbnails' })
+    const target = await prisma.practiceExam.findFirst({ where: { id: parseInt(req.params.id), skill: req.params.skill, deletedAt: null }, select: { id: true } })
+    if (!target) return res.status(404).json({ message: 'Không tìm thấy bài luyện tập' })
     const exam = await prisma.practiceExam.update({
-      where: { id: parseInt(req.params.id) },
+      where: { id: target.id },
       data: { thumbnailUrl },
       select: { id: true, thumbnailUrl: true }
     })
@@ -474,8 +489,10 @@ router.post('/admin/listening/:id/audio', authMiddleware, teacherStrict, audioUp
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
   try {
     const { url: audioUrl } = await uploadAudio(req.file, { subdir: 'audio', folder: 'audio' })
+    const target = await prisma.practiceExam.findFirst({ where: { id: parseInt(req.params.id), skill: 'listening', deletedAt: null }, select: { id: true } })
+    if (!target) return res.status(404).json({ message: 'Không tìm thấy bài luyện tập' })
     const exam = await prisma.practiceExam.update({
-      where: { id: parseInt(req.params.id) },
+      where: { id: target.id },
       data: { audioUrl },
       select: { id: true, audioUrl: true }
     })
@@ -501,7 +518,8 @@ router.delete('/admin/:skill/:id', authMiddleware, teacherStrict, async (req, re
       })
     }
     // Đọc tiêu đề trước khi soft-delete để entityLabel vẫn đọc được sau này.
-    const existing = await prisma.practiceExam.findUnique({ where: { id }, select: { title: true } })
+    const existing = await prisma.practiceExam.findFirst({ where: { id, skill: req.params.skill, deletedAt: null }, select: { title: true } })
+    if (!existing) return res.status(404).json({ message: 'Không tìm thấy bài luyện tập' })
     await prisma.practiceExam.update({
       where: { id },
       data: { deletedAt: new Date() }

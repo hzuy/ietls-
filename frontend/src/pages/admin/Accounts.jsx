@@ -120,8 +120,8 @@ export default function Accounts() {
     setSubmitting(true); setError('')
     if (editingId) {
       const payload = { name: form.name, role: form.role }
-      if (form.password && form.password.trim()) {
-        payload.password = form.password.trim()
+      if (form.password) {
+        payload.password = form.password
       }
       saveAccountMutation.mutate({ id: editingId, payload })
     } else {

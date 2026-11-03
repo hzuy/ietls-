@@ -8,6 +8,8 @@ const { invalidate } = require('../../lib/swrCache')
 const { invalidateExamCaches } = require('../../utils/cache')
 const { logAuditEvent } = require('../../lib/auditLog')
 const { AUDIT_ACTIONS } = require('../../lib/auditActions')
+const { purgeTrash, TrashPurgeError, RETENTION_DAYS } = require('../../services/trashPurgeService')
+const { findTitleConflict } = require('../../lib/titleConflict')
 
 // Khôi phục / xoá vĩnh viễn có thể đụng tới practice, sample lẫn exam/series →
 // dọn hết cache list công khai cho chắc (thao tác này hiếm).
@@ -21,42 +23,6 @@ function invalidatePublicLists() {
 // The 4 real per-skill exam types. NOTE: 'exam_series' also begins with 'exam_',
 // so it must be matched by an explicit branch — never by a startsWith('exam_') test.
 const EXAM_SKILL_TYPES = ['exam_reading', 'exam_listening', 'exam_writing', 'exam_speaking']
-
-// Cascade-safe hard delete for Exam records, wrapped in a single transaction so a
-// mid-way failure never leaves an exam half-deleted.
-//
-// Auto-cascade FKs (handled by the DB): Exam→Passage→Question, Exam→ListeningSection→Question,
-//   Exam→WritingTask, Exam→SpeakingPart→SpeakingQuestion, Attempt→QuestionAnswer.
-// No-cascade FKs that must be cleared here first:
-//   Attempt.examId, WritingAnswer.taskId, SpeakingAnswer.partId,
-//   AnswerLog.questionId  (AnswerLog.attemptId is SetNull, but .questionId is Restrict —
-//   leftover AnswerLog rows are what make the Question cascade blow up with a 500).
-async function hardDeleteExams(examIds) {
-  if (!examIds.length) return
-  const [taskIds, partIds, questionIds] = await Promise.all([
-    prisma.writingTask.findMany({ where: { examId: { in: examIds } }, select: { id: true } }).then(r => r.map(t => t.id)),
-    prisma.speakingPart.findMany({ where: { examId: { in: examIds } }, select: { id: true } }).then(r => r.map(p => p.id)),
-    prisma.question.findMany({
-      where: {
-        OR: [
-          { passage: { examId: { in: examIds } } },
-          { listeningSection: { examId: { in: examIds } } },
-        ],
-      },
-      select: { id: true },
-    }).then(r => r.map(q => q.id)),
-  ])
-
-  await prisma.$transaction(async (tx) => {
-    if (questionIds.length) {
-      await tx.answerLog.deleteMany({ where: { questionId: { in: questionIds } } })
-    }
-    await tx.attempt.deleteMany({ where: { examId: { in: examIds } } })
-    if (taskIds.length) await tx.writingAnswer.deleteMany({ where: { taskId: { in: taskIds } } })
-    if (partIds.length) await tx.speakingAnswer.deleteMany({ where: { partId: { in: partIds } } })
-    await tx.exam.deleteMany({ where: { id: { in: examIds } } })
-  })
-}
 
 // ─── TRASH COUNT (lightweight — for sidebar badge) ───────────────────────────
 router.get('/trash/count', authMiddleware, teacherOrAdmin, async (req, res) => {
@@ -78,85 +44,37 @@ router.get('/trash/count', authMiddleware, teacherOrAdmin, async (req, res) => {
 
 router.get('/trash', authMiddleware, teacherOrAdmin, async (req, res) => {
   try {
-    const { page = 1, limit = 50 } = req.query
-    const take = Math.min(parseInt(limit) || 50, 100)
-    const skip = (Math.max(parseInt(page), 1) - 1) * take
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
     const softWhere = { deletedAt: { not: null } }
-    const expiredWhere = { deletedAt: { not: null, lt: thirtyDaysAgo } }
-
-    // BUG-28: Auto-purge items older than 30 days — fire-and-forget, do NOT await
-    ;(async () => {
-      try {
-        const [practices, writings, speakings, examSeriesDeleted, books] = await Promise.all([
-          prisma.practiceExam.deleteMany({ where: expiredWhere }),
-          prisma.writingSample.deleteMany({ where: expiredWhere }),
-          prisma.speakingSample.deleteMany({ where: expiredWhere }),
-          prisma.examSeries.deleteMany({ where: expiredWhere }),
-          prisma.bookCover.deleteMany({ where: expiredWhere }),
-        ])
-        const expiredExams = await prisma.exam.findMany({ where: expiredWhere, select: { id: true } })
-        await hardDeleteExams(expiredExams.map(e => e.id))
-
-        const counts = {
-          practiceExam: practices.count,
-          writingSample: writings.count,
-          speakingSample: speakings.count,
-          examSeries: examSeriesDeleted.count,
-          bookCover: books.count,
-          exam: expiredExams.length,
-        }
-        // Chỉ ghi log khi thực sự dọn được gì — tránh mỗi lần admin mở trang Trash
-        // (kể cả không có gì hết hạn) đều tạo 1 bản ghi audit rỗng.
-        if (Object.values(counts).some(n => n > 0)) {
-          await logAuditEvent(null, {
-            action: AUDIT_ACTIONS.TRASH_AUTO_PURGE,
-            entityType: 'Trash',
-            metadata: counts
-          })
-        }
-      } catch (e) {
-        console.error(`[${new Date().toISOString()}] [Trash] Tác vụ "Auto-delete trash sau 30 ngày" bị lỗi:`, e.message || e)
-      }
-    })()
-
-
     const [practices, writings, speakings, exams, examSeriesList, books] = await Promise.all([
       prisma.practiceExam.findMany({
         where: softWhere,
         select: { id: true, title: true, skill: true, thumbnailUrl: true, deletedAt: true },
         orderBy: { deletedAt: 'desc' },
-        take, skip,
       }),
       prisma.writingSample.findMany({
         where: softWhere,
         select: { id: true, title: true, thumbnailUrl: true, deletedAt: true },
         orderBy: { deletedAt: 'desc' },
-        take, skip,
       }),
       prisma.speakingSample.findMany({
         where: softWhere,
         select: { id: true, title: true, thumbnailUrl: true, deletedAt: true },
         orderBy: { deletedAt: 'desc' },
-        take, skip,
       }),
       prisma.exam.findMany({
         where: softWhere,
         select: { id: true, title: true, skill: true, coverImageUrl: true, seriesId: true, bookNumber: true, deletedAt: true },
         orderBy: { deletedAt: 'desc' },
-        take, skip,
       }),
       prisma.examSeries.findMany({
         where: softWhere,
         select: { id: true, name: true, deletedAt: true },
         orderBy: { deletedAt: 'desc' },
-        take, skip,
       }),
       prisma.bookCover.findMany({
         where: softWhere,
         select: { id: true, seriesId: true, bookNumber: true, coverImageUrl: true, deletedAt: true },
         orderBy: { deletedAt: 'desc' },
-        take, skip,
       }),
     ])
 
@@ -180,7 +98,7 @@ router.get('/trash', authMiddleware, teacherOrAdmin, async (req, res) => {
       ...books.map(r => ({ ...r, title: `Cuốn ${r.bookNumber} — ${seriesNameMap[r.seriesId] || 'Bộ đề'}`, thumbnailUrl: r.coverImageUrl, type: 'book' })),
     ].sort((a, b) => new Date(b.deletedAt) - new Date(a.deletedAt))
 
-    res.json({ items, page: parseInt(page), limit: take })
+    res.json({ items, page: 1, limit: items.length, total: items.length, pages: 1 })
   } catch (err) {
     sendServerError(res, err, 'Lỗi server')
   }
@@ -194,25 +112,45 @@ router.post('/trash/:type/:id/restore', authMiddleware, teacherOrAdmin, async (r
     let entityLabel = null
     const metadata = { type }
     if (type === 'reading_practice' || type === 'listening_practice') {
+      const skill = type === 'reading_practice' ? 'reading' : 'listening'
+      const current = await prisma.practiceExam.findUnique({ where: { id: numId }, select: { title: true } })
+      if (current && await findTitleConflict(prisma.practiceExam, current.title, { skill }, numId)) {
+        return res.status(409).json({ message: 'Đã có bài luyện tập cùng tên; đổi tên xung đột trước khi khôi phục' })
+      }
       const updated = await prisma.practiceExam.update({ where: { id: numId }, data: { deletedAt: null }, select: { title: true } })
       entityType = 'PracticeExam'
       entityLabel = updated.title
     } else if (type === 'writing_sample') {
+      const current = await prisma.writingSample.findUnique({ where: { id: numId }, select: { title: true } })
+      if (current && await findTitleConflict(prisma.writingSample, current.title, {}, numId)) return res.status(409).json({ message: 'Đã có bài mẫu Writing cùng tên; đổi tên xung đột trước khi khôi phục' })
       const updated = await prisma.writingSample.update({ where: { id: numId }, data: { deletedAt: null }, select: { title: true } })
       entityType = 'WritingSample'
       entityLabel = updated.title
     } else if (type === 'speaking_sample') {
+      const current = await prisma.speakingSample.findUnique({ where: { id: numId }, select: { title: true } })
+      if (current && await findTitleConflict(prisma.speakingSample, current.title, {}, numId)) return res.status(409).json({ message: 'Đã có bài mẫu Speaking cùng tên; đổi tên xung đột trước khi khôi phục' })
       const updated = await prisma.speakingSample.update({ where: { id: numId }, data: { deletedAt: null }, select: { title: true } })
       entityType = 'SpeakingSample'
       entityLabel = updated.title
     } else if (EXAM_SKILL_TYPES.includes(type)) {
+      const current = await prisma.exam.findUnique({ where: { id: numId }, select: { title: true, skill: true } })
+      if (current && await findTitleConflict(prisma.exam, current.title, { skill: current.skill }, numId)) return res.status(409).json({ message: 'Đã có đề cùng tên trong kỹ năng này; đổi tên xung đột trước khi khôi phục' })
       const updated = await prisma.exam.update({ where: { id: numId }, data: { deletedAt: null }, select: { title: true } })
       entityType = 'Exam'
       entityLabel = updated.title
     } else if (type === 'exam_series') {
-      const updated = await prisma.examSeries.update({ where: { id: numId }, data: { deletedAt: null }, select: { name: true } })
+      const series = await prisma.examSeries.findUnique({ where: { id: numId }, select: { name: true, deletedAt: true } })
+      if (!series) return res.status(404).json({ message: 'Không tìm thấy bộ đề' })
+      if (await findTitleConflict(prisma.examSeries, series.name, {}, numId, 'name')) return res.status(409).json({ message: 'Đã có bộ đề cùng tên; đổi tên xung đột trước khi khôi phục' })
+      await prisma.$transaction(async tx => {
+        await tx.examSeries.update({ where: { id: numId }, data: { deletedAt: null } })
+        if (series.deletedAt) {
+          await tx.bookCover.updateMany({ where: { seriesId: numId, deletedAt: series.deletedAt }, data: { deletedAt: null } })
+          await tx.exam.updateMany({ where: { seriesId: numId, deletedAt: series.deletedAt }, data: { deletedAt: null } })
+        }
+      })
       entityType = 'ExamSeries'
-      entityLabel = updated.name
+      entityLabel = series.name
     } else if (type === 'book') {
       // Restore the BookCover + only the exams that were soft-deleted *together with it*
       // (deleteBook stamps the cover and its exams with the same timestamp). Exams that
@@ -224,17 +162,17 @@ router.post('/trash/:type/:id/restore', authMiddleware, teacherOrAdmin, async (r
       })
       entityType = 'BookCover'
       if (book) {
-        const [, examsResult] = await Promise.all([
-          prisma.bookCover.update({ where: { id: numId }, data: { deletedAt: null } }),
-          prisma.exam.updateMany({
+        const examsResult = await prisma.$transaction(async tx => {
+          await tx.bookCover.update({ where: { id: numId }, data: { deletedAt: null } })
+          return tx.exam.updateMany({
             where: {
               seriesId: book.seriesId,
               bookNumber: book.bookNumber,
-              deletedAt: book.deletedAt ? { gte: book.deletedAt } : { not: null },
+              deletedAt: book.deletedAt,
             },
             data: { deletedAt: null },
-          }),
-        ])
+          })
+        })
         entityLabel = `Cuốn ${book.bookNumber} — ${book.series?.name || 'Bộ đề'}`
         metadata.restoredExamsCount = examsResult.count
       }
@@ -255,110 +193,64 @@ router.post('/trash/:type/:id/restore', authMiddleware, teacherOrAdmin, async (r
   }
 })
 
-// Xoá vĩnh viễn (purge) không thể hoàn tác và xoá luôn bài làm của học sinh
-// (hardDeleteExams xoá Attempt/Answer...) → chỉ admin được phép.
+// Permanent deletion is explicit and admin-only. All variants share one
+// serializable transaction and parent/child safeguards.
+function sendPurgeError(res, error, fallback) {
+  if (error instanceof TrashPurgeError) {
+    return res.status(error.status).json({ code: error.code, message: error.message })
+  }
+  return sendServerError(res, error, fallback)
+}
+
 router.delete('/trash/purge', authMiddleware, adminOnly, async (req, res) => {
   try {
-    const where = { deletedAt: { not: null } }
-    const [practices, writings, speakings, examSeriesDeleted, books] = await Promise.all([
-      prisma.practiceExam.deleteMany({ where }),
-      prisma.writingSample.deleteMany({ where }),
-      prisma.speakingSample.deleteMany({ where }),
-      prisma.examSeries.deleteMany({ where }),
-      prisma.bookCover.deleteMany({ where }),
-    ])
-    const allExams = await prisma.exam.findMany({ where, select: { id: true } })
-    await hardDeleteExams(allExams.map(e => e.id))
+    const result = await purgeTrash()
     invalidatePublicLists()
     await logAuditEvent(req, {
       action: AUDIT_ACTIONS.TRASH_PURGE_ALL,
       entityType: 'Trash',
-      entityId: null,
-      metadata: {
-        practiceExam: practices.count,
-        writingSample: writings.count,
-        speakingSample: speakings.count,
-        examSeries: examSeriesDeleted.count,
-        bookCover: books.count,
-        exam: allExams.length,
-      }
+      metadata: result.counts,
     })
-    res.json({ message: 'Đã dọn sạch thùng rác' })
-  } catch (err) {
-    sendServerError(res, err, 'Lỗi dọn rác')
+    res.json({ message: 'Đã dọn sạch thùng rác', counts: result.counts })
+  } catch (error) {
+    sendPurgeError(res, error, 'Lỗi dọn rác')
+  }
+})
+
+// 30-day retention remains available as an explicit admin action; GET /trash
+// must never schedule permanent writes as a side effect of viewing the list.
+router.delete('/trash/purge-expired', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const result = await purgeTrash({ expiredOnly: true })
+    if (Object.values(result.counts).some(count => count > 0)) {
+      invalidatePublicLists()
+      await logAuditEvent(req, {
+        action: AUDIT_ACTIONS.TRASH_AUTO_PURGE,
+        entityType: 'Trash',
+        metadata: { ...result.counts, trigger: 'admin', retentionDays: RETENTION_DAYS },
+      })
+    }
+    res.json({ message: 'Đã dọn các mục quá hạn 30 ngày', counts: result.counts })
+  } catch (error) {
+    sendPurgeError(res, error, 'Lỗi dọn các mục quá hạn')
   }
 })
 
 router.delete('/trash/:type/:id/permanent', authMiddleware, adminOnly, async (req, res) => {
-  const { type, id } = req.params
-  const numId = parseInt(id)
   try {
-    let entityType = null
-    let entityLabel = null
-    if (type === 'reading_practice' || type === 'listening_practice') {
-      const existing = await prisma.practiceExam.findUnique({ where: { id: numId }, select: { title: true } })
-      entityType = 'PracticeExam'
-      entityLabel = existing?.title ?? null
-      await prisma.practiceExam.delete({ where: { id: numId } })
-    } else if (type === 'writing_sample') {
-      const existing = await prisma.writingSample.findUnique({ where: { id: numId }, select: { title: true } })
-      entityType = 'WritingSample'
-      entityLabel = existing?.title ?? null
-      await prisma.writingSample.delete({ where: { id: numId } })
-    } else if (type === 'speaking_sample') {
-      const existing = await prisma.speakingSample.findUnique({ where: { id: numId }, select: { title: true } })
-      entityType = 'SpeakingSample'
-      entityLabel = existing?.title ?? null
-      await prisma.speakingSample.delete({ where: { id: numId } })
-    } else if (EXAM_SKILL_TYPES.includes(type)) {
-      const existing = await prisma.exam.findUnique({ where: { id: numId }, select: { title: true } })
-      entityType = 'Exam'
-      entityLabel = existing?.title ?? null
-      await hardDeleteExams([numId])
-    } else if (type === 'exam_series') {
-      // A trashed series can still own LIVE books/exams — soft-deleting a series
-      // never touches its children. Permanently deleting it now would cascade-drop
-      // the BookCovers and orphan the live Exams (seriesId → null). Refuse until the
-      // children are dealt with.
-      const [liveBooks, liveExams] = await Promise.all([
-        prisma.bookCover.count({ where: { seriesId: numId, deletedAt: null } }),
-        prisma.exam.count({ where: { seriesId: numId, deletedAt: null } }),
-      ])
-      const liveTotal = liveBooks + liveExams
-      if (liveTotal > 0) {
-        return res.status(409).json({
-          message: `Bộ đề còn ${liveTotal} đề/cuốn đang hoạt động — vui lòng xóa các mục con trước khi xóa vĩnh viễn bộ đề này.`,
-        })
-      }
-      const existing = await prisma.examSeries.findUnique({ where: { id: numId }, select: { name: true } })
-      entityType = 'ExamSeries'
-      entityLabel = existing?.name ?? null
-      await prisma.examSeries.delete({ where: { id: numId } })
-    } else if (type === 'book') {
-      const book = await prisma.bookCover.findUnique({
-        where: { id: numId },
-        select: { seriesId: true, bookNumber: true, series: { select: { name: true } } }
-      })
-      entityType = 'BookCover'
-      if (book) {
-        entityLabel = `Cuốn ${book.bookNumber} — ${book.series?.name || 'Bộ đề'}`
-        const bookExams = await prisma.exam.findMany({ where: { seriesId: book.seriesId, bookNumber: book.bookNumber }, select: { id: true } })
-        await hardDeleteExams(bookExams.map(e => e.id))
-        await prisma.bookCover.delete({ where: { id: numId } })
-      }
-    } else {
-      return res.status(400).json({ message: 'Loại không hợp lệ' })
-    }
+    const rawId = req.params.id
+    const id = /^\d+$/.test(rawId) ? Number(rawId) : NaN
+    const result = await purgeTrash({ type: req.params.type, id })
     invalidatePublicLists()
     await logAuditEvent(req, {
       action: AUDIT_ACTIONS.TRASH_PURGE_ONE,
-      entityType,
-      entityId: numId,
-      entityLabel
+      entityType: result.entityType,
+      entityId: result.entityId,
+      entityLabel: result.entityLabel,
     })
     res.json({ message: 'Đã xóa vĩnh viễn' })
-  } catch (err) {
-    sendServerError(res, err, 'Lỗi xóa vĩnh viễn')
+  } catch (error) {
+    sendPurgeError(res, error, 'Lỗi xóa vĩnh viễn')
   }
 })
 

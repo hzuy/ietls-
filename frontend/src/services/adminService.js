@@ -33,7 +33,14 @@ export const changeAdminPassword = (currentPassword, newPassword) =>
 // In-memory cache — TTL 5 phút, tránh gọi API trùng lặp ở nhiều nơi (App, ReadingExam, ListeningExam, WritingExam, Settings)
 let _settingsCache = null        // { data, ts }
 let _settingsPending = null      // Promise đang chờ (chống stampede)
+let _settingsGeneration = 0
 const SETTINGS_TTL = 5 * 60 * 1000 // 5 phút
+
+export const clearAdminSettingsCache = () => {
+  _settingsGeneration += 1
+  _settingsCache = null
+  _settingsPending = null
+}
 
 export const getAdminSettings = async () => {
   const now = Date.now()
@@ -43,19 +50,25 @@ export const getAdminSettings = async () => {
   }
   // Dedup: nếu đang có request chờ, chờ chung
   if (_settingsPending) return _settingsPending
-  _settingsPending = api.get('/admin/settings')
+  const generation = _settingsGeneration
+  const pending = api.get('/admin/settings')
     .then(r => {
-      _settingsCache = { data: r.data, ts: Date.now() }
+      if (generation === _settingsGeneration) _settingsCache = { data: r.data, ts: Date.now() }
       return r.data
     })
-    .finally(() => { _settingsPending = null })
-  return _settingsPending
+    .finally(() => { if (_settingsPending === pending) _settingsPending = null })
+  _settingsPending = pending
+  return pending
 }
+
+// Public pages need only the explicitly public settings and must not call the
+// admin-only endpoint (which returns 403 for signed-out learners).
+export const getPublicSettings = () => api.get('/public-settings').then(r => r.data)
 
 export const updateAdminSettings = (settings) =>
   api.put('/admin/settings', settings).then(r => {
     // Invalidate cache sau khi cập nhật
-    _settingsCache = null
+    clearAdminSettingsCache()
     return r.data
   })
 
@@ -76,6 +89,7 @@ export const getAdminTrash = (page = 1, limit = 50) => api.get('/admin/trash', {
 export const restoreTrashItem = (type, id) => api.post(`/admin/trash/${type}/${id}/restore`).then(r => r.data)
 export const permanentDeleteTrashItem = (type, id) => api.delete(`/admin/trash/${type}/${id}/permanent`).then(r => r.data)
 export const purgeTrash = () => api.delete('/admin/trash/purge').then(r => r.data)
+export const purgeExpiredTrash = () => api.delete('/admin/trash/purge-expired').then(r => r.data)
 
 // Sidebar badge count — cached in sessionStorage (TTL 5 phút) so route changes don't
 // re-hit the API, but any trash-mutating action (restore / permanent delete / purge /

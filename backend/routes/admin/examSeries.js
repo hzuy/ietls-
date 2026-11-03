@@ -12,6 +12,14 @@ const { invalidate } = require('../../lib/swrCache')
 const { getFullTestsCached } = require('../../lib/publicContent')
 const { uploadOptimizedCover } = require('../../services/storageService')
 const { getOrSet, invalidateExamCaches, TTL_CAMBRIDGE } = require('../../utils/cache')
+const { findTitleConflict } = require('../../lib/titleConflict')
+
+for (const param of ['id', 'seriesId', 'bookNumber']) {
+  router.param(param, (req, res, next, value) => {
+    if (!/^[1-9]\d*$/.test(value)) return res.status(400).json({ message: `${param} không hợp lệ` })
+    next()
+  })
+}
 
 // ─── GET FULL TESTS (grouped by bookNumber + testNumber) ─────────────────────
 // Fetcher + SWR cache nằm ở lib/publicContent.js (chia sẻ cache với /api/home).
@@ -44,6 +52,7 @@ router.get('/exam-series', authMiddleware, async (req, res) => {
 router.post('/exam-series', authMiddleware, teacherOnly, validate(examSeriesSchema), async (req, res) => {
   try {
     const { name } = req.body
+    if (await findTitleConflict(prisma.examSeries, name, {}, null, 'name')) return res.status(409).json({ message: 'Tên bộ đề đã tồn tại' })
     const s = await prisma.examSeries.create({ data: { name: name.trim() } })
     invalidateExamCaches()
     res.json(s)
@@ -55,8 +64,10 @@ router.post('/exam-series', authMiddleware, teacherOnly, validate(examSeriesSche
 router.put('/exam-series/:id', authMiddleware, teacherOnly, validate(examSeriesSchema), async (req, res) => {
   try {
     const { name } = req.body
+    const id = parseInt(req.params.id)
+    if (await findTitleConflict(prisma.examSeries, name, {}, id, 'name')) return res.status(409).json({ message: 'Tên bộ đề đã tồn tại' })
     const s = await prisma.examSeries.update({
-      where: { id: parseInt(req.params.id) },
+      where: { id },
       data: { name: name.trim() }
     })
     invalidate('fulltests:')
@@ -70,7 +81,12 @@ router.put('/exam-series/:id', authMiddleware, teacherOnly, validate(examSeriesS
 router.delete('/exam-series/:id', authMiddleware, teacherOnly, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
-    await prisma.examSeries.update({ where: { id }, data: { deletedAt: new Date() } })
+    const deletedAt = new Date()
+    await prisma.$transaction(async tx => {
+      await tx.examSeries.updateMany({ where: { id, deletedAt: null }, data: { deletedAt } })
+      await tx.bookCover.updateMany({ where: { seriesId: id, deletedAt: null }, data: { deletedAt } })
+      await tx.exam.updateMany({ where: { seriesId: id, deletedAt: null }, data: { deletedAt } })
+    })
     invalidate('fulltests:')
     invalidateExamCaches()
     res.json({ ok: true })
@@ -98,7 +114,7 @@ router.post('/exam-series/:id/books', authMiddleware, teacherOnly, async (req, r
   try {
     const seriesId = parseInt(req.params.id)
     const max = await prisma.bookCover.findFirst({
-      where: { seriesId, deletedAt: null },
+      where: { seriesId },
       orderBy: { bookNumber: 'desc' }
     })
     const nextNumber = (max?.bookNumber || 0) + 1
@@ -107,6 +123,7 @@ router.post('/exam-series/:id/books', authMiddleware, teacherOnly, async (req, r
     invalidateExamCaches()
     res.json(book)
   } catch (error) {
+    if (error?.code === 'P2002') return res.status(409).json({ message: 'Số quyển đã tồn tại trong bộ đề này' })
     sendServerError(res, error, 'Lỗi server')
   }
 })
@@ -125,8 +142,7 @@ router.put('/exam-series/:seriesId/books/:bookNumber', authMiddleware, teacherOn
       if (existingCover.deletedAt === null) {
         return res.status(409).json({ message: `Quyển số ${newNumber} đã tồn tại trong bộ đề này` })
       }
-      // If it was soft-deleted, remove it so unique constraint doesn't fail on update
-      await prisma.bookCover.delete({ where: { id: existingCover.id } })
+      return res.status(409).json({ message: `Quyển số ${newNumber} đã tồn tại trong bộ đề này` })
     }
 
     const existingExam = await prisma.exam.findFirst({
@@ -136,14 +152,15 @@ router.put('/exam-series/:seriesId/books/:bookNumber', authMiddleware, teacherOn
       return res.status(409).json({ message: `Quyển số ${newNumber} đã tồn tại trong bộ đề này` })
     }
 
-    // Update BookCover
-    await prisma.bookCover.updateMany({ where: { seriesId, bookNumber: oldNumber }, data: { bookNumber: newNumber } })
-    // Update associated Exams
-    await prisma.exam.updateMany({ where: { seriesId, bookNumber: oldNumber }, data: { bookNumber: newNumber } })
+    await prisma.$transaction(async tx => {
+      await tx.bookCover.updateMany({ where: { seriesId, bookNumber: oldNumber, deletedAt: null }, data: { bookNumber: newNumber } })
+      await tx.exam.updateMany({ where: { seriesId, bookNumber: oldNumber }, data: { bookNumber: newNumber } })
+    })
     invalidate('fulltests:')
     invalidateExamCaches()
     res.json({ ok: true, bookNumber: newNumber })
   } catch (error) {
+    if (error?.code === 'P2002') return res.status(409).json({ message: `Quyển số ${req.body.bookNumber} đã tồn tại trong bộ đề này` })
     sendServerError(res, error, 'Lỗi server')
   }
 })
@@ -153,10 +170,10 @@ router.delete('/exam-series/:seriesId/books/:bookNumber', authMiddleware, teache
     const seriesId = parseInt(req.params.seriesId)
     const bookNumber = parseInt(req.params.bookNumber)
     const now = new Date()
-    // Soft-delete all exams in this book
-    await prisma.exam.updateMany({ where: { seriesId, bookNumber, deletedAt: null }, data: { deletedAt: now } })
-    // Soft-delete the book cover
-    await prisma.bookCover.updateMany({ where: { seriesId, bookNumber }, data: { deletedAt: now } })
+    await prisma.$transaction(async tx => {
+      await tx.exam.updateMany({ where: { seriesId, bookNumber, deletedAt: null }, data: { deletedAt: now } })
+      await tx.bookCover.updateMany({ where: { seriesId, bookNumber, deletedAt: null }, data: { deletedAt: now } })
+    })
     invalidate('fulltests:')
     invalidateExamCaches()
     res.json({ ok: true })

@@ -13,6 +13,7 @@ const { sanitizeRichText } = require('../lib/sanitizeHtml')
 const { logAuditEvent } = require('../lib/auditLog')
 const { AUDIT_ACTIONS } = require('../lib/auditActions')
 const { sendServerError } = require('../lib/httpErrors')
+const { findTitleConflict } = require('../lib/titleConflict')
 
 const router = express.Router()
 
@@ -135,6 +136,7 @@ router.get('/admin/speaking/:id', authMiddleware, teacherStrict, async (req, res
 router.post('/admin/writing', authMiddleware, teacherStrict, validate(createSampleSchema), async (req, res) => {
   try {
     const { title, level, examType, content, thumbnailUrl, tags } = req.body
+    if (await findTitleConflict(prisma.writingSample, title)) return res.status(409).json({ message: 'Tên bài mẫu Writing đã tồn tại' })
     const s = await prisma.writingSample.create({
       data: { title: title.trim(), level: level || null, examType: examType || null, content: sanitizeRichText(content) || null, thumbnailUrl: thumbnailUrl || null, tags: tags ? JSON.stringify(tags) : null }
     })
@@ -154,6 +156,7 @@ router.post('/admin/writing', authMiddleware, teacherStrict, validate(createSamp
 router.post('/admin/speaking', authMiddleware, teacherStrict, validate(createSampleSchema), async (req, res) => {
   try {
     const { title, level, examType, content, thumbnailUrl, tags } = req.body
+    if (await findTitleConflict(prisma.speakingSample, title)) return res.status(409).json({ message: 'Tên bài mẫu Speaking đã tồn tại' })
     const s = await prisma.speakingSample.create({
       data: { title: title.trim(), level: level || null, examType: examType || null, content: sanitizeRichText(content) || null, thumbnailUrl: thumbnailUrl || null, tags: tags ? JSON.stringify(tags) : null }
     })
@@ -174,6 +177,8 @@ router.post('/admin/speaking', authMiddleware, teacherStrict, validate(createSam
 router.put('/admin/writing/:id', authMiddleware, teacherStrict, validate(updateSampleSchema), async (req, res) => {
   try {
     const { title, level, examType, content, thumbnailUrl, tags } = req.body
+    const id = parseInt(req.params.id, 10)
+    if (title !== undefined && await findTitleConflict(prisma.writingSample, title, {}, id)) return res.status(409).json({ message: 'Tên bài mẫu Writing đã tồn tại' })
     const data = {}
     if (title !== undefined) data.title = title.trim()
     if (level !== undefined) data.level = level || null
@@ -181,7 +186,7 @@ router.put('/admin/writing/:id', authMiddleware, teacherStrict, validate(updateS
     if (content !== undefined) data.content = sanitizeRichText(content)
     if (thumbnailUrl !== undefined) data.thumbnailUrl = thumbnailUrl
     if (tags !== undefined) data.tags = JSON.stringify(tags)
-    const s = await prisma.writingSample.update({ where: { id: parseInt(req.params.id) }, data })
+    const s = await prisma.writingSample.update({ where: { id }, data })
     invalidate('samples:')
     await logAuditEvent(req, {
       action: AUDIT_ACTIONS.SAMPLE_UPDATE,
@@ -198,6 +203,8 @@ router.put('/admin/writing/:id', authMiddleware, teacherStrict, validate(updateS
 router.put('/admin/speaking/:id', authMiddleware, teacherStrict, validate(updateSampleSchema), async (req, res) => {
   try {
     const { title, level, examType, content, thumbnailUrl, tags } = req.body
+    const id = parseInt(req.params.id, 10)
+    if (title !== undefined && await findTitleConflict(prisma.speakingSample, title, {}, id)) return res.status(409).json({ message: 'Tên bài mẫu Speaking đã tồn tại' })
     const data = {}
     if (title !== undefined) data.title = title.trim()
     if (level !== undefined) data.level = level || null
@@ -205,7 +212,7 @@ router.put('/admin/speaking/:id', authMiddleware, teacherStrict, validate(update
     if (content !== undefined) data.content = sanitizeRichText(content)
     if (thumbnailUrl !== undefined) data.thumbnailUrl = thumbnailUrl
     if (tags !== undefined) data.tags = JSON.stringify(tags)
-    const s = await prisma.speakingSample.update({ where: { id: parseInt(req.params.id) }, data })
+    const s = await prisma.speakingSample.update({ where: { id }, data })
     invalidate('samples:')
     await logAuditEvent(req, {
       action: AUDIT_ACTIONS.SAMPLE_UPDATE,

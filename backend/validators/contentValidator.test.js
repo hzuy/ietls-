@@ -48,6 +48,10 @@ describe('contentValidator', () => {
       })
       expect(res.success).toBe(true)
     })
+
+    it('rejects primitive question groups that are not strings or objects', () => {
+      expect(createPracticeSchema.safeParse({ title: 'Practice C', questions: [42] }).success).toBe(false)
+    })
   })
 
   describe('transcribeUploadSchema (Path Traversal Protection)', () => {

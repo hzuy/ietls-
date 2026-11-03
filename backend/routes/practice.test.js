@@ -16,6 +16,7 @@ const prismaMock = {
     create: vi.fn(),
     update: vi.fn(),
     findUnique: vi.fn(),
+    findFirst: vi.fn().mockResolvedValue({ id: 100, title: 'Existing practice' }),
     findMany: vi.fn().mockResolvedValue([])
   },
   practiceQuestion: {
@@ -101,7 +102,7 @@ describe('routes/practice.js — audit log wiring', () => {
   })
 
   it('DELETE /admin/reading/:id reads the title before soft-delete and logs practice.delete with that snapshot', async () => {
-    prismaMock.practiceExam.findUnique.mockResolvedValueOnce({ title: 'Đề luyện sắp bị xóa' })
+    prismaMock.practiceExam.findFirst.mockResolvedValueOnce({ title: 'Đề luyện sắp bị xóa' })
     prismaMock.practiceExam.update.mockResolvedValueOnce({})
 
     await request(app)
@@ -109,7 +110,7 @@ describe('routes/practice.js — audit log wiring', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200)
 
-    expect(prismaMock.practiceExam.findUnique).toHaveBeenCalledWith({ where: { id: 55 }, select: { title: true } })
+    expect(prismaMock.practiceExam.findFirst).toHaveBeenCalledWith({ where: { id: 55, skill: 'reading', deletedAt: null }, select: { title: true } })
     expect(prismaMock.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         action: AUDIT_ACTIONS.PRACTICE_DELETE,

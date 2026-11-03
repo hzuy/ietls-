@@ -98,4 +98,32 @@ describe('adminExamValidator', () => {
       expect(res.success).toBe(true)
     })
   })
+
+  describe('numeric ranges and answer domains', () => {
+    const groupPayload = (group) => ({ title: 'Validation sample', passages: [{ number: 1, questionGroups: [group] }] })
+
+    it('rejects reversed and fractional question ranges', () => {
+      expect(createReadingExamSchema.safeParse(groupPayload({ qNumberStart: 4, qNumberEnd: 2, type: 'short_answer', questions: [] })).success).toBe(false)
+      expect(createReadingExamSchema.safeParse(groupPayload({ qNumberStart: 1.5, qNumberEnd: 2, type: 'short_answer', questions: [] })).success).toBe(false)
+    })
+
+    it('rejects out-of-range, duplicate question numbers and invalid TFNG answers', () => {
+      const result = createReadingExamSchema.safeParse(groupPayload({
+        qNumberStart: 1, qNumberEnd: 2, type: 'true_false_ng',
+        questions: [
+          { number: 1, correctAnswer: 'TRUE' },
+          { number: 1, correctAnswer: 'MAYBE' },
+          { number: 3, correctAnswer: 'FALSE' },
+        ],
+      }))
+      expect(result.success).toBe(false)
+      expect(result.error.issues.some(issue => issue.path.includes('correctAnswer'))).toBe(true)
+      expect(result.error.issues.filter(issue => issue.path.at(-1) === 'number').length).toBeGreaterThan(0)
+    })
+
+    it('rejects fractional full-test metadata', () => {
+      expect(createReadingExamSchema.safeParse({ title: 'Draft', passages: [], bookNumber: 1.5 }).success).toBe(false)
+      expect(createReadingExamSchema.safeParse({ title: 'Draft', passages: [], seriesId: -2 }).success).toBe(false)
+    })
+  })
 })

@@ -177,13 +177,20 @@ router.get('/admin', authMiddleware, teacherOrAdmin, async (req, res) => {
 // PATCH /api/reports/admin/:id — Cập nhật trạng thái báo lỗi
 router.patch('/admin/:id', authMiddleware, teacherOrAdmin, async (req, res) => {
   try {
-    const reportId = parseInt(req.params.id, 10)
-    if (!Number.isInteger(reportId)) return res.status(400).json({ message: 'ID không hợp lệ' })
+    if (!/^[1-9]\d*$/.test(req.params.id)) return res.status(400).json({ message: 'ID không hợp lệ' })
+    const reportId = Number(req.params.id)
 
     const { status, adminNote } = req.body
+    const allowedStatuses = ['pending', 'resolved', 'dismissed']
+    if (status !== undefined && !allowedStatuses.includes(status)) {
+      return res.status(400).json({ message: 'Trạng thái báo lỗi không hợp lệ', field: 'status' })
+    }
     const updateData = {}
-    if (status && ['pending', 'resolved', 'dismissed'].includes(status)) {
+    if (status !== undefined) {
       updateData.status = status
+    }
+    if (!Object.keys(updateData).length && adminNote === undefined) {
+      return res.status(400).json({ message: 'Cần cung cấp trạng thái hoặc ghi chú cần cập nhật' })
     }
     if (adminNote !== undefined) {
       updateData.adminNote = typeof adminNote === 'string' ? adminNote.trim() : null

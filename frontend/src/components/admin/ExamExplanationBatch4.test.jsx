@@ -3,7 +3,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import ReadingTab from './ReadingTab'
 import ListeningTab from './ListeningTab'
 import api from '../../utils/axios'
-import { filterLearnerExplanation } from '../../../../backend/services/explanationGeneratorService'
 
 vi.mock('../../utils/axios', () => ({
   default: {
@@ -20,7 +19,7 @@ vi.mock('../../lib/queryClient', () => ({
 vi.mock('./ExamList', () => ({
   default: ({ onEdit }) => (
     <div data-testid="exam-list">
-      <button onClick={() => onEdit(10)}>Edit Reading 10</button>
+      <button onClick={() => onEdit(410010)}>Edit Reading 10</button>
       <button onClick={() => onEdit(20)}>Edit Listening 20</button>
     </div>
   )
@@ -28,7 +27,9 @@ vi.mock('./ExamList', () => ({
 
 describe('Batch 4: Comprehensive test suite for Exam Explanations', () => {
   const mockReadingExam = {
-    id: 10,
+    // BroadcastChannel spans Vitest worker threads. Keep this fixture distinct
+    // from ExamSequentialAI's exam 10 so its AI runs cannot lock these buttons.
+    id: 410010,
     title: 'Cambridge 18 Test 1 Reading',
     bookNumber: 18,
     testNumber: 1,
@@ -74,7 +75,7 @@ describe('Batch 4: Comprehensive test suite for Exam Explanations', () => {
     vi.clearAllMocks()
     window.scrollTo = vi.fn()
     api.get.mockImplementation((url) => {
-      if (url === '/admin/exams/10') return Promise.resolve({ data: mockReadingExam })
+      if (url === '/admin/exams/410010') return Promise.resolve({ data: mockReadingExam })
       return Promise.resolve({ data: [] })
     })
   })
@@ -135,23 +136,11 @@ describe('Batch 4: Comprehensive test suite for Exam Explanations', () => {
     })
 
     // Now try clicking another group's AI button -> should open cleanly again
-    fireEvent.click(groupBtns[1])
+    fireEvent.click(screen.getAllByRole('button', { name: /Sinh AI nhóm này/i })[1])
     await waitFor(() => {
       expect(screen.getByText('Đề thi có thay đổi chưa lưu')).toBeInTheDocument()
     })
+    expect(bodyInput).toHaveValue('Passage draft change')
+    expect(api.post).not.toHaveBeenCalled()
   }, 15000)
-
-  it('guarantees learner never receives invalid or pending explanations', () => {
-    // Valid approved statuses
-    expect(filterLearnerExplanation({ status: 'teacher_reviewed', steps: [] })).not.toBeNull()
-    expect(filterLearnerExplanation({ status: 'teacher_edited', steps: [] })).not.toBeNull()
-    expect(filterLearnerExplanation({ status: 'ai_generated', steps: [] })).not.toBeNull()
-
-    // Invalid / pending statuses MUST be stripped (null)
-    expect(filterLearnerExplanation({ status: 'conflict_pending', steps: [] })).toBeNull()
-    expect(filterLearnerExplanation({ status: 'needs_regeneration', steps: [] })).toBeNull()
-    expect(filterLearnerExplanation({ status: 'possibly_stale', steps: [] })).toBeNull()
-    expect(filterLearnerExplanation(null)).toBeNull()
-    expect(filterLearnerExplanation(undefined)).toBeNull()
-  })
 })

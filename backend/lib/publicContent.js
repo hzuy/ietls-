@@ -112,6 +112,9 @@ async function buildFullTests() {
 
   const grouped = {}
   for (const e of exams) {
+    // Full-test entries belong to a live series; hide orphaned rows instead of
+    // presenting deleted series content under the generic "IELTS" fallback.
+    if (!e.seriesId || !Object.prototype.hasOwnProperty.call(seriesMap, e.seriesId)) continue
     // Key by seriesId, bookNumber, and testNumber for unique identification
     const key = `${e.seriesId}-${e.bookNumber}-${e.testNumber}`
     if (!grouped[key]) {

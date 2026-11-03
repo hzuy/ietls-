@@ -6,7 +6,7 @@ vi.mock('../utils/axios', () => ({
 }))
 
 import api from '../utils/axios'
-import { getTrashCount, onTrashChanged, notifyTrashChanged } from './adminService'
+import { getTrashCount, onTrashChanged, notifyTrashChanged, purgeExpiredTrash, getAdminSettings, clearAdminSettingsCache } from './adminService'
 
 describe('trash count — cache + change notifications', () => {
   let offs = []
@@ -65,5 +65,39 @@ describe('trash count — cache + change notifications', () => {
     track(good)
     expect(() => notifyTrashChanged()).not.toThrow()
     expect(good).toHaveBeenCalled()
+  })
+})
+
+describe('explicit expired trash purge', () => {
+  it('calls the admin-only retention endpoint and returns deletion counts', async () => {
+    api.delete.mockResolvedValue({ data: { counts: { exam: 2 } } })
+    await expect(purgeExpiredTrash()).resolves.toEqual({ counts: { exam: 2 } })
+    expect(api.delete).toHaveBeenCalledWith('/admin/trash/purge-expired')
+  })
+})
+
+describe('admin settings cache session changes', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    clearAdminSettingsCache()
+  })
+
+  it('does not allow an older session request to repopulate cache after logout', async () => {
+    let resolveOld
+    let resolveNew
+    api.get
+      .mockImplementationOnce(() => new Promise(resolve => { resolveOld = resolve }))
+      .mockImplementationOnce(() => new Promise(resolve => { resolveNew = resolve }))
+
+    const oldRequest = getAdminSettings()
+    clearAdminSettingsCache()
+    const newRequest = getAdminSettings()
+    resolveNew({ data: { site_name: 'new-session' } })
+    await expect(newRequest).resolves.toEqual({ site_name: 'new-session' })
+    resolveOld({ data: { site_name: 'old-session' } })
+    await oldRequest
+
+    await expect(getAdminSettings()).resolves.toEqual({ site_name: 'new-session' })
+    expect(api.get).toHaveBeenCalledTimes(2)
   })
 })

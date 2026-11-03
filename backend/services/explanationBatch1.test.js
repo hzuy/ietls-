@@ -74,6 +74,13 @@ describe('Batch 1 Explanation Logic Tests', () => {
       expect(filterLearnerExplanation({ status: 'possibly_stale' })).toBeNull()
       expect(filterLearnerExplanation(null)).toBeNull()
     })
+
+    it('filterLearnerExplanation keeps approved explanations, strips undefined', () => {
+      expect(filterLearnerExplanation({ status: 'teacher_reviewed', steps: [] })).not.toBeNull()
+      expect(filterLearnerExplanation({ status: 'teacher_edited', steps: [] })).not.toBeNull()
+      expect(filterLearnerExplanation({ status: 'ai_generated', steps: [] })).not.toBeNull()
+      expect(filterLearnerExplanation(undefined)).toBeNull()
+    })
   })
 
   // ─── 4.1 PARTIAL SAVE & RESOLVE CHOICES (3.3 & 3.4) ─────────────────────────

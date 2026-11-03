@@ -53,7 +53,7 @@ const createPracticeSchema = z.object({
   audioUrl: z.string().nullable().optional(),
   passage: z.string().nullable().optional(),
   transcript: z.string().nullable().optional(),
-  questions: z.array(z.any()).optional().default([]),
+  questions: z.array(z.union([z.string().max(100000), z.record(z.string(), z.unknown())])).max(1000).optional().default([]),
 }).superRefine((data, ctx) => checkNoDuplicateOptions(data.questions, ctx))
 
 // 4. Update Practice Schema (routes/practice.js)
@@ -64,7 +64,7 @@ const updatePracticeSchema = z.object({
   audioUrl: z.string().nullable().optional(),
   passage: z.string().nullable().optional(),
   transcript: z.string().nullable().optional(),
-  questions: z.array(z.any()).optional(),
+  questions: z.array(z.union([z.string().max(100000), z.record(z.string(), z.unknown())])).max(1000).optional(),
 }).superRefine((data, ctx) => checkNoDuplicateOptions(data.questions, ctx))
 
 // 5. Transcribe Upload Schema (routes/admin/uploads.js) - Path Traversal Protection

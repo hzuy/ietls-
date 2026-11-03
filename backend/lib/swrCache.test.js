@@ -67,4 +67,17 @@ describe('swrCache', () => {
     await getOrRevalidate('k', f, 10000)
     expect(f).toHaveBeenCalledTimes(1)
   })
+  it('does not repopulate cache when an in-flight cold fetch is invalidated', async () => {
+    let resolveOld
+    const oldFetch = vi.fn(() => new Promise(resolve => { resolveOld = resolve }))
+    const oldRequest = getOrRevalidate('practice:reading:1', oldFetch, 10000)
+    invalidate('practice:')
+
+    const freshFetch = vi.fn().mockResolvedValue('fresh')
+    await expect(getOrRevalidate('practice:reading:1', freshFetch, 10000)).resolves.toBe('fresh')
+    resolveOld('stale')
+    await expect(oldRequest).resolves.toBe('stale')
+    await expect(getOrRevalidate('practice:reading:1', freshFetch, 10000)).resolves.toBe('fresh')
+    expect(freshFetch).toHaveBeenCalledTimes(1)
+  })
 })

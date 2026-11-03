@@ -276,9 +276,16 @@ describe('MỤC B: XEM LẠI BẢN VÁ HỦY (afe48ff) & ATOMIC CANCEL FLAG & 60
     const controller = new AbortController()
     controller.abort()
 
-    await expect(
-      requestGroqGradingJson('Test prompt', { signal: controller.signal })
-    ).rejects.toThrow(/hủy|aborted|AbortError/i)
+    // SDK initialization requires a key even for a pre-aborted request.
+    // Use a dummy only for this test; no API call should be made.
+    vi.stubEnv('GROQ_API_KEY', 'test-groq-key')
+    try {
+      await expect(
+        requestGroqGradingJson('Test prompt', { signal: controller.signal })
+      ).rejects.toThrow(/hủy|aborted|AbortError/i)
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 
   it('F.2 Request chưa tới lượt trong hàng đợi rate limiter bị loại khỏi hàng đợi, không chiếm chỗ', async () => {

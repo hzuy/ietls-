@@ -156,7 +156,7 @@ export default function SampleManager({ kind }) {
   const svc = cfg.services
   const formatTask = (level) => cfg.taskLabels[level] || level || ''
 
-  const { data: list = [], isPending, isFetching } = useQuery({
+  const { data: list = [], isPending, isFetching, isError, error, refetch } = useQuery({
     queryKey: ['admin', 'samples', kind],
     queryFn: () => svc.list(),
     placeholderData: (prev) => prev,
@@ -474,6 +474,11 @@ export default function SampleManager({ kind }) {
 
         {isPending && list.length === 0 ? (
           <AdminTableSkeleton firstColType="thumbnail" rows={6} cols={6} />
+        ) : isError ? (
+          <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+            <p>{error?.response?.data?.message || error?.message || 'Không tải được danh sách bài mẫu.'}</p>
+            <button type="button" onClick={() => refetch()} className="mt-3 rounded-full border border-red-300 px-3 py-1.5 font-medium">Thử tải lại</button>
+          </div>
         ) : (
           <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-xs">
             {list.length === 0 ? (

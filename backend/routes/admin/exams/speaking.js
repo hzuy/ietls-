@@ -10,6 +10,7 @@ const { invalidate } = require('../../../lib/swrCache')
 const { checkDuplicateExamTest } = require('./core')
 const { logAuditEvent } = require('../../../lib/auditLog')
 const { AUDIT_ACTIONS } = require('../../../lib/auditActions')
+const { findTitleConflict } = require('../../../lib/titleConflict')
 
 const { processSpeakingTts } = require('../../../services/ttsService')
 
@@ -18,11 +19,10 @@ router.post('/exams/speaking', authMiddleware, teacherOnly, validate(createSpeak
   try {
     const { title, part1, part2, part3, bookNumber, testNumber, seriesId } = req.body
     
-    // Process TTS generation for missing audioUrls
-    await processSpeakingTts([part1, part2, part3])
-
     const existing = await prisma.exam.findFirst({ where: { title: { equals: title, mode: 'insensitive' }, skill: 'speaking' } })
     if (existing) return res.status(409).json({ message: `Đã tồn tại đề Speaking có tên "${existing.title}". Vui lòng đặt tên khác.` })
+    const normalizedConflict = await findTitleConflict(prisma.exam, title)
+    if (normalizedConflict) return res.status(409).json({ message: 'Tên đề thi đã tồn tại trong kỹ năng này' })
 
     // BUG-08: Chặn trùng testNumber trong cùng seriesId và bookNumber
     if (seriesId && bookNumber && testNumber) {
@@ -31,6 +31,9 @@ router.post('/exams/speaking', authMiddleware, teacherOnly, validate(createSpeak
         return res.status(409).json({ message: 'Đề thi với số Test này đã tồn tại trong cùng cuốn/bộ đề' })
       }
     }
+
+    // Validate conflicts before generating audio or creating any content.
+    await processSpeakingTts([part1, part2, part3])
 
     const exam = await prisma.exam.create({
       data: {

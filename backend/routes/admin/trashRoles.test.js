@@ -8,11 +8,11 @@ process.env.JWT_SECRET = 'test_secret_key'
 // sinh (hardDeleteExams xoá Attempt/Answer) → chỉ admin. Giáo viên vẫn xem thùng
 // rác + khôi phục được.
 const prismaMock = {
-  practiceExam: { deleteMany: vi.fn(), update: vi.fn(), findUnique: vi.fn(), delete: vi.fn() },
-  writingSample: { deleteMany: vi.fn(), update: vi.fn(), findUnique: vi.fn(), delete: vi.fn() },
-  speakingSample: { deleteMany: vi.fn(), update: vi.fn(), findUnique: vi.fn(), delete: vi.fn() },
-  examSeries: { deleteMany: vi.fn(), update: vi.fn(), findUnique: vi.fn(), delete: vi.fn() },
-  bookCover: { deleteMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+  practiceExam: { findMany: vi.fn(), deleteMany: vi.fn(), update: vi.fn(), findUnique: vi.fn(), delete: vi.fn() },
+  writingSample: { findMany: vi.fn(), deleteMany: vi.fn(), update: vi.fn(), findUnique: vi.fn(), delete: vi.fn() },
+  speakingSample: { findMany: vi.fn(), deleteMany: vi.fn(), update: vi.fn(), findUnique: vi.fn(), delete: vi.fn() },
+  examSeries: { findMany: vi.fn(), deleteMany: vi.fn(), update: vi.fn(), findUnique: vi.fn(), delete: vi.fn() },
+  bookCover: { findMany: vi.fn(), deleteMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
   exam: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn() },
   attempt: { findMany: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn() },
   writingTask: { findMany: vi.fn() },
@@ -21,6 +21,7 @@ const prismaMock = {
   answerLog: { findMany: vi.fn(), deleteMany: vi.fn() },
   questionAnswer: { deleteMany: vi.fn() },
   auditLog: { create: vi.fn() },
+  $transaction: vi.fn(async (callback) => callback(prismaMock)),
 }
 
 const prismaPath = require.resolve('../../lib/prisma')
@@ -42,15 +43,20 @@ describe('Thùng rác: purge chỉ dành cho admin', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     prismaMock.auditLog.create.mockResolvedValue({ id: 1 })
+    prismaMock.practiceExam.findMany.mockResolvedValue([])
+    prismaMock.writingSample.findMany.mockResolvedValue([])
+    prismaMock.speakingSample.findMany.mockResolvedValue([])
+    prismaMock.examSeries.findMany.mockResolvedValue([])
+    prismaMock.bookCover.findMany.mockResolvedValue([])
     prismaMock.practiceExam.deleteMany.mockResolvedValue({ count: 0 })
     prismaMock.writingSample.deleteMany.mockResolvedValue({ count: 0 })
     prismaMock.speakingSample.deleteMany.mockResolvedValue({ count: 0 })
     prismaMock.examSeries.deleteMany.mockResolvedValue({ count: 0 })
     prismaMock.bookCover.deleteMany.mockResolvedValue({ count: 0 })
     prismaMock.exam.findMany.mockResolvedValue([])
-    prismaMock.writingSample.findUnique.mockResolvedValue({ title: 'Sample A' })
+    prismaMock.writingSample.findUnique.mockResolvedValue({ id: 5, title: 'Sample A', deletedAt: new Date('2020-01-01') })
     prismaMock.writingSample.update.mockResolvedValue({ title: 'Sample A' })
-    prismaMock.writingSample.delete.mockResolvedValue({})
+    prismaMock.writingSample.deleteMany.mockResolvedValue({ count: 1 })
   })
 
   it('giáo viên gọi DELETE /trash/purge → 403 và KHÔNG xoá gì', async () => {
@@ -73,8 +79,9 @@ describe('Thùng rác: purge chỉ dành cho admin', () => {
     const res = await send(request(app).delete('/api/admin/trash/purge'), 'admin')
 
     expect(res.status).toBe(200)
-    expect(prismaMock.practiceExam.deleteMany).toHaveBeenCalled()
-    expect(prismaMock.writingSample.deleteMany).toHaveBeenCalled()
+    expect(prismaMock.$transaction).toHaveBeenCalledOnce()
+    expect(prismaMock.practiceExam.findMany).toHaveBeenCalled()
+    expect(prismaMock.writingSample.findMany).toHaveBeenCalled()
     expect(prismaMock.exam.findMany).toHaveBeenCalled()
   })
 
@@ -89,8 +96,8 @@ describe('Thùng rác: purge chỉ dành cho admin', () => {
   it('admin gọi DELETE /trash/:type/:id/permanent → 200 và xoá', async () => {
     const res = await send(request(app).delete('/api/admin/trash/writing_sample/5/permanent'), 'admin')
 
-    expect(res.status).toBe(200)
-    expect(prismaMock.writingSample.delete).toHaveBeenCalledWith({ where: { id: 5 } })
+    expect(res.status, JSON.stringify(res.body)).toBe(200)
+    expect(prismaMock.writingSample.deleteMany).toHaveBeenCalledWith({ where: { id: { in: [5] } } })
   })
 
   it('giáo viên vẫn khôi phục được (restore không bị chặn)', async () => {

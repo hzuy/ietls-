@@ -1,4 +1,14 @@
-function validate(schema, target = 'body') {
+function restoreOmissions(source, parsed) {
+  if (Array.isArray(source) && Array.isArray(parsed)) return parsed.map((value, index) => restoreOmissions(source[index], value))
+  if (!source || !parsed || typeof source !== 'object' || typeof parsed !== 'object' || Array.isArray(source) || Array.isArray(parsed)) return parsed
+  for (const key of Object.keys(parsed)) {
+    if (!Object.prototype.hasOwnProperty.call(source, key)) delete parsed[key]
+    else parsed[key] = restoreOmissions(source[key], parsed[key])
+  }
+  return parsed
+}
+
+function validate(schema, target = 'body', { preserveOmissions = false } = {}) {
   return (req, res, next) => {
     const dataToValidate = target === 'query' ? req.query : req.body
     const result = schema.safeParse(dataToValidate)
@@ -18,7 +28,7 @@ function validate(schema, target = 'body') {
       // and have query-validated routes read from req.validatedQuery.
       req.validatedQuery = result.data
     } else {
-      req.body = result.data
+      req.body = preserveOmissions ? restoreOmissions(dataToValidate, result.data) : result.data
     }
     next()
   }
