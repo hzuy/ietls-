@@ -38,7 +38,7 @@ import {
   normalizeFormForDirtyCheck,
   isExamFormDirty,
   calculateExamExplanationStats,
-  EXAM_EXPLANATION_SKIP_FAMILIES,
+  isExplanationUnsupportedGroup,
   executeTimedAIGenerationLoop,
 } from '../../utils/examExplanationUtils'
 import { useExplanationGenerationLock } from '../../hooks/useExplanationGenerationLock'
@@ -199,7 +199,7 @@ function GroupEditor({ group = {}, onChange, onRemove, examId, passage = '', onG
   const groupType = group?.type || 'fill_blank'
   const typeLabel = GROUP_TYPES.find(t => t.value === groupType)?.label || groupType
   const theme = getQuestionTypeTheme(groupType)
-  const isSkipped = EXAM_EXPLANATION_SKIP_FAMILIES.has(groupType)
+  const isSkipped = isExplanationUnsupportedGroup(group)
   const isCurrentGenerating = generatingGroupId === group.id
 
   const groupQuestions = group.questions || []
@@ -652,7 +652,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     }
 
     let allGroups = (form.sections || []).flatMap(s => s.questionGroups || [])
-      .filter(g => !EXAM_EXPLANATION_SKIP_FAMILIES.has(g.type) && (g.questions?.length > 0 || (g.qNumberEnd >= g.qNumberStart)))
+      .filter(g => !isExplanationUnsupportedGroup(g) && (g.questions?.length > 0 || (g.qNumberEnd >= g.qNumberStart)))
 
     if (questionNumbers && Array.isArray(questionNumbers) && questionNumbers.length > 0) {
       const qNumSet = new Set(questionNumbers.map(Number))

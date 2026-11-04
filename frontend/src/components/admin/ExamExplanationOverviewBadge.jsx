@@ -8,7 +8,7 @@ import { Sparkles, AlertTriangle } from 'lucide-react'
  * - Monochrome / gray palette (border-zinc-200 / border-zinc-300 / zinc text).
  * - Clear text labels for all states, not relying on color alone.
  * - Shows attention alert only when conflict_pending / needs_regeneration / possibly_stale exist.
- * - Excludes SKIP_FAMILIES from the denominator.
+ * - Excludes groups that cannot be explained (missing image / not supported) from the denominator.
  */
 export default function ExamExplanationOverviewBadge({
   stats,
@@ -20,7 +20,7 @@ export default function ExamExplanationOverviewBadge({
   }
 
   const tooltipText = `Đã có ${stats.explainedSlots}/${stats.supportedSlots} câu có lời giải.${
-    stats.hasUnsupported ? ` Đã loại ${stats.unsupportedSlots} câu hình ảnh/bản đồ không hỗ trợ AI.` : ''
+    stats.hasUnsupported ? ` Đã loại ${stats.unsupportedSlots} câu hình ảnh/bản đồ chưa có ảnh đính kèm.` : ''
   } (1 câu MCQ nhiều đáp án tính theo số câu quy đổi)`
 
   if (compact) {
@@ -57,7 +57,7 @@ export default function ExamExplanationOverviewBadge({
         <span>lời giải</span>
         {stats.hasUnsupported && (
           <span className="text-[10px] text-zinc-400 font-normal">
-            (-{stats.unsupportedSlots} hình ảnh)
+            (-{stats.unsupportedSlots} thiếu ảnh)
           </span>
         )}
       </div>

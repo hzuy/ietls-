@@ -51,6 +51,7 @@ const COMPLETION_Q = { id: 42, number: 1, type: 'fill_blank', questionText: null
 // Vitest hoist/interop mock cho một package được require() gián tiếp qua
 // module trung gian (lib/groqClient.js → groq-sdk).
 const groqCreateMock = vi.fn()
+const geminiJsonMock = vi.fn()
 const groqClientPath = require.resolve('../lib/groqClient')
 require.cache[groqClientPath] = {
   id: groqClientPath,
@@ -59,6 +60,7 @@ require.cache[groqClientPath] = {
   exports: {
     getGroqClient: () => ({ chat: { completions: { create: groqCreateMock } } }),
     getGroqModel: () => 'test-model',
+    requestGeminiJson: geminiJsonMock,
   },
 }
 
@@ -73,6 +75,9 @@ const {
   processQuestion,
   processPracticeQuestion,
   SKIP_FAMILIES,
+  IMAGE_FAMILY,
+  collectQuestionImages,
+  isUnsupportedExplanationQuestion,
   buildResponseSchema,
   ExplanationValidationError,
   callAi,
@@ -109,9 +114,30 @@ describe('classifyFamily', () => {
     expect(classifyFamily(null)).toBe('GENERIC')
   })
 
-  it('nhóm IMAGE nằm trong SKIP_FAMILIES', () => {
-    expect(SKIP_FAMILIES.has('IMAGE')).toBe(true)
-    expect(SKIP_FAMILIES.has('MCQ')).toBe(false)
+  it('nhóm IMAGE KHÔNG còn bị bỏ qua mặc định (đã hỗ trợ qua Gemini vision)', () => {
+    expect(SKIP_FAMILIES.has(IMAGE_FAMILY)).toBe(false)
+    expect(SKIP_FAMILIES.size).toBe(0)
+  })
+})
+
+describe('hình ảnh của câu hỏi (bản đồ / sơ đồ)', () => {
+  it('collectQuestionImages gom ảnh cấp câu + cấp nhóm và loại trùng', () => {
+    expect(collectQuestionImages({ imageUrl: '/uploads/a.png', group: { imageUrl: '/uploads/a.png' } }))
+      .toEqual(['/uploads/a.png'])
+    expect(collectQuestionImages({ imageUrl: null, group: { imageUrl: 'https://cdn/x.png' } }))
+      .toEqual(['https://cdn/x.png'])
+    expect(collectQuestionImages({ imageUrl: '/uploads/q.png', group: { imageUrl: '/uploads/g.png' } }))
+      .toEqual(['/uploads/q.png', '/uploads/g.png'])
+    expect(collectQuestionImages({})).toEqual([])
+    expect(collectQuestionImages(null)).toEqual([])
+  })
+
+  it('chỉ câu họ IMAGE mà KHÔNG có ảnh nào mới bị coi là không hỗ trợ', () => {
+    expect(isUnsupportedExplanationQuestion({ type: 'map_diagram', group: {} }, 'IMAGE')).toBe(true)
+    expect(isUnsupportedExplanationQuestion({ type: 'map_diagram', group: { imageUrl: '/uploads/map.png' } }, 'IMAGE')).toBe(false)
+    expect(isUnsupportedExplanationQuestion({ type: 'diagram_label', imageUrl: '/uploads/d.png', group: {} }, 'IMAGE')).toBe(false)
+    // Họ khác không bao giờ bị chặn vì thiếu ảnh
+    expect(isUnsupportedExplanationQuestion({ type: 'mcq', group: {} }, 'MCQ')).toBe(false)
   })
 })
 
@@ -209,20 +235,50 @@ describe('buildContext', () => {
     expect(ctx.parts.some(p => p.text.includes('[Q:5]'))).toBe(true)
   })
 
-  it('câu IMAGE không có ngữ cảnh thì không thêm dòng "(không có...)"', () => {
+  it('câu IMAGE không có ảnh thì thêm dòng cảnh báo không thể xác định vị trí', () => {
     const q = { type: 'map_diagram', group: {} }
     const ctx = buildContext(q, 'IMAGE')
-    expect(ctx.parts.length).toBe(0)
+    expect(ctx.images).toEqual([])
+    const imagePart = ctx.parts.find(p => p.label === 'HÌNH ẢNH ĐÍNH KÈM')
+    expect(imagePart).toBeTruthy()
+    expect(imagePart.text).toContain('không có ảnh')
+  })
+
+  it('câu IMAGE có ảnh thì ghi rõ số hình được đính kèm', () => {
+    const q = { type: 'map_diagram', group: { imageUrl: '/uploads/map.png' } }
+    const ctx = buildContext(q, 'IMAGE')
+    expect(ctx.images).toEqual(['/uploads/map.png'])
+    const imagePart = ctx.parts.find(p => p.label === 'HÌNH ẢNH ĐÍNH KÈM')
+    expect(imagePart).toBeTruthy()
+    expect(imagePart.text).toContain('1 hình ảnh')
   })
 })
 
 describe('processQuestion', () => {
-  it('bỏ qua (skip) câu thuộc họ IMAGE, không gọi Groq, không ghi DB', async () => {
+  const IMAGE_DATA_URI = 'data:image/png;base64,AAAA'
+
+  it('bỏ qua (skip) câu họ IMAGE khi nhóm chưa có ảnh đính kèm, không gọi AI, không ghi DB', async () => {
     const q = { id: 1, type: 'map_diagram', group: {} }
     const result = await processQuestion(q, { dryRun: false })
     expect(result).toEqual({ skipped: true })
     expect(groqCreateMock).not.toHaveBeenCalled()
+    expect(geminiJsonMock).not.toHaveBeenCalled()
     expect(prismaMock.question.update).not.toHaveBeenCalled()
+  })
+
+  it('câu IMAGE có ảnh nhưng không có Gemini → báo lỗi vision rõ ràng, KHÔNG fallback Groq', async () => {
+    const q = {
+      id: 2,
+      number: 16,
+      type: 'map_diagram',
+      questionText: 'Farm shop',
+      correctAnswer: 'G',
+      group: { imageUrl: IMAGE_DATA_URI },
+    }
+    await expect(processQuestion(q, { dryRun: true })).rejects.toMatchObject({
+      code: 'VISION_PROVIDER_UNAVAILABLE',
+    })
+    expect(groqCreateMock).not.toHaveBeenCalled()
   })
 
   it('sinh giải thích hợp lệ và ghi vào DB qua cột explanation', async () => {
@@ -339,6 +395,56 @@ describe('processPracticeQuestion', () => {
     await processPracticeQuestion(pq, { dryRun: false })
     const promptArg = groqCreateMock.mock.calls[0][0].messages[0].content
     expect(promptArg).toContain('Plain text question')
+  })
+})
+
+describe('vision — gửi ảnh bản đồ/sơ đồ cho Gemini', () => {
+  const IMAGE_DATA_URI = 'data:image/png;base64,AAAA'
+
+  it('buildPrompt nhắc AI quan sát hình đính kèm khi ngữ cảnh có ảnh', () => {
+    const q = { number: 16, type: 'map_diagram', questionText: 'Farm shop', correctAnswer: 'G' }
+    const prompt = buildPrompt(q, 'IMAGE', {
+      skill: 'listening',
+      parts: [{ label: 'TRANSCRIPT (BÀI NGHE)', text: 'The shop is in the old stables.' }],
+      sourceText: 'The shop is in the old stables.',
+      images: [IMAGE_DATA_URI],
+    })
+    expect(prompt).toContain('HÌNH ẢNH')
+    expect(prompt).toContain('QUAN SÁT')
+  })
+
+  it('callAi chuyển mảng images sang requestGeminiJson khi bật Gemini', async () => {
+    process.env.GEMINI_API_KEY = 'test_key'
+    process.env.ENABLE_GEMINI_IN_TEST = 'true'
+    geminiJsonMock.mockResolvedValueOnce({
+      data: { predict: 'x' },
+      provider: 'Gemini',
+      model: 'gemini-test',
+    })
+    try {
+      const res = await callAi('prompt', {
+        questionType: 'map_diagram',
+        images: [IMAGE_DATA_URI],
+        requiresVision: true,
+      })
+      expect(geminiJsonMock).toHaveBeenCalledTimes(1)
+      expect(geminiJsonMock.mock.calls[0][1].images).toEqual([IMAGE_DATA_URI])
+      expect(res.provider).toBe('Gemini')
+      expect(groqCreateMock).not.toHaveBeenCalled()
+    } finally {
+      delete process.env.ENABLE_GEMINI_IN_TEST
+      delete process.env.GEMINI_API_KEY
+    }
+  })
+
+  it('forceProvider Groq + câu cần nhìn hình → từ chối thay vì để Groq bịa vị trí', async () => {
+    await expect(callAi('prompt', {
+      questionType: 'map_diagram',
+      images: [IMAGE_DATA_URI],
+      requiresVision: true,
+      forceProvider: 'Groq',
+    })).rejects.toMatchObject({ code: 'VISION_PROVIDER_UNAVAILABLE' })
+    expect(groqCreateMock).not.toHaveBeenCalled()
   })
 })
 

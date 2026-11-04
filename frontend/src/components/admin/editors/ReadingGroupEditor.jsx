@@ -10,7 +10,7 @@ import TableCompletionEditor from './TableCompletionEditor'
 import MCQGroupEditor from './MCQGroupEditor'
 import MatchingEditor from './MatchingEditor'
 import DiagramLabelEditor from '../../practice/DiagramLabelEditor'
-import { EXAM_EXPLANATION_SKIP_FAMILIES } from '../../../utils/examExplanationUtils'
+import { isExplanationUnsupportedGroup } from '../../../utils/examExplanationUtils'
 
 export default function ReadingGroupEditor({
   group = {}, onChange, onRemove, onMoveUp, onMoveDown, isFirst, isLast,
@@ -77,7 +77,7 @@ export default function ReadingGroupEditor({
         </div>
 
         {/* Nút sinh AI theo nhóm (Requirement 3.5) */}
-        {onGenerateGroupAI && !EXAM_EXPLANATION_SKIP_FAMILIES.has(groupType) && (
+        {onGenerateGroupAI && !isExplanationUnsupportedGroup(group) && (
           <button
             type="button"
             onClick={() => onGenerateGroupAI(group)}

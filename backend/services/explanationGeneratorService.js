@@ -9,7 +9,7 @@ const {
   findParagraph,
   cleanChunks,
   ExplanationValidationError,
-  SKIP_FAMILIES,
+  isUnsupportedExplanationQuestion,
   isVietnameseTranslation,
 } = require('../scripts/generate-explanations')
 const { practiceQuestionContext } = require('../scripts/import-practice-explanations')
@@ -865,12 +865,23 @@ async function generateForPracticeExam(examId, {
 
   if (!exam) throw new Error(`Không tìm thấy bài luyện tập #${examId}`)
 
-  // Kiểm tra đề bài (reading: passage, listening: transcript / passage)
-  if (exam.skill === 'reading' && !String(exam.passage || '').trim()) {
-    throw new Error('Bài đọc chưa có nội dung đề bài (Passage). Vui lòng cập nhật đề bài trước khi tạo giải thích bằng AI.')
-  }
-  if (exam.skill === 'listening' && !String(exam.transcript || '').trim() && !String(exam.passage || '').trim()) {
-    throw new Error('Bài nghe chưa có transcript hoặc nội dung bài nghe. Vui lòng cập nhật transcript trước khi tạo giải thích bằng AI.')
+  // Kiểm tra đề bài (reading: passage, listening: transcript / passage).
+  // Ngoại lệ: bài chỉ gồm nhóm bản đồ/sơ đồ ĐÃ CÓ ảnh thì không cần văn bản —
+  // đề bài nằm trong hình, Gemini vision đọc được.
+  const hasReadingText = Boolean(String(exam.passage || '').trim())
+  const hasListeningText = Boolean(String(exam.transcript || '').trim() || String(exam.passage || '').trim())
+  const hasTextContext = exam.skill === 'reading' ? hasReadingText : hasListeningText
+  if (!hasTextContext) {
+    const parsedGroups = exam.questions.map(parseGroup).filter((g) => g && Array.isArray(g.questions))
+    const onlyImageGroupsWithImage = parsedGroups.length > 0 && parsedGroups.every(
+      (g) => classifyFamily(g.type) === 'IMAGE' && Boolean(g.imageUrl || g.questions.some((item) => item.imageUrl))
+    )
+    if (!onlyImageGroupsWithImage) {
+      if (exam.skill === 'reading') {
+        throw new Error('Bài đọc chưa có nội dung đề bài (Passage). Vui lòng cập nhật đề bài trước khi tạo giải thích bằng AI.')
+      }
+      throw new Error('Bài nghe chưa có transcript hoặc nội dung bài nghe. Vui lòng cập nhật transcript trước khi tạo giải thích bằng AI.')
+    }
   }
 
   // Quét trước để bắt buộc mọi câu hỏi phải có đáp án đúng
@@ -894,6 +905,7 @@ async function generateForPracticeExam(examId, {
 
   // Gom các câu hỏi mục tiêu hợp lệ
   const candidateItems = []
+  const unsupportedImageQuestions = []
   for (const row of exam.questions) {
     const group = parseGroup(row)
     if (!group || !Array.isArray(group.questions)) continue
@@ -913,7 +925,10 @@ async function generateForPracticeExam(examId, {
       const qCtx = practiceQuestionContext(exam, group, qNum)
       if (!qCtx) continue
       const family = classifyFamily(qCtx.type)
-      if (SKIP_FAMILIES.has(family)) continue
+      if (isUnsupportedExplanationQuestion(qCtx, family)) {
+        unsupportedImageQuestions.push(qNum)
+        continue
+      }
       candidateItems.push({ row, group, qItem, qNum, qCtx, family, existing })
     }
   }
@@ -923,6 +938,12 @@ async function generateForPracticeExam(examId, {
   const needsRetryQuestions = []
   const newlyGeneratedByRow = new Map() // rowId -> Map(qNum -> { explanation, adoptedAiAnswer })
   const failedQuestions = []
+  for (const num of unsupportedImageQuestions) {
+    failedQuestions.push({
+      number: num,
+      message: 'Câu thuộc nhóm bản đồ/sơ đồ nhưng chưa có hình ảnh đính kèm. Hãy tải ảnh bản đồ/sơ đồ cho nhóm câu hỏi rồi tạo lại giải thích.',
+    })
+  }
   let generatedCount = 0
 
   for (const item of candidateItems) {
@@ -1315,12 +1336,14 @@ async function generateForExam(examId, {
       questionText: true,
       options: true,
       correctAnswer: true,
+      imageUrl: true,
       explanation: true,
       passage: { select: { body: true } },
       listeningSection: { select: { transcript: true, context: true } },
       group: {
         select: {
           type: true,
+          imageUrl: true,
           passage: { select: { body: true } },
           section: { select: { transcript: true, context: true } },
           matchingOptions: { select: { optionLetter: true, optionText: true }, orderBy: { sortOrder: 'asc' } },
@@ -1366,6 +1389,10 @@ async function generateForExam(examId, {
     const section = q.listeningSection || q.group?.section
     const content = passage?.body || section?.transcript || section?.context
     if (!content || !content.trim()) {
+      // Câu bản đồ/sơ đồ: đề bài nằm trong hình nên có thể không có transcript/bài đọc.
+      // Cứ cho qua — nếu thiếu cả ảnh thì vòng lọc ứng viên bên dưới sẽ báo lỗi cụ thể.
+      const family = classifyFamily(q.type)
+      if (family === 'IMAGE') continue
       const label = exam.skill === 'listening' ? 'transcript' : 'nội dung bài đọc (Passage)'
       throw new Error(`Đề thi chưa có ${label} cho câu ${q.number}. Vui lòng nhập đầy đủ nội dung trước khi tạo giải thích AI.`)
     }
@@ -1373,6 +1400,7 @@ async function generateForExam(examId, {
 
   // Filter candidate questions
   const candidateQuestions = []
+  const failedQuestions = []
   for (const q of questions) {
     if (Array.isArray(questionNumbers) && questionNumbers.length > 0 && !questionNumbers.includes(q.number)) {
       continue
@@ -1385,7 +1413,13 @@ async function generateForExam(examId, {
     }
 
     const family = classifyFamily(q.type)
-    if (SKIP_FAMILIES.has(family)) continue
+    if (isUnsupportedExplanationQuestion(q, family)) {
+      failedQuestions.push({
+        number: q.number,
+        message: 'Câu thuộc nhóm bản đồ/sơ đồ nhưng nhóm câu hỏi chưa có hình ảnh đính kèm. Hãy tải ảnh bản đồ/sơ đồ rồi tạo lại giải thích.',
+      })
+      continue
+    }
 
     candidateQuestions.push({ q, family })
   }
@@ -1394,7 +1428,6 @@ async function generateForExam(examId, {
   const conflicts = []
   const needsRetryQuestions = []
   const updates = []
-  const failedQuestions = []
   let generatedCount = 0
 
   for (const { q, family } of candidateQuestions) {
@@ -2416,12 +2449,14 @@ async function regenerateQuestionExplanation({
             questionText: true,
             options: true,
             correctAnswer: true,
+            imageUrl: true,
             explanation: true,
             passage: { select: { body: true, examId: true } },
             listeningSection: { select: { transcript: true, context: true, examId: true } },
             group: {
               select: {
                 type: true,
+                imageUrl: true,
                 passage: { select: { body: true, examId: true } },
                 section: { select: { transcript: true, context: true, examId: true } },
                 matchingOptions: { select: { optionLetter: true, optionText: true }, orderBy: { sortOrder: 'asc' } },
@@ -2591,12 +2626,14 @@ async function updateManualExplanation({ examId, questionId = null, questionNumb
         questionText: true,
         options: true,
         correctAnswer: true,
+        imageUrl: true,
         explanation: true,
         passage: { select: { body: true, examId: true } },
         listeningSection: { select: { transcript: true, context: true, examId: true } },
         group: {
           select: {
             type: true,
+            imageUrl: true,
             passage: { select: { body: true, examId: true } },
             section: { select: { transcript: true, context: true, examId: true } },
             matchingOptions: { select: { optionLetter: true, optionText: true }, orderBy: { sortOrder: 'asc' } },

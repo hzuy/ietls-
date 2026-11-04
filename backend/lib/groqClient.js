@@ -39,6 +39,7 @@ function gradingParams(model) {
  */
 async function requestGeminiJson(prompt, {
   image = null,
+  images = null,
   model = null,
   temperature = 0,
   seed = null,
@@ -63,8 +64,20 @@ async function requestGeminiJson(prompt, {
 
   const parts = [{ text: prompt }]
 
-  if (image) {
-    const match = /^data:(image\/[a-zA-Z+]+);base64,(.+)$/.exec(image)
+  // Ảnh đính kèm: hỗ trợ cả `image` (1 ảnh, tương thích ngược) và `images` (nhiều ảnh,
+  // dùng cho đề có bản đồ/sơ đồ ở cấp nhóm câu hỏi).
+  const imageInputs = []
+  if (Array.isArray(images)) imageInputs.push(...images)
+  if (image) imageInputs.push(image)
+  const seenImages = new Set()
+
+  for (const rawImage of imageInputs) {
+    if (typeof rawImage !== 'string') continue
+    const src = rawImage.trim()
+    if (!src || seenImages.has(src)) continue
+    seenImages.add(src)
+
+    const match = /^data:(image\/[a-zA-Z+]+);base64,(.+)$/.exec(src)
     if (match) {
       parts.push({
         inlineData: {
@@ -72,9 +85,9 @@ async function requestGeminiJson(prompt, {
           data: match[2],
         },
       })
-    } else if (/^https?:\/\//i.test(image)) {
+    } else if (/^https?:\/\//i.test(src)) {
       try {
-        const imgRes = await fetch(image)
+        const imgRes = await fetch(src)
         if (imgRes.ok) {
           const contentType = imgRes.headers.get('content-type') || 'image/jpeg'
           const arrayBuffer = await imgRes.arrayBuffer()

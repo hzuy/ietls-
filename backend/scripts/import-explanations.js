@@ -8,7 +8,7 @@ const {
   buildContext,
   enrichExplanation,
   fetchQuestions,
-  SKIP_FAMILIES,
+  isUnsupportedExplanationQuestion,
 } = require('./generate-explanations')
 
 function parseArgs(argv) {
@@ -53,8 +53,8 @@ async function importEntries(entries, { dryRun = false, force = false, allowImag
       continue
     }
     const family = classifyFamily(row.type)
-    if (SKIP_FAMILIES.has(family) && !allowImage) {
-      result.skipped.push({ id, reason: 'Dạng sơ đồ/bản đồ' })
+    if (!allowImage && isUnsupportedExplanationQuestion(row, family)) {
+      result.skipped.push({ id, reason: 'Dạng sơ đồ/bản đồ nhưng chưa có ảnh đính kèm' })
       continue
     }
     if (hasExplanation.has(id) && !force) {

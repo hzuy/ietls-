@@ -3,7 +3,8 @@ import {
   mergeExamExplanations,
   normalizeFormForDirtyCheck,
   isExamFormDirty,
-  calculateExamExplanationStats
+  calculateExamExplanationStats,
+  isExplanationUnsupportedGroup
 } from './examExplanationUtils'
 
 describe('examExplanationUtils', () => {
@@ -370,13 +371,13 @@ describe('examExplanationUtils', () => {
       expect(stats.hasAttention).toBe(false)
     })
 
-    it('excludes questions in SKIP_FAMILIES from the denominator (supportedSlots/Questions)', () => {
+    it('excludes image groups WITHOUT imageUrl from the denominator (supportedSlots/Questions)', () => {
       const examForm = {
         passages: [
           {
             number: 1,
             questionGroups: [
-              // 4 questions in diagram_label (IMAGE family)
+              // 4 questions in diagram_label (IMAGE family) — chưa có ảnh nên không thể giải thích
               {
                 id: 1,
                 type: 'diagram_label',
@@ -408,13 +409,54 @@ describe('examExplanationUtils', () => {
 
       const stats = calculateExamExplanationStats(examForm)
 
-      // Total slots = 10, but 4 are unsupported diagram_label
+      // Total slots = 10, but 4 are unsupported diagram_label (thiếu ảnh)
       expect(stats.totalSlots).toBe(10)
       expect(stats.unsupportedSlots).toBe(4)
-      expect(stats.supportedSlots).toBe(6) // Denominator excludes diagram_label
+      expect(stats.supportedSlots).toBe(6) // Denominator excludes image groups without image
       expect(stats.explainedSlots).toBe(6)
       expect(stats.isFullyExplained).toBe(true) // 6/6 supported are explained
       expect(stats.hasUnsupported).toBe(true)
+    })
+
+    it('counts image groups WITH imageUrl as supported (Gemini vision đọc được bản đồ)', () => {
+      const examForm = {
+        sections: [
+          {
+            id: 1,
+            number: 2,
+            questionGroups: [
+              {
+                id: 276,
+                type: 'map_diagram',
+                imageUrl: 'https://cdn.example.com/map.png',
+                qNumberStart: 16,
+                qNumberEnd: 20,
+                questions: [16, 17, 18, 19, 20].map(n => ({
+                  id: 100 + n,
+                  number: n,
+                  explanation: { status: 'ai_generated' }
+                }))
+              }
+            ]
+          }
+        ]
+      }
+
+      const stats = calculateExamExplanationStats(examForm)
+
+      expect(stats.totalSlots).toBe(5)
+      expect(stats.unsupportedSlots).toBe(0)
+      expect(stats.supportedSlots).toBe(5)
+      expect(stats.explainedSlots).toBe(5)
+      expect(stats.isFullyExplained).toBe(true)
+      expect(stats.hasUnsupported).toBe(false)
+    })
+
+    it('isExplanationUnsupportedGroup chỉ chặn nhóm hình ảnh thiếu ảnh', () => {
+      expect(isExplanationUnsupportedGroup({ type: 'map_diagram' })).toBe(true)
+      expect(isExplanationUnsupportedGroup({ type: 'map_diagram', imageUrl: 'https://x/y.png' })).toBe(false)
+      expect(isExplanationUnsupportedGroup({ type: 'fill_blank' })).toBe(false)
+      expect(isExplanationUnsupportedGroup(null)).toBe(false)
     })
 
     it('flags hasAttention ONLY for conflict_pending, needs_regeneration, and possibly_stale with text labels', () => {

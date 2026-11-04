@@ -2,11 +2,23 @@
  * Utility functions for syncing and managing explanations in Cambridge Exams (Reading & Listening).
  */
 
-export const EXAM_EXPLANATION_SKIP_FAMILIES = new Set([
+// Nhóm câu hỏi mà đề bài nằm trong HÌNH ẢNH (bản đồ/sơ đồ). Từ khi Gemini vision
+// được dùng để đọc ảnh, nhóm này ĐƯỢC giải thích bình thường — chỉ bị coi là
+// "không hỗ trợ" khi nhóm chưa có ảnh đính kèm (không có căn cứ xác định vị trí).
+export const EXAM_EXPLANATION_IMAGE_TYPES = new Set([
   'diagram_completion',
   'diagram_label',
   'map_diagram'
 ])
+
+export const EXAM_EXPLANATION_SKIP_FAMILIES = new Set()
+
+export function isExplanationUnsupportedGroup(group) {
+  if (!group || typeof group !== 'object') return false
+  const type = group.type || 'mcq'
+  if (EXAM_EXPLANATION_SKIP_FAMILIES.has(type)) return true
+  return EXAM_EXPLANATION_IMAGE_TYPES.has(type) && !group.imageUrl
+}
 
 export const EXAM_EXPLANATION_ATTENTION_STATUSES = new Set([
   'conflict_pending',
@@ -94,8 +106,9 @@ export function containsInternalJargon(explanation) {
  * 1. Definitive counting for mcq_multi: 1 question record covers multiple question slots
  *    (e.g., Q21-Q22 = 2 slots). If the question record has an explanation, all covered slots
  *    are counted as explained.
- * 2. Questions belonging to SKIP_FAMILIES ('diagram_completion', 'diagram_label', 'map_diagram')
- *    are completely EXCLUDED from the denominator (supportedSlots / supportedQuestions).
+ * 2. Groups whose đề bài nằm trong hình (diagram_completion, diagram_label, map_diagram)
+ *    are only EXCLUDED from the denominator when the group has no image attached —
+ *    AI reads the image via Gemini vision, so image groups are normally supported.
  * 3. Flags "cần chú ý" (hasAttention) ONLY when there are questions with:
  *    - 'conflict_pending' (teacher needs to review conflict)
  *    - 'needs_regeneration' (regeneration requested or failed validation)
@@ -147,7 +160,7 @@ export function calculateExamExplanationStats(target) {
 
   for (const g of groups) {
     const gType = g.type || 'mcq'
-    const isSkipped = EXAM_EXPLANATION_SKIP_FAMILIES.has(gType)
+    const isSkipped = isExplanationUnsupportedGroup(g)
     const isMulti = gType === 'mcq_multi'
 
     const questions = Array.isArray(g.questions) ? g.questions : []

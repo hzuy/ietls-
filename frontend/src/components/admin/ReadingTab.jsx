@@ -27,7 +27,7 @@ import {
   normalizeFormForDirtyCheck,
   isExamFormDirty,
   calculateExamExplanationStats,
-  EXAM_EXPLANATION_SKIP_FAMILIES,
+  isExplanationUnsupportedGroup,
   executeTimedAIGenerationLoop,
 } from '../../utils/examExplanationUtils'
 import { useExplanationGenerationLock } from '../../hooks/useExplanationGenerationLock'
@@ -641,7 +641,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     }
 
     let allGroups = (form.passages || []).flatMap(p => p.questionGroups || [])
-      .filter(g => !EXAM_EXPLANATION_SKIP_FAMILIES.has(g.type) && (g.questions?.length > 0 || (g.qNumberEnd >= g.qNumberStart)))
+      .filter(g => !isExplanationUnsupportedGroup(g) && (g.questions?.length > 0 || (g.qNumberEnd >= g.qNumberStart)))
 
     if (questionNumbers && Array.isArray(questionNumbers) && questionNumbers.length > 0) {
       const qNumSet = new Set(questionNumbers.map(Number))

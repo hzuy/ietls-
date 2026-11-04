@@ -52,7 +52,7 @@ describe('ExamExplanationOverviewBadge (Batch 2 - Requirement 3.3)', () => {
     expect(attentionBadge).toHaveAttribute('title', 'Cần chú ý: 1 câu Chờ duyệt (Lệch), 1 câu Có thể lỗi thời')
   })
 
-  it('renders unsupported indicator when image questions are excluded', () => {
+  it('renders unsupported indicator when image groups have no image attached', () => {
     const stats = {
       totalSlots: 40,
       supportedSlots: 35,
@@ -65,7 +65,7 @@ describe('ExamExplanationOverviewBadge (Batch 2 - Requirement 3.3)', () => {
     }
 
     render(<ExamExplanationOverviewBadge stats={stats} />)
-    expect(screen.getByText('(-5 hình ảnh)')).toBeInTheDocument()
+    expect(screen.getByText('(-5 thiếu ảnh)')).toBeInTheDocument()
   })
 
   it('renders compact mode for tabs and accordion headers', () => {

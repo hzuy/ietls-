@@ -50,9 +50,11 @@ function practiceQuestionContext(exam, group, number) {
     questionText: question.questionText || '',
     options: question.options ? JSON.stringify(question.options) : null,
     correctAnswer: String(question.correctAnswer ?? ''),
+    imageUrl: question.imageUrl || null,
     group: {
       type: group.type,
       instruction: group.instruction,
+      imageUrl: group.imageUrl || null,
       noteSections,
       matchingOptions: group.matchingOptions || [],
       passage: exam.skill === 'reading' ? { body: sectionText } : null,

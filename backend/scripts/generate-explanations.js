@@ -30,6 +30,9 @@ const { Prisma } = require('@prisma/client')
 const { getGroqClient, getGroqModel, requestGeminiJson } = require('../lib/groqClient')
 const { cleanJsonRaw, repairTruncatedJson } = require('../services/json/jsonSanitizer')
 const { printDbBanner } = require('../lib/dbInfo')
+// Dùng chung bộ chuyển ảnh (local /uploads + Cloudinary URL) sang data URI với
+// phần chấm Writing Task 1 — tránh viết lại logic đọc file.
+const { resolveImageToDataUri } = require('../lib/writingGrading')
 
 function parseArgs(argv) {
   const out = { limit: null, delay: 400, skill: null, practice: false, dryRun: false, ids: null }
@@ -64,8 +67,12 @@ const FAMILY = {
   // diagram_label: xác nhận có thật trong dữ liệu production (không có trong comment
   // schema.prisma lẫn getTypeName của routes/reading.js|listening.js — có lẽ sinh ra
   // ngoài các map hiện có) — cùng họ với diagram_completion/map_diagram.
+  // Nhóm này BẮT BUỘC phải có ảnh (group.imageUrl hoặc question.imageUrl) vì đề bài
+  // nằm trong hình; ảnh được gửi kèm cho Gemini vision (xem buildContext).
   IMAGE: ['diagram_completion', 'diagram_label', 'map_diagram'],
 }
+
+const IMAGE_FAMILY = 'IMAGE'
 
 function classifyFamily(type) {
   for (const [family, types] of Object.entries(FAMILY)) {
@@ -74,12 +81,58 @@ function classifyFamily(type) {
   return 'GENERIC'
 }
 
+// ─── Hình ảnh của câu hỏi (bản đồ / sơ đồ) ───────────────────────────────────
+// Ảnh có thể nằm ở cấp câu hỏi (Question.imageUrl) hoặc cấp nhóm câu hỏi
+// (QuestionGroup.imageUrl). Với Practice, group được dựng lại từ JSON nên
+// practiceQuestionContext cũng phải copy imageUrl sang qCtx.group.
+function collectQuestionImages(q) {
+  if (!q || typeof q !== 'object') return []
+  const candidates = [q.imageUrl, q.group?.imageUrl]
+  const seen = new Set()
+  const out = []
+  for (const value of candidates) {
+    if (typeof value !== 'string') continue
+    const url = value.trim()
+    if (!url || seen.has(url)) continue
+    seen.add(url)
+    out.push(url)
+  }
+  return out
+}
+
+// Cache nhỏ (theo tiến trình) để 5 câu cùng một bản đồ không phải tải/đọc ảnh 5 lần.
+const IMAGE_DATA_URI_CACHE = new Map()
+const IMAGE_DATA_URI_CACHE_LIMIT = 8
+
+async function resolveContextImages(urls = []) {
+  const resolved = []
+  for (const url of urls) {
+    let dataUri = IMAGE_DATA_URI_CACHE.get(url)
+    if (dataUri === undefined) {
+      dataUri = await resolveImageToDataUri(url)
+      if (IMAGE_DATA_URI_CACHE.size >= IMAGE_DATA_URI_CACHE_LIMIT) {
+        IMAGE_DATA_URI_CACHE.delete(IMAGE_DATA_URI_CACHE.keys().next().value)
+      }
+      IMAGE_DATA_URI_CACHE.set(url, dataUri)
+    }
+    if (dataUri) resolved.push(dataUri)
+  }
+  return resolved
+}
+
+// Câu thuộc họ IMAGE mà không có ảnh nào thì KHÔNG thể giải thích đúng (đề bài nằm
+// trong hình). Trả về true để nơi gọi bỏ qua thay vì để AI bịa vị trí.
+function isUnsupportedExplanationQuestion(q, family) {
+  if (family !== IMAGE_FAMILY) return false
+  return collectQuestionImages(q).length === 0
+}
+
 const TYPE_INSTRUCTION = {
   MCQ: 'Đây là câu trắc nghiệm. "question_chunks" là phần thân câu hỏi. Nếu câu hỏi yêu cầu chọn nhiều chữ cái (như Choose TWO letters hoặc loại câu mcq_multi), "answer" PHẢI ghi đầy đủ các chữ cái cách nhau bằng dấu phẩy theo thứ tự chữ cái (ví dụ "B, C"). "distractors" PHẢI liệt kê TỪNG lựa chọn sai (ghi cả chữ cái, ví dụ "B. ...") kèm lý do sai dựa trên bài.',
   TFNG: 'Đây là câu True/False/Not Given hoặc Yes/No/Not Given. "question_chunks" là nhận định cần xét. Trong "reasoning" phân biệt rõ "bài nói ngược lại" (False/No) với "bài không đề cập" (Not Given). Nếu đáp án là NOT GIVEN và bài không có câu nào liên quan trực tiếp thì để "evidence_quote" là chuỗi rỗng. "distractors" là 2 đáp án còn lại kèm lý do loại.',
   MATCHING: 'Đây là câu nối thông tin. "question_chunks" là nhận định/câu hỏi cần nối. "distractors" là 1-3 lựa chọn dễ nhầm nhất trong danh sách để nối, kèm lý do không phù hợp.',
   COMPLETION: 'Đây là câu điền từ. "question_chunks" là câu chứa chỗ trống, viết chỗ trống thành "<số câu>. ___". "full_sentence" là câu hoàn chỉnh sau khi điền đáp án, "translation" là bản dịch tiếng Việt của câu đó. Trong "reasoning" nhắc giới hạn số từ nếu đề có. "distractors" là 1-3 từ trong bài dễ điền nhầm, kèm lý do.',
-  IMAGE: 'Đây là câu dạng sơ đồ/bản đồ có HÌNH ẢNH minh họa mà bạn KHÔNG nhìn thấy được — chỉ dựa vào câu hỏi và đáp án đúng để đưa ra giải thích hợp lý nhất có thể, và trong "reasoning" PHẢI nêu rõ giới hạn "không có hình ảnh, đây là suy luận gián tiếp" để người học biết mức độ tin cậy.',
+  IMAGE: 'Đây là câu LABEL MAP/DIAGRAM: đề bài nằm trong HÌNH ẢNH bản đồ/sơ đồ được đính kèm trong tin nhắn này. BẮT BUỘC quan sát hình để xác định chỗ trống/vị trí của câu hỏi (chữ cái A, B, C... hoặc chỗ trống trên sơ đồ), rồi đối chiếu với transcript/bài đọc để chọn đáp án đúng. Trong "reasoning" PHẢI nêu rõ vị trí trên hình (ví dụ: "vị trí G nằm ở góc trái phía trên khu Old Stables, ngay trên bãi đỗ xe") để người học đối chiếu được với hình. Tuyệt đối KHÔNG bịa vị trí/chi tiết không có trên hình; nếu không xác định được vị trí của câu hỏi trên hình, nói rõ điều đó trong "reasoning".',
   GENERIC: 'Hãy giải thích dựa trên những thông tin có sẵn bên dưới.',
 }
 
@@ -363,6 +416,7 @@ function buildContext(q, family) {
   const listeningSection = q.listeningSection || q.group?.section || null
   const skill = passage ? 'reading' : (listeningSection ? 'listening' : (q.exam?.skill || 'reading'))
   const passageText = passage?.body || listeningSection?.transcript || listeningSection?.context || q.exam?.passage || null
+  const images = collectQuestionImages(q)
 
   const parts = []
   if (family === 'COMPLETION') {
@@ -378,7 +432,15 @@ function buildContext(q, family) {
   } else if (family !== 'IMAGE') {
     parts.push({ label: 'NGỮ CẢNH', text: '(không có — chỉ dựa vào câu hỏi và đáp án đúng bên dưới)' })
   }
-  return { skill, parts, sourceText: passageText }
+  if (images.length) {
+    parts.push({
+      label: 'HÌNH ẢNH ĐÍNH KÈM',
+      text: `Có ${images.length} hình ảnh bản đồ/sơ đồ của nhóm câu hỏi được đính kèm ngay sau tin nhắn này. Hãy quan sát hình để xác định vị trí/chỗ trống của câu hỏi.`,
+    })
+  } else if (family === 'IMAGE') {
+    parts.push({ label: 'HÌNH ẢNH ĐÍNH KÈM', text: '(không có ảnh — không thể xác định vị trí trên bản đồ/sơ đồ)' })
+  }
+  return { skill, parts, sourceText: passageText, images }
 }
 
 function buildPrompt(q, family, ctx, previousError = null, teacherFeedback = null, optionsOrFixed = {}) {
@@ -394,6 +456,15 @@ function buildPrompt(q, family, ctx, previousError = null, teacherFeedback = nul
   }
 
   const contextBlock = ctx.parts.map(p => `${p.label}:\n${p.text}`).join('\n\n')
+
+  const hasSource = Boolean(ctx.sourceText && String(ctx.sourceText).trim())
+  const hasImages = Array.isArray(ctx.images) && ctx.images.length > 0
+  const imageBlock = hasImages
+    ? `\nHÌNH ẢNH: ${ctx.images.length} hình ảnh bản đồ/sơ đồ của nhóm câu hỏi được đính kèm ngay sau tin nhắn này. Hãy QUAN SÁT hình để định vị chỗ trống/chữ cái của câu hỏi, rồi mới giải thích.\n`
+    : ''
+  const noSourceBlock = hasSource
+    ? ''
+    : `\nLƯU Ý: Câu hỏi này KHÔNG có transcript/bài đọc đi kèm, nên "evidence_quote", "locate_keywords" và "paraphrases" hãy để rỗng — TUYỆT ĐỐI không bịa dẫn chứng.\n`
 
   const retryBlock = previousError
     ? `\nLẦN TRẢ LỜI TRƯỚC BỊ LOẠI VÌ: ${previousError}\nHãy sửa lỗi này. Mọi cụm trích từ ${sourceName} phải chép NGUYÊN VĂN từng chữ.\n`
@@ -458,7 +529,7 @@ function buildPrompt(q, family, ctx, previousError = null, teacherFeedback = nul
   return `Bạn là gia sư IELTS, giải thích theo phương pháp "Linear thinking": tách câu thành từng cụm ý ngắn, gắn nghĩa tiếng Việt cho từng cụm, rồi đối chiếu câu hỏi với ${sourceName} theo 4 bước. Đề thi ${skillLabel}.
 
 ${TYPE_INSTRUCTION[family]}
-
+${imageBlock}${noSourceBlock}
 THÔNG TIN CÂU HỎI:
 - Số câu: ${q.number ?? '(không rõ)'}
 - Loại câu hỏi: ${q.type || '(không rõ)'}
@@ -636,11 +707,23 @@ function buildResponseSchema(type, rawOptions = null, schemaOpts = {}) {
   }
 }
 
-async function callAi(prompt, { questionType = null, rawOptions = null, model: customModel = null, maxRateLimitRetries = 6, isFixedMode = false, forceProvider = null, signal = null } = {}) {
+function buildVisionUnavailableError() {
+  const err = new Error('Không thể tạo giải thích cho câu hỏi bản đồ/sơ đồ vì AI chính (Gemini) đang không sẵn sàng để đọc hình ảnh. Vui lòng thử lại sau ít phút.')
+  err.code = 'VISION_PROVIDER_UNAVAILABLE'
+  return err
+}
+
+async function callAi(prompt, { questionType = null, rawOptions = null, model: customModel = null, maxRateLimitRetries = 6, isFixedMode = false, forceProvider = null, signal = null, images = [], requiresVision = false } = {}) {
   const useGemini = process.env.GEMINI_API_KEY && (process.env.NODE_ENV !== 'test' || process.env.ENABLE_GEMINI_IN_TEST === 'true')
   const model = customModel || process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite'
+  const hasImages = Array.isArray(images) && images.length > 0
+
+  // Câu hỏi hình ảnh: model văn bản (Groq) KHÔNG nhìn thấy bản đồ nên sẽ bịa vị trí.
+  // Vì vậy tuyệt đối không fallback sang Groq khi câu hỏi cần nhìn hình.
+  const visionRequired = requiresVision || hasImages
 
   if (forceProvider === 'Groq') {
+    if (visionRequired) throw buildVisionUnavailableError()
     const groqData = await callGroq(prompt, { maxRateLimitRetries, signal })
     return {
       data: groqData,
@@ -666,6 +749,7 @@ async function callAi(prompt, { questionType = null, rawOptions = null, model: c
           responseSchema,
           max_tokens: 8192,
           withMetadata: true,
+          images: Array.isArray(images) ? images : [],
           signal,
         })
         return {
@@ -683,14 +767,16 @@ async function callAi(prompt, { questionType = null, rawOptions = null, model: c
           await sleep(waitMs)
           continue
         }
-        if (forceProvider === 'Gemini') {
+        if (forceProvider === 'Gemini' || visionRequired) {
+          if (visionRequired) throw buildVisionUnavailableError()
           throw geminiErr
         }
         console.warn(`   … [AI] Gemini gặp sự cố (${geminiErr.status || geminiErr.message}), chuyển sang Groq dự phòng...`)
         break
       }
     }
-  } else if (forceProvider === 'Gemini') {
+  } else if (forceProvider === 'Gemini' || visionRequired) {
+    if (visionRequired) throw buildVisionUnavailableError()
     throw new Error('Gemini API key is not configured or requestGeminiJson is unavailable')
   }
 
@@ -705,6 +791,20 @@ async function callAi(prompt, { questionType = null, rawOptions = null, model: c
 
 async function generateExplanation(q, family, ctx, { teacherFeedback = null, isFixedMode = false, targetAnswer = null, forceProvider = null, signal = null } = {}) {
   let previousError = null
+
+  // Câu hỏi hình ảnh: chuyển ảnh (local /uploads hoặc Cloudinary) sang data URI để
+  // Gemini vision "nhìn" được bản đồ/sơ đồ. Không tải được ảnh thì báo lỗi rõ ràng
+  // thay vì để AI bịa vị trí.
+  const imageUrls = Array.isArray(ctx?.images) ? ctx.images : []
+  let images = []
+  if (imageUrls.length) {
+    images = await resolveContextImages(imageUrls)
+    if (!images.length && family === IMAGE_FAMILY) {
+      throw new Error('Không tải được ảnh bản đồ/sơ đồ của câu hỏi nên không thể giải thích chính xác. Vui lòng kiểm tra lại ảnh của nhóm câu hỏi.')
+    }
+  }
+  const requiresVision = family === IMAGE_FAMILY
+
   for (let attempt = 0; attempt < 2; attempt++) {
     if (signal?.aborted) {
       const err = new Error('Yêu cầu AI đã bị hủy')
@@ -719,6 +819,8 @@ async function generateExplanation(q, family, ctx, { teacherFeedback = null, isF
       isFixedMode,
       forceProvider,
       signal,
+      images,
+      requiresVision,
     })
     const payload = aiResult?.data || aiResult
 
@@ -763,12 +865,13 @@ async function fetchQuestions({ limit, skill, ids }) {
   return prisma.question.findMany({
     where,
     select: {
-      id: true, number: true, type: true, questionText: true, options: true, correctAnswer: true,
+      id: true, number: true, type: true, questionText: true, options: true, correctAnswer: true, imageUrl: true,
       passage: { select: { body: true } },
       listeningSection: { select: { transcript: true, context: true } },
       group: {
         select: {
           type: true,
+          imageUrl: true,
           passage: { select: { body: true } },
           section: { select: { transcript: true, context: true } },
           matchingOptions: { select: { optionLetter: true, optionText: true }, orderBy: { sortOrder: 'asc' } },
@@ -809,20 +912,17 @@ function extractPracticeQuestionText(content) {
   return content
 }
 
-// Nhóm IMAGE (diagram_label/diagram_completion/map_diagram) hầu như luôn thiếu
-// hoàn toàn ngữ cảnh văn bản (đã xác nhận trên dữ liệu thật: context/transcript
-// rỗng, matchingOptions không có text — chỉ là nhãn vị trí trên hình ảnh gốc).
-// Test thực tế cho thấy AI BỊA ĐẶT bằng chứng không có thật khi ép nó giải thích
-// trong tình huống này (vd "cửa hàng nằm gần trại bò, vườn rau" — không hề có
-// trong dữ liệu) — không siết được bằng prompt một cách đáng tin cậy, nên bỏ
-// qua hẳn nhóm này thay vì chấp nhận rủi ro dạy sai cho người học. Các câu này
-// giữ nguyên explanation = null — UI (bước 9) không hiện khu vực giải thích,
-// không hiện lỗi, hoạt động bình thường.
-const SKIP_FAMILIES = new Set(['IMAGE'])
+// Nhóm IMAGE (diagram_label/diagram_completion/map_diagram) trước đây bị bỏ qua
+// hoàn toàn vì AI chỉ có văn bản nên bịa vị trí trên bản đồ. Nay ảnh của nhóm câu
+// hỏi (group.imageUrl / question.imageUrl) được gửi kèm cho Gemini vision, nên
+// nhóm này được giải thích bình thường. Chỉ bỏ qua khi nhóm hình ảnh KHÔNG có ảnh
+// nào — khi đó không có căn cứ nào để xác định vị trí (xem
+// isUnsupportedExplanationQuestion).
+const SKIP_FAMILIES = new Set()
 
 async function processQuestion(q, { dryRun }) {
   const family = classifyFamily(q.type)
-  if (SKIP_FAMILIES.has(family)) return { skipped: true }
+  if (isUnsupportedExplanationQuestion(q, family)) return { skipped: true }
   const ctx = buildContext(q, family)
   const explanation = await generateExplanation(q, family, ctx)
   if (!dryRun) {
@@ -831,9 +931,18 @@ async function processQuestion(q, { dryRun }) {
   return { skipped: false, explanation }
 }
 
+// PracticeQuestion.content là JSON của cả group (có thể chứa imageUrl của bản đồ).
+function extractPracticeGroup(content) {
+  try {
+    const obj = JSON.parse(content)
+    if (obj && typeof obj === 'object') return obj
+  } catch { /* không phải JSON — bỏ qua */ }
+  return null
+}
+
 async function processPracticeQuestion(pq, { dryRun }) {
   const family = classifyFamily(pq.type)
-  if (SKIP_FAMILIES.has(family)) return { skipped: true }
+  const groupObj = extractPracticeGroup(pq.content)
   const q = {
     id: pq.id,
     number: null,
@@ -841,11 +950,13 @@ async function processPracticeQuestion(pq, { dryRun }) {
     questionText: extractPracticeQuestionText(pq.content),
     options: pq.options,
     correctAnswer: pq.correctAnswer || '(không có đáp án lưu sẵn)',
+    imageUrl: groupObj?.imageUrl || null,
     passage: null,
     listeningSection: null,
-    group: null,
+    group: { imageUrl: groupObj?.imageUrl || null },
     exam: pq.exam,
   }
+  if (isUnsupportedExplanationQuestion(q, family)) return { skipped: true }
   const ctx = buildContext(q, family)
   const explanation = await generateExplanation(q, family, ctx)
   if (!dryRun) {
@@ -877,7 +988,7 @@ async function main() {
         : await processQuestion(row, opts)
       if (result.skipped) {
         skipped++
-        console.log(`${tag} SKIP — nhóm loại câu hỏi không đủ ngữ cảnh (xem SKIP_FAMILIES)`)
+        console.log(`${tag} SKIP — câu bản đồ/sơ đồ nhưng chưa có ảnh đính kèm`)
       } else {
         ok++
         console.log(`${tag} OK${opts.dryRun ? ' (dry-run, chưa ghi DB)' : ''}`)
@@ -921,6 +1032,10 @@ module.exports = {
   processPracticeQuestion,
   main,
   SKIP_FAMILIES,
+  IMAGE_FAMILY,
+  collectQuestionImages,
+  resolveContextImages,
+  isUnsupportedExplanationQuestion,
   findParagraph,
   cleanChunks,
   buildResponseSchema,
