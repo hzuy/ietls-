@@ -6,7 +6,7 @@ const authMiddleware = require('../middleware/auth')
 const validate = require('../middleware/validate')
 const prisma = require('../lib/prisma')
 const { invalidate } = require('../lib/swrCache')
-const { getSampleListCached } = require('../lib/publicContent')
+const { getSampleListCached, getSamplePageCached } = require('../lib/publicContent')
 const { uploadOptimizedCover } = require('../services/storageService')
 const { createSampleSchema, updateSampleSchema } = require('../validators/contentValidator')
 const { sanitizeRichText } = require('../lib/sanitizeHtml')
@@ -43,6 +43,24 @@ const { teacherStrict } = require('../lib/roles')
 // Fetcher + SWR cache nằm ở lib/publicContent.js (chia sẻ cache với /api/home).
 function makeSampleListHandler(skill) {
   return async (req, res) => {
+    if (req.query.page !== undefined || req.query.search || req.query.level || req.query.type || req.query.sort) {
+      const page = Math.max(1, Math.min(1000000, parseInt(req.query.page, 10) || 1))
+      const pageSize = Math.max(1, Math.min(24, parseInt(req.query.pageSize, 10) || 12))
+      const sort = ['newest', 'title-asc', 'title-desc'].includes(req.query.sort) ? req.query.sort : 'newest'
+      const options = {
+        page,
+        pageSize,
+        search: String(req.query.search || '').trim().slice(0, 120),
+        level: String(req.query.level || '').trim().slice(0, 32),
+        examType: String(req.query.type || '').trim().slice(0, 100),
+        sort,
+      }
+      try {
+        return res.json(await getSamplePageCached(skill, options))
+      } catch (err) {
+        return sendServerError(res, err, 'Lỗi server')
+      }
+    }
     const limit = req.query.limit !== undefined ? parseInt(req.query.limit) : 4
     try {
       res.json(await getSampleListCached(skill, limit))

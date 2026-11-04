@@ -7,7 +7,7 @@ import { validateExamListening, formatValidationAlert } from '../../utils/questi
 import { notifyTrashChanged } from '../../services/adminService'
 import { validateAudioFile } from '../../utils/fileValidation'
 import {
-  GROUP_TYPES, GROUP_INSTRUCTIONS, SECTION_HINTS,
+  GROUP_TYPES, GROUP_INSTRUCTIONS,
   emptyListeningForm, emptyGroupOf,
   inputCls, labelCls, btnPrimary, btnSecondary,
   SERVER_BASE, toImgSrc,
@@ -793,7 +793,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         setForm(prev => mergeExamExplanations(prev, fresh.data, resolveChoices))
         pristineExplanationsRef.current = extractExplanationsMap(fresh.data)
       }
-    } catch {}
+    } catch { /* Fresh data is best-effort; retain the current form on refresh failure. */ }
 
     onRefresh()
 
@@ -1306,7 +1306,6 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
                 >
                   <div className="flex flex-col items-start text-left">
                     <span className="font-medium text-sm text-zinc-800">Section {section.number}</span>
-                    <span className="text-xs text-zinc-500 mt-0.5">{SECTION_HINTS[section.number] || ''}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] text-zinc-500 font-medium">

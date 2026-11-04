@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useLayoutEffect, useMemo, useRef } from 'react'
 import { getQuestionGroupTheme as getAdminTheme } from '../adminConstants'
 import { getQuestionGroupTheme as getPracticeTheme } from '../../../utils/practiceConfig'
 
@@ -18,6 +18,12 @@ function syncQuestionsToTokens(contentStrings, questions, qNumberStart) {
 
 const noteContents = (sections) => (sections || []).flatMap(ns => (ns.lines || []).map(l => l.content))
 
+function resizeTextarea(element) {
+  if (!element) return
+  element.style.height = 'auto'
+  element.style.height = `${Math.max(element.scrollHeight, 34)}px`
+}
+
 export default function NoteCompletionEditor({
   group = {},
   onChange,
@@ -30,7 +36,10 @@ export default function NoteCompletionEditor({
     ? getPracticeTheme(groupType)
     : getAdminTheme(groupType)
 
-  const noteSections = group?.noteSections || []
+  const noteSections = useMemo(() => group?.noteSections || [], [group?.noteSections])
+  useLayoutEffect(() => {
+    Object.values(lineRefs.current).forEach(resizeTextarea)
+  }, [noteSections])
   const allTokenNums = noteSections.flatMap(ns =>
     (ns.lines || []).flatMap(l => {
       const matches = [...(l.content || '').matchAll(/\[Q:(\d+)\]/g)]
@@ -202,7 +211,8 @@ export default function NoteCompletionEditor({
                         placeholder={isHeading ? 'VD: THE PARK / BENEFITS OF...' : `VD: Area: [Q:${group.qNumberStart || 1}] hectares`}
                         value={line.content || ''}
                         onChange={e => updateLine(nsi, li, e.target.value)}
-                        style={{ minHeight: '34px' }}
+                        onInput={e => resizeTextarea(e.currentTarget)}
+                        style={{ minHeight: '34px', overflowY: 'hidden' }}
                       />
                       {!isHeading && (
                         <button

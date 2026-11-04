@@ -16,11 +16,30 @@ require.cache[prismaPath] = {
   exports: prismaMock,
 }
 
+// Mock lib/groqClient để không gọi AI thật trong test tích hợp dịch vụ.
+const geminiJsonMock = vi.fn()
+const groqCreateMock = vi.fn()
+const groqClientPath = require.resolve('../lib/groqClient')
+require.cache[groqClientPath] = {
+  id: groqClientPath,
+  filename: groqClientPath,
+  loaded: true,
+  exports: {
+    getGroqClient: () => ({ chat: { completions: { create: groqCreateMock } } }),
+    getGroqModel: () => 'test-model',
+    getGroqVisionModel: () => 'test-vision-model',
+    requestGeminiJson: geminiJsonMock,
+    requestGroqGradingJson: vi.fn(),
+  },
+}
+
 const { isAnswerMatch, generateForExam, generateForPracticeExam } = require('./explanationGeneratorService')
 
 describe('explanationGeneratorService', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    geminiJsonMock.mockReset()
+    groqCreateMock.mockReset()
   })
 
   describe('isAnswerMatch', () => {
@@ -295,6 +314,147 @@ describe('explanationGeneratorService', () => {
       ])
 
       await expect(generateForExam(3)).rejects.toThrow('chưa có nội dung bài đọc (Passage) cho câu 1')
+    })
+
+    describe('gộp nhóm câu hình ảnh vào một lần gọi Gemini', () => {
+      const IMAGE_URI = 'data:image/png;base64,AAAA'
+      const TRANSCRIPT = 'The shop is in the old stables. The cafe is next to the car park.'
+      const imageGroup = {
+        imageUrl: IMAGE_URI,
+        section: { transcript: TRANSCRIPT },
+        passage: null,
+        matchingOptions: [],
+        noteSections: [],
+      }
+      const imageQuestion = (id, number, text, answer) => ({
+        id,
+        number,
+        type: 'map_diagram',
+        questionText: text,
+        correctAnswer: answer,
+        explanation: null,
+        options: null,
+        imageUrl: null,
+        passage: null,
+        listeningSection: null,
+        group: imageGroup,
+      })
+      const batchItem = (number, answer) => ({
+        number,
+        question_chunks: [{ text: `marker ${number}`, label: 'vị trí trên bản đồ' }],
+        predict: 'Cần xác định vị trí trên bản đồ.',
+        locate_note: 'Đối chiếu mô tả với hình.',
+        locate_keywords: [],
+        evidence_quote: '',
+        evidence_chunks: [],
+        answer,
+        reasoning: `Vị trí ${answer} khớp với mô tả trong transcript.`,
+        paraphrases: [],
+        distractors: [],
+      })
+
+      it('2 câu cùng một bản đồ chỉ gọi AI MỘT lần và lưu đủ 2 giải thích', async () => {
+        prismaMock.exam.findUnique.mockResolvedValueOnce({ id: 14, title: 'Cam 19 Test 1', skill: 'listening' })
+        prismaMock.question.findMany.mockResolvedValueOnce([
+          imageQuestion(1, 16, 'Farm shop', 'G'),
+          imageQuestion(2, 17, 'Disabled entry', 'C'),
+        ])
+        prismaMock.question.update.mockResolvedValue({})
+        process.env.GEMINI_API_KEY = 'test_key'
+        process.env.ENABLE_GEMINI_IN_TEST = 'true'
+        geminiJsonMock.mockResolvedValueOnce({
+          data: { explanations: [batchItem(16, 'G'), batchItem(17, 'C')] },
+          provider: 'Gemini',
+          model: 'gemini-test',
+        })
+        try {
+          const res = await generateForExam(14, { force: true })
+          expect(geminiJsonMock).toHaveBeenCalledTimes(1)
+          expect(geminiJsonMock.mock.calls[0][1].images).toEqual([IMAGE_URI])
+          expect(geminiJsonMock.mock.calls[0][1].responseSchema.required).toEqual(['explanations'])
+          expect(res.generatedCount).toBe(2)
+          expect(res.hasConflicts).toBe(false)
+          expect(prismaMock.question.update).toHaveBeenCalledTimes(2)
+        } finally {
+          delete process.env.ENABLE_GEMINI_IN_TEST
+          delete process.env.GEMINI_API_KEY
+        }
+      })
+
+      it('câu bị thiếu trong kết quả gộp được hỏi lại ngay trong batch (không gọi riêng)', async () => {
+        prismaMock.exam.findUnique.mockResolvedValueOnce({ id: 15, title: 'Cam 19 Test 2', skill: 'listening' })
+        prismaMock.question.findMany.mockResolvedValueOnce([
+          imageQuestion(3, 16, 'Farm shop', 'G'),
+          imageQuestion(4, 17, 'Disabled entry', 'C'),
+        ])
+        prismaMock.question.update.mockResolvedValue({})
+        process.env.GEMINI_API_KEY = 'test_key'
+        process.env.ENABLE_GEMINI_IN_TEST = 'true'
+        geminiJsonMock
+          .mockResolvedValueOnce({
+            data: { explanations: [batchItem(16, 'G')] }, // thiếu câu 17
+            provider: 'Gemini',
+            model: 'gemini-test',
+          })
+          .mockResolvedValueOnce({
+            data: { explanations: [batchItem(17, 'C')] },
+            provider: 'Gemini',
+            model: 'gemini-test',
+          })
+        try {
+          const res = await generateForExam(15, { force: true })
+          expect(geminiJsonMock).toHaveBeenCalledTimes(2)
+          // Lần 2 vẫn là batch nhưng chỉ còn câu 17
+          const retryPrompt = geminiJsonMock.mock.calls[1][0]
+          expect(retryPrompt).toContain('- Câu 17')
+          expect(retryPrompt).not.toContain('- Câu 16')
+          expect(retryPrompt).toContain('"explanations"')
+          expect(retryPrompt).not.toContain('THÔNG TIN CÂU HỎI')
+          expect(res.generatedCount).toBe(2)
+          expect(prismaMock.question.update).toHaveBeenCalledTimes(2)
+        } finally {
+          delete process.env.ENABLE_GEMINI_IN_TEST
+          delete process.env.GEMINI_API_KEY
+        }
+      })
+
+      it('câu vẫn thiếu sau khi hỏi lại batch sẽ được gọi riêng (fallback) thay vì bỏ sót', async () => {
+        prismaMock.exam.findUnique.mockResolvedValueOnce({ id: 16, title: 'Cam 19 Test 3', skill: 'listening' })
+        prismaMock.question.findMany.mockResolvedValueOnce([
+          imageQuestion(5, 16, 'Farm shop', 'G'),
+          imageQuestion(6, 17, 'Disabled entry', 'C'),
+        ])
+        prismaMock.question.update.mockResolvedValue({})
+        process.env.GEMINI_API_KEY = 'test_key'
+        process.env.ENABLE_GEMINI_IN_TEST = 'true'
+        geminiJsonMock
+          .mockResolvedValueOnce({
+            data: { explanations: [batchItem(16, 'G')] },
+            provider: 'Gemini',
+            model: 'gemini-test',
+          })
+          .mockResolvedValueOnce({
+            data: { explanations: [batchItem(16, 'G')] }, // vẫn thiếu câu 17
+            provider: 'Gemini',
+            model: 'gemini-test',
+          })
+          .mockResolvedValueOnce({
+            data: batchItem(17, 'C'), // gọi riêng câu 17
+            provider: 'Gemini',
+            model: 'gemini-test',
+          })
+        try {
+          const res = await generateForExam(16, { force: true })
+          expect(geminiJsonMock).toHaveBeenCalledTimes(3)
+          expect(geminiJsonMock.mock.calls[2][0]).toContain('THÔNG TIN CÂU HỎI')
+          expect(geminiJsonMock.mock.calls[2][0]).toContain('Số câu: 17')
+          expect(res.generatedCount).toBe(2)
+          expect(prismaMock.question.update).toHaveBeenCalledTimes(2)
+        } finally {
+          delete process.env.ENABLE_GEMINI_IN_TEST
+          delete process.env.GEMINI_API_KEY
+        }
+      })
     })
   })
 

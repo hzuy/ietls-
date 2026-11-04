@@ -3,72 +3,32 @@ import { render, screen } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
 import ExamExplanationOverviewBadge from './ExamExplanationOverviewBadge'
 
-describe('ExamExplanationOverviewBadge (Batch 2 - Requirement 3.3)', () => {
+describe('ExamExplanationOverviewBadge', () => {
   it('renders nothing when stats are empty', () => {
     const { container } = render(<ExamExplanationOverviewBadge stats={null} />)
     expect(container.firstChild).toBeNull()
   })
 
-  it('renders count pill with monochrome styling and correct numbers', () => {
+  it('shows explanation progress without an aggregate attention badge', () => {
     const stats = {
       totalSlots: 40,
       supportedSlots: 40,
-      explainedSlots: 35,
+      explainedSlots: 40,
       unsupportedSlots: 0,
-      attentionSlots: 0,
-      hasAttention: false,
-      hasUnsupported: false,
-      attentionReasons: []
-    }
-
-    render(<ExamExplanationOverviewBadge stats={stats} />)
-
-    const badge = screen.getByTestId('exam-explanation-overview-badge')
-    expect(badge).toBeInTheDocument()
-    expect(badge).toHaveTextContent('35/40')
-    expect(badge).toHaveTextContent('lời giải')
-
-    // Attention badge should not be present
-    expect(screen.queryByTestId('exam-explanation-attention-badge')).toBeNull()
-  })
-
-  it('renders attention badge when conflict_pending/needs_regeneration/possibly_stale exist with text labels', () => {
-    const stats = {
-      totalSlots: 40,
-      supportedSlots: 40,
-      explainedSlots: 38,
-      unsupportedSlots: 0,
-      attentionSlots: 2,
+      attentionSlots: 3,
       hasAttention: true,
       hasUnsupported: false,
-      attentionReasons: ['1 câu Chờ duyệt (Lệch)', '1 câu Có thể lỗi thời']
+      attentionReasons: ['3 câu Chờ duyệt (Lệch)'],
     }
 
     render(<ExamExplanationOverviewBadge stats={stats} />)
 
-    const attentionBadge = screen.getByTestId('exam-explanation-attention-badge')
-    expect(attentionBadge).toBeInTheDocument()
-    expect(attentionBadge).toHaveTextContent('Cần chú ý: 2 câu')
-    expect(attentionBadge).toHaveAttribute('title', 'Cần chú ý: 1 câu Chờ duyệt (Lệch), 1 câu Có thể lỗi thời')
+    expect(screen.getByTestId('exam-explanation-overview-badge')).toHaveTextContent('40/40')
+    expect(screen.queryByText(/cần chú ý/i)).not.toBeInTheDocument()
+    expect(screen.queryByTestId('exam-explanation-attention-badge')).not.toBeInTheDocument()
   })
 
-  it('renders unsupported indicator when image groups have no image attached', () => {
-    const stats = {
-      totalSlots: 40,
-      supportedSlots: 35,
-      explainedSlots: 35,
-      unsupportedSlots: 5,
-      attentionSlots: 0,
-      hasAttention: false,
-      hasUnsupported: true,
-      attentionReasons: []
-    }
-
-    render(<ExamExplanationOverviewBadge stats={stats} />)
-    expect(screen.getByText('(-5 thiếu ảnh)')).toBeInTheDocument()
-  })
-
-  it('renders compact mode for tabs and accordion headers', () => {
+  it('uses the same compact count style and omits attention summaries', () => {
     const stats = {
       totalSlots: 13,
       supportedSlots: 13,
@@ -77,11 +37,29 @@ describe('ExamExplanationOverviewBadge (Batch 2 - Requirement 3.3)', () => {
       attentionSlots: 1,
       hasAttention: true,
       hasUnsupported: false,
-      attentionReasons: ['1 câu Cần sinh lại']
+      attentionReasons: ['1 câu Cần sinh lại'],
     }
 
-    const { container } = render(<ExamExplanationOverviewBadge stats={stats} compact={true} />)
-    expect(container).toHaveTextContent('10/13 lời giải')
-    expect(container).toHaveTextContent('1 cần chú ý')
+    const { container } = render(<ExamExplanationOverviewBadge stats={stats} compact />)
+    const badge = container.firstChild
+    expect(badge).toHaveTextContent('10/13 lời giải')
+    expect(badge).toHaveClass('w-28', 'h-7')
+    expect(screen.queryByText(/cần chú ý/i)).not.toBeInTheDocument()
+  })
+
+  it('keeps unsupported image information in the explanation count', () => {
+    const stats = {
+      totalSlots: 40,
+      supportedSlots: 35,
+      explainedSlots: 35,
+      unsupportedSlots: 5,
+      attentionSlots: 0,
+      hasAttention: false,
+      hasUnsupported: true,
+      attentionReasons: [],
+    }
+
+    render(<ExamExplanationOverviewBadge stats={stats} />)
+    expect(screen.getByText('(-5 thiếu ảnh)')).toBeInTheDocument()
   })
 })

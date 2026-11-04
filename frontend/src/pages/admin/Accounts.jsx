@@ -156,7 +156,6 @@ export default function Accounts() {
       <div className="p-6 max-w-6xl mx-auto">
         <AdminListHeader
           title="Quản lý nhân sự"
-          subtitle="Danh sách tài khoản giáo viên và quản trị viên"
           onAdd={openCreate}
           addLabel="+ Tạo tài khoản"
         />

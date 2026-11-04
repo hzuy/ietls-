@@ -202,7 +202,7 @@ function SeriesDetailView({ series, books, booksError, onBack, onBooksChanged, s
             className="w-8 h-8 flex items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition text-xs font-semibold shadow-2xs">←</button>
           <div>
             <h3 className="text-sm font-semibold text-zinc-900">{series.name}</h3>
-            <p className="text-xs text-zinc-500 mt-0.5">{books.length} cuốn · click vào cuốn để upload ảnh bìa</p>
+            <p className="text-xs text-zinc-500 mt-0.5">{books.length} cuốn</p>
           </div>
         </div>
         <button

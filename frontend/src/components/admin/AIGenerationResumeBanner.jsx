@@ -13,21 +13,9 @@ export default function AIGenerationResumeBanner({
   disabled = false,
   className = '',
 }) {
-  if (!banner) return null
+  if (!banner || banner.variant === 'checking') return null
 
   const { variant, title, message, actionLabel, onAction, onDismiss, current, total } = banner
-
-  if (variant === 'checking') {
-    return (
-      <div
-        data-testid="ai-resume-banner-checking"
-        className={`bg-zinc-100 border border-zinc-200 rounded-xl p-3 mb-4 flex items-center gap-2.5 text-xs text-zinc-600 ${className}`}
-      >
-        <Loader2 className="w-4 h-4 animate-spin text-zinc-500 shrink-0" />
-        <span>{message || 'Đang kiểm tra trạng thái sinh AI...'}</span>
-      </div>
-    )
-  }
 
   if (variant === 'running') {
     const doneCount = Number(current) || 0

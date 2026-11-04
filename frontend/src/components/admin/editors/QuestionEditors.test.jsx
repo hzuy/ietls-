@@ -124,6 +124,24 @@ describe('Consolidated Question Editors', () => {
   })
 
   describe('NoteCompletionEditor', () => {
+    it('automatically expands note/form textareas to fit long content', () => {
+      const group = {
+        type: 'note_completion',
+        qNumberStart: 1,
+        qNumberEnd: 1,
+        noteSections: [{ title: 'Section 1', lines: [{ content: 'Short line', lineType: 'content' }] }],
+        questions: [],
+      }
+      render(<NoteCompletionEditor group={group} onChange={vi.fn()} />)
+
+      const textarea = screen.getByDisplayValue('Short line')
+      Object.defineProperty(textarea, 'scrollHeight', { configurable: true, value: 96 })
+      fireEvent.input(textarea, { target: { value: 'A long note line that wraps across multiple rows' } })
+
+      expect(textarea.style.height).toBe('96px')
+      expect(textarea).toHaveStyle({ overflowY: 'hidden' })
+    })
+
     it('tự động loại bỏ câu hỏi mồ côi khi người dùng xóa token [Q:n]', () => {
       const onChange = vi.fn()
       const group = {

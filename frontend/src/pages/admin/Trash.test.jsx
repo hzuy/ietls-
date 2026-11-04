@@ -177,7 +177,7 @@ describe('Trash page — P3 modal + a11y + error handling', () => {
     expect(screen.queryByText('Thử lại')).not.toBeInTheDocument()
     // Khôi phục (không phá dữ liệu) vẫn cho giáo viên
     expect(screen.getAllByText('Khôi phục').length).toBe(SAMPLE.length)
-    expect(screen.getByText(/chỉ quản trị viên có thể xoá vĩnh viễn/)).toBeInTheDocument()
+    expect(screen.queryByText(/chỉ quản trị viên có thể xoá vĩnh viễn/)).not.toBeInTheDocument()
   })
 
   it('admin: vẫn thấy đủ nút xoá vĩnh viễn và dọn sạch thùng rác', async () => {

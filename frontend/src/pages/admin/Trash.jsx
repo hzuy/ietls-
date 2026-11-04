@@ -211,10 +211,6 @@ export default function Trash() {
                 </span>
               )}
             </h1>
-            <p className="text-xs text-zinc-500 mt-1">
-              Các mục đã xóa — tự động dọn sau {PURGE_DAYS} ngày
-              {!isAdmin && ' · chỉ quản trị viên có thể xoá vĩnh viễn'}
-            </p>
           </div>
           {items.length > 0 && isAdmin && (
             <div className="flex flex-wrap gap-2">

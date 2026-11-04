@@ -21,6 +21,7 @@ import { purgeExpiredDrafts } from './services/draftService'
 
 // Eagerly loaded — critical path pages (always needed on first render)
 import Home from './pages/Home'
+import SampleDetailPage from './pages/SampleDetailPage'
 
 // Lazily loaded — split into separate chunks, loaded on demand
 const ChangePassword    = lazy(() => import('./pages/ChangePassword'))
@@ -37,7 +38,6 @@ const SeriesPage        = lazy(() => import('./pages/SeriesPage'))
 const FullTestResult    = lazy(() => import('./pages/FullTestResult'))
 const PracticeExamPage  = lazy(() => import('./pages/PracticeExamPage'))
 const PracticeList      = lazy(() => import('./pages/PracticeList'))
-const SampleDetailPage  = lazy(() => import('./pages/SampleDetailPage'))
 const SamplesPage       = lazy(() => import('./pages/SamplesPage'))
 const UserProfile       = lazy(() => import('./pages/UserProfile'))
 

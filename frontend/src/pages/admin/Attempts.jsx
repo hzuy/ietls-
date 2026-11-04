@@ -305,9 +305,6 @@ export default function Attempts() {
                 </span>
               )}
             </h1>
-            <p className="text-xs text-zinc-500 mt-1">
-              Quản lý và tra cứu chi tiết các lượt làm bài thi của học viên
-            </p>
           </div>
 
           {/* Action Header — Sắp xếp (đổi thứ tự hiển thị) + Download, tách khỏi vùng filter */}

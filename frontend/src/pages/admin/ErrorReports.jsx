@@ -149,9 +149,6 @@ export default function ErrorReports() {
               </span>
             )}
           </h1>
-          <p className="text-xs text-zinc-500 mt-1">
-            Theo dõi và xử lý báo lỗi học viên gửi từ đề Reading, Listening, Writing và Speaking.
-          </p>
         </div>
 
         <button

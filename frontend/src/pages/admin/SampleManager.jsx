@@ -32,7 +32,6 @@ const CONFIG = {
     },
     draftKeyPrefix: 'draft_writing_sample_',
     listTitle: 'Writing Samples',
-    listSubtitle: 'Bài mẫu Writing — hiển thị trên trang chủ',
     addLabel: '+ Thêm mới',
     formTitleNew: 'Thêm Writing Sample mới',
     formTitleEdit: 'Chỉnh sửa Writing Sample',
@@ -88,7 +87,6 @@ const CONFIG = {
     },
     draftKeyPrefix: 'draft_speaking_sample_',
     listTitle: 'Speaking Samples',
-    listSubtitle: 'Bài mẫu Speaking — hiển thị trên trang chủ',
     addLabel: '+ Thêm mới',
     formTitleNew: 'Thêm Speaking Sample mới',
     formTitleEdit: 'Chỉnh sửa Speaking Sample',
@@ -422,7 +420,7 @@ export default function SampleManager({ kind }) {
   return (
     <>
       <div className="p-6 max-w-6xl mx-auto">
-        <AdminListHeader title={cfg.listTitle} subtitle={cfg.listSubtitle} onAdd={openAdd} addLabel={cfg.addLabel} />
+        <AdminListHeader title={cfg.listTitle} onAdd={openAdd} addLabel={cfg.addLabel} />
 
         {/* Search & filter bar */}
         <div className="flex flex-wrap items-center gap-2 mb-4">

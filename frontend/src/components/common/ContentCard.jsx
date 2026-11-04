@@ -1,4 +1,5 @@
 import { useState, isValidElement } from 'react'
+import { Link } from 'react-router-dom'
 import { handleImgError } from '../../utils/media'
 import AcademicCover from './AcademicCover'
 
@@ -153,10 +154,12 @@ export default function ContentCard({
   accentBar = false,
   hoverStyle = 'subtle',
   onClick,
+  to,
   className = '',
 }) {
   const isShowcase = hoverStyle === 'showcase'
-  const clickable = typeof onClick === 'function'
+  const clickable = Boolean(to) || typeof onClick === 'function'
+  const Root = to ? Link : 'div'
   const [hovered, setHovered] = useState(false)
   // Chỉ áp hiệu ứng hover thật khi card thật sự bấm được — card "trang trí"
   // (không có onClick, vd đang cập nhật) không được giả vờ lift/đổi màu.
@@ -181,7 +184,7 @@ export default function ContentCard({
         transform: activeHover ? 'translateY(-8px) scale(1.02)' : 'translateY(0) scale(1)',
         boxShadow: activeHover ? SHOWCASE.hoverShadow : SHOWCASE.restShadow,
       }
-    : { cursor: clickable ? 'pointer' : 'default' }
+    : { cursor: clickable ? 'pointer' : 'default', ...(to ? { color: 'inherit', textDecoration: 'none' } : {}) }
 
   const titleStyle = {
     fontWeight: 700, fontSize: 'var(--fs-sm)',
@@ -197,7 +200,8 @@ export default function ContentCard({
   }
 
   return (
-    <div
+    <Root
+      {...(to ? { to } : {})}
       className={`${className} card-base flex flex-col overflow-hidden`.trim()}
       style={rootStyle}
       onClick={onClick}
@@ -259,6 +263,6 @@ export default function ContentCard({
           <Meta meta={meta} countColor={inkShift ? SHOWCASE.hoverInk : 'var(--muted)'} />
         )}
       </div>
-    </div>
+    </Root>
   )
 }

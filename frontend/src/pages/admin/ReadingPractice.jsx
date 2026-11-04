@@ -824,7 +824,6 @@ export default function ReadingPractice() {
       <div className="p-6 max-w-6xl mx-auto">
         <AdminListHeader
           title="Reading Practice"
-          subtitle="Bài luyện đọc riêng lẻ — hiển thị trên trang chủ"
           onAdd={openAdd}
         />
 

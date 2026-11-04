@@ -101,7 +101,6 @@ export default function Profile() {
         {/* Page header */}
         <div className="mb-6">
           <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Cài đặt tài khoản</h1>
-          <p className="text-xs text-zinc-500 mt-1">Thông tin tài khoản đang đăng nhập</p>
         </div>
 
         {/* Thông tin tài khoản + Đổi mật khẩu cạnh nhau từ lg trở lên (xếp dọc ở màn hình hẹp

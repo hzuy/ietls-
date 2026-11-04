@@ -15,12 +15,16 @@ const prismaMock = {
   writingSample: {
     create: vi.fn(),
     update: vi.fn(),
-    findUnique: vi.fn()
+    findUnique: vi.fn(),
+    findMany: vi.fn(),
+    count: vi.fn(),
   },
   speakingSample: {
     create: vi.fn(),
     update: vi.fn(),
-    findUnique: vi.fn()
+    findUnique: vi.fn(),
+    findMany: vi.fn(),
+    count: vi.fn(),
   },
   auditLog: {
     create: vi.fn().mockResolvedValue({})
@@ -40,12 +44,37 @@ const storagePath = require.resolve('../services/storageService')
 require.cache[storagePath] = { id: storagePath, filename: storagePath, loaded: true, exports: storageMock }
 
 const app = require('../server')
+const { clearAll: clearSWRCache } = require('../lib/swrCache')
 
 describe('routes/samples.js — audit log wiring', () => {
   const token = jwt.sign({ userId: 4, email: 'teacher@example.com', role: 'teacher' }, 'test_secret_key', { expiresIn: '1h' })
 
   beforeEach(() => {
     vi.clearAllMocks()
+    clearSWRCache()
+  })
+
+  it('GET /writing supports bounded server-side search, filters, sorting, and pagination', async () => {
+    prismaMock.writingSample.findMany.mockImplementation(async args => args.distinct
+      ? [{ examType: 'Opinion essay' }]
+      : [{ id: 18, title: 'Education', level: 'task2', examType: 'Opinion essay', tags: null }])
+    prismaMock.writingSample.count.mockResolvedValue(1)
+
+    const response = await request(app)
+      .get('/api/samples/writing')
+      .query({ page: 2, pageSize: 999, search: 'education', level: 'task2', type: 'Opinion essay', sort: 'title-asc' })
+      .expect(200)
+
+    expect(response.body.items).toHaveLength(1)
+    expect(response.body.pagination).toEqual({ page: 2, pageSize: 24, total: 1, totalPages: 1 })
+    const pageQuery = prismaMock.writingSample.findMany.mock.calls.find(([args]) => !args.distinct)[0]
+    expect(pageQuery.where).toEqual({
+      deletedAt: null,
+      level: 'task2',
+      examType: 'Opinion essay',
+      title: { contains: 'education', mode: 'insensitive' },
+    })
+    expect(pageQuery.skip).toBe(24)
   })
 
   it('POST /admin/writing logs sample.create for WritingSample', async () => {

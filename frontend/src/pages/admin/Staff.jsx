@@ -99,10 +99,7 @@ export default function Staff() {
 
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Quản lý nhân sự</h1>
-            <p className="text-xs text-zinc-500 mt-1">Danh sách admin và giảng viên trong hệ thống</p>
-          </div>
+          <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Quản lý nhân sự</h1>
         </div>
 
         {/* Stats */}

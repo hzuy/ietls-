@@ -548,6 +548,156 @@ evidence_chunks: [{"text":"made his fortune","label":"gây dựng cơ nghiệp"}
 paraphrases: [{"question":"built his wealth","question_label":"gây dựng của cải","passage":"made his fortune","passage_label":"tạo dựng cơ nghiệp"}]`
 }
 
+function buildBatchPrompt(questions, family, ctx, previousError = null) {
+  const list = Array.isArray(questions) ? questions : []
+  const numbers = list.map(q => q.number)
+  const skillLabel = ctx.skill === 'reading' ? 'Reading' : ctx.skill === 'listening' ? 'Listening' : 'Practice'
+  const sourceName = ctx.skill === 'listening' ? 'transcript' : 'bài đọc'
+  const contextBlock = ctx.parts.map(p => `${p.label}:\n${p.text}`).join('\n\n')
+
+  const hasSource = Boolean(ctx.sourceText && String(ctx.sourceText).trim())
+  const hasImages = Array.isArray(ctx.images) && ctx.images.length > 0
+  const imageBlock = hasImages
+    ? `\nHÌNH ẢNH: ${ctx.images.length} hình ảnh bản đồ/sơ đồ được đính kèm ngay sau tin nhắn này và DÙNG CHUNG cho toàn bộ ${list.length} câu bên dưới. Hãy QUAN SÁT hình MỘT LẦN, xác định vị trí của từng câu, rồi giải thích riêng cho từng câu.\n`
+    : ''
+  const noSourceBlock = hasSource
+    ? ''
+    : `\nLƯU Ý: Nhóm câu hỏi này KHÔNG có transcript/bài đọc đi kèm, nên "evidence_quote", "locate_keywords" và "paraphrases" hãy để rỗng — TUYỆT ĐỐI không bịa dẫn chứng.\n`
+  const retryBlock = previousError
+    ? `\nLẦN TRẢ LỜI TRƯỚC BỊ LOẠI VÌ: ${previousError}\nHãy sửa lỗi này và trả lại ĐẦY ĐỦ ${list.length} câu. Mọi cụm trích từ ${sourceName} phải chép NGUYÊN VĂN từng chữ.\n`
+    : ''
+
+  const questionBlocks = list.map(q => {
+    const pairs = extractOptionPairs(q.options || (q.group?.matchingOptions?.length ? q.group.matchingOptions : null))
+    const optionsLine = pairs.length > 0
+      ? `\n   + Các lựa chọn: ${pairs.map(p => `${p.letter}. ${p.text}`).join(' | ')}`
+      : ''
+    const parts = []
+    if (family === 'COMPLETION') {
+      const noteText = findNoteSectionContext(q.group, q.number)
+      if (noteText) parts.push(`\n   + Đoạn ghi chú chứa chỗ trống (giữ nguyên nhãn [Q:n], chỗ trống cần giải thích là [Q:${q.number}]):\n${noteText}`)
+    }
+    return `- Câu ${q.number ?? '(không rõ)'} (loại: ${q.type || '(không rõ)'}): ${q.questionText || '(không có sẵn — câu hỏi nằm trong hình/ngữ cảnh)'}${optionsLine}${parts.join('')}`
+  }).join('\n')
+
+  const jsonFieldsInstruction = `{
+  "explanations": [
+    {
+      "number": 16,
+      "question_chunks": [{ "text": "cụm tiếng Anh của câu hỏi", "label": "nghĩa/vai trò của cụm, 2-6 từ tiếng Việt" }],
+      "predict": "1-2 câu: câu hỏi cần thông tin gì, dự đoán loại đáp án",
+      "locate_note": "1-2 câu: ý nào trong câu hỏi giúp tìm vùng cần đọc/vị trí trên hình",
+      "locate_keywords": ["1-3 cụm NGUYÊN VĂN trong ${sourceName} giúp định vị"],
+      "evidence_quote": "1-2 câu liên tiếp chép NGUYÊN VĂN từ ${sourceName} chứa thông tin trả lời, không viết tắt, không dùng dấu ... — nếu cần nhiều chỗ khác nhau trong ${sourceName}, chép riêng từng chỗ và ngăn cách bằng \\" | \\"",
+      "evidence_chunks": [{ "text": "cụm quan trọng NGUYÊN VĂN nằm trong evidence_quote", "label": "nghĩa tiếng Việt 2-8 từ" }],
+      "answer": "đáp án thực tế chính xác nhất cho RIÊNG câu này (ghi rõ chữ cái hoặc số La Mã và nội dung nếu là trắc nghiệm/nối; nếu chọn nhiều chữ cái ghi dạng \\"B, C\\")",
+      "full_sentence": "câu hoàn chỉnh sau khi điền đáp án (chỉ cho câu điền từ, còn lại để rỗng)",
+      "translation": "dịch tiếng Việt của full_sentence (để rỗng nếu full_sentence rỗng)",
+      "reasoning": "2-3 câu: chứng minh mạch tư duy vì sao đáp án này đúng theo ${sourceName} (với câu bản đồ/sơ đồ phải nêu rõ vị trí trên hình). Dành cho học sinh đọc — TUYỆT ĐỐI KHÔNG nhắc người dùng, người nhập, giáo viên, ngộ nhận.",
+      "paraphrases": [{ "question": "cụm trong câu hỏi", "question_label": "nghĩa", "passage": "cụm NGUYÊN VĂN trong ${sourceName}", "passage_label": "nghĩa" }],
+      "distractors": [{ "option": "lựa chọn/từ dễ nhầm", "label": "nghĩa ngắn", "reason": "1-2 câu vì sao sai" }]
+    }
+  ]
+}`
+
+  return `Bạn là gia sư IELTS, giải thích theo phương pháp "Linear thinking": tách câu thành từng cụm ý ngắn, gắn nghĩa tiếng Việt cho từng cụm, rồi đối chiếu câu hỏi với ${sourceName} theo 4 bước. Đề thi ${skillLabel}.
+
+QUY TẮC GỘP NHÓM (BẮT BUỘC):
+- Đây là ${list.length} câu hỏi DÙNG CHUNG một bộ ngữ cảnh/hình ảnh. Hãy giải từng câu ĐỘC LẬP với câu còn lại.
+- Trả về ĐÚNG ${list.length} phần tử trong mảng "explanations", mỗi phần tử có trường "number" là một trong các số câu: ${numbers.join(', ')}.
+- Không gộp câu, không bỏ sót câu, không thêm số câu khác.
+- VIẾT NGẮN GỌN (BẮT BUỘC): mỗi câu tối đa 6 "question_chunks", 3 "paraphrases", 2 "distractors", 4 "evidence_chunks"; "reasoning" tối đa 3 câu; KHÔNG lặp lại nội dung và KHÔNG liệt kê toàn bộ các lựa chọn. Tuyệt đối không lặp từ/câu vô nghĩa.
+
+${TYPE_INSTRUCTION[family]}
+${imageBlock}${noSourceBlock}${retryBlock}
+DANH SÁCH CÂU HỎI:
+${questionBlocks}
+
+${contextBlock}
+
+Trả về DUY NHẤT một JSON, không thêm chữ nào ngoài JSON. Phần giải thích viết bằng tiếng Việt, ngắn gọn, xưng "ta". Định dạng:
+${jsonFieldsInstruction}`
+}
+
+function buildBatchResponseSchema() {
+  const base = buildResponseSchema(null)
+  // Chặn model "lan man"/lặp từ vô hạn khi sinh nhiều câu trong một lần bằng
+  // giới hạn độ dài chuỗi (maxItems không được Gemini chấp nhận trong schema).
+  const itemProperties = {
+    number: { type: 'INTEGER' },
+    ...base.properties,
+    question_chunks: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          text: { type: 'STRING', maxLength: 200 },
+          label: { type: 'STRING', maxLength: 120 },
+        },
+        required: ['text', 'label'],
+      },
+    },
+    predict: { type: 'STRING', maxLength: 300 },
+    locate_note: { type: 'STRING', maxLength: 300 },
+    locate_keywords: { type: 'ARRAY', items: { type: 'STRING', maxLength: 200 } },
+    evidence_quote: { type: 'STRING', maxLength: 900 },
+    evidence_chunks: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          text: { type: 'STRING', maxLength: 200 },
+          label: { type: 'STRING', maxLength: 120 },
+        },
+        required: ['text', 'label'],
+      },
+    },
+    answer: { type: 'STRING', maxLength: 200 },
+    full_sentence: { type: 'STRING', maxLength: 400 },
+    translation: { type: 'STRING', maxLength: 600 },
+    reasoning: { type: 'STRING', maxLength: 1200 },
+    paraphrases: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          question: { type: 'STRING', maxLength: 200 },
+          question_label: { type: 'STRING', maxLength: 120 },
+          passage: { type: 'STRING', maxLength: 200 },
+          passage_label: { type: 'STRING', maxLength: 120 },
+        },
+        required: ['question', 'passage'],
+      },
+    },
+    distractors: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          option: { type: 'STRING', maxLength: 200 },
+          label: { type: 'STRING', maxLength: 120 },
+          reason: { type: 'STRING', maxLength: 300 },
+        },
+        required: ['option', 'reason'],
+      },
+    },
+  }
+  return {
+    type: 'OBJECT',
+    properties: {
+      explanations: {
+        type: 'ARRAY',
+        items: {
+          type: 'OBJECT',
+          properties: itemProperties,
+          required: ['number', ...base.required],
+        },
+      },
+    },
+    required: ['explanations'],
+  }
+}
+
 function rateLimitWaitMs(err) {
   if (err?.status == null && /connection|timeout|ECONNRESET|ETIMEDOUT|fetch failed/i.test(`${err?.name} ${err?.message}`)) return 5000
   if (err?.status !== 429) return null
@@ -713,7 +863,7 @@ function buildVisionUnavailableError() {
   return err
 }
 
-async function callAi(prompt, { questionType = null, rawOptions = null, model: customModel = null, maxRateLimitRetries = 6, isFixedMode = false, forceProvider = null, signal = null, images = [], requiresVision = false } = {}) {
+async function callAi(prompt, { questionType = null, rawOptions = null, model: customModel = null, maxRateLimitRetries = 6, isFixedMode = false, forceProvider = null, signal = null, images = [], requiresVision = false, responseSchema: customResponseSchema = null, maxTokens = 8192 } = {}) {
   const useGemini = process.env.GEMINI_API_KEY && (process.env.NODE_ENV !== 'test' || process.env.ENABLE_GEMINI_IN_TEST === 'true')
   const model = customModel || process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite'
   const hasImages = Array.isArray(images) && images.length > 0
@@ -734,7 +884,8 @@ async function callAi(prompt, { questionType = null, rawOptions = null, model: c
   }
 
   if (useGemini && typeof requestGeminiJson === 'function') {
-    const responseSchema = buildResponseSchema(questionType, rawOptions, { isFixedMode })
+    // Cho phép truyền schema riêng (vd. schema batch cho cả nhóm câu hỏi hình ảnh).
+    const responseSchema = customResponseSchema || buildResponseSchema(questionType, rawOptions, { isFixedMode })
     const maxGeminiAttempts = forceProvider === 'Gemini' ? 1 : 2
     for (let geminiAttempt = 0; geminiAttempt < maxGeminiAttempts; geminiAttempt++) {
       if (signal?.aborted) {
@@ -747,7 +898,7 @@ async function callAi(prompt, { questionType = null, rawOptions = null, model: c
           model,
           temperature: 0,
           responseSchema,
-          max_tokens: 8192,
+          max_tokens: maxTokens,
           withMetadata: true,
           images: Array.isArray(images) ? images : [],
           signal,
@@ -853,6 +1004,88 @@ async function generateExplanation(q, family, ctx, { teacherFeedback = null, isF
     }
   }
   return null
+}
+
+/**
+ * Giải thích cả một NHÓM câu hỏi dùng chung một hình ảnh bằng MỘT lần gọi Gemini.
+ * Trả về Map<number, explanation> chỉ chứa các câu AI trả về hợp lệ; câu thiếu/sai
+ * sẽ được nơi gọi fallback sang generateExplanation (gọi riêng từng câu).
+ */
+async function generateBatchExplanations(questions, family, ctx, { signal = null } = {}) {
+  const list = Array.isArray(questions) ? questions : []
+  if (!list.length) return new Map()
+
+  const imageUrls = Array.isArray(ctx?.images) ? ctx.images : []
+  let images = []
+  if (imageUrls.length) {
+    images = await resolveContextImages(imageUrls)
+    if (!images.length && family === IMAGE_FAMILY) {
+      throw new Error('Không tải được ảnh bản đồ/sơ đồ của nhóm câu hỏi nên không thể giải thích chính xác. Vui lòng kiểm tra lại ảnh của nhóm câu hỏi.')
+    }
+  }
+  const requiresVision = family === IMAGE_FAMILY
+  const responseSchema = buildBatchResponseSchema()
+
+  const byNumber = new Map()
+  let previousError = null
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (signal?.aborted) {
+      const err = new Error('Yêu cầu AI đã bị hủy')
+      err.name = 'AbortError'
+      throw err
+    }
+
+    // Lần đầu giải cả nhóm; nếu thiếu câu nào (AI bỏ sót hoặc sai định dạng) thì
+    // lần hai chỉ hỏi lại đúng những câu còn thiếu — tránh phải gọi riêng từng câu.
+    const remaining = list.filter(q => !byNumber.has(Number(q.number)))
+    if (!remaining.length) break
+    if (attempt > 0 && !previousError) {
+      previousError = `Thiếu kết quả cho ${remaining.map(q => `câu ${q.number}`).join(', ')}`
+    }
+    if (attempt > 0) {
+      console.log(`[BATCH_RETRY] Hỏi lại ${remaining.length} câu còn thiếu (${remaining.map(q => q.number).join(', ')}). Lý do: ${previousError || '(không rõ)'}`)
+    }
+
+    const prompt = buildBatchPrompt(remaining, family, ctx, previousError)
+    const aiResult = await callAi(prompt, {
+      responseSchema,
+      signal,
+      images,
+      requiresVision,
+      // Đủ cho ~5 câu × ~400 token; chặn trường hợp model lan man làm tràn token
+      // và kéo dài thời gian chờ (đã đo có lần sinh tới 7.7k token).
+      maxTokens: 4096,
+    })
+    const payload = aiResult?.data || aiResult
+    const rawItems = Array.isArray(payload?.explanations) ? payload.explanations : null
+
+    if (!rawItems) {
+      previousError = 'Thiếu mảng "explanations" trong JSON trả về'
+      continue
+    }
+
+    let validationError = null
+    for (const item of rawItems) {
+      const num = Number(item?.number)
+      if (!Number.isInteger(num)) continue
+      const q = remaining.find(x => Number(x.number) === num)
+      // Bỏ qua số câu lạ hoặc trùng lặp (giữ kết quả đầu tiên).
+      if (!q || byNumber.has(num)) continue
+      try {
+        const explanation = enrichExplanation(item, ctx, q.correctAnswer, family)
+        explanation.provider = aiResult?.provider || 'Gemini'
+        if (aiResult?.model) explanation.model = aiResult.model
+        if (aiResult?.isFallback) explanation.isFallback = true
+        byNumber.set(num, explanation)
+      } catch (err) {
+        if (!(err instanceof ExplanationValidationError)) throw err
+        validationError = `Câu ${num}: ${err.message}`
+      }
+    }
+    previousError = validationError || previousError
+  }
+
+  return byNumber
 }
 
 async function fetchQuestions({ limit, skill, ids }) {
@@ -1019,6 +1252,9 @@ module.exports = {
   findNoteSectionContext,
   buildContext,
   buildPrompt,
+  buildBatchPrompt,
+  buildBatchResponseSchema,
+  generateBatchExplanations,
   callGroq,
   callAi,
   generateExplanation,

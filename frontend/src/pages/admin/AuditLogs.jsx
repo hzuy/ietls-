@@ -148,9 +148,6 @@ export default function AuditLogs() {
               </span>
             )}
           </h1>
-          <p className="text-xs text-zinc-500 mt-1">
-            Theo dõi các thao tác quản trị đã thực hiện trong hệ thống
-          </p>
         </div>
 
         {entityId && (

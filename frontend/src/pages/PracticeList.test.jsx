@@ -49,7 +49,7 @@ describe('PracticeList — continue button & draft integration', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     mockCurrentUser = { id: 123, role: 'user' }
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => mockExams,
     })
@@ -123,5 +123,39 @@ describe('PracticeList — continue button & draft integration', () => {
     fireEvent.click(retakeBtn)
     expect(clearDraftSpy).toHaveBeenCalledWith(123, 1, 'practice-reading')
     expect(mockNavigate).toHaveBeenCalledWith('/practice/reading/1')
+  })
+
+  it('filters practice cards by title using the search field', async () => {
+    vi.spyOn(draftService, 'checkDraft').mockReturnValue({ hasDraft: false })
+
+    render(
+      <MemoryRouter>
+        <PracticeList skill="reading" />
+      </MemoryRouter>
+    )
+
+    const search = await screen.findByRole('searchbox', { name: 'Tìm bài luyện tập theo tên' })
+    fireEvent.change(search, { target: { value: 'kakapo' } })
+
+    expect(screen.getByText('The kakapo')).toBeInTheDocument()
+    expect(screen.queryByText('The history of tea')).not.toBeInTheDocument()
+    expect(screen.getByText('1 bài luyện tập')).toBeInTheDocument()
+  })
+
+  it('offers a clear-search action when no practice title matches', async () => {
+    vi.spyOn(draftService, 'checkDraft').mockReturnValue({ hasDraft: false })
+
+    render(
+      <MemoryRouter>
+        <PracticeList skill="listening" />
+      </MemoryRouter>
+    )
+
+    const search = await screen.findByRole('searchbox', { name: 'Tìm bài luyện tập theo tên' })
+    fireEvent.change(search, { target: { value: 'no matching title' } })
+
+    expect(screen.getByText('Không tìm thấy bài luyện tập phù hợp')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Xóa tìm kiếm' }))
+    expect(screen.getByText('The history of tea')).toBeInTheDocument()
   })
 })

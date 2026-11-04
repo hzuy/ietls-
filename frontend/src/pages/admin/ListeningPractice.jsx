@@ -1101,7 +1101,6 @@ export default function ListeningPractice() {
       <div className="p-6 max-w-6xl mx-auto">
         <AdminListHeader
           title="Listening Practice"
-          subtitle="Bài luyện nghe riêng lẻ — hiển thị trên trang chủ"
           onAdd={openAdd}
         />
 

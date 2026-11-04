@@ -147,7 +147,6 @@ function CambridgeTab({ initialSeriesList = [], onExamsChanged }) {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-sm font-semibold text-zinc-900">Quản lý IELTS Test</h3>
-              <p className="text-xs text-zinc-500 mt-1">Quản lý các bộ đề và cuốn sách IELTS</p>
             </div>
             <button
               onClick={() => setShowAdd(v => !v)}

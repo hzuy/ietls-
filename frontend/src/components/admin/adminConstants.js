@@ -305,13 +305,6 @@ export const emptyListeningForm = () => ({
   }))
 })
 
-export const SECTION_HINTS = {
-  1: 'Hội thoại 2 người — ngữ cảnh xã hội thường ngày (đặt phòng, mua sắm,...)',
-  2: 'Độc thoại — ngữ cảnh xã hội (giới thiệu tour, thông báo,...)',
-  3: 'Hội thoại học thuật — tối đa 4 người (thảo luận seminar, bài tập,...)',
-  4: 'Độc thoại học thuật — bài giảng, thuyết trình về chủ đề học thuật',
-}
-
 export const GROUP_TYPES = [
   { value: 'note_completion', label: 'Note / Form Completion' },
   { value: 'table_completion', label: 'Table Completion' },

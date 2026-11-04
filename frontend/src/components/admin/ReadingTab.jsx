@@ -782,7 +782,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         setForm(prev => mergeExamExplanations(prev, fresh.data, resolveChoices))
         pristineExplanationsRef.current = extractExplanationsMap(fresh.data)
       }
-    } catch {}
+    } catch { /* Fresh data is best-effort; retain the current form on refresh failure. */ }
 
     onRefresh()
 

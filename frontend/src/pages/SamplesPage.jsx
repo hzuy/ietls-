@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
+import { Search, ChevronLeft, ChevronRight } from 'lucide-react'
 import Breadcrumb from '../components/common/Breadcrumb'
 import ContentCard from '../components/common/ContentCard'
 import AcademicCover from '../components/common/AcademicCover'
@@ -31,6 +32,8 @@ const PAGE_META = {
   },
 }
 
+const PAGE_SIZE = 12
+
 function FilterBtn({ active, onClick, children }) {
   return (
     <button
@@ -55,47 +58,71 @@ export default function SamplesPage({ skill }) {
     [cfg]
   )
 
-  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [samples, setSamples] = useState([])
+  const [examTypes, setExamTypes] = useState([])
+  const [pagination, setPagination] = useState({ page: 1, pageSize: PAGE_SIZE, total: 0, totalPages: 0 })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
   const selectedLevel = searchParams.get(meta.paramKey) || ''
   const selectedType = searchParams.get('type') || ''
+  const page = Math.max(1, Number.parseInt(searchParams.get('page') || '1', 10) || 1)
+  const searchQuery = searchParams.get('q') || ''
+  const [searchValue, setSearchValue] = useState(searchQuery)
+
+  useEffect(() => setSearchValue(searchQuery), [searchQuery])
+
+  useEffect(() => {
+    if (searchValue === searchQuery) return undefined
+    const timer = window.setTimeout(() => {
+      const next = new URLSearchParams(searchParams)
+      if (searchValue.trim()) next.set('q', searchValue.trim())
+      else next.delete('q')
+      next.delete('page')
+      setSearchParams(next)
+    }, 250)
+    return () => window.clearTimeout(timer)
+  }, [searchValue, searchQuery, searchParams, setSearchParams])
 
   useEffect(() => {
     document.title = meta.title
     setSamples([])
     setLoading(true)
     setError(false)
-    fetch(API_BASE + `/samples/${skill}?limit=0`)
+    const controller = new AbortController()
+    const query = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
+    if (searchQuery) query.set('search', searchQuery)
+    if (selectedLevel) query.set('level', selectedLevel)
+    if (selectedType) query.set('type', selectedType)
+    fetch(`${API_BASE}/samples/${skill}?${query}`, { signal: controller.signal })
       .then(r => {
         if (!r.ok) throw new Error('API Error')
         return r.json()
       })
-      .then(data => { setSamples(data); setLoading(false) })
-      .catch(() => { setError(true); setLoading(false) })
-  }, [skill, meta.title])
-
-  const examTypes = useMemo(() => {
-    const set = new Set(samples.map(s => s.examType).filter(Boolean))
-    return [...set].sort()
-  }, [samples])
-
-  const filtered = useMemo(() => {
-    return samples.filter(s => {
-      if (selectedLevel && s.level !== selectedLevel) return false
-      if (selectedType && s.examType !== selectedType) return false
-      return true
-    })
-  }, [samples, selectedLevel, selectedType])
+      .then(data => { setSamples(data.items || []); setExamTypes(data.examTypes || []); setPagination(data.pagination || { page: 1, total: data.length, totalPages: 1 }); setLoading(false) })
+      .catch(err => { if (err.name !== 'AbortError') { setError(true); setLoading(false) } })
+    return () => controller.abort()
+  }, [skill, meta.title, page, searchQuery, selectedLevel, selectedType])
 
   const setFilter = (key, value) => {
     const next = new URLSearchParams(searchParams)
     if (value) next.set(key, value)
     else next.delete(key)
+    next.delete('page')
     setSearchParams(next)
+  }
+
+  const setPage = value => {
+    const next = new URLSearchParams(searchParams)
+    if (value > 1) next.set('page', String(value))
+    else next.delete('page')
+    setSearchParams(next)
+  }
+
+  const clearFilters = () => {
+    setSearchValue('')
+    setSearchParams(new URLSearchParams())
   }
 
   return (
@@ -140,22 +167,26 @@ export default function SamplesPage({ skill }) {
 
         {/* Grid */}
         <main className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-6 flex-wrap">
-            <span className="text-[14px] text-zinc-600 mr-2 flex items-center">
-              {loading ? <div className="h-4 w-20 bg-zinc-200 animate-pulse rounded" /> : `${filtered.length} bài mẫu`}
+          <div className="flex flex-col sm:flex-row gap-3 mb-5">
+            <label className="relative flex-1">
+            <Search aria-hidden="true" className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              <input
+                type="search"
+                name="sample-search"
+                autoComplete="off"
+                value={searchValue}
+                onChange={e => setSearchValue(e.target.value)}
+                placeholder={`Tìm bài mẫu ${skill === 'writing' ? 'Writing' : 'Speaking'}…`}
+                aria-label="Tìm bài mẫu theo tiêu đề"
+                className="w-full min-h-11 rounded-xl border border-zinc-200 bg-white pl-10 pr-3 text-sm text-zinc-800 outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
+              />
+            </label>
+          </div>
+
+          <div className="mb-5">
+            <span className="text-[14px] text-zinc-600 flex items-center" aria-live="polite">
+              {loading ? <div className="h-4 w-20 bg-zinc-200 animate-pulse rounded" /> : `${pagination.total} bài mẫu`}
             </span>
-            {selectedLevel && (
-              <span
-                className="text-[12px] font-semibold px-3 py-1 rounded-full bg-zinc-100 text-zinc-900 border border-zinc-200 cursor-pointer hover:bg-zinc-200 transition-colors"
-                onClick={() => setFilter(meta.paramKey, '')}
-              >{cfg.levelLabels[selectedLevel] || cfg.levelFallback} ×</span>
-            )}
-            {selectedType && (
-              <span
-                className="text-[12px] font-semibold px-3 py-1 rounded-full bg-zinc-100 text-zinc-700 border border-zinc-200 cursor-pointer hover:bg-zinc-200 transition-colors"
-                onClick={() => setFilter('type', '')}
-              >{selectedType} ×</span>
-            )}
           </div>
 
           {loading ? (
@@ -169,21 +200,22 @@ export default function SamplesPage({ skill }) {
               <p className="text-sm text-zinc-500 mb-6 max-w-sm">Đã xảy ra sự cố khi kết nối tới máy chủ. Vui lòng thử lại.</p>
               <PillButton onClick={() => window.location.reload()}>Thử lại</PillButton>
             </Card>
-          ) : filtered.length === 0 ? (
+          ) : samples.length === 0 ? (
             <Card className="text-center py-16 px-6 flex flex-col items-center">
               <div className="w-16 h-16 rounded-full bg-zinc-50 border border-zinc-200 flex items-center justify-center mb-6 text-zinc-400">
                 <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
               </div>
               <p className="text-lg font-bold text-zinc-900 mb-2">Không tìm thấy bài mẫu phù hợp</p>
-              <p className="text-sm text-zinc-500 mb-6 max-w-sm">Hãy thử thay đổi từ khóa hoặc lựa chọn dạng bài khác.</p>
-              <PillButton variant="secondary" onClick={() => setSearchParams(new URLSearchParams())}>Xóa bộ lọc</PillButton>
+              <p className="text-sm text-zinc-500 mb-6 max-w-sm">Thử từ khóa khác hoặc bỏ bớt bộ lọc để xem thêm bài mẫu.</p>
+              <PillButton variant="secondary" onClick={clearFilters}>Xóa bộ lọc</PillButton>
             </Card>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filtered.map((item, i) => (
+              {samples.map((item, i) => (
                 <div key={item.id} className={`anim-fade-up delay-${Math.min(i + 1, 8)}`}>
                   <ContentCard
                     className="h-full"
+                    to={`/samples/${skill}/${item.id}`}
                     image={resolveImg(item.thumbnailUrl)}
                     imageAlt={item.title}
                     academicCover={
@@ -197,11 +229,22 @@ export default function SamplesPage({ skill }) {
                     title={item.title}
                     meta={{ type: 'chips', chips: buildSampleChips(skill, item) }}
                     hoverStyle="subtle"
-                    onClick={() => navigate(`/samples/${skill}/${item.id}`)}
                   />
                 </div>
               ))}
             </div>
+          )}
+
+          {!loading && !error && pagination.totalPages > 1 && (
+            <nav aria-label="Phân trang bài mẫu" className="mt-8 flex items-center justify-between gap-3">
+              <button type="button" onClick={() => setPage(page - 1)} disabled={page <= 1} className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700 disabled:cursor-not-allowed disabled:opacity-40">
+                <ChevronLeft className="h-4 w-4" /> Trước
+              </button>
+              <span className="text-sm text-zinc-600" aria-live="polite">Trang {page} / {pagination.totalPages}</span>
+              <button type="button" onClick={() => setPage(page + 1)} disabled={page >= pagination.totalPages} className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700 disabled:cursor-not-allowed disabled:opacity-40">
+                Sau <ChevronRight className="h-4 w-4" />
+              </button>
+            </nav>
           )}
         </main>
       </div>

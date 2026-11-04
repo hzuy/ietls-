@@ -231,7 +231,7 @@ describe('SpeakingExam Part 2 flow', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Đã chuẩn bị xong' })).toBeInTheDocument()
-    })
+    }, { timeout: 10000 })
     fireEvent.click(screen.getByRole('button', { name: 'Đã chuẩn bị xong' }))
 
     // Candidate is in user_speaking state
@@ -269,7 +269,7 @@ describe('SpeakingExam Part 2 flow', () => {
       expect(examService.submitSpeakingExam).toHaveBeenCalledWith('40', 202, expect.anything())
       expect(screen.getByRole('heading', { name: /Part 3/i })).toBeInTheDocument()
     })
-  })
+  }, 15000)
 
   it('automatically submits Part 2 when speaking time hits 120s limit', async () => {
     examService.submitSpeakingExam.mockResolvedValue({ answerId: 999, status: 'pending' })

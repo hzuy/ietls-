@@ -3,6 +3,8 @@ const {
   classifyFamily,
   buildContext,
   generateExplanation,
+  generateBatchExplanations,
+  IMAGE_FAMILY,
   normalizeText,
   cleanString,
   splitParagraphs,
@@ -19,6 +21,7 @@ const { invalidateExamCaches } = require('../utils/cache')
 const DEFAULT_TIME_BUDGET_MS = parseInt(process.env.EXPLANATION_TIME_BUDGET_MS, 10) || 40000
 const MAX_REQUEST_HARD_TIMEOUT_MS = 48000 // Trần cứng: không bao giờ để một request vượt 48s (< 50s và < 60s Nginx)
 const SINGLE_QUESTION_TIMEOUT_MS = 20000 // Timeout cứng cho MỖI lần xử lý 1 câu (kể cả retry/backoff)
+const BATCH_QUESTION_TIMEOUT_MS = 30000 // Gộp cả nhóm câu hình ảnh vào 1 lần gọi: cho phép lâu hơn 1 câu, vẫn nằm trong ngân sách request
 const MIN_REMAINING_FOR_NEXT_CALL_MS = 14000 // Trước khi bắt đầu câu mới, cần ít nhất 14s (đủ cho 1 lần gọi đầy đủ)
 
 function withTimeout(promiseOrFactory, timeoutMs, timeoutErrorMessage = 'Quá thời gian xử lý AI cho câu hỏi này', onCancel = null, externalSignal = null) {
@@ -1430,6 +1433,54 @@ async function generateForExam(examId, {
   const updates = []
   let generatedCount = 0
 
+  // Tối ưu tốc độ: các câu cùng một nhóm hình ảnh (bản đồ/sơ đồ) được gộp vào
+  // MỘT lần gọi Gemini vision thay vì gọi tuần tự từng câu. Mỗi lần gọi Gemini
+  // phải chờ rate limiter (~5s/lần với 12 RPM), nên gộp 5 câu giảm ~40s → ~6-15s.
+  // Câu nào không gộp được (lỗi, thiếu kết quả, giáo viên chọn giữ đáp án) sẽ
+  // quay lại gọi riêng trong vòng lặp bên dưới.
+  const batchExplanations = new Map()
+  const imageGroups = new Map()
+  for (const item of candidateQuestions) {
+    if (resolveChoices[item.q.number]) continue
+    if (item.family !== IMAGE_FAMILY) continue
+    const imageKey = item.q.group?.imageUrl || item.q.imageUrl || ''
+    if (!imageKey) continue
+    if (!imageGroups.has(imageKey)) imageGroups.set(imageKey, [])
+    imageGroups.get(imageKey).push(item)
+  }
+
+  for (const items of imageGroups.values()) {
+    if (items.length < 2) continue
+    if (signal?.aborted) break
+
+    const elapsedBeforeBatch = Date.now() - startTime
+    const remainingForBatch = effectiveTimeBudget - elapsedBeforeBatch
+    const numbers = items.map(i => i.q.number)
+    if (remainingForBatch < MIN_REMAINING_FOR_NEXT_CALL_MS) {
+      console.log(`[TIME_BUDGET] Exam #${examId}: còn ${remainingForBatch}ms, không đủ để gộp nhóm câu ${numbers.join(', ')}. Sẽ gọi riêng/lượt sau.`)
+      continue
+    }
+
+    const family = items[0].family
+    const ctx = buildContext(items[0].q, family)
+    const batchTimeoutMs = Math.min(BATCH_QUESTION_TIMEOUT_MS, remainingForBatch)
+    const batchStartedAt = Date.now()
+    try {
+      const batchResult = await withTimeout(
+        (timeoutSignal) => generateBatchExplanations(items.map(i => i.q), family, ctx, { signal: timeoutSignal }),
+        batchTimeoutMs,
+        `Hết thời gian xử lý AI (${batchTimeoutMs}ms) cho nhóm câu #${numbers.join(', #')}`,
+        null,
+        signal
+      )
+      for (const [num, exp] of batchResult) batchExplanations.set(num, exp)
+      console.log(`[BATCH] Exam #${examId}: gộp ${batchResult.size}/${items.length} câu (${numbers.join(', ')}) trong ${Date.now() - batchStartedAt}ms.`)
+    } catch (err) {
+      if (err.name === 'AbortError' || signal?.aborted) break
+      console.warn(`[BATCH] Exam #${examId}: gộp nhóm câu ${numbers.join(', ')} thất bại (${err.message}). Sẽ gọi riêng từng câu.`)
+    }
+  }
+
   for (const { q, family } of candidateQuestions) {
     // Client đã ngắt kết nối (đóng tab / bấm Hủy / chuyển trang) -> dừng ngay,
     // không gọi AI và không ghi thêm dữ liệu "ma" vào DB.
@@ -1439,9 +1490,11 @@ async function generateForExam(examId, {
     }
 
     // 3.1: Kiểm tra thời gian còn lại đủ cho một lần gọi đầy đủ (kể cả backoff tối đa)
+    // Câu đã có sẵn kết quả gộp nhóm thì không cần gọi AI nữa -> không cần chặn theo ngân sách.
     const elapsedBeforeItem = Date.now() - startTime
     const remainingTime = effectiveTimeBudget - elapsedBeforeItem
-    if (generatedCount > 0 && remainingTime < MIN_REMAINING_FOR_NEXT_CALL_MS) {
+    const hasPrecomputed = batchExplanations.has(q.number)
+    if (!hasPrecomputed && generatedCount > 0 && remainingTime < MIN_REMAINING_FOR_NEXT_CALL_MS) {
       console.log(`[TIME_BUDGET] Exam #${examId}: Đã chạy ${elapsedBeforeItem}ms, thời gian còn lại ${remainingTime}ms không đủ cho một lần gọi đầy đủ (cần >= ${MIN_REMAINING_FOR_NEXT_CALL_MS}ms). Ngắt lượt để trả về client gọi tiếp.`)
       break
     }
@@ -1487,11 +1540,16 @@ async function generateForExam(examId, {
           `Hết thời gian xử lý AI (${SINGLE_QUESTION_TIMEOUT_MS}ms) cho câu #${q.number}`
         )
       } else {
-        explanation = await withTimeout(
-          generateExplanation(q, family, ctx, { signal }),
-          SINGLE_QUESTION_TIMEOUT_MS,
-          `Hết thời gian xử lý AI (${SINGLE_QUESTION_TIMEOUT_MS}ms) cho câu #${q.number}`
-        )
+        const precomputed = batchExplanations.get(q.number)
+        if (precomputed) {
+          explanation = precomputed
+        } else {
+          explanation = await withTimeout(
+            generateExplanation(q, family, ctx, { signal }),
+            SINGLE_QUESTION_TIMEOUT_MS,
+            `Hết thời gian xử lý AI (${SINGLE_QUESTION_TIMEOUT_MS}ms) cho câu #${q.number}`
+          )
+        }
       }
     } catch (err) {
       if (err.isTimeout || err.code === 'ETIMEDOUT') {

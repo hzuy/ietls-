@@ -81,6 +81,42 @@ function getSampleListCached(skill, limit) {
   )
 }
 
+async function listSamplePage(skill, { page = 1, pageSize = 12, search = '', level = '', examType = '', sort = 'newest' } = {}) {
+  const model = skill === 'writing' ? prisma.writingSample : prisma.speakingSample
+  const where = {
+    deletedAt: null,
+    ...(level ? { level } : {}),
+    ...(examType ? { examType } : {}),
+    ...(search ? { title: { contains: search, mode: 'insensitive' } } : {}),
+  }
+  const orderBy = sort === 'title-asc'
+    ? [{ title: 'asc' }, { id: 'desc' }]
+    : sort === 'title-desc'
+      ? [{ title: 'desc' }, { id: 'desc' }]
+      : [{ createdAt: 'desc' }, { id: 'desc' }]
+  const [rows, total, typeRows] = await Promise.all([
+    model.findMany({
+      where,
+      orderBy,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: { id: true, title: true, level: true, examType: true, thumbnailUrl: true, tags: true, createdAt: true },
+    }),
+    model.count({ where }),
+    model.findMany({ where: { deletedAt: null }, distinct: ['examType'], select: { examType: true } }),
+  ])
+  return {
+    items: rows.map(r => ({ ...r, tags: r.tags ? JSON.parse(r.tags) : [] })),
+    pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
+    examTypes: typeRows.map(row => row.examType).filter(Boolean).sort((a, b) => a.localeCompare(b)),
+  }
+}
+
+function getSamplePageCached(skill, options) {
+  const key = `samples:page:${skill}:${JSON.stringify(options)}`
+  return getOrRevalidate(key, () => listSamplePage(skill, options), PUBLIC_LIST_TTL)
+}
+
 // ─── Full-tests (grouped by seriesId + bookNumber + testNumber) ───────────────
 async function buildFullTests() {
   const [exams, covers, series] = await Promise.all([
@@ -146,6 +182,8 @@ module.exports = {
   getPracticeListCached,
   listSamples,
   getSampleListCached,
+  listSamplePage,
+  getSamplePageCached,
   buildFullTests,
   getFullTestsCached,
 }

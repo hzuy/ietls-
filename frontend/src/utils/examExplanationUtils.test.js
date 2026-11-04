@@ -521,5 +521,6 @@ describe('examExplanationUtils', () => {
       expect(stats.isFullyExplained).toBe(false)
       expect(stats.hasAttention).toBe(false)
     })
+
   })
 })

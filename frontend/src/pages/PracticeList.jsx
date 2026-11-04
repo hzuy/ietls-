@@ -1,17 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import Breadcrumb from '../components/common/Breadcrumb'
 import ContentCard from '../components/common/ContentCard'
 import Card from '../components/common/Card'
-import PageHeader from '../components/common/PageHeader'
 import PillButton from '../components/common/PillButton'
 import AcademicCover from '../components/common/AcademicCover'
 import { UserCardGridSkeleton } from '../components/skeletons'
 import { CONTENT_CARD_CONFIG } from '../components/common/contentCardConfig'
 import { getTypesBySkill } from '../utils/questionTypes'
 import { API_BASE, resolveImg } from '../utils/media'
-import { History, ArrowRight, Feather, Headphones, PauseCircle, RotateCcw } from 'lucide-react'
+import { History, ArrowRight, Feather, Headphones, PauseCircle, RotateCcw, Search } from 'lucide-react'
 import { handleImgError } from '../utils/media'
 import { useAuth } from '../context/AuthContext'
 import { getPracticeAttempts } from '../services/practiceService'
@@ -49,6 +48,7 @@ export default function PracticeList({ skill: skillKey }) {
   const { user } = useAuth()
   const [draftInfo, setDraftInfo] = useState({})
   const [historyFor, setHistoryFor] = useState(null)
+  const [searchValue, setSearchValue] = useState('')
   const isLearner = user?.role === 'user'
 
   const examsQuery = useQuery({
@@ -95,12 +95,19 @@ export default function PracticeList({ skill: skillKey }) {
     document.title = 'Luyện tập Kỹ năng | IELTS Pro'
   }, [])
 
+  const filteredExams = useMemo(() => {
+    const query = searchValue.trim().toLocaleLowerCase()
+    return query
+      ? exams.filter(exam => (exam.title || '').toLocaleLowerCase().includes(query))
+      : exams
+  }, [exams, searchValue])
+
   const groupedExams = availableTypes.map(type => ({
     ...type,
-    items: exams.filter(e => e.type === type.key)
+    items: filteredExams.filter(e => e.type === type.key)
   })).filter(group => group.items.length > 0)
 
-  const otherExams = exams.filter(e => !availableTypes.some(t => t.key === e.type))
+  const otherExams = filteredExams.filter(e => !availableTypes.some(t => t.key === e.type))
 
   const handleRetakePractice = (item) => {
     const skillType = skill === 'reading' ? 'practice-reading' : 'practice-listening'
@@ -245,11 +252,28 @@ export default function PracticeList({ skill: skillKey }) {
       {/* Breadcrumb */}
       <div className="app-container pt-4 pb-0">
         <Breadcrumb items={[{ label: 'Trang chủ', to: '/' }, { label: meta?.label || 'Reading Practice' }]} />
-        <PageHeader title={meta?.label || 'Reading Practice'} titleClassName="text-2xl font-bold mt-3 text-zinc-900" />
       </div>
 
       {/* Content */}
-      <div className="app-container pt-4 pb-16 flex flex-col gap-12">
+      <div className="app-container pt-4 pb-16 flex flex-col gap-8">
+        {!loading && !error && exams.length > 0 && (
+          <div className="space-y-3">
+            <label className="relative block max-w-2xl">
+              <Search aria-hidden="true" className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+              <input
+                type="search"
+                name="practice-search"
+                autoComplete="off"
+                value={searchValue}
+                onChange={event => setSearchValue(event.target.value)}
+                placeholder={`Tìm bài luyện tập ${skill === 'reading' ? 'Reading' : 'Listening'}…`}
+                aria-label="Tìm bài luyện tập theo tên"
+                className="min-h-11 w-full rounded-xl border border-zinc-200 bg-white pl-10 pr-3 text-sm text-zinc-800 outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
+              />
+            </label>
+            <p className="text-sm text-zinc-600" aria-live="polite">{filteredExams.length} bài luyện tập</p>
+          </div>
+        )}
         {loading ? (
           <UserCardGridSkeleton aspect="160px" count={8} />
         ) : error ? (
@@ -269,6 +293,12 @@ export default function PracticeList({ skill: skillKey }) {
             <p className="text-lg font-bold text-zinc-900 mb-2">Không tìm thấy bài luyện tập</p>
             <p className="text-zinc-500 mb-6 max-w-sm text-sm">Hãy thử lựa chọn cấp độ hoặc kỹ năng khác.</p>
             <PillButton onClick={() => navigate('/')}>Về trang chủ</PillButton>
+          </Card>
+        ) : filteredExams.length === 0 ? (
+          <Card className="text-center py-16 px-6 flex flex-col items-center">
+            <p className="text-lg font-bold text-zinc-900 mb-2">Không tìm thấy bài luyện tập phù hợp</p>
+            <p className="text-zinc-500 mb-5 max-w-sm text-sm">Thử một từ khóa khác để tìm bài luyện tập.</p>
+            <PillButton variant="secondary" onClick={() => setSearchValue('')}>Xóa tìm kiếm</PillButton>
           </Card>
         ) : (
           <>
@@ -296,7 +326,7 @@ export default function PracticeList({ skill: skillKey }) {
               </>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
-                {exams.map((item, idx) => renderCard(item, idx))}
+                {filteredExams.map((item, idx) => renderCard(item, idx))}
               </div>
             )}
           </>

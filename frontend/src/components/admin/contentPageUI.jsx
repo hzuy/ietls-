@@ -150,13 +150,10 @@ export function DraftSavedHint({ at }) {
 }
 
 // ─── Header danh sách (h1 + mô tả + nút "+ Thêm mới") ────────────────────────
-export function AdminListHeader({ title, subtitle, onAdd, addLabel = '+ Thêm mới', children }) {
+export function AdminListHeader({ title, onAdd, addLabel = '+ Thêm mới', children }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-      <div>
-        <h1 className="text-xl font-semibold text-zinc-900 dark:text-slate-100 tracking-tight">{title}</h1>
-        {subtitle && <p className="text-xs text-zinc-500 dark:text-slate-400 mt-1">{subtitle}</p>}
-      </div>
+      <h1 className="text-xl font-semibold text-zinc-900 dark:text-slate-100 tracking-tight">{title}</h1>
       {(onAdd || children) && (
         <div className="flex items-center gap-3 flex-wrap">
           {children}

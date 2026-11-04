@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { AlertCircle, RefreshCw, FileQuestion } from 'lucide-react'
+import { useParams } from 'react-router-dom'
+import { AlertCircle, RefreshCw, FileQuestion, Sparkles, LoaderCircle } from 'lucide-react'
 
 import Card from '../components/common/Card'
 import PillButton from '../components/common/PillButton'
@@ -8,15 +8,20 @@ import { SkeletonText } from '../components/skeletons'
 import SampleHeader from '../components/SampleHeader'
 import { getSample } from '../services/sampleService'
 import { sanitizeRichText } from '../utils/sanitizeHtml'
+import { getSpeakingSampleAnswer } from '../services/examService'
+import { useAuth } from '../context/AuthContext'
 
 const TASK_LABELS = { task1: 'Task 1', task2: 'Task 2', task3: 'Task 3' }
 
 export default function SampleDetailPage({ skill }) {
   const { id } = useParams()
-  const navigate = useNavigate()
   const [sample, setSample] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [answers, setAnswers] = useState({})
+  const [answerLoading, setAnswerLoading] = useState({})
+  const [answerErrors, setAnswerErrors] = useState({})
+  const { user, openAuthModal } = useAuth()
 
   const fetchSample = useCallback(() => {
     setLoading(true)
@@ -35,8 +40,6 @@ export default function SampleDetailPage({ skill }) {
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
       <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '32px 24px' }}>
         {/* Nút quay lại */}
-        <div className="h-5 w-36 bg-zinc-200/80 rounded-full animate-pulse mb-6" />
-
         <Card className="p-8 md:p-12">
           <div style={{ maxWidth: '900px', margin: '0 auto' }} className="space-y-6">
             {/* Header bài mẫu: Tag pill, Title, Meta */}
@@ -82,35 +85,29 @@ export default function SampleDetailPage({ skill }) {
   )
 
   const taskLabel = TASK_LABELS[sample.level] || null
+  const handleGetAnswer = async (question, partNumber) => {
+    if (!user) {
+      openAuthModal('login')
+      return
+    }
+    setAnswerLoading(current => ({ ...current, [question.id]: true }))
+    setAnswerErrors(current => ({ ...current, [question.id]: '' }))
+    try {
+      const result = await getSpeakingSampleAnswer({ questionText: question.questionText, partNumber })
+      setAnswers(current => ({ ...current, [question.id]: result }))
+    } catch {
+      setAnswerErrors(current => ({ ...current, [question.id]: 'Chưa tạo được gợi ý. Vui lòng thử lại.' }))
+    } finally {
+      setAnswerLoading(current => ({ ...current, [question.id]: false }))
+    }
+  }
   // Tags đã bỏ khỏi luồng soạn Writing/Speaking Sample → không hiển thị nữa.
   // Dữ liệu tags cũ vẫn còn trong DB, chỉ không render.
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
       <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '32px 24px' }}>
-        {/* Back */}
-        <button
-          onClick={() => navigate(-1)}
-          style={{
-            fontSize: 14,
-            fontWeight: 600,
-            color: 'var(--muted)',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: '12px 0',
-            margin: '-12px 0 12px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6
-          }}
-          onMouseEnter={e => e.target.style.color = 'var(--primary)'}
-          onMouseLeave={e => e.target.style.color = 'var(--muted)'}
-        >
-          ← Quay lại danh sách
-        </button>
-
-        <Card className="p-8 md:p-12">
+        <Card className="p-5 md:p-10">
 
           <div style={{ maxWidth: '900px', margin: '0 auto' }}>
 
@@ -126,37 +123,67 @@ export default function SampleDetailPage({ skill }) {
             <div style={{ borderTop: '2px solid var(--border-soft)', marginBottom: 32 }} />
 
             {/* Content */}
-            {sample.content ? (
+            {sample.content && (
               <div
                 className="rich-content"
                 dangerouslySetInnerHTML={{ __html: sanitizeRichText(sample.content) }}
                 style={{ fontSize: 17, lineHeight: 1.8, color: 'var(--text)' }}
               />
-            ) : skill === 'speaking' && sample.parts?.length > 0 ? (
+            )}
+            {skill === 'speaking' && sample.parts?.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                 {sample.parts.map(part => (
-                  <div key={part.id} style={{ background: 'var(--surface-raised)', borderRadius: '1rem', border: '1px solid var(--border-soft)', padding: '20px 24px' }}>
-                    <div style={{ marginBottom: 14 }}>
-                      <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>
-                        {part.title || `Part ${part.partNumber}`}
-                      </span>
-                      {part.description && (
-                        <p style={{ fontSize: 14, color: 'var(--muted)', margin: '4px 0 0' }}>{part.description}</p>
-                      )}
+                  <section key={part.id} aria-labelledby={`speaking-part-${part.id}`} className="rounded-2xl border border-zinc-200 bg-white p-5 md:p-6">
+                    <div className="mb-5 border-b border-zinc-100 pb-4">
+                      <span className="mb-2 inline-flex rounded-full bg-violet-50 px-2.5 py-1 text-xs font-bold text-violet-700">Part {part.partNumber}</span>
+                      <h2 id={`speaking-part-${part.id}`} className="m-0 text-lg font-bold text-zinc-900">{part.title || `Speaking Part ${part.partNumber}`}</h2>
+                      {part.description && <p className="mb-0 mt-2 text-sm leading-6 text-zinc-600">{part.description}</p>}
                     </div>
                     {part.questions?.length > 0 && (
-                      <ol style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        {part.questions.map((q) => (
-                          <li key={q.id} style={{ fontSize: 15, color: 'var(--text)', lineHeight: 1.6 }}>
-                            {q.questionText}
+                      <ol className="m-0 flex list-none flex-col gap-4 p-0">
+                        {part.questions.map((q, index) => (
+                          <li key={q.id} className="rounded-xl bg-zinc-50 p-4">
+                            <div className="flex items-start gap-3">
+                              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-xs font-bold text-zinc-500 ring-1 ring-zinc-200">{index + 1}</span>
+                              <div className="min-w-0 flex-1">
+                                <p className="mb-3 mt-0 text-[15px] font-semibold leading-6 text-zinc-800">{q.questionText}</p>
+                                {answers[q.id] ? (
+                                  <div className="space-y-3 border-t border-zinc-200 pt-3">
+                                    <div>
+                                      <p className="mb-1 text-xs font-bold uppercase tracking-wide text-violet-700">Gợi ý trả lời Band 7.5–8.0</p>
+                                      <p className="m-0 whitespace-pre-line text-sm leading-6 text-zinc-700">{answers[q.id].sampleAnswer}</p>
+                                    </div>
+                                    {answers[q.id].keyVocabulary?.length > 0 && (
+                                      <div>
+                                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-zinc-500">Từ vựng hữu ích</p>
+                                        <div className="flex flex-wrap gap-2">
+                                          {answers[q.id].keyVocabulary.map((item, vocabIndex) => (
+                                            <span key={`${item.phrase || item.word || item}-${vocabIndex}`} title={item.meaning || item.definition || ''} className="rounded-full border border-violet-100 bg-white px-2.5 py-1 text-xs text-violet-800">{item.phrase || item.word || item}</span>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <>
+                                    <button type="button" onClick={() => handleGetAnswer(q, part.partNumber)} disabled={!!answerLoading[q.id]} className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-violet-200 bg-white px-3 text-xs font-semibold text-violet-800 transition hover:bg-violet-50 disabled:cursor-wait disabled:opacity-60">
+                                      {answerLoading[q.id] ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                                      {answerLoading[q.id] ? 'Đang tạo gợi ý…' : 'Xem gợi ý trả lời & từ vựng'}
+                                    </button>
+                                    {answerErrors[q.id] && <p role="alert" className="mb-0 mt-2 text-xs text-red-600">{answerErrors[q.id]}</p>}
+                                  </>
+                                )}
+                              </div>
+                            </div>
                           </li>
                         ))}
                       </ol>
                     )}
-                  </div>
+                  </section>
                 ))}
               </div>
-            ) : (
+            )}
+            {!sample.content && !(skill === 'speaking' && sample.parts?.length > 0) && (
               <div style={{ padding: '40px 0', textAlign: 'center' }}>
                 <p style={{ color: 'var(--subtle)', fontSize: 16, fontStyle: 'italic' }}>Nội dung bài mẫu đang được cập nhật...</p>
               </div>
@@ -167,6 +194,7 @@ export default function SampleDetailPage({ skill }) {
 
       <style>{`
         .rich-content { overflow-wrap: anywhere; }
+        .rich-content { max-width: 78ch; margin-inline: auto; }
         .rich-content h1 { font-size: 1.75rem; font-weight: 900; color: var(--ink); margin: 1.5em 0 0.6em; line-height: 1.3; }
         .rich-content h2 { font-size: 1.5rem; font-weight: 800; color: var(--ink); margin: 1.4em 0 0.5em; line-height: 1.3; }
         .rich-content h3 { font-size: 1.25rem; font-weight: 700; color: var(--ink); margin: 1.3em 0 0.5em; line-height: 1.3; }

@@ -82,6 +82,9 @@ const {
   ExplanationValidationError,
   callAi,
   generateExplanation,
+  buildBatchPrompt,
+  buildBatchResponseSchema,
+  generateBatchExplanations,
   isVietnameseTranslation,
 } = mod
 
@@ -445,6 +448,132 @@ describe('vision — gửi ảnh bản đồ/sơ đồ cho Gemini', () => {
       forceProvider: 'Groq',
     })).rejects.toMatchObject({ code: 'VISION_PROVIDER_UNAVAILABLE' })
     expect(groqCreateMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('batch — gộp nhóm câu hình ảnh vào một lần gọi Gemini', () => {
+  const IMAGE_DATA_URI = 'data:image/png;base64,AAAA'
+  const IMAGE_CTX = {
+    skill: 'listening',
+    parts: [{ label: 'TRANSCRIPT (BÀI NGHE)', text: 'The shop is in the old stables. The cafe is next to the car park.' }],
+    sourceText: 'The shop is in the old stables. The cafe is next to the car park.',
+    images: [IMAGE_DATA_URI],
+  }
+  const QUESTIONS = [
+    { number: 16, type: 'map_diagram', questionText: 'Farm shop', correctAnswer: 'G' },
+    { number: 17, type: 'map_diagram', questionText: 'Disabled entry', correctAnswer: 'C' },
+  ]
+
+  const batchItem = (number, answer) => ({
+    number,
+    question_chunks: [{ text: `marker ${number}`, label: 'vị trí trên bản đồ' }],
+    predict: 'Cần xác định vị trí trên bản đồ.',
+    locate_note: 'Đối chiếu mô tả với hình.',
+    locate_keywords: [],
+    evidence_quote: '',
+    evidence_chunks: [],
+    answer,
+    reasoning: `Vị trí ${answer} khớp với mô tả.`,
+    paraphrases: [],
+    distractors: [],
+  })
+
+  it('buildBatchPrompt liệt kê đủ số câu và dặn quan sát hình một lần', () => {
+    const prompt = buildBatchPrompt(QUESTIONS, 'IMAGE', IMAGE_CTX)
+    expect(prompt).toContain('16, 17')
+    expect(prompt).toContain('- Câu 16')
+    expect(prompt).toContain('- Câu 17')
+    expect(prompt).toContain('QUAN SÁT hình MỘT LẦN')
+    expect(prompt).toContain('"explanations"')
+    expect(prompt).toContain('Farm shop')
+  })
+
+  it('buildBatchResponseSchema bọc schema từng câu trong mảng explanations có number', () => {
+    const schema = buildBatchResponseSchema()
+    expect(schema.required).toEqual(['explanations'])
+    const item = schema.properties.explanations.items
+    expect(item.properties.number).toEqual({ type: 'INTEGER' })
+    expect(item.required).toContain('number')
+    expect(item.required).toContain('answer')
+    expect(item.required).toContain('question_chunks')
+  })
+
+  it('generateBatchExplanations map kết quả theo số câu và bỏ câu lạ/không hợp lệ', async () => {
+    process.env.GEMINI_API_KEY = 'test_key'
+    process.env.ENABLE_GEMINI_IN_TEST = 'true'
+    geminiJsonMock.mockResolvedValueOnce({
+      data: {
+        explanations: [
+          batchItem(16, 'G'),
+          batchItem(17, 'C'),
+          { number: 99, ...batchItem(99, 'A') }, // số câu lạ -> bỏ
+          { number: 18, predict: 'thiếu dữ liệu' }, // không hợp lệ -> bỏ
+        ],
+      },
+      provider: 'Gemini',
+      model: 'gemini-test',
+    })
+    try {
+      const result = await generateBatchExplanations(QUESTIONS, 'IMAGE', IMAGE_CTX)
+      expect([...result.keys()]).toEqual([16, 17])
+      expect(result.get(16).answer).toBe('G')
+      expect(result.get(16).provider).toBe('Gemini')
+      expect(result.get(16).model).toBe('gemini-test')
+      expect(geminiJsonMock).toHaveBeenCalledTimes(1)
+      expect(geminiJsonMock.mock.calls[0][1].images).toEqual([IMAGE_DATA_URI])
+      expect(geminiJsonMock.mock.calls[0][1].max_tokens).toBe(4096)
+      expect(geminiJsonMock.mock.calls[0][1].responseSchema.required).toEqual(['explanations'])
+      expect(groqCreateMock).not.toHaveBeenCalled()
+    } finally {
+      delete process.env.ENABLE_GEMINI_IN_TEST
+      delete process.env.GEMINI_API_KEY
+    }
+  })
+
+  it('generateBatchExplanations chỉ hỏi lại các câu còn thiếu khi lần đầu trả về không đủ', async () => {
+    process.env.GEMINI_API_KEY = 'test_key'
+    process.env.ENABLE_GEMINI_IN_TEST = 'true'
+    geminiJsonMock
+      .mockResolvedValueOnce({
+        data: { explanations: [batchItem(16, 'G')] },
+        provider: 'Gemini',
+        model: 'gemini-test',
+      })
+      .mockResolvedValueOnce({
+        data: { explanations: [batchItem(17, 'C')] },
+        provider: 'Gemini',
+        model: 'gemini-test',
+      })
+    try {
+      const result = await generateBatchExplanations(QUESTIONS, 'IMAGE', IMAGE_CTX)
+      expect([...result.keys()]).toEqual([16, 17])
+      expect(geminiJsonMock).toHaveBeenCalledTimes(2)
+      // Lần 2 chỉ hỏi câu 17, không lặp lại câu 16 đã có kết quả
+      const retryPrompt = geminiJsonMock.mock.calls[1][0]
+      expect(retryPrompt).toContain('- Câu 17')
+      expect(retryPrompt).not.toContain('- Câu 16')
+    } finally {
+      delete process.env.ENABLE_GEMINI_IN_TEST
+      delete process.env.GEMINI_API_KEY
+    }
+  })
+
+  it('generateBatchExplanations thử lại 1 lần rồi trả Map rỗng khi AI không trả mảng explanations', async () => {
+    process.env.GEMINI_API_KEY = 'test_key'
+    process.env.ENABLE_GEMINI_IN_TEST = 'true'
+    geminiJsonMock
+      .mockResolvedValueOnce({ data: { explanations: 'not-an-array' }, provider: 'Gemini', model: 'gemini-test' })
+      .mockResolvedValueOnce({ data: {}, provider: 'Gemini', model: 'gemini-test' })
+    try {
+      const result = await generateBatchExplanations(QUESTIONS, 'IMAGE', IMAGE_CTX)
+      expect(result.size).toBe(0)
+      expect(geminiJsonMock).toHaveBeenCalledTimes(2)
+      // Lần thử lại phải nhắc lỗi lần trước để AI sửa
+      expect(geminiJsonMock.mock.calls[1][0]).toContain('LẦN TRẢ LỜI TRƯỚC BỊ LOẠI')
+    } finally {
+      delete process.env.ENABLE_GEMINI_IN_TEST
+      delete process.env.GEMINI_API_KEY
+    }
   })
 })
 

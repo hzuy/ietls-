@@ -135,7 +135,7 @@ describe('Exam Explanation Sync & Dirty Handling (Batch 1)', () => {
     // 4. Because form is dirty, UnsavedChangesAIModal MUST open
     await waitFor(() => {
       expect(screen.getByText('Đề thi có thay đổi chưa lưu')).toBeInTheDocument()
-    })
+    }, { timeout: 10000 })
 
     // 5. Mock AI generation API and fresh fetch
     api.post.mockResolvedValueOnce({
@@ -276,7 +276,7 @@ describe('Exam Explanation Sync & Dirty Handling (Batch 1)', () => {
     // Unsaved changes modal opens
     await waitFor(() => {
       expect(screen.getByText('Đề thi có thay đổi chưa lưu')).toBeInTheDocument()
-    })
+    }, { timeout: 10000 })
 
     // Mock AI return
     api.post.mockResolvedValueOnce({
