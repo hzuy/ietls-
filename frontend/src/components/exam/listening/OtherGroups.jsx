@@ -1,3 +1,6 @@
+import { selectedOptionValues } from '../../../utils/mcqAnswer'
+import { GROUP_TYPE_ALIASES, questionMechanic } from '../../../utils/questionTypes'
+import TextTaskGroup from '../TextTaskGroup'
 // ┌─────────────────────────────────────────────────────────────────────────────┐
 // │ QUY ƯỚC DOM ID — file này (Listening) dùng prefix `question-${n}`.            │
 // │ Bản Reading tương ứng (components/exam/GroupBlock.jsx + QuestionBlock.jsx)    │
@@ -82,6 +85,9 @@ const MatchingGroup = React.memo(MatchingGroupInner, areMatchingPropsEqual)
 
 // ── Dispatcher ────────────────────────────────────────────────────────────────
 function GroupBlockInner({ group, answers, onAnswer, previewMode, showAnswers }) {
+  if (['form_completion', 'summary_completion', 'flow_chart_completion', 'sentence_completion', 'short_answer'].includes(group.type)) return <TextTaskGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} numberKeys={false} listening={true} />
+  if (Object.hasOwn(GROUP_TYPE_ALIASES, group.type)) return <GroupBlockInner group={{ ...group, type: questionMechanic(group.type), questions: (group.questions || []).map(q => ({ ...q, type: questionMechanic(group.type) })) }} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
+
   if (group.type === 'note_completion') return <NoteCompletionGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
   if (group.type === 'table_completion') return <TableCompletionRender group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
   if (group.type === 'mcq')             return <MCQGroup group={group} answers={answers} onAnswer={onAnswer} isMulti={false} previewMode={previewMode} showAnswers={showAnswers} />
@@ -115,7 +121,7 @@ export const GroupBlock = React.memo(GroupBlockInner, areListeningGroupPropsEqua
 // ── Legacy direct-question support ───────────────────────────────────────────
 function QuestionBlockInner({ q, globalIdx, answers, onAnswer, previewMode, showAnswers }) {
   const opts = q.options ? JSON.parse(q.options) : []
-  const selected = (answers[q.id] || '').split(',').filter(Boolean)
+  const selected = selectedOptionValues(answers[q.id], opts)
   return (
     <div id={`question-${q.number}`} className="mb-5 scroll-mt-4">
       <p className="text-sm text-zinc-900 mb-2 leading-relaxed flex gap-2">
@@ -145,7 +151,7 @@ function QuestionBlockInner({ q, globalIdx, answers, onAnswer, previewMode, show
       {q.type === 'mcq_multi' && (
         <div className="space-y-1 pl-8">
           {opts.map(opt => {
-            const correctAnswers = previewMode && showAnswers ? (q.correctAnswer || '').split(',').filter(Boolean) : []
+            const correctAnswers = previewMode && showAnswers ? selectedOptionValues(q.correctAnswer, opts) : []
             const checked = previewMode && showAnswers ? correctAnswers.includes(opt) : selected.includes(opt)
             return (
               <label key={opt} className={`exam-option rounded-lg
@@ -164,7 +170,7 @@ function QuestionBlockInner({ q, globalIdx, answers, onAnswer, previewMode, show
           })}
         </div>
       )}
-      {q.type === 'fill_blank' && (
+      {['fill_blank', 'short_answer'].includes(q.type) && (
         <div className="pl-8">
           <input type="text"
             value={previewMode && showAnswers ? (q.correctAnswer || '') : (answers[q.id] || '')}

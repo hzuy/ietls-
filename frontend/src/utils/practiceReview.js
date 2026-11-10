@@ -1,3 +1,6 @@
+import { practiceParagraphLetters } from './readingParagraphs'
+import { questionMechanic, toLearnerGroup } from './questionTypes'
+
 const GROUP_QUESTION_TYPE = {
   note_completion: 'fill_blank',
   table_completion: 'fill_blank',
@@ -9,11 +12,11 @@ const GROUP_QUESTION_TYPE = {
 
 function reviewGroups(groups) {
   return (groups || []).map(g => ({
-    ...g,
+    ...toLearnerGroup(g),
     questions: (g.questions || []).map(q => ({
       ...q,
       id: q.id ?? q.number,
-      type: q.type || GROUP_QUESTION_TYPE[g.type] || g.type,
+      type: questionMechanic(q.type || GROUP_QUESTION_TYPE[g.type] || g.type),
     })),
   }))
 }
@@ -41,7 +44,7 @@ export function buildPracticeReviewExam(exam, skill) {
       number: 1,
       title: exam?.title,
       body: exam?.passage || '',
-      letteredParagraphs: false,
+      letteredParagraphs: practiceParagraphLetters(questionGroups),
       questions: [],
       questionGroups,
     }],

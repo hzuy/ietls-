@@ -5,6 +5,7 @@ import { queryClient } from '../lib/queryClient'
 import { getListeningExam, getListeningExamWithAnswers, submitListeningExam } from '../services/examService'
 import { getPublicSettings } from '../services/adminService'
 import { saveDraft, loadDraft, clearDraft, formatSavedAt } from '../services/draftService'
+import { getSubmissionTicket, clearSubmissionTicket } from '../services/submissionTicket'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
@@ -37,6 +38,7 @@ import ReportIssueButton from '../components/common/ReportIssueButton'
 
 
 const DEFAULT_LISTENING_TIME = 40 * 60
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function ListeningExam() {
@@ -60,6 +62,7 @@ export default function ListeningExam() {
   const [submitting, setSubmitting] = useState(false)
   const [activeSection, setActiveSection] = useState(0)
   const [playingSectionIndex, setPlayingSectionIndex] = useState(0)
+  const [audioError, setAudioError] = useState(null)
   const [timeLeft, setTimeLeft] = useState(DEFAULT_LISTENING_TIME)
   const [phase, setPhase] = useState('exam')
   const [showAnswers, setShowAnswers] = useState(false)
@@ -282,7 +285,10 @@ export default function ListeningExam() {
     }
     setSubmitting(true)
     try {
-      await submitListeningExam(id, answers)
+      const userId = user.id || user._id
+      const ticket = getSubmissionTicket(userId, id, 'listening', answers)
+      await submitListeningExam(id, ticket.answers, ticket.key)
+      clearSubmissionTicket(userId, id, 'listening')
       if (user) clearDraft(user.id || user._id, id, 'listening')
       markSubmitted('listening', id, exitPath)
       navigate(`/listening/${id}/explanation`, { replace: true })
@@ -357,6 +363,26 @@ export default function ListeningExam() {
     }
   }, [])
 
+  // TC-040: lỗi media phải hiển thị rõ cho người học, không im lặng. Autoplay
+  // bị chặn (NotAllowedError) KHÔNG phải lỗi file — trình duyệt sẽ phát sau
+  // thao tác đầu tiên của người dùng, nên không hiện banner cho trường hợp đó.
+  const showAudioError = useCallback((detail) => {
+    setAudioError(detail || 'Không thể phát file audio của phần này.')
+  }, [])
+
+  const handleAudioPlayFailure = useCallback((err) => {
+    if (err?.name === 'NotAllowedError') return
+    showAudioError('Không thể phát audio. Vui lòng kiểm tra kết nối và thử lại.')
+  }, [showAudioError])
+
+  const retryAudio = useCallback(() => {
+    setAudioError(null)
+    const el = audioRef.current
+    if (!el) return
+    try { el.load() } catch { /* noop */ }
+    el.play().catch(handleAudioPlayFailure)
+  }, [handleAudioPlayFailure])
+
   useEffect(() => {
     if (phase !== 'exam' || previewMode || !exam?.listeningSections) return
     const audioEl = audioRef.current
@@ -365,14 +391,14 @@ export default function ListeningExam() {
     applyPendingSeek()
     const tryPlay = () => {
       applyPendingSeek()
-      audioEl.play().catch(() => {})
+      audioEl.play().catch(handleAudioPlayFailure)
     }
     tryPlay()
 
     const onUserGesture = () => {
       applyPendingSeek()
       if (audioEl.paused) {
-        audioEl.play().catch(() => {})
+        audioEl.play().catch(handleAudioPlayFailure)
       }
       window.removeEventListener('pointerdown', onUserGesture)
       window.removeEventListener('keydown', onUserGesture)
@@ -384,7 +410,7 @@ export default function ListeningExam() {
       window.removeEventListener('pointerdown', onUserGesture)
       window.removeEventListener('keydown', onUserGesture)
     }
-  }, [phase, previewMode, playingSectionIndex, exam?.listeningSections, applyPendingSeek])
+  }, [phase, previewMode, playingSectionIndex, exam?.listeningSections, applyPendingSeek, handleAudioPlayFailure])
 
   const section = exam?.listeningSections?.[activeSection] || null
   const startIdx = useMemo(() => {
@@ -503,7 +529,8 @@ export default function ListeningExam() {
             </div>
             <div className="w-full sm:w-auto flex-1 max-w-xl flex items-center justify-end">
               {section?.audioUrl ? (
-                <audio ref={audioRef} controls className="w-full h-9 rounded-full" src={toImgSrc(section.audioUrl)} />
+                <audio ref={audioRef} controls className="w-full h-9 rounded-full" src={toImgSrc(section.audioUrl)}
+                  onError={() => showAudioError('Không thể tải file audio của section này.')} />
               ) : (
                 <div className="w-full py-1.5 px-3 rounded-full bg-zinc-100 text-xs text-zinc-400 text-center">Chưa có file audio cho section này</div>
               )}
@@ -519,7 +546,8 @@ export default function ListeningExam() {
           className="hidden"
           src={toImgSrc(exam?.listeningSections?.[playingSectionIndex]?.audioUrl)}
           onLoadedMetadata={applyPendingSeek}
-          onCanPlay={applyPendingSeek}
+          onCanPlay={() => { applyPendingSeek(); setAudioError(null) }}
+          onError={() => showAudioError('Không thể tải file audio của phần này. Vui lòng thử lại.')}
           onTimeUpdate={() => {
             const now = Date.now()
             if (now - lastAudioSaveRef.current > 5000) {
@@ -546,6 +574,24 @@ export default function ListeningExam() {
       {/* Body: Scrollable Question Area */}
       <div ref={questionsScrollRef} className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-6 py-6 space-y-4">
+          {audioError && (
+            <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-start justify-between gap-3 text-sm">
+              <span className="flex items-start gap-2">
+                <span aria-hidden="true" className="mt-0.5">⚠</span>
+                <span>
+                  <span className="font-semibold block">Không phát được audio bài nghe</span>
+                  <span className="text-red-600">{audioError} Đáp án bạn đã nhập vẫn được giữ nguyên.</span>
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={retryAudio}
+                className="shrink-0 h-8 px-3 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-medium transition-colors cursor-pointer"
+              >
+                Thử lại
+              </button>
+            </div>
+          )}
           {/* Questions */}
           <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-xs">
             <p className="text-xs font-bold text-[var(--primary-hover)] uppercase tracking-wider mb-5">

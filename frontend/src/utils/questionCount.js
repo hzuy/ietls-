@@ -1,3 +1,4 @@
+import { selectedOptionValues } from './mcqAnswer'
 /**
  * Returns array of { number, qId, isMultiChoice, multiIndex } for each answer slot in a group.
  * Uses qNumberStart..qNumberEnd as the authoritative range.
@@ -8,7 +9,7 @@ export function getGroupSlots(group) {
   if (!group) return []
   const slots = []
   const maxC = group.maxChoices || 2
-  const isMulti = group.type === 'mcq_multi'
+  const isMulti = ['mcq_multi', 'list_selection'].includes(group.type)
 
   for (let n = group.qNumberStart; n <= group.qNumberEnd; n++) {
     let qId = null
@@ -24,7 +25,8 @@ export function getGroupSlots(group) {
       number: n,
       qId,
       isMultiChoice: isMulti,
-      multiIndex
+      multiIndex,
+      ...(isMulti && group.questions?.[Math.floor((n - group.qNumberStart) / maxC)]?.options ? { options: group.questions[Math.floor((n - group.qNumberStart) / maxC)].options } : {}),
     })
   }
   return slots
@@ -87,7 +89,7 @@ export function isSlotAnswered(slot, answers) {
   if (val == null || String(val).trim() === '') return false
 
   if (slot.isMultiChoice) {
-    const selected = String(val).split(',').map(s => s.trim()).filter(Boolean)
+    const selected = selectedOptionValues(val, slot.options)
     const needed = (slot.multiIndex ?? 0) + 1
     return selected.length >= needed
   }

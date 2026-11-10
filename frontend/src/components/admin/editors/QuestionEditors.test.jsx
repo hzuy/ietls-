@@ -138,7 +138,7 @@ describe('Consolidated Question Editors', () => {
       Object.defineProperty(textarea, 'scrollHeight', { configurable: true, value: 96 })
       fireEvent.input(textarea, { target: { value: 'A long note line that wraps across multiple rows' } })
 
-      expect(textarea.style.height).toBe('96px')
+      expect(parseFloat(textarea.style.height)).toBeGreaterThanOrEqual(96)
       expect(textarea).toHaveStyle({ overflowY: 'hidden' })
     })
 

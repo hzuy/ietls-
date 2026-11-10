@@ -50,8 +50,8 @@ export const getListeningExamWithAnswers = (id) => api.get(`/listening/exams/${i
 export const getWritingExam = (id) => api.get(`/writing/exams/${id}`).then(r => r.data)
 export const getSpeakingExam = (id) => api.get(`/speaking/exams/${id}`).then(r => r.data)
 
-export const submitReadingExam = (id, answers) => api.post(`/reading/exams/${id}/submit`, { answers }).then(r => r.data)
-export const submitListeningExam = (id, answers) => api.post(`/listening/exams/${id}/submit`, { answers }).then(r => r.data)
+export const submitReadingExam = (id, answers, submissionKey) => api.post(`/reading/exams/${id}/submit`, { answers, ...(submissionKey ? { submissionKey } : {}) }).then(r => r.data)
+export const submitListeningExam = (id, answers, submissionKey) => api.post(`/listening/exams/${id}/submit`, { answers, ...(submissionKey ? { submissionKey } : {}) }).then(r => r.data)
 export const submitWritingExam = (id, taskId, essay, autoSubmit = false) => api.post(`/writing/exams/${id}/submit`, { taskId, essay, ...(autoSubmit ? { autoSubmit: true } : {}) }).then(r => r.data)
 export const submitSpeakingExam = (id, partId, transcript) => api.post(`/speaking/exams/${id}/submit`, { partId, transcript }).then(r => r.data)
 

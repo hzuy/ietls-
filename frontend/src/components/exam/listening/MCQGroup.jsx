@@ -1,3 +1,4 @@
+import { selectedOptionValues } from '../../../utils/mcqAnswer'
 function InstructionBanner({ group }) {
   return (
     <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
@@ -19,11 +20,11 @@ export default function MCQGroup({ group, answers, onAnswer, isMulti, previewMod
         {questions.map((q, qi) => {
           const qStart = group.qNumberStart + qi * maxChoices
           const qEnd = qStart + maxChoices - 1
-          const opts = q.options ? JSON.parse(q.options) : []
+          const opts = Array.isArray(q.options) ? q.options : q.options ? JSON.parse(q.options) : []
           const combined = answers[q.id] || ''
-          const selected = combined.split(',').filter(Boolean)
+          const selected = selectedOptionValues(combined, opts)
           const correctSelected = previewMode && showAnswers
-            ? (q.correctAnswer || '').split(',').filter(Boolean)
+            ? selectedOptionValues(q.correctAnswer, opts)
             : selected
           const limitReached = selected.length >= maxChoices
 
@@ -71,7 +72,7 @@ export default function MCQGroup({ group, answers, onAnswer, isMulti, previewMod
     <div id={`question-${group.qNumberStart}`} className="mb-6 scroll-mt-4">
       <InstructionBanner group={group} />
       {questions.map(q => {
-        const opts = q.options ? JSON.parse(q.options) : []
+        const opts = Array.isArray(q.options) ? q.options : q.options ? JSON.parse(q.options) : []
         const displayAnswer = previewMode && showAnswers ? q.correctAnswer : answers[q.id]
         return (
           <div key={q.id} id={`question-${q.number}`} className="mb-5 scroll-mt-4">

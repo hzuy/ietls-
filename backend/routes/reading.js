@@ -4,7 +4,9 @@ const { learnerOnly } = require('../lib/roles')
 const validate = require('../middleware/validate')
 const { objectiveSubmitLimiter } = require('../middleware/rateLimiter')
 const { readingSubmitSchema, resultDetailQuerySchema } = require('../validators/submissionValidator')
+const { AnswerValidationError, scoreMultiChoice, choices, splitChoiceAnswer } = require('../lib/multiChoice')
 const { getReadingBand } = require('../lib/scoreUtils')
+const { sameSubmissionAnswers } = require('../lib/submissionIdentity')
 const { getOrSet, TTL_EXAM_DETAIL } = require('../utils/cache')
 const { sendServerError } = require('../lib/httpErrors')
 
@@ -118,19 +120,8 @@ router.get('/exams/:id', authMiddleware, async (req, res) => {
 // Nộp bài
 router.post('/exams/:id/submit', authMiddleware, learnerOnly, objectiveSubmitLimiter, validate(readingSubmitSchema), async (req, res) => {
   try {
-    const { answers } = req.body // { questionId: userAnswer }
+    const { answers, submissionKey } = req.body // { questionId: userAnswer } + optional idempotency key
     const examId = parseInt(req.params.id)
-
-    // BUG-26: Enforce max_attempts_per_exam setting
-    const maxSetting = await prisma.setting.findUnique({ where: { key: 'max_attempts_per_exam' } })
-    const maxAttempts = maxSetting ? parseInt(maxSetting.value) : 0
-    if (maxAttempts > 0) {
-      const prevCount = await prisma.attempt.count({ where: { userId: req.user.userId, examId } })
-      if (prevCount >= maxAttempts) {
-        return res.status(429).json({ message: `Bạn đã đạt giới hạn ${maxAttempts} lượt thi cho đề này.` })
-      }
-    }
-
 
     const passages = await prisma.passage.findMany({
       where: { examId },
@@ -156,23 +147,17 @@ router.post('/exams/:id/submit', authMiddleware, learnerOnly, objectiveSubmitLim
       for (const g of p.questionGroups) {
         totalSlots += g.qNumberEnd - g.qNumberStart + 1
         const maxC = g.maxChoices || 2
-        const activeQs = g.type === 'mcq_multi'
+        const activeQs = ['mcq_multi', 'list_selection'].includes(g.type)
           ? g.questions
           : g.questions.filter(q => q.number >= g.qNumberStart && q.number <= g.qNumberEnd)
         for (const q of activeQs) {
           const userAnswerStr = answers[q.id] || ''
           let isGroupCorrect = false
           
-          if (g.type === 'mcq_multi') {
-            const userArr = userAnswerStr.split(',').map(a => a.trim().toLowerCase()).filter(Boolean)
-            const correctArr = (q.correctAnswer || '').split(',').map(a => a.trim().toLowerCase()).filter(Boolean)
-            
-            let matchCount = 0
-            for (const ua of userArr) {
-              if (correctArr.includes(ua)) matchCount++
-            }
-            correct += matchCount
-            isGroupCorrect = matchCount === maxC
+          if (['mcq_multi', 'list_selection'].includes(g.type)) {
+            const scored = scoreMultiChoice(userAnswerStr, q.correctAnswer, maxC, q.options)
+            correct += scored.correct
+            isGroupCorrect = scored.correct === maxC
             result.push({ questionId: q.id, questionType: g.type, questionText: q.questionText, userAnswer: userAnswerStr, correctAnswer: q.correctAnswer, isCorrect: isGroupCorrect })
           } else {
             const userAnswer = userAnswerStr.trim().toLowerCase()
@@ -185,32 +170,87 @@ router.post('/exams/:id/submit', authMiddleware, learnerOnly, objectiveSubmitLim
       }
     }
 
+    if (correct > totalSlots) throw new Error('Invalid objective exam slot configuration')
+
     const band = getReadingBand(correct)
 
-    const attempt = await prisma.$transaction(async (tx) => {
-      const a = await tx.attempt.create({
-        data: {
-          userId: req.user.userId,
-          examId,
-          score: band,
-          correctCount: correct,
-          totalCount: totalSlots,
-          answers: JSON.stringify(answers),
-          finishedAt: new Date()
-        }
-      })
-      if (result.length > 0) {
-        await tx.questionAnswer.createMany({
-          data: result.map(r => ({
-            attemptId: a.id,
-            questionId: r.questionId,
-            userAnswer: r.userAnswer,
-            isCorrect: r.isCorrect,
-          }))
+    const findExisting = () => prisma.attempt.findUnique({
+      where: { userId_examId_submissionKey: { userId: req.user.userId, examId, submissionKey } }
+    })
+
+    // TC-042: retry sau khi server đã persist nhưng ACK bị mất phải trả về
+    // đúng Attempt cũ, không tạo lượt mới và không bị max-attempts chặn oan.
+    if (submissionKey) {
+      const existing = await findExisting()
+      if (existing) {
+        if (!sameSubmissionAnswers(existing.answers, answers)) return res.status(409).json({ message: 'Mã nộp bài đã được dùng với đáp án khác.' })
+        return res.json({
+          score: existing.score ?? band,
+          correct: existing.correctCount ?? correct,
+          total: existing.totalCount ?? totalSlots,
+          result,
+          attemptId: existing.id,
+          idempotent: true,
         })
       }
-      return a
-    })
+    }
+
+    // BUG-26: Enforce max_attempts_per_exam setting (chỉ cho lượt nộp MỚI)
+    const maxSetting = await prisma.setting.findUnique({ where: { key: 'max_attempts_per_exam' } })
+    const maxAttempts = maxSetting ? parseInt(maxSetting.value) : 0
+    if (maxAttempts > 0) {
+      const prevCount = await prisma.attempt.count({ where: { userId: req.user.userId, examId } })
+      if (prevCount >= maxAttempts) {
+        return res.status(429).json({ message: `Bạn đã đạt giới hạn ${maxAttempts} lượt thi cho đề này.` })
+      }
+    }
+
+    let attempt
+    try {
+      attempt = await prisma.$transaction(async (tx) => {
+        const a = await tx.attempt.create({
+          data: {
+            userId: req.user.userId,
+            examId,
+            submissionKey: submissionKey || null,
+            score: band,
+            correctCount: correct,
+            totalCount: totalSlots,
+            answers: JSON.stringify(answers),
+            finishedAt: new Date()
+          }
+        })
+        if (result.length > 0) {
+          await tx.questionAnswer.createMany({
+            data: result.map(r => ({
+              attemptId: a.id,
+              questionId: r.questionId,
+              userAnswer: r.userAnswer,
+              isCorrect: r.isCorrect,
+            }))
+          })
+        }
+        return a
+      })
+    } catch (err) {
+      // Hai request đồng thời cùng submissionKey: một request thắng unique
+      // constraint, request còn lại đọc bản ghi đã thắng.
+      if (err?.code === 'P2002' && submissionKey) {
+        const existing = await findExisting()
+        if (existing) {
+          if (!sameSubmissionAnswers(existing.answers, answers)) return res.status(409).json({ message: 'Mã nộp bài đã được dùng với đáp án khác.' })
+          return res.json({
+            score: existing.score ?? band,
+            correct: existing.correctCount ?? correct,
+            total: existing.totalCount ?? totalSlots,
+            result,
+            attemptId: existing.id,
+            idempotent: true,
+          })
+        }
+      }
+      throw err
+    }
 
     // Ghi AnswerLog chi tiết cho mục đích phân tích AI (Lớp 1)
     // Bọc try-catch không chắn luồng nộp bài chính nếu bảng AnswerLog chưa được migrate trên DB thực tế
@@ -237,6 +277,7 @@ router.post('/exams/:id/submit', authMiddleware, learnerOnly, objectiveSubmitLim
 
     res.json({ score: band, correct, total: totalSlots, result, attemptId: attempt.id })
   } catch (error) {
+    if (error instanceof AnswerValidationError) return res.status(400).json({ message: error.message })
     sendServerError(res, error, 'Lỗi server')
   }
 })
@@ -286,7 +327,7 @@ router.get('/exams/:id/result-detail', authMiddleware, learnerOnly, validate(res
       if (!optionsList || optionsList.length === 0) return text
       const str = String(text).trim()
       if (str.includes(',')) {
-        return str.split(',').map(p => resolveSingleAnswerToLetter(p, optionsList)).join(', ')
+        return splitChoiceAnswer(str, optionsList).map(p => resolveSingleAnswerToLetter(p, optionsList)).join(', ')
       }
       return resolveSingleAnswerToLetter(str, optionsList)
     }
@@ -424,17 +465,17 @@ router.get('/exams/:id/result-detail', authMiddleware, learnerOnly, validate(res
       }
 
       for (const g of passage.questionGroups) {
-        const activeQs = g.type === 'mcq_multi'
+        const activeQs = ['mcq_multi', 'list_selection'].includes(g.type)
           ? g.questions
           : g.questions.filter(q => q.number >= g.qNumberStart && q.number <= g.qNumberEnd)
 
         for (const q of activeQs) {
-          if (g.type === 'mcq_multi') {
+          if (['mcq_multi', 'list_selection'].includes(g.type)) {
             const maxC = g.maxChoices || 2
             const numbers = Array.from({ length: maxC }, (_, i) => q.number + i)
             
-            const userArr = (answerMap[q.id]?.userAnswer || '').split(',').map(a => a.trim()).filter(Boolean)
-            const correctArr = (q.correctAnswer || '').split(',').map(a => a.trim()).filter(Boolean)
+            const userArr = choices(answerMap[q.id]?.userAnswer || '', q.options)
+            const correctArr = splitChoiceAnswer(q.correctAnswer, q.options)
             
             const correctMatches = []
             const wrongMatches = []
@@ -455,6 +496,7 @@ router.get('/exams/:id/result-detail', authMiddleware, learnerOnly, validate(res
             for (let s = 0; s < maxC; s++) {
               totalQuestions++
               if (ci < correctMatches.length) {
+                correct++
                 trackType(getTypeName(g.type), 'correct')
                 statuses.push('correct')
                 rawUserAnswers.push(correctMatches[ci])
@@ -462,6 +504,7 @@ router.get('/exams/:id/result-detail', authMiddleware, learnerOnly, validate(res
                 usedCorrect.push(correctMatches[ci].toLowerCase())
                 ci++
               } else if (wi < wrongMatches.length) {
+                wrong++
                 trackType(getTypeName(g.type), 'wrong')
                 statuses.push('wrong')
                 rawUserAnswers.push(wrongMatches[wi])
@@ -472,6 +515,7 @@ router.get('/exams/:id/result-detail', authMiddleware, learnerOnly, validate(res
                 } else rawAnswers.push('?')
                 wi++
               } else {
+                missed++
                 trackType(getTypeName(g.type), 'missed')
                 statuses.push('missed')
                 rawUserAnswers.push(null)

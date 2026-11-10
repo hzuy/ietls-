@@ -1,3 +1,5 @@
+import { readingParagraphs } from './readingParagraphs'
+
 /**
  * Validation utility for IELTS Exam and Practice questions.
  * Ensures tests have complete passages/audio, question prompts, and correct answers
@@ -14,6 +16,21 @@ export function hasValidAnswer(answer) {
   return false
 }
 
+export function validateHeadingSource(group, passage) {
+  if (group.type !== 'matching_headings') return []
+  const paragraphs = readingParagraphs(passage)
+  const keys = new Set()
+  const errors = []
+  for (const q of group.questions || []) {
+    const key = (q.questionText || '').split('|')[0].trim()
+    if (!/^[A-Z]$/.test(key) || !paragraphs[key.charCodeAt(0) - 65]) errors.push(`Câu ${q.number}: đoạn ${key || '?'} không còn trong bài đọc`)
+    if (keys.has(key)) errors.push(`Câu ${q.number}: đoạn ${key} đã được chọn`)
+    keys.add(key)
+    if (!(group.matchingOptions || []).some(h => h.letter === q.correctAnswer && String(h.text || '').trim())) errors.push(`Câu ${q.number}: heading đúng chưa có nội dung hoặc không còn tồn tại`)
+  }
+  return errors
+}
+
 // Question types that require explicit questionText / prompt / statement
 const PROMPT_REQUIRED_TYPES = new Set([
   'mcq',
@@ -23,8 +40,13 @@ const PROMPT_REQUIRED_TYPES = new Set([
   'matching',
   'matching_information',
   'matching_drag',
-  'diagram_label',
   'short_answer',
+  'sentence_completion',
+  'matching_endings',
+  'matching_headings',
+  'categorisation',
+  'choose_title',
+  'list_selection',
 ])
 
 export function validateQuestionItem(q, groupType) {
@@ -70,6 +92,7 @@ export function validatePracticeReading(form) {
     errors.push('Bài luyện tập phải có ít nhất một nhóm câu hỏi')
   } else {
     groups.forEach((group, gi) => {
+      errors.push(...validateHeadingSource(group, form.passage))
       const qs = group.questions || []
       const gLabel = group.type || `Nhóm ${gi + 1}`
       if (!qs.length) {
@@ -176,6 +199,7 @@ export function validateExamReading(form, { isForAI = false } = {}) {
       }
       const groups = p.questionGroups || []
       groups.forEach((group, gi) => {
+        errors.push(...validateHeadingSource(group, p.body))
         const qs = group.questions || []
         const gLabel = group.type || `Nhóm ${gi + 1}`
         if (!qs.length) {

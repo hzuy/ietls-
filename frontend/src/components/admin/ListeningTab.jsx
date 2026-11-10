@@ -1,19 +1,24 @@
+import { buildExamPayload, hydrateExamForm } from '../../utils/examAuthoring'
+import AutoGrowTextarea from './AutoGrowTextarea'
+import QuestionTypePicker from './QuestionTypePicker'
+import ListeningContentPreview from '../practice/ListeningContentPreview'
+import AdditionalTaskEditor from './editors/AdditionalTaskEditor'
+import { GROUP_TYPE_ALIASES } from '../../utils/questionTypes'
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { queryClient } from '../../lib/queryClient'
 import api from '../../utils/axios'
 import { showAlert } from '../../utils/alertUtils'
-import { useToast } from '../../context/ToastContext'
 import { validateExamListening, formatValidationAlert } from '../../utils/questionValidation'
 import { notifyTrashChanged } from '../../services/adminService'
 import { validateAudioFile } from '../../utils/fileValidation'
 import {
   GROUP_TYPES, GROUP_INSTRUCTIONS,
   emptyListeningForm, emptyGroupOf,
-  inputCls, labelCls, btnPrimary, btnSecondary,
+  inputCls, labelCls, btnSecondary,
   SERVER_BASE, toImgSrc,
   useExamSeriesList, useSeriesBooks,
   getQuestionTypeTheme,
-  recalcAllListeningNumbers, getGroupSlots,
+  recalcAllListeningNumbers,
 } from './adminConstants'
 import Select from './Select'
 import ExamList from './ExamList'
@@ -24,7 +29,6 @@ import TableCompletionEditor from './editors/TableCompletionEditor'
 import NoteCompletionEditor from './editors/NoteCompletionEditor'
 import MCQGroupEditor from './editors/MCQGroupEditor'
 import MatchingEditor from './editors/MatchingEditor'
-import AdminGroupPreview from '../practice/AdminGroupPreview'
 import ReviewExplanation from '../exam/ReviewExplanation'
 import { Volume2, Upload, Eye, ChevronDown, BookOpen, Loader2, Sparkles } from 'lucide-react'
 import ExplanationConflictModal from './ExplanationConflictModal'
@@ -58,135 +62,13 @@ import {
 
 function ListeningFormPreview({ form, showAnswers }) {
   const [activeSection, setActiveSection] = useState(0)
-  const [leftPct, setLeftPct] = useState(45)
-  const [dragging, setDragging] = useState(false)
-  const containerRef = useRef(null)
-
   const section = form.sections[activeSection]
-  const audioSrc = section?.audioUrl ? toImgSrc(section.audioUrl) : null
-
-  const onDividerPointerDown = (e) => {
-    e.preventDefault()
-    const container = containerRef.current
-    const divider = e.currentTarget
-    if (!container) return
-    try { divider.setPointerCapture(e.pointerId) } catch { /* unsupported */ }
-    setDragging(true)
-    const onPointerMove = (ev) => {
-      const rect = container.getBoundingClientRect()
-      const pct = ((ev.clientX - rect.left) / rect.width) * 100
-      setLeftPct(Math.min(75, Math.max(25, pct)))
-    }
-    const stop = () => {
-      setDragging(false)
-      try { divider.releasePointerCapture(e.pointerId) } catch { /* noop */ }
-      divider.removeEventListener('pointermove', onPointerMove)
-      divider.removeEventListener('pointerup', stop)
-      divider.removeEventListener('pointercancel', stop)
-      window.removeEventListener('mouseleave', stop)
-    }
-    divider.addEventListener('pointermove', onPointerMove)
-    divider.addEventListener('pointerup', stop)
-    divider.addEventListener('pointercancel', stop)
-    window.addEventListener('mouseleave', stop)
-  }
-
-  return (
-    <div className="flex flex-col flex-1 h-full overflow-hidden">
-      {/* Section tabs */}
-      <div className="flex gap-2 mb-3 shrink-0 flex-wrap">
-        {form.sections.map((s, si) => {
-          const total = s.questionGroups.reduce((acc, g) => acc + (g.qNumberEnd - g.qNumberStart + 1), 0)
-          const isActive = activeSection === si
-          return (
-            <button
-              key={si}
-              type="button"
-              onClick={() => setActiveSection(si)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer ${
-                isActive
-                  ? 'bg-zinc-900 text-white border-zinc-900 shadow-xs'
-                  : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'
-              }`}
-            >
-              Section {s.number}
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-zinc-100 text-zinc-600'}`}>
-                {total}
-              </span>
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Active section content in 2-column layout */}
-      {section && (
-        <div
-          ref={containerRef}
-          className="flex flex-1 border border-zinc-200 rounded-xl overflow-hidden bg-white shadow-xs"
-          style={{ userSelect: dragging ? 'none' : 'auto' }}
-        >
-          {/* CỘT TRÁI (Audio, Tình huống, Transcript) */}
-          <div className="overflow-y-auto bg-white p-6 space-y-4" style={{ width: `${leftPct}%`, flexShrink: 0 }}>
-            {audioSrc ? (
-              <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-200 shadow-2xs">
-                <p className="text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <Volume2 className="w-3.5 h-3.5 text-zinc-600" />
-                  <span>File Audio bài nghe</span>
-                </p>
-                <audio controls src={audioSrc} key={audioSrc} className="w-full h-10 rounded-lg" />
-              </div>
-            ) : (
-              <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl text-xs text-amber-800">
-                Chưa có file Audio cho Section này.
-              </div>
-            )}
-
-            {section.context && (
-              <div className="bg-zinc-50/70 p-4 rounded-xl border border-zinc-200">
-                <p className="text-xs font-bold text-zinc-600 uppercase tracking-wider mb-1.5">Mô tả tình huống (Context)</p>
-                <p className="text-sm text-zinc-700 leading-relaxed italic">{section.context}</p>
-              </div>
-            )}
-
-            {section.transcript ? (
-              <div className="bg-white rounded-xl border border-zinc-200 p-4 shadow-2xs">
-                <div className="flex items-center justify-between mb-2 pb-2 border-b border-zinc-100">
-                  <p className="text-xs font-bold text-zinc-700 uppercase tracking-wider">Transcript (Lời thoại)</p>
-                  <span className="text-[11px] text-zinc-400">Xem kèm đối chiếu</span>
-                </div>
-                <p className="text-sm text-zinc-700 leading-7 whitespace-pre-wrap font-normal">{section.transcript}</p>
-              </div>
-            ) : (
-              !section.context && !audioSrc && (
-                <p className="text-sm text-zinc-400 italic">Chưa có thông tin bài nghe</p>
-              )
-            )}
-          </div>
-
-          {/* Divider */}
-          <div
-            onPointerDown={onDividerPointerDown}
-            style={{ width: 5, cursor: 'col-resize', flexShrink: 0, touchAction: 'none', background: dragging ? '#18181b' : '#e4e4e7', transition: dragging ? 'none' : 'background 0.15s' }}
-            onMouseEnter={e => { if (!dragging) e.currentTarget.style.background = '#a1a1aa' }}
-            onMouseLeave={e => { if (!dragging) e.currentTarget.style.background = '#e4e4e7' }}
-          />
-
-          {/* CỘT PHẢI (Danh sách câu hỏi + giải thích) */}
-          <div className="flex-1 overflow-y-auto bg-zinc-50 p-6">
-            {section.questionGroups.length > 0 ? (
-              <div className="space-y-4">
-                {section.questionGroups.map((group, gi) => (
-                  <AdminGroupPreview key={gi} group={group} showAnswers={showAnswers} />
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-zinc-400 italic text-center mt-10">Chưa có câu hỏi cho section này</p>
-            )}
-          </div>
-        </div>
-      )}
+  return <div className="flex h-full flex-1 flex-col overflow-hidden">
+    <div className="mb-3 flex shrink-0 flex-wrap gap-2" role="tablist" aria-label="Listening sections">
+      {form.sections.map((s, i) => <button key={i} type="button" role="tab" aria-selected={activeSection === i} onClick={() => setActiveSection(i)} className={`rounded-lg border px-3 py-2 text-xs font-medium ${activeSection === i ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50'}`}>Section {s.number}</button>)}
     </div>
-  )
+    {section && <ListeningContentPreview section={section} showAnswers={showAnswers} />}
+  </div>
 }
 
 // ─── TAB: LISTENING ───────────────────────────────────────────────────────────
@@ -277,13 +159,14 @@ function GroupEditor({ group = {}, onChange, onRemove, examId, passage = '', onG
       <div className="p-4 space-y-3">
         <div>
           <label className={labelCls}>Instruction (hiển thị cho học sinh)</label>
-          <textarea rows={2}
+          <AutoGrowTextarea rows={2}
             className={`${inputCls} resize-none`}
             placeholder="VD: Choose the correct letter, A, B or C."
             value={group.instruction}
             onChange={e => onChange({ ...group, instruction: e.target.value })} />
         </div>
 
+        {(Object.hasOwn(GROUP_TYPE_ALIASES, group.type) || group.type === 'short_answer' || group.type === 'matching_headings') && <AdditionalTaskEditor passage={passage} group={group} onChange={onChange}  />}
         {group.type === 'note_completion' && (
           <NoteCompletionEditor group={group} onChange={onChange} />
         )}
@@ -363,7 +246,10 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   const liveExamSeries = useExamSeriesList()
   const seriesBooks = useSeriesBooks(form.seriesId)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
+  const saveInFlightRef = useRef(false)
+  const loadSequenceRef = useRef(0)
+  const latestFormRef = useRef(form)
+  useEffect(() => { latestFormRef.current = form }, [form])
   const [openSection, setOpenSection] = useState(0)
   const [uploading, setUploading] = useState({})
   const [transcribing, setTranscribing] = useState({})
@@ -373,8 +259,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   const [loadingEdit, setLoadingEdit] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [showAnswers, setShowAnswers] = useState(false)
-  const [toast, setToast] = useState('')
-  const { showToast: showGlobalToast } = useToast()
+  const showGlobalToast = showAlert
   const [draftBanner, setDraftBanner] = useState(null)
   const [editHighlight, setEditHighlight] = useState(false)
   const [generatingAI, setGeneratingAI] = useState(false)
@@ -389,7 +274,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
 
   const examStats = useMemo(() => calculateExamExplanationStats(form), [form])
 
-  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
+  const showToast = showAlert
 
   const countProtectedQuestions = () => {
     let reviewedCount = 0
@@ -475,7 +360,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     showToast(
       effectiveChoice === 'keep_draft'
         ? 'Đã khôi phục bản nháp gồm các giải thích đã sửa'
-        : 'Đã khôi phục bản nháp (giữ nguyên giải thích mới nhất từ hệ thống)'
+        : 'Đã khôi phục bản nháp'
     )
   }
 
@@ -521,9 +406,9 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     const val = validateExamListening(form, { isForAI: true })
     if (!val.isValid) {
       const msg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
-      setError(msg)
+
       showAlert(msg, 'error')
-      showToast(val.errors[0] || 'Vui lòng điền đầy đủ thông tin bài nghe và đáp án đúng')
+
       return
     }
     pendingAIFnRef.current = (opts) => handleGenerateSequentialAll(opts)
@@ -550,6 +435,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
 
   const handleGenerateGroupAI = async (group, { resolveChoices = {}, overwriteProtected = false } = {}) => {
     if (!editingId) return
+    group = latestFormRef.current.sections.flatMap(p => p.questionGroups || []).find(g => (group?.id != null && g.id === group.id) || (group?._id != null && g._id === group._id)) || group
     setGeneratingAI(true)
     setIsCancellingAI(false)
     isCancellingAIRef.current = false
@@ -615,7 +501,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         const msg = firstErr?.message || 'Không thể tạo giải thích cho nhóm này'
         if (firstErr?.status === 409) {
           showAlert(msg, 'warning')
-          showToast(msg)
+
         } else {
           showToast(msg)
         }
@@ -645,13 +531,13 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     const val = validateExamListening(form, { isForAI: true })
     if (!val.isValid) {
       const msg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
-      setError(msg)
+
       showAlert(msg, 'error')
-      showToast(val.errors[0] || 'Vui lòng điền đầy đủ thông tin bài nghe và đáp án đúng')
+
       return
     }
 
-    let allGroups = (form.sections || []).flatMap(s => s.questionGroups || [])
+    let allGroups = (latestFormRef.current.sections || []).flatMap(s => s.questionGroups || [])
       .filter(g => !isExplanationUnsupportedGroup(g) && (g.questions?.length > 0 || (g.qNumberEnd >= g.qNumberStart)))
 
     if (questionNumbers && Array.isArray(questionNumbers) && questionNumbers.length > 0) {
@@ -754,7 +640,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
           const msg = firstErr?.message || 'Lỗi khi tạo giải thích'
           if (firstErr?.status === 409) {
             showAlert(msg, 'warning')
-            showToast(msg)
+
             break
           } else {
             failedGroups.push({ group, error: msg })
@@ -764,7 +650,6 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       } catch (err) {
         if (err.response?.status === 409) {
           const msg = err.response?.data?.message || 'Đang có một tác vụ AI khác đang chạy cho đề thi này. Vui lòng chờ hoàn thành.'
-          showToast(msg)
           showAlert(msg, 'warning')
           break
         }
@@ -862,65 +747,24 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     const timer = setTimeout(() => {
       try {
         localStorage.setItem(key, JSON.stringify({ ...form, _savedAt: Date.now() }))
-        const now = new Date()
-        const hh = now.getHours().toString().padStart(2, '0')
-        const mm = now.getMinutes().toString().padStart(2, '0')
-        setToast(`Đã lưu bản nháp lúc ${hh}:${mm}`)
-        setTimeout(() => setToast(''), 3000)
       } catch {
-        setToast('Không lưu được nháp (bộ nhớ đầy)')
-        setTimeout(() => setToast(''), 3000)
+        showAlert('Không lưu được nháp (bộ nhớ đầy)')
       }
     }, 2000)
     return () => clearTimeout(timer)
   }, [form, editingId])
 
   const loadForEdit = async (id) => {
-    setError('')
+    if (saveInFlightRef.current) return
+    const sequence = ++loadSequenceRef.current
+
     setLoadingEdit(true)
     try {
       const res = await api.get(`/admin/exams/${id}`)
+      if (sequence !== loadSequenceRef.current) return
       const exam = res.data
-      const rawSections = exam.listeningSections.map(s => ({
-        id: s.id,
-        number: s.number,
-        context: s.context || '',
-        audioUrl: s.audioUrl || '',
-        transcript: s.transcript || '',
-        questionGroups: (s.questionGroups || []).map(g => ({
-          id: g.id,
-          _id: g.id,
-          type: g.type,
-          qNumberStart: g.qNumberStart,
-          qNumberEnd: g.qNumberEnd,
-          instruction: g.instruction || '',
-          imageUrl: g.imageUrl || '',
-          noteSections: (g.noteSections || []).map(ns => ({
-            title: ns.title || '',
-            lines: (ns.lines || []).map(l => ({ content: l.contentWithTokens || '', lineType: l.lineType || 'content' }))
-          })),
-          matchingOptions: (g.matchingOptions || []).map(mo => ({ letter: mo.optionLetter, text: mo.optionText })),
-          questions: (g.questions || []).map(q => ({
-            id: q.id,
-            number: q.number,
-            questionText: q.questionText || '',
-            options: q.options || ['','','',''],
-            correctAnswer: q.correctAnswer || '',
-            explanation: q.explanation || null
-          })),
-          explanations: (g.questions || []).reduce((acc, q) => {
-            if (q.explanation) acc[q.number] = q.explanation
-            return acc
-          }, {})
-        }))
-      }))
-      const loadedForm = {
-        title: exam.title,
-        bookNumber: exam.bookNumber?.toString() || '',
-        testNumber: exam.testNumber?.toString() || '',
-        seriesId: exam.seriesId?.toString() || '',
-        sections: recalcAllListeningNumbers(rawSections)
-      }
+      const loadedForm = hydrateExamForm(exam, 'listening')
+      loadedForm.sections = recalcAllListeningNumbers(loadedForm.sections)
       setForm(loadedForm)
       pristineFormSigRef.current = normalizeFormForDirtyCheck(loadedForm)
       pristineExplanationsRef.current = extractExplanationsMap(loadedForm)
@@ -930,17 +774,21 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       setTimeout(() => setEditHighlight(false), 2000)
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch {
+      if (sequence !== loadSequenceRef.current) return
       const msg = 'Lỗi tải đề để sửa. Thử lại.'
-      setError(msg)
+
       showAlert(msg, 'error')
       formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
-    finally { setLoadingEdit(false) }
+    finally { if (sequence === loadSequenceRef.current) setLoadingEdit(false) }
   }
 
   const cancelEdit = () => {
+    if (saveInFlightRef.current) return
+    loadSequenceRef.current += 1
+    setLoadingEdit(false)
     expLock.handleSafeActionOrExit(() => {
-      setError('')
+
       if (editingId) localStorage.removeItem(`draft_listening_${editingId}`)
       pristineFormSigRef.current = ''
       pristineExplanationsRef.current = {}
@@ -1010,12 +858,10 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     setForm(prev => {
       const s = [...prev.sections]
       const groups = [...s[si].questionGroups]
-      const prevSlots = getGroupSlots(groups[gi])
-      const nextSlots = getGroupSlots(newGroup)
       groups[gi] = newGroup
       s[si] = { ...s[si], questionGroups: groups }
-      // Only recalc downstream numbers when the question count changed
-      return { ...prev, sections: prevSlots !== nextSlots ? recalcAllListeningNumbers(s) : s }
+      // Normalize token order as well as question counts after every edit.
+      return { ...prev, sections: recalcAllListeningNumbers(s) }
     })
   }
 
@@ -1040,13 +886,14 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   }
 
   const saveCurrentExam = async () => {
-    setError('')
+    if (saveInFlightRef.current || loadingEdit || generatingAI || expLock.isLockedOperation) return false
+
 
     // Client-side guardrails before hitting the API
     const val = validateExamListening(form, { isForAI: false })
     if (!val.isValid) {
       const msg = 'Không thể lưu đề:\n• ' + val.errors.join('\n• ')
-      setError(msg)
+
       showAlert(msg, 'error')
       formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       return false
@@ -1057,48 +904,22 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     )
     if (totalQ !== 40 && !window.confirm(`Tổng số câu hiện tại là ${totalQ}, không phải 40. Vẫn lưu?`)) return false
 
+    saveInFlightRef.current = true
     setSubmitting(true)
     try {
-      const payload = {
-        title: form.title,
-        level: 'intermediate',
-        bookNumber: form.bookNumber ? parseInt(form.bookNumber) : null,
-        testNumber: form.testNumber ? parseInt(form.testNumber) : null,
-        seriesId: form.seriesId ? parseInt(form.seriesId) : null,
-        sections: form.sections.map(s => ({
-          ...(s.id ? { id: s.id } : {}),
-          number: s.number,
-          context: s.context,
-          audioUrl: s.audioUrl || null,
-          transcript: s.transcript || null,
-          questionGroups: s.questionGroups.map(g => ({
-            ...(typeof g._id === 'number' ? { id: g._id } : (g.id ? { id: g.id } : {})),
-            type: g.type,
-            qNumberStart: g.qNumberStart,
-            qNumberEnd: g.qNumberEnd,
-            instruction: g.instruction || '',
-            imageUrl: g.imageUrl || null,
-            noteSections: g.noteSections,
-            matchingOptions: g.matchingOptions,
-            questions: (g.questions || []).map(q => ({
-              ...(q.id ? { id: q.id } : {}),
-              number: q.number,
-              questionText: q.questionText || '',
-              options: q.options || ['','','',''],
-              correctAnswer: q.correctAnswer || ''
-            }))
-          }))
-        }))
-      }
+      const payload = buildExamPayload(form, 'listening')
       if (editingId) {
-        await api.put(`/admin/exams/${editingId}`, payload)
+        const saved = await api.put(`/admin/exams/${editingId}`, payload)
+        const canonical = hydrateExamForm(saved.data, 'listening', form)
+        latestFormRef.current = canonical
+        setForm(canonical)
         localStorage.removeItem(`draft_listening_${editingId}`)
         showToast('Cập nhật đề thành công!')
         queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
         queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
-        pristineFormSigRef.current = normalizeFormForDirtyCheck(form)
-        pristineExplanationsRef.current = extractExplanationsMap(form)
-        onRefresh()
+        pristineFormSigRef.current = normalizeFormForDirtyCheck(canonical)
+        pristineExplanationsRef.current = extractExplanationsMap(canonical)
+        Promise.resolve().then(() => onRefresh?.()).catch(() => {})
         return true
       } else {
         await api.post('/admin/exams/listening', payload)
@@ -1110,18 +931,19 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
         pristineFormSigRef.current = ''
         pristineExplanationsRef.current = {}
-        onRefresh()
+        Promise.resolve().then(() => onRefresh?.()).catch(() => {})
         return true
       }
     } catch (err) {
       const data = err.response?.data
       const errMsg = data?.blockedQuestions?.length
         ? `${data.message}\n${data.blockedQuestions.map(b => `Section ${b.sectionNumber} - Câu ${b.questionNumber}`).join('\n')}`
-        : (data?.message || 'Lỗi lưu đề Listening')
-      setError(errMsg)
+        : (data?.message || err.message || 'Lỗi lưu đề Listening')
+
       showAlert(errMsg, 'error')
       return false
     } finally {
+      saveInFlightRef.current = false
       setSubmitting(false)
     }
   }
@@ -1144,11 +966,6 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
 
   return (
     <div className="space-y-6">
-      {toast && (
-        <div className="fixed bottom-4 right-4 bg-zinc-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg z-50">
-          {toast}
-        </div>
-      )}
       <div className="relative">
       {loadingEdit && (
         <div className="absolute inset-0 z-20 rounded-2xl bg-white/70 backdrop-blur-[1px] flex items-center justify-center">
@@ -1157,11 +974,10 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       )}
       <form ref={formRef} onSubmit={handleSubmit} aria-busy={loadingEdit}
         className={`bg-white rounded-2xl p-6 border shadow-xs transition-all duration-500 ${loadingEdit ? 'opacity-60 pointer-events-none select-none' : ''} ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-zinc-200'}`}>
+        <fieldset disabled={submitting || loadingEdit} className="min-w-0 border-0 p-0 m-0">
         <h3 className="text-sm font-semibold text-zinc-900 mb-5">
           {editingId ? (form.title ? `Sửa đề Listening: ${form.title}` : 'Sửa đề Listening') : 'Tạo đề Listening mới'}
         </h3>
-
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg mb-4 text-sm whitespace-pre-line">{error}</div>}
 
         <AIGenerationResumeBanner
           banner={expLock.resumeBanner}
@@ -1431,24 +1247,8 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
                     </div>
 
                     {addingGroupSection === si ? (
-                      <div className="border border-dashed border-zinc-400 rounded-lg p-4 bg-zinc-50/50">
-                        <p className="text-xs font-bold text-zinc-700 mb-3">Chọn loại nhóm câu hỏi:</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          {GROUP_TYPES.map(t => (
-                            <button
-                              key={t.value}
-                              type="button"
-                              onClick={() => addGroup(si, t.value)}
-                              className="text-left px-3 py-2 border border-zinc-200 rounded-lg text-sm text-zinc-700 hover:border-zinc-900 hover:text-zinc-900 hover:bg-zinc-100 transition font-medium"
-                            >
-                              {t.label}
-                            </button>
-                          ))}
-                        </div>
-                        <button type="button" onClick={() => setAddingGroupSection(null)}
-                          className="mt-2 text-xs text-zinc-400 hover:text-zinc-600">Hủy</button>
-                      </div>
-                    ) : (
+                      <QuestionTypePicker types={GROUP_TYPES} onSelect={type => addGroup(si, type)} onCancel={() => setAddingGroupSection(null)} />
+                      ) : (
                       <button
                         type="button"
                         onClick={() => setAddingGroupSection(si)}
@@ -1486,6 +1286,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
           <Eye className="w-4 h-4" />
           <span>{showPreview ? 'Đóng preview' : 'Preview nội dung đề'}</span>
         </button>
+        </fieldset>
       </form>
       </div>
 

@@ -97,7 +97,12 @@ if (require.main === module) {
   const { printDbBanner } = require('./lib/dbInfo')
   printDbBanner('server.js')
 
-  const httpServer = app.listen(PORT, () => console.log(`Server chạy tại http://localhost:${PORT}`))
+  // TC-048: phục hồi job chấm Writing bị bỏ rơi bởi lần restart trước.
+  const { startGradingRecovery } = require('./lib/gradingRecovery')
+  const prisma = require('./lib/prisma')
+  const recovery = startGradingRecovery(prisma)
+  const httpServer = require('node:http').createServer(app)
+  recovery.ready.then(() => httpServer.listen(PORT, () => console.log(`Server chạy tại http://localhost:${PORT}`)))
 
   // Không có handler này, cổng đã bị chiếm (vd tiến trình server cũ chưa tắt
   // hẳn) sẽ ném lỗi 'error' không bắt được — trên Windows qua nodemon, thông

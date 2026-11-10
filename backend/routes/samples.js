@@ -39,6 +39,30 @@ const thumbUpload = multer({
 
 const { teacherStrict } = require('../lib/roles')
 
+// ─── SpeakingSample nested Part/Question graph (TC-036) ──────────────────────
+// Một lần ghi lồng nhau của Prisma là atomic: hoặc toàn bộ Part/Question được
+// tạo/thay, hoặc không bản ghi nào bị thay đổi.
+const SPEAKING_PARTS_INCLUDE = {
+  parts: {
+    include: { questions: { orderBy: { orderNum: 'asc' } } },
+    orderBy: { partNumber: 'asc' },
+  },
+}
+
+function buildSpeakingPartRows(parts) {
+  return (parts || []).map(part => ({
+    partNumber: part.partNumber,
+    title: part.title || null,
+    description: part.description || null,
+    questions: {
+      create: (part.questions || []).map((q, index) => ({
+        orderNum: q.orderNum ?? index + 1,
+        questionText: q.questionText.trim(),
+      })),
+    },
+  }))
+}
+
 // ─── PUBLIC: list samples (home page) ────────────────────────────────────────
 // Fetcher + SWR cache nằm ở lib/publicContent.js (chia sẻ cache với /api/home).
 function makeSampleListHandler(skill) {
@@ -173,11 +197,15 @@ router.post('/admin/writing', authMiddleware, teacherStrict, validate(createSamp
 
 router.post('/admin/speaking', authMiddleware, teacherStrict, validate(createSampleSchema), async (req, res) => {
   try {
-    const { title, level, examType, content, thumbnailUrl, tags } = req.body
+    const { title, level, examType, content, thumbnailUrl, tags, parts } = req.body
     if (await findTitleConflict(prisma.speakingSample, title)) return res.status(409).json({ message: 'Tên bài mẫu Speaking đã tồn tại' })
-    const s = await prisma.speakingSample.create({
-      data: { title: title.trim(), level: level || null, examType: examType || null, content: sanitizeRichText(content) || null, thumbnailUrl: thumbnailUrl || null, tags: tags ? JSON.stringify(tags) : null }
-    })
+    const data = {
+      title: title.trim(), level: level || null, examType: examType || null,
+      content: sanitizeRichText(content) || null, thumbnailUrl: thumbnailUrl || null,
+      tags: tags ? JSON.stringify(tags) : null,
+    }
+    if (parts !== undefined) data.parts = { create: buildSpeakingPartRows(parts) }
+    const s = await prisma.speakingSample.create({ data, include: SPEAKING_PARTS_INCLUDE })
     invalidate('samples:')
     await logAuditEvent(req, {
       action: AUDIT_ACTIONS.SAMPLE_CREATE,
@@ -220,7 +248,7 @@ router.put('/admin/writing/:id', authMiddleware, teacherStrict, validate(updateS
 
 router.put('/admin/speaking/:id', authMiddleware, teacherStrict, validate(updateSampleSchema), async (req, res) => {
   try {
-    const { title, level, examType, content, thumbnailUrl, tags } = req.body
+    const { title, level, examType, content, thumbnailUrl, tags, parts } = req.body
     const id = parseInt(req.params.id, 10)
     if (title !== undefined && await findTitleConflict(prisma.speakingSample, title, {}, id)) return res.status(409).json({ message: 'Tên bài mẫu Speaking đã tồn tại' })
     const data = {}
@@ -230,7 +258,13 @@ router.put('/admin/speaking/:id', authMiddleware, teacherStrict, validate(update
     if (content !== undefined) data.content = sanitizeRichText(content)
     if (thumbnailUrl !== undefined) data.thumbnailUrl = thumbnailUrl
     if (tags !== undefined) data.tags = JSON.stringify(tags)
-    const s = await prisma.speakingSample.update({ where: { id }, data })
+    if (parts !== undefined) {
+      // Replace toàn bộ graph trong MỘT update lồng nhau (atomic).
+      data.parts = { deleteMany: {} }
+      const rows = buildSpeakingPartRows(parts)
+      if (rows.length) data.parts.create = rows
+    }
+    const s = await prisma.speakingSample.update({ where: { id }, data, include: SPEAKING_PARTS_INCLUDE })
     invalidate('samples:')
     await logAuditEvent(req, {
       action: AUDIT_ACTIONS.SAMPLE_UPDATE,

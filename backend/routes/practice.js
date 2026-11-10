@@ -25,6 +25,8 @@ const { acquireLock, releaseLock, isLocked } = require('../lib/explanationLock')
 const { bindRequestAbort } = require('../lib/requestAbort')
 const { sendServerError } = require('../lib/httpErrors')
 const { findTitleConflict } = require('../lib/titleConflict')
+const { gradePractice } = require('../lib/practiceGrading')
+const { AnswerValidationError } = require('../lib/multiChoice')
 
 const router = express.Router()
 
@@ -170,6 +172,22 @@ function attemptSummary(a, skill) {
   return { attemptId: a.id, examId: a.practiceExamId, skill, finishedAt: a.createdAt, correct: a.correct, total: a.total, bandScore: null }
 }
 
+function hidePracticeAnswers(value) {
+  if (Array.isArray(value)) return value.map(hidePracticeAnswers)
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(Object.entries(value)
+    .filter(([key]) => !['correctAnswer', 'explanations', 'explanation', 'answer'].includes(key))
+    .map(([key, entry]) => [key, hidePracticeAnswers(entry)]))
+}
+
+function practiceReviewExam(exam, groups) {
+  // Main exam review renderers accept the DB's JSON-string option format.
+  // Keep the learner's in-progress groups unchanged (array options).
+  return { ...exam, questions: { groups: groups.map(g => ({ ...g, questions: (g.questions || []).map(q => ({
+    ...q, options: Array.isArray(q.options) ? JSON.stringify(q.options) : q.options,
+  })) })) } }
+}
+
 router.get('/attempts/:skill', authMiddleware, learnerOnly, async (req, res) => {
   const { skill } = req.params
   if (!PRACTICE_SKILLS.has(skill)) return res.status(400).json({ message: 'Kỹ năng không hợp lệ' })
@@ -190,15 +208,20 @@ router.post('/attempts/:skill/:id', authMiddleware, learnerOnly, validate(practi
   const examId = parseInt(req.params.id)
   if (!PRACTICE_SKILLS.has(skill) || !Number.isInteger(examId)) return res.status(400).json({ message: 'Yêu cầu không hợp lệ' })
   try {
-    const exam = await prisma.practiceExam.findFirst({ where: { id: examId, skill, deletedAt: null }, select: { id: true } })
+    const exam = await prisma.practiceExam.findFirst({ where: { id: examId, skill, deletedAt: null }, include: { questions: { orderBy: { orderNum: 'asc' } } } })
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy bài luyện tập' })
-    const { answers, correct, total } = req.body
+    const { answers } = req.body
+    const groups = practiceGroupsWithExplanations(exam.questions, { forAdmin: false })
+    const { correct, total, result } = gradePractice(skill, exam, groups, answers)
     const created = await prisma.practiceAttempt.create({
       data: { userId: req.user.userId, practiceExamId: examId, answers, correct, total },
       select: { id: true, practiceExamId: true, correct: true, total: true, createdAt: true },
     })
-    res.status(201).json(attemptSummary(created, skill))
-  } catch (err) { sendServerError(res, err, 'Lỗi server') }
+    res.status(201).json({ ...attemptSummary(created, skill), result, reviewExam: practiceReviewExam(exam, groups) })
+  } catch (err) {
+    if (err instanceof AnswerValidationError) return res.status(400).json({ message: err.message })
+    sendServerError(res, err, 'Lỗi server')
+  }
 })
 
 router.get('/attempts/:skill/:id/:attemptId', authMiddleware, learnerOnly, async (req, res) => {
@@ -211,7 +234,9 @@ router.get('/attempts/:skill/:id/:attemptId', authMiddleware, learnerOnly, async
       where: { id: attemptId, practiceExamId: examId, userId: req.user.userId },
     })
     if (!attempt) return res.status(404).json({ message: 'Không tìm thấy lượt làm bài' })
-    res.json({ ...attemptSummary(attempt, skill), answers: attempt.answers })
+    const exam = await prisma.practiceExam.findFirst({ where: { id: examId, skill, deletedAt: null }, include: { questions: { orderBy: { orderNum: 'asc' } } } })
+    const reviewExam = exam ? practiceReviewExam(exam, practiceGroupsWithExplanations(exam.questions, { forAdmin: false })) : null
+    res.json({ ...attemptSummary(attempt, skill), answers: attempt.answers, reviewExam })
   } catch (err) { sendServerError(res, err, 'Lỗi server') }
 })
 
@@ -228,7 +253,7 @@ router.get('/reading/:id', authMiddleware, async (req, res) => {
     })
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy' })
     const groups = practiceGroupsWithExplanations(exam.questions, { forAdmin: false })
-    res.json({ ...exam, questions: { groups } })
+    res.json({ ...exam, questions: { groups: hidePracticeAnswers(groups) } })
   } catch (err) { sendServerError(res, err, 'Lỗi server') }
 })
 
@@ -241,7 +266,7 @@ router.get('/listening/:id', authMiddleware, async (req, res) => {
     })
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy' })
     const groups = practiceGroupsWithExplanations(exam.questions, { forAdmin: false })
-    res.json({ ...exam, questions: { groups } })
+    res.json({ ...exam, questions: { groups: hidePracticeAnswers(groups) } })
   } catch (err) { sendServerError(res, err, 'Lỗi server') }
 })
 

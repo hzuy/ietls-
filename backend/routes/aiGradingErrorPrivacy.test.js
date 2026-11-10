@@ -8,7 +8,7 @@ process.env.JWT_SECRET = 'test_secret_key'
 const prismaMock = {
   setting: { findUnique: vi.fn() },
   writingTask: { findUnique: vi.fn(), findMany: vi.fn() },
-  writingAnswer: { create: vi.fn(), update: vi.fn(), findUnique: vi.fn(), findMany: vi.fn() },
+  writingAnswer: { create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), findUnique: vi.fn(), findMany: vi.fn() },
   writingCriterionLog: { createMany: vi.fn() },
   speakingPart: { findUnique: vi.fn(), findMany: vi.fn() },
   speakingAnswer: { create: vi.fn(), update: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), findFirst: vi.fn() },
@@ -54,6 +54,7 @@ describe('Lỗi chấm bài AI không rò rỉ chi tiết hạ tầng (writing/s
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     prismaMock.setting.findUnique.mockResolvedValue(null)
     prismaMock.writingAnswer.update.mockResolvedValue({})
+    prismaMock.writingAnswer.updateMany.mockResolvedValue({ count: 1 })
     prismaMock.writingCriterionLog.createMany.mockResolvedValue({ count: 0 })
     prismaMock.speakingAnswer.update.mockResolvedValue({})
     prismaMock.speakingAnswer.findUnique.mockResolvedValue(null)
@@ -64,7 +65,7 @@ describe('Lỗi chấm bài AI không rò rỉ chi tiết hạ tầng (writing/s
     consoleErrorSpy.mockRestore()
   })
 
-  const findFailedUpdate = (model) => prismaMock[model].update.mock.calls
+  const findFailedUpdate = (model) => prismaMock[model][model === 'writingAnswer' ? 'updateMany' : 'update'].mock.calls
     .map(([args]) => args)
     .find((args) => args?.data?.status === 'failed')
 

@@ -1,19 +1,23 @@
 const { z } = require('zod')
 
 // 1. Reading Submit Schema
+const submissionKeySchema = z.string().trim().min(1).max(120).optional()
+
 const readingSubmitSchema = z.object({
-  answers: z.record(z.string(), z.any(), { message: 'answers phải là một object' }).refine(
-    val => typeof val === 'object' && val !== null && !Array.isArray(val),
+  answers: z.record(z.string(), z.string().max(500), { message: 'answers phải là một object' }).refine(
+    val => typeof val === 'object' && val !== null && !Array.isArray(val) && Object.keys(val).length <= 200,
     { message: 'answers phải là một object hợp lệ' }
   ),
+  submissionKey: submissionKeySchema,
 })
 
 // 2. Listening Submit Schema
 const listeningSubmitSchema = z.object({
-  answers: z.record(z.string(), z.any(), { message: 'answers phải là một object' }).refine(
-    val => typeof val === 'object' && val !== null && !Array.isArray(val),
+  answers: z.record(z.string(), z.string().max(500), { message: 'answers phải là một object' }).refine(
+    val => typeof val === 'object' && val !== null && !Array.isArray(val) && Object.keys(val).length <= 200,
     { message: 'answers phải là một object hợp lệ' }
   ),
+  submissionKey: submissionKeySchema,
 })
 
 // 3. Writing Submit Schema

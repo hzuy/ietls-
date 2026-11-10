@@ -13,11 +13,32 @@
  * that has not already been claimed, so legacy rows that still contain
  * duplicate option texts resolve to distinct indices instead of collapsing.
  */
+export function splitChoiceAnswer(value, options = []) {
+  const answer = String(value ?? '').trim()
+  const fallback = () => answer.split(',').map(s => s.trim()).filter(Boolean)
+  if (!answer || !Array.isArray(options) || !options.some(o => String(o).includes(','))) return fallback()
+  const candidates = [...new Set(options.map(o => String(o ?? '').trim()).filter(Boolean))].sort((a, b) => b.length - a.length)
+  const tokens = []
+  let rest = answer
+  while (rest) {
+    const option = candidates.find(o => rest.startsWith(o) && (!rest.slice(o.length).trimStart() || rest.slice(o.length).trimStart().startsWith(',')))
+    if (!option) return fallback()
+    tokens.push(option)
+    rest = rest.slice(option.length).trimStart()
+    if (rest) rest = rest.slice(1).trimStart()
+  }
+  return tokens
+}
+
+export function selectedOptionValues(value, rawOptions) {
+  let options = rawOptions
+  if (typeof options === 'string') { try { options = JSON.parse(options) } catch { options = [] } }
+  options = Array.isArray(options) ? options : []
+  return splitChoiceAnswer(value, options).map(token => options.find(o => String(o).trim() === token) ?? token)
+}
+
 export function deriveCorrectIndices(correctAnswer, options) {
-  const wanted = String(correctAnswer ?? '')
-    .split(',')
-    .map(s => s.trim())
-    .filter(Boolean)
+  const wanted = splitChoiceAnswer(correctAnswer, options)
   const opts = (options || []).map(o => String(o ?? '').trim())
   const claimed = new Set()
   const indices = []

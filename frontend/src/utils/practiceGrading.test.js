@@ -32,6 +32,15 @@ describe('gradePractice', () => {
     expect(gradePractice('reading', {}, {})).toMatchObject({ correct: 0, total: 0 })
   })
 
+  it.each(['reading','listening'])('reviews %s multi-choice by distinct answer slots', skill => {
+    const exam={questions:{groups:[{type:'mcq_multi',qNumberStart:1,qNumberEnd:4,maxChoices:2,questions:[
+      {number:1,correctAnswer:'A,B'}, {number:3,correctAnswer:'C,D'}]}]}}
+    const result=gradePractice(skill,exam,{1:'B,A,A',3:'C'})
+    expect([result.correct,result.total]).toEqual([3,4])
+    expect(result.result.sections[0].questions.map(q=>q.status)).toEqual(['correct','correct','correct','missed'])
+    expect(result.result.sections[0].questions[0].userAnswer).toBe('B')
+  })
+
   it('filters out explanations containing internal jargon from learner results', () => {
     const examWithJargon = {
       title: 'Test Jargon',

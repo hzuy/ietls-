@@ -1,3 +1,4 @@
+const { choices } = require('../lib/multiChoice')
 const { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient()
 
@@ -39,8 +40,8 @@ async function main() {
             for (const q of activeQs) {
               const userAnswerStr = answers[q.id] || ''
               if (g.type === 'mcq_multi') {
-                const userArr = userAnswerStr.split(',').map(a => a.trim().toLowerCase()).filter(Boolean)
-                const correctArr = (q.correctAnswer || '').split(',').map(a => a.trim().toLowerCase()).filter(Boolean)
+                const userArr = choices(userAnswerStr, q.options)
+                const correctArr = choices(q.correctAnswer, q.options)
                 let matchCount = 0
                 for (const ua of userArr) {
                   if (correctArr.includes(ua)) matchCount++
@@ -69,8 +70,8 @@ async function main() {
             for (const q of activeQs) {
               const userAnswerStr = answers[q.id] || ''
               if (g.type === 'mcq_multi') {
-                const userArr = userAnswerStr.split(',').map(a => a.trim().toLowerCase()).filter(Boolean)
-                const correctArr = (q.correctAnswer || '').split(',').map(a => a.trim().toLowerCase()).filter(Boolean)
+                const userArr = choices(userAnswerStr, q.options)
+                const correctArr = choices(q.correctAnswer, q.options)
                 let matchCount = 0
                 for (const ua of userArr) {
                   if (correctArr.includes(ua)) matchCount++

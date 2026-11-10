@@ -1,3 +1,4 @@
+const { ExamIdentityConflict, matchExistingGroup } = require('../../../lib/examIdentity')
 const express = require('express')
 const { sendServerError } = require('../../../lib/httpErrors')
 const { findTitleConflict } = require('../../../lib/titleConflict')
@@ -543,13 +544,15 @@ class BlockedDeletionError extends Error {
 // (connection_limit=5) under concurrent admin use. This is a stopgap for the
 // timeout, not a fix for the underlying per-row round-trip count — batching
 // these into fewer queries remains the real follow-up.
+const EDITOR_GROUP_INCLUDE = { questions: { orderBy: { number: 'asc' } }, noteSections: { orderBy: { sortOrder: 'asc' }, include: { lines: { orderBy: { sortOrder: 'asc' } } } }, matchingOptions: { orderBy: { sortOrder: 'asc' } } }
 const EXAM_UPDATE_TX_OPTIONS = { timeout: 120000, maxWait: 15000 }
 
-const NOTE_GROUP_TYPES = ['note_completion', 'table_completion', 'drag_word_bank']
-const READING_MATCHING_GROUP_TYPES = ['matching_information', 'drag_word_bank', 'matching_drag', 'matching_headings']
-const LISTENING_MATCHING_GROUP_TYPES = ['matching', 'map_diagram', 'drag_word_bank', 'matching_drag', 'matching_headings']
+const NOTE_GROUP_TYPES = ['note_completion', 'table_completion', 'drag_word_bank', 'form_completion', 'summary_completion', 'flow_chart_completion']
+const READING_MATCHING_GROUP_TYPES = ['matching_information', 'drag_word_bank', 'matching_drag', 'matching_headings', 'matching_endings', 'categorisation']
+const LISTENING_MATCHING_GROUP_TYPES = ['matching', 'map_diagram', 'drag_word_bank', 'matching_drag', 'matching_headings', 'matching_endings', 'categorisation']
 
 function mapReadingQuestionFields(groupType, q) {
+  groupType = ({ list_selection: 'mcq_multi', choose_title: 'mcq', matching_endings: 'matching_drag', categorisation: 'matching_drag', sentence_completion: 'short_answer' })[groupType] || groupType
   if (['true_false_ng', 'yes_no_ng'].includes(groupType)) {
     return { type: groupType, questionText: q.questionText || '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
   }
@@ -557,7 +560,7 @@ function mapReadingQuestionFields(groupType, q) {
     return { type: 'fill_blank', questionText: '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
   }
   if (groupType === 'diagram_label') {
-    return { type: 'fill_blank', questionText: q.hint || q.questionText || '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
+    return { type: 'fill_blank', questionText: q.hint ?? q.questionText ?? '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
   }
   if (groupType === 'matching_information') {
     return { type: 'matching_paragraph', questionText: q.questionText || '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
@@ -576,11 +579,12 @@ function mapReadingQuestionFields(groupType, q) {
 }
 
 function mapListeningQuestionFields(groupType, q) {
+  groupType = ({ list_selection: 'mcq_multi', choose_title: 'mcq', matching_endings: 'matching_drag', categorisation: 'matching_drag', sentence_completion: 'short_answer' })[groupType] || groupType
   if (NOTE_GROUP_TYPES.includes(groupType)) {
     return { type: 'fill_blank', questionText: '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
   }
   if (groupType === 'diagram_label') {
-    return { type: 'fill_blank', questionText: q.hint || q.questionText || '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
+    return { type: 'fill_blank', questionText: q.hint ?? q.questionText ?? '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
   }
   if (['matching', 'map_diagram'].includes(groupType)) {
     return { type: groupType, questionText: q.questionText || '', correctAnswer: q.correctAnswer || '', options: null, imageUrl: null }
@@ -624,7 +628,23 @@ function buildMatchingOptionsRaw(g) {
 // Diff an existing Question[] against submitted question payloads.
 // Supports matching by `id` first (if provided in payload and belongs to existing),
 // falling back to matching by `number`.
-function planQuestionDiff(existingQuestions, submittedQuestions, fieldMapper) {
+function parseExplanation(explanation) {
+  return typeof explanation === 'object' && explanation ? explanation : {}
+}
+
+// Mark a reviewed explanation as stale while keeping its previous content and
+// history. Used both for question-level edits and for edits to the surrounding
+// source material (Reading passage body / Listening context+transcript).
+function buildStaleExplanation(ex, reason) {
+  return {
+    ...parseExplanation(ex.explanation),
+    status: 'possibly_stale',
+    staleReason: reason,
+    staleAt: new Date().toISOString()
+  }
+}
+
+function planQuestionDiff(existingQuestions, submittedQuestions, fieldMapper, sourceStaleReason = null) {
   const existingById = new Map(existingQuestions.map(q => [q.id, q]))
   const existingByNumber = new Map(existingQuestions.map(q => [q.number, q]))
   const matchedExistingIds = new Set()
@@ -637,19 +657,12 @@ function planQuestionDiff(existingQuestions, submittedQuestions, fieldMapper) {
     const answerChanged = String(ex.correctAnswer ?? '').trim() !== String(fields.correctAnswer ?? '').trim()
     const textChanged = String(ex.questionText ?? '').trim() !== String(fields.questionText ?? '').trim()
     const optionsChanged = String(ex.options ?? '').trim() !== String(fields.options ?? '').trim()
-    if (answerChanged || textChanged || optionsChanged) {
-      const expObj = typeof ex.explanation === 'object' ? ex.explanation : {}
-      let staleReason = 'Nội dung câu hỏi đã thay đổi'
+    if (answerChanged || textChanged || optionsChanged || sourceStaleReason) {
+      let staleReason = sourceStaleReason || 'Nội dung câu hỏi đã thay đổi'
       if (answerChanged) staleReason = 'Đáp án đã thay đổi'
+      else if (textChanged) staleReason = 'Nội dung câu hỏi đã thay đổi'
       else if (optionsChanged) staleReason = 'Các lựa chọn đã thay đổi'
-      return {
-        explanation: {
-          ...expObj,
-          status: 'possibly_stale',
-          staleReason,
-          staleAt: new Date().toISOString()
-        }
-      }
+      return { explanation: buildStaleExplanation(ex, staleReason) }
     }
     return {}
   }
@@ -664,6 +677,8 @@ function planQuestionDiff(existingQuestions, submittedQuestions, fieldMapper) {
 
   // Phase 1: match by q.id if provided and exists in this group
   for (const q of submittedQuestions) {
+    if (q.isNew && q.id != null) throw new ExamIdentityConflict()
+    if (q.id != null && (!existingById.has(Number(q.id)) || matchedExistingIds.has(Number(q.id)))) throw new ExamIdentityConflict()
     const qId = q.id ? parseInt(q.id) : null
     if (qId && existingById.has(qId)) {
       const ex = existingById.get(qId)
@@ -679,7 +694,7 @@ function planQuestionDiff(existingQuestions, submittedQuestions, fieldMapper) {
   // Phase 2: match remaining submitted by number
   for (const { q } of unmatchedSubmitted) {
     const ex = existingByNumber.get(q.number)
-    if (ex && !matchedExistingIds.has(ex.id)) {
+    if (!q.isNew && ex && !matchedExistingIds.has(ex.id)) {
       const fields = fieldMapper(mergeExisting(ex, q))
       matchedExistingIds.add(ex.id)
       const stalePatch = getStalePatch(ex, fields)
@@ -703,7 +718,7 @@ function planQuestionDiff(existingQuestions, submittedQuestions, fieldMapper) {
 // request has been confirmed answer-safe — see the blocked-deletion check in
 // the route handler) instead of writing immediately, and returns the question
 // rows that are candidates for pruning (not yet deleted).
-function planGroupUpdate(tx, oldGroup, g, gi, skill, operations) {
+function planGroupUpdate(tx, oldGroup, g, gi, skill, operations, sourceStaleReason = null) {
   const isReading = skill === 'reading'
   const matchingTypes = isReading ? READING_MATCHING_GROUP_TYPES : LISTENING_MATCHING_GROUP_TYPES
   const mapFn = isReading ? mapReadingQuestionFields : mapListeningQuestionFields
@@ -732,7 +747,7 @@ function planGroupUpdate(tx, oldGroup, g, gi, skill, operations) {
       ...(g.imageUrl !== undefined ? { imageUrl: g.imageUrl } : {}),
       ...(gi !== undefined ? { sortOrder: gi } : {}),
       ...(g.maxChoices !== undefined ? { maxChoices: g.maxChoices } : {}),
-      ...(isReading && g.canReuse !== undefined ? { canReuse: g.canReuse } : {})
+      ...(g.canReuse !== undefined ? { canReuse: g.canReuse } : {})
     }
   if (Object.keys(groupPatch).length) operations.push(() => tx.questionGroup.update({ where: { id: oldGroup.id }, data: groupPatch }))
 
@@ -749,7 +764,7 @@ function planGroupUpdate(tx, oldGroup, g, gi, skill, operations) {
     if (opts.length) operations.push(() => tx.matchingOption.createMany({ data: opts.map(o => ({ ...o, groupId: oldGroup.id })) }))
   }
 
-  const plan = g.questions === undefined ? { toUpdate: [], toCreate: [], toPrune: [] } : planQuestionDiff(oldGroup.questions, g.questions, q => mapFn(g.type || oldGroup.type, q))
+  const plan = g.questions === undefined ? { toUpdate: [], toCreate: [], toPrune: [] } : planQuestionDiff(oldGroup.questions, g.questions, q => mapFn(g.type || oldGroup.type, q), sourceStaleReason)
   for (const u of plan.toUpdate) operations.push(() => tx.question.update({ where: { id: u.id }, data: u.data }))
   if (plan.toCreate.length) operations.push(() => tx.question.createMany({ data: plan.toCreate.map(q => ({ ...q, groupId: oldGroup.id })) }))
   // created/updated dùng cho audit log (exam.update, xem PUT /exams/:id) — số lượng
@@ -766,7 +781,7 @@ function groupCreateData(g, gi, skill) {
   const data = {
     qNumberStart: g.qNumberStart, qNumberEnd: g.qNumberEnd, instruction: g.instruction || '',
     type: g.type, imageUrl: g.imageUrl || null, sortOrder: gi, maxChoices: g.maxChoices || 2,
-    ...(isReading ? { canReuse: g.canReuse || false } : {})
+    canReuse: g.canReuse || false
   }
   if (NOTE_GROUP_TYPES.includes(g.type)) {
     data.noteSections = { create: buildNoteSectionsRaw(g).map(ns => ({ title: ns.title, sortOrder: ns.sortOrder, lines: { create: ns.lines } })) }
@@ -900,12 +915,22 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema,
               }
               if (Object.keys(passagePatch).length) { operations.push(() => tx.passage.update({ where: { id: oldP.id }, data: passagePatch })); counts.updated++ }
 
-              const directPlan = p.questions === undefined ? { toUpdate: [], toCreate: [], toPrune: [] } : planQuestionDiff(oldP.questions, p.questions, mapStandaloneQuestionFields)
-              for (const u of directPlan.toUpdate) operations.push(() => tx.question.update({ where: { id: u.id }, data: u.data }))
+              // TC-026: nội dung nguồn (body / letteredParagraphs) thay đổi làm
+              // evidence trong explanation cũ không còn đáng tin. Chỉ thay đổi
+              // title/subtitle thì KHÔNG đánh dấu stale.
+              const passageSourceChanged =
+                (p.body !== undefined && String(p.body) !== String(oldP.body)) ||
+                (p.letteredParagraphs !== undefined && Boolean(p.letteredParagraphs) !== Boolean(oldP.letteredParagraphs))
+              const sourceStaleReason = passageSourceChanged ? 'Nội dung bài đọc đã thay đổi' : null
+              const handledQuestionIds = new Set()
+
+              const directPlan = p.questions === undefined ? { toUpdate: [], toCreate: [], toPrune: [] } : planQuestionDiff(oldP.questions, p.questions, mapStandaloneQuestionFields, sourceStaleReason)
+              for (const u of directPlan.toUpdate) { handledQuestionIds.add(u.id); operations.push(() => tx.question.update({ where: { id: u.id }, data: u.data })) }
               if (directPlan.toCreate.length) operations.push(() => tx.question.createMany({ data: directPlan.toCreate.map(q => ({ ...q, passageId: oldP.id })) }))
               counts.created += directPlan.toCreate.length
               counts.updated += directPlan.toUpdate.length
               directPlan.toPrune.forEach(q => {
+                handledQuestionIds.add(q.id)
                 pruneQuestionIds.push(q.id)
                 pruneLabels.set(q.id, { passageNumber: p.number, groupSortOrder: null, questionNumber: q.number })
                 counts.deleted++
@@ -913,22 +938,18 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema,
 
               const submittedGroups = p.questionGroups === undefined ? null : p.questionGroups
               const oldGroups = oldP.questionGroups
-              const oldGroupsById = new Map(oldGroups.map(og => [og.id, og]))
               const matchedOldGroupIds = new Set()
 
               for (let gi = 0; submittedGroups && gi < submittedGroups.length; gi++) {
                 const g = submittedGroups[gi]
-                const gId = g.id ? parseInt(g.id) : null
-                let oldG = gId && oldGroupsById.has(gId) ? oldGroupsById.get(gId) : oldGroups[gi]
-                if (oldG && matchedOldGroupIds.has(oldG.id)) {
-                  oldG = oldGroups.find(og => !matchedOldGroupIds.has(og.id))
-                }
+                const oldG = matchExistingGroup(g, gi, oldGroups, matchedOldGroupIds)
                 if (oldG) {
                   matchedOldGroupIds.add(oldG.id)
-                  const groupResult = planGroupUpdate(tx, oldG, g, gi, 'reading', operations)
+                  const groupResult = planGroupUpdate(tx, oldG, g, gi, 'reading', operations, sourceStaleReason)
                   counts.created += groupResult.created
                   counts.updated += groupResult.updated
                   groupResult.toPrune.forEach(q => {
+                    handledQuestionIds.add(q.id)
                     pruneQuestionIds.push(q.id)
                     pruneLabels.set(q.id, { passageNumber: p.number, groupSortOrder: oldG.sortOrder, questionNumber: q.number })
                     counts.deleted++
@@ -944,6 +965,18 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema,
                 const labelsByQId = new Map(oldG.questions.map(q => [q.id, { passageNumber: p.number, groupSortOrder: oldG.sortOrder, questionNumber: q.number }]))
                 deleteGroupCandidates.push({ groupId: oldG.id, questionIds: qIds, labelsByQId })
                 counts.deleted += 1 + qIds.length
+              }
+
+              // Questions of this passage that were not part of the submitted
+              // diff (e.g. legacy direct rows) still depend on the changed
+              // source text, so mark their explanations stale as well.
+              if (sourceStaleReason) {
+                const allOldQuestions = [...oldP.questions, ...oldP.questionGroups.flatMap(g => g.questions)]
+                for (const ex of allOldQuestions) {
+                  if (!ex.explanation || handledQuestionIds.has(ex.id)) continue
+                  operations.push(() => tx.question.update({ where: { id: ex.id }, data: { explanation: buildStaleExplanation(ex, sourceStaleReason) } }))
+                  counts.updated++
+                }
               }
             } else {
               operations.push(() => tx.passage.create({ data: {
@@ -989,7 +1022,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema,
           for (const c of deleteGroupCandidates) await tx.questionGroup.delete({ where: { id: c.groupId } })
           for (const c of deletePassageCandidates) await tx.passage.delete({ where: { id: c.passageId } })
 
-          return tx.exam.findUnique({ where: { id }, include: { passages: { include: { questions: true, questionGroups: true } } } })
+          return tx.exam.findUnique({ where: { id }, include: { passages: { orderBy: { number: 'asc' }, include: { questions: true, questionGroups: { orderBy: { sortOrder: 'asc' }, include: EDITOR_GROUP_INCLUDE } } } } })
         }, EXAM_UPDATE_TX_OPTIONS)
         invalidate('fulltests:')
         invalidateExamCaches(id)
@@ -1049,12 +1082,21 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema,
               }
               if (Object.keys(sectionPatch).length) { operations.push(() => tx.listeningSection.update({ where: { id: oldS.id }, data: sectionPatch })); counts.updated++ }
 
-              const directPlan = s.questions === undefined ? { toUpdate: [], toCreate: [], toPrune: [] } : planQuestionDiff(oldS.questions, s.questions, mapStandaloneQuestionFields)
-              for (const u of directPlan.toUpdate) operations.push(() => tx.question.update({ where: { id: u.id }, data: u.data }))
+              // TC-026: context/transcript là nguồn evidence của explanation.
+              // audioUrl đổi (cùng nội dung) không làm stale.
+              const sectionSourceChanged =
+                (s.context !== undefined && String(s.context) !== String(oldS.context)) ||
+                (s.transcript !== undefined && String(s.transcript ?? '') !== String(oldS.transcript ?? ''))
+              const sourceStaleReason = sectionSourceChanged ? 'Ngữ cảnh/transcript phần nghe đã thay đổi' : null
+              const handledQuestionIds = new Set()
+
+              const directPlan = s.questions === undefined ? { toUpdate: [], toCreate: [], toPrune: [] } : planQuestionDiff(oldS.questions, s.questions, mapStandaloneQuestionFields, sourceStaleReason)
+              for (const u of directPlan.toUpdate) { handledQuestionIds.add(u.id); operations.push(() => tx.question.update({ where: { id: u.id }, data: u.data })) }
               if (directPlan.toCreate.length) operations.push(() => tx.question.createMany({ data: directPlan.toCreate.map(q => ({ ...q, listeningSectionId: oldS.id })) }))
               counts.created += directPlan.toCreate.length
               counts.updated += directPlan.toUpdate.length
               directPlan.toPrune.forEach(q => {
+                handledQuestionIds.add(q.id)
                 pruneQuestionIds.push(q.id)
                 pruneLabels.set(q.id, { sectionNumber: s.number, groupSortOrder: null, questionNumber: q.number })
                 counts.deleted++
@@ -1062,22 +1104,18 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema,
 
               const submittedGroups = s.questionGroups === undefined ? null : s.questionGroups
               const oldGroups = oldS.questionGroups
-              const oldGroupsById = new Map(oldGroups.map(og => [og.id, og]))
               const matchedOldGroupIds = new Set()
 
               for (let gi = 0; submittedGroups && gi < submittedGroups.length; gi++) {
                 const g = submittedGroups[gi]
-                const gId = g.id ? parseInt(g.id) : null
-                let oldG = gId && oldGroupsById.has(gId) ? oldGroupsById.get(gId) : oldGroups[gi]
-                if (oldG && matchedOldGroupIds.has(oldG.id)) {
-                  oldG = oldGroups.find(og => !matchedOldGroupIds.has(og.id))
-                }
+                const oldG = matchExistingGroup(g, gi, oldGroups, matchedOldGroupIds)
                 if (oldG) {
                   matchedOldGroupIds.add(oldG.id)
-                  const groupResult = planGroupUpdate(tx, oldG, g, gi, 'listening', operations)
+                  const groupResult = planGroupUpdate(tx, oldG, g, gi, 'listening', operations, sourceStaleReason)
                   counts.created += groupResult.created
                   counts.updated += groupResult.updated
                   groupResult.toPrune.forEach(q => {
+                    handledQuestionIds.add(q.id)
                     pruneQuestionIds.push(q.id)
                     pruneLabels.set(q.id, { sectionNumber: s.number, groupSortOrder: oldG.sortOrder, questionNumber: q.number })
                     counts.deleted++
@@ -1093,6 +1131,15 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema,
                 const labelsByQId = new Map(oldG.questions.map(q => [q.id, { sectionNumber: s.number, groupSortOrder: oldG.sortOrder, questionNumber: q.number }]))
                 deleteGroupCandidates.push({ groupId: oldG.id, questionIds: qIds, labelsByQId })
                 counts.deleted += 1 + qIds.length
+              }
+
+              if (sourceStaleReason) {
+                const allOldQuestions = [...oldS.questions, ...oldS.questionGroups.flatMap(g => g.questions)]
+                for (const ex of allOldQuestions) {
+                  if (!ex.explanation || handledQuestionIds.has(ex.id)) continue
+                  operations.push(() => tx.question.update({ where: { id: ex.id }, data: { explanation: buildStaleExplanation(ex, sourceStaleReason) } }))
+                  counts.updated++
+                }
               }
             } else {
               operations.push(() => tx.listeningSection.create({ data: {
@@ -1137,7 +1184,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema,
           for (const c of deleteGroupCandidates) await tx.questionGroup.delete({ where: { id: c.groupId } })
           for (const c of deleteSectionCandidates) await tx.listeningSection.delete({ where: { id: c.sectionId } })
 
-          return tx.exam.findUnique({ where: { id }, include: { listeningSections: { include: { questions: true, questionGroups: true } } } })
+          return tx.exam.findUnique({ where: { id }, include: { listeningSections: { orderBy: { number: 'asc' }, include: { questions: true, questionGroups: { orderBy: { sortOrder: 'asc' }, include: EDITOR_GROUP_INCLUDE } } } } })
         }, EXAM_UPDATE_TX_OPTIONS)
         invalidate('fulltests:')
         invalidateExamCaches(id)
@@ -1336,6 +1383,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema,
     res.status(400).json({ message: 'Skill không hợp lệ' })
   } catch (error) {
     console.error(error)
+    if (error instanceof ExamIdentityConflict) return res.status(409).json({ message: error.message, code: 'EXAM_IDENTITY_CONFLICT' })
     sendServerError(res, error, 'Lỗi cập nhật đề')
   }
 })
@@ -1364,4 +1412,5 @@ router.delete('/exams/:id', authMiddleware, teacherOnly, async (req, res) => {
 
 router.checkDuplicateExamTest = checkDuplicateExamTest
 router.planQuestionDiff = planQuestionDiff
+router.groupCreateData = groupCreateData
 module.exports = router

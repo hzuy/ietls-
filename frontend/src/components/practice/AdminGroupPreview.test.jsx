@@ -3,6 +3,15 @@ import { render, screen } from '@testing-library/react'
 import AdminGroupPreview from './AdminGroupPreview'
 
 describe('AdminGroupPreview', () => {
+  it.each([['reading', false], ['listening', false], ['reading', true], ['listening', true]])('%s practice=%s previews A/E as two selected answers when E has a comma', (skill, practice) => {
+    const options = ['First answer', 'Second', 'Third', 'Fourth', 'When his tomb was uncovered, a small number of his belongings still remained']
+    const group = { type: 'mcq_multi', maxChoices: 2, qNumberStart: 25, qNumberEnd: 26, questions: [{ id: 42, number: 25, questionText: 'Choose TWO', options, correctAnswer: `${options[0]},${options[4]}` }] }
+    render(<AdminGroupPreview group={group} skill={skill} practice={practice} showAnswers />)
+    const checks = screen.getAllByRole('checkbox')
+    expect(checks[0]).toBeChecked()
+    expect(checks[4]).toBeChecked()
+    expect(checks.filter(el => el.checked)).toHaveLength(2)
+  })
   const baseGroup = {
     type: 'mcq',
     qNumberStart: 1,
@@ -32,11 +41,12 @@ describe('AdminGroupPreview', () => {
     ]
   }
 
-  it('chỉ hiển thị badge tĩnh "Đã có giải thích (2 câu)", không có nút "Xem chi tiết" hay "Ẩn" trong tiêu đề nhóm', () => {
+  it('hiển thị các control học viên, không thêm badge quản trị vào nội dung câu hỏi', () => {
     render(<AdminGroupPreview group={baseGroup} showAnswers={false} showExplanations={false} />)
 
     // Badge thông báo tồn tại
-    expect(screen.getByText(/Đã có giải thích \(2 câu\)/)).toBeInTheDocument()
+    expect(screen.queryByText(/Đã có giải thích/)).not.toBeInTheDocument()
+    expect(screen.getAllByRole('radio')).toHaveLength(8)
 
     // Tuyệt đối không có nút hay liên kết "Xem chi tiết" / "Ẩn"
     expect(screen.queryByText(/Xem chi tiết/)).not.toBeInTheDocument()
@@ -56,8 +66,9 @@ describe('AdminGroupPreview', () => {
     render(<AdminGroupPreview group={baseGroup} showAnswers={true} showExplanations={false} />)
 
     // Đáp án Paris được chọn/tô màu xanh emerald
-    const parisChoice = screen.getByText('Paris').closest('div')
-    expect(parisChoice?.className).toContain('emerald')
+    const parisChoice = screen.getByRole('radio', { name: 'Paris' })
+    expect(parisChoice).toBeChecked()
+    expect(parisChoice).toBeDisabled()
 
     // Giải thích chi tiết vẫn ẩn
     expect(screen.queryByText(/Giải thích chi tiết/)).not.toBeInTheDocument()

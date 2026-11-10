@@ -6,7 +6,7 @@ process.env.JWT_SECRET = 'test_secret_key'
 
 const prismaMock = {
   setting: { findUnique: vi.fn() },
-  attempt: { count: vi.fn(), create: vi.fn() },
+  attempt: { count: vi.fn(), create: vi.fn(), findUnique: vi.fn() },
   passage: { findMany: vi.fn() },
   questionAnswer: { createMany: vi.fn() },
   answerLog: { createMany: vi.fn() },
@@ -103,6 +103,66 @@ describe('Reading Submission Routes', () => {
       expect(res.status).toBe(429)
       expect(res.body.message).toBe('Bạn đã đạt giới hạn 3 lượt thi cho đề này.')
       expect(prismaMock.attempt.create).not.toHaveBeenCalled()
+    })
+
+    // ─── TC-042: idempotent submit theo submissionKey ─────────────────────
+    it('persists submissionKey on the created attempt (TC-042)', async () => {
+      prismaMock.setting.findUnique.mockResolvedValue(null)
+      prismaMock.passage.findMany.mockResolvedValue([
+        { id: 1, questions: [{ id: 101, questionText: 'Q1', correctAnswer: 'true', groupId: null }], questionGroups: [] }
+      ])
+      prismaMock.attempt.findUnique.mockResolvedValue(null)
+      prismaMock.attempt.create.mockResolvedValue({ id: 101 })
+
+      const res = await request(app)
+        .post('/api/reading/exams/1/submit')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+        .send({ answers: { '101': 'true' }, submissionKey: 'mount-abc' })
+
+      expect(res.status).toBe(200)
+      expect(prismaMock.attempt.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ submissionKey: 'mount-abc' }) })
+      )
+    })
+
+    it('returns the existing attempt for a repeated submissionKey without creating a new row (TC-042)', async () => {
+      prismaMock.passage.findMany.mockResolvedValue([
+        { id: 1, questions: [{ id: 101, questionText: 'Q1', correctAnswer: 'true', groupId: null }], questionGroups: [] }
+      ])
+      prismaMock.attempt.findUnique.mockResolvedValue({
+        id: 500, score: 6.5, correctCount: 30, totalCount: 40, answers: '{"101":"true"}',
+      })
+      // Max attempts đã đạt — retry cùng key vẫn phải trả Attempt cũ, không 429.
+      prismaMock.setting.findUnique.mockResolvedValue({ key: 'max_attempts_per_exam', value: '1' })
+      prismaMock.attempt.count.mockResolvedValue(1)
+
+      const res = await request(app)
+        .post('/api/reading/exams/1/submit')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+        .send({ answers: { '101': 'true' }, submissionKey: 'mount-abc' })
+
+      expect(res.status).toBe(200)
+      expect(res.body).toMatchObject({ attemptId: 500, idempotent: true, score: 6.5, correct: 30, total: 40 })
+      expect(prismaMock.attempt.create).not.toHaveBeenCalled()
+    })
+
+    it('recovers from a concurrent P2002 race by reading the winning attempt (TC-042)', async () => {
+      prismaMock.setting.findUnique.mockResolvedValue(null)
+      prismaMock.passage.findMany.mockResolvedValue([
+        { id: 1, questions: [{ id: 101, questionText: 'Q1', correctAnswer: 'true', groupId: null }], questionGroups: [] }
+      ])
+      prismaMock.attempt.findUnique
+        .mockResolvedValueOnce(null) // lookup trước khi tạo
+        .mockResolvedValueOnce({ id: 777, score: 7, correctCount: 32, totalCount: 40, answers: '{"101":"true"}' }) // sau P2002
+      prismaMock.attempt.create.mockRejectedValue({ code: 'P2002' })
+
+      const res = await request(app)
+        .post('/api/reading/exams/1/submit')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+        .send({ answers: { '101': 'true' }, submissionKey: 'mount-race' })
+
+      expect(res.status).toBe(200)
+      expect(res.body).toMatchObject({ attemptId: 777, idempotent: true })
     })
   })
 })

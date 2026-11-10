@@ -21,8 +21,8 @@ describe('practice attempts', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('saves an attempt for the logged-in learner', async () => {
-    prismaMock.practiceExam.findFirst.mockResolvedValue({ id: 16 })
-    prismaMock.practiceAttempt.create.mockResolvedValue({ id: 5, practiceExamId: 16, correct: 4, total: 13, createdAt: at })
+    prismaMock.practiceExam.findFirst.mockResolvedValue({ id: 16, title: 'Practice', questions: [{content: JSON.stringify({type:'note_completion', qNumberStart:1,qNumberEnd:2,questions:[{number:1,correctAnswer:'FALSE'},{number:7,correctAnswer:'bulbs'}]})}] })
+    prismaMock.practiceAttempt.create.mockResolvedValue({ id: 5, practiceExamId: 16, correct: 2, total: 2, createdAt: at })
 
     const res = await request(app)
       .post('/api/practice/attempts/reading/16')
@@ -30,8 +30,8 @@ describe('practice attempts', () => {
       .send({ answers: { 1: 'FALSE', 7: 'bulbs' }, correct: 4, total: 13 })
 
     expect(res.status).toBe(201)
-    expect(res.body).toMatchObject({ attemptId: 5, examId: 16, correct: 4, total: 13 })
-    expect(prismaMock.practiceAttempt.create.mock.calls[0][0].data).toMatchObject({ userId: 7, practiceExamId: 16 })
+    expect(res.body).toMatchObject({ attemptId: 5, examId: 16, correct: 2, total: 2 })
+    expect(prismaMock.practiceAttempt.create.mock.calls[0][0].data).toMatchObject({ userId: 7, practiceExamId: 16, correct: 2, total: 2 })
     expect(prismaMock.practiceExam.findFirst.mock.calls[0][0].where).toMatchObject({ id: 16, skill: 'reading', deletedAt: null })
   })
 
@@ -39,7 +39,7 @@ describe('practice attempts', () => {
     const bad = await request(app)
       .post('/api/practice/attempts/reading/16')
       .set('Authorization', `Bearer ${learner}`)
-      .send({ answers: {}, correct: 5, total: 2 })
+      .send({ answers: { 1: ['invalid'] }, correct: 5, total: 2 })
     expect(bad.status).toBe(400)
 
     prismaMock.practiceExam.findFirst.mockResolvedValue(null)

@@ -1,3 +1,4 @@
+import AutoGrowTextarea from '../AutoGrowTextarea'
 import { useRef } from 'react'
 import { inputCls, labelCls } from '../adminConstants'
 import { getQuestionGroupTheme as getAdminTheme } from '../adminConstants'
@@ -74,7 +75,7 @@ export default function TableCompletionEditor({
     const newDataLines = dataLines.map(dl => {
       const cells = (dl.content || '').split('|')
       const newCells = Array.from({ length: n }, (_, i) => cells[i] || '')
-      return { ...dl, content: newCells.join('|') }
+      return { ...dl, content: newCells.join('|'), contentWithTokens: newCells.join('|') }
     })
     rebuildSection(newHeaders, newDataLines)
   }
@@ -89,7 +90,7 @@ export default function TableCompletionEditor({
       if (i !== ri) return dl
       const cells = (dl.content || '').split('|')
       const newCells = Array.from({ length: colCount }, (_, j) => j === ci ? val : (cells[j] || ''))
-      return { ...dl, content: newCells.join('|') }
+      return { ...dl, content: newCells.join('|'), contentWithTokens: newCells.join('|') }
     })
     rebuildSection(headers, newDataLines)
   }
@@ -106,7 +107,7 @@ export default function TableCompletionEditor({
       if (i !== ri) return dl
       const cs = (dl.content || '').split('|')
       const newCs = Array.from({ length: colCount }, (_, j) => j === ci ? newVal : (cs[j] || ''))
-      return { ...dl, content: newCs.join('|') }
+      return { ...dl, content: newCs.join('|'), contentWithTokens: newCs.join('|') }
     })
     const existingNums = new Set((group.questions || []).map(q => q.number))
     const newQuestions = existingNums.has(nextQNum)
@@ -148,8 +149,7 @@ export default function TableCompletionEditor({
     <div className="space-y-3">
       <div>
         <label className={labelCls}>Tiêu đề bảng (tùy chọn)</label>
-        <input
-          type="text"
+        <AutoGrowTextarea
           className={inputCls}
           placeholder="VD: A typical 45-minute guitar lesson"
           value={section.title || ''}
@@ -185,9 +185,8 @@ export default function TableCompletionEditor({
             <thead>
               <tr className={`${theme.headerBg}`}>
                 {Array.from({ length: colCount }, (_, ci) => (
-                  <th key={ci} className={`px-2 py-1.5 border ${theme.subBoxBorder} font-normal min-w-[100px]`}>
-                    <input
-                      type="text"
+                  <th key={ci} className={`px-2 py-1.5 border ${theme.subBoxBorder} font-normal min-w-[160px]`}>
+                    <AutoGrowTextarea
                       className={`w-full bg-transparent border-none outline-none text-xs font-bold ${theme.subBoxText} text-center`}
                       placeholder={`Tiêu đề cột ${ci + 1}`}
                       value={headers[ci] || ''}
@@ -204,9 +203,9 @@ export default function TableCompletionEditor({
                 return (
                   <tr key={ri} className={ri % 2 === 0 ? 'bg-white' : 'bg-zinc-50'}>
                     {Array.from({ length: colCount }, (_, ci) => (
-                      <td key={ci} className="px-2 py-1.5 border border-zinc-200 align-top min-w-[100px]">
+                      <td key={ci} className="px-2 py-1.5 border border-zinc-200 align-top min-w-[160px]">
                         <div className="flex items-start gap-1">
-                          <textarea
+                          <AutoGrowTextarea
                             ref={el => { cellRefs.current[`${ri}-${ci}`] = el }}
                             rows={2}
                             className={`flex-1 border ${theme.subBoxBorder} rounded px-1.5 py-1 text-xs font-mono focus:outline-none resize-none`}
@@ -259,14 +258,14 @@ export default function TableCompletionEditor({
               Dùng <span className="font-mono bg-zinc-100 px-1 rounded">/</span> để tách nhiều đáp án. VD: <span className="font-mono">word1/word2</span>
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {tokenOrder.map(tokenNum => {
               const displayNum = tokenDisplayMap[tokenNum]
               const q = (group.questions || []).find(item => item.number === tokenNum)
               return (
                 <div key={tokenNum} className="flex items-center gap-2">
                   <span className={`text-xs font-bold ${theme.subBoxText} w-14 shrink-0`}>Q{displayNum}:</span>
-                  <input
+                  <AutoGrowTextarea
                     className={`flex-1 border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-sm focus:outline-none`}
                     placeholder="VD: word hoặc word1/word2"
                     value={q?.correctAnswer || ''}

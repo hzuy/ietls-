@@ -161,7 +161,7 @@ export function calculateExamExplanationStats(target) {
   for (const g of groups) {
     const gType = g.type || 'mcq'
     const isSkipped = isExplanationUnsupportedGroup(g)
-    const isMulti = gType === 'mcq_multi'
+    const isMulti = ['mcq_multi', 'list_selection'].includes(gType)
 
     const questions = Array.isArray(g.questions) ? g.questions : []
     const rawSpan = (Number.isFinite(g.qNumberStart) && Number.isFinite(g.qNumberEnd) && g.qNumberEnd >= g.qNumberStart)
@@ -301,6 +301,7 @@ export function normalizeFormForDirtyCheck(form) {
             id: q.id,
             number: q.number,
             questionText: q.questionText || '',
+            hint: q.hint,
             options: q.options || [],
             correctAnswer: q.correctAnswer || ''
           }))
@@ -327,12 +328,15 @@ export function normalizeFormForDirtyCheck(form) {
           type: g.type,
           instruction: g.instruction || '',
           imageUrl: g.imageUrl || '',
+          canReuse: Boolean(g.canReuse),
+          maxChoices: g.maxChoices,
           noteSections: g.noteSections,
           matchingOptions: g.matchingOptions,
           questions: (g.questions || []).map(q => ({
             id: q.id,
             number: q.number,
             questionText: q.questionText || '',
+            hint: q.hint,
             options: q.options || [],
             correctAnswer: q.correctAnswer || ''
           }))

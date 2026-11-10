@@ -1,3 +1,4 @@
+import AutoGrowTextarea from '../AutoGrowTextarea'
 import { useState, useRef } from 'react'
 import { uploadImage as uploadImageService } from '../../../services/examService'
 import { inputCls, labelCls, btnSecondary, toImgSrc } from '../adminConstants'
@@ -153,7 +154,7 @@ export default function MatchingEditor({
                 value={mo.letter || mo.optionLetter || ''}
                 onChange={e => updateOption(oi, 'letter', e.target.value)}
               />
-              <input
+              <AutoGrowTextarea
                 className={`flex-1 border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none`}
                 placeholder="Nội dung lựa chọn..."
                 value={mo.text || mo.optionText || ''}
@@ -173,16 +174,16 @@ export default function MatchingEditor({
 
       <div className="space-y-2">
         {(group.questions || []).map((q, qi) => (
-          <div key={qi} className={`flex items-center gap-2 ${theme.subBoxBg} rounded-lg p-2.5 border ${theme.subBoxBorder}`}>
+          <div key={qi} className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2 ${theme.subBoxBg} rounded-lg p-2.5 border ${theme.subBoxBorder}`}>
             <span className={`text-xs font-bold ${theme.subBoxText} w-10 shrink-0`}>Q{q.number}:</span>
-            <input
+            <AutoGrowTextarea
               className={`flex-1 border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none`}
               placeholder={isMap ? 'Tên mục (VD: Farm shop, Disabled entry...)' : 'Đối tượng cần matching (VD: Cafe, Shop...)'}
               value={q.questionText || ''}
               onChange={e => updateQ(qi, 'questionText', e.target.value)}
             />
-            <Select
-              className="max-w-[260px]"
+            <Select multiline
+              className="col-start-2 w-full"
               ariaLabel="Đáp án"
               value={q.correctAnswer || ''}
               onChange={v => updateQ(qi, 'correctAnswer', v)}

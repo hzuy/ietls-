@@ -2,6 +2,12 @@ import { describe, it, expect } from 'vitest'
 import { deriveCorrectIndices, correctAnswerFromIndices, reindexAfterRemoval } from './mcqAnswer'
 
 describe('deriveCorrectIndices', () => {
+  it('keeps the Djoser option E intact when it contains a comma', () => {
+    const options = ['Scholars do not all agree on how many years he was on the throne', 'Second', 'Third', 'Fourth', 'When his tomb was uncovered, a small number of his belongings still remained']
+    const stored = correctAnswerFromIndices([0, 4], options)
+    expect(deriveCorrectIndices(stored, options)).toEqual([0, 4])
+    expect(deriveCorrectIndices(options[4], options)).toEqual([4])
+  })
   it('maps stored answer texts to option positions', () => {
     const opts = ['London', 'Paris', 'Rome', 'Berlin']
     expect(deriveCorrectIndices('Paris,Berlin', opts)).toEqual([1, 3])

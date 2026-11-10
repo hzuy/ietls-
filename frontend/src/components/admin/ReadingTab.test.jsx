@@ -25,6 +25,7 @@ describe('ReadingTab — UX & Accessibility', () => {
     vi.clearAllMocks()
     api.get.mockResolvedValue({ data: [] })
     window.confirm = vi.fn().mockReturnValue(true)
+    window.alert = vi.fn()
     Element.prototype.scrollIntoView = vi.fn()
   })
 
@@ -46,7 +47,7 @@ describe('ReadingTab — UX & Accessibility', () => {
     expect(screen.queryByRole('region', { name: 'Đoạn văn 1' })).not.toBeInTheDocument()
   })
 
-  it('validation trước submit: chặn lưu và hiển thị banner lỗi khi có passage thiếu title hoặc body', async () => {
+  it('validation trước submit: chặn lưu và chỉ hiện một alert lỗi khi có passage thiếu title hoặc body', async () => {
     render(<ReadingTab exams={[]} onRefresh={vi.fn()} />)
 
     // Điền tên đề
@@ -58,8 +59,9 @@ describe('ReadingTab — UX & Accessibility', () => {
     fireEvent.click(submitBtn)
 
     await waitFor(() => {
-      expect(screen.getByText(/Không thể lưu đề:/)).toBeInTheDocument()
-      expect(screen.getByText(/chưa có tiêu đề hoặc nội dung bài đọc/)).toBeInTheDocument()
+      expect(window.alert).toHaveBeenCalledTimes(1)
+      expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('chưa có tiêu đề hoặc nội dung bài đọc'))
+      expect(screen.queryByText(/Không thể lưu đề:/)).not.toBeInTheDocument()
     })
     expect(api.post).not.toHaveBeenCalled()
   })

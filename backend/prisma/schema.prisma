@@ -164,6 +164,9 @@ model Attempt {
   id           Int       @id @default(autoincrement())
   userId       Int
   examId       Int
+  // Idempotency key do client sinh cho MỘT lượt nộp. NULL cho dữ liệu cũ /
+  // client cũ — PostgreSQL coi các NULL là khác nhau nên unique vẫn hợp lệ.
+  submissionKey String?
   score        Float?
   correctCount Int?
   totalCount   Int?
@@ -178,6 +181,7 @@ model Attempt {
   questionAnswers QuestionAnswer[]
   answerLogs      AnswerLog[]
 
+  @@unique([userId, examId, submissionKey])
   @@index([userId])
   @@index([examId])
   @@index([userId, examId])
@@ -237,6 +241,11 @@ model WritingAnswer {
   aiScore    Float?
   status     String   @default("pending")
   error      String?
+  // Mốc bắt đầu claim job chấm AI — dùng để phát hiện job mồ côi khi process
+  // restart. NULL với bản ghi cũ / chưa từng chấm.
+  gradingStartedAt DateTime?
+  gradingToken String?
+  gradingAttempts Int @default(0)
   createdAt  DateTime @default(now())
 
   user          User                  @relation(fields: [userId], references: [id])

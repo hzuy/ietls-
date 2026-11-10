@@ -7,6 +7,12 @@ import {
 } from './questionCount'
 
 describe('questionCount utility', () => {
+  it('counts a comma-containing option as one answered slot, then A/E as two', () => {
+    const options = ['First', 'Second', 'When his tomb was uncovered, a small number of his belongings still remained']
+    const slots = getGroupSlots({ type: 'mcq_multi', maxChoices: 2, qNumberStart: 25, qNumberEnd: 26, questions: [{ id: 42, number: 25, options }] })
+    expect(slots.filter(s => isSlotAnswered(s, { 42: options[2] }))).toHaveLength(1)
+    expect(slots.filter(s => isSlotAnswered(s, { 42: `${options[0]},${options[2]}` }))).toHaveLength(2)
+  })
   describe('getGroupSlots', () => {
     it('returns empty array when group is null or undefined', () => {
       expect(getGroupSlots(null)).toEqual([])

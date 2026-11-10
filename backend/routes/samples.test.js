@@ -232,4 +232,101 @@ describe('routes/samples.js — audit log wiring', () => {
       })
     })
   })
+
+  // ─── TC-036: nested Speaking Part/Question graph ──────────────────────────
+  describe('Speaking sample nested parts (TC-036)', () => {
+    it('creates a sample with nested parts/questions in one Prisma write', async () => {
+      prismaMock.speakingSample.create.mockResolvedValueOnce({
+        id: 21, title: 'Speaking with parts', tags: '[]',
+        parts: [{ id: 1, partNumber: 1, questions: [{ id: 1, orderNum: 1, questionText: 'Hello?' }] }],
+      })
+
+      const res = await request(app)
+        .post('/api/samples/admin/speaking')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          title: 'Speaking with parts',
+          parts: [
+            { number: 1, title: 'Part 1', questions: [{ questionText: 'Hello?' }] },
+          ],
+        })
+
+      expect(res.status).toBe(201)
+      const createArg = prismaMock.speakingSample.create.mock.calls[0][0]
+      expect(createArg.data.parts).toEqual({
+        create: [{
+          partNumber: 1,
+          title: 'Part 1',
+          description: null,
+          questions: { create: [{ orderNum: 1, questionText: 'Hello?' }] },
+        }],
+      })
+      expect(createArg.include).toBeDefined()
+      expect(res.body.parts).toHaveLength(1)
+    })
+
+    it('rejects duplicate part numbers before touching the database', async () => {
+      const res = await request(app)
+        .post('/api/samples/admin/speaking')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          title: 'Duplicate parts',
+          parts: [
+            { partNumber: 1, questions: [{ questionText: 'A' }] },
+            { partNumber: 1, questions: [{ questionText: 'B' }] },
+          ],
+        })
+
+      expect(res.status).toBe(400)
+      expect(prismaMock.speakingSample.create).not.toHaveBeenCalled()
+    })
+
+    it('replaces the whole graph atomically on update when parts are supplied', async () => {
+      prismaMock.speakingSample.update.mockResolvedValueOnce({ id: 21, title: 'Renamed', parts: [] })
+
+      const res = await request(app)
+        .put('/api/samples/admin/speaking/21')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          title: 'Renamed',
+          parts: [{ partNumber: 2, questions: [{ orderNum: 1, questionText: 'New question' }] }],
+        })
+
+      expect(res.status).toBe(200)
+      const updateArg = prismaMock.speakingSample.update.mock.calls[0][0]
+      expect(updateArg.data.parts.deleteMany).toEqual({})
+      expect(updateArg.data.parts.create).toEqual([{
+        partNumber: 2,
+        title: null,
+        description: null,
+        questions: { create: [{ orderNum: 1, questionText: 'New question' }] },
+      }])
+    })
+
+    it('clears the graph when parts is an empty array', async () => {
+      prismaMock.speakingSample.update.mockResolvedValueOnce({ id: 21, title: 'Renamed', parts: [] })
+
+      const res = await request(app)
+        .put('/api/samples/admin/speaking/21')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ parts: [] })
+
+      expect(res.status).toBe(200)
+      const updateArg = prismaMock.speakingSample.update.mock.calls[0][0]
+      expect(updateArg.data.parts).toEqual({ deleteMany: {} })
+    })
+
+    it('leaves the existing graph untouched when parts is omitted', async () => {
+      prismaMock.speakingSample.update.mockResolvedValueOnce({ id: 21, title: 'Renamed', parts: [] })
+
+      await request(app)
+        .put('/api/samples/admin/speaking/21')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ title: 'Renamed' })
+        .expect(200)
+
+      const updateArg = prismaMock.speakingSample.update.mock.calls[0][0]
+      expect(updateArg.data.parts).toBeUndefined()
+    })
+  })
 })

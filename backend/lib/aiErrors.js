@@ -18,6 +18,7 @@ const AI_ERROR_CODES = {
   SERVICE_UNAVAILABLE: 'AI_SERVICE_UNAVAILABLE',
   MODEL: 'AI_MODEL_ERROR',
   INVALID_RESPONSE: 'AI_INVALID_RESPONSE',
+  INTERRUPTED: 'grading_interrupted',
   UNKNOWN: 'AI_ERROR',
 }
 
@@ -27,6 +28,7 @@ const LEARNER_MESSAGES = {
   [AI_ERROR_CODES.SERVICE_UNAVAILABLE]: 'Dịch vụ AI tạm thời không khả dụng. Vui lòng thử lại sau ít phút.',
   [AI_ERROR_CODES.MODEL]: 'Hệ thống chấm bài AI đang gặp sự cố. Vui lòng thử lại sau ít phút.',
   [AI_ERROR_CODES.INVALID_RESPONSE]: 'AI trả về kết quả không hợp lệ. Vui lòng thử lại.',
+  [AI_ERROR_CODES.INTERRUPTED]: 'Quá trình chấm bài bị gián đoạn (máy chủ khởi động lại). Bài làm đã được lưu, bạn có thể thử chấm lại.',
   [AI_ERROR_CODES.UNKNOWN]: 'Không chấm được bài bằng AI. Vui lòng thử lại.',
 }
 

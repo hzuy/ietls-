@@ -7,7 +7,7 @@ process.env.JWT_SECRET = 'test_secret_key'
 const prismaMock = {
   setting: { findUnique: vi.fn() },
   writingTask: { findUnique: vi.fn(), findMany: vi.fn() },
-  writingAnswer: { create: vi.fn(), update: vi.fn(), findUnique: vi.fn(), findMany: vi.fn() },
+  writingAnswer: { create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), findUnique: vi.fn(), findMany: vi.fn() },
   writingCriterionLog: { createMany: vi.fn() },
   attempt: { count: vi.fn() },
 }
@@ -46,6 +46,23 @@ describe('Writing Submission Routes', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     process.env.JWT_SECRET = 'test_secret_key'
+    prismaMock.writingAnswer.updateMany.mockResolvedValue({ count: 1 })
+  })
+
+  it('limits recovery retries durably to three grading attempts (TC-048)', async () => {
+    prismaMock.writingAnswer.findUnique.mockResolvedValue({ id: 50, userId: 1, status: 'failed', gradingAttempts: 3, task: {} })
+    const res = await request(app).post('/api/writing/answers/50/retry')
+      .set('Authorization', `Bearer ${getTestToken()}`)
+    expect(res.status).toBe(429)
+    expect(prismaMock.writingAnswer.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('rejects a retry that lost the atomic claim instead of resetting an active job (TC-048)', async () => {
+    prismaMock.writingAnswer.findUnique.mockResolvedValue({ id: 50, userId: 1, status: 'failed', gradingAttempts: 1, task: {} })
+    prismaMock.writingAnswer.updateMany.mockResolvedValue({count: 0})
+    const res = await request(app).post('/api/writing/answers/50/retry')
+      .set('Authorization', `Bearer ${getTestToken()}`)
+    expect(res.status).toBe(409)
   })
 
   describe('POST /api/writing/exams/:id/submit', () => {
@@ -63,6 +80,46 @@ describe('Writing Submission Routes', () => {
       expect(res.body.status).toBe('pending')
       expect(res.body.answerId).toBe(50)
       expect(res.body.wordCount).toBe(60)
+    })
+
+    it('atomically claims the grading job before calling the AI (TC-048)', async () => {
+      prismaMock.writingTask.findUnique.mockResolvedValue({ id: 10, examId: 1, prompt: 'p', number: 1 })
+      prismaMock.setting.findUnique.mockResolvedValue(null)
+      prismaMock.writingAnswer.create.mockResolvedValue({ id: 52, status: 'pending' })
+
+      const res = await request(app)
+        .post('/api/writing/exams/1/submit')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+        .send({ taskId: 10, essay: sampleEssay })
+
+      expect(res.status).toBe(200)
+      await vi.waitFor(() => {
+        expect(prismaMock.writingAnswer.updateMany).toHaveBeenCalledWith({
+          where: { id: 52, status: 'pending', gradingAttempts: { lt: 3 } },
+          data: { status: 'grading', gradingStartedAt: expect.any(Date), gradingToken: expect.any(String), gradingAttempts: { increment: 1 }, error: null },
+        })
+      })
+    })
+
+    it('does not grade twice when another worker already claimed the job (TC-048)', async () => {
+      prismaMock.writingTask.findUnique.mockResolvedValue({ id: 10, examId: 1, prompt: 'p', number: 1 })
+      prismaMock.setting.findUnique.mockResolvedValue(null)
+      prismaMock.writingAnswer.create.mockResolvedValue({ id: 53, status: 'pending' })
+      // Worker khác đã claim trước → updateMany không đổi row nào.
+      prismaMock.writingAnswer.updateMany.mockResolvedValue({ count: 0 })
+
+      const res = await request(app)
+        .post('/api/writing/exams/1/submit')
+        .set('Authorization', `Bearer ${getTestToken()}`)
+        .send({ taskId: 10, essay: sampleEssay })
+
+      expect(res.status).toBe(200)
+      await vi.waitFor(() => {
+        expect(prismaMock.writingAnswer.updateMany).toHaveBeenCalled()
+      })
+      // Không gọi update kết quả / criterion log khi claim thất bại.
+      expect(prismaMock.writingAnswer.update).not.toHaveBeenCalled()
+      expect(prismaMock.writingCriterionLog.createMany).not.toHaveBeenCalled()
     })
 
     it('returns 400 when taskId does NOT belong to examId on URL', async () => {
@@ -267,11 +324,12 @@ describe('Writing Submission Routes', () => {
       )
     })
 
-    it('skips pending answers, but surfaces failed ones with error + answerId for retry', async () => {
-      prismaMock.writingTask.findMany.mockResolvedValue([{ id: 10 }, { id: 11 }, { id: 12 }])
+    it('surfaces pending/grading answers so the client can resume polling (TC-048)', async () => {
+      prismaMock.writingTask.findMany.mockResolvedValue([{ id: 10 }, { id: 11 }, { id: 12 }, { id: 13 }])
       prismaMock.writingAnswer.findMany.mockResolvedValue([
         { id: 601, taskId: 10, status: 'graded', wordCount: 250, aiFeedback: fb(6), error: null },
         { id: 602, taskId: 11, status: 'pending', wordCount: 10, aiFeedback: null, error: null },
+        { id: 604, taskId: 13, status: 'grading', wordCount: 250, aiFeedback: null, error: null },
         { id: 603, taskId: 12, status: 'failed', wordCount: 250, aiFeedback: null, error: 'model_not_found' },
       ])
 
@@ -280,10 +338,11 @@ describe('Writing Submission Routes', () => {
         .set('Authorization', `Bearer ${getTestToken()}`)
 
       expect(res.status).toBe(200)
-      expect(res.body).toHaveLength(2)
+      expect(res.body).toHaveLength(4)
       const byTaskId = Object.fromEntries(res.body.map(r => [r.taskId, r]))
       expect(byTaskId[10]).toMatchObject({ status: 'graded' })
-      expect(byTaskId[11]).toBeUndefined()
+      expect(byTaskId[11]).toMatchObject({ status: 'pending', answerId: 602 })
+      expect(byTaskId[13]).toMatchObject({ status: 'grading', answerId: 604 })
       expect(byTaskId[12]).toMatchObject({ status: 'failed', answerId: 603, error: 'Hệ thống chấm bài AI đang gặp sự cố. Vui lòng thử lại sau ít phút.' })
       // Không được rò rỉ message thô của provider cho học sinh
       expect(byTaskId[12].error).not.toContain('model_not_found')
@@ -388,9 +447,9 @@ describe('Writing Submission Routes', () => {
 
       expect(res.status).toBe(200)
       expect(res.body).toEqual({ answerId: 59, status: 'pending' })
-      expect(prismaMock.writingAnswer.update).toHaveBeenCalledWith({
-        where: { id: 59 },
-        data: { status: 'pending', error: null },
+      expect(prismaMock.writingAnswer.updateMany).toHaveBeenCalledWith({
+        where: { id: 59, status: 'failed', gradingAttempts: { lt: 3 } },
+        data: { status: 'pending', error: null, gradingStartedAt: null },
       })
     })
 

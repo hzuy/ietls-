@@ -9,6 +9,45 @@ const { sendServerError } = require('../lib/httpErrors')
 
 const router = express.Router()
 
+// ── TC-054: một item AI chỉ hoàn tất khi đã graded VÀ có điểm thực ────────────
+// Trước đây `done` chỉ kiểm tra "đã có row" nên bài đang pending/grading/failed
+// vẫn bị coi là xong và overallBand được tính từ điểm thiếu.
+function isGradedAnswer(answer) {
+  return !!answer && answer.status === 'graded' && answer.aiScore != null
+}
+
+// Trạng thái chi tiết để UI phân biệt: chưa làm / đang chấm / chấm lỗi / xong.
+function aiSkillStatus(answers) {
+  const list = answers.filter(Boolean)
+  if (list.length === 0) return 'not_started'
+  if (list.every(isGradedAnswer)) return 'done'
+  if (list.some(a => a.status === 'failed')) return 'failed'
+  if (list.some(a => a.status === 'grading')) return 'grading'
+  if (list.some(a => a.status === 'pending')) return 'pending'
+  return 'in_progress'
+}
+
+function gradedCount(answers) {
+  return answers.filter(isGradedAnswer).length
+}
+
+// Writing: Task 1 có trọng số 1, Task 2 có trọng số 2 (chuẩn IELTS).
+// Chỉ trả band khi MỌI task đã graded + có điểm; ngược lại null.
+function writingWeightedBand(tasks, latestByTask) {
+  let weighted = 0
+  let totalWeight = 0
+  for (const task of tasks) {
+    const answer = latestByTask[task.id]
+    if (!isGradedAnswer(answer)) return null
+    const weight = Number(task.number) === 2 ? 2 : 1
+    weighted += Number(answer.aiScore) * weight
+    totalWeight += weight
+  }
+  if (!totalWeight) return null
+  return Math.round(Math.min(9, Math.max(0, weighted / totalWeight)) * 2) / 2
+}
+
+
 // P7 Fix: 4 skill queries chạy song song với Promise.all thay vì tuần tự trong for-loop
 // Trước: 4 × ~30ms roundtrip = ~120ms / lần gọi
 // Sau:   max(4 queries) = ~30ms / lần gọi
@@ -17,7 +56,7 @@ async function getFullTestStatus(userId, seriesId, bookNumber, testNumber) {
     where: { seriesId, bookNumber, testNumber, deletedAt: null, series: { deletedAt: null } },
     select: {
       id: true, skill: true,
-      writingTasks:  { select: { id: true } },
+      writingTasks:  { select: { id: true, number: true } },
       speakingParts: { select: { id: true, number: true } }
     }
   })
@@ -80,9 +119,15 @@ async function getFullTestStatus(userId, seriesId, bookNumber, testNumber) {
     skills.writing = { available: true, done: false, score: null }
   } else {
     const latestByTask = writingAttempts(writingAnswers)[0]?.items || {}
-    const done = Object.keys(latestByTask).length === writingTaskIds.length
-    const score = averageBand(Object.values(latestByTask).map(a => a.aiScore))
-    skills.writing = { available: true, done, score }
+    const answersByTask = writingTaskIds.map(id => latestByTask[id])
+    const done = answersByTask.every(isGradedAnswer) && answersByTask.length > 0
+    const score = done ? writingWeightedBand(writingExam.writingTasks, latestByTask) : null
+    skills.writing = {
+      available: true, done, score,
+      status: aiSkillStatus(answersByTask),
+      graded: gradedCount(answersByTask),
+      total: writingTaskIds.length,
+    }
   }
 
   if (!speakingExam) {
@@ -91,9 +136,15 @@ async function getFullTestStatus(userId, seriesId, bookNumber, testNumber) {
     skills.speaking = { available: true, done: false, score: null }
   } else {
     const latestByPart = speakingAttempts(speakingAnswers.map(a => ({ ...a, partNumber: a.part?.number })))[0]?.items || {}
-    const done = Object.keys(latestByPart).length === speakingPartIds.length
-    const score = averageBand(Object.values(latestByPart).map(a => a.aiScore))
-    skills.speaking = { available: true, done, score }
+    const answersByPart = speakingPartIds.map(id => latestByPart[id])
+    const done = answersByPart.every(isGradedAnswer) && answersByPart.length > 0
+    const score = done ? averageBand(answersByPart.map(a => a.aiScore)) : null
+    skills.speaking = {
+      available: true, done, score,
+      status: aiSkillStatus(answersByPart),
+      graded: gradedCount(answersByPart),
+      total: speakingPartIds.length,
+    }
   }
 
   const allFourAvailable = ['reading', 'listening', 'writing', 'speaking'].every(s => skills[s]?.available)
@@ -163,7 +214,7 @@ router.get('/user-progress', authMiddleware, learnerOnly, async (req, res) => {
       where: { seriesId: { not: null }, series: { deletedAt: null }, bookNumber: { not: null }, testNumber: { not: null }, deletedAt: null },
       select: {
         id: true, skill: true, seriesId: true, bookNumber: true, testNumber: true,
-        writingTasks:  { select: { id: true } },
+        writingTasks:  { select: { id: true, number: true } },
         speakingParts: { select: { id: true } }
       }
     })
@@ -234,25 +285,41 @@ router.get('/user-progress', authMiddleware, learnerOnly, async (req, res) => {
 
       for (const skill of ['reading', 'listening']) {
         const attempt = latestAttemptByExam[g.exams[skill].id]
-        skills[skill] = { available: true, done: !!attempt, score: attempt?.score ?? null }
+        skills[skill] = {
+          available: true, done: !!attempt, score: attempt?.score ?? null,
+          status: attempt ? 'done' : 'not_started',
+        }
       }
 
-      const taskIds = g.exams.writing.writingTasks.map(t => t.id)
+      const tasks = g.exams.writing.writingTasks
+      const taskIds = tasks.map(t => t.id)
       if (taskIds.length === 0) {
         skills.writing = { available: true, done: false, score: null }
       } else {
-        const done = taskIds.every(id => latestWritingByTask[id])
-        const score = averageBand(taskIds.map(id => latestWritingByTask[id]?.aiScore))
-        skills.writing = { available: true, done, score }
+        const answers = taskIds.map(id => latestWritingByTask[id])
+        const done = answers.every(isGradedAnswer) && answers.length > 0
+        const score = done ? writingWeightedBand(tasks, latestWritingByTask) : null
+        skills.writing = {
+          available: true, done, score,
+          status: aiSkillStatus(answers),
+          graded: gradedCount(answers),
+          total: taskIds.length,
+        }
       }
 
       const partIds = g.exams.speaking.speakingParts.map(p => p.id)
       if (partIds.length === 0) {
         skills.speaking = { available: true, done: false, score: null }
       } else {
-        const done = partIds.every(id => latestSpeakingByPart[id])
-        const score = averageBand(partIds.map(id => latestSpeakingByPart[id]?.aiScore))
-        skills.speaking = { available: true, done, score }
+        const answers = partIds.map(id => latestSpeakingByPart[id])
+        const done = answers.every(isGradedAnswer) && answers.length > 0
+        const score = done ? averageBand(answers.map(a => a.aiScore)) : null
+        skills.speaking = {
+          available: true, done, score,
+          status: aiSkillStatus(answers),
+          graded: gradedCount(answers),
+          total: partIds.length,
+        }
       }
 
       const allFourDone = ['reading', 'listening', 'writing', 'speaking'].every(s => skills[s].done)

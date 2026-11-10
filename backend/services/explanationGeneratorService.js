@@ -2650,6 +2650,7 @@ async function updateManualExplanation({ examId, questionId = null, questionNumb
     const updated = {
       ...prev,
       ...cleanFields,
+      answer: String(targetQItem.correctAnswer || ''),
       status: 'teacher_edited',
       manualEdit: true,
       updatedAt: new Date().toISOString(),
@@ -2725,6 +2726,7 @@ async function updateManualExplanation({ examId, questionId = null, questionNumb
     const updated = {
       ...prev,
       ...cleanFields,
+      answer: String(question.correctAnswer || ''),
       status: 'teacher_edited',
       manualEdit: true,
       updatedAt: new Date().toISOString(),

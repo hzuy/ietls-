@@ -1,3 +1,9 @@
+import { selectedOptionValues } from '../../utils/mcqAnswer'
+import DiagramLabelGroup from '../DiagramLabelGroup'
+import MatchingHeadingsGroup from '../MatchingHeadingsGroup'
+import { toLearnerGroup } from '../../utils/questionTypes'
+import { GROUP_TYPE_ALIASES, questionMechanic } from '../../utils/questionTypes'
+import TextTaskGroup from '../exam/TextTaskGroup'
 import { buildListeningTokenMap } from '../../utils/practiceUtils'
 import { toImgSrc } from '../../utils/media'
 
@@ -40,6 +46,15 @@ function ListeningTokenLine({ content, answers, onAnswer, group, tokenNumMap, is
 }
 
 export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }) {
+  if (['form_completion', 'summary_completion', 'flow_chart_completion', 'sentence_completion', 'short_answer'].includes(group.type)) return <TextTaskGroup group={group} answers={answers} onAnswer={onAnswer} numberKeys={true} listening={true} />
+  if (Object.hasOwn(GROUP_TYPE_ALIASES, group.type)) return <ListeningPracticeGroupBlock group={{ ...group, type: questionMechanic(group.type), questions: (group.questions || []).map(q => ({ ...q, type: questionMechanic(group.type) })) }} answers={answers} onAnswer={onAnswer} />
+
+  if (['diagram_label', 'matching_headings'].includes(group.type)) {
+    const adapted = toLearnerGroup(group)
+    adapted.questions = adapted.questions.map(q => ({ ...q, id: q.number }))
+    const Component = group.type === 'diagram_label' ? DiagramLabelGroup : MatchingHeadingsGroup
+    return <Component group={adapted} answers={answers} onAnswer={onAnswer} />
+  }
   const tokenNumMap = ['note_completion', 'table_completion', 'drag_word_bank'].includes(group.type)
     ? buildListeningTokenMap(group) : {}
   const opts = group.matchingOptions || []
@@ -128,8 +143,9 @@ export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }
       {/* mcq_multi */}
       {group.type === 'mcq_multi' && (group.questions || []).map(q => {
         const maxChoices = group.maxChoices || 2
-        const selected = (answers[q.number] || '').split(',').filter(Boolean)
+        const selected = selectedOptionValues(answers[q.number], q.options)
         const toggleOpt = (opt) => {
+          if (!selected.includes(opt) && selected.length >= maxChoices) return
           const next = selected.includes(opt) ? selected.filter(o => o !== opt) : [...selected, opt]
           onAnswer(q.number, next.join(','))
         }
@@ -146,7 +162,7 @@ export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }
                 return (
                   <label key={oi} className={`exam-option rounded-full cursor-pointer
                     ${isSelected ? 'bg-zinc-100 border border-zinc-900 text-zinc-900 font-medium' : 'hover:bg-zinc-50 border border-transparent text-zinc-700'}`}>
-                    <input type="checkbox" checked={isSelected} onChange={() => toggleOpt(opt)} className="accent-zinc-900 shrink-0" />
+                    <input type="checkbox" checked={isSelected} disabled={!isSelected && selected.length >= maxChoices} onChange={() => toggleOpt(opt)} className="accent-zinc-900 shrink-0" />
                     <span>{String.fromCharCode(65 + oi)}. {opt}</span>
                   </label>
                 )

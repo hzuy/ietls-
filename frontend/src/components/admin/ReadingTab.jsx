@@ -1,15 +1,18 @@
+import { buildExamPayload, hydrateExamForm } from '../../utils/examAuthoring'
+import { needsParagraphLetters, paragraphLettersAlert } from '../../utils/readingParagraphs'
+import QuestionTypePicker from './QuestionTypePicker'
+import ReadingPassagePreview from '../practice/ReadingPassagePreview'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { queryClient } from '../../lib/queryClient'
 import api from '../../utils/axios'
 import { showAlert } from '../../utils/alertUtils'
-import { useToast } from '../../context/ToastContext'
 import { validateExamReading, formatValidationAlert } from '../../utils/questionValidation'
 import { notifyTrashChanged } from '../../services/adminService'
 import {
   READING_GROUP_TYPES,
   emptyReadingForm, emptyReadingGroupOf,
-  recalcAllGroupNumbers, getGroupSlots,
-  inputCls, labelCls, btnPrimary, btnSecondary,
+  recalcAllGroupNumbers,
+  inputCls, labelCls, btnSecondary,
   useExamSeriesList, useSeriesBooks,
 } from './adminConstants'
 import InlinePreviewPanel from '../common/InlinePreviewPanel'
@@ -47,7 +50,7 @@ import {
 
 function ReadingFormPreview({ form, showAnswers }) {
   const [activePassage, setActivePassage] = useState(0)
-  const [leftPct, setLeftPct] = useState(40)
+  const [leftPct, setLeftPct] = useState(50)
   const [dragging, setDragging] = useState(false)
   const containerRef = useRef(null)
 
@@ -115,13 +118,7 @@ function ReadingFormPreview({ form, showAnswers }) {
         >
           {/* Left: Passage text */}
           <div className="overflow-y-auto bg-white px-8 py-6" style={{ width: `${leftPct}%`, flexShrink: 0 }}>
-            {passage.title && <h2 className="font-bold text-zinc-900 text-base mb-1">{passage.title}</h2>}
-            {passage.subtitle && <p className="text-xs text-zinc-500 italic mb-4">{passage.subtitle}</p>}
-            {passage.body ? (
-              <div className="text-sm text-zinc-700 leading-7 whitespace-pre-wrap">{passage.body}</div>
-            ) : (
-              <p className="text-sm text-zinc-400 italic">Chưa có nội dung bài đọc</p>
-            )}
+            <ReadingPassagePreview {...passage} />
           </div>
 
           {/* Divider */}
@@ -137,7 +134,7 @@ function ReadingFormPreview({ form, showAnswers }) {
             {sortedGroups.length > 0 ? (
               <div className="space-y-4">
                 {sortedGroups.map((group, gi) => (
-                  <AdminGroupPreview key={gi} group={group} showAnswers={showAnswers} />
+                  <AdminGroupPreview skill="reading" practice={false} key={gi} group={group} showAnswers={showAnswers} />
                 ))}
               </div>
             ) : (
@@ -355,15 +352,17 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   const liveExamSeries = useExamSeriesList()
   const seriesBooks = useSeriesBooks(form.seriesId)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
+  const saveInFlightRef = useRef(false)
+  const loadSequenceRef = useRef(0)
+  const latestFormRef = useRef(form)
+  useEffect(() => { latestFormRef.current = form }, [form])
   const [openPassage, setOpenPassage] = useState(0)
   const [editingId, setEditingId] = useState(null)
   const [loadingEdit, setLoadingEdit] = useState(false)
   const [addingGroupPassage, setAddingGroupPassage] = useState(null)
   const [showPreview, setShowPreview] = useState(false)
   const [showAnswers, setShowAnswers] = useState(false)
-  const [toast, setToast] = useState('')
-  const { showToast: showGlobalToast } = useToast()
+  const showGlobalToast = showAlert
   const [draftBanner, setDraftBanner] = useState(null)
   const [editHighlight, setEditHighlight] = useState(false)
   const [generatingAI, setGeneratingAI] = useState(false)
@@ -378,7 +377,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
 
   const examStats = useMemo(() => calculateExamExplanationStats(form), [form])
 
-  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
+  const showToast = showAlert
 
   const countProtectedQuestions = () => {
     let reviewedCount = 0
@@ -464,7 +463,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     showToast(
       effectiveChoice === 'keep_draft'
         ? 'Đã khôi phục bản nháp gồm các giải thích đã sửa'
-        : 'Đã khôi phục bản nháp (giữ nguyên giải thích mới nhất từ hệ thống)'
+        : 'Đã khôi phục bản nháp'
     )
   }
 
@@ -510,9 +509,9 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     const val = validateExamReading(form)
     if (!val.isValid) {
       const msg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
-      setError(msg)
+
       showAlert(msg, 'error')
-      showToast(val.errors[0] || 'Vui lòng điền đầy đủ thông tin đề bài và đáp án đúng')
+
       return
     }
     pendingAIFnRef.current = (opts) => handleGenerateSequentialAll(opts)
@@ -539,6 +538,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
 
   const handleGenerateGroupAI = async (group, { resolveChoices = {}, overwriteProtected = false } = {}) => {
     if (!editingId) return
+    group = latestFormRef.current.passages.flatMap(p => p.questionGroups || []).find(g => (group?.id != null && g.id === group.id) || (group?._id != null && g._id === group._id)) || group
     setGeneratingAI(true)
     setIsCancellingAI(false)
     isCancellingAIRef.current = false
@@ -604,7 +604,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         const msg = firstErr?.message || 'Không thể tạo giải thích cho nhóm này'
         if (firstErr?.status === 409) {
           showAlert(msg, 'warning')
-          showToast(msg)
+
         } else {
           showToast(msg)
         }
@@ -634,13 +634,13 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     const val = validateExamReading(form)
     if (!val.isValid) {
       const msg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
-      setError(msg)
+
       showAlert(msg, 'error')
-      showToast(val.errors[0] || 'Vui lòng điền đầy đủ thông tin đề bài và đáp án đúng')
+
       return
     }
 
-    let allGroups = (form.passages || []).flatMap(p => p.questionGroups || [])
+    let allGroups = (latestFormRef.current.passages || []).flatMap(p => p.questionGroups || [])
       .filter(g => !isExplanationUnsupportedGroup(g) && (g.questions?.length > 0 || (g.qNumberEnd >= g.qNumberStart)))
 
     if (questionNumbers && Array.isArray(questionNumbers) && questionNumbers.length > 0) {
@@ -743,7 +743,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
           const msg = firstErr?.message || 'Lỗi khi tạo giải thích'
           if (firstErr?.status === 409) {
             showAlert(msg, 'warning')
-            showToast(msg)
+
             break
           } else {
             failedGroups.push({ group, error: msg })
@@ -753,7 +753,6 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       } catch (err) {
         if (err.response?.status === 409) {
           const msg = err.response?.data?.message || 'Đang có một tác vụ AI khác đang chạy cho đề thi này. Vui lòng chờ hoàn thành.'
-          showToast(msg)
           showAlert(msg, 'warning')
           break
         }
@@ -851,71 +850,24 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     const timer = setTimeout(() => {
       try {
         localStorage.setItem(key, JSON.stringify({ ...form, _savedAt: Date.now() }))
-        const now = new Date()
-        const hh = now.getHours().toString().padStart(2, '0')
-        const mm = now.getMinutes().toString().padStart(2, '0')
-        setToast(`Đã lưu bản nháp lúc ${hh}:${mm}`)
-        setTimeout(() => setToast(''), 3000)
       } catch {
-        setToast('Không lưu được nháp (bộ nhớ đầy)')
-        setTimeout(() => setToast(''), 3000)
+        showAlert('Không lưu được nháp (bộ nhớ đầy)')
       }
     }, 2000)
     return () => clearTimeout(timer)
   }, [form, editingId])
 
   const loadForEdit = async (id) => {
-    setError('')
+    if (saveInFlightRef.current) return
+    const sequence = ++loadSequenceRef.current
+
     setLoadingEdit(true)
     try {
       const res = await api.get(`/admin/exams/${id}`)
+      if (sequence !== loadSequenceRef.current) return
       const exam = res.data
-      const loadedForm = {
-        title: exam.title,
-        bookNumber: exam.bookNumber?.toString() || '',
-        testNumber: exam.testNumber?.toString() || '',
-        seriesId: exam.seriesId?.toString() || '',
-        passages: exam.passages.map(p => ({
-          id: p.id,
-          number: p.number,
-          title: p.title,
-          subtitle: p.subtitle || '',
-          letteredParagraphs: p.letteredParagraphs || false,
-          body: p.body,
-          questionGroups: (p.questionGroups || []).map(g => ({
-            id: g.id,
-            _id: g.id,
-            type: g.type,
-            qNumberStart: g.qNumberStart,
-            qNumberEnd: g.qNumberEnd,
-            instruction: g.instruction || '',
-            imageUrl: g.imageUrl || '',
-            canReuse: g.canReuse || false,
-            maxChoices: g.maxChoices || 2,
-            noteSections: (g.noteSections || []).map(ns => ({
-              title: ns.title || '',
-              lines: (ns.lines || []).map(l => ({ content: l.contentWithTokens || '', lineType: l.lineType || 'content' }))
-            })),
-            matchingOptions: (g.matchingOptions || []).map(mo => ({ letter: mo.optionLetter, text: mo.optionText })),
-            questions: (g.questions || []).map(q => ({
-              id: q.id,
-              number: q.number,
-              questionText: q.questionText || '',
-              options: q.options || ['', '', '', ''],
-              correctAnswer: q.correctAnswer || '',
-              explanation: q.explanation || null
-            })),
-            explanations: (g.questions || []).reduce((acc, q) => {
-              if (q.explanation) acc[q.number] = q.explanation
-              return acc
-            }, {})
-          }))
-        }))
-      }
-      const loadedWithNumbers = {
-        ...loadedForm,
-        passages: recalcAllGroupNumbers(loadedForm.passages)
-      }
+      const loadedWithNumbers = hydrateExamForm(exam, 'reading')
+      loadedWithNumbers.passages = recalcAllGroupNumbers(loadedWithNumbers.passages)
       setForm(loadedWithNumbers)
       pristineFormSigRef.current = normalizeFormForDirtyCheck(loadedWithNumbers)
       pristineExplanationsRef.current = extractExplanationsMap(loadedWithNumbers)
@@ -925,17 +877,21 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       setTimeout(() => setEditHighlight(false), 2000)
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch {
+      if (sequence !== loadSequenceRef.current) return
       const msg = 'Lỗi tải đề để sửa. Vui lòng thử lại.'
-      setError(msg)
+
       showAlert(msg, 'error')
       formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
-    finally { setLoadingEdit(false) }
+    finally { if (sequence === loadSequenceRef.current) setLoadingEdit(false) }
   }
 
   const cancelEdit = () => {
+    if (saveInFlightRef.current) return
+    loadSequenceRef.current += 1
+    setLoadingEdit(false)
     expLock.handleSafeActionOrExit(() => {
-      setError('')
+
       if (editingId) localStorage.removeItem(`draft_reading_${editingId}`)
       pristineFormSigRef.current = ''
       pristineExplanationsRef.current = {}
@@ -954,6 +910,10 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   }
 
   const addGroup = (pi, type) => {
+    if (needsParagraphLetters(type) && !form.passages[pi].letteredParagraphs) {
+      showAlert(paragraphLettersAlert)
+      return
+    }
     const p = [...form.passages]
     const newGroup = emptyReadingGroupOf(type, 1) // start placeholder; recalc fixes it
     p[pi] = { ...p[pi], questionGroups: [...p[pi].questionGroups, newGroup] }
@@ -964,12 +924,10 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   const updateGroup = (pi, gi, newGroup) => {
     const p = [...form.passages]
     const groups = [...p[pi].questionGroups]
-    const prevSlots = getGroupSlots(groups[gi])
-    const nextSlots = getGroupSlots(newGroup)
     groups[gi] = newGroup
     p[pi] = { ...p[pi], questionGroups: groups }
-    // Only recalc downstream numbers when question count changes
-    const recalced = prevSlots !== nextSlots ? recalcAllGroupNumbers(p) : p
+    // Normalize token order as well as question counts after every edit.
+    const recalced = recalcAllGroupNumbers(p)
     setForm({ ...form, passages: recalced })
   }
 
@@ -990,13 +948,14 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   }
 
   const saveCurrentExam = async () => {
-    setError('')
+    if (saveInFlightRef.current || loadingEdit || generatingAI || expLock.isLockedOperation) return false
+
 
     // Client-side guardrails before hitting the API
     const val = validateExamReading(form)
     if (!val.isValid) {
       const msg = 'Không thể lưu đề:\n• ' + val.errors.join('\n• ')
-      setError(msg)
+
       showAlert(msg, 'error')
       formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       return false
@@ -1007,50 +966,22 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     )
     if (totalQ !== 40 && !window.confirm(`Tổng số câu hiện tại là ${totalQ}, không phải 40. Vẫn lưu?`)) return false
 
+    saveInFlightRef.current = true
     setSubmitting(true)
     try {
-      const payload = {
-        title: form.title,
-        bookNumber: form.bookNumber ? parseInt(form.bookNumber) : null,
-        testNumber: form.testNumber ? parseInt(form.testNumber) : null,
-        seriesId: form.seriesId ? parseInt(form.seriesId) : null,
-        passages: form.passages.map(p => ({
-          ...(p.id ? { id: p.id } : {}),
-          number: p.number,
-          title: p.title,
-          subtitle: p.subtitle || null,
-          letteredParagraphs: p.letteredParagraphs || false,
-          body: p.body,
-          questionGroups: p.questionGroups.map(g => ({
-            ...(typeof g._id === 'number' ? { id: g._id } : (g.id ? { id: g.id } : {})),
-            type: g.type,
-            qNumberStart: g.qNumberStart,
-            qNumberEnd: g.qNumberEnd,
-            instruction: g.instruction || '',
-            imageUrl: g.imageUrl || null,
-            canReuse: g.canReuse || false,
-            maxChoices: g.maxChoices || 2,
-            noteSections: g.noteSections,
-            matchingOptions: g.matchingOptions,
-            questions: (g.questions || []).map(q => ({
-              ...(q.id ? { id: q.id } : {}),
-              number: q.number,
-              questionText: q.questionText || '',
-              options: q.options || ['', '', '', ''],
-              correctAnswer: q.correctAnswer || ''
-            }))
-          }))
-        }))
-      }
+      const payload = buildExamPayload(form, 'reading')
       if (editingId) {
-        await api.put(`/admin/exams/${editingId}`, payload)
+        const saved = await api.put(`/admin/exams/${editingId}`, payload)
+        const canonical = hydrateExamForm(saved.data, 'reading', form)
+        latestFormRef.current = canonical
+        setForm(canonical)
         localStorage.removeItem(`draft_reading_${editingId}`)
         showToast('Cập nhật đề thành công!')
         queryClient.invalidateQueries({ queryKey: ['admin', 'exams'] })
         queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
-        pristineFormSigRef.current = normalizeFormForDirtyCheck(form)
-        pristineExplanationsRef.current = extractExplanationsMap(form)
-        onRefresh()
+        pristineFormSigRef.current = normalizeFormForDirtyCheck(canonical)
+        pristineExplanationsRef.current = extractExplanationsMap(canonical)
+        Promise.resolve().then(() => onRefresh?.()).catch(() => {})
         return true
       } else {
         await api.post('/admin/exams/reading', payload)
@@ -1062,19 +993,20 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         queryClient.invalidateQueries({ queryKey: ['admin', 'examCounts'] })
         pristineFormSigRef.current = ''
         pristineExplanationsRef.current = {}
-        onRefresh()
+        Promise.resolve().then(() => onRefresh?.()).catch(() => {})
         return true
       }
     } catch (err) {
       const data = err.response?.data
       const errMsg = data?.blockedQuestions?.length
         ? `${data.message}\n${data.blockedQuestions.map(b => `Passage ${b.passageNumber} - Câu ${b.questionNumber}`).join('\n')}`
-        : (data?.message || 'Lỗi lưu đề Reading')
-      setError(errMsg)
+        : (data?.message || err.message || 'Lỗi lưu đề Reading')
+
       showAlert(errMsg, 'error')
       formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       return false
     } finally {
+      saveInFlightRef.current = false
       setSubmitting(false)
     }
   }
@@ -1097,11 +1029,6 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
 
   return (
     <div className="space-y-6">
-      {toast && (
-        <div className="fixed bottom-4 right-4 bg-zinc-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg z-50">
-          {toast}
-        </div>
-      )}
       <div className="relative">
       {loadingEdit && (
         <div className="absolute inset-0 z-20 rounded-2xl bg-white/70 backdrop-blur-[1px] flex items-center justify-center">
@@ -1110,11 +1037,10 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       )}
       <form ref={formRef} onSubmit={handleSubmit} aria-busy={loadingEdit}
         className={`bg-white rounded-2xl p-6 border shadow-xs transition-all duration-500 ${loadingEdit ? 'opacity-60 pointer-events-none select-none' : ''} ${editHighlight ? 'border-amber-400 shadow-amber-100' : 'border-zinc-200'}`}>
+        <fieldset disabled={submitting || loadingEdit} className="min-w-0 border-0 p-0 m-0">
         <h3 className="text-sm font-semibold text-zinc-900 mb-5">
           {editingId ? (form.title ? `Sửa đề Reading: ${form.title}` : 'Sửa đề Reading') : 'Tạo đề Reading mới'}
         </h3>
-
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg mb-4 text-sm whitespace-pre-line">{error}</div>}
 
         <AIGenerationResumeBanner
           banner={expLock.resumeBanner}
@@ -1282,7 +1208,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
                         <input type="checkbox" checked={passage.letteredParagraphs}
                           onChange={e => updatePassage(pi, 'letteredParagraphs', e.target.checked)}
                           className="accent-zinc-900" />
-                        <span className="text-xs text-zinc-600 font-medium">Đoạn văn có ký hiệu chữ cái (A, B, C...) — dùng cho Matching Paragraph</span>
+                        <span className="text-xs text-zinc-600 font-medium">Đoạn văn có ký hiệu chữ cái (A, B, C...) — dùng cho Matching Information và Matching Headings</span>
                       </label>
                     </div>
 
@@ -1303,6 +1229,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
                             group={group}
                             examId={editingId}
                             passage={passage.body}
+                            letteredParagraphs={Boolean(passage.letteredParagraphs)}
                             onChange={newGroup => updateGroup(pi, gi, newGroup)}
                             onRemove={() => removeGroup(pi, gi)}
                             onMoveUp={() => moveGroup(pi, gi, -1)}
@@ -1318,23 +1245,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
                       </div>
 
                       {addingGroupPassage === pi ? (
-                        <div className="border border-dashed border-zinc-400 rounded-lg p-4 bg-zinc-50/50">
-                          <p className="text-xs font-bold text-zinc-700 mb-3">Chọn loại nhóm câu hỏi:</p>
-                          <div className="grid grid-cols-2 gap-2">
-                            {READING_GROUP_TYPES.map(t => (
-                              <button
-                                key={t.value}
-                                type="button"
-                                onClick={() => addGroup(pi, t.value)}
-                                className="text-left px-3 py-2 border border-zinc-200 rounded-lg text-sm text-zinc-700 hover:border-zinc-900 hover:text-zinc-900 hover:bg-zinc-100 transition font-medium"
-                              >
-                                {t.label}
-                              </button>
-                            ))}
-                          </div>
-                          <button type="button" onClick={() => setAddingGroupPassage(null)}
-                            className="mt-2 text-xs text-zinc-400 hover:text-zinc-600">Hủy</button>
-                        </div>
+                        <QuestionTypePicker types={READING_GROUP_TYPES} onSelect={type => addGroup(pi, type)} onCancel={() => setAddingGroupPassage(null)} />
                       ) : (
                         <button
                           type="button"
@@ -1373,6 +1284,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
           <Eye className="w-4 h-4" />
           <span>{showPreview ? 'Đóng preview' : 'Preview nội dung đề'}</span>
         </button>
+        </fieldset>
       </form>
       </div>
 

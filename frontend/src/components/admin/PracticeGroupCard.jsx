@@ -1,3 +1,6 @@
+import AutoGrowTextarea from './AutoGrowTextarea'
+import AdditionalTaskEditor from './editors/AdditionalTaskEditor'
+import { GROUP_TYPE_ALIASES } from '../../utils/questionTypes'
 import { useState } from 'react'
 import { Sparkles } from 'lucide-react'
 import {
@@ -45,7 +48,7 @@ function chrome(skill, groupType) {
   }
   return {
     card: 'border border-zinc-200 rounded-lg overflow-hidden mb-3.5 bg-white shadow-2xs',
-    header: 'flex items-center gap-3 px-4 py-3 bg-zinc-50/90 border-b border-zinc-200 overflow-x-auto',
+    header: `flex items-center gap-3 px-4 py-3 border-b ${getQuestionTypeTheme(groupType).headerBg} overflow-x-auto`,
     badge: `text-xs font-bold px-2.5 py-1 rounded-full border ${GROUP_TYPE_COLORS[groupType] || 'bg-zinc-100 text-zinc-700 border-zinc-200'}`,
     range: 'text-xs text-zinc-600 font-semibold',
     moveWrap: 'flex items-center gap-1',
@@ -56,7 +59,7 @@ function chrome(skill, groupType) {
 
 export default function PracticeGroupCard({
   skill, group, onChange, onRemove, onMoveUp, onMoveDown, isFirst, isLast,
-  expanded = true, onToggle, examId, passage = '', isAIBusy = false,
+  expanded = true, onToggle, examId, passage = '', letteredParagraphs = false, isAIBusy = false,
   generatingQuestionNumbers = null, unsavedQuestionNumbers = null,
 }) {
   const [selectedQModal, setSelectedQModal] = useState(null)
@@ -155,7 +158,7 @@ export default function PracticeGroupCard({
 
         <div>
           <label className={labelCls}>Instruction (hiển thị cho học sinh)</label>
-          <textarea rows={2} className={`${inputCls} resize-none`}
+          <AutoGrowTextarea rows={2} className={`${inputCls} resize-none`}
             placeholder="Hướng dẫn làm bài..."
             value={group.instruction}
             onChange={e => onChange({ ...group, instruction: e.target.value })} />
@@ -164,6 +167,7 @@ export default function PracticeGroupCard({
         {(group.type === 'true_false_ng' || group.type === 'yes_no_ng') && (
           <TrueFalseEditor group={group} onChange={onChange} />
         )}
+        {(Object.hasOwn(GROUP_TYPE_ALIASES, group.type) || group.type === 'short_answer') && <AdditionalTaskEditor passage={passage} group={group} onChange={onChange} themeSource="practice" />}
         {group.type === 'note_completion' && (
           <NoteCompletionEditor group={group} onChange={onChange} themeSource="practice" />
         )}
@@ -214,7 +218,7 @@ export default function PracticeGroupCard({
                 className="accent-zinc-900" />
               <span className="text-xs text-zinc-600 font-medium">Cho phép dùng lại heading (heading có thể khớp nhiều đoạn)</span>
             </label>
-            <MatchingHeadingsEditor group={group} onChange={onChange} />
+            <MatchingHeadingsEditor letteredParagraphs={letteredParagraphs} passage={passage} group={group} onChange={onChange} />
           </div>
         )}
       </div>

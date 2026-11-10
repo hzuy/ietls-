@@ -1,3 +1,4 @@
+import { readingParagraphs } from '../utils/readingParagraphs'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useNavigationType, useParams, useSearchParams } from 'react-router-dom'
 
@@ -6,6 +7,7 @@ import { getReadingExam, getReadingExamWithAnswers, submitReadingExam } from '..
 import api from '../utils/axios'
 import { getPublicSettings } from '../services/adminService'
 import { saveDraft, loadDraft, clearDraft, formatSavedAt } from '../services/draftService'
+import { getSubmissionTicket, clearSubmissionTicket } from '../services/submissionTicket'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
@@ -23,6 +25,7 @@ import QuestionNavButton from '../components/common/QuestionNavButton'
 import QuestionPanelPopover from '../components/common/QuestionPanelPopover'
 import TableCompletionRender from '../components/TableCompletionRender'
 import GroupBlock from '../components/exam/GroupBlock'
+import QuestionBlock from '../components/exam/QuestionBlock'
 import TypeHeader from '../components/exam/TypeHeaders'
 import { groupByType } from '../components/exam/listening/OtherGroups'
 import { fmt } from '../utils/practiceUtils'
@@ -36,6 +39,7 @@ import ReportIssueButton from '../components/common/ReportIssueButton'
 
 
 const DEFAULT_READING_TIME = 60 * 60
+
 
 
 export default function ReadingExam() {
@@ -361,7 +365,10 @@ export default function ReadingExam() {
   const doSubmit = async () => {
     setSubmitting(true)
     try {
-      await submitReadingExam(id, answers)
+      const userId = user.id || user._id
+      const ticket = getSubmissionTicket(userId, id, 'reading', answers)
+      await submitReadingExam(id, ticket.answers, ticket.key)
+      clearSubmissionTicket(userId, id, 'reading')
       if (user) clearDraft(user.id || user._id, id, 'reading')
       markSubmitted('reading', id, exitPath)
       navigate(`/reading/${id}/explanation`, { replace: true })
@@ -555,10 +562,7 @@ export default function ReadingExam() {
           <div className="w-16 h-0.5 bg-zinc-900 mx-auto mb-6" />
           <div className="text-zinc-800 font-normal text-base leading-relaxed">
             {passage.body
-              ? passage.body
-                  .split(/\n\s*\n|\n/)
-                  .map(s => s.trim())
-                  .filter(Boolean)
+              ? (passage.letteredParagraphs ? readingParagraphs(passage.body) : passage.body.split(/\n\s*\n|\n/).map(s => s.trim()).filter(Boolean))
                   .map((para, i) => {
                     const capitalized = para.charAt(0).toUpperCase() + para.slice(1)
                     const paraHighlights = scopeHighlights.filter(h => h.paraIndex === i)

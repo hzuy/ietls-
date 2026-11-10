@@ -1,3 +1,4 @@
+import { readingParagraphs } from '../utils/readingParagraphs'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import SkillResult from '../components/SkillResult'
@@ -27,7 +28,7 @@ import ReportIssueButton from '../components/common/ReportIssueButton'
 
 const noop = () => {}
 
-const WHOLE_GROUP_TYPES = new Set(['note_completion', 'matching_information', 'drag_word_bank', 'table_completion', 'matching_drag', 'diagram_label', 'matching_headings', 'mcq_multi'])
+const WHOLE_GROUP_TYPES = new Set(['note_completion', 'matching_information', 'drag_word_bank', 'table_completion', 'matching_drag', 'diagram_label', 'matching_headings', 'mcq_multi', 'list_selection', 'form_completion', 'summary_completion', 'flow_chart_completion', 'matching_endings', 'categorisation'])
 const LISTENING_ONLY_TYPES = new Set(['map_diagram', 'matching'])
 const FS = { fontSize: 14 }
 
@@ -67,7 +68,7 @@ function buildAnswersById(parts, reviewMap) {
     for (const q of p.questions || []) out[q.id] = reviewMap[q.number]?.rawUserAnswer || ''
     for (const g of p.questionGroups || []) {
       for (const q of g.questions || []) {
-        if (g.type === 'mcq_multi') {
+        if (['mcq_multi', 'list_selection'].includes(g.type)) {
           const size = g.maxChoices || 2
           const picks = Array.from({ length: size }, (_, i) => reviewMap[q.number + i]?.rawUserAnswer).filter(Boolean)
           out[q.id] = picks.join(',')
@@ -113,7 +114,7 @@ function MarkedParagraph({ text, marks }) {
 }
 
 function PassageView({ passage, targets }) {
-  const paragraphs = useMemo(() => splitParagraphs(passage?.body), [passage])
+  const paragraphs = useMemo(() => passage?.letteredParagraphs ? readingParagraphs(passage?.body) : splitParagraphs(passage?.body), [passage])
   const marksByPara = useMemo(() => resolveTargets(targets, paragraphs), [targets, paragraphs])
   const dimOthers = !!marksByPara
   return (

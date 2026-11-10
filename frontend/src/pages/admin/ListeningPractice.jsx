@@ -1,3 +1,5 @@
+import ListeningContentPreview from '../../components/practice/ListeningContentPreview'
+import InlinePreviewPanel from '../../components/common/InlinePreviewPanel'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -6,7 +8,6 @@ import { useDraftPersistence } from '../../hooks/useDraftPersistence'
 import { useCollapsibleGroups } from '../../hooks/useCollapsibleGroups'
 import { validateAudioFile } from '../../utils/fileValidation'
 import { ConfirmDeleteModal, DraftBanner, DraftSavedHint, AdminListHeader, ThumbnailPicker } from '../../components/admin/contentPageUI'
-import { useToast } from '../../context/ToastContext'
 import { Volume2, Eye, BookOpen, Upload, Loader2, RotateCcw } from 'lucide-react'
 import api from '../../utils/axios'
 import PracticeGroupCard from '../../components/admin/PracticeGroupCard'
@@ -20,7 +21,6 @@ import {
   LISTENING_GROUP_TYPES, emptyListeningGroupOf,
   inputCls, labelCls, btnPrimary, btnSecondary,
 } from '../../utils/practiceConfig'
-import AdminGroupPreview from '../../components/practice/AdminGroupPreview'
 import ImageWithFallback from '../../components/common/ImageWithFallback'
 import Select from '../../components/admin/Select'
 import { AdminTableSkeleton } from '../../components/skeletons'
@@ -43,139 +43,21 @@ import {
 
 // ─── PREVIEW MODAL ────────────────────────────────────────────────────────────
 function ListeningPracticePreviewModal({ form, showAnswers, setShowAnswers, onClose }) {
-  const [leftPct, setLeftPct] = useState(42)
-  const [dragging, setDragging] = useState(false)
-  const containerRef = useRef(null)
-
-  const onDividerMouseDown = useCallback((e) => {
-    e.preventDefault()
-    setDragging(true)
-    const container = containerRef.current
-    if (!container) return
-    const onMouseMove = (ev) => {
-      const rect = container.getBoundingClientRect()
-      setLeftPct(Math.min(75, Math.max(25, ((ev.clientX - rect.left) / rect.width) * 100)))
-    }
-    const onMouseUp = () => {
-      setDragging(false)
-      document.removeEventListener('mousemove', onMouseMove)
-      document.removeEventListener('mouseup', onMouseUp)
-    }
-    document.addEventListener('mousemove', onMouseMove)
-    document.addEventListener('mouseup', onMouseUp)
-  }, [])
-
-  useEffect(() => {
-    const h = (e) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h)
-  }, [onClose])
-
-  const audioSrc = form.audioBlobUrl || (form.audioUrl ? toImgSrc(form.audioUrl) : null)
-  const thumbSrc = form.thumbPreview || (form.thumbnailUrl ? toImgSrc(form.thumbnailUrl) : null)
-
-  return (
-    <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
-        style={{ width: '95vw', height: '90vh' }}
-        onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-3 bg-zinc-50 border-b border-zinc-200 shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-zinc-900">Preview — {form.title || 'Listening Practice'}</span>
-            <button type="button" onClick={() => setShowAnswers(v => !v)}
-              className={`text-xs px-3 py-1 rounded-full font-semibold transition cursor-pointer ${showAnswers ? 'bg-zinc-900 text-white' : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50'}`}>
-              {showAnswers ? 'Ẩn đáp án' : 'Hiện đáp án'}
-            </button>
-          </div>
-          <button type="button" onClick={onClose}
-            className="text-xs px-3 py-1.5 rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-100 transition font-medium cursor-pointer">
-            ✕ Đóng
-          </button>
-        </div>
-
-        <div ref={containerRef} className="flex flex-1 overflow-hidden"
-          style={{ userSelect: dragging ? 'none' : 'auto' }}>
-          {/* CỘT TRÁI (Audio, Tình huống, Ảnh bìa, Transcript) */}
-          <div className="overflow-y-auto bg-white px-7 py-6 space-y-5" style={{ width: `${leftPct}%`, flexShrink: 0 }}>
-            {audioSrc && (
-              <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-200 shadow-2xs">
-                <p className="text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <Volume2 className="w-3.5 h-3.5 text-zinc-600" />
-                  <span>File Audio bài nghe</span>
-                </p>
-                <audio controls src={audioSrc} key={audioSrc} className="w-full h-10 rounded-lg" />
-              </div>
-            )}
-
-            {thumbSrc && (
-              <div className="rounded-xl overflow-hidden border border-zinc-200 bg-zinc-50 max-h-56">
-                <img
-                  src={thumbSrc}
-                  alt={form.title}
-                  className="w-full h-full object-cover max-h-56"
-                />
-              </div>
-            )}
-
-            {form.context && (
-              <div className="bg-zinc-50/70 p-4 rounded-xl border border-zinc-200">
-                <p className="text-xs font-bold text-zinc-600 uppercase tracking-wider mb-1.5">Mô tả tình huống (Context)</p>
-                <p className="text-sm text-zinc-700 leading-relaxed italic">{form.context}</p>
-              </div>
-            )}
-
-            {form.transcript ? (
-              <div className="bg-white rounded-xl border border-zinc-200 p-4 shadow-2xs">
-                <div className="flex items-center justify-between mb-2 pb-2 border-b border-zinc-100">
-                  <p className="text-xs font-bold text-zinc-700 uppercase tracking-wider">Transcript (Lời thoại)</p>
-                  <span className="text-[11px] text-zinc-400">Xem kèm đối chiếu</span>
-                </div>
-                <p className="text-sm text-zinc-700 leading-7 whitespace-pre-wrap font-normal">{form.transcript}</p>
-              </div>
-            ) : (
-              !form.context && !thumbSrc && !audioSrc && (
-                <p className="text-sm text-zinc-400 italic">Chưa có thông tin bài nghe</p>
-              )
-            )}
-          </div>
-
-          {/* THANH KÉO CO GIÃN 2 CỘT */}
-          <div onMouseDown={onDividerMouseDown}
-            style={{ width: 5, cursor: 'col-resize', flexShrink: 0, background: dragging ? '#18181b' : '#e4e4e7', transition: dragging ? 'none' : 'background 0.15s' }}
-            onMouseEnter={e => { if (!dragging) e.currentTarget.style.background = '#a1a1aa' }}
-            onMouseLeave={e => { if (!dragging) e.currentTarget.style.background = '#e4e4e7' }} />
-
-          {/* CỘT PHẢI (Danh sách câu hỏi + giải thích) */}
-          <div className="flex-1 overflow-y-auto bg-zinc-50 px-6 py-6">
-            {form.questionGroups.length > 0
-              ? form.questionGroups.map((g, gi) => (
-                  <AdminGroupPreview
-                    key={gi}
-                    group={g}
-                    showAnswers={showAnswers}
-                  />
-                ))
-              : <p className="text-sm text-zinc-400 italic text-center mt-10">Chưa có câu hỏi</p>}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+  return <InlinePreviewPanel title={form.title || 'Listening Practice'} showAnswers={showAnswers} setShowAnswers={setShowAnswers} onClose={onClose}>
+    <ListeningContentPreview section={{ ...form, audioUrl: form.audioBlobUrl || form.audioUrl }} practice showAnswers={showAnswers} />
+  </InlinePreviewPanel>
 }
 
-// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 const EMPTY_FORM = {
   title: '', context: '', transcript: '',
   audioUrl: null, audioBlobUrl: null, audioFile: null, audioName: null,
   questionGroups: [],
   thumbnailUrl: null, thumbPreview: null, thumbFile: null,
 }
-
-// Chữ ký nội dung form (bỏ thumbPreview/audioName/audioBlobUrl — phái sinh) để phát hiện thay
-// đổi chưa lưu (derive-snapshot, giống SampleManager).
-const formSig = (f) => JSON.stringify([f.title, f.context, f.transcript, f.questionGroups, f.thumbnailUrl, !!f.thumbFile, f.audioUrl, !!f.audioFile])
+const formSig = f => JSON.stringify([f.title, f.context, f.transcript, f.questionGroups, f.thumbnailUrl, !!f.thumbFile, f.audioUrl, !!f.audioFile])
 
 export default function ListeningPractice() {
-  const { showToast } = useToast()
+  const showToast = showAlert
   const queryClient = useQueryClient()
   const location = useLocation()
   const { data: list = [], isPending, isError, error, refetch } = useQuery({
@@ -187,6 +69,7 @@ export default function ListeningPractice() {
   const [editing, setEditing]         = useState(null)
   const [form, setForm]               = useState(EMPTY_FORM)
   const [saving, setSaving]           = useState(false)
+  const saveInFlightRef = useRef(false)
   const [uploadingAudio, setUploadingAudio] = useState(false)
   const [transcribing, setTranscribing]     = useState(false)
   const [showTranscriptBox, setShowTranscriptBox] = useState(false)
@@ -328,7 +211,7 @@ export default function ListeningPractice() {
     showToast(
       effectiveChoice === 'keep_draft'
         ? 'Đã khôi phục bản nháp gồm các giải thích đã sửa'
-        : 'Đã khôi phục bản nháp (giữ nguyên giải thích mới nhất từ hệ thống)',
+        : 'Đã khôi phục bản nháp',
       'info'
     )
   }
@@ -466,14 +349,16 @@ export default function ListeningPractice() {
   }
 
   const handleSave = async () => {
+    if (saveInFlightRef.current || expLock.isLockedOperation) return
     const val = validatePracticeListening(form, { isForAI: false })
     if (!val.isValid) {
       const alertMsg = formatValidationAlert('Không thể lưu bài Listening Practice', val.errors)
       showAlert(alertMsg, 'error')
-      showToast(val.errors[0] || 'Vui lòng điền đầy đủ thông tin bài nghe và đáp án đúng', 'error')
+
       return
     }
 
+    saveInFlightRef.current = true
     setSaving(true)
     try {
       // ── Bước 1: upload file mới (nếu có) TRƯỚC — record chỉ ghi khi file đã lên xong ──
@@ -516,6 +401,7 @@ export default function ListeningPractice() {
     } catch (err) {
       showToast(err.response?.data?.message || 'Lỗi lưu bài thi', 'error')
     } finally {
+      saveInFlightRef.current = false
       setSaving(false)
     }
   }
@@ -554,7 +440,7 @@ export default function ListeningPractice() {
     if (!val.isValid) {
       const alertMsg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
       showAlert(alertMsg, 'error')
-      showToast(val.errors[0] || 'Vui lòng điền đầy đủ thông tin bài nghe và đáp án đúng', 'error')
+
       return
     }
     const stats = countProtectedQuestions()
@@ -582,7 +468,7 @@ export default function ListeningPractice() {
     if (!val.isValid) {
       const alertMsg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
       showAlert(alertMsg, 'error')
-      showToast(val.errors[0] || 'Vui lòng điền đầy đủ thông tin bài nghe và đáp án đúng', 'error')
+
       return
     }
 
@@ -714,6 +600,7 @@ export default function ListeningPractice() {
   if (view === 'form') {
     return (
       <>
+        <fieldset disabled={saving} className="min-w-0 border-0 p-0 m-0">
         <div className="p-4 sm:p-6 max-w-[1520px] mx-auto">
           {/* Top Bar: Tiêu đề + Bộ nút thao tác chính (Sticky top) */}
           <div className="sticky top-0 z-20 bg-zinc-50/95 backdrop-blur-xs py-3.5 mb-5 border-b border-zinc-200 -mx-4 sm:-mx-6 px-4 sm:px-6 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
@@ -1091,6 +978,7 @@ export default function ListeningPractice() {
           totalCount={expLock.localProgress?.total || 0}
           isCancelling={expLock.isCancelling}
         />
+        </fieldset>
       </>
     )
   }

@@ -146,6 +146,51 @@ describe('practice explanations', () => {
     expect(planNoChange.toUpdate.every(u => u.data.explanation === undefined)).toBe(true)
   })
 
+  it('planQuestionDiff marks every existing question stale when the reading passage / listening context changes (TC-026)', () => {
+    const { planQuestionDiff } = require('./admin/exams/core')
+    const existing = [
+      { id: 201, number: 1, questionText: 'Q1', correctAnswer: 'A', explanation: { v: 2, status: 'teacher_reviewed' } },
+      { id: 202, number: 2, questionText: 'Q2', correctAnswer: 'B', explanation: { v: 2, status: 'ai_generated' } },
+      { id: 203, number: 3, questionText: 'Q3', correctAnswer: 'C', explanation: null },
+    ]
+    const submittedUnchanged = [
+      { id: 201, number: 1, questionText: 'Q1', correctAnswer: 'A' },
+      { id: 202, number: 2, questionText: 'Q2', correctAnswer: 'B' },
+      { id: 203, number: 3, questionText: 'Q3', correctAnswer: 'C' },
+    ]
+    const fields = q => ({ questionText: q.questionText, correctAnswer: q.correctAnswer })
+
+    // Không đổi nguồn: giữ nguyên explanation.
+    const untouched = planQuestionDiff(existing, submittedUnchanged, fields)
+    expect(untouched.toUpdate.every(u => u.data.explanation === undefined)).toBe(true)
+
+    // Đổi passage/section source: mọi câu đã có explanation đều possibly_stale,
+    // kể cả câu không bị sửa nội dung; câu chưa có explanation thì không tạo mới.
+    const reason = 'Nội dung bài đọc đã thay đổi'
+    const stale = planQuestionDiff(existing, submittedUnchanged, fields, reason)
+    const byId = Object.fromEntries(stale.toUpdate.map(u => [u.id, u]))
+    expect(byId[201].data.explanation).toMatchObject({ status: 'possibly_stale', staleReason: reason })
+    expect(byId[201].data.explanation.v).toBe(2) // giữ nội dung cũ
+    expect(byId[202].data.explanation.status).toBe('possibly_stale')
+    expect(byId[203].data.explanation).toBeUndefined()
+  })
+
+  it('planQuestionDiff still reports the concrete question-level reason when both question and source change (TC-026)', () => {
+    const { planQuestionDiff } = require('./admin/exams/core')
+    const existing = [
+      { id: 301, number: 1, questionText: 'Old', correctAnswer: 'A', explanation: { status: 'teacher_reviewed' } },
+    ]
+    const submitted = [{ id: 301, number: 1, questionText: 'New', correctAnswer: 'A' }]
+    const plan = planQuestionDiff(
+      existing,
+      submitted,
+      q => ({ questionText: q.questionText, correctAnswer: q.correctAnswer }),
+      'Nội dung bài đọc đã thay đổi'
+    )
+    expect(plan.toUpdate[0].data.explanation.status).toBe('possibly_stale')
+    expect(plan.toUpdate[0].data.explanation.staleReason).toBe('Nội dung câu hỏi đã thay đổi')
+  })
+
   it('handles string payloads and groups without explanations', () => {
     expect(carryOverExplanations([], [JSON.stringify(group(1, ['TRUE']))])).toEqual([null])
     expect(carryOverExplanations([row(group(1, ['TRUE']))], [group(1, ['TRUE'])])).toEqual([null])

@@ -54,12 +54,13 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 const FAMILY = {
   MCQ: ['mcq', 'mcq_multi', 'choose_title', 'list_selection'],
   TFNG: ['true_false_ng', 'yes_no_ng'],
-  MATCHING: ['matching', 'matching_headings', 'matching_features', 'matching_paragraph', 'matching_endings'],
+  MATCHING: ['matching', 'matching_headings', 'matching_features', 'matching_paragraph', 'matching_endings', 'categorisation'],
   COMPLETION: [
     'fill_blank',
     'short_answer',
     'table_completion',
     'note_completion',
+    'form_completion',
     'sentence_completion',
     'summary_completion',
     'flow_chart_completion',

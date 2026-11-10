@@ -1,6 +1,7 @@
+import { splitChoiceAnswer } from './mcqAnswer'
 import { containsInternalJargon } from './examExplanationUtils'
 
-const LISTENING_FILL_TYPES = ['note_completion', 'table_completion', 'drag_word_bank', 'diagram_label']
+const LISTENING_FILL_TYPES = ['note_completion', 'table_completion', 'drag_word_bank', 'diagram_label', 'form_completion', 'summary_completion', 'flow_chart_completion', 'sentence_completion', 'short_answer']
 
 function formatType(type) {
   if (!type) return 'Unknown'
@@ -12,7 +13,7 @@ function totalSlotsOf(groups) {
 }
 
 function isReadingCorrect(group, userAns, correctAns) {
-  if (group.type === 'mcq_multi') {
+  if (['mcq_multi', 'list_selection'].includes(group.type)) {
     const norm = s => s.split(',').map(x => x.trim()).filter(Boolean).sort().join(',')
     return norm(userAns) === norm(correctAns)
   }
@@ -24,7 +25,7 @@ function isListeningCorrect(group, userRaw, correctRaw) {
     const alts = correctRaw.split('/').map(a => a.trim().toLowerCase()).filter(Boolean)
     return alts.length > 0 && alts.includes(userRaw.toLowerCase())
   }
-  if (group.type === 'mcq_multi') {
+  if (['mcq_multi', 'list_selection'].includes(group.type)) {
     const norm = s => s.split(',').map(x => x.trim()).filter(Boolean).sort().join(',')
     return norm(userRaw) === norm(correctRaw)
   }
@@ -63,6 +64,28 @@ export function gradePractice(skill, exam, answers = {}) {
       const key = skill === 'listening' ? q.number : (q.id ?? q.number)
       const given = String(answers[key] ?? '').trim()
       const expected = String(q.correctAnswer ?? '').trim()
+      if (['mcq_multi', 'list_selection'].includes(g.type)) {
+        let options = q.options
+        if (typeof options === 'string') { try { options = JSON.parse(options) } catch { options = [] } }
+        const normalizedOptions = (Array.isArray(options) ? options : []).map(o => String(o).trim().toLowerCase())
+        const unique = s => [...new Set(splitChoiceAnswer(s.toLowerCase(), normalizedOptions))]
+        const selected = unique(given), accepted = unique(expected)
+        const labels = [...splitChoiceAnswer(expected, options), ...(Array.isArray(options) ? options : []), ...splitChoiceAnswer(given, options)].map(String).map(s => s.trim())
+        const display = value => labels.find(s => s.toLowerCase() === value) || value
+        const matches = selected.filter(x => accepted.includes(x))
+        const picks = [...matches, ...selected.filter(x => !accepted.includes(x))]
+        const remaining = accepted.filter(x => !matches.includes(x))
+        const maxChoices = g.maxChoices || 2
+        for (let i = 0; i < maxChoices; i++) {
+          const status = i < matches.length ? 'correct' : picks[i] ? 'wrong' : 'missed'
+          typeStats[typeName][status]++
+          typeStats[typeName].total++
+          questions.push({ number: q.number + i, grouped: false, type: g.type, status,
+            userAnswer: display(picks[i] || ''), correctAnswer: display(i < matches.length ? matches[i] : remaining.shift() || ''),
+            explanation: null })
+        }
+        return
+      }
       const isCorrect = skill === 'listening'
         ? isListeningCorrect(g, given, expected)
         : isReadingCorrect(g, given.toLowerCase(), expected.toLowerCase())

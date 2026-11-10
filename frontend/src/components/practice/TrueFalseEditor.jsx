@@ -1,3 +1,4 @@
+import AutoGrowTextarea from '../admin/AutoGrowTextarea'
 import { getQuestionGroupTheme } from '../../utils/practiceConfig'
 import Select from '../admin/Select'
 
@@ -28,11 +29,11 @@ export default function TrueFalseEditor({ group, onChange }) {
             <span className={`text-xs font-bold ${theme.subBoxText}`}>Câu {q.number}</span>
             <button type="button" onClick={() => removeQuestion(qi)} className="text-red-500 hover:text-red-600 text-xs">✕ Xóa</button>
           </div>
-          <textarea rows={2}
+          <AutoGrowTextarea rows={2}
             className={`w-full border ${theme.subBoxBorder} bg-white/80 rounded-lg px-2.5 py-1.5 text-sm resize-none focus:outline-none focus:bg-white`}
             placeholder="Nội dung câu phát biểu..."
             value={q.questionText} onChange={e => updateQ(qi, 'questionText', e.target.value)} />
-          <Select
+          <Select multiline
             ariaLabel="Đáp án đúng"
             value={q.correctAnswer}
             onChange={v => updateQ(qi, 'correctAnswer', v)}

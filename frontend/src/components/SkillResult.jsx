@@ -1,3 +1,4 @@
+import { selectedOptionValues } from '../utils/mcqAnswer'
 /**
  * SkillResult.jsx — Shared result page for Reading & Listening
  * Used inside ReadingExam and ListeningExam when ?viewResult=true,
@@ -191,7 +192,7 @@ export function formatDisplayAnswer(answer, options) {
   }
 
   if (answer.includes(',')) {
-    return answer.split(',').map(p => mapOne(p.trim())).filter(Boolean).join(', ')
+    return selectedOptionValues(answer, optsList).map(p => mapOne(p.trim())).filter(Boolean).join(', ')
   }
 
   return mapOne(answer)

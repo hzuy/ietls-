@@ -1,3 +1,4 @@
+import { selectedOptionValues } from '../../utils/mcqAnswer'
 import React from 'react'
 import { toImgSrc } from '../../utils/media'
 import ExplanationPanel from './ExplanationPanel'
@@ -33,7 +34,7 @@ function SingleChoiceList({ options, q, answers, onAnswer, previewMode, showAnsw
 
 function QuestionBlockInner({ q, answers, onAnswer, maxChoices = 2, previewMode, showAnswers }) {
   const opts = q.options ? (typeof q.options === 'string' ? JSON.parse(q.options) : q.options) : []
-  const selected = (answers[q.id] || '').split(',').filter(Boolean)
+  const selected = selectedOptionValues(answers[q.id], opts)
 
   return (
     <div id={`q-${q.number}`} className="mb-6 scroll-mt-4">
@@ -51,7 +52,7 @@ function QuestionBlockInner({ q, answers, onAnswer, maxChoices = 2, previewMode,
       {q.type === 'mcq_multi' && (
         <div className="space-y-1 pl-8">
           {opts.map(opt => {
-            const correctList = previewMode && showAnswers ? (q.correctAnswer || '').split(',').filter(Boolean) : []
+            const correctList = previewMode && showAnswers ? selectedOptionValues(q.correctAnswer, opts) : []
             const checked = previewMode && showAnswers ? correctList.includes(opt) : selected.includes(opt)
             const disabled = previewMode || (!checked && selected.length >= maxChoices)
             return (
@@ -83,7 +84,7 @@ function QuestionBlockInner({ q, answers, onAnswer, maxChoices = 2, previewMode,
       )}
 
       {/* Text input: fill_blank, diagram_completion */}
-      {['fill_blank', 'diagram_completion'].includes(q.type) && (
+      {['short_answer', 'fill_blank', 'diagram_completion'].includes(q.type) && (
         <div className="pl-8">
           {q.imageUrl && <img src={toImgSrc(q.imageUrl)} alt="diagram" className="img-crisp w-full max-w-sm rounded-2xl mb-2 border border-zinc-200" style={{ imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)' }} loading="lazy" decoding="async" />}
           <input type="text"

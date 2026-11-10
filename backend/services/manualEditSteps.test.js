@@ -32,6 +32,13 @@ describe('B.4: Manual Edit Steps 1-4 Tests (Sửa trực tiếp)', () => {
     vi.clearAllMocks()
   })
 
+  it('reconciles a stale explanation answer with the trusted current question after teacher editing (TC-026)', async () => {
+    prismaMock.question.findFirst.mockResolvedValue({id:1,type:'true_false_ng',correctAnswer:'FALSE',explanation:{v:2,status:'possibly_stale',answer:'TRUE'},passage:{body:'The sky is red.'},group:null})
+    prismaMock.question.update.mockResolvedValue({})
+    await updateManualExplanation({examId:1,questionId:1,fields:{reasoning:'Bài đọc mô tả bầu trời màu đỏ.'}})
+    expect(prismaMock.question.update).toHaveBeenCalledWith(expect.objectContaining({data:{explanation:expect.objectContaining({answer:'FALSE'})}}))
+  })
+
   describe('Validation of Steps 1-4 (validateManualExplanation)', () => {
     it('accepts valid Step 1, 2, 3, 4 fields and calculates correct paragraphs', () => {
       const payload = {

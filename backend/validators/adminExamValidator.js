@@ -2,7 +2,9 @@ const { z } = require('zod')
 
 // ─── BASE GROUP FIELDS ───────────────────────────────────────────────────────
 const baseGroupFields = {
+  isNew: z.boolean().optional(),
   id: z.coerce.number().optional(),
+
   qNumberStart: z.coerce.number({ message: 'qNumberStart phải là số' }).int().positive(),
   qNumberEnd: z.coerce.number({ message: 'qNumberEnd phải là số' }).int().positive(),
   instruction: z.string().optional().default(''),
@@ -18,6 +20,8 @@ const createTrueFalseSchema = (typeLiteral) => z.object({
   type: z.literal(typeLiteral),
   questions: z.array(z.object({
     id: z.coerce.number().optional(),
+    isNew: z.boolean().optional(),
+
     number: z.coerce.number(),
     questionText: z.string().optional().default(''),
     correctAnswer: z.string().optional().default(''),
@@ -29,10 +33,12 @@ const createNoteCompletionSchema = (typeLiteral) => z.object({
   type: z.literal(typeLiteral),
   noteSections: z.array(z.object({
     id: z.coerce.number().optional(),
+
     title: z.string().optional().default(''),
     sortOrder: z.coerce.number().optional(),
     lines: z.array(z.object({
       id: z.coerce.number().optional(),
+
       content: z.string().optional().default(''),
       // 'heading' is a legacy value already stored in production NoteLine rows
       // (predates this enum) — kept accepted so those exams remain saveable.
@@ -42,6 +48,8 @@ const createNoteCompletionSchema = (typeLiteral) => z.object({
   })).optional().default([]),
   questions: z.array(z.object({
     id: z.coerce.number().optional(),
+    isNew: z.boolean().optional(),
+
     number: z.coerce.number(),
     correctAnswer: z.string().optional().default(''),
   })).optional().default([]),
@@ -52,11 +60,14 @@ const createMatchingSchema = (typeLiteral) => z.object({
   type: z.literal(typeLiteral),
   matchingOptions: z.array(z.object({
     id: z.coerce.number().optional(),
+
     letter: z.string().optional().default(''),
     text: z.string().optional().default(''),
   })).optional().default([]),
   questions: z.array(z.object({
     id: z.coerce.number().optional(),
+    isNew: z.boolean().optional(),
+
     number: z.coerce.number(),
     questionText: z.string().optional().default(''),
     correctAnswer: z.string().optional().default(''),
@@ -68,20 +79,25 @@ const dragWordBankGroupSchema = z.object({
   type: z.literal('drag_word_bank'),
   noteSections: z.array(z.object({
     id: z.coerce.number().optional(),
+
     title: z.string().optional().default(''),
     lines: z.array(z.object({
       id: z.coerce.number().optional(),
+
       content: z.string().optional().default(''),
       lineType: z.string().optional().default('content'),
     })).optional().default([]),
   })).optional().default([]),
   matchingOptions: z.array(z.object({
     id: z.coerce.number().optional(),
+
     letter: z.string().optional().default(''),
     text: z.string().optional().default(''),
   })).optional().default([]),
   questions: z.array(z.object({
     id: z.coerce.number().optional(),
+    isNew: z.boolean().optional(),
+
     number: z.coerce.number(),
     correctAnswer: z.string().optional().default(''),
   })).optional().default([]),
@@ -92,11 +108,14 @@ const matchingDragGroupSchema = z.object({
   type: z.literal('matching_drag'),
   matchingOptions: z.array(z.object({
     id: z.coerce.number().optional(),
+
     letter: z.string().optional().default(''),
     text: z.string().optional().default(''),
   })).optional().default([]),
   questions: z.array(z.object({
     id: z.coerce.number().optional(),
+    isNew: z.boolean().optional(),
+
     number: z.coerce.number(),
     questionText: z.string().optional().default(''),
     correctAnswer: z.string().optional().default(''),
@@ -108,6 +127,8 @@ const diagramLabelGroupSchema = z.object({
   type: z.literal('diagram_label'),
   questions: z.array(z.object({
     id: z.coerce.number().optional(),
+    isNew: z.boolean().optional(),
+
     number: z.coerce.number(),
     hint: z.string().optional(),
     questionText: z.string().optional(),
@@ -120,11 +141,14 @@ const matchingHeadingsGroupSchema = z.object({
   type: z.literal('matching_headings'),
   matchingOptions: z.array(z.object({
     id: z.coerce.number().optional(),
+
     letter: z.string().optional().default(''),
     text: z.string().optional().default(''),
   })).optional().default([]),
   questions: z.array(z.object({
     id: z.coerce.number().optional(),
+    isNew: z.boolean().optional(),
+
     number: z.coerce.number(),
     questionText: z.string().optional().default(''),
     correctAnswer: z.string().optional().default(''),
@@ -136,6 +160,8 @@ const createMcqSchema = (typeLiteral) => z.object({
   type: z.literal(typeLiteral),
   questions: z.array(z.object({
     id: z.coerce.number().optional(),
+    isNew: z.boolean().optional(),
+
     number: z.coerce.number(),
     questionText: z.string().optional().default(''),
     options: z.array(z.string()).optional(),
@@ -148,6 +174,9 @@ const questionGroupSchema = z.discriminatedUnion('type', [
   createTrueFalseSchema('true_false_ng'),
   createTrueFalseSchema('yes_no_ng'),
   createNoteCompletionSchema('note_completion'),
+  ...['form_completion', 'summary_completion', 'flow_chart_completion'].map(createNoteCompletionSchema),
+  ...['matching_endings', 'categorisation'].map(createMatchingSchema),
+  ...['sentence_completion', 'choose_title', 'list_selection'].map(createMcqSchema),
   createNoteCompletionSchema('table_completion'),
   createMatchingSchema('matching_information'),
   createMatchingSchema('matching'),
@@ -184,7 +213,7 @@ const questionGroupSchema = z.discriminatedUnion('type', [
       if (answer && !allowed.has(answer)) ctx.addIssue({ code: 'custom', path: ['questions', index, 'correctAnswer'], message: 'Đáp án không hợp lệ với dạng câu hỏi này' })
     })
   }
-  if (group.type !== 'mcq' && group.type !== 'mcq_multi') return
+  if (!['mcq', 'mcq_multi', 'list_selection', 'choose_title'].includes(group.type)) return
   ;(group.questions || []).forEach((q, qi) => {
     const seen = new Set()
     ;(q.options || []).forEach((opt) => {
@@ -263,6 +292,7 @@ const createSpeakingExamSchema = z.object({
         z.string(),
         z.object({
           id: z.coerce.number().optional(),
+
           questionText: z.string(),
           audioUrl: z.string().nullable().optional(),
           ttsScript: z.string().nullable().optional(),
@@ -279,6 +309,7 @@ const createSpeakingExamSchema = z.object({
         z.string(),
         z.object({
           id: z.coerce.number().optional(),
+
           questionText: z.string(),
           audioUrl: z.string().nullable().optional(),
           ttsScript: z.string().nullable().optional(),
@@ -295,6 +326,7 @@ const createSpeakingExamSchema = z.object({
         z.string(),
         z.object({
           id: z.coerce.number().optional(),
+
           questionText: z.string(),
           audioUrl: z.string().nullable().optional(),
           ttsScript: z.string().nullable().optional(),
@@ -328,6 +360,7 @@ const updateExamSchema = z.object({
         z.string(),
         z.object({
           id: z.coerce.number().optional(),
+
           questionText: z.string(),
           audioUrl: z.string().nullable().optional(),
           ttsScript: z.string().nullable().optional(),
@@ -344,6 +377,7 @@ const updateExamSchema = z.object({
         z.string(),
         z.object({
           id: z.coerce.number().optional(),
+
           questionText: z.string(),
           audioUrl: z.string().nullable().optional(),
           ttsScript: z.string().nullable().optional(),
@@ -360,6 +394,7 @@ const updateExamSchema = z.object({
         z.string(),
         z.object({
           id: z.coerce.number().optional(),
+
           questionText: z.string(),
           audioUrl: z.string().nullable().optional(),
           ttsScript: z.string().nullable().optional(),

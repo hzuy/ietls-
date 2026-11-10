@@ -659,6 +659,7 @@ export default function WritingExam() {
   const [submitting, setSubmitting] = useState(false)
   const [gradingTask, setGradingTask] = useState(null)
   const [gradingErrors, setGradingErrors] = useState({})
+  const [resumedGrading, setResumedGrading] = useState([]) // TC-048: pending/grading khôi phục sau reload
   const [retryingTask, setRetryingTask] = useState(null)
   const [confirmResubmitId, setConfirmResubmitId] = useState(null) // taskId đang chờ xác nhận "Nộp lại"
   const [hasPastResults, setHasPastResults] = useState(false)
@@ -666,6 +667,7 @@ export default function WritingExam() {
   const [lightbox, setLightbox] = useState(null)
   const [fullTestStatus, setFullTestStatus] = useState(null)
   const pollTimerRef = useRef(null)
+  const resumedPollStartedRef = useRef(new Set()) // TC-048: answerId đã resume polling
 
   // ── Hết giờ → tự động nộp ──────────────────────────────────────────────────
   const [timeUp, setTimeUp] = useState(false)
@@ -821,6 +823,7 @@ export default function WritingExam() {
         const restoredResults = {}
         const restoredIds = []
         const restoredErrors = {}
+        const restoredInProgress = []
         if (Array.isArray(myResults)) {
           if (myResults.length > 0) setHasPastResults(true)
           for (const entry of myResults) {
@@ -835,9 +838,15 @@ export default function WritingExam() {
               restoredIds.push(entry.taskId)
             } else if (entry.status === 'failed') {
               restoredErrors[entry.taskId] = { error: entry.error, answerId: entry.answerId }
+            } else if (entry.status === 'pending' || entry.status === 'grading') {
+              // TC-048: vẫn đang chấm (hoặc vừa được recovery đánh dấu lại) —
+              // resume polling thay vì im lặng coi như chưa nộp.
+              restoredInProgress.push({ taskId: entry.taskId, answerId: entry.answerId })
+              restoredIds.push(entry.taskId)
             }
           }
         }
+        if (restoredInProgress.length) setResumedGrading(restoredInProgress)
         if (restoredIds.length > 0) {
           setResults(prev => ({ ...restoredResults, ...prev }))
           setSubmittedTaskIds(prev => Array.from(new Set([...prev, ...restoredIds])))
@@ -858,6 +867,23 @@ export default function WritingExam() {
     document.title = 'Bài thi Writing | IELTS Pro'
     loadExam()
   }, [loadExam])
+
+  // TC-048: sau khi reload, /writing/my-results trả về các bài đang pending/grading
+  // (kể cả bài vừa được recovery đánh dấu lại). Tự resume polling cho từng bài
+  // thay vì để UI kẹt ở trạng thái "đang chấm" vô hạn.
+  useEffect(() => {
+    if (!exam || resumedGrading.length === 0) return
+    const tasks = exam.writingTasks || []
+    for (const item of resumedGrading) {
+      if (!item?.answerId || resumedPollStartedRef.current.has(item.answerId)) continue
+      const task = tasks.find(t => t.id === item.taskId)
+      if (!task) continue
+      resumedPollStartedRef.current.add(item.answerId)
+      setGradingTask(task.id)
+      pollStatus(item.answerId, task)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exam, resumedGrading])
 
   useEffect(() => {
     if (!exam) return

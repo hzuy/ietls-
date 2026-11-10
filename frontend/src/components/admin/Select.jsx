@@ -24,22 +24,23 @@ export default function Select({
   buttonClassName = '',
   panelClassName = '',
   pill = false,
+  multiline = false,
 }) {
   const flatOptions = options.flatMap(o => (o.group ? o.options : [o]))
   const selected = flatOptions.find(o => o.value === value)
 
   return (
-    <div className={`relative ${className}`}>
+    <div className={`relative min-w-0 ${className}`}>
       <Listbox value={value} onChange={onChange} disabled={disabled}>
         {({ open }) => (
           <>
             <ListboxButton
               id={id}
               aria-label={ariaLabel}
-              className={`relative w-full h-9 text-xs border border-zinc-200 ${pill ? 'rounded-full' : 'rounded-lg'} text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition font-normal bg-white shadow-2xs flex items-center ${Icon ? 'pl-8' : 'pl-3'} pr-8 ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'} ${buttonClassName}`}
+              className={`relative w-full ${multiline ? 'min-h-9 py-2' : 'h-9'} text-xs border border-zinc-200 ${pill ? 'rounded-full' : 'rounded-lg'} text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition font-normal bg-white shadow-2xs flex items-center ${Icon ? 'pl-8' : 'pl-3'} pr-8 ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'} ${buttonClassName}`}
             >
               {Icon && <Icon className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />}
-              <span className="truncate text-left flex-1">{selected ? selected.label : placeholder}</span>
+              <span className={`${multiline ? 'whitespace-normal [overflow-wrap:anywhere]' : 'truncate'} min-w-0 text-left flex-1`}>{selected ? selected.label : placeholder}</span>
               <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none transition-transform ${open ? 'rotate-180' : ''}`} />
             </ListboxButton>
 
@@ -58,7 +59,7 @@ export default function Select({
                       className={({ focus }) => `flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer select-none transition-colors ${focus ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-700'}`}>
                       {({ selected: isSelected }) => (
                         <>
-                          <span className="truncate">{sub.label}</span>
+                          <span className={multiline ? 'min-w-0 whitespace-normal [overflow-wrap:anywhere]' : 'truncate'}>{sub.label}</span>
                           {isSelected && <Check className="w-3.5 h-3.5 text-zinc-900 shrink-0" />}
                         </>
                       )}
@@ -70,7 +71,7 @@ export default function Select({
                   className={({ focus }) => `flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer select-none transition-colors ${focus ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-700'}`}>
                   {({ selected: isSelected }) => (
                     <>
-                      <span className="truncate">{opt.label}</span>
+                      <span className={multiline ? 'min-w-0 whitespace-normal [overflow-wrap:anywhere]' : 'truncate'}>{opt.label}</span>
                       {isSelected && <Check className="w-3.5 h-3.5 text-zinc-900 shrink-0" />}
                     </>
                   )}

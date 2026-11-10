@@ -1,3 +1,4 @@
+import AutoGrowTextarea from '../AutoGrowTextarea'
 import { getQuestionGroupTheme as getAdminTheme } from '../adminConstants'
 import { getQuestionGroupTheme as getPracticeTheme } from '../../../utils/practiceConfig'
 import { deriveCorrectIndices, correctAnswerFromIndices, reindexAfterRemoval } from '../../../utils/mcqAnswer'
@@ -100,6 +101,7 @@ export default function MCQGroupEditor({
     if (!q) return
     const opts = q.options || defaultOpts
     const cur = deriveCorrectIndices(q.correctAnswer, opts)
+    if (!cur.includes(oi) && cur.length >= maxChoices) return
     const next = cur.includes(oi) ? cur.filter(x => x !== oi) : [...cur, oi]
     patchQ(qi, { correctAnswer: correctAnswerFromIndices(next, opts) })
   }
@@ -171,7 +173,7 @@ export default function MCQGroupEditor({
                 ✕ Xóa
               </button>
             </div>
-            <textarea
+            <AutoGrowTextarea
               rows={2}
               className={`w-full border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-xs text-zinc-900 placeholder:text-zinc-400 resize-none focus:outline-none`}
               placeholder="Nội dung câu hỏi..."
@@ -192,7 +194,7 @@ export default function MCQGroupEditor({
                       className={`flex items-center gap-2 rounded-lg px-2 py-1 ${isCorrect ? `${theme.subBoxBg} border ${theme.subBoxBorder}` : 'border border-transparent'}`}
                     >
                       <span className="text-xs font-bold text-zinc-500 w-5 shrink-0">{letter}.</span>
-                      <input
+                      <AutoGrowTextarea
                         className={`flex-1 border rounded-lg px-2 py-1 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none bg-white ${
                           dupOptIdx.has(oi)
                             ? 'border-red-400 ring-1 ring-red-200'
@@ -207,10 +209,11 @@ export default function MCQGroupEditor({
                       <input
                         type="checkbox"
                         checked={isCorrect}
-                        disabled={!opt.trim()}
+                        disabled={!opt.trim() || (!isCorrect && correctCount >= maxChoices)}
                         onChange={() => toggleCorrectAt(qi, oi)}
-                        title="Đánh dấu đáp án đúng"
-                        className={`w-4 h-4 ${theme.accentColor || 'accent-zinc-900'} shrink-0 cursor-pointer`}
+                        aria-label={`Đáp án đúng ${letter} cho câu ${q.number}`}
+                        title={!isCorrect && correctCount >= maxChoices ? `Đã chọn đủ ${maxChoices} đáp án đúng. Bỏ chọn một đáp án để đổi.` : 'Đánh dấu đáp án đúng'}
+                        className={`w-4 h-4 ${theme.accentColor || 'accent-zinc-900'} shrink-0 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40`}
                       />
                       {opts.length > 2 && (
                         <button
@@ -254,7 +257,7 @@ export default function MCQGroupEditor({
                       className={`flex items-center gap-2 rounded-lg px-2 py-1 ${isCorrect ? `${theme.subBoxBg} border ${theme.subBoxBorder}` : 'border border-transparent'}`}
                     >
                       <span className="text-xs font-bold text-zinc-500 w-5 shrink-0">{letter}.</span>
-                      <input
+                      <AutoGrowTextarea
                         className={`flex-1 border rounded-lg px-2 py-1 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none bg-white ${
                           dupOptIdx.has(oi)
                             ? 'border-red-400 ring-1 ring-red-200'

@@ -1,3 +1,4 @@
+import AutoGrowTextarea from '../admin/AutoGrowTextarea'
 import { useState, useRef } from 'react'
 import { uploadImage as uploadImageService } from '../../services/examService'
 import { inputCls, labelCls, btnSecondary, toImgSrc, getQuestionGroupTheme } from '../../utils/practiceConfig'
@@ -65,14 +66,14 @@ export default function DiagramLabelEditor({ group, onChange }) {
           <div key={qi} className={`${theme.subBoxBg} rounded-lg border ${theme.subBoxBorder} p-3 space-y-2`}>
             <div className="flex items-center gap-2">
               <span className={`text-xs font-bold ${theme.subBoxText} w-10 shrink-0`}>Q{q.number}:</span>
-              <input className={`flex-1 border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-sm focus:outline-none`}
+              <AutoGrowTextarea className={`flex-1 border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-sm focus:outline-none`}
                 placeholder="Mô tả vị trí label (tùy chọn, VD: Top of the arch)"
                 value={q.hint || q.questionText || ''} onChange={e => updateQ(qi, 'hint', e.target.value)} />
               <button type="button" onClick={() => removeQuestion(qi)} className="text-red-400 hover:text-red-600 text-xs">✕</button>
             </div>
             <div className="flex items-center gap-2 pl-12">
               <span className="text-xs text-slate-500 shrink-0">Đáp án:</span>
-              <input className={`flex-1 border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-sm focus:outline-none`}
+              <AutoGrowTextarea className={`flex-1 border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-sm focus:outline-none`}
                 placeholder="VD: arch hoặc stone arch/arch stone"
                 value={q.correctAnswer || ''} onChange={e => updateQ(qi, 'correctAnswer', e.target.value)} />
               <span className="text-[10px] text-slate-400">Dùng / để tách nhiều đáp án</span>

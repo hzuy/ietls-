@@ -1,108 +1,65 @@
+import AutoGrowTextarea from '../admin/AutoGrowTextarea'
 import { ROMAN_KEYS, getQuestionGroupTheme } from '../../utils/practiceConfig'
 import Select from '../admin/Select'
+import { readingParagraphs } from '../../utils/readingParagraphs'
 
-export default function MatchingHeadingsEditor({ group, onChange }) {
-  const headings = group.matchingOptions || []
-  const paragraphs = group.questions || []
-  const usedAnswers = new Set(paragraphs.map(q => q.correctAnswer).filter(Boolean))
+const headingKey = index => ROMAN_KEYS[index] || String(index + 1)
+const paragraphKey = question => (question.questionText || '').split('|')[0].trim()
+
+export default function MatchingHeadingsEditor({ group, onChange, passage = '', letteredParagraphs = false }) {
+  const original = group.matchingOptions || []
+  const headings = original.map((h, i) => ({ ...h, letter: headingKey(i) }))
+  const questions = (group.questions || []).map(q => ({ ...q,
+    correctAnswer: headings[original.findIndex(h => h.letter === q.correctAnswer)]?.letter || q.correctAnswer,
+  }))
+  const source = readingParagraphs(passage)
   const theme = getQuestionGroupTheme(group.type)
-
-  const addHeading = () => {
-    const key = ROMAN_KEYS[headings.length] || `${headings.length + 1}`
-    onChange({ ...group, matchingOptions: [...headings, { letter: key, text: '' }] })
+  const update = patch => onChange({ ...group, matchingOptions: headings, questions, ...patch })
+  const setQuestions = next => update({ questions: next.map((q, i) => ({ ...q, number: group.qNumberStart + i })), qNumberEnd: group.qNumberStart + Math.max(0, next.length - 1) })
+  const selectHeading = (key, answer) => {
+    const existing = questions.find(q => paragraphKey(q) === key)
+    const next = questions.filter(q => paragraphKey(q) !== key)
+    if (answer) next.push({ ...existing, questionText: `${key}|`, correctAnswer: answer })
+    next.sort((a, b) => paragraphKey(a).localeCompare(paragraphKey(b)))
+    setQuestions(next)
   }
-
-  const removeHeading = (i) => {
-    onChange({ ...group, matchingOptions: headings.filter((_, idx) => idx !== i) })
+  const removeHeading = index => {
+    const remaining = headings.filter((_, i) => i !== index)
+    update({ matchingOptions: remaining.map((h, i) => ({ ...h, letter: headingKey(i) })), questions: questions.map(q => ({ ...q,
+      correctAnswer: remaining.some(h => h.letter === q.correctAnswer) ? headingKey(remaining.findIndex(h => h.letter === q.correctAnswer)) : '',
+    })) })
   }
-
-  const updateHeading = (i, field, val) => {
-    onChange({ ...group, matchingOptions: headings.map((h, idx) => idx !== i ? h : { ...h, [field]: val }) })
-  }
-
-  const addParagraph = () => {
-    const paraKey = String.fromCharCode(65 + paragraphs.length)
-    const nextNum = paragraphs.length > 0 ? group.qNumberEnd + 1 : group.qNumberStart
-    onChange({ ...group, qNumberEnd: nextNum, questions: [...paragraphs, { number: nextNum, questionText: `${paraKey}|`, correctAnswer: '' }] })
-  }
-
-  const removeParagraph = (i) => {
-    const newQs = paragraphs.filter((_, idx) => idx !== i)
-    onChange({ ...group, questions: newQs, qNumberEnd: newQs.length > 0 ? newQs[newQs.length - 1].number : group.qNumberStart })
-  }
-
-  const updateParagraphKey = (i, val) => {
-    const [, label] = (paragraphs[i].questionText || '|').split('|')
-    onChange({ ...group, questions: paragraphs.map((q, idx) => idx !== i ? q : { ...q, questionText: `${val}|${label || ''}` }) })
-  }
-
-  const updateParagraphLabel = (i, val) => {
-    const [key] = (paragraphs[i].questionText || '|').split('|')
-    onChange({ ...group, questions: paragraphs.map((q, idx) => idx !== i ? q : { ...q, questionText: `${key || ''}|${val}` }) })
-  }
-
-  const updateAnswer = (i, val) => {
-    onChange({ ...group, questions: paragraphs.map((q, idx) => idx !== i ? q : { ...q, correctAnswer: val }) })
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-lg p-3.5`}>
-        <div className="flex items-center justify-between mb-2">
-          <p className={`text-xs font-bold ${theme.subBoxText}`}>Danh sách Heading</p>
-          <button type="button" onClick={addHeading} className={`text-xs ${theme.subBoxText} font-semibold hover:underline`}>+ Thêm heading</button>
-        </div>
-        <div className="space-y-2">
-          {headings.map((h, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <input className={`w-12 border ${theme.subBoxBorder} bg-white rounded px-1 py-1 text-xs text-center font-bold focus:outline-none`}
-                value={h.letter || ''} onChange={e => updateHeading(i, 'letter', e.target.value)}
-                placeholder="i" />
-              <input className={`flex-1 border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-sm focus:outline-none`}
-                placeholder="Nội dung heading..."
-                value={h.text || ''} onChange={e => updateHeading(i, 'text', e.target.value)} />
-              <button type="button" onClick={() => removeHeading(i)} className="text-red-400 hover:text-red-600 text-xs">✕</button>
-            </div>
-          ))}
-        </div>
+  const used = new Set(questions.map(q => q.correctAnswer).filter(Boolean))
+  const missing = questions.filter(q => !/^[A-Z]$/.test(paragraphKey(q)) || !source[paragraphKey(q).charCodeAt(0) - 65])
+  return <div className="space-y-4">
+    <div className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-lg p-3.5 space-y-2`}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-bold text-zinc-700">Danh sách heading</p>
+        <button type="button" onClick={() => update({ matchingOptions: [...headings, { letter: headingKey(headings.length), text: '' }] })} className="text-xs font-semibold hover:underline">+ Thêm heading</button>
       </div>
-      <div className="space-y-2">
-        {paragraphs.map((q, i) => {
-          const [paraKey, paraLabel] = (q.questionText || '|').split('|')
-          return (
-            <div key={i} className={`${theme.subBoxBg} rounded-lg border ${theme.subBoxBorder} p-3 space-y-2`}>
-              <div className="flex items-center gap-2">
-                <span className={`text-xs font-bold ${theme.subBoxText} shrink-0`}>Q{q.number}:</span>
-                <input className={`w-10 border ${theme.subBoxBorder} bg-white rounded px-1 py-1 text-xs text-center font-bold focus:outline-none`}
-                  value={paraKey || ''} onChange={e => updateParagraphKey(i, e.target.value)}
-                  placeholder="A" />
-                <input className={`flex-1 border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-sm focus:outline-none`}
-                  placeholder="Mô tả đoạn văn (tùy chọn)..."
-                  value={paraLabel || ''} onChange={e => updateParagraphLabel(i, e.target.value)} />
-                <button type="button" onClick={() => removeParagraph(i)} className="text-red-400 hover:text-red-600 text-xs">✕</button>
-              </div>
-              <div className="flex items-center gap-2 pl-14">
-                <span className="text-xs text-slate-500 shrink-0">Đáp án:</span>
-                <Select
-                  className="flex-1"
-                  ariaLabel="Heading đúng"
-                  value={q.correctAnswer || ''}
-                  onChange={v => updateAnswer(i, v)}
-                  options={[
-                    { value: '', label: '-- Chọn heading --' },
-                    ...headings.filter(h => group.canReuse || h.letter === q.correctAnswer || !usedAnswers.has(h.letter))
-                      .map(h => ({ value: h.letter, label: `${h.letter} — ${h.text}` })),
-                  ]}
-                />
-              </div>
-            </div>
-          )
-        })}
-        <button type="button" onClick={addParagraph}
-          className={`w-full border-2 border-dashed ${theme.subBoxBorder} ${theme.subBoxText} bg-white/50 hover:bg-white rounded-lg py-2 text-sm font-semibold transition`}>
-          + Thêm đoạn văn (paragraph)
-        </button>
-      </div>
+      {headings.map((h, i) => <div key={i} className="flex items-start gap-2">
+        <span className="w-12 shrink-0 py-2 text-center text-sm font-bold text-zinc-700" aria-label={`Ký hiệu heading ${h.letter}`}>{h.letter}</span>
+        <AutoGrowTextarea aria-label={`Nội dung heading ${h.letter}`} className="min-w-0 flex-1 border border-zinc-200 bg-white rounded-lg px-2 py-1 text-sm" placeholder="Nội dung heading..." value={h.text || ''}
+          onChange={e => update({ matchingOptions: headings.map((item, idx) => idx === i ? { ...item, text: e.target.value } : item) })} />
+        <button type="button" aria-label={`Xóa heading ${h.letter}`} onClick={() => removeHeading(i)} className="p-2 text-zinc-500 hover:text-red-600">×</button>
+      </div>)}
     </div>
-  )
+    {letteredParagraphs && <div className="space-y-2">
+      {!source.length && <p className="text-sm text-zinc-500">Nhập bài đọc phía trên để nối heading với đoạn văn.</p>}
+      {source.map((_, i) => {
+        const key = String.fromCharCode(65 + i)
+        const question = questions.find(q => paragraphKey(q) === key)
+        return <div key={key} className="flex items-start gap-3">
+          <span className="w-24 pt-2 shrink-0 text-xs text-zinc-600"><strong>Đoạn {key}</strong>{question && <span className="ml-2 text-zinc-400">Q{question.number}</span>}</span>
+          <Select multiline className="min-w-0 flex-1" ariaLabel={`Heading đúng cho đoạn ${key}`} value={question?.correctAnswer || ''}
+            onChange={value => selectHeading(key, value)}
+            options={[{ value: '', label: '-- Không hỏi đoạn này --' }, ...headings.filter(h => group.canReuse || h.letter === question?.correctAnswer || !used.has(h.letter)).map(h => ({ value: h.letter, label: `${h.letter} — ${h.text}` }))]} />
+        </div>
+      })}
+      {missing.map((q, i) => <div key={i} className="border border-zinc-200 rounded-lg p-3 text-sm text-zinc-600">
+        Đoạn {paragraphKey(q) || '?'} không còn trong bài đọc.
+        <button type="button" className="ml-2 underline" onClick={() => setQuestions(questions.filter(item => item !== q))}>Bỏ câu {q.number}</button>
+      </div>)}
+    </div>}
+  </div>
 }

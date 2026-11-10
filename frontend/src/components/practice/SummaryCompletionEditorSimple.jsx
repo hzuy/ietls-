@@ -1,3 +1,4 @@
+import AutoGrowTextarea from '../admin/AutoGrowTextarea'
 import { useRef } from 'react'
 import Select from '../admin/Select'
 
@@ -82,7 +83,7 @@ export default function SummaryCompletionEditorSimple({ group, onChange }) {
             <div key={oi} className="flex items-center gap-2">
               <input className="w-10 border border-[#BFDBFE] rounded px-1 py-1 text-xs text-center font-bold focus:outline-none"
                 value={mo.letter} onChange={e => updateMatchOpt(oi, 'letter', e.target.value)} />
-              <input className="flex-1 border border-[#e2e8f0] rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-[#3B82F6]"
+              <AutoGrowTextarea className="flex-1 border border-[#e2e8f0] rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-[#3B82F6]"
                 placeholder="Từ/cụm từ..."
                 value={mo.text} onChange={e => updateMatchOpt(oi, 'text', e.target.value)} />
               <button type="button" onClick={() => removeMatchOpt(oi)} className="text-blue-500 text-xs">✕</button>
@@ -95,9 +96,9 @@ export default function SummaryCompletionEditorSimple({ group, onChange }) {
         {noteSections.map((ns, nsi) => (
           <div key={nsi} className="space-y-2">
             {ns.lines.map((line, li) => (
-              <div key={li} className="flex items-start gap-2">
-                <textarea ref={el => lineRefs.current[`${nsi}-${li}`] = el} rows={1}
-                  className="flex-1 border border-[#BFDBFE] rounded-lg px-2 py-1 text-sm resize-none focus:outline-none font-mono focus:border-[#1D4ED8]"
+              <div key={li} className="flex flex-wrap sm:flex-nowrap items-start gap-2">
+                <AutoGrowTextarea ref={el => lineRefs.current[`${nsi}-${li}`] = el} rows={1}
+                  className="order-last basis-full sm:order-none sm:basis-0 flex-1 border border-[#BFDBFE] rounded-lg px-2 py-1 text-sm resize-none focus:outline-none font-mono focus:border-[#1D4ED8]"
                   placeholder={`VD: The team studied [Q:${group.qNumberStart}] different methods...`}
                   value={line.content} onChange={e => updateLine(nsi, li, e.target.value)}
                   style={{ minHeight: '34px' }} />
@@ -114,14 +115,14 @@ export default function SummaryCompletionEditorSimple({ group, onChange }) {
       {tokenOrder.length > 0 && (
         <div className="bg-[#eff6ff] border border-[#bfdbfe] rounded-lg p-3">
           <p className="text-xs font-bold text-[#1D4ED8] mb-2">Đáp án (chọn từ Word Bank)</p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
             {tokenOrder.map(tokenNum => {
               const displayNum = tokenDisplayMap[tokenNum]
               const q = group.questions.find(q => q.number === tokenNum)
               return (
                 <div key={tokenNum} className="flex items-center gap-2">
                   <span className="text-xs font-bold text-[#1D4ED8] w-14 shrink-0">Q{displayNum}:</span>
-                  <Select
+                  <Select multiline
                     className="flex-1"
                     ariaLabel={`Đáp án câu ${displayNum}`}
                     value={q?.correctAnswer || ''}

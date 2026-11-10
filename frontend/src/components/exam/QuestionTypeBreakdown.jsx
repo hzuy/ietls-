@@ -9,7 +9,7 @@ const QUESTION_TYPE_LABELS = {
   matching: 'Matching Information',
   matching_features: 'Matching Features',
   matching_headings: 'Matching Headings',
-  matching_paragraph: 'Matching Paragraph Information',
+  matching_paragraph: 'Matching Information',
   matching_endings: 'Matching Sentence Endings',
   map_diagram: 'Map / Diagram Labelling',
   diagram_label: 'Diagram Labelling',

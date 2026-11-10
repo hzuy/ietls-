@@ -1,3 +1,5 @@
+import ReadingPassagePreview from '../../components/practice/ReadingPassagePreview'
+import { needsParagraphLetters, paragraphLettersAlert, practiceParagraphLetters } from '../../utils/readingParagraphs'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -5,7 +7,6 @@ import { useUnsavedChanges, NAV_LEAVE_MSG } from '../../hooks/useUnsavedChanges'
 import { useDraftPersistence } from '../../hooks/useDraftPersistence'
 import { useCollapsibleGroups } from '../../hooks/useCollapsibleGroups'
 import { ConfirmDeleteModal, DraftBanner, DraftSavedHint, AdminListHeader, ThumbnailPicker } from '../../components/admin/contentPageUI'
-import { useToast } from '../../context/ToastContext'
 import PracticeGroupCard from '../../components/admin/PracticeGroupCard'
 import {
   getReadingPracticeList, getReadingPractice,
@@ -90,9 +91,7 @@ function ReadingPracticePreviewModal({ form, showAnswers, setShowAnswers, onClos
         <div ref={containerRef} className="flex flex-1 overflow-hidden"
           style={{ userSelect: dragging ? 'none' : 'auto' }}>
           <div className="overflow-y-auto bg-white px-8 py-6" style={{ width: `${leftPct}%`, flexShrink: 0 }}>
-            {form.passage
-              ? <p className="text-sm text-zinc-700 leading-7 whitespace-pre-wrap">{form.passage}</p>
-              : <p className="text-sm text-zinc-400 italic">Chưa có nội dung passage</p>}
+            <ReadingPassagePreview body={form.passage} letteredParagraphs={Boolean(form.letteredParagraphs)} questionGroups={form.questionGroups} />
           </div>
           <div onMouseDown={onDividerMouseDown}
             style={{ width: 5, cursor: 'col-resize', flexShrink: 0, background: dragging ? '#18181b' : '#e4e4e7', transition: dragging ? 'none' : 'background 0.15s' }}
@@ -100,7 +99,7 @@ function ReadingPracticePreviewModal({ form, showAnswers, setShowAnswers, onClos
             onMouseLeave={e => { if (!dragging) e.currentTarget.style.background = '#e4e4e7' }} />
           <div className="flex-1 overflow-y-auto bg-zinc-50 px-6 py-6">
             {form.questionGroups.length > 0
-              ? form.questionGroups.map((g, gi) => <AdminGroupPreview key={gi} group={g} showAnswers={showAnswers} />)
+              ? form.questionGroups.map((g, gi) => <AdminGroupPreview skill="reading" practice={true} key={gi} group={g} showAnswers={showAnswers} />)
               : <p className="text-sm text-zinc-400 italic text-center mt-10">Chưa có câu hỏi</p>}
           </div>
         </div>
@@ -111,16 +110,16 @@ function ReadingPracticePreviewModal({ form, showAnswers, setShowAnswers, onClos
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 const EMPTY_FORM = {
-  title: '', passage: '', questionGroups: [],
+  title: '', passage: '', questionGroups: [], letteredParagraphs: false,
   thumbnailUrl: null, thumbPreview: null, thumbFile: null,
 }
 
 // Chữ ký nội dung form (bỏ thumbPreview — chỉ là blob/URL phái sinh) để phát hiện
 // thay đổi chưa lưu (derive-snapshot, giống SampleManager).
-const formSig = (f) => JSON.stringify([f.title, f.passage, f.questionGroups, f.thumbnailUrl, !!f.thumbFile])
+const formSig = (f) => JSON.stringify([f.title, f.passage, f.questionGroups, !!f.letteredParagraphs, f.thumbnailUrl, !!f.thumbFile])
 
 export default function ReadingPractice() {
-  const { showToast } = useToast()
+  const showToast = showAlert
   const queryClient = useQueryClient()
   const location = useLocation()
   const { data: list = [], isPending, isError, error, refetch } = useQuery({
@@ -132,6 +131,7 @@ export default function ReadingPractice() {
   const [editing, setEditing]         = useState(null)
   const [form, setForm]               = useState(EMPTY_FORM)
   const [saving, setSaving]           = useState(false)
+  const saveInFlightRef = useRef(false)
   const [delConfirm, setDelConfirm]   = useState(null)
   const [deleting, setDeleting]       = useState(false)
   const [loadingEditId, setLoadingEditId] = useState(null)
@@ -265,7 +265,7 @@ export default function ReadingPractice() {
     showToast(
       effectiveChoice === 'keep_draft'
         ? 'Đã khôi phục bản nháp gồm các giải thích đã sửa'
-        : 'Đã khôi phục bản nháp (giữ nguyên giải thích mới nhất từ hệ thống)',
+        : 'Đã khôi phục bản nháp',
       'info'
     )
   }
@@ -306,6 +306,7 @@ export default function ReadingPractice() {
       const next = {
         title: data.title, passage: data.passage || '',
         questionGroups: qData.groups || [],
+        letteredParagraphs: practiceParagraphLetters(qData.groups),
         thumbnailUrl: data.thumbnailUrl,
         thumbPreview: resolveImg(data.thumbnailUrl),
         thumbFile: null,
@@ -320,14 +321,16 @@ export default function ReadingPractice() {
   }
 
   const handleSave = async () => {
+    if (saveInFlightRef.current || expLock.isLockedOperation) return
     const val = validatePracticeReading(form)
     if (!val.isValid) {
       const alertMsg = formatValidationAlert('Không thể lưu bài Reading Practice', val.errors)
       showAlert(alertMsg, 'error')
-      showToast(val.errors[0] || 'Vui lòng điền đầy đủ thông tin đề bài và đáp án đúng', 'error')
+
       return
     }
 
+    saveInFlightRef.current = true
     setSaving(true)
     try {
       // ── Bước 1: upload ảnh mới (nếu có) TRƯỚC — record chỉ ghi khi file đã lên xong ──
@@ -347,7 +350,7 @@ export default function ReadingPractice() {
         title: form.title.trim(),
         passage: form.passage,
         thumbnailUrl: thumbnailUrl || null,
-        questions: form.questionGroups.map((group, index) => ({ ...group, orderIndex: index }))
+        questions: form.questionGroups.map((group, index) => ({ ...group, letteredParagraphs: Boolean(form.letteredParagraphs), orderIndex: index }))
       }
       if (!editing) await createReadingPractice(body)
       else await updateReadingPractice(editing.id, body)
@@ -357,6 +360,7 @@ export default function ReadingPractice() {
     } catch (err) {
       showToast(err.response?.data?.message || 'Lỗi lưu bài thi', 'error')
     } finally {
+      saveInFlightRef.current = false
       setSaving(false)
     }
   }
@@ -386,6 +390,10 @@ export default function ReadingPractice() {
     setForm(f => ({ ...f, questionGroups: recalcGroups(arr) }))
   }
   const handleAddGroup = () => {
+    if (needsParagraphLetters(addGroupType) && !form.letteredParagraphs) {
+      showAlert(paragraphLettersAlert)
+      return
+    }
     const lastEnd = form.questionGroups.length > 0 ? form.questionGroups[form.questionGroups.length - 1].qNumberEnd : 0
     const newGroup = emptyReadingGroupOf(addGroupType, lastEnd + 1)
     setForm(f => ({ ...f, questionGroups: [...f.questionGroups, newGroup] }))
@@ -414,7 +422,7 @@ export default function ReadingPractice() {
     if (!val.isValid) {
       const alertMsg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
       showAlert(alertMsg, 'error')
-      showToast(val.errors[0] || 'Vui lòng điền đầy đủ thông tin đề bài và đáp án đúng', 'error')
+
       return
     }
     const stats = countProtectedQuestions()
@@ -442,7 +450,7 @@ export default function ReadingPractice() {
     if (!val.isValid) {
       const alertMsg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
       showAlert(alertMsg, 'error')
-      showToast(val.errors[0] || 'Vui lòng điền đầy đủ thông tin đề bài và đáp án đúng', 'error')
+
       return
     }
 
@@ -480,7 +488,7 @@ export default function ReadingPractice() {
           title: form.title.trim(),
           passage: form.passage,
           thumbnailUrl: thumbnailUrl || null,
-          questions: form.questionGroups.map((group, index) => ({ ...group, orderIndex: index }))
+          questions: form.questionGroups.map((group, index) => ({ ...group, letteredParagraphs: Boolean(form.letteredParagraphs), orderIndex: index }))
         }
         await updateReadingPractice(editing.id, body)
         setIsDirty(false)
@@ -564,6 +572,7 @@ export default function ReadingPractice() {
   if (view === 'form') {
     return (
       <>
+        <fieldset disabled={saving} className="min-w-0 border-0 p-0 m-0">
         <div className="p-4 sm:p-6 max-w-[1520px] mx-auto">
           {/* Top Bar: Tiêu đề + Bộ nút thao tác chính (Sticky top) */}
           <div className="sticky top-0 z-20 bg-zinc-50/95 backdrop-blur-xs py-3.5 mb-5 border-b border-zinc-200 -mx-4 sm:-mx-6 px-4 sm:px-6 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
@@ -664,6 +673,10 @@ export default function ReadingPractice() {
                     {form.passage ? form.passage.trim().split(/\s+/).filter(Boolean).length : 0} từ
                   </span>
                 </div>
+                <label className="mb-3 flex items-center gap-2 text-xs text-zinc-600 cursor-pointer">
+                  <input type="checkbox" checked={Boolean(form.letteredParagraphs)} onChange={e => setForm(f => ({ ...f, letteredParagraphs: e.target.checked }))} className="accent-zinc-900" />
+                  Đoạn văn có ký hiệu chữ cái (A, B, C...) — dùng cho Matching Information và Matching Headings
+                </label>
                 <textarea
                   value={form.passage}
                   onChange={e => setForm(f => ({ ...f, passage: e.target.value }))}
@@ -698,7 +711,13 @@ export default function ReadingPractice() {
                       className="w-52 sm:w-60"
                       ariaLabel="Loại nhóm câu hỏi"
                       value={addGroupType}
-                      onChange={setAddGroupType}
+                      onChange={type => {
+                        if (needsParagraphLetters(type) && !form.letteredParagraphs) {
+                          showAlert(paragraphLettersAlert)
+                          return
+                        }
+                        setAddGroupType(type)
+                      }}
                       options={READING_GROUP_TYPES}
                     />
                     <button
@@ -758,6 +777,7 @@ export default function ReadingPractice() {
                         group={g}
                         examId={editing?.id}
                         passage={form.passage}
+                        letteredParagraphs={Boolean(form.letteredParagraphs)}
                         expanded={groupCollapse.isExpanded(g._id)}
                         onToggle={() => groupCollapse.toggle(g._id)}
                         onChange={updated => handleGroupChange(i, updated)}
@@ -814,6 +834,7 @@ export default function ReadingPractice() {
           totalCount={expLock.localProgress?.total || 0}
           isCancelling={expLock.isCancelling}
         />
+        </fieldset>
       </>
     )
   }

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import SpeakingExam from './SpeakingExam'
 import * as examService from '../services/examService'
@@ -108,6 +109,7 @@ const mockExamData = {
 describe('SpeakingExam Part 2 flow', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    Object.assign(mockRecordingState, {isRecording:false,isTranscribing:false,recordingSeconds:0,transcribeError:null,recordingAudioUrl:null})
     examService.getSpeakingExam.mockResolvedValue(mockExamData)
     // Part 1 is finished in draft -> SpeakingExam advances to Part 2
     draftService.loadDraft.mockReturnValue({
@@ -227,7 +229,7 @@ describe('SpeakingExam Part 2 flow', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Bắt đầu Part 2' })).toBeInTheDocument()
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Bắt đầu Part 2' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Bắt đầu Part 2' }))
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Đã chuẩn bị xong' })).toBeInTheDocument()

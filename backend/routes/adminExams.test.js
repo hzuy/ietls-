@@ -7,6 +7,7 @@ process.env.JWT_SECRET = 'test_secret_key'
 
 const prismaMock = {
   exam: {
+    create: vi.fn(),
     groupBy: vi.fn().mockResolvedValue([
       { skill: 'reading', _count: { id: 10 } },
       { skill: 'listening', _count: { id: 8 } }
@@ -213,6 +214,30 @@ describe('Admin Exams Router — PUT (diff-based upsert)', () => {
   })
 
   // ─── Reading ───────────────────────────────────────────────────────────────
+  for (const skill of ['reading', 'listening']) {
+    it(`${skill}: creating new task families preserves notes, banks and question mechanics`, async () => {
+      prismaMock.exam.findFirst.mockResolvedValue(null)
+      prismaMock.exam.findMany.mockResolvedValue([])
+      prismaMock.exam.create.mockResolvedValue({ id: 999, title: 'New task family fixture' })
+      const types = ['summary_completion', 'flow_chart_completion', 'form_completion', 'matching_endings', 'categorisation', 'list_selection', 'choose_title', 'sentence_completion']
+      const groups = types.map((type, i) => ({ type, isNew: true, qNumberStart: i * 2 + 1, qNumberEnd: i * 2 + (type === 'list_selection' ? 2 : 1), maxChoices: 2, canReuse: true,
+        noteSections: [{ title: 'Details', lines: [{ content: `Text [Q:${i * 2 + 1}]` }] }], matchingOptions: [{ letter: 'A', text: 'A feature' }],
+        questions: [{ number: i * 2 + 1, isNew: true, questionText: 'Prompt', options: ['Alpha','Beta'], correctAnswer: type === 'list_selection' ? 'Alpha,Beta' : 'Alpha' }],
+      }))
+      const key = skill === 'reading' ? 'passages' : 'sections'
+      await request(app).post(`/api/admin/exams/${skill}`).set('Authorization', `Bearer ${teacherToken}`).send({ title: 'New task family fixture', [key]: [{ number: 1, title: 'Passage', body: 'Body', questionGroups: groups }] }).expect(201)
+      const data = prismaMock.exam.create.mock.calls[0][0].data
+      const created = data[skill === 'reading' ? 'passages' : 'listeningSections'].create[0].questionGroups.create
+      expect(created.slice(0, 3).every(g => g.noteSections.create[0].lines.create[0].contentWithTokens.includes('[Q:'))).toBe(true)
+      expect(created[3].matchingOptions.create[0].optionText).toBe('A feature')
+      expect(created[4].matchingOptions.create[0].optionText).toBe('A feature')
+      expect(created[5].questions.create[0].type).toBe('mcq_multi')
+      expect(created[6].questions.create[0].type).toBe('mcq')
+      expect(created[7].questions.create[0].type).toBe('short_answer')
+      expect(created.every(g => g.isNew === undefined && g.questions.create[0].isNew === undefined)).toBe(true)
+    })
+  }
+
   const oldReadingPassage = () => ({
     id: 501, number: 1,
     questions: [],
@@ -351,6 +376,59 @@ describe('Admin Exams Router — PUT (diff-based upsert)', () => {
     expect(updatedIds).toEqual([701, 702])
     expect(prismaMock.question.delete).not.toHaveBeenCalled()
     expect(prismaMock.questionAnswer.findMany).not.toHaveBeenCalled()
+  })
+
+  for (const skill of ['reading', 'listening']) {
+    it(`${skill}: inserting a new group before a saved group preserves existing identities`, async () => {
+      const reading = skill === 'reading'
+      const old = reading ? oldReadingPassage() : oldListeningSection()
+      const key = reading ? 'passages' : 'sections'
+      const id = reading ? 10 : 20
+      prismaMock.exam.findUnique.mockResolvedValueOnce({ skill }).mockResolvedValueOnce({ id, [reading ? 'passages' : 'listeningSections']: [] })
+      ;(reading ? prismaMock.passage : prismaMock.listeningSection).findMany.mockResolvedValueOnce([old])
+      const body = (reading ? readingBody : listeningBody)([
+        { id: old.questionGroups[0].questions[0].id, number: 2, questionText: 'Keep first', correctAnswer: 'A' },
+        { id: old.questionGroups[0].questions[1].id, number: 3, questionText: 'Keep second', correctAnswer: 'A' },
+      ])
+      const existing = body[key][0].questionGroups[0]
+      existing.id = old.questionGroups[0].id
+      body[key][0].questionGroups.unshift({ ...readingGroup([{ number: 1, isNew: true, questionText: 'New first group', options: ['A', 'B'], correctAnswer: 'A' }]), isNew: true })
+      await request(app).put(`/api/admin/exams/${id}`).set('Authorization', `Bearer ${teacherToken}`).send(body).expect(200)
+      expect(prismaMock.questionGroup.create).toHaveBeenCalledOnce()
+      expect(prismaMock.questionGroup.update.mock.calls[0][0].where.id).toBe(existing.id)
+      expect(prismaMock.question.delete).not.toHaveBeenCalled()
+      expect(prismaMock.question.update.mock.calls.map(c => c[0].where.id)).toEqual(old.questionGroups[0].questions.map(q => q.id))
+    })
+
+    it(`${skill}: rejects a stale explicit group ID before any writes`, async () => {
+      const reading = skill === 'reading'
+      prismaMock.exam.findUnique.mockResolvedValueOnce({ skill })
+      ;(reading ? prismaMock.passage : prismaMock.listeningSection).findMany.mockResolvedValueOnce([reading ? oldReadingPassage() : oldListeningSection()])
+      const body = (reading ? readingBody : listeningBody)([{ number: 1, questionText: 'A prompt', correctAnswer: 'A' }])
+      body[reading ? 'passages' : 'sections'][0].questionGroups[0].id = 999999
+      const res = await request(app).put('/api/admin/exams/10').set('Authorization', `Bearer ${teacherToken}`).send(body).expect(409)
+      expect(res.body.code).toBe('EXAM_IDENTITY_CONFLICT')
+      expect(prismaMock.exam.update).not.toHaveBeenCalled()
+      expect(prismaMock.question.update).not.toHaveBeenCalled()
+      expect(prismaMock.questionGroup.create).not.toHaveBeenCalled()
+    })
+  }
+
+  it('a new-question marker cannot bypass protection of an answered question with the same number', async () => {
+    prismaMock.exam.findUnique.mockResolvedValueOnce({ skill: 'reading' })
+    prismaMock.passage.findMany.mockResolvedValueOnce([oldReadingPassage()])
+    prismaMock.questionAnswer.findMany.mockResolvedValueOnce([{ questionId: 701 }])
+    prismaMock.answerLog.findMany.mockResolvedValueOnce([])
+    const body = readingBody([
+      { number: 1, isNew: true, questionText: 'Replacement', options: ['A','B'], correctAnswer: 'A' },
+      { id: 702, number: 2, questionText: 'Existing', options: ['A','B'], correctAnswer: 'B' },
+    ])
+    body.passages[0].questionGroups[0].id = 601
+    const res = await request(app).put('/api/admin/exams/10').set('Authorization', `Bearer ${teacherToken}`).send(body).expect(409)
+    expect(res.body.blockedQuestions[0].questionNumber).toBe(1)
+    expect(prismaMock.exam.update).not.toHaveBeenCalled()
+    expect(prismaMock.question.createMany).not.toHaveBeenCalled()
+    expect(prismaMock.question.delete).not.toHaveBeenCalled()
   })
 
   it('PUT reading exam creates a brand-new group in an existing passage without touching existing ids', async () => {

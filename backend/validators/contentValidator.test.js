@@ -21,6 +21,53 @@ describe('contentValidator', () => {
       expect(res.success).toBe(false)
       expect(res.error.issues[0].message).toBe('Thiếu tiêu đề')
     })
+
+    // ─── TC-036: nested Speaking Part/Question graph ─────────────────────
+    it('accepts nested speaking parts and normalises the `number` alias (TC-036)', () => {
+      const res = createSampleSchema.safeParse({
+        title: 'Speaking Sample',
+        parts: [
+          { number: 1, title: 'Part 1', questions: [{ questionText: 'Where are you from?' }] },
+          { partNumber: 2, questions: [{ orderNum: 2, questionText: 'Describe a book.' }, { questionText: 'Why?' }] },
+        ],
+      })
+      expect(res.success).toBe(true)
+      expect(res.data.parts[0]).toMatchObject({ partNumber: 1 })
+      expect(res.data.parts[1]).toMatchObject({ partNumber: 2 })
+      expect(res.data.parts[1].questions).toHaveLength(2)
+    })
+
+    it('rejects duplicate part numbers (TC-036)', () => {
+      const res = createSampleSchema.safeParse({
+        title: 'Speaking Sample',
+        parts: [
+          { partNumber: 1, questions: [{ questionText: 'A' }] },
+          { partNumber: 1, questions: [{ questionText: 'B' }] },
+        ],
+      })
+      expect(res.success).toBe(false)
+      expect(res.error.issues.some(i => /bị trùng/.test(i.message))).toBe(true)
+    })
+
+    it('rejects a part without partNumber/number and more than 10 parts (TC-036)', () => {
+      expect(createSampleSchema.safeParse({
+        title: 'Speaking Sample',
+        parts: [{ questions: [{ questionText: 'A' }] }],
+      }).success).toBe(false)
+
+      expect(createSampleSchema.safeParse({
+        title: 'Speaking Sample',
+        parts: Array.from({ length: 11 }, (_, i) => ({ partNumber: i + 1, questions: [] })),
+      }).success).toBe(false)
+    })
+
+    it('rejects empty question text inside a part (TC-036)', () => {
+      const res = createSampleSchema.safeParse({
+        title: 'Speaking Sample',
+        parts: [{ partNumber: 1, questions: [{ questionText: '   ' }] }],
+      })
+      expect(res.success).toBe(false)
+    })
   })
 
   describe('createPracticeSchema — MCQ duplicate-option guard', () => {

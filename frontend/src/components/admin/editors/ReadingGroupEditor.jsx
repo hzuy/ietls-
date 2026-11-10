@@ -1,3 +1,6 @@
+import AutoGrowTextarea from '../AutoGrowTextarea'
+import AdditionalTaskEditor from './AdditionalTaskEditor'
+import { GROUP_TYPE_ALIASES } from '../../../utils/questionTypes'
 import { useState } from 'react'
 import { Sparkles, Loader2 } from 'lucide-react'
 import { READING_GROUP_TYPES, labelCls, inputCls, getQuestionTypeTheme } from '../adminConstants'
@@ -14,7 +17,7 @@ import { isExplanationUnsupportedGroup } from '../../../utils/examExplanationUti
 
 export default function ReadingGroupEditor({
   group = {}, onChange, onRemove, onMoveUp, onMoveDown, isFirst, isLast,
-  examId, passage = '',
+  examId, passage = '', letteredParagraphs = false,
   onGenerateGroupAI, isAIBusy = false, generatingGroupId = null,
   unsavedQuestionNumbers,
 }) {
@@ -44,7 +47,7 @@ export default function ReadingGroupEditor({
 
   return (
     <div className={`border ${theme.cardBorder} ${theme.cardBg} rounded-2xl overflow-hidden transition-all duration-200 mb-4 shadow-xs`}>
-      <div className={`flex items-center gap-3 px-4 py-3 border-b ${theme.headerBg} overflow-x-auto`}>
+      <div className={`flex items-center gap-3 px-4 py-3 border-b ${theme.headerBg} flex-wrap`}>
         {/* Cột 1: Badge loại câu hỏi */}
         <div className="w-48 sm:w-52 shrink-0 flex items-center">
           <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${theme.badge} w-full text-center truncate shadow-2xs`}>
@@ -126,7 +129,7 @@ export default function ReadingGroupEditor({
 
         <div>
           <label className={labelCls}>Instruction (hiển thị cho học sinh)</label>
-          <textarea rows={2}
+          <AutoGrowTextarea rows={2}
             className={`${inputCls} resize-none`}
             placeholder="Hướng dẫn làm bài..."
             value={group.instruction}
@@ -136,6 +139,7 @@ export default function ReadingGroupEditor({
         {(group.type === 'true_false_ng' || group.type === 'yes_no_ng') && (
           <TrueFalseEditor group={group} onChange={onChange} />
         )}
+        {(Object.hasOwn(GROUP_TYPE_ALIASES, group.type) || group.type === 'short_answer' || group.type === 'matching_headings') && <AdditionalTaskEditor letteredParagraphs={letteredParagraphs} passage={passage} group={group} onChange={onChange}  />}
         {group.type === 'note_completion' && (
           <NoteCompletionEditor group={group} onChange={onChange} />
         )}

@@ -1,4 +1,5 @@
-import { useLayoutEffect, useMemo, useRef } from 'react'
+import AutoGrowTextarea from '../AutoGrowTextarea'
+import { useMemo, useRef } from 'react'
 import { getQuestionGroupTheme as getAdminTheme } from '../adminConstants'
 import { getQuestionGroupTheme as getPracticeTheme } from '../../../utils/practiceConfig'
 
@@ -18,11 +19,6 @@ function syncQuestionsToTokens(contentStrings, questions, qNumberStart) {
 
 const noteContents = (sections) => (sections || []).flatMap(ns => (ns.lines || []).map(l => l.content))
 
-function resizeTextarea(element) {
-  if (!element) return
-  element.style.height = 'auto'
-  element.style.height = `${Math.max(element.scrollHeight, 34)}px`
-}
 
 export default function NoteCompletionEditor({
   group = {},
@@ -32,14 +28,12 @@ export default function NoteCompletionEditor({
 }) {
   const lineRefs = useRef({})
   const groupType = group?.type || 'note_completion'
+  const contentLabel = { form_completion: 'Nội dung biểu mẫu', summary_completion: 'Nội dung đoạn tóm tắt', flow_chart_completion: 'Các bước trong lưu đồ' }[groupType] || 'Nội dung Note/Form'
   const theme = themeSource === 'practice'
     ? getPracticeTheme(groupType)
     : getAdminTheme(groupType)
 
   const noteSections = useMemo(() => group?.noteSections || [], [group?.noteSections])
-  useLayoutEffect(() => {
-    Object.values(lineRefs.current).forEach(resizeTextarea)
-  }, [noteSections])
   const allTokenNums = noteSections.flatMap(ns =>
     (ns.lines || []).flatMap(l => {
       const matches = [...(l.content || '').matchAll(/\[Q:(\d+)\]/g)]
@@ -70,7 +64,7 @@ export default function NoteCompletionEditor({
     const newContent = oldContent.slice(0, pos) + token + oldContent.slice(pos)
 
     const sections = noteSections.map((ns, i) => i !== nsi ? ns : {
-      ...ns, lines: ns.lines.map((l, j) => j !== li ? l : { ...l, content: newContent })
+      ...ns, lines: ns.lines.map((l, j) => j !== li ? l : { ...l, content: newContent, contentWithTokens: newContent })
     })
 
     const existingNums = new Set((group.questions || []).map(q => q.number))
@@ -88,7 +82,7 @@ export default function NoteCompletionEditor({
 
   const updateLine = (nsi, li, val) => {
     const sections = noteSections.map((ns, i) => i !== nsi ? ns : {
-      ...ns, lines: ns.lines.map((l, j) => j !== li ? l : { ...l, content: val })
+      ...ns, lines: ns.lines.map((l, j) => j !== li ? l : { ...l, content: val, contentWithTokens: val })
     })
     onChange({
       ...group,
@@ -154,7 +148,7 @@ export default function NoteCompletionEditor({
     <div className="space-y-3">
       <div className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-lg p-4`}>
         <div className="flex items-center justify-between mb-3">
-          <p className={`text-xs font-bold ${theme.subBoxText}`}>Nội dung Note/Form</p>
+          <p className={`text-xs font-bold ${theme.subBoxText}`}>{contentLabel}</p>
           <button
             type="button"
             onClick={addSection}
@@ -167,7 +161,7 @@ export default function NoteCompletionEditor({
           {noteSections.map((ns, nsi) => (
             <div key={nsi} className={`bg-white rounded-lg border ${theme.subBoxBorder} p-3`}>
               <div className="flex items-center gap-2 mb-2">
-                <input
+                <AutoGrowTextarea
                   className="flex-1 border border-zinc-200 rounded-lg px-2 py-1 text-xs font-semibold text-zinc-900 placeholder-zinc-400 focus:outline-none focus:border-amber-400"
                   placeholder="Tiêu đề phần (VD: The park, Event details...)"
                   value={ns.title || ''}
@@ -187,7 +181,7 @@ export default function NoteCompletionEditor({
                 {(ns.lines || []).map((line, li) => {
                   const isHeading = line.lineType === 'heading'
                   return (
-                    <div key={li} className={`flex items-start gap-2 rounded-lg p-1 ${isHeading ? 'bg-zinc-50' : ''}`}>
+                    <div key={li} className={`flex flex-wrap sm:flex-nowrap items-start gap-2 rounded-lg p-1 ${isHeading ? 'bg-zinc-50' : ''}`}>
                       <button
                         type="button"
                         title={isHeading ? 'Heading — click để đổi sang Nội dung' : 'Nội dung — click để đổi sang Heading'}
@@ -200,10 +194,10 @@ export default function NoteCompletionEditor({
                       >
                         {isHeading ? 'H' : '•'}
                       </button>
-                      <textarea
+                      <AutoGrowTextarea
                         ref={el => { lineRefs.current[`${nsi}-${li}`] = el }}
                         rows={1}
-                        className={`flex-1 border rounded-lg px-2 py-1 text-xs resize-none focus:outline-none font-mono text-zinc-900 placeholder:text-zinc-400 ${
+                        className={`order-last basis-full sm:order-none sm:basis-0 flex-1 border rounded-lg px-2 py-1 text-xs resize-none focus:outline-none font-mono text-zinc-900 placeholder:text-zinc-400 ${
                           isHeading
                             ? 'font-bold border-zinc-300 focus:border-zinc-400 bg-zinc-50 text-zinc-700'
                             : `${theme.subBoxBorder} focus:border-amber-400`
@@ -211,7 +205,6 @@ export default function NoteCompletionEditor({
                         placeholder={isHeading ? 'VD: THE PARK / BENEFITS OF...' : `VD: Area: [Q:${group.qNumberStart || 1}] hectares`}
                         value={line.content || ''}
                         onChange={e => updateLine(nsi, li, e.target.value)}
-                        onInput={e => resizeTextarea(e.currentTarget)}
                         style={{ minHeight: '34px', overflowY: 'hidden' }}
                       />
                       {!isHeading && (
@@ -251,19 +244,19 @@ export default function NoteCompletionEditor({
       {tokenOrder.length > 0 && (
         <div className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-lg p-3`}>
           <div className="flex items-center justify-between mb-2">
-            <p className={`text-xs font-bold ${theme.subBoxText}`}>Đáp án (từ ô trống trong note)</p>
+            <p className={`text-xs font-bold ${theme.subBoxText}`}>Đáp án cho các ô trống</p>
             <p className="text-[10px] text-zinc-400">
               Dùng <span className="font-mono bg-zinc-100 px-1 rounded">/</span> để tách nhiều đáp án chấp nhận được. VD: <span className="font-mono">intestine/gut</span>
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {tokenOrder.map(tokenNum => {
               const displayNum = tokenDisplayMap[tokenNum]
               const q = (group.questions || []).find(item => item.number === tokenNum)
               return (
                 <div key={tokenNum} className="flex items-center gap-2">
                   <span className={`text-xs font-bold ${theme.subBoxText} w-14 shrink-0`}>Q{displayNum}:</span>
-                  <input
+                  <AutoGrowTextarea
                     className={`flex-1 border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none`}
                     placeholder="VD: word hoặc word1/word2"
                     value={q?.correctAnswer || ''}

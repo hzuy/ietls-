@@ -1,3 +1,6 @@
+import { selectedOptionValues } from '../../utils/mcqAnswer'
+import { GROUP_TYPE_ALIASES, questionMechanic } from '../../utils/questionTypes'
+import TextTaskGroup from '../exam/TextTaskGroup'
 import MatchingTickGrid from '../MatchingTickGrid'
 import DragWordBankGroup from '../DragWordBankGroup'
 import MatchingDragGroup from '../MatchingDragGroup'
@@ -8,6 +11,9 @@ import { lineText } from '../../utils/noteLine'
 
 // ─── Reading Practice group block (full rendering for all question types) ──────
 export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) {
+  if (['form_completion', 'summary_completion', 'flow_chart_completion', 'sentence_completion', 'short_answer'].includes(group.type)) return <TextTaskGroup group={group} answers={answers} onAnswer={onAnswer} numberKeys={false} listening={false} />
+  if (Object.hasOwn(GROUP_TYPE_ALIASES, group.type)) return <ReadingPracticeGroupBlock group={{ ...group, type: questionMechanic(group.type), questions: (group.questions || []).map(q => ({ ...q, type: questionMechanic(group.type) })) }} answers={answers} onAnswer={onAnswer} />
+
   const from = group.qNumberStart
   const to = group.qNumberEnd
 
@@ -123,7 +129,7 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
         {(group.questions || []).map((q, qi) => {
           const opts = Array.isArray(q.options) ? q.options : (q.options ? JSON.parse(q.options) : [])
           const combined = answers[q.id] || ''
-          const selected = combined.split(',').filter(Boolean)
+          const selected = selectedOptionValues(combined, opts)
           const limitReached = selected.length >= maxChoices
           return (
             <div key={q.id} className="mb-4">

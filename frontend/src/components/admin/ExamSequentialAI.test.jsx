@@ -72,6 +72,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
 
   beforeEach(() => {
     vi.clearAllMocks()
+    localStorage.clear()
     window.scrollTo = vi.fn()
     api.get.mockImplementation((url) => {
       if (url === '/admin/exams/10') return Promise.resolve({ data: mockReadingExam })
@@ -136,6 +137,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     const allAIButtons = screen.getAllByRole('button', { name: /AI giải thích/i })
     const toolbarAIBtn = allAIButtons.find(b => b.title && b.title.includes('tuần tự theo nhóm'))
     expect(toolbarAIBtn).toBeDefined()
+    await waitFor(() => expect(toolbarAIBtn).toBeEnabled())
     fireEvent.click(toolbarAIBtn)
 
     // Verify progress label is displayed during group 1
@@ -185,6 +187,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
 
     const allAIButtons = screen.getAllByRole('button', { name: /AI giải thích/i })
     const toolbarAIBtn = allAIButtons.find(b => b.title && b.title.includes('tuần tự theo nhóm'))
+    await waitFor(() => expect(toolbarAIBtn).toBeEnabled())
     fireEvent.click(toolbarAIBtn)
 
     await waitFor(() => {
@@ -231,6 +234,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
 
     const allAIButtons = screen.getAllByRole('button', { name: /AI giải thích/i })
     const toolbarAIBtn = allAIButtons.find(b => b.title && b.title.includes('tuần tự theo nhóm'))
+    await waitFor(() => expect(toolbarAIBtn).toBeEnabled())
     fireEvent.click(toolbarAIBtn)
 
     await waitFor(() => {
@@ -324,6 +328,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
 
     const allAIButtons = screen.getAllByRole('button', { name: /AI giải thích/i })
     const toolbarAIBtn = allAIButtons.find(b => b.title && b.title.includes('tuần tự theo nhóm'))
+    await waitFor(() => expect(toolbarAIBtn).toBeEnabled())
     fireEvent.click(toolbarAIBtn)
 
     await waitFor(() => {

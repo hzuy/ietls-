@@ -161,7 +161,7 @@ describeIntegration('routes/admin/trash.js — audit log (postgres-dev integrati
     }
   })
 
-  it('GET /trash tự động dọn mục quá hạn và logs trash.auto_purge với actorType "system" (actorUserId null)', async () => {
+  it('GET /trash retains expired data; explicit admin purge-expired deletes and audits the actor', async () => {
     const title = uniqueTitle('auto-purge')
     const fortyDaysAgo = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000)
     const sample = await prisma.writingSample.create({ data: { title, deletedAt: fortyDaysAgo } })
@@ -172,8 +172,11 @@ describeIntegration('routes/admin/trash.js — audit log (postgres-dev integrati
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200)
 
-      // Route không await tác vụ auto-purge (fire-and-forget) — chờ tới khi
-      // bản ghi thực sự biến mất rồi mới kiểm tra audit log tương ứng.
+      expect(await prisma.writingSample.findUnique({ where: { id: sample.id } })).not.toBeNull()
+      await request(app)
+        .delete('/api/admin/trash/purge-expired')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200)
       const purged = await pollFor(async () => {
         const still = await prisma.writingSample.findUnique({ where: { id: sample.id } })
         return still === null
@@ -185,10 +188,11 @@ describeIntegration('routes/admin/trash.js — audit log (postgres-dev integrati
       )
       expect(log).toBeTruthy()
       logId = log.id
-      expect(log.actorType).toBe('system')
-      expect(log.actorUserId).toBeNull()
+      expect(log.actorType).toBe('user')
+      expect(log.actorUserId).toBe(adminUserId)
       expect(log.entityType).toBe('Trash')
       expect(log.metadata.writingSample).toBeGreaterThanOrEqual(1)
+      expect(log.metadata.trigger).toBe('admin')
     } finally {
       await prisma.writingSample.deleteMany({ where: { id: sample.id } })
       if (logId) await prisma.auditLog.deleteMany({ where: { id: logId } })

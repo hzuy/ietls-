@@ -6,7 +6,7 @@ process.env.JWT_SECRET = 'test_secret_key'
 
 const prismaMock = {
   setting: { findUnique: vi.fn() },
-  attempt: { count: vi.fn(), create: vi.fn() },
+  attempt: { count: vi.fn(), create: vi.fn(), findUnique: vi.fn() },
   listeningSection: { findMany: vi.fn() },
   questionAnswer: { createMany: vi.fn() },
   answerLog: { createMany: vi.fn() },
@@ -163,6 +163,46 @@ describe('Listening Submission Routes', () => {
       expect(res.status).toBe(429)
       expect(res.body.message).toBe('Bạn đã đạt giới hạn 2 lượt thi cho đề này.')
       expect(prismaMock.attempt.create).not.toHaveBeenCalled()
+    })
+
+    // ─── TC-042: idempotent submit theo submissionKey ─────────────────────
+    it('returns the existing attempt for a repeated submissionKey without creating a new row (TC-042)', async () => {
+      prismaMock.listeningSection.findMany.mockResolvedValue([
+        { id: 1, questions: [{ id: 201, number: 1, type: 'fill_blank', questionText: 'L1', correctAnswer: 'london', groupId: null }], questionGroups: [] }
+      ])
+      prismaMock.attempt.findUnique.mockResolvedValue({
+        id: 501, score: 7, correctCount: 33, totalCount: 40, answers: '{"201":"london"}',
+      })
+      prismaMock.setting.findUnique.mockResolvedValue({ key: 'max_attempts_per_exam', value: '1' })
+      prismaMock.attempt.count.mockResolvedValue(1)
+
+      const res = await request(app)
+        .post('/api/listening/exams/1/submit')
+        .set('Authorization', `Bearer ${getTestToken(10)}`)
+        .send({ answers: { '201': 'london' }, submissionKey: 'mount-xyz' })
+
+      expect(res.status).toBe(200)
+      expect(res.body).toMatchObject({ attemptId: 501, idempotent: true, score: 7, correct: 33, total: 40 })
+      expect(prismaMock.attempt.create).not.toHaveBeenCalled()
+    })
+
+    it('recovers from a concurrent P2002 race by reading the winning attempt (TC-042)', async () => {
+      prismaMock.setting.findUnique.mockResolvedValue(null)
+      prismaMock.listeningSection.findMany.mockResolvedValue([
+        { id: 1, questions: [{ id: 201, number: 1, type: 'fill_blank', questionText: 'L1', correctAnswer: 'london', groupId: null }], questionGroups: [] }
+      ])
+      prismaMock.attempt.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 778, score: 6, correctCount: 27, totalCount: 40, answers: '{"201":"london"}' })
+      prismaMock.attempt.create.mockRejectedValue({ code: 'P2002' })
+
+      const res = await request(app)
+        .post('/api/listening/exams/1/submit')
+        .set('Authorization', `Bearer ${getTestToken(10)}`)
+        .send({ answers: { '201': 'london' }, submissionKey: 'mount-race' })
+
+      expect(res.status).toBe(200)
+      expect(res.body).toMatchObject({ attemptId: 778, idempotent: true })
     })
   })
 })

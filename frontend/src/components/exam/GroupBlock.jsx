@@ -1,3 +1,6 @@
+import { selectedOptionValues } from '../../utils/mcqAnswer'
+import { GROUP_TYPE_ALIASES, questionMechanic } from '../../utils/questionTypes'
+import TextTaskGroup from './TextTaskGroup'
 // ┌─────────────────────────────────────────────────────────────────────────────┐
 // │ QUY ƯỚC DOM ID — file này (Reading) dùng prefix `q-${n}`.                     │
 // │ Bản Listening tương ứng (components/exam/listening/OtherGroups.jsx +          │
@@ -49,6 +52,9 @@ function ReviewBlank({ number, info, active, onSelect }) {
 }
 
 function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, showAnswers, review, activeNumber, onSelectNumber }) {
+  if (['form_completion', 'summary_completion', 'flow_chart_completion', 'sentence_completion', 'short_answer'].includes(group.type)) return <TextTaskGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} numberKeys={false} listening={false} />
+  if (Object.hasOwn(GROUP_TYPE_ALIASES, group.type)) return <GroupBlockInner group={{ ...group, type: questionMechanic(group.type), questions: (group.questions || []).map(q => ({ ...q, type: questionMechanic(group.type) })) }} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} globalOffset={globalOffset} review={review} activeNumber={activeNumber} onSelectNumber={onSelectNumber} />
+
   const from = group.qNumberStart
   const to = group.qNumberEnd
 
@@ -187,9 +193,9 @@ function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, 
             ? (typeof q.options === 'string' ? JSON.parse(q.options) : q.options)
             : []
           const combined = answers[q.id] || ''
-          const selected = combined.split(',').filter(Boolean)
+          const selected = selectedOptionValues(combined, opts)
           const correctSelected = previewMode && showAnswers
-            ? (q.correctAnswer || '').split(',').filter(Boolean)
+            ? selectedOptionValues(q.correctAnswer, opts)
             : selected
           const limitReached = selected.length >= maxChoices
 

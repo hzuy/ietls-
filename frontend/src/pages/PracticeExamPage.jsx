@@ -1,3 +1,4 @@
+import { readingParagraphs, practiceParagraphLetters } from '../utils/readingParagraphs'
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 
@@ -33,7 +34,7 @@ import ReportIssueButton from '../components/common/ReportIssueButton'
 
 const PRACTICE_TIME = 20 * 60
 const LISTENING_TIME = 10 * 60
-const LISTENING_FILL_TYPES = ['note_completion', 'table_completion', 'drag_word_bank', 'diagram_label']
+const LISTENING_FILL_TYPES = ['note_completion', 'table_completion', 'drag_word_bank', 'diagram_label', 'form_completion', 'summary_completion', 'flow_chart_completion', 'sentence_completion', 'short_answer']
 
 // ─── Full ReadingExam-style UI for Reading Practice ───────────────────────────
 function PracticeBottomBar({ answered, total, items, isAnswered, onJump, onSubmit }) {
@@ -76,6 +77,9 @@ function ReadingPracticeExam({ exam, onBack }) {
   const [timeLeft, setTimeLeft] = useState(PRACTICE_TIME)
   const [showConfirm, setShowConfirm] = useState(false)
   const [result, setResult] = useState(null)
+  const [reviewExam, setReviewExam] = useState(exam)
+  const [submitError, setSubmitError] = useState('')
+  const submittingRef = useRef(false)
   const bodyRef = useRef(null)
   const isDraggingRef = useRef(false)
   const [isDragging, setIsDragging] = useState(false)
@@ -165,11 +169,11 @@ function ReadingPracticeExam({ exam, onBack }) {
   const answered = navItems.filter(item => item.qId != null && answers[item.qId]).length
 
   useEffect(() => {
-    if (phase !== 'exam' || result) return
+    if (phase !== 'exam' || result || submitError) return
     if (timeLeft <= 0) { doSubmit(); return }
     const t = setInterval(() => setTimeLeft(s => s - 1), 1000)
     return () => clearInterval(t)
-  }, [phase, timeLeft, result])
+  }, [phase, timeLeft, result, submitError])
 
   useEffect(() => {
     if (!showConfirm) return
@@ -210,14 +214,23 @@ function ReadingPracticeExam({ exam, onBack }) {
   const onAnswer = (qId, val) => setAnswers(a => ({ ...a, [qId]: val }))
 
   const doSubmit = async () => {
-    const { result: graded, correct, total } = gradePractice('reading', exam, answers)
-    clearDraft()
-    setResult(graded)
-    setPhase('result')
+    if (submittingRef.current) return
+    submittingRef.current = true
+    setSubmitError('')
     const stored = Object.fromEntries(Object.entries(answers).filter(([, v]) => v != null && String(v).trim()).map(([k, v]) => [k, String(v)]))
-    savePracticeAttempt('reading', exam.id, { answers: stored, correct, total })
-      .then(() => queryClient.invalidateQueries({ queryKey: ['practiceAttempts', 'reading'] }))
-      .catch(() => {})
+    try {
+      const saved = await savePracticeAttempt('reading', exam.id, { answers: stored })
+      setReviewExam(saved.reviewExam)
+      setResult(saved.result)
+      clearDraft()
+      setPhase('result')
+      queryClient.invalidateQueries({ queryKey: ['practiceAttempts', 'reading'] })
+    } catch {
+      persistDraftNow()
+      setSubmitError('Không thể lưu bài luyện tập. Bài làm vẫn được giữ; vui lòng thử nộp lại.')
+    } finally {
+      submittingRef.current = false
+    }
   }
 
   const jumpToQuestion = (qNumber) => {
@@ -237,7 +250,7 @@ function ReadingPracticeExam({ exam, onBack }) {
 
   // ── Result screen ───────────────────────────────────────────────────────────
   if (phase === 'result' && result) return (
-    <ExamReview skill="reading" practice={{ exam: buildPracticeReviewExam(exam, 'reading'), result, onClose: onBack }} />
+    <ExamReview skill="reading" practice={{ exam: buildPracticeReviewExam(reviewExam, 'reading'), result, onClose: onBack }} />
   )
 
   // ── Exam screen ─────────────────────────────────────────────────────────────
@@ -249,6 +262,7 @@ function ReadingPracticeExam({ exam, onBack }) {
       onMouseMove={handleMouseMove}
       className="h-screen flex flex-col overflow-hidden bg-zinc-50/50"
     >
+      {submitError && <p role="alert" className="px-6 py-2 text-sm text-red-700 bg-red-50">{submitError}</p>}
       {/* Header */}
       <header className="h-14 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-3 min-w-0">
@@ -290,11 +304,12 @@ function ReadingPracticeExam({ exam, onBack }) {
           <h2 className="text-lg font-semibold text-zinc-900 text-center mb-1 leading-snug">{exam.title}</h2>
           <div className="w-16 h-0.5 bg-zinc-900 mx-auto mb-6" />
           <div className="text-zinc-800 font-normal text-base leading-relaxed">
-            {(exam.passage || '').split(/\n\s*\n|\n/).map(s => s.trim()).filter(Boolean).map((para, i) => {
+            {(practiceParagraphLetters(groups) ? readingParagraphs(exam.passage) : (exam.passage || '').split(/\n\s*\n|\n/).map(s => s.trim()).filter(Boolean)).map((para, i) => {
               const capitalized = para.charAt(0).toUpperCase() + para.slice(1)
               const paraHighlights = scopeHighlights.filter(h => h.paraIndex === i)
               return (
-                <p key={i} data-para-index={i} className="mb-5 indent-6">
+                <p key={i} data-para-index={i} className={practiceParagraphLetters(groups) ? 'mb-5' : 'mb-5 indent-6'}>
+                  {practiceParagraphLetters(groups) && <strong className="mr-2">{String.fromCharCode(65 + i)}</strong>}
                   <HighlightLayer text={capitalized} ranges={paraHighlights} onHighlightClick={openHighlightMenu} />
                 </p>
               )
@@ -375,6 +390,9 @@ function ListeningPracticeExam({ exam, onBack }) {
   const [timeLeft, setTimeLeft] = useState(LISTENING_TIME)
   const [showConfirm, setShowConfirm] = useState(false)
   const [result, setResult] = useState(null)
+  const [reviewExam, setReviewExam] = useState(exam)
+  const [submitError, setSubmitError] = useState('')
+  const submittingRef = useRef(false)
   const audioRef = useRef(null)
   const pendingSeekTimeRef = useRef(null)
   const lastAudioSaveRef = useRef(0)
@@ -495,11 +513,11 @@ function ListeningPracticeExam({ exam, onBack }) {
   const answered = navItems.filter(({ number }) => answers[number]).length
 
   useEffect(() => {
-    if (phase !== 'exam' || result) return
+    if (phase !== 'exam' || result || submitError) return
     if (timeLeft <= 0) { doSubmit(); return }
     const t = setInterval(() => setTimeLeft(s => s - 1), 1000)
     return () => clearInterval(t)
-  }, [phase, timeLeft, result])
+  }, [phase, timeLeft, result, submitError])
 
   useEffect(() => {
     if (!showConfirm) return
@@ -526,21 +544,30 @@ function ListeningPracticeExam({ exam, onBack }) {
     if (audioRef.current) {
       audioRef.current.pause()
     }
-    const { result: graded, correct, total } = gradePractice('listening', exam, answers)
-    clearDraft()
-    setResult(graded)
-    setPhase('result')
+    if (submittingRef.current) return
+    submittingRef.current = true
+    setSubmitError('')
     const stored = Object.fromEntries(Object.entries(answers).filter(([, v]) => v != null && String(v).trim()).map(([k, v]) => [k, String(v)]))
-    savePracticeAttempt('listening', exam.id, { answers: stored, correct, total })
-      .then(() => queryClient.invalidateQueries({ queryKey: ['practiceAttempts', 'listening'] }))
-      .catch(() => {})
+    try {
+      const saved = await savePracticeAttempt('listening', exam.id, { answers: stored })
+      setReviewExam(saved.reviewExam)
+      setResult(saved.result)
+      clearDraft()
+      setPhase('result')
+      queryClient.invalidateQueries({ queryKey: ['practiceAttempts', 'listening'] })
+    } catch {
+      persistDraftNow()
+      setSubmitError('Không thể lưu bài luyện tập. Bài làm vẫn được giữ; vui lòng thử nộp lại.')
+    } finally {
+      submittingRef.current = false
+    }
   }
 
 
 
   // Result screen
   if (phase === 'result' && result) return (
-    <ExamReview skill="listening" practice={{ exam: buildPracticeReviewExam(exam, 'listening'), result, onClose: onBack }} />
+    <ExamReview skill="listening" practice={{ exam: buildPracticeReviewExam(reviewExam, 'listening'), result, onClose: onBack }} />
   )
 
   // Exam screen
@@ -552,6 +579,7 @@ function ListeningPracticeExam({ exam, onBack }) {
       onMouseMove={handleMouseMove}
       className="h-screen flex flex-col overflow-hidden bg-zinc-50/50"
     >
+      {submitError && <p role="alert" className="px-6 py-2 text-sm text-red-700 bg-red-50">{submitError}</p>}
       {/* Header */}
       <header className="h-14 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-3 min-w-0">
@@ -690,7 +718,9 @@ export default function PracticeExamPage({ skill }) {
         setExam(data)
         if (attemptId) {
           const attempt = await getPracticeAttempt(skill, id, attemptId)
-          setPastResult(gradePractice(skill, data, attempt.answers || {}).result)
+          const review = attempt.reviewExam || data
+          setExam(review)
+          setPastResult(gradePractice(skill, review, attempt.answers || {}).result)
         }
       })
       .catch(() => navigate(`/practice/${skill}`, { replace: true }))

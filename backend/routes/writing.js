@@ -1,4 +1,5 @@
 const express = require('express')
+const { randomUUID } = require('node:crypto')
 const authMiddleware = require('../middleware/auth')
 const { learnerOnly } = require('../lib/roles')
 const validate = require('../middleware/validate')
@@ -51,10 +52,9 @@ router.get('/exams/:id', authMiddleware, async (req, res) => {
 
 // Khôi phục kết quả đã chấm của CHÍNH user cho 1 đề Writing (Tầng 4).
 // "Latest wins" theo taskId (pattern giống fulltest.js) — trả task đã có answer
-// 'graded' (+ aiFeedback parse được) HOẶC 'failed' (kèm answerId + error để
-// client hiện banner lỗi + nút "Thử chấm điểm lại" thay vì im lặng coi như
-// task chưa từng nộp). Task đang 'pending'/'grading' bị bỏ qua — không có cách
-// tiếp tục polling sau khi reload trang, giữ hành vi cũ.
+// 'graded' (+ aiFeedback parse được), 'failed' (kèm answerId + error để client
+// hiện banner lỗi + nút "Thử chấm lại"), hoặc 'pending'/'grading' (TC-048: client
+// resume polling theo answerId thay vì im lặng coi như chưa từng nộp).
 router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res) => {
   try {
     const examId = parseInt(req.params.id)
@@ -105,6 +105,14 @@ router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res
           status: 'failed',
           error: toLearnerAiErrorMessage(a.error)
         })
+      } else if (a.status === 'pending' || a.status === 'grading') {
+        // TC-048: sau reload/restart người học vẫn thấy bài đang xử lý thay vì
+        // coi như chưa từng nộp. Client resume polling theo answerId.
+        results.push({
+          taskId: a.taskId,
+          answerId: a.id,
+          status: a.status
+        })
       }
     }
 
@@ -115,11 +123,16 @@ router.get('/exams/:id/my-results', authMiddleware, learnerOnly, async (req, res
 })
 
 async function processWritingAI(answerId, taskPrompt, taskNumber, essay, imageUrl = null) {
+  const gradingToken = randomUUID()
+  const ownedJob = { id: answerId, status: 'grading', gradingToken }
   try {
-    await prisma.writingAnswer.update({
-      where: { id: answerId },
-      data: { status: 'grading' }
+    // TC-048: claim job nguyên tử. Nếu một process khác đã nhận (status đã
+    // khác pending/failed) hoặc record đã graded thì không chấm lần hai.
+    const claim = await prisma.writingAnswer.updateMany({
+      where: { id: answerId, status: 'pending', gradingAttempts: { lt: 3 } },
+      data: { status: 'grading', gradingStartedAt: new Date(), gradingToken, gradingAttempts: { increment: 1 }, error: null }
     })
+    if (claim.count === 0) return
 
     const minWords = taskNumber === 1 ? 150 : 250
     const preCheck = preCheckEssay(essay, taskPrompt, minWords)
@@ -141,8 +154,8 @@ async function processWritingAI(answerId, taskPrompt, taskNumber, essay, imageUr
         offTopic: true,
       }
 
-      await prisma.writingAnswer.update({
-        where: { id: answerId },
+      await prisma.writingAnswer.updateMany({
+        where: ownedJob,
         data: {
           aiFeedback: JSON.stringify(feedback),
           aiScore: 1.0,
@@ -221,8 +234,8 @@ async function processWritingAI(answerId, taskPrompt, taskNumber, essay, imageUr
       }
     }
 
-    await prisma.writingAnswer.update({
-      where: { id: answerId },
+    const saved = await prisma.writingAnswer.updateMany({
+      where: ownedJob,
       data: {
         aiFeedback: JSON.stringify(feedback),
         aiScore: feedback.overall,
@@ -230,6 +243,7 @@ async function processWritingAI(answerId, taskPrompt, taskNumber, essay, imageUr
         error: null
       }
     })
+    if (saved.count === 0) return // Recovery/retry has superseded this worker.
 
     // Non-fatal criterion-level logging for Writing (Layer 1)
     try {
@@ -269,8 +283,8 @@ async function processWritingAI(answerId, taskPrompt, taskNumber, essay, imageUr
     // Không lưu message thô của provider vào DB (tránh rò rỉ hạ tầng cho học
     // sinh); chi tiết được ghi log ở server, DB chỉ giữ mã lỗi ổn định.
     logAiError('[Writing AI Error]', error)
-    await prisma.writingAnswer.update({
-      where: { id: answerId },
+    await prisma.writingAnswer.updateMany({
+      where: ownedJob,
       data: {
         status: 'failed',
         error: classifyAiError(error)
@@ -413,11 +427,15 @@ router.post('/answers/:id/retry', authMiddleware, learnerOnly, aiSubmitLimiter, 
     if (answer.status !== 'failed') {
       return res.status(400).json({ message: 'Chỉ có thể chấm lại bài đang ở trạng thái lỗi' })
     }
+    if (answer.gradingAttempts >= 3) {
+      return res.status(429).json({ message: 'Đã hết số lần thử chấm lại. Bài viết đã được lưu; vui lòng liên hệ hỗ trợ.' })
+    }
 
-    await prisma.writingAnswer.update({
-      where: { id: answerId },
-      data: { status: 'pending', error: null }
+    const claimed = await prisma.writingAnswer.updateMany({
+      where: { id: answerId, status: 'failed', gradingAttempts: { lt: 3 } },
+      data: { status: 'pending', error: null, gradingStartedAt: null }
     })
+    if (claimed.count === 0) return res.status(409).json({ message: 'Bài viết đã được nhận chấm lại.' })
 
     processWritingAI(answerId, answer.task.prompt, answer.task.number, answer.essayText, answer.task.imageUrl).catch(err => {
       if (process.env.NODE_ENV !== 'production') console.error('[processWritingAI Retry Unhandled]', err)
