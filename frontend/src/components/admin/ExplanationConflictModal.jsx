@@ -44,7 +44,11 @@ export default function ExplanationConflictModal({
   }
 
   const handleApply = () => {
-    onConfirmResolve(choices)
+    // The UI already shows AI as the default; preserve that choice even if
+    // confirmation happens before the effect has initialized local state.
+    onConfirmResolve(Object.fromEntries(conflicts.map(conflict => [
+      conflict.number, choices[conflict.number] || 'ai',
+    ])))
   }
 
   const modalElement = (

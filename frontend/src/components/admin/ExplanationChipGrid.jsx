@@ -22,6 +22,8 @@ export default function ExplanationChipGrid({
   className = '',
   generatingQuestionNumbers = null,
   unsavedQuestionNumbers = null,
+  runStatusByNumber = null,
+  runErrorMessageByNumber = null,
 }) {
   const questionsList = useMemo(() => {
     if (Array.isArray(questions) && questions.length > 0) return questions
@@ -57,13 +59,22 @@ export default function ExplanationChipGrid({
           const qNum = q.number ?? (Number(group?.qNumberStart) ? Number(group.qNumberStart) + idx : idx + 1)
           const exp = q.explanation || group?.explanations?.[qNum] || group?.explanations?.[String(qNum)]
 
-          const isGeneratingThis = generatingQuestionNumbers
+          const runStatus = runStatusByNumber?.[qNum] ?? null
+          const runErrorMessage = runErrorMessageByNumber?.[qNum] ?? null
+
+          const isGeneratingThis = runStatus === 'generating' || (generatingQuestionNumbers
             ? (generatingQuestionNumbers instanceof Set ? generatingQuestionNumbers.has(qNum) : generatingQuestionNumbers.includes?.(qNum))
-            : false
+            : false)
 
           const isUnsavedThis = unsavedQuestionNumbers
             ? (unsavedQuestionNumbers instanceof Set ? unsavedQuestionNumbers.has(qNum) : unsavedQuestionNumbers.includes?.(qNum))
             : false
+
+          const chipTitle = runStatus === 'error' && runErrorMessage
+            ? `Câu ${qNum}: lỗi ở lần sinh gần nhất — ${runErrorMessage}`
+            : runStatus === 'retry'
+              ? `Câu ${qNum}: kết quả dự phòng chưa chắc chắn, nên mở để kiểm tra`
+              : `Xem, duyệt, góp ý hoặc sửa tay giải thích câu ${qNum}`
 
           return (
             <button
@@ -74,13 +85,15 @@ export default function ExplanationChipGrid({
                 onSelectQuestion?.({ question: q, qNum, explanation: exp })
               }}
               className="h-10 w-full min-w-0 px-1.5 sm:px-2 inline-flex items-center justify-between gap-1 rounded-xl text-xs font-medium border bg-white hover:bg-zinc-50 border-zinc-200 hover:border-zinc-300 text-zinc-800 transition shadow-2xs cursor-pointer select-none"
-              title={`Xem, duyệt, góp ý hoặc sửa tay giải thích câu ${qNum}`}
+              title={chipTitle}
             >
               <span className="font-bold text-[11px] shrink-0 text-zinc-900">Câu {qNum}</span>
               <ExplanationStatusBadge
                 explanation={exp}
                 isGenerating={isGeneratingThis}
                 isUnsaved={isUnsavedThis}
+                runStatus={runStatus}
+                runErrorMessage={runErrorMessage}
               />
             </button>
           )

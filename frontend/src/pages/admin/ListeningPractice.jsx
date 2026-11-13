@@ -19,7 +19,7 @@ import {
 import {
   resolveImg, toImgSrc, recalcGroups,
   LISTENING_GROUP_TYPES, emptyListeningGroupOf,
-  inputCls, labelCls, btnPrimary, btnSecondary,
+  inputCls, labelCls, btnPrimary,
 } from '../../utils/practiceConfig'
 import ImageWithFallback from '../../components/common/ImageWithFallback'
 import Select from '../../components/admin/Select'
@@ -27,6 +27,9 @@ import { AdminTableSkeleton } from '../../components/skeletons'
 import ExplanationConflictModal from '../../components/admin/ExplanationConflictModal'
 import OverwriteProtectedConfirmModal from '../../components/admin/OverwriteProtectedConfirmModal'
 import { showAlert } from '../../utils/alertUtils'
+import { useToast } from '../../context/ToastContext'
+import { usePracticeExplanationReport } from '../../hooks/usePracticeExplanationReport'
+import ExplanationRunPanel from '../../components/admin/ExplanationRunPanel'
 import { validatePracticeListening, formatValidationAlert } from '../../utils/questionValidation'
 import { executeTimedAIGenerationLoop } from '../../utils/examExplanationUtils'
 import { useExplanationGenerationLock } from '../../hooks/useExplanationGenerationLock'
@@ -57,7 +60,7 @@ const EMPTY_FORM = {
 const formSig = f => JSON.stringify([f.title, f.context, f.transcript, f.questionGroups, f.thumbnailUrl, !!f.thumbFile, f.audioUrl, !!f.audioFile])
 
 export default function ListeningPractice() {
-  const showToast = showAlert
+  const { showToast } = useToast()
   const queryClient = useQueryClient()
   const location = useLocation()
   const { data: list = [], isPending, isError, error, refetch } = useQuery({
@@ -122,7 +125,9 @@ export default function ListeningPractice() {
   const [overwriteModalOpen, setOverwriteModalOpen] = useState(false)
   const [protectedStats, setProtectedStats] = useState({ reviewedCount: 0, editedCount: 0 })
   const [aiProgress, setAiProgress] = useState(null)
-  const [isCancellingAI, setIsCancellingAI] = useState(false)
+  const aiReport = usePracticeExplanationReport({
+    skill: 'listening', practiceId: editing?.id, enabled: view === 'form',
+  })
   const isCancellingAIRef = useRef(false)
   const abortControllerRef = useRef(null)
   // BUG-13: Track unsaved changes (derive-snapshot: formSig(form) vs pristineRef)
@@ -439,7 +444,8 @@ export default function ListeningPractice() {
     const val = validatePracticeListening(form, { isForAI: true })
     if (!val.isValid) {
       const alertMsg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
-      showAlert(alertMsg, 'error')
+      aiReport.block(val.errors)
+      showToast(alertMsg, 'error')
 
       return
     }
@@ -454,7 +460,6 @@ export default function ListeningPractice() {
 
   const handleCancelAI = () => {
     isCancellingAIRef.current = true
-    setIsCancellingAI(true)
     expLock.setIsCancelling(true)
     abortControllerRef.current?.abort()
   }
@@ -467,21 +472,32 @@ export default function ListeningPractice() {
     const val = validatePracticeListening(form, { isForAI: true })
     if (!val.isValid) {
       const alertMsg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
-      showAlert(alertMsg, 'error')
+      aiReport.block(val.errors)
+      showToast(alertMsg, 'error')
 
       return
     }
 
     setGeneratingAI(true)
-    setIsCancellingAI(false)
     isCancellingAIRef.current = false
     const abortController = new AbortController()
     abortControllerRef.current = abortController
     setAiProgress({ current: 0, total: 0, label: 'chuẩn bị...' })
 
-    const totalTarget = questionNumbers
-      ? questionNumbers.length
-      : form.questionGroups.reduce((acc, g) => acc + (g.questions?.length || 0), 0)
+    const availableNumbers = form.questionGroups.flatMap(g => (g.questions || []).map(q => Number(q.number)))
+      .filter(n => Number.isInteger(n) && n > 0)
+    const targetNumbers = Array.isArray(questionNumbers)
+      ? [...new Set(questionNumbers.map(Number))].filter(n => availableNumbers.includes(n))
+      : [...new Set(availableNumbers)]
+    if (targetNumbers.length === 0) {
+      setGeneratingAI(false)
+      setAiProgress(null)
+      abortControllerRef.current = null
+      aiReport.block(['Không có câu hỏi hợp lệ trong phạm vi cần sinh.'])
+      return
+    }
+    const totalTarget = targetNumbers.length
+    aiReport.start(targetNumbers, { scope: Array.isArray(questionNumbers) ? 'retry' : 'all' })
 
     expLock.startLocalGeneration({
       abortController,
@@ -532,9 +548,11 @@ export default function ListeningPractice() {
           })
           return api.post(`/practice/admin/listening/${editing.id}/generate-explanations`, payload, opts)
         },
-        basePayload: { force: true, overwriteProtected, resolveChoices, questionNumbers },
+        basePayload: { force: true, overwriteProtected, resolveChoices },
+        initialQuestionNumbers: Array.isArray(questionNumbers) ? targetNumbers : null,
         signal: abortController.signal,
-        onProgress: ({ current, total }) => {
+        onProgress: ({ current, total, data }) => {
+          aiReport.progress(data)
           const p = {
             current,
             total,
@@ -562,37 +580,32 @@ export default function ListeningPractice() {
         },
       })
 
+      aiReport.finish(loopResult)
       if (loopResult.cancelled) {
         showToast('Đã dừng tác vụ sinh AI. Các câu đã xong đã được lưu lại.', 'info')
       } else if (loopResult.hasConflicts) {
         setAiConflicts(loopResult.conflicts || [])
         setConflictModalOpen(true)
         showToast('AI phát hiện đáp án có sự khác biệt so với bài nghe. Vui lòng kiểm tra!', 'warning')
-      } else if (loopResult.errors?.length) {
-        const firstErr = loopResult.errors[0]
-        const msg = firstErr?.message || 'Không thể tạo giải thích bằng AI'
-        if (firstErr?.status === 409) {
-          showAlert(msg, 'warning')
-        } else {
-          showToast(msg, 'error')
-        }
+      } else if (loopResult.errors?.length || loopResult.needsRetryQuestions?.length) {
+        showToast('Một số câu chưa sinh được hoặc cần kiểm tra. Xem báo cáo để biết lý do và thử lại.', 'warning')
       } else {
         showToast(`Đã tạo giải thích 4 bước thành công cho ${loopResult.totalGenerated} câu hỏi!`, 'success')
         setConflictModalOpen(false)
         queryClient.invalidateQueries({ queryKey: ['admin', 'practice'] })
       }
     } catch (err) {
-      if (err.response?.status === 409) {
-        showAlert(err.response?.data?.message || 'Đang có một tác vụ AI khác đang chạy cho bài luyện tập này.', 'warning')
-      } else if (!abortController.signal.aborted && err.name !== 'CanceledError' && err.code !== 'ERR_CANCELED') {
-        showToast(err.response?.data?.message || 'Không thể tạo giải thích bằng AI', 'error')
-      }
+      const cancelled = abortController.signal.aborted || err.name === 'CanceledError' || err.code === 'ERR_CANCELED'
+      loopResult = { cancelled, errors: cancelled ? [] : [err], totalGenerated: 0 }
+      aiReport.finish(loopResult)
+      showToast(cancelled
+        ? 'Đã dừng tác vụ sinh AI. Các câu đã xong vẫn được giữ lại.'
+        : 'Không thể tạo giải thích bằng AI. Xem báo cáo để biết lý do.', cancelled ? 'info' : 'error')
     } finally {
       setGeneratingAI(false)
-      setIsCancellingAI(false)
       setAiProgress(null)
       abortControllerRef.current = null
-      expLock.endLocalGeneration({ completed: !loopResult?.cancelled, cancelled: Boolean(loopResult?.cancelled) })
+      expLock.endLocalGeneration({ completed: Boolean(loopResult?.ok) && !loopResult?.cancelled, cancelled: Boolean(loopResult?.cancelled) })
     }
   }
 
@@ -848,6 +861,12 @@ export default function ListeningPractice() {
                   progress={expLock.localProgress}
                   onCancel={handleCancelAI}
                 />
+                <ExplanationRunPanel
+                  report={expLock.isGenerating ? null : aiReport.report}
+                  onRetryFailed={expLock.isLockedGenerate ? undefined : numbers => handleGenerateAI({ questionNumbers: numbers, overwriteProtected: false })}
+                  onDismiss={aiReport.dismiss}
+                  className="mb-4"
+                />
 
                 {/* Header thêm nhóm câu hỏi */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-zinc-100">
@@ -932,6 +951,9 @@ export default function ListeningPractice() {
                         isLast={i === form.questionGroups.length - 1}
                         isAIBusy={expLock.isLockedOperation}
                         unsavedQuestionNumbers={unsavedQuestionNumbers}
+                        generatingQuestionNumbers={aiReport.generatingNumbers}
+                        runStatusByNumber={aiReport.statuses}
+                        runErrorMessageByNumber={aiReport.errorMessages}
                       />
                     ))}
                   </div>
@@ -955,7 +977,7 @@ export default function ListeningPractice() {
           onClose={() => setConflictModalOpen(false)}
           conflicts={aiConflicts}
           isSubmitting={generatingAI}
-          onConfirmResolve={(choices) => handleGenerateAI({ resolveChoices: choices, overwriteProtected: false })}
+          onConfirmResolve={(choices) => handleGenerateAI({ resolveChoices: choices, overwriteProtected: false, questionNumbers: Object.keys(choices).map(Number) })}
         />
 
         <OverwriteProtectedConfirmModal
@@ -1137,7 +1159,7 @@ export default function ListeningPractice() {
         onClose={() => setConflictModalOpen(false)}
         conflicts={aiConflicts}
         isSubmitting={generatingAI}
-        onConfirmResolve={(choices) => handleGenerateAI(choices)}
+        onConfirmResolve={(choices) => handleGenerateAI({ resolveChoices: choices, overwriteProtected: false, questionNumbers: Object.keys(choices).map(Number) })}
       />
     </>
   )

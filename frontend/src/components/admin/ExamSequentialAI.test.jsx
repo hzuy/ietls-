@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import ReadingTab from './ReadingTab'
 import ListeningTab from './ListeningTab'
+import { ToastProvider } from '../../context/ToastContext'
 import api from '../../utils/axios'
 
 vi.mock('../../utils/axios', () => ({
@@ -28,6 +29,9 @@ vi.mock('./ExamList', () => ({
 }))
 
 describe('Batch 3: Group AI generation & Sequential generation with cancel & 409 conflict', () => {
+  // Toast context thật để không rơi về window.alert (fallback khi thiếu provider).
+  const renderTab = (ui) => render(<ToastProvider>{ui}</ToastProvider>)
+
   const mockReadingExam = {
     id: 10,
     title: 'Cambridge 18 Test 1 Reading',
@@ -71,17 +75,76 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
   }
 
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
     localStorage.clear()
+    sessionStorage.clear()
     window.scrollTo = vi.fn()
+    vi.spyOn(window, 'alert').mockImplementation(() => {})
     api.get.mockImplementation((url) => {
       if (url === '/admin/exams/10') return Promise.resolve({ data: mockReadingExam })
       return Promise.resolve({ data: [] })
     })
   })
 
+  it.each(['reading', 'listening'])('retries only unfinished questions after a partial %s group times out', async (skill) => {
+    const isReading = skill === 'reading'
+    const examId = isReading ? 10 : 20
+    const exam = isReading ? mockReadingExam : {
+      ...mockReadingExam, id: 20,
+      listeningSections: mockReadingExam.passages.map((passage, index) => ({
+        ...passage, number: index + 1, context: 'Context', transcript: 'Transcript', audioUrl: '/test-audio.mp3',
+      })),
+    }
+    api.get.mockImplementation(url => Promise.resolve({ data: url === `/admin/exams/${examId}` ? exam : [] }))
+    api.post
+      .mockResolvedValueOnce({ data: { generatedCount: 1, totalQuestions: 2, remainingQuestionNumbers: [2] } })
+      .mockRejectedValueOnce(new Error('timeout'))
+      .mockResolvedValueOnce({ data: { generatedCount: 1, totalQuestions: 1, remainingQuestionNumbers: [] } })
+    renderTab(isReading ? <ReadingTab exams={[]} onRefresh={vi.fn()} /> : <ListeningTab exams={[]} onRefresh={vi.fn()} />)
+    fireEvent.click(screen.getByText(isReading ? 'Edit Reading 10' : 'Edit Listening 20'))
+    const buttons = await screen.findAllByRole('button', { name: /Sinh AI nhóm này/i })
+    fireEvent.click(buttons[0])
+    const retry = await screen.findByRole('button', { name: 'Thử lại 1 câu lỗi' })
+    fireEvent.click(retry)
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(3))
+    expect(api.post.mock.calls[2][0]).toBe(`/admin/exams/${examId}/groups/201/generate-explanations`)
+    expect(api.post.mock.calls[2][1].questionNumbers).toEqual([2])
+    await waitFor(() => expect(screen.queryByTestId('explanation-run-panel')).not.toBeInTheDocument())
+    expect(window.alert).not.toHaveBeenCalled()
+  })
+
+  it.each(['reading', 'listening'])('asks before retrying against unsaved %s content and retains the retry scope', async skill => {
+    const reading = skill === 'reading'
+    const examId = reading ? 10 : 20
+    const exam = reading ? mockReadingExam : {
+      ...mockReadingExam, id: 20,
+      listeningSections: mockReadingExam.passages.map((passage, index) => ({
+        ...passage, number: index + 1, context: 'Context', transcript: `Transcript ${index + 1}`, audioUrl: '/test-audio.mp3',
+      })),
+    }
+    sessionStorage.setItem(`ai_exp_report_${skill}_${examId}`, JSON.stringify({
+      version: 1, status: 'partial', totalQuestions: 2, generated: 1,
+      rows: [{ id: 'failed-2', number: 2, retryable: true, message: 'Timeout' }], needsRetry: [],
+    }))
+    api.get.mockImplementation(url => Promise.resolve({ data: url === `/admin/exams/${examId}` ? exam : [] }))
+    api.post.mockResolvedValue({ data: { generatedCount: 1, remainingQuestionNumbers: [] } })
+    renderTab(reading ? <ReadingTab exams={[]} onRefresh={vi.fn()} /> : <ListeningTab exams={[]} onRefresh={vi.fn()} />)
+    fireEvent.click(screen.getByText(reading ? 'Edit Reading 10' : 'Edit Listening 20'))
+    const source = await screen.findByDisplayValue(reading ? 'Passage 1 text' : 'Transcript 1')
+    await waitFor(() => expect(screen.getByRole('button', { name: /AI giải thích/i })).toBeEnabled())
+    fireEvent.change(source, { target: { value: 'Unsaved teacher content' } })
+    fireEvent.click(await screen.findByRole('button', { name: 'Thử lại 1 câu lỗi' }))
+    expect(await screen.findByText('Đề thi có thay đổi chưa lưu')).toBeInTheDocument()
+    expect(api.post).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: /Tiếp tục sinh AI theo CSDL hiện tại/ }))
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
+    expect(api.post.mock.calls[0][1].questionNumbers).toEqual([2])
+    await waitFor(() => expect(screen.queryByTestId('explanation-run-panel')).not.toBeInTheDocument())
+    expect(screen.getByDisplayValue('Unsaved teacher content')).toBeInTheDocument()
+  })
+
   it('triggers single group AI generation when "Sinh AI nhóm này" is clicked', async () => {
-    render(<ReadingTab exams={[]} onRefresh={vi.fn()} />)
+    renderTab(<ReadingTab exams={[]} onRefresh={vi.fn()} />)
 
     // Load exam 10
     fireEvent.click(screen.getByText('Edit Reading 10'))
@@ -110,10 +173,11 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
         expect.anything()
       )
     })
+    expect(window.alert).not.toHaveBeenCalled()
   })
 
   it('runs sequential generation across multiple groups and shows progress label', async () => {
-    render(<ReadingTab exams={[]} onRefresh={vi.fn()} />)
+    renderTab(<ReadingTab exams={[]} onRefresh={vi.fn()} />)
 
     fireEvent.click(screen.getByText('Edit Reading 10'))
     await waitFor(() => {
@@ -169,7 +233,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
   })
 
   it('gracefully cancels sequential generation: displays completing message and finishes in-flight group before stopping', async () => {
-    render(<ReadingTab exams={[]} onRefresh={vi.fn()} />)
+    renderTab(<ReadingTab exams={[]} onRefresh={vi.fn()} />)
 
     fireEvent.click(screen.getByText('Edit Reading 10'))
     await waitFor(() => {
@@ -218,7 +282,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
   })
 
   it('locks Save, Cancel Edit, and single group buttons throughout sequential AI generation (Requirement A.3)', async () => {
-    render(<ReadingTab exams={[]} onRefresh={vi.fn()} />)
+    renderTab(<ReadingTab exams={[]} onRefresh={vi.fn()} />)
 
     fireEvent.click(screen.getByText('Edit Reading 10'))
     await waitFor(() => {
@@ -304,7 +368,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
       return Promise.resolve({ data: [] })
     })
 
-    render(<ReadingTab exams={[]} onRefresh={vi.fn()} />)
+    renderTab(<ReadingTab exams={[]} onRefresh={vi.fn()} />)
     fireEvent.click(screen.getByText('Edit Reading 10'))
     await waitFor(() => {
       expect(screen.getByText(/Đang sửa đề/i)).toBeInTheDocument()
@@ -377,7 +441,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
       return Promise.resolve({ data: [] })
     })
 
-    render(<ListeningTab exams={[]} onRefresh={vi.fn()} />)
+    renderTab(<ListeningTab exams={[]} onRefresh={vi.fn()} />)
 
     fireEvent.click(screen.getByText('Edit Listening 20'))
     await waitFor(() => {
@@ -402,7 +466,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
   })
 
   it('handles 409 Conflict gracefully when another AI task is already running', async () => {
-    render(<ReadingTab exams={[]} onRefresh={vi.fn()} />)
+    renderTab(<ReadingTab exams={[]} onRefresh={vi.fn()} />)
 
     fireEvent.click(screen.getByText('Edit Reading 10'))
     await waitFor(() => {
@@ -423,5 +487,6 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     await waitFor(() => {
       expect(screen.queryByText(/Đang tạo.../i)).not.toBeInTheDocument()
     })
+    expect(window.alert).not.toHaveBeenCalled()
   })
 })

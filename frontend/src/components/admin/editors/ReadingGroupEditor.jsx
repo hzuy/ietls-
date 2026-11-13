@@ -19,6 +19,9 @@ export default function ReadingGroupEditor({
   group = {}, onChange, onRemove, onMoveUp, onMoveDown, isFirst, isLast,
   examId, passage = '', letteredParagraphs = false,
   onGenerateGroupAI, isAIBusy = false, generatingGroupId = null,
+  generatingQuestionNumbers: generatingQuestionNumbersProp = null,
+  runStatusByNumber = null,
+  runErrorMessageByNumber = null,
   unsavedQuestionNumbers,
 }) {
   const [selectedQModal, setSelectedQModal] = useState(null)
@@ -41,12 +44,17 @@ export default function ReadingGroupEditor({
         )
       : []
 
-  const generatingQuestionNumbers = generatingGroupId === group.id
+  const fallbackGeneratingQuestionNumbers = generatingGroupId === group.id
     ? new Set(questionsList.map(q => q.number))
     : undefined
 
+  const generatingQuestionNumbers = generatingQuestionNumbersProp || fallbackGeneratingQuestionNumbers
+
   return (
-    <div className={`border ${theme.cardBorder} ${theme.cardBg} rounded-2xl overflow-hidden transition-all duration-200 mb-4 shadow-xs`}>
+    <div
+      data-explanation-group-id={group.id ?? group._id ?? undefined}
+      className={`border ${theme.cardBorder} ${theme.cardBg} rounded-2xl overflow-hidden transition-all duration-200 mb-4 shadow-xs`}
+    >
       <div className={`flex items-center gap-3 px-4 py-3 border-b ${theme.headerBg} flex-wrap`}>
         {/* Cột 1: Badge loại câu hỏi */}
         <div className="w-48 sm:w-52 shrink-0 flex items-center">
@@ -123,6 +131,8 @@ export default function ReadingGroupEditor({
         onSelectQuestion={(data) => setSelectedQModal(data)}
         generatingQuestionNumbers={generatingQuestionNumbers}
         unsavedQuestionNumbers={unsavedQuestionNumbers}
+        runStatusByNumber={runStatusByNumber}
+        runErrorMessageByNumber={runErrorMessageByNumber}
       />
 
       <div className="p-4 space-y-3">
@@ -192,6 +202,8 @@ export default function ReadingGroupEditor({
           initialExplanation={selectedQModal.explanation}
           passage={passage}
           isAIBusy={isAIBusy}
+          runStatus={runStatusByNumber?.[selectedQModal.qNum] ?? null}
+          runErrorMessage={runErrorMessageByNumber?.[selectedQModal.qNum] ?? null}
           onExplanationUpdated={(newExp, qNum) => {
             const targetNum = qNum || selectedQModal?.qNum
             const updatedQuestions = (group.questions || []).map(q =>

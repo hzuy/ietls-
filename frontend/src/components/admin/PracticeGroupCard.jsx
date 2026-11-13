@@ -61,6 +61,7 @@ export default function PracticeGroupCard({
   skill, group, onChange, onRemove, onMoveUp, onMoveDown, isFirst, isLast,
   expanded = true, onToggle, examId, passage = '', letteredParagraphs = false, isAIBusy = false,
   generatingQuestionNumbers = null, unsavedQuestionNumbers = null,
+  runStatusByNumber = null, runErrorMessageByNumber = null,
 }) {
   const [selectedQModal, setSelectedQModal] = useState(null)
   const groupTypes = skill === 'listening' ? LISTENING_GROUP_TYPES : READING_GROUP_TYPES
@@ -151,6 +152,8 @@ export default function PracticeGroupCard({
         onSelectQuestion={(data) => setSelectedQModal(data)}
         generatingQuestionNumbers={generatingQuestionNumbers}
         unsavedQuestionNumbers={unsavedQuestionNumbers}
+        runStatusByNumber={runStatusByNumber}
+        runErrorMessageByNumber={runErrorMessageByNumber}
       />
 
       {expanded && (
@@ -236,6 +239,8 @@ export default function PracticeGroupCard({
           initialExplanation={selectedQModal.explanation}
           passage={passage}
           isAIBusy={isAIBusy}
+          runStatus={runStatusByNumber?.[selectedQModal.qNum]}
+          runErrorMessage={runErrorMessageByNumber?.[selectedQModal.qNum]}
           onExplanationUpdated={(newExp, qNum) => {
             const targetNum = qNum || selectedQModal?.qNum
             const nextExplanations = { ...(group.explanations || {}), [targetNum]: newExp }

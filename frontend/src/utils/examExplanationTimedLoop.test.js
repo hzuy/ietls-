@@ -2,6 +2,30 @@ import { describe, it, expect, vi } from 'vitest'
 import { executeTimedAIGenerationLoop } from './examExplanationUtils'
 
 describe('executeTimedAIGenerationLoop', () => {
+  it('finishes successfully on the final allowed request and preserves retry scope', async () => {
+    const fetchChunk = vi.fn().mockResolvedValue({ generatedCount: 1, totalQuestions: 1, remainingQuestionNumbers: [] })
+    const result = await executeTimedAIGenerationLoop({ fetchChunk, initialQuestionNumbers: [2], maxIterations: 1 })
+    expect(fetchChunk.mock.calls[0][0].questionNumbers).toEqual([2])
+    expect(result.ok).toBe(true)
+    expect(result.remainingQuestionNumbers).toEqual([])
+  })
+
+  it('keeps the unfinished numbers when a later request times out', async () => {
+    const fetchChunk = vi.fn()
+      .mockResolvedValueOnce({ generatedCount: 1, totalQuestions: 2, remainingQuestionNumbers: [2] })
+      .mockRejectedValueOnce(new Error('timeout'))
+    const result = await executeTimedAIGenerationLoop({ fetchChunk, initialQuestionNumbers: [1, 2] })
+    expect(result.remainingQuestionNumbers).toEqual([2])
+    expect(result.totalGenerated).toBe(1)
+  })
+  it('accepts a legacy response on the last allowed retry request', async () => {
+    const result = await executeTimedAIGenerationLoop({
+      fetchChunk: vi.fn().mockResolvedValue({ generatedCount: 1 }),
+      initialQuestionNumbers: [2], maxIterations: 1,
+    })
+    expect(result.ok).toBe(true)
+    expect(result.remainingQuestionNumbers).toEqual([])
+  })
   it('loops until remainingQuestionNumbers is empty and aggregates results', async () => {
     const fetchChunk = vi.fn()
       // First chunk: returns 3 generated, 2 remaining

@@ -68,6 +68,36 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
       render(<ExplanationStatusBadge explanation={{ status: 'teacher_reviewed' }} />)
       expect(screen.getByText('Đã duyệt')).toBeInTheDocument()
     })
+
+    it('shows run failure statuses with priority over the stored explanation status', () => {
+      const errorInfo = getExplanationStatusInfo({ status: 'teacher_reviewed' }, {
+        runStatus: 'error',
+        runErrorMessage: 'AI phản hồi quá lâu',
+      })
+      expect(errorInfo.status).toBe('error')
+      expect(errorInfo.chipLabel).toBe('Lỗi')
+      expect(errorInfo.fullLabel).toContain('AI phản hồi quá lâu')
+
+      const retryInfo = getExplanationStatusInfo({ status: 'ai_generated' }, { runStatus: 'retry' })
+      expect(retryInfo.status).toBe('needs_retry')
+      expect(retryInfo.chipLabel).toBe('Cần kiểm tra')
+
+      render(
+        <ExplanationStatusBadge
+          explanation={{ status: 'ai_generated' }}
+          runStatus="error"
+          runErrorMessage="AI phản hồi quá lâu"
+        />
+      )
+      const badge = screen.getByText('Lỗi').closest('span[title]')
+      expect(badge).toHaveAttribute('title', expect.stringContaining('AI phản hồi quá lâu'))
+    })
+
+    it('shows "Đang sinh" badge when the question is generating in the current run', () => {
+      const info = getExplanationStatusInfo(null, { runStatus: 'generating' })
+      expect(info.status).toBe('generating')
+      expect(info.chipLabel).toBe('Đang sinh')
+    })
   })
 
   describe('Modal interactions', () => {
@@ -160,6 +190,39 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
         )
       })
       expect(handleUpdated).toHaveBeenCalled()
+    })
+
+    it('shows review failures inline (no window.alert) and lets the teacher retry', async () => {
+      api.post
+        .mockRejectedValueOnce({ response: { status: 500, data: { message: 'Không thể duyệt lúc này' } } })
+        .mockResolvedValueOnce({
+          data: { success: true, explanation: { ...sampleExplanation, status: 'teacher_reviewed' } },
+        })
+
+      render(
+        <QuestionExplanationModal
+          isOpen={true}
+          onClose={vi.fn()}
+          examId={10}
+          questionNumber={1}
+          isPractice={true}
+          skill="reading"
+          question={sampleQuestion}
+          initialExplanation={sampleExplanation}
+        />
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: /Duyệt giải thích/i }))
+
+      const alertBox = await screen.findByRole('alert')
+      expect(alertBox).toHaveTextContent('Không thể duyệt lúc này')
+      expect(window.alert).not.toHaveBeenCalled()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }))
+
+      await waitFor(() => expect(api.post).toHaveBeenCalledTimes(2))
+      await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+      expect(screen.getByText(/Đã duyệt bởi giáo viên/i)).toBeInTheDocument()
     })
 
     it('renders banner displaying which answer this explanation explains and warns if mismatched (C.4)', () => {

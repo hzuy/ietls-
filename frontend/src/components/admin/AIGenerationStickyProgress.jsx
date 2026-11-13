@@ -9,6 +9,8 @@ export default function AIGenerationStickyProgress({
   isGenerating = false,
   isCancelling = false,
   progress = null,
+  runErrorCount = 0,
+  runAttentionCount = 0,
   onCancel,
   className = '',
 }) {
@@ -45,6 +47,22 @@ export default function AIGenerationStickyProgress({
                   isCancelling ? 'bg-amber-100 text-amber-800' : 'bg-zinc-800 text-zinc-300'
                 }`}>
                   {pct}%
+                </span>
+              )}
+              {runErrorCount > 0 && (
+                <span
+                  data-testid="ai-generation-sticky-errors"
+                  className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-100 border border-rose-400/30"
+                >
+                  {runErrorCount} lỗi
+                </span>
+              )}
+              {runAttentionCount > 0 && (
+                <span
+                  data-testid="ai-generation-sticky-attention"
+                  className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-400/20 text-amber-100 border border-amber-300/30"
+                >
+                  {runAttentionCount} cần kiểm tra
                 </span>
               )}
             </div>

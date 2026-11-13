@@ -1,6 +1,6 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
 import ExamExplanationOverviewBadge from './ExamExplanationOverviewBadge'
 
 describe('ExamExplanationOverviewBadge', () => {
@@ -9,7 +9,7 @@ describe('ExamExplanationOverviewBadge', () => {
     expect(container.firstChild).toBeNull()
   })
 
-  it('shows explanation progress without an aggregate attention badge', () => {
+  it('shows the aggregate attention badge when some explanations need attention', () => {
     const stats = {
       totalSlots: 40,
       supportedSlots: 40,
@@ -24,8 +24,39 @@ describe('ExamExplanationOverviewBadge', () => {
     render(<ExamExplanationOverviewBadge stats={stats} />)
 
     expect(screen.getByTestId('exam-explanation-overview-badge')).toHaveTextContent('40/40')
-    expect(screen.queryByText(/cần chú ý/i)).not.toBeInTheDocument()
-    expect(screen.queryByTestId('exam-explanation-attention-badge')).not.toBeInTheDocument()
+    expect(screen.getByTestId('exam-explanation-attention-badge')).toHaveTextContent('3 câu cần chú ý')
+    expect(screen.getByTestId('exam-explanation-attention-badge')).toHaveAttribute(
+      'title',
+      expect.stringContaining('3 câu Chờ duyệt (Lệch)')
+    )
+  })
+
+  it('shows the run report chip with error and attention counts', () => {
+    const stats = {
+      totalSlots: 10,
+      supportedSlots: 10,
+      explainedSlots: 8,
+      unsupportedSlots: 0,
+      attentionSlots: 0,
+      hasAttention: false,
+      hasUnsupported: false,
+      attentionReasons: [],
+    }
+    const onOpenRunPanel = vi.fn()
+
+    render(
+      <ExamExplanationOverviewBadge
+        stats={stats}
+        runErrorCount={2}
+        runAttentionCount={1}
+        onOpenRunPanel={onOpenRunPanel}
+      />
+    )
+
+    const chip = screen.getByTestId('exam-explanation-run-issues')
+    expect(chip).toHaveTextContent('2 câu lỗi · 1 câu cần kiểm tra')
+    fireEvent.click(chip)
+    expect(onOpenRunPanel).toHaveBeenCalledTimes(1)
   })
 
   it('uses the same compact count style and omits attention summaries', () => {

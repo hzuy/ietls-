@@ -49,8 +49,13 @@ function AutoResizeTextarea({
   )
 }
 
-export function getExplanationStatusInfo(explanation, { isGenerating = false, isUnsaved = false } = {}) {
-  if (isGenerating) {
+export function getExplanationStatusInfo(explanation, {
+  isGenerating = false,
+  isUnsaved = false,
+  runStatus = null,
+  runErrorMessage = null,
+} = {}) {
+  if (isGenerating || runStatus === 'generating') {
     return {
       status: 'generating',
       label: 'Đang sinh...',
@@ -58,6 +63,30 @@ export function getExplanationStatusInfo(explanation, { isGenerating = false, is
       fullLabel: 'AI đang tạo giải thích...',
       badgeClass: 'bg-sky-50 text-sky-700 border-sky-300 animate-pulse',
       dotClass: 'bg-sky-500 animate-ping',
+    }
+  }
+
+  if (runStatus === 'error') {
+    return {
+      status: 'error',
+      label: 'Lỗi sinh AI',
+      chipLabel: 'Lỗi',
+      fullLabel: runErrorMessage
+        ? `Lỗi ở lần sinh gần nhất: ${runErrorMessage}`
+        : 'Lỗi khi tạo giải thích bằng AI ở lần chạy gần nhất',
+      badgeClass: 'bg-rose-50 text-rose-700 border-rose-300',
+      dotClass: 'bg-rose-500',
+    }
+  }
+
+  if (runStatus === 'retry') {
+    return {
+      status: 'needs_retry',
+      label: 'Cần kiểm tra lại',
+      chipLabel: 'Cần kiểm tra',
+      fullLabel: 'Kết quả dự phòng chưa đủ tin cậy, nên mở câu này để kiểm tra lại',
+      badgeClass: 'bg-amber-50 text-amber-800 border-amber-300',
+      dotClass: 'bg-amber-500',
     }
   }
 
@@ -177,9 +206,11 @@ export function ExplanationStatusBadge({
   explanation,
   isGenerating = false,
   isUnsaved = false,
+  runStatus = null,
+  runErrorMessage = null,
   className = '',
 }) {
-  const info = getExplanationStatusInfo(explanation, { isGenerating, isUnsaved })
+  const info = getExplanationStatusInfo(explanation, { isGenerating, isUnsaved, runStatus, runErrorMessage })
   const isConflict = info.status === 'conflict_pending'
   const isGeneratingStatus = info.status === 'generating'
   const tooltipText = isConflict
@@ -206,8 +237,8 @@ export function ExplanationStatusBadge({
 
 export function isSameAnswer(a, b) {
   if (a == null || b == null) return false
-  const cleanA = String(a).trim().toLowerCase().replace(/^[A-Za-z][\.\:\)]\s*/, '').replace(/[.,;:!?]+$/, '')
-  const cleanB = String(b).trim().toLowerCase().replace(/^[A-Za-z][\.\:\)]\s*/, '').replace(/[.,;:!?]+$/, '')
+  const cleanA = String(a).trim().toLowerCase().replace(/^[A-Za-z][.:)]\s*/, '').replace(/[.,;:!?]+$/, '')
+  const cleanB = String(b).trim().toLowerCase().replace(/^[A-Za-z][.:)]\s*/, '').replace(/[.,;:!?]+$/, '')
   const rawA = String(a).trim().toLowerCase().replace(/[.,;:!?]+$/, '')
   const rawB = String(b).trim().toLowerCase().replace(/[.,;:!?]+$/, '')
   return rawA === rawB || cleanA === cleanB || cleanA === rawB || rawA === cleanB
@@ -223,6 +254,8 @@ export default function QuestionExplanationModal({
   isPractice = false,
   onExplanationUpdated,
   isAIBusy = false,
+  runStatus = null,
+  runErrorMessage = null,
 }) {
   const [activeTab, setActiveTab] = useState('view') // 'view' | 'edit'
   const [currentExplanation, setCurrentExplanation] = useState(null)
@@ -248,6 +281,7 @@ export default function QuestionExplanationModal({
 
   // Review state
   const [isReviewing, setIsReviewing] = useState(false)
+  const [reviewError, setReviewError] = useState(null)
   const [toastMessage, setToastMessage] = useState(null)
   const prevQKeyRef = useRef(null)
 
@@ -272,6 +306,7 @@ export default function QuestionExplanationModal({
     if (prevQKeyRef.current !== qKey) {
       prevQKeyRef.current = qKey
       setCurrentExplanation(exp)
+      setReviewError(null)
       // Bước 1
       setEditPredict(exp?.predict || '')
       setEditQuestionChunks(Array.isArray(exp?.question_chunks) ? exp.question_chunks.map(c => ({ text: c.text || '', label: c.label || '' })) : [])
@@ -315,7 +350,7 @@ export default function QuestionExplanationModal({
 
   if (!isOpen || !question) return null
 
-  const statusInfo = getExplanationStatusInfo(currentExplanation)
+  const statusInfo = getExplanationStatusInfo(currentExplanation, { runStatus, runErrorMessage })
   const qNum = question.number
   const qId = question.id || qNum
 
@@ -384,6 +419,7 @@ export default function QuestionExplanationModal({
   // ─── 4.5 REVIEW HANDLER ───────────────────────────────────────────────────
   const handleReview = async () => {
     setIsReviewing(true)
+    setReviewError(null)
     try {
       const url = isPractice
         ? `/practice/admin/${skill}/${examId}/questions/${qNum}/review-explanation`
@@ -399,7 +435,7 @@ export default function QuestionExplanationModal({
       }
     } catch (err) {
       console.error('[REVIEW ERROR]', err)
-      alert(err?.response?.data?.message || err?.message || 'Lỗi khi duyệt lời giải.')
+      setReviewError(err?.response?.data?.message || err?.message || 'Không duyệt được lời giải. Vui lòng thử lại.')
     } finally {
       setIsReviewing(false)
     }
@@ -1128,6 +1164,23 @@ export default function QuestionExplanationModal({
             </div>
           )}
         </div>
+
+        {activeTab === 'view' && reviewError && (
+          <div
+            role="alert"
+            className="mt-3 rounded-xl border border-rose-300 bg-rose-50 px-3.5 py-2.5 text-xs text-rose-800 flex items-start justify-between gap-3"
+          >
+            <span className="leading-relaxed">{reviewError}</span>
+            <button
+              type="button"
+              onClick={handleReview}
+              disabled={isReviewing || isAIBusy}
+              className="shrink-0 px-2.5 py-1 rounded-lg border border-rose-300 bg-white text-rose-800 font-semibold hover:bg-rose-100 transition cursor-pointer disabled:opacity-50"
+            >
+              {isReviewing ? 'Đang thử...' : 'Thử lại'}
+            </button>
+          </div>
+        )}
 
         {/* Modal Footer */}
         <div className="pt-4 border-t border-zinc-100 flex items-center justify-end shrink-0 gap-3">

@@ -482,6 +482,9 @@ export function mergeExamExplanations(currentForm, freshExam, resolvedChoices = 
  * @param {AbortSignal} [params.signal] - AbortSignal for user cancellation
  * @param {Function} [params.onProgress] - ({ current, total, remainingCount, data }) => void
  * @param {Function} [params.onChunkSuccess] - async (chunkData) => void (e.g. sync form/draft)
+ * @param {number} [params.maxIterations=20] - Safety cap for chained requests
+ * @param {number[]} [params.initialQuestionNumbers] - Only generate these numbers first
+ *   (used by "Thử lại câu lỗi" so the first request does not regenerate the whole group)
  * @returns {Promise<{
  *   ok: boolean,
  *   hasConflicts: boolean,
@@ -499,8 +502,11 @@ export async function executeTimedAIGenerationLoop({
   onProgress = null,
   onChunkSuccess = null,
   maxIterations = 20,
+  initialQuestionNumbers = null,
 }) {
-  let remainingNumbers = null
+  let remainingNumbers = Array.isArray(initialQuestionNumbers) && initialQuestionNumbers.length > 0
+    ? [...initialQuestionNumbers]
+    : null
   let totalQuestions = null
   let totalGenerated = 0
   const accumulatedConflicts = []
@@ -577,6 +583,7 @@ export async function executeTimedAIGenerationLoop({
 
     // 3.3(c): Nếu backend không trả remainingQuestionNumbers (bản backend cũ trong lúc deploy) thì coi là đã xong, không lặp, không lỗi
     if (data.remainingQuestionNumbers === undefined) {
+      remainingNumbers = []
       if (typeof onProgress === 'function') {
         onProgress({
           current: totalQuestions !== null ? totalQuestions : totalGenerated,
@@ -601,6 +608,7 @@ export async function executeTimedAIGenerationLoop({
       ? data.remainingQuestionNumbers
       : []
 
+    remainingNumbers = remaining
     const remainingCount = remaining.length
     const currentCompleted = totalQuestions !== null ? (totalQuestions - remainingCount) : totalGenerated
 
@@ -646,7 +654,7 @@ export async function executeTimedAIGenerationLoop({
   }
 
   // 3.3(b): Giới hạn tối đa số vòng (20 vòng)
-  if (iteration >= maxIterations && remainingNumbers && remainingNumbers.length > 0) {
+  if (!isCancelled && accumulatedErrors.length === 0 && iteration >= maxIterations && remainingNumbers && remainingNumbers.length > 0) {
     accumulatedErrors.push({
       message: `Đã đạt giới hạn tối đa ${maxIterations} vòng gọi AI. Các câu đã sinh được giữ lại, vui lòng thử lại sau cho các câu còn lại.`,
     })
@@ -659,6 +667,7 @@ export async function executeTimedAIGenerationLoop({
     needsRetryQuestions: accumulatedNeedsRetry,
     needsRetryCount: accumulatedNeedsRetry.length,
     totalGenerated,
+    remainingQuestionNumbers: remainingNumbers,
     totalQuestions: totalQuestions || totalGenerated,
     cancelled: isCancelled,
     errors: accumulatedErrors,

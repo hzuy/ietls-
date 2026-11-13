@@ -63,6 +63,32 @@ describe('ExplanationChipGrid', () => {
     expect(screen.getByText('Đã duyệt')).toBeInTheDocument()
   })
 
+  it('shows per-question run status (lỗi / cần kiểm tra) with the failure reason as tooltip', () => {
+    const questions = [{ number: 1 }, { number: 2 }, { number: 3 }]
+    render(
+      <ExplanationChipGrid
+        questions={questions}
+        runStatusByNumber={{ 1: 'error', 2: 'retry', 3: 'done' }}
+        runErrorMessageByNumber={{ 1: 'AI phản hồi quá lâu nên chưa có kết quả.' }}
+      />
+    )
+
+    expect(screen.getByText('Lỗi')).toBeInTheDocument()
+    expect(screen.getByText('Cần kiểm tra')).toBeInTheDocument()
+
+    const errorChip = screen.getByRole('button', { name: /Câu 1/i })
+    expect(errorChip).toHaveAttribute('title', expect.stringContaining('AI phản hồi quá lâu'))
+
+    const retryChip = screen.getByRole('button', { name: /Câu 2/i })
+    expect(retryChip).toHaveAttribute('title', expect.stringContaining('kết quả dự phòng chưa chắc chắn'))
+
+    // Câu 3 đã xong: không có nhãn lỗi, giữ tooltip mặc định.
+    expect(screen.getByRole('button', { name: /Câu 3/i })).toHaveAttribute(
+      'title',
+      expect.stringContaining('Xem, duyệt')
+    )
+  })
+
   it('triggers onSelectQuestion callback with question, qNum, and explanation', () => {
     const handleSelect = vi.fn()
     const questions = [

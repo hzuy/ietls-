@@ -4,7 +4,7 @@ import QuestionTypePicker from './QuestionTypePicker'
 import ListeningContentPreview from '../practice/ListeningContentPreview'
 import AdditionalTaskEditor from './editors/AdditionalTaskEditor'
 import { GROUP_TYPE_ALIASES } from '../../utils/questionTypes'
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { queryClient } from '../../lib/queryClient'
 import api from '../../utils/axios'
 import { showAlert } from '../../utils/alertUtils'
@@ -50,6 +50,19 @@ import { useAIExitGuard } from '../../hooks/useAIExitGuard'
 import AIGenerationStickyProgress from './AIGenerationStickyProgress'
 import AIGenerationExitConfirmModal from './AIGenerationExitConfirmModal'
 import AIGenerationResumeBanner from './AIGenerationResumeBanner'
+import ExplanationRunPanel from './ExplanationRunPanel'
+import { useToast } from '../../context/ToastContext'
+import {
+  createRunReport,
+  createBlockedReport,
+  addRunOutcome,
+  finishRunReport,
+  loadRunReport,
+  saveRunReport,
+  clearRunReport,
+  makeRunReportKey,
+  getRunReportCounts,
+} from '../../utils/explanationRunReport'
 import { DraftBanner } from './contentPageUI'
 import {
   smartMergeDraft,
@@ -76,7 +89,13 @@ function ListeningFormPreview({ form, showAnswers }) {
 
 // ─── GROUP EDITOR ─────────────────────────────────────────────────────────────
 
-function GroupEditor({ group = {}, onChange, onRemove, examId, passage = '', onGenerateGroupAI, isAIBusy, generatingGroupId, unsavedQuestionNumbers }) {
+function GroupEditor({
+  group = {}, onChange, onRemove, examId, passage = '', onGenerateGroupAI, isAIBusy, generatingGroupId,
+  generatingQuestionNumbers: generatingQuestionNumbersProp = null,
+  runStatusByNumber = null,
+  runErrorMessageByNumber = null,
+  unsavedQuestionNumbers,
+}) {
   const [selectedQModal, setSelectedQModal] = useState(null)
   const groupType = group?.type || 'fill_blank'
   const typeLabel = GROUP_TYPES.find(t => t.value === groupType)?.label || groupType
@@ -99,12 +118,17 @@ function GroupEditor({ group = {}, onChange, onRemove, examId, passage = '', onG
         )
       : []
 
-  const generatingQuestionNumbers = isCurrentGenerating
+  const fallbackGeneratingQuestionNumbers = isCurrentGenerating
     ? new Set(questionsList.map(q => q.number))
     : undefined
 
+  const generatingQuestionNumbers = generatingQuestionNumbersProp || fallbackGeneratingQuestionNumbers
+
   return (
-    <div className={`border ${theme.cardBorder} ${theme.cardBg} rounded-2xl overflow-hidden transition-all duration-200 mb-4 shadow-xs`}>
+    <div
+      data-explanation-group-id={group.id ?? group._id ?? undefined}
+      className={`border ${theme.cardBorder} ${theme.cardBg} rounded-2xl overflow-hidden transition-all duration-200 mb-4 shadow-xs`}
+    >
       <div className={`flex items-center gap-3 px-4 py-3 border-b ${theme.headerBg}`}>
         <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${theme.badge}`}>
           {typeLabel}
@@ -154,6 +178,8 @@ function GroupEditor({ group = {}, onChange, onRemove, examId, passage = '', onG
         onSelectQuestion={(data) => setSelectedQModal(data)}
         generatingQuestionNumbers={generatingQuestionNumbers}
         unsavedQuestionNumbers={unsavedQuestionNumbers}
+        runStatusByNumber={runStatusByNumber}
+        runErrorMessageByNumber={runErrorMessageByNumber}
       />
 
       <div className="p-4 space-y-3">
@@ -221,6 +247,8 @@ function GroupEditor({ group = {}, onChange, onRemove, examId, passage = '', onG
           initialExplanation={selectedQModal.explanation}
           passage={passage}
           isAIBusy={isAIBusy}
+          runStatus={runStatusByNumber?.[selectedQModal.qNum] ?? null}
+          runErrorMessage={runErrorMessageByNumber?.[selectedQModal.qNum] ?? null}
           onExplanationUpdated={(newExp, qNum) => {
             const targetNum = qNum || selectedQModal?.qNum
             const updatedQuestions = (group.questions || []).map(q =>
@@ -259,7 +287,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   const [loadingEdit, setLoadingEdit] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [showAnswers, setShowAnswers] = useState(false)
-  const showGlobalToast = showAlert
+  const { showToast } = useToast()
   const [draftBanner, setDraftBanner] = useState(null)
   const [editHighlight, setEditHighlight] = useState(false)
   const [generatingAI, setGeneratingAI] = useState(false)
@@ -273,8 +301,6 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   const pristineFormSigRef = useRef('')
 
   const examStats = useMemo(() => calculateExamExplanationStats(form), [form])
-
-  const showToast = showAlert
 
   const countProtectedQuestions = () => {
     let reviewedCount = 0
@@ -297,6 +323,170 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   const abortControllerRef = useRef(null)
   const pendingAIFnRef = useRef(null)
   const pristineExplanationsRef = useRef({})
+
+  // ─── Run report (UI-only, session scoped) ───────────────────────────────────
+  // Không ghi DB. Báo cáo giữ được khi F5 trong cùng phiên và tự mất sau 24h.
+  const runReportKey = useMemo(
+    () => (editingId ? makeRunReportKey('listening', editingId) : null),
+    [editingId]
+  )
+  const [runReport, setRunReport] = useState(null)
+  const [runStatusByNumber, setRunStatusByNumber] = useState({})
+  const runPanelRef = useRef(null)
+
+  useEffect(() => {
+    if (!runReportKey) {
+      setRunReport(null)
+      setRunStatusByNumber({})
+      return
+    }
+    setRunReport(loadRunReport(runReportKey))
+    setRunStatusByNumber({})
+  }, [runReportKey])
+
+  const persistRunReport = useCallback((next) => {
+    setRunReport(next)
+    if (runReportKey) saveRunReport(runReportKey, next)
+  }, [runReportKey])
+
+  const markRunStatus = useCallback((numbers, status) => {
+    if (!Array.isArray(numbers) || numbers.length === 0) return
+    setRunStatusByNumber(prev => {
+      const next = { ...prev }
+      for (const raw of numbers) {
+        const num = Number(raw)
+        if (!Number.isInteger(num) || num <= 0) continue
+        next[num] = status
+      }
+      return next
+    })
+  }, [])
+
+  // Bắt đầu một lần chạy mới: bỏ mọi trạng thái còn sót của lần trước để chip
+  // không hiển thị lỗi cũ cho những câu không nằm trong lần chạy này.
+  const beginRunStatus = useCallback((numbers, status = 'queued') => {
+    const next = {}
+    for (const raw of numbers || []) {
+      const num = Number(raw)
+      if (Number.isInteger(num) && num > 0) next[num] = status
+    }
+    setRunStatusByNumber(next)
+  }, [])
+
+  const clearPendingRunStatus = useCallback(() => {
+    setRunStatusByNumber(prev => {
+      const next = {}
+      for (const [key, value] of Object.entries(prev)) {
+        if (value !== 'queued' && value !== 'generating') next[key] = value
+      }
+      return next
+    })
+  }, [])
+
+  // Trạng thái cuối của một nhóm: lỗi > cần kiểm tra > xong. Khi huỷ, các câu
+  // chưa kịp sinh được trả về "không có trạng thái" thay vì báo xong sai.
+  const finalizeRunStatus = useCallback((numbers, loopResult, { cancelled = false } = {}) => {
+    const nums = (Array.isArray(numbers) ? numbers : []).map(Number).filter(n => Number.isInteger(n) && n > 0)
+    if (nums.length === 0) return
+    const errorNums = new Set((loopResult?.errors || []).map(e => Number(e?.number)).filter(Boolean))
+    const retryNums = new Set((loopResult?.needsRetryQuestions || [])
+      .map(item => Number(typeof item === 'object' ? item?.number : item))
+      .filter(Boolean))
+    const hasUnnumberedError = (loopResult?.errors || []).some(e => !Number(e?.number))
+
+    setRunStatusByNumber(prev => {
+      const next = { ...prev }
+      for (const num of nums) {
+        if (retryNums.has(num)) { next[num] = 'retry'; continue }
+        if (errorNums.has(num)) { next[num] = 'error'; continue }
+        if (hasUnnumberedError && !cancelled) {
+          // Lỗi không gắn với câu cụ thể (409/timeout cả nhóm): giữ nguyên các
+          // câu đã sinh xong, đánh dấu lỗi cho phần chưa xong.
+          if (next[num] !== 'done') next[num] = 'error'
+          continue
+        }
+        if (cancelled) {
+          if (next[num] === 'generating' || next[num] === 'queued') delete next[num]
+          continue
+        }
+        next[num] = 'done'
+      }
+      return next
+    })
+  }, [])
+
+  const applyChunkStatus = useCallback((sentNumbers, data) => {
+    const sent = (Array.isArray(sentNumbers) ? sentNumbers : []).map(Number).filter(Boolean)
+    const errors = (data?.errors || []).map(item => Number(item?.number)).filter(Boolean)
+    const retries = (data?.needsRetryQuestions || [])
+      .map(item => Number(typeof item === 'object' ? item?.number : item))
+      .filter(Boolean)
+    const remaining = Array.isArray(data?.remainingQuestionNumbers)
+      ? data.remainingQuestionNumbers.map(Number).filter(Boolean)
+      : null
+
+    setRunStatusByNumber(prev => {
+      const next = { ...prev }
+      for (const num of sent) {
+        if (next[num] === 'error' || next[num] === 'retry') continue
+        next[num] = 'done'
+      }
+      for (const num of errors) next[num] = 'error'
+      for (const num of retries) next[num] = 'retry'
+      for (const num of remaining || []) {
+        if (!next[num] || next[num] === 'done') next[num] = 'queued'
+      }
+      return next
+    })
+  }, [])
+
+  const focusExplanationGroup = useCallback((groupId) => {
+    if (groupId == null) return
+    const target = document.querySelector(`[data-explanation-group-id="${groupId}"]`)
+    if (!target) return
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    target.classList.add('ring-2', 'ring-amber-300')
+    setTimeout(() => target.classList.remove('ring-2', 'ring-amber-300'), 1600)
+  }, [])
+
+  const generatingQuestionNumbers = useMemo(() => {
+    const set = new Set()
+    for (const [num, status] of Object.entries(runStatusByNumber)) {
+      if (status === 'generating') set.add(Number(num))
+    }
+    return set
+  }, [runStatusByNumber])
+
+  const runErrorMessageByNumber = useMemo(() => {
+    const map = {}
+    for (const row of runReport?.rows || []) {
+      if (row.number != null) map[row.number] = row.message
+    }
+    return map
+  }, [runReport])
+
+  const runCounts = useMemo(() => getRunReportCounts(runReport), [runReport])
+
+  // Báo cáo "thành công trọn vẹn" không cần chiếm chỗ trên trang; chỉ hiện khi
+  // có lỗi, có câu cần kiểm tra, đang chạy, bị huỷ hoặc bị gián đoạn.
+  const runReportForPanel = useMemo(() => {
+    if (!runReport) return null
+    if (runReport.status === 'done' && (runReport.needsRetry || []).length === 0) return null
+    return runReport
+  }, [runReport])
+
+  const groupNumbersOf = useCallback((group) => {
+    if (!group) return []
+    if (Array.isArray(group.questions) && group.questions.length > 0) {
+      return group.questions.map(q => Number(q?.number)).filter(Boolean)
+    }
+    const start = Number(group.qNumberStart)
+    const end = Number(group.qNumberEnd)
+    if (!Number.isInteger(start) || !Number.isInteger(end) || end < start) return []
+    const list = []
+    for (let num = start; num <= end; num++) list.push(num)
+    return list
+  }, [])
 
   // Concurrency lock, multi-tab sync, grace window & exit confirmation hook
   const expLock = useExplanationGenerationLock({
@@ -406,9 +596,13 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     const val = validateExamListening(form, { isForAI: true })
     if (!val.isValid) {
       const msg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
-
-      showAlert(msg, 'error')
-
+      persistRunReport(createBlockedReport({
+        examId: editingId,
+        skill: 'listening',
+        message: `Có ${val.errors.length} lỗi cần sửa trước khi sinh giải thích.`,
+        details: String(msg).split('\n').filter(Boolean),
+      }))
+      showToast(`Chưa thể sinh AI: có ${val.errors.length} lỗi cần sửa. Xem chi tiết trong báo cáo.`, 'error')
       return
     }
     pendingAIFnRef.current = (opts) => handleGenerateSequentialAll(opts)
@@ -419,10 +613,22 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     proceedWithAIGeneration()
   }
 
+  const handleRetryFailedAI = (numbers) => {
+    if (!editingId || expLock.isLockedGenerate) return
+    pendingAIFnRef.current = (opts = {}) => handleGenerateSequentialAll({
+      ...opts, questionNumbers: numbers, overwriteProtected: false,
+    })
+    if (isExamFormDirty(form, pristineFormSigRef.current)) {
+      setUnsavedModalOpen(true)
+      return
+    }
+    pendingAIFnRef.current()
+  }
+
   const handleStartGenerateGroupAI = (group) => {
     if (!editingId || generatingAI) return
     if (!group || !group.id) {
-      showAlert('Vui lòng lưu đề thi trước khi sinh AI cho nhóm câu hỏi mới tạo.', 'info')
+      showToast('Vui lòng lưu đề thi trước khi sinh AI cho nhóm câu hỏi mới tạo.', 'info')
       return
     }
     pendingAIFnRef.current = (opts) => handleGenerateGroupAI(group, opts)
@@ -433,25 +639,42 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     proceedWithGroupAIGeneration(group)
   }
 
-  const handleGenerateGroupAI = async (group, { resolveChoices = {}, overwriteProtected = false } = {}) => {
+  const handleGenerateGroupAI = async (group, { resolveChoices = {}, overwriteProtected = false, questionNumbers = null } = {}) => {
     if (!editingId) return
     group = latestFormRef.current.sections.flatMap(p => p.questionGroups || []).find(g => (group?.id != null && g.id === group.id) || (group?._id != null && g._id === group._id)) || group
+
+    const isRetryScope = Array.isArray(questionNumbers) && questionNumbers.length > 0
+    const targetNumbers = isRetryScope
+      ? questionNumbers.map(Number).filter(n => Number.isInteger(n) && n > 0)
+      : groupNumbersOf(group)
+
     setGeneratingAI(true)
     setIsCancellingAI(false)
     isCancellingAIRef.current = false
     const abortController = new AbortController()
     abortControllerRef.current = abortController
     setGeneratingGroupId(group.id)
-    setAiProgress({ current: 0, total: 0, groupLabel: `nhóm câu ${group.qNumberStart}–${group.qNumberEnd}` })
+    setAiProgress({ current: 0, total: targetNumbers.length, groupLabel: `nhóm câu ${group.qNumberStart}–${group.qNumberEnd}` })
 
-    const totalTarget = group.questions?.length || (group.qNumberEnd - group.qNumberStart + 1) || 0
+    const totalTarget = targetNumbers.length
     expLock.startLocalGeneration({
       abortController,
       total: totalTarget,
       current: 0,
     })
 
+    const report = createRunReport({
+      examId: editingId,
+      skill: 'listening',
+      scope: isRetryScope ? 'retry' : 'group',
+      totalGroups: 1,
+      totalQuestions: totalTarget,
+    })
+    persistRunReport(report)
+    beginRunStatus(targetNumbers, 'generating')
+
     let loopResult = null
+    let caughtError = null
 
     try {
       loopResult = await executeTimedAIGenerationLoop({
@@ -464,7 +687,8 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         },
         basePayload: { force: true, overwriteProtected, resolveChoices },
         signal: abortController.signal,
-        onProgress: ({ current, total }) => {
+        initialQuestionNumbers: isRetryScope ? targetNumbers : null,
+        onProgress: ({ current, total, data }) => {
           const countText = total > 0 ? ` (${current}/${total} câu)` : ''
           const p = {
             current,
@@ -473,6 +697,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
           }
           setAiProgress(p)
           expLock.updateLocalProgress(p)
+          if (data) applyChunkStatus(targetNumbers, data)
         },
         onChunkSuccess: async () => {
           expLock.notifyChunkEnd({
@@ -491,30 +716,36 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         },
       })
 
+      finalizeRunStatus(targetNumbers, loopResult, { cancelled: Boolean(loopResult.cancelled) })
+      const nextReport = addRunOutcome(report, { group, loopResult, sentNumbers: targetNumbers })
+      persistRunReport(finishRunReport(nextReport, { cancelled: Boolean(loopResult.cancelled) }))
+
       if (loopResult.cancelled) {
-        showGlobalToast('Đã dừng tác vụ sinh AI. Các câu đã xong đã được lưu lại.', 'info')
+        showToast('Đã dừng tác vụ sinh AI. Các câu đã xong đã được lưu lại.', 'info')
       } else if (loopResult.hasConflicts) {
         setAiConflicts(loopResult.conflicts || [])
         setConflictModalOpen(true)
-      } else if (loopResult.errors?.length) {
-        const firstErr = loopResult.errors[0]
-        const msg = firstErr?.message || 'Không thể tạo giải thích cho nhóm này'
-        if (firstErr?.status === 409) {
-          showAlert(msg, 'warning')
-
-        } else {
-          showToast(msg)
-        }
+      } else if (loopResult.errors?.length || loopResult.needsRetryQuestions?.length) {
+        showToast('Một số câu chưa sinh được. Xem báo cáo để biết lý do và thử lại các câu lỗi.', 'error')
       } else {
         showToast(`Đã tạo giải thích cho nhóm câu ${group.qNumberStart}–${group.qNumberEnd}!`)
         setConflictModalOpen(false)
-        onRefresh()
       }
     } catch (err) {
-      if (err.response?.status === 409) {
-        showAlert(err.response?.data?.message || 'Đang có một tác vụ AI khác đang chạy cho đề thi này.', 'warning')
-      } else if (!abortController.signal.aborted && err.name !== 'CanceledError' && err.code !== 'ERR_CANCELED') {
-        showToast(err.response?.data?.message || 'Không thể tạo giải thích cho nhóm này')
+      caughtError = err
+      if (abortController.signal.aborted || err.name === 'CanceledError' || err.code === 'ERR_CANCELED') {
+        finalizeRunStatus(targetNumbers, null, { cancelled: true })
+        persistRunReport(finishRunReport(report, { cancelled: true }))
+        showToast('Đã dừng tác vụ sinh AI. Các câu đã xong đã được lưu lại.', 'info')
+      } else {
+        finalizeRunStatus(targetNumbers, { errors: [err] })
+        const nextReport = addRunOutcome(report, {
+          group,
+          loopResult: { errors: [err], totalGenerated: 0 },
+          sentNumbers: targetNumbers,
+        })
+        persistRunReport(finishRunReport(nextReport))
+        showToast('Không thể tạo giải thích cho nhóm này. Xem báo cáo để biết lý do.', 'error')
       }
     } finally {
       setGeneratingAI(false)
@@ -522,7 +753,10 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       setGeneratingGroupId(null)
       setAiProgress(null)
       abortControllerRef.current = null
-      expLock.endLocalGeneration({ completed: !loopResult?.cancelled, cancelled: Boolean(loopResult?.cancelled) })
+      const wasCancelled = Boolean(loopResult?.cancelled) || abortController.signal.aborted
+      const hadErrors = Boolean(loopResult?.errors?.length) || Boolean(caughtError)
+      expLock.endLocalGeneration({ completed: !wasCancelled && !hadErrors, cancelled: wasCancelled })
+      if (!wasCancelled) onRefresh()
     }
   }
 
@@ -531,33 +765,48 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     const val = validateExamListening(form, { isForAI: true })
     if (!val.isValid) {
       const msg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
-
-      showAlert(msg, 'error')
-
+      persistRunReport(createBlockedReport({
+        examId: editingId,
+        skill: 'listening',
+        message: `Có ${val.errors.length} lỗi cần sửa trước khi sinh giải thích.`,
+        details: String(msg).split('\n').filter(Boolean),
+      }))
+      showToast(`Chưa thể sinh AI: có ${val.errors.length} lỗi cần sửa. Xem chi tiết trong báo cáo.`, 'error')
       return
     }
+
+    const isRetryScope = Array.isArray(questionNumbers) && questionNumbers.length > 0
+    const requestedNumbers = isRetryScope
+      ? questionNumbers.map(Number).filter(n => Number.isInteger(n) && n > 0)
+      : null
+    const requestedSet = requestedNumbers ? new Set(requestedNumbers) : null
 
     let allGroups = (latestFormRef.current.sections || []).flatMap(s => s.questionGroups || [])
       .filter(g => !isExplanationUnsupportedGroup(g) && (g.questions?.length > 0 || (g.qNumberEnd >= g.qNumberStart)))
 
-    if (questionNumbers && Array.isArray(questionNumbers) && questionNumbers.length > 0) {
-      const qNumSet = new Set(questionNumbers.map(Number))
-      allGroups = allGroups.filter(g => {
-        const start = g.qNumberStart
-        const end = g.qNumberEnd
-        for (let n = start; n <= end; n++) {
-          if (qNumSet.has(n)) return true
-        }
-        return false
-      })
+    if (requestedSet) {
+      allGroups = allGroups.filter(g => groupNumbersOf(g).some(n => requestedSet.has(n)))
     }
 
     if (allGroups.length === 0) {
-      showAlert('Không có nhóm câu hỏi nào hỗ trợ tạo giải thích AI trong đề này.', 'info')
+      persistRunReport(createBlockedReport({
+        examId: editingId,
+        skill: 'listening',
+        message: 'Không có nhóm câu hỏi nào hỗ trợ tạo giải thích AI trong đề này.',
+        details: ['Hãy kiểm tra lại loại câu hỏi của đề trước khi sinh giải thích.'],
+      }))
+      showToast('Không có nhóm câu hỏi nào hỗ trợ sinh giải thích AI. Xem chi tiết trong báo cáo.', 'info')
       return
     }
 
-    const totalQuestions = allGroups.reduce((acc, g) => acc + (g.questions?.length || (g.qNumberEnd - g.qNumberStart + 1)), 0)
+    const numbersForGroup = (group) => {
+      const nums = groupNumbersOf(group)
+      if (!requestedSet) return nums
+      return nums.filter(n => requestedSet.has(n))
+    }
+
+    const plannedNumbers = allGroups.flatMap(numbersForGroup)
+    const totalQuestions = plannedNumbers.length
 
     setGeneratingAI(true)
     setIsCancellingAI(false)
@@ -572,14 +821,28 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       current: 0,
     })
 
+    const report = createRunReport({
+      examId: editingId,
+      skill: 'listening',
+      scope: isRetryScope ? 'retry' : 'all',
+      totalGroups: allGroups.length,
+      totalQuestions,
+    })
+    persistRunReport(report)
+    beginRunStatus(plannedNumbers, 'queued')
+
     let totalGenerated = 0
     const accumulatedConflicts = []
-    const failedGroups = []
+    let latestReport = report
+    let failedGroupCount = 0
+    let stoppedByBusy = false
 
     for (let i = 0; i < allGroups.length; i++) {
       if (isCancellingAIRef.current || abortController.signal.aborted) break
       const group = allGroups[i]
+      const groupNums = numbersForGroup(group)
       setGeneratingGroupId(group.id)
+      markRunStatus(groupNums, 'generating')
       const groupLabel = `nhóm ${i + 1}/${allGroups.length} (Câu ${group.qNumberStart}–${group.qNumberEnd})`
       setAiProgress({ current: i + 1, total: allGroups.length, groupLabel })
 
@@ -598,7 +861,8 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
           },
           basePayload: { force: true, overwriteProtected, resolveChoices },
           signal: abortController.signal,
-          onProgress: ({ current, total }) => {
+          initialQuestionNumbers: requestedSet ? groupNums : null,
+          onProgress: ({ current, total, data }) => {
             const subCountText = total > 0 ? ` [${current}/${total} câu]` : ''
             const p = {
               current: i + 1,
@@ -611,6 +875,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
               total: totalQuestions,
               label: `${totalGenerated + current}/${totalQuestions} câu`,
             })
+            if (data) applyChunkStatus(groupNums, data)
           },
           onChunkSuccess: async () => {
             expLock.notifyChunkEnd({
@@ -634,43 +899,48 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
           accumulatedConflicts.push(...loopResult.conflicts)
         }
 
+        finalizeRunStatus(groupNums, loopResult, { cancelled: Boolean(loopResult.cancelled) })
+        latestReport = addRunOutcome(latestReport, { group, loopResult, sentNumbers: groupNums })
+        persistRunReport(latestReport)
+
         if (loopResult.cancelled) break
         if (loopResult.errors?.length) {
-          const firstErr = loopResult.errors[0]
-          const msg = firstErr?.message || 'Lỗi khi tạo giải thích'
-          if (firstErr?.status === 409) {
-            showAlert(msg, 'warning')
-
+          failedGroupCount++
+          if (loopResult.errors.some(e => e?.status === 409)) {
+            stoppedByBusy = true
             break
-          } else {
-            failedGroups.push({ group, error: msg })
-            showToast(`Nhóm câu ${group.qNumberStart}–${group.qNumberEnd}: ${msg}`)
           }
         }
       } catch (err) {
+        if (abortController.signal.aborted || err.name === 'CanceledError' || err.code === 'ERR_CANCELED') break
+        failedGroupCount++
+        finalizeRunStatus(groupNums, { errors: [err] })
+        latestReport = addRunOutcome(latestReport, {
+          group,
+          loopResult: { errors: [err], totalGenerated: 0 },
+          sentNumbers: groupNums,
+        })
+        persistRunReport(latestReport)
         if (err.response?.status === 409) {
-          const msg = err.response?.data?.message || 'Đang có một tác vụ AI khác đang chạy cho đề thi này. Vui lòng chờ hoàn thành.'
-          showAlert(msg, 'warning')
+          stoppedByBusy = true
           break
         }
-        if (abortController.signal.aborted || err.name === 'CanceledError' || err.code === 'ERR_CANCELED') {
-          break
-        }
-        const msg = err.response?.data?.message || err.message
-        failedGroups.push({ group, error: msg })
-        showToast(`Nhóm câu ${group.qNumberStart}–${group.qNumberEnd}: ${msg}`)
       }
 
       if (isCancellingAIRef.current) break
     }
 
+    const wasAborted = isCancellingAIRef.current || abortController.signal.aborted
     setGeneratingAI(false)
     setIsCancellingAI(false)
     setGeneratingGroupId(null)
     setAiProgress(null)
-    const wasAborted = isCancellingAIRef.current || abortController.signal.aborted
+    clearPendingRunStatus()
     abortControllerRef.current = null
-    expLock.endLocalGeneration({ completed: !wasAborted, cancelled: Boolean(wasAborted) })
+    expLock.endLocalGeneration({ completed: !wasAborted && failedGroupCount === 0, cancelled: Boolean(wasAborted) })
+
+    const finishedReport = finishRunReport(latestReport, { cancelled: wasAborted })
+    persistRunReport(finishedReport)
 
     try {
       const fresh = await api.get(`/admin/exams/${editingId}`)
@@ -682,12 +952,15 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
 
     onRefresh()
 
+    const counts = getRunReportCounts(finishedReport)
     if (wasAborted) {
-      showGlobalToast('Đã dừng tác vụ sinh AI. Các câu đã xong đã được lưu lại.', 'info')
-    } else if (failedGroups.length > 0) {
-      showAlert(
-        `Đã hoàn thành ${allGroups.length - failedGroups.length}/${allGroups.length} nhóm. Các nhóm gặp lỗi: ${failedGroups.map(f => `Câu ${f.group.qNumberStart}-${f.group.qNumberEnd}`).join(', ')}. Bạn có thể bấm "Sinh AI nhóm này" để thử lại.`,
-        'warning'
+      showToast('Đã dừng tác vụ sinh AI. Các câu đã xong đã được lưu lại.', 'info')
+    } else if (stoppedByBusy) {
+      showToast('Tiến trình AI khác đang chạy cho đề này. Xem báo cáo để biết phần đã xong.', 'warning')
+    } else if (counts.errors > 0 || counts.needsRetry > 0) {
+      showToast(
+        `Đã sinh ${counts.generated}/${totalQuestions} câu. Còn ${counts.errors} lỗi và ${counts.needsRetry} câu cần kiểm tra — xem báo cáo để thử lại.`,
+        'error'
       )
     } else {
       showToast(`Đã tạo giải thích thành công cho toàn bộ ${allGroups.length} nhóm (${totalGenerated} câu)!`)
@@ -999,6 +1272,8 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
           isGenerating={expLock.isGenerating}
           isCancelling={expLock.isCancelling}
           progress={expLock.localProgress}
+          runErrorCount={runCounts.errors}
+          runAttentionCount={runCounts.needsRetry}
           onCancel={handleCancelAI}
         />
 
@@ -1012,7 +1287,12 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
                 {form.title ? `Đang sửa đề: ${form.title}` : `Đang sửa đề ${editingId}`}
               </span>
               <div className="flex shrink-0 items-center gap-2">
-                <ExamExplanationOverviewBadge stats={examStats} />
+                <ExamExplanationOverviewBadge
+                  stats={examStats}
+                  runErrorCount={runCounts.errors}
+                  runAttentionCount={runCounts.needsRetry}
+                  onOpenRunPanel={() => runPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                />
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
@@ -1057,6 +1337,20 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
             </div>
           </div>
         )}
+
+        <div ref={runPanelRef}>
+          <ExplanationRunPanel
+            report={expLock.isGenerating ? null : runReportForPanel}
+            onRetryFailed={expLock.isLockedGenerate ? undefined : handleRetryFailedAI}
+            onOpenGroup={focusExplanationGroup}
+            onDismiss={() => {
+              clearRunReport(runReportKey)
+              persistRunReport(null)
+              setRunStatusByNumber({})
+            }}
+            className="mb-4"
+          />
+        </div>
 
         <div className="mb-3">
           <label className={labelCls}>Tên đề</label>
@@ -1239,6 +1533,9 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
                               onGenerateGroupAI={editingId ? () => handleStartGenerateGroupAI(group) : null}
                               isAIBusy={generatingAI || expLock.isLockedOperation}
                               generatingGroupId={generatingGroupId}
+                              generatingQuestionNumbers={generatingQuestionNumbers}
+                              runStatusByNumber={runStatusByNumber}
+                              runErrorMessageByNumber={runErrorMessageByNumber}
                               unsavedQuestionNumbers={unsavedQuestionNumbers}
                             />
                           </div>
