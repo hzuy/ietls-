@@ -60,13 +60,14 @@ describe.each(['reading', 'listening'])('%s Practice AI reports', skill => {
     expect(window.alert).not.toHaveBeenCalled()
   })
 
-  it('renders provider errors in the report and keeps raw details collapsed', async () => {
+  it('renders provider errors with original details visible immediately', async () => {
     api.post.mockRejectedValueOnce({ response: { status: 429, data: { message: '429 gemini provider quota' } } })
     await open()
     fireEvent.click(screen.getByRole('button', { name: 'AI giải thích' }))
     const panel = await screen.findByTestId('explanation-run-panel')
     expect(within(panel).getAllByText(/Hệ thống AI đang quá tải/)).toHaveLength(2)
-    expect(panel.querySelector('details')).not.toHaveAttribute('open')
+    expect(panel.querySelector('details')).toHaveAttribute('open')
+    expect(within(panel).getByText(/Câu 1: 429 gemini provider quota/)).toBeVisible()
     expect(within(panel).getByRole('button', { name: 'Thử lại 2 câu lỗi' })).toBeEnabled()
     expect(window.alert).not.toHaveBeenCalled()
   })

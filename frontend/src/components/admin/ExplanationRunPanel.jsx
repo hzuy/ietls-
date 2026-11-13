@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle, CheckCircle2, ChevronDown, Copy, Loader2, RotateCcw, X,
 } from 'lucide-react'
@@ -57,9 +57,20 @@ export default function ExplanationRunPanel({
 }) {
   const [copied, setCopied] = useState(false)
   const [copyError, setCopyError] = useState(false)
+  const panelRef = useRef(null)
+  const revealedReportRef = useRef(null)
 
   const counts = useMemo(() => getRunReportCounts(report), [report])
   const retryNumbers = useMemo(() => retryableNumbers(report), [report])
+  const finishedReportKey = report?.finishedAt ? `${report.startedAt}:${report.finishedAt}` : null
+  const hasIssues = counts.errors > 0 || counts.needsRetry > 0
+
+  useEffect(() => {
+    if (isGenerating || !hasIssues || !finishedReportKey || revealedReportRef.current === finishedReportKey) return
+    revealedReportRef.current = finishedReportKey
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    panelRef.current?.scrollIntoView?.({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' })
+  }, [finishedReportKey, hasIssues, isGenerating])
 
   if (!report && !isGenerating) return null
 
@@ -89,10 +100,11 @@ export default function ExplanationRunPanel({
 
   return (
     <section
+      ref={panelRef}
       data-testid="explanation-run-panel"
       data-status={status}
       aria-label="Báo cáo sinh giải thích AI"
-      className={`rounded-xl border shadow-xs overflow-hidden [&_button]:focus-visible:outline-2 [&_button]:focus-visible:outline-offset-2 ${meta.tone} ${className}`}
+      className={`scroll-mt-28 rounded-xl border shadow-xs overflow-hidden [&_button]:focus-visible:outline-2 [&_button]:focus-visible:outline-offset-2 ${meta.tone} ${className}`}
     >
       <div className="px-3.5 py-3 flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-2.5 min-w-0">
@@ -217,7 +229,7 @@ export default function ExplanationRunPanel({
           )}
 
           {rows.some(row => row.technical) && (
-            <details className="rounded-lg border border-current/15 bg-white/60 px-2.5 py-2">
+            <details open className="rounded-lg border border-current/15 bg-white/60 px-2.5 py-2">
               <summary className="text-[11px] font-semibold cursor-pointer flex items-center gap-1">
                 <ChevronDown className="w-3 h-3" aria-hidden="true" />
                 Chi tiết kỹ thuật

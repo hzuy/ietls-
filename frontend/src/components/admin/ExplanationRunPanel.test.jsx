@@ -21,12 +21,34 @@ function partialReport() {
 }
 
 describe('ExplanationRunPanel', () => {
+  it('reveals completed failures once without requiring the teacher to find the report', () => {
+    const scroll = vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockClear()
+    const report = partialReport()
+    const { rerender } = render(<ExplanationRunPanel report={null} />)
+    rerender(<ExplanationRunPanel report={report} />)
+    expect(scroll).toHaveBeenCalledTimes(1)
+    expect(scroll).toHaveBeenCalledWith(expect.objectContaining({ block: 'start' }))
+    expect(screen.getByText(/Chi tiết kỹ thuật/).closest('details')).toHaveAttribute('open')
+    rerender(<ExplanationRunPanel report={{ ...report }} />)
+    expect(scroll).toHaveBeenCalledTimes(1)
+  })
   it('does not claim a successful copy when clipboard access is unavailable', async () => {
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined })
     render(<ExplanationRunPanel report={partialReport()} />)
     fireEvent.click(screen.getByRole('button', { name: 'Sao chép chi tiết' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Không sao chép được')
     expect(screen.queryByText('Đã sao chép')).not.toBeInTheDocument()
+  })
+  it('does not move the viewport for successful reports or unfinished generation', () => {
+    const scroll = vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockClear()
+    const success = finishRunReport(createRunReport({ examId: 10, skill: 'reading' }))
+    const { rerender } = render(<ExplanationRunPanel report={success} />)
+    expect(scroll).not.toHaveBeenCalled()
+    const failed = partialReport()
+    rerender(<ExplanationRunPanel report={failed} isGenerating />)
+    expect(scroll).not.toHaveBeenCalled()
+    rerender(<ExplanationRunPanel report={failed} />)
+    expect(scroll).toHaveBeenCalledTimes(1)
   })
   beforeEach(() => {
     vi.restoreAllMocks()
@@ -101,7 +123,7 @@ describe('ExplanationRunPanel', () => {
     expect(onOpenGroup).toHaveBeenCalledWith(201)
   })
 
-  it('keeps raw infrastructure messages inside a collapsed technical section', () => {
+  it('shows the original failure in an expanded technical section', () => {
     const report = finishRunReport(addRunOutcome(
       createRunReport({ examId: 10, skill: 'reading', totalQuestions: 1 }),
       {
@@ -115,7 +137,7 @@ describe('ExplanationRunPanel', () => {
 
     const summary = screen.getByText(/Chi tiết kỹ thuật/i)
     expect(summary).toBeInTheDocument()
-    expect(summary.closest('details')).not.toHaveAttribute('open')
+    expect(summary.closest('details')).toHaveAttribute('open')
     expect(screen.getByText(/429 Too Many Requests from gemini/)).toBeInTheDocument()
   })
 
