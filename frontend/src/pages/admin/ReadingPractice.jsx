@@ -1,5 +1,5 @@
 import ReadingPassagePreview from '../../components/practice/ReadingPassagePreview'
-import { needsParagraphLetters, paragraphLettersAlert, practiceParagraphLetters } from '../../utils/readingParagraphs'
+import { needsParagraphLetters, paragraphLettersAlert, practiceParagraphLetters, syncParagraphGroups } from '../../utils/readingParagraphs'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -305,7 +305,7 @@ export default function ReadingPractice() {
         : { groups: [] }
       const next = {
         title: data.title, passage: data.passage || '',
-        questionGroups: qData.groups || [],
+        questionGroups: syncParagraphGroups(qData.groups || [], data.passage || '', practiceParagraphLetters(qData.groups)),
         letteredParagraphs: practiceParagraphLetters(qData.groups),
         thumbnailUrl: data.thumbnailUrl,
         thumbPreview: resolveImg(data.thumbnailUrl),
@@ -350,7 +350,7 @@ export default function ReadingPractice() {
         title: form.title.trim(),
         passage: form.passage,
         thumbnailUrl: thumbnailUrl || null,
-        questions: form.questionGroups.map((group, index) => ({ ...group, letteredParagraphs: Boolean(form.letteredParagraphs), orderIndex: index }))
+        questions: syncParagraphGroups(form.questionGroups, form.passage, form.letteredParagraphs).map((group, index) => ({ ...group, letteredParagraphs: Boolean(form.letteredParagraphs), orderIndex: index }))
       }
       if (!editing) await createReadingPractice(body)
       else await updateReadingPractice(editing.id, body)
@@ -396,7 +396,7 @@ export default function ReadingPractice() {
     }
     const lastEnd = form.questionGroups.length > 0 ? form.questionGroups[form.questionGroups.length - 1].qNumberEnd : 0
     const newGroup = emptyReadingGroupOf(addGroupType, lastEnd + 1)
-    setForm(f => ({ ...f, questionGroups: [...f.questionGroups, newGroup] }))
+    setForm(f => ({ ...f, questionGroups: syncParagraphGroups([...f.questionGroups, newGroup], f.passage, f.letteredParagraphs) }))
     groupCollapse.reveal(newGroup._id)
   }
 
@@ -488,7 +488,7 @@ export default function ReadingPractice() {
           title: form.title.trim(),
           passage: form.passage,
           thumbnailUrl: thumbnailUrl || null,
-          questions: form.questionGroups.map((group, index) => ({ ...group, letteredParagraphs: Boolean(form.letteredParagraphs), orderIndex: index }))
+          questions: syncParagraphGroups(form.questionGroups, form.passage, form.letteredParagraphs).map((group, index) => ({ ...group, letteredParagraphs: Boolean(form.letteredParagraphs), orderIndex: index }))
         }
         await updateReadingPractice(editing.id, body)
         setIsDirty(false)
@@ -674,12 +674,12 @@ export default function ReadingPractice() {
                   </span>
                 </div>
                 <label className="mb-3 flex items-center gap-2 text-xs text-zinc-600 cursor-pointer">
-                  <input type="checkbox" checked={Boolean(form.letteredParagraphs)} onChange={e => setForm(f => ({ ...f, letteredParagraphs: e.target.checked }))} className="accent-zinc-900" />
+                  <input type="checkbox" checked={Boolean(form.letteredParagraphs)} onChange={e => { const checked = e.target.checked; setForm(f => ({ ...f, letteredParagraphs: checked, questionGroups: syncParagraphGroups(f.questionGroups, f.passage, checked) })) }} className="accent-zinc-900" />
                   Đoạn văn có ký hiệu chữ cái (A, B, C...) — dùng cho Matching Information và Matching Headings
                 </label>
                 <textarea
                   value={form.passage}
-                  onChange={e => setForm(f => ({ ...f, passage: e.target.value }))}
+                  onChange={e => { const passage = e.target.value; setForm(f => ({ ...f, passage, questionGroups: syncParagraphGroups(f.questionGroups, passage, f.letteredParagraphs) })) }}
                   placeholder="Nhập hoặc dán nội dung bài đọc (Passage) tại đây..."
                   className="w-full px-3 py-2.5 border border-zinc-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 resize-y font-mono bg-white text-zinc-900 placeholder:text-zinc-400 min-h-[320px] lg:h-[calc(100vh-450px)] lg:min-h-[280px]"
                   style={{ lineHeight: 1.7 }}

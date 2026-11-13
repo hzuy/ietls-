@@ -28,7 +28,7 @@ Thứ tự:
 2. ak-databases — schema/query nếu liên quan DB
 3. ak-backend-development — API Express
 4. ak-frontend-development + ak-react-best-practices — code React
-5. ak-ui-styling + ak-frontend-design + ak-ui-ux-pro-max — giao diện
+5. ak-ui-styling + ak-frontend-design + ak-ui-ux-pro-max + design-taste-frontend (taste-skill-main) + impeccable — giao diện
 6. ak-cook — triển khai tính năng theo pipeline có cấu trúc
 7. ak-mermaidjs-v11 — vẽ sơ đồ nếu cần minh họa
 

@@ -6,16 +6,22 @@ import { readingParagraphs } from '../../utils/readingParagraphs'
 const headingKey = index => ROMAN_KEYS[index] || String(index + 1)
 const paragraphKey = question => (question.questionText || '').split('|')[0].trim()
 
-export default function MatchingHeadingsEditor({ group, onChange, passage = '', letteredParagraphs = false }) {
+export default function MatchingHeadingsEditor({ group, onChange, passage = '', letteredParagraphs = false, sourceMode = 'paragraphs' }) {
+  const manual = sourceMode === 'manual'
   const original = group.matchingOptions || []
   const headings = original.map((h, i) => ({ ...h, letter: headingKey(i) }))
-  const questions = (group.questions || []).map(q => ({ ...q,
+  const questions = (group.questions || []).map((q, index) => ({ ...q,
+    ...(manual && !String(q.questionText || '').includes('|') && !/^[A-Z]$/.test(q.questionText || '') ? { questionText: `${String.fromCharCode(65 + index)}|${q.questionText || ''}` } : {}),
     correctAnswer: headings[original.findIndex(h => h.letter === q.correctAnswer)]?.letter || q.correctAnswer,
   }))
   const source = readingParagraphs(passage)
   const theme = getQuestionGroupTheme(group.type)
   const update = patch => onChange({ ...group, matchingOptions: headings, questions, ...patch })
-  const setQuestions = next => update({ questions: next.map((q, i) => ({ ...q, number: group.qNumberStart + i })), qNumberEnd: group.qNumberStart + Math.max(0, next.length - 1) })
+  const setQuestions = next => {
+    const explanations = group.explanations && Object.fromEntries(next.flatMap((question, index) =>
+      Object.hasOwn(group.explanations, question.number) ? [[group.qNumberStart + index, group.explanations[question.number]]] : []))
+    update({ questions: next.map((q, i) => ({ ...q, number: group.qNumberStart + i })), qNumberEnd: group.qNumberStart + Math.max(0, next.length - 1), ...(explanations ? { explanations } : {}) })
+  }
   const selectHeading = (key, answer) => {
     const existing = questions.find(q => paragraphKey(q) === key)
     const next = questions.filter(q => paragraphKey(q) !== key)
@@ -44,7 +50,28 @@ export default function MatchingHeadingsEditor({ group, onChange, passage = '', 
         <button type="button" aria-label={`Xóa heading ${h.letter}`} onClick={() => removeHeading(i)} className="p-2 text-zinc-500 hover:text-red-600">×</button>
       </div>)}
     </div>
-    {letteredParagraphs && <div className="space-y-2">
+    {manual && <div className="space-y-3">
+      <p className="text-xs leading-relaxed text-zinc-600">Nhập các đoạn hoặc đối tượng hiển thị trong câu hỏi và chọn heading đúng cho từng mục.</p>
+      {questions.map((question, index) => {
+        const key = paragraphKey(question)
+        const label = String(question.questionText || '').split('|').slice(1).join('|')
+        return <div key={question.id ?? index} className="grid grid-cols-[3rem_minmax(0,1fr)_2.5rem] items-start gap-x-3 gap-y-2">
+          <span className="pt-2 text-xs font-semibold text-zinc-700">Q{question.number}<span className="block font-normal">Mục {key}</span></span>
+          <AutoGrowTextarea aria-label={`Nội dung mục ${key}`} value={label} placeholder="Nội dung đoạn hoặc đối tượng cần ghép..." className="min-w-0 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 focus-visible:outline-2 focus-visible:outline-zinc-700"
+            onChange={event => update({ questions: questions.map((q, i) => i === index ? { ...q, questionText: `${key}|${event.target.value}` } : q) })} />
+          <Select multiline className="col-start-2 row-start-2 w-full" ariaLabel={`Heading đúng cho mục ${key}`} value={question.correctAnswer || ''}
+            onChange={answer => update({ questions: questions.map((q, i) => i === index ? { ...q, correctAnswer: answer } : q) })}
+            options={[{ value: '', label: '-- Chọn heading --' }, ...headings.filter(h => group.canReuse || h.letter === question.correctAnswer || !used.has(h.letter)).map(h => ({ value: h.letter, label: `${h.letter} — ${h.text}` }))]} />
+          <button type="button" aria-label={`Xóa mục ${key}`} onClick={() => setQuestions(questions.filter((_, i) => i !== index))} className="col-start-3 row-start-1 row-span-2 h-10 w-10 rounded-lg text-zinc-500 hover:bg-zinc-100 hover:text-red-700 focus-visible:outline-2 focus-visible:outline-zinc-700">×</button>
+        </div>
+      })}
+      <button type="button" onClick={() => {
+        let index = 0
+        while (questions.some(question => paragraphKey(question) === String.fromCharCode(65 + index))) index++
+        setQuestions([...questions, { questionText: `${String.fromCharCode(65 + index)}|`, correctAnswer: '' }])
+      }} className="w-full rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:border-zinc-500 hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-zinc-700">+ Thêm đoạn hoặc đối tượng</button>
+    </div>}
+    {!manual && letteredParagraphs && <div className="space-y-2">
       {!source.length && <p className="text-sm text-zinc-500">Nhập bài đọc phía trên để nối heading với đoạn văn.</p>}
       {source.map((_, i) => {
         const key = String.fromCharCode(65 + i)

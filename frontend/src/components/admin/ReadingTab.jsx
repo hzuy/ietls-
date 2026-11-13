@@ -1,5 +1,5 @@
 import { buildExamPayload, hydrateExamForm } from '../../utils/examAuthoring'
-import { needsParagraphLetters, paragraphLettersAlert } from '../../utils/readingParagraphs'
+import { needsParagraphLetters, paragraphLettersAlert, syncParagraphGroups } from '../../utils/readingParagraphs'
 import QuestionTypePicker from './QuestionTypePicker'
 import ReadingPassagePreview from '../practice/ReadingPassagePreview'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
@@ -906,6 +906,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   const updatePassage = (pi, field, val) => {
     const p = [...form.passages]
     p[pi] = { ...p[pi], [field]: val }
+    if (field === 'body' || field === 'letteredParagraphs') p[pi].questionGroups = syncParagraphGroups(p[pi].questionGroups, p[pi].body, p[pi].letteredParagraphs)
     setForm({ ...form, passages: p })
   }
 
@@ -916,7 +917,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     }
     const p = [...form.passages]
     const newGroup = emptyReadingGroupOf(type, 1) // start placeholder; recalc fixes it
-    p[pi] = { ...p[pi], questionGroups: [...p[pi].questionGroups, newGroup] }
+    p[pi] = { ...p[pi], questionGroups: syncParagraphGroups([...p[pi].questionGroups, newGroup], p[pi].body, p[pi].letteredParagraphs) }
     setForm({ ...form, passages: recalcAllGroupNumbers(p) })
     setAddingGroupPassage(null)
   }

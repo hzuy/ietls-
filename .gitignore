@@ -23,6 +23,13 @@ frontend/dist/
 coverage/
 **/coverage/
 
+# Local verification bundles and temporary browser fixtures
+/reports/
+frontend/.qa-*.jsx
+
+# Microsoft Office temporary lock files
+~$*.docx
+
 # Uploads (audio/images - không commit lên git)
 backend/uploads/*
 !backend/uploads/.gitkeep

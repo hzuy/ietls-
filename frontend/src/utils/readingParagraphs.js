@@ -9,3 +9,26 @@ export const practiceParagraphLetters = groups => {
   const setting = (groups || []).find(g => typeof g.letteredParagraphs === 'boolean')
   return setting ? setting.letteredParagraphs : (groups || []).some(g => needsParagraphLetters(g.type))
 }
+
+// Paragraph text belongs to the passage. Persist only its current letter choices,
+// never a second copy of the prose that can become stale after editing.
+export function paragraphMatchingOptions(passage, previous = []) {
+  return readingParagraphs(passage).map((_, index) => {
+    const letter = String.fromCharCode(65 + index)
+    const option = { ...(previous || []).find(item => (item.letter ?? item.optionLetter) === letter), letter, text: '' }
+    delete option.optionLetter
+    delete option.optionText
+    return option
+  })
+}
+
+export function syncParagraphGroups(groups = [], passage = '', letteredParagraphs = false) {
+  groups = groups || []
+  if (!letteredParagraphs) return groups
+  return groups.map(group => {
+    if (group.type !== 'matching_information') return group
+    const matchingOptions = paragraphMatchingOptions(passage, group.matchingOptions)
+    return JSON.stringify(matchingOptions) === JSON.stringify(group.matchingOptions)
+      ? group : { ...group, matchingOptions }
+  })
+}

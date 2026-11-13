@@ -7,15 +7,24 @@ import { getQuestionGroupTheme as getPracticeTheme } from '../../../utils/practi
 import { useToast } from '../../../context/ToastContext'
 import Select from '../Select'
 import { Upload } from 'lucide-react'
+import { paragraphMatchingOptions } from '../../../utils/readingParagraphs'
+import { relabelMatchingChoices } from '../../../utils/matchingChoices'
 
 export default function MatchingEditor({
-  group = {},
+  group: originalGroup = {},
   onChange,
   numberingMode = 'auto',
-  themeSource = 'admin'
+  themeSource = 'admin',
+  passage = '',
+  letteredParagraphs = false,
 }) {
   const { showToast } = useToast()
-  const groupType = group?.type || 'matching'
+  const groupType = originalGroup?.type || 'matching'
+  const isParagraph = groupType === 'matching_information'
+  const sourceLinked = isParagraph && letteredParagraphs
+  const group = sourceLinked
+    ? { ...originalGroup, matchingOptions: paragraphMatchingOptions(passage, originalGroup.matchingOptions) }
+    : isParagraph ? originalGroup : relabelMatchingChoices(originalGroup)
   const isMap = groupType === 'map_diagram'
   const theme = themeSource === 'practice'
     ? getPracticeTheme(groupType)
@@ -47,15 +56,15 @@ export default function MatchingEditor({
 
   const addOption = () => {
     const list = group.matchingOptions || []
-    const nextLetter = String.fromCharCode(65 + list.length)
+    const reserved = new Set([...list.map(option => option.letter ?? option.optionLetter), ...(group.questions || []).map(question => question.correctAnswer)])
+    let index = 0
+    while (reserved.has(String.fromCharCode(65 + index))) index++
+    const nextLetter = String.fromCharCode(65 + index)
     onChange({ ...group, matchingOptions: [...list, { letter: nextLetter, text: '' }] })
   }
 
   const removeOption = (oi) => {
-    onChange({
-      ...group,
-      matchingOptions: (group.matchingOptions || []).filter((_, i) => i !== oi)
-    })
+    onChange(relabelMatchingChoices(group, (group.matchingOptions || []).filter((_, i) => i !== oi)))
   }
 
   const addQuestion = () => {
@@ -137,25 +146,31 @@ export default function MatchingEditor({
 
       <div className={`${theme.subBoxBg} border ${theme.subBoxBorder} rounded-lg p-3.5`}>
         <div className="flex items-center justify-between mb-2">
-          <p className={`text-xs font-bold ${theme.subBoxText}`}>Danh sách lựa chọn (A, B, C...)</p>
+          <p className={`text-xs font-bold ${theme.subBoxText}`}>{isParagraph ? 'Các đoạn trong bài đọc' : 'Danh sách lựa chọn (A, B, C...)'}</p>
+          {!isParagraph && (
           <button
             type="button"
             onClick={addOption}
             className={`text-xs ${theme.subBoxText} font-medium hover:underline`}
           >
-            + Thêm
+            + Thêm lựa chọn
           </button>
+          )}
         </div>
+        {isParagraph ? <div className="space-y-2">
+          <p className="text-xs leading-relaxed text-zinc-600">{letteredParagraphs ? 'Danh sách tự cập nhật theo các đoạn cách nhau bằng dòng trống trong bài đọc.' : 'Bật “Đoạn văn có ký hiệu chữ cái (A, B, C...)” để đồng bộ với bài đọc.'}</p>
+          {sourceLinked && !options.length && <p className="text-sm text-zinc-600">Nhập nội dung bài đọc phía trên để có các đoạn A, B, C…</p>}
+          <div className="flex flex-wrap gap-2" aria-label="Danh sách đoạn văn">
+            {options.map(option => <span key={option.letter || option.optionLetter} className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs font-medium text-zinc-700">Đoạn {option.letter || option.optionLetter}</span>)}
+          </div>
+        </div> : (
         <div className="space-y-2">
           {(group.matchingOptions || []).map((mo, oi) => (
-            <div key={oi} className="flex items-center gap-2">
-              <input
-                className={`w-10 border ${theme.subBoxBorder} bg-white rounded px-1 py-1 text-xs text-center font-medium focus:outline-none`}
-                value={mo.letter || mo.optionLetter || ''}
-                onChange={e => updateOption(oi, 'letter', e.target.value)}
-              />
+            <div key={oi} className="flex items-start gap-2">
+              <span aria-label={`Ký hiệu lựa chọn ${mo.letter}`} className="w-12 shrink-0 py-2 text-center text-sm font-bold text-zinc-700">{mo.letter}</span>
               <AutoGrowTextarea
-                className={`flex-1 border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none`}
+                aria-label={`Nội dung lựa chọn ${mo.letter}`}
+                className={`min-w-0 flex-1 border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-sm text-zinc-900 placeholder:text-zinc-500 focus-visible:outline-2 focus-visible:outline-zinc-700`}
                 placeholder="Nội dung lựa chọn..."
                 value={mo.text || mo.optionText || ''}
                 onChange={e => updateOption(oi, 'text', e.target.value)}
@@ -163,50 +178,56 @@ export default function MatchingEditor({
               <button
                 type="button"
                 onClick={() => removeOption(oi)}
-                className="text-red-400 hover:text-red-600 text-xs"
+                aria-label={`Xóa lựa chọn ${mo.letter}`}
+                className="h-10 w-10 shrink-0 rounded-lg text-zinc-500 hover:bg-zinc-100 hover:text-red-700 focus-visible:outline-2 focus-visible:outline-zinc-700"
               >
                 ✕
               </button>
             </div>
           ))}
         </div>
+        )}
       </div>
 
       <div className="space-y-2">
         {(group.questions || []).map((q, qi) => (
-          <div key={qi} className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2 ${theme.subBoxBg} rounded-lg p-2.5 border ${theme.subBoxBorder}`}>
-            <span className={`text-xs font-bold ${theme.subBoxText} w-10 shrink-0`}>Q{q.number}:</span>
+          <div key={q.id ?? qi} className="grid grid-cols-[3rem_minmax(0,1fr)_2.5rem] items-start gap-x-3 gap-y-2">
+            <span className="pt-2 text-xs font-semibold text-zinc-700">Q{q.number}</span>
             <AutoGrowTextarea
-              className={`flex-1 border ${theme.subBoxBorder} bg-white rounded-lg px-2 py-1 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none`}
+              aria-label={`Nội dung câu ${q.number}`}
+              className="min-w-0 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 focus-visible:outline-2 focus-visible:outline-zinc-700"
               placeholder={isMap ? 'Tên mục (VD: Farm shop, Disabled entry...)' : 'Đối tượng cần matching (VD: Cafe, Shop...)'}
               value={q.questionText || ''}
               onChange={e => updateQ(qi, 'questionText', e.target.value)}
             />
             <Select multiline
-              className="col-start-2 w-full"
+              className="col-start-2 row-start-2 w-full"
               ariaLabel="Đáp án"
               value={q.correctAnswer || ''}
               onChange={v => updateQ(qi, 'correctAnswer', v)}
               options={[
                 { value: '', label: '-- Đáp án --' },
+                ...(q.correctAnswer && !options.some(option => (option.letter || option.optionLetter) === q.correctAnswer) ? [{ value: q.correctAnswer, label: `${isParagraph ? 'Đoạn' : 'Lựa chọn'} ${q.correctAnswer} — không còn tồn tại`, disabled: true }] : []),
                 ...options.filter(mo => {
                   if (noFilter) return true
                   const letter = mo.letter || mo.optionLetter
                   return group.canReuse || letter === q.correctAnswer || !usedAnswers.has(letter)
                 }).map(mo => {
                   const letter = mo.letter || mo.optionLetter
-                  const text = mo.text || mo.optionText || ''
-                  return { value: letter, label: text ? `${letter} - ${text}` : letter }
+                  const text = isParagraph ? '' : mo.text || mo.optionText || ''
+                  return { value: letter, label: isParagraph ? `Đoạn ${letter}` : text ? `${letter} - ${text}` : letter }
                 }),
               ]}
             />
             <button
               type="button"
               onClick={() => removeQuestion(qi)}
-              className="text-red-400 hover:text-red-600 text-xs"
+              aria-label={`Xóa câu ${q.number}`}
+              className="col-start-3 row-start-1 row-span-2 h-10 w-10 rounded-lg text-zinc-500 hover:bg-zinc-100 hover:text-red-700 focus-visible:outline-2 focus-visible:outline-zinc-700"
             >
               ✕
             </button>
+            {sourceLinked && q.correctAnswer && !options.some(option => option.letter === q.correctAnswer) && <p role="alert" className="col-start-2 text-xs text-red-700">Đoạn {q.correctAnswer} không còn trong bài đọc. Chọn lại đáp án trước khi lưu.</p>}
           </div>
         ))}
         <button

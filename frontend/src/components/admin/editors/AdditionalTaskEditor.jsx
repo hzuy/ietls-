@@ -5,10 +5,10 @@ import MatchingEditor from './MatchingEditor'
 import MatchingHeadingsEditor from '../../practice/MatchingHeadingsEditor'
 import ShortAnswerEditor from './ShortAnswerEditor'
 
-export default function AdditionalTaskEditor({ group, onChange, themeSource = 'admin', passage = '', letteredParagraphs = false }) {
+export default function AdditionalTaskEditor({ group, onChange, themeSource = 'admin', passage = '', letteredParagraphs = false, sourceMode = 'paragraphs' }) {
   const mechanic = questionMechanic(group.type)
   const update = changed => onChange({ ...changed, type: group.type })
-  const props = { group: { ...group, type: mechanic }, onChange: update, themeSource, passage, letteredParagraphs }
+  const props = { group: { ...group, type: mechanic }, onChange: update, themeSource, passage, letteredParagraphs, sourceMode }
   if (TEXT_COMPLETION_TYPES.includes(group.type)) return <NoteCompletionEditor {...props} group={group} />
   if (mechanic === 'short_answer') return <ShortAnswerEditor {...props} />
   if (mechanic === 'mcq' || mechanic === 'mcq_multi') return <MCQGroupEditor {...props} />

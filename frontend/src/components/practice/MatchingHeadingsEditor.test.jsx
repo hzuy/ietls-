@@ -14,6 +14,19 @@ function Harness({ onChange, passage = 'First paragraph\n\nSecond paragraph\n\nT
   return <MatchingHeadingsEditor group={group} passage={passage} letteredParagraphs={letteredParagraphs} onChange={g => { setGroup(g); onChange(g) }} />
 }
 describe('Matching headings from source passage', () => {
+  it('keeps explanation ownership when removing a middle manual target', () => {
+    const group = { ...initial, questions: [
+      { id: 10, number: 4, questionText: 'A|First', correctAnswer: 'i' },
+      { id: 20, number: 5, questionText: 'B|Second', correctAnswer: 'ii' },
+      { id: 30, number: 6, questionText: 'C|Third', correctAnswer: 'iii' },
+    ], explanations: { 4: { marker: 'first' }, 5: { marker: 'second' }, 6: { marker: 'third' } } }
+    const onChange = vi.fn()
+    render(<MatchingHeadingsEditor group={group} onChange={onChange} sourceMode="manual" />)
+    fireEvent.click(screen.getByLabelText('Xóa mục B'))
+    const next = onChange.mock.lastCall[0]
+    expect(next.questions.map(q => [q.id, q.number])).toEqual([[10, 4], [30, 5]])
+    expect(next.explanations).toEqual({ 4: { marker: 'first' }, 5: { marker: 'third' } })
+  })
   it('preserves an explicit Practice toggle and counts CRLF paragraphs consistently', () => {
     expect(readingParagraphs('First\r\nwrapped\r\n \r\nSecond\r\nwrapped')).toEqual(['First\nwrapped', 'Second\nwrapped'])
     expect(practiceParagraphLetters([{ type: 'matching_headings', letteredParagraphs: false }])).toBe(false)

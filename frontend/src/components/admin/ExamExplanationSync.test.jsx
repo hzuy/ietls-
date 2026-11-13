@@ -130,6 +130,9 @@ describe('Exam Explanation Sync & Dirty Handling (Batch 1)', () => {
 
     // 3. Teacher clicks "AI giải thích"
     const aiBtn = screen.getByRole('button', { name: /AI giải thích/i })
+    // Mount inspection temporarily disables generation while it checks the
+    // concurrency lock. A click before that check finishes is correctly ignored.
+    await waitFor(() => expect(aiBtn).toBeEnabled())
     fireEvent.click(aiBtn)
 
     // 4. Because form is dirty, UnsavedChangesAIModal MUST open
@@ -271,6 +274,7 @@ describe('Exam Explanation Sync & Dirty Handling (Batch 1)', () => {
 
     // Click AI explain
     const aiBtn = screen.getByRole('button', { name: /AI giải thích/i })
+    await waitFor(() => expect(aiBtn).toBeEnabled())
     fireEvent.click(aiBtn)
 
     // Unsaved changes modal opens

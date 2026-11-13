@@ -31,6 +31,16 @@ export function validateHeadingSource(group, passage) {
   return errors
 }
 
+export function validateParagraphSource(group, passage) {
+  if (group.type === 'matching_headings') return validateHeadingSource(group, passage)
+  if (group.type !== 'matching_information') return []
+  const paragraphs = readingParagraphs(passage)
+  return (group.questions || []).filter(question => {
+    const answer = String(question.correctAnswer || '').trim()
+    return answer && (!/^[A-Z]$/.test(answer) || !paragraphs[answer.charCodeAt(0) - 65])
+  }).map(question => `Câu ${question.number}: đoạn ${question.correctAnswer} không còn trong bài đọc`)
+}
+
 // Question types that require explicit questionText / prompt / statement
 const PROMPT_REQUIRED_TYPES = new Set([
   'mcq',
@@ -92,7 +102,7 @@ export function validatePracticeReading(form) {
     errors.push('Bài luyện tập phải có ít nhất một nhóm câu hỏi')
   } else {
     groups.forEach((group, gi) => {
-      errors.push(...validateHeadingSource(group, form.passage))
+      errors.push(...validateParagraphSource(group, form.passage))
       const qs = group.questions || []
       const gLabel = group.type || `Nhóm ${gi + 1}`
       if (!qs.length) {
@@ -199,7 +209,7 @@ export function validateExamReading(form, { isForAI = false } = {}) {
       }
       const groups = p.questionGroups || []
       groups.forEach((group, gi) => {
-        errors.push(...validateHeadingSource(group, p.body))
+        errors.push(...validateParagraphSource(group, p.body))
         const qs = group.questions || []
         const gLabel = group.type || `Nhóm ${gi + 1}`
         if (!qs.length) {

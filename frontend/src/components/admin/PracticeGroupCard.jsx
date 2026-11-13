@@ -185,7 +185,7 @@ export default function PracticeGroupCard({
                 className="accent-zinc-900" />
               <span className="text-xs text-zinc-600 font-medium">Cho phép dùng lại chữ cái (mỗi đoạn có thể khớp nhiều câu)</span>
             </label>
-            <MatchingEditor group={group} onChange={onChange} themeSource="practice" />
+            <MatchingEditor group={group} onChange={onChange} themeSource="practice" passage={passage} letteredParagraphs={letteredParagraphs} />
           </div>
         )}
         {(group.type === 'matching' || group.type === 'map_diagram') && (
@@ -218,7 +218,7 @@ export default function PracticeGroupCard({
                 className="accent-zinc-900" />
               <span className="text-xs text-zinc-600 font-medium">Cho phép dùng lại heading (heading có thể khớp nhiều đoạn)</span>
             </label>
-            <MatchingHeadingsEditor letteredParagraphs={letteredParagraphs} passage={passage} group={group} onChange={onChange} />
+            <MatchingHeadingsEditor sourceMode={skill === 'listening' ? 'manual' : 'paragraphs'} letteredParagraphs={letteredParagraphs} passage={passage} group={group} onChange={onChange} />
           </div>
         )}
       </div>

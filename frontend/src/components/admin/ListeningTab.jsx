@@ -166,7 +166,7 @@ function GroupEditor({ group = {}, onChange, onRemove, examId, passage = '', onG
             onChange={e => onChange({ ...group, instruction: e.target.value })} />
         </div>
 
-        {(Object.hasOwn(GROUP_TYPE_ALIASES, group.type) || group.type === 'short_answer' || group.type === 'matching_headings') && <AdditionalTaskEditor passage={passage} group={group} onChange={onChange}  />}
+        {(Object.hasOwn(GROUP_TYPE_ALIASES, group.type) || group.type === 'short_answer' || group.type === 'matching_headings') && <AdditionalTaskEditor sourceMode="manual" passage={passage} group={group} onChange={onChange}  />}
         {group.type === 'note_completion' && (
           <NoteCompletionEditor group={group} onChange={onChange} />
         )}

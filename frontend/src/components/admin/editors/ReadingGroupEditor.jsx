@@ -157,7 +157,7 @@ export default function ReadingGroupEditor({
                 className="accent-zinc-900" />
               <span className="text-xs text-zinc-600 font-medium">Cho phép dùng lại chữ cái (mỗi đoạn có thể khớp nhiều câu)</span>
             </label>
-            <MatchingEditor group={group} onChange={onChange} />
+            <MatchingEditor group={group} onChange={onChange} passage={passage} letteredParagraphs={letteredParagraphs} />
           </div>
         )}
         {group.type === 'drag_word_bank' && (

@@ -1,3 +1,5 @@
+import { syncParagraphGroups } from './readingParagraphs'
+
 const savedId = value => Number.isSafeInteger(value) && value > 0
 const optionsArray = value => {
   if (Array.isArray(value)) return value
@@ -15,7 +17,7 @@ export function buildExamPayload(form, skill) {
       ...(savedId(part.id) ? { id: part.id } : {}), number: part.number,
       ...(skill === 'reading' ? { title: part.title, subtitle: part.subtitle || null, letteredParagraphs: Boolean(part.letteredParagraphs), body: part.body }
         : { context: part.context || '', audioUrl: part.audioUrl || null, transcript: part.transcript || null }),
-      questionGroups: (part.questionGroups || []).map(g => ({
+      questionGroups: syncParagraphGroups(part.questionGroups, part.body, skill === 'reading' && part.letteredParagraphs).map(g => ({
         ...(savedId(g.id) ? { id: g.id } : { isNew: true }),
         type: g.type, qNumberStart: g.qNumberStart, qNumberEnd: g.qNumberEnd,
         instruction: g.instruction || '', imageUrl: g.imageUrl || null,
@@ -46,7 +48,7 @@ export function hydrateExamForm(exam, skill, previous) {
         id: part.id, number: part.number,
         ...(skill === 'reading' ? { title: part.title || '', subtitle: part.subtitle || '', body: part.body || '', letteredParagraphs: Boolean(part.letteredParagraphs) }
           : { context: part.context || '', audioUrl: part.audioUrl || '', transcript: part.transcript || '' }),
-        questionGroups: (part.questionGroups || []).map((g, gi) => {
+        questionGroups: syncParagraphGroups(part.questionGroups, part.body, skill === 'reading' && part.letteredParagraphs).map((g, gi) => {
           if (!Array.isArray(g.questions)) throw new Error('Phản hồi lưu đề thiếu ID câu hỏi. Vui lòng tải lại đề trước khi sửa tiếp.')
           const old = oldPart?.questionGroups?.find(o => o.id === g.id) || oldPart?.questionGroups?.[gi]
           return {
