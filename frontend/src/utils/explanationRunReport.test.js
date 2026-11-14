@@ -6,7 +6,7 @@ import {
   classifyRunError,
   createRunReport,
   createBlockedReport,
-  addRunOutcome, updateRunProgress, getRunProgress, redactRunTechnical, eligibleExplanationNumbers,
+  addRunOutcome, updateRunProgress, getRunProgress, redactRunTechnical, eligibleExplanationNumbers, activeRunFailure, reconcileRunReport,
   finishRunReport,
   getRunReportCounts,
   retryableNumbers,
@@ -27,6 +27,20 @@ const group = {
 }
 
 describe('explanationRunReport', () => {
+  it('distinguishes save errors from provider outages and reports actual deadline phases', () => {
+    expect(classifyRunError({ status: 503, code: 'AI_SAVE_FAILED', causeCode: 'P2028', phase: 'saving' }))
+      .toMatchObject({ kind: 'save', causeCode: 'P2028', phase: 'saving', message: expect.stringContaining('cơ sở dữ liệu') })
+    expect(classifyRunError({ code: 'AI_QUESTION_TIMEOUT', phase: 'queued', timeoutMs: 33680 }))
+      .toMatchObject({ kind: 'timeout', message: 'Hết thời gian chờ lượt gọi AI sau 33,7 giây.' })
+  })
+  it('keeps old explanations and failures separate and clears only a demonstrably newer saved version', () => {
+    const failure = { number: 2, message: 'timeout', failedAt: '2026-11-14T06:49:22Z' }
+    expect(activeRunFailure({ updatedAt: '2026-11-14T04:54:30Z' }, 'error', failure)).toBe(failure)
+    expect(activeRunFailure({ updatedAt: '2026-11-14T06:50:00Z' }, 'error', failure)).toBeNull()
+    const report = { status: 'partial', rows: [failure], needsRetry: [] }
+    expect(reconcileRunReport(report, [{ questions: [{ number: 2, explanation: { updatedAt: '2026-11-14T06:50:00Z' } }] }])).toBeNull()
+    expect(reconcileRunReport(report, [{ questions: [{ number: 2, explanation: { updatedAt: '2026-11-14T04:54:30Z' } }] }])).toBe(report)
+  })
   it('counts only eligible questions when protected explanations are kept', () => {
     const protectedGroup = { questions: [
       { number: 1, explanation: { status: 'teacher_reviewed' } },

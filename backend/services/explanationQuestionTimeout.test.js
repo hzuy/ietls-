@@ -32,6 +32,24 @@ describe.each(['exam', 'practice'])('%s question deadline', kind => {
   })
   afterEach(() => vi.useRealTimers())
 
+  it('allows a 5.323-second save within the remaining hard request budget', async () => {
+    generateExplanation.mockResolvedValue({ v: 2, answer: 'nine', reasoning: 'The passage gives the opening time.' })
+    prismaMock.$transaction.mockImplementationOnce(async (callback, options) => {
+      if (!options || options.timeout < 5323) throw Object.assign(new Error('Transaction already closed'), { code: 'P2028' })
+      expect(options.timeout + options.maxWait).toBeLessThan(48000)
+      return callback(prismaMock)
+    })
+    const result = await (kind === 'exam' ? service.generateForExam(10, { force: true }) : service.generateForPracticeExam(10, { force: true }))
+    expect(result.generatedCount).toBe(1)
+  })
+
+  it('reports a rolled-back save as a database failure without exposing internal details', async () => {
+    generateExplanation.mockResolvedValue({ v: 2, answer: 'nine', reasoning: 'The passage gives the opening time.' })
+    prismaMock.$transaction.mockRejectedValueOnce(Object.assign(new Error('Transaction not found: internal SQL details'), { code: 'P2028' }))
+    const pending = kind === 'exam' ? service.generateForExam(10, { force: true }) : service.generateForPracticeExam(10, { force: true })
+    await expect(pending).rejects.toMatchObject({ code: 'AI_SAVE_FAILED', phase: 'saving', causeCode: 'P2028', generatedCount: 0 })
+  })
+
   it('allows a provider result after 25 seconds instead of cutting it off at 20 seconds', async () => {
     generateExplanation.mockImplementation(() => new Promise(resolve => setTimeout(() => resolve({ v: 2, answer: 'nine', reasoning: 'The passage gives the opening time.' }), 25000)))
     const pending = kind === 'exam' ? service.generateForExam(10, { force: true }) : service.generateForPracticeExam(10, { force: true })

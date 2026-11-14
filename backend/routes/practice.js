@@ -1,3 +1,4 @@
+const { explanationFailureResponse } = require('../lib/explanationSave')
 const express = require('express')
 const multer = require('multer')
 const path = require('path')
@@ -678,7 +679,8 @@ router.post('/admin/:skill/:id/generate-explanations', authMiddleware, teacherSt
       return
     }
     console.error('[GENERATE PRACTICE EXPLANATIONS ERROR]', err)
-    res.status(500).json({ message: err.message || 'Lỗi khi tạo giải thích bằng AI' })
+    const failure = explanationFailureResponse(err)
+    res.status(failure?.status || 500).json(failure?.body || { message: err.message || 'Lỗi khi tạo giải thích bằng AI' })
   } finally {
     abort.dispose()
     releaseLock(lockKey)

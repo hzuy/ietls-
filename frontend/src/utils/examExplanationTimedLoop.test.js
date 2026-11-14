@@ -2,6 +2,15 @@ import { describe, it, expect, vi } from 'vitest'
 import { executeTimedAIGenerationLoop } from './examExplanationUtils'
 
 describe('executeTimedAIGenerationLoop', () => {
+  it('keeps the real database failure code and stage from an HTTP error response', async () => {
+    const fetchChunk = vi.fn().mockRejectedValue({ response: { status: 503, data: {
+      code: 'AI_SAVE_FAILED', causeCode: 'P2028', phase: 'saving', timeoutMs: 10000,
+      failedAt: '2026-11-14T06:53:44Z', message: 'Không lưu được kết quả AI.',
+    } } })
+    const result = await executeTimedAIGenerationLoop({ fetchChunk, initialQuestionNumbers: [2] })
+    expect(result.errors).toEqual([expect.objectContaining({ code: 'AI_SAVE_FAILED', phase: 'saving', causeCode: 'P2028', timeoutMs: 10000 })])
+    expect(fetchChunk).toHaveBeenCalledTimes(1)
+  })
   it.each([429, 503])('does not send more chunks after a service failure (%s)', async status => {
     const fetchChunk = vi.fn().mockResolvedValue({ generatedCount: 0, totalQuestions: 2,
       remainingQuestionNumbers: [1, 2], errors: [{ status, message: 'service unavailable' }] })

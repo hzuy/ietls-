@@ -127,7 +127,7 @@ export default function ListeningPractice() {
   const [protectedStats, setProtectedStats] = useState({ reviewedCount: 0, editedCount: 0 })
   const [aiProgress, setAiProgress] = useState(null)
   const aiReport = usePracticeExplanationReport({
-    skill: 'listening', practiceId: editing?.id, enabled: view === 'form',
+    skill: 'listening', practiceId: editing?.id, enabled: view === 'form', groups: form.questionGroups,
   })
   const isCancellingAIRef = useRef(false)
   const abortControllerRef = useRef(null)

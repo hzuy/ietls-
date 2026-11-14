@@ -1,0 +1,28 @@
+# AI explanation runtime hotfix — 2026-11-14
+
+## Confirmed failures
+
+Production logs for Reading exam 23 recorded question 2 timing out after 33,680 ms and question 5 after 20,840 ms. Read-only metadata showed those questions still held explanations from the earlier run. Separate group requests failed with Prisma P2028, including an interactive transaction exceeding its default 5,000 ms timeout at 5,323 ms.
+
+Source tracing found Gemini's 22-second network deadline was created before the rate-limit queue, shortening its actual network window. Explanation generation nested model retries inside provider retries, and the final transient attempt could wait unnecessarily. Forced Gemini mode could fall through to Groq after that branch.
+
+## Repair
+
+- Start Gemini's network timer inside the scheduled call. Explanation requests use a single model per attempt and no nested transport retries; the outer bounded retry/fallback policy remains. Forced Gemini and image constraints remain enforced.
+- Save batches with explicit transaction options: at most 2 seconds to acquire and 10 seconds to execute, reduced to fit the remaining 48-second HTTP budget. Skip empty saves. Preserve existing teacher-protection and concurrent-edit checks; no schema changes or automatic regeneration of production questions.
+- Surface rollback as `AI_SAVE_FAILED`, phase `saving`, with a safe cause code and failure timestamp. No raw SQL/credentials in that response. HTTP/client loops retain this metadata rather than converting it to a generic provider timeout.
+- Question deadlines carry phase/provider/model/cause information scoped to that question. UI errors distinguish queue wait, provider processing and database save, including the actual deadline duration.
+- Reports and question badges compare the saved explanation timestamp to the failure timestamp. Existing older explanations keep the warning; a demonstrably newer saved explanation supersedes it. The question modal identifies both timestamps and initializes from the saved explanation to avoid a false warning on its first frame.
+- Keep the minimal disclosure UI; no extra toast/modal. Technical details remain collapsed and redacted.
+
+Prisma's documented interactive transaction settings and rollback behavior: [transaction options](https://www.prisma.io/docs/orm/v6/prisma-client/queries/transactions#transaction-options). The project uses Prisma 5.22, which supports these options.
+
+## Verification
+
+- Six new reproduction cases failed before the repair; the targeted backend set passed afterward.
+- Full backend: 1,140 passed, 64 skipped integration cases requiring isolated development PostgreSQL. Local Docker engine was unavailable; no production data writes were substituted for integration testing.
+- Full frontend: 958 passed. An existing dirty-form synchronization test failed under the initial concurrent full run, passed alone, then passed in the full run with four workers. No weakening of its assertions.
+- Chromium: 12 scenarios across four editors verify old explanation/failure timestamps, queue timeout duration, database save labeling, and removal of a superseded warning. All requests use fixtures.
+- Production build and source syntax checks passed. Scoped ESLint has no errors; existing modal hook/refresh warnings remain. Frontend production dependency audit: zero findings. Backend retains the two previously documented moderate `exceljs → uuid` dependency findings; no dependencies changed.
+
+Deployment verification will use a bounded read-only `SELECT` transaction lasting over five seconds plus a synthetic Gemini JSON request. These probes do not generate or update real explanations.

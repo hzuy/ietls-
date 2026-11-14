@@ -1,3 +1,4 @@
+const { explanationFailureResponse } = require('../../../lib/explanationSave')
 const { ExamIdentityConflict, matchExistingGroup } = require('../../../lib/examIdentity')
 const express = require('express')
 const { sendServerError } = require('../../../lib/httpErrors')
@@ -161,7 +162,8 @@ router.post('/exams/:id/generate-explanations', authMiddleware, teacherOnly, aiE
       return
     }
     console.error('[GENERATE EXAM EXPLANATIONS ERROR]', err)
-    res.status(500).json({ message: err.message || 'Lỗi khi tạo giải thích bằng AI' })
+    const failure = explanationFailureResponse(err)
+    res.status(failure?.status || 500).json(failure?.body || { message: err.message || 'Lỗi khi tạo giải thích bằng AI' })
   } finally {
     abort.dispose()
     releaseLock(lockKey)
@@ -201,7 +203,8 @@ router.post('/exams/:id/groups/:groupId/generate-explanations', authMiddleware, 
       return
     }
     console.error('[GENERATE GROUP EXPLANATIONS ERROR]', err)
-    res.status(500).json({ message: err.message || 'Lỗi khi tạo giải thích cho nhóm câu hỏi' })
+    const failure = explanationFailureResponse(err)
+    res.status(failure?.status || 500).json(failure?.body || { message: err.message || 'Lỗi khi tạo giải thích cho nhóm câu hỏi' })
   } finally {
     abort.dispose()
     releaseLock(lockKey)

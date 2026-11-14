@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   addRunOutcome, clearRunReport, createBlockedReport, createRunReport,
-  finishRunReport, loadRunReport, makeRunReportKey, saveRunReport, updateRunProgress,
+  finishRunReport, loadRunReport, makeRunReportKey, saveRunReport, updateRunProgress, reconcileRunReport,
 } from '../utils/explanationRunReport'
 
 // Practice IDs and exam IDs may overlap: keep their session reports separate.
-export function usePracticeExplanationReport({ skill, practiceId, enabled }) {
+export function usePracticeExplanationReport({ skill, practiceId, enabled, groups }) {
   const key = enabled && practiceId ? makeRunReportKey(`practice_${skill}`, practiceId) : null
   const [report, setReport] = useState(null)
   const [statuses, setStatuses] = useState({})
@@ -94,6 +94,7 @@ export function usePracticeExplanationReport({ skill, practiceId, enabled }) {
   const generatingNumbers = useMemo(() => new Set(Object.keys(statuses)
     .filter(number => statuses[number] === 'generating').map(Number)), [statuses])
   const errorMessages = useMemo(() => Object.fromEntries((report?.rows || [])
-    .filter(row => row.number).map(row => [row.number, row.message])), [report])
-  return { report, statuses, generatingNumbers, errorMessages, start, progress, finish, block, dismiss }
+    .filter(row => row.number).map(row => [row.number, { ...row, failedAt: row.failedAt || report.finishedAt }])), [report])
+  const visibleReport = useMemo(() => reconcileRunReport(report, groups), [report, groups])
+  return { report: visibleReport, statuses, generatingNumbers, errorMessages, start, progress, finish, block, dismiss }
 }

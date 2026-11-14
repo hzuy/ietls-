@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import api from '../../utils/axios'
 import ReviewExplanation from '../exam/ReviewExplanation'
+import { activeRunFailure } from '../../utils/explanationRunReport'
 
 function AutoResizeTextarea({
   value = '',
@@ -55,6 +56,8 @@ export function getExplanationStatusInfo(explanation, {
   runStatus = null,
   runErrorMessage = null,
 } = {}) {
+  const failure = activeRunFailure(explanation, runStatus, runErrorMessage)
+  if (runStatus === 'error' && !failure) runStatus = null
   if (isGenerating || runStatus === 'generating') {
     return {
       status: 'generating',
@@ -77,8 +80,8 @@ export function getExplanationStatusInfo(explanation, {
       status: 'error',
       label: 'Lỗi sinh AI',
       chipLabel: 'Lỗi',
-      fullLabel: runErrorMessage
-        ? `Lỗi ở lần sinh gần nhất: ${runErrorMessage}`
+      fullLabel: failure?.message
+        ? `Lỗi ở lần sinh gần nhất: ${failure.message}`
         : 'Lỗi khi tạo giải thích bằng AI ở lần chạy gần nhất',
       badgeClass: 'bg-rose-50 text-rose-700 border-rose-300',
       dotClass: 'bg-rose-500',
@@ -264,7 +267,7 @@ export default function QuestionExplanationModal({
   runErrorMessage = null,
 }) {
   const [activeTab, setActiveTab] = useState('view') // 'view' | 'edit'
-  const [currentExplanation, setCurrentExplanation] = useState(null)
+  const [currentExplanation, setCurrentExplanation] = useState(() => question?.explanation || initialExplanation || null)
 
   // Edit tab state
   // Bước 1
@@ -356,7 +359,11 @@ export default function QuestionExplanationModal({
 
   if (!isOpen || !question) return null
 
-  const statusInfo = getExplanationStatusInfo(currentExplanation, { runStatus, runErrorMessage })
+  const currentFailure = activeRunFailure(currentExplanation, runStatus, runErrorMessage)
+  const effectiveRunStatus = runStatus === 'error' && !currentFailure ? null : runStatus
+  const statusInfo = getExplanationStatusInfo(currentExplanation, { runStatus: effectiveRunStatus, runErrorMessage })
+  const formatTime = value => Number.isFinite(Date.parse(value))
+    ? new Date(value).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : null
   const qNum = question.number
   const qId = question.id || qNum
 
@@ -561,7 +568,7 @@ export default function QuestionExplanationModal({
               <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
                 {question.type}
               </span>
-              <ExplanationStatusBadge explanation={currentExplanation} runStatus={runStatus} runErrorMessage={runErrorMessage} />
+              <ExplanationStatusBadge explanation={currentExplanation} runStatus={effectiveRunStatus} runErrorMessage={runErrorMessage} />
             </div>
             <div className="flex items-center gap-2 text-sm text-zinc-600">
               <span className="font-semibold text-zinc-800">Đáp án chuẩn:</span>
@@ -582,10 +589,10 @@ export default function QuestionExplanationModal({
           </button>
         </div>
 
-        {runStatus === 'error' && <div role="alert" className="my-3 shrink-0 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5">
-          <p className="m-0 text-sm font-semibold text-rose-800">Lần tạo giải thích mới bị lỗi</p>
-          <p className="mt-1 mb-0 text-sm text-rose-800">{runErrorMessage || 'Chưa nhận được kết quả AI cho câu này. Xem báo cáo lượt chạy để biết thêm chi tiết.'}</p>
-          <p className="mt-1 mb-0 text-xs text-zinc-600">{currentExplanation ? 'Lời giải cũ vẫn được giữ nguyên. ' : ''}{isAIBusy ? 'Có thể thử lại khi lượt hiện tại dừng.' : 'Quay lại báo cáo để thử lại câu lỗi; nếu thiếu dữ liệu, bổ sung trước khi tạo lại.'}</p>
+        {effectiveRunStatus === 'error' && <div role="alert" className="my-3 shrink-0 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5">
+          <p className="m-0 text-sm font-semibold text-rose-800">{currentFailure?.kind === 'save' ? 'Chưa lưu được lời giải mới' : 'Lần tạo giải thích mới bị lỗi'}</p>
+          <p className="mt-1 mb-0 text-sm text-rose-800">{currentFailure?.message || 'Chưa nhận được kết quả AI cho câu này. Xem báo cáo lượt chạy để biết thêm chi tiết.'}</p>
+          <p className="mt-1 mb-0 text-xs text-zinc-600">{formatTime(currentFailure?.failedAt) ? `Lần lỗi: ${formatTime(currentFailure.failedAt)}. ` : ''}{formatTime(currentExplanation?.updatedAt) ? `Đang xem lời giải lưu lúc ${formatTime(currentExplanation.updatedAt)}.` : currentExplanation ? 'Đang hiển thị lời giải đã lưu trước đó.' : ''}</p>
         </div>}
         {runStatus === 'retry' && <p className="my-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Kết quả AI dự phòng chưa đủ tin cậy. Kiểm tra lời giải và đáp án trước khi duyệt.</p>}
         {/* Tabs Bar */}

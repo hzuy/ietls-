@@ -101,6 +101,18 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
   })
 
   describe('Modal interactions', () => {
+    it('shows the actual failure and saved version times, then removes a superseded failure', () => {
+      const failure = { kind: 'timeout', message: 'Hết thời gian xử lý câu này sau 33,7 giây.', failedAt: '2026-11-14T06:49:22Z' }
+      const props = { isOpen: true, onClose: vi.fn(), examId: 10, question: { number: 2, correctAnswer: 'nine' },
+        runStatus: 'error', runErrorMessage: failure }
+      const { rerender } = render(<QuestionExplanationModal {...props} initialExplanation={{ answer: 'nine', updatedAt: '2026-11-14T04:54:30Z' }} />)
+      expect(screen.getByRole('alert')).toHaveTextContent('33,7 giây')
+      expect(screen.getByRole('alert')).toHaveTextContent('Lần lỗi:')
+      expect(screen.getByRole('alert')).toHaveTextContent('Đang xem lời giải lưu lúc')
+      rerender(<QuestionExplanationModal {...props} initialExplanation={{ answer: 'nine', updatedAt: '2026-11-14T06:50:00Z' }} />)
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      expect(screen.queryByText('Lỗi')).not.toBeInTheDocument()
+    })
     const sampleQuestion = {
       number: 1,
       questionText: 'What is the primary factor?',

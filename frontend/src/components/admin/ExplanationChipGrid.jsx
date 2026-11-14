@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react'
 import { Sparkles } from 'lucide-react'
 import { ExplanationStatusBadge } from './QuestionExplanationModal'
+import { activeRunFailure } from '../../utils/explanationRunReport'
 
 /**
  * Shared ExplanationChipGrid for all 4 admin views:
@@ -59,8 +60,10 @@ export default function ExplanationChipGrid({
           const qNum = q.number ?? (Number(group?.qNumberStart) ? Number(group.qNumberStart) + idx : idx + 1)
           const exp = q.explanation || group?.explanations?.[qNum] || group?.explanations?.[String(qNum)]
 
-          const runStatus = runStatusByNumber?.[qNum] ?? null
+          const recordedStatus = runStatusByNumber?.[qNum] ?? null
           const runErrorMessage = runErrorMessageByNumber?.[qNum] ?? null
+          const failure = activeRunFailure(exp, recordedStatus, runErrorMessage)
+          const runStatus = recordedStatus === 'error' && !failure ? null : recordedStatus
 
           const isGeneratingThis = runStatus === 'generating' || (generatingQuestionNumbers
             ? (generatingQuestionNumbers instanceof Set ? generatingQuestionNumbers.has(qNum) : generatingQuestionNumbers.includes?.(qNum))
@@ -71,7 +74,7 @@ export default function ExplanationChipGrid({
             : false
 
           const chipTitle = runStatus === 'error' && runErrorMessage
-            ? `Câu ${qNum}: lỗi ở lần sinh gần nhất — ${runErrorMessage}`
+            ? `Câu ${qNum}: lỗi ở lần sinh gần nhất — ${failure?.message || ''}`
             : runStatus === 'retry'
               ? `Câu ${qNum}: kết quả dự phòng chưa chắc chắn, nên mở để kiểm tra`
               : `Xem, duyệt, góp ý hoặc sửa tay giải thích câu ${qNum}`

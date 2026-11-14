@@ -1,3 +1,4 @@
+const { saveExplanationBatch } = require('../lib/explanationSave')
 const prisma = require('../lib/prisma')
 const {
   classifyFamily,
@@ -35,8 +36,9 @@ function questionTimeoutMs(startTime, effectiveTimeBudget, generatedCount) {
     deadline - (Date.now() - startTime) - EXPLANATION_SAVE_RESERVE_MS))
 }
 
-function questionTimeoutFailure(number, timeoutMs) {
+function questionTimeoutFailure(number, timeoutMs, diagnostic = {}) {
   return { number, code: 'AI_QUESTION_TIMEOUT', status: 504, timeoutMs,
+    failedAt: new Date().toISOString(), ...diagnostic,
     message: `AI xử lý câu ${number} quá ${Math.ceil(timeoutMs / 1000)} giây nên đã dừng yêu cầu. Các câu đã hoàn thành được giữ lại; có thể thử lại riêng câu này.` }
 }
 
@@ -988,6 +990,8 @@ async function generateForPracticeExam(examId, {
     }
 
     const ctx = buildContext(qCtx, family)
+    const diagnostic = { phase: 'generating' }
+    const onDiagnostic = event => Object.assign(diagnostic, event)
 
     let explanation
     const choice = resolveChoices[qNum]
@@ -1003,12 +1007,12 @@ async function generateForPracticeExam(examId, {
       const blindTimeoutMs = questionTimeoutMs(startTime, effectiveTimeBudget, generatedCount)
       let blind
       try {
-        blind = await withTimeout(timeoutSignal => solveBlindWithGeminiRetry(qCtx, family, ctx, { signal: timeoutSignal }),
+        blind = await withTimeout(timeoutSignal => solveBlindWithGeminiRetry(qCtx, family, ctx, { signal: timeoutSignal, onDiagnostic }),
           blindTimeoutMs, 'Hết thời gian kiểm tra đáp án độc lập', null, signal)
       } catch (err) {
         if (signal?.aborted || err.name === 'AbortError') break
         if (!err.isTimeout) throw err
-        failedQuestions.push(questionTimeoutFailure(qNum, blindTimeoutMs))
+        failedQuestions.push(questionTimeoutFailure(qNum, blindTimeoutMs, diagnostic))
         break
       }
       if (!blind.ok) {
@@ -1034,14 +1038,14 @@ async function generateForPracticeExam(examId, {
         }
       } else if (choice === 'input') {
         explanation = await withTimeout(
-          (timeoutSignal) => generateExplanation(qCtx, family, ctx, { isFixedMode: true, targetAnswer: inputAnswer, signal: timeoutSignal }),
+          (timeoutSignal) => generateExplanation(qCtx, family, ctx, { isFixedMode: true, targetAnswer: inputAnswer, signal: timeoutSignal, onDiagnostic }),
           timeoutMs,
           `Hết thời gian xử lý AI (${timeoutMs}ms) cho câu #${qNum}`,
           null, signal
         )
       } else {
         explanation = await withTimeout(
-          (timeoutSignal) => generateExplanation(qCtx, family, ctx, { signal: timeoutSignal }),
+          (timeoutSignal) => generateExplanation(qCtx, family, ctx, { signal: timeoutSignal, onDiagnostic }),
           timeoutMs,
           `Hết thời gian xử lý AI (${timeoutMs}ms) cho câu #${qNum}`,
           null, signal
@@ -1054,8 +1058,8 @@ async function generateForPracticeExam(examId, {
         break
       }
       if (err.isTimeout || err.code === 'ETIMEDOUT') {
-        failedQuestions.push(questionTimeoutFailure(qNum, timeoutMs))
-        console.warn(`[AI_QUESTION_TIMEOUT] Practice #${examId} Câu #${qNum}: đã hủy yêu cầu sau ${timeoutMs}ms.`)
+        failedQuestions.push(questionTimeoutFailure(qNum, timeoutMs, diagnostic))
+        console.warn('[AI_QUESTION_TIMEOUT]', JSON.stringify({ target: `Practice #${examId}`, ...questionTimeoutFailure(qNum, timeoutMs, diagnostic) }))
         break
       }
       failedQuestions.push({ number: qNum, message: err.message })
@@ -1215,7 +1219,7 @@ async function generateForPracticeExam(examId, {
   }
 
   // B.5 SỬA GỐC RACE: Trong transaction đọc lại dữ liệu hiện tại và chỉ ghi đè theo key
-  await prisma.$transaction(async (tx) => {
+  if ([...newlyGeneratedByRow.values()].some(map => map.size > 0)) await saveExplanationBatch(prisma, async (tx) => {
     for (const [rowId, newlyGeneratedMap] of newlyGeneratedByRow) {
       if (!newlyGeneratedMap.size) continue
 
@@ -1265,7 +1269,7 @@ async function generateForPracticeExam(examId, {
         data,
       })
     }
-  })
+  }, { startTime, target: `Practice #${examId}` })
 
   invalidate('practice:')
 
@@ -1530,6 +1534,8 @@ async function generateForExam(examId, {
     }
 
     const ctx = buildContext(q, family)
+    const diagnostic = { phase: 'generating' }
+    const onDiagnostic = event => Object.assign(diagnostic, event)
 
     let explanation
     const choice = resolveChoices[q.number]
@@ -1545,12 +1551,12 @@ async function generateForExam(examId, {
       const blindTimeoutMs = questionTimeoutMs(startTime, effectiveTimeBudget, generatedCount)
       let blind
       try {
-        blind = await withTimeout(timeoutSignal => solveBlindWithGeminiRetry(q, family, ctx, { signal: timeoutSignal }),
+        blind = await withTimeout(timeoutSignal => solveBlindWithGeminiRetry(q, family, ctx, { signal: timeoutSignal, onDiagnostic }),
           blindTimeoutMs, 'Hết thời gian kiểm tra đáp án độc lập', null, signal)
       } catch (err) {
         if (signal?.aborted || err.name === 'AbortError') break
         if (!err.isTimeout) throw err
-        failedQuestions.push(questionTimeoutFailure(q.number, blindTimeoutMs))
+        failedQuestions.push(questionTimeoutFailure(q.number, blindTimeoutMs, diagnostic))
         break
       }
       if (!blind.ok) {
@@ -1576,7 +1582,7 @@ async function generateForExam(examId, {
         }
       } else if (choice === 'input') {
         explanation = await withTimeout(
-          (timeoutSignal) => generateExplanation(q, family, ctx, { isFixedMode: true, targetAnswer: inputAnswer, signal: timeoutSignal }),
+          (timeoutSignal) => generateExplanation(q, family, ctx, { isFixedMode: true, targetAnswer: inputAnswer, signal: timeoutSignal, onDiagnostic }),
           timeoutMs,
           `Hết thời gian xử lý AI (${timeoutMs}ms) cho câu #${q.number}`,
           null, signal
@@ -1587,7 +1593,7 @@ async function generateForExam(examId, {
           explanation = precomputed
         } else {
           explanation = await withTimeout(
-            (timeoutSignal) => generateExplanation(q, family, ctx, { signal: timeoutSignal }),
+            (timeoutSignal) => generateExplanation(q, family, ctx, { signal: timeoutSignal, onDiagnostic }),
             timeoutMs,
             `Hết thời gian xử lý AI (${timeoutMs}ms) cho câu #${q.number}`,
             null, signal
@@ -1601,8 +1607,8 @@ async function generateForExam(examId, {
         break
       }
       if (err.isTimeout || err.code === 'ETIMEDOUT') {
-        failedQuestions.push(questionTimeoutFailure(q.number, timeoutMs))
-        console.warn(`[AI_QUESTION_TIMEOUT] Exam #${examId} Câu #${q.number}: đã hủy yêu cầu sau ${timeoutMs}ms.`)
+        failedQuestions.push(questionTimeoutFailure(q.number, timeoutMs, diagnostic))
+        console.warn('[AI_QUESTION_TIMEOUT]', JSON.stringify({ target: `Exam #${examId}`, ...questionTimeoutFailure(q.number, timeoutMs, diagnostic) }))
         break
       }
       failedQuestions.push({ number: q.number, message: err.message })
@@ -1785,7 +1791,7 @@ async function generateForExam(examId, {
   }
 
   // B.5 SỬA GỐC RACE: Trong transaction đọc lại dữ liệu câu hỏi hiện tại và không ghi đè câu vừa đổi
-  await prisma.$transaction(async (tx) => {
+  if (updates.length > 0) await saveExplanationBatch(prisma, async (tx) => {
     for (const item of updates) {
       const currentQ = tx.question.findUnique
         ? await tx.question.findUnique({
@@ -1815,7 +1821,7 @@ async function generateForExam(examId, {
         },
       })
     }
-  })
+  }, { startTime, target: `Exam #${examId}` })
 
   invalidateExamCaches(examId)
 
@@ -1924,7 +1930,7 @@ function buildExamQuestionWhere({ questionId, questionNumber, examId }) {
  * - Teacher feedback flow (blind verify to avoid defending wrong answers)
  */
 async function solveBlindWithGeminiRetry(qCtx, family, ctx, options = {}) {
-  const { signal } = options
+  const { signal, onDiagnostic } = options
   let lastErr = null
   for (let attempt = 1; attempt <= 2; attempt++) {
     if (signal?.aborted) {
@@ -1938,7 +1944,7 @@ async function solveBlindWithGeminiRetry(qCtx, family, ctx, options = {}) {
         targetAnswer: null,
         teacherFeedback: null,
         forceProvider: 'Gemini',
-        signal,
+        signal, onDiagnostic,
       })
       const isFallback = Boolean(
         exp?.isFallback ||

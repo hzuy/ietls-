@@ -431,8 +431,23 @@ describe('vision — gửi ảnh bản đồ/sơ đồ cho Gemini', () => {
         requiresVision: true,
       })
       expect(geminiJsonMock).toHaveBeenCalledTimes(1)
+      expect(geminiJsonMock.mock.calls[0][1]).toMatchObject({ retriesPerModel: 0, allowModelFallback: false })
       expect(geminiJsonMock.mock.calls[0][1].images).toEqual([IMAGE_DATA_URI])
       expect(res.provider).toBe('Gemini')
+      expect(groqCreateMock).not.toHaveBeenCalled()
+    } finally {
+      delete process.env.ENABLE_GEMINI_IN_TEST
+      delete process.env.GEMINI_API_KEY
+    }
+  })
+
+  it('never switches to Groq when a forced Gemini call fails with a transient error', async () => {
+    process.env.GEMINI_API_KEY = 'test_key'
+    process.env.ENABLE_GEMINI_IN_TEST = 'true'
+    geminiJsonMock.mockRejectedValueOnce(Object.assign(new Error('Gemini unavailable'), { status: 503 }))
+    try {
+      await expect(callAi('prompt', { forceProvider: 'Gemini' })).rejects.toThrow('Gemini unavailable')
+      expect(geminiJsonMock).toHaveBeenCalledTimes(1)
       expect(groqCreateMock).not.toHaveBeenCalled()
     } finally {
       delete process.env.ENABLE_GEMINI_IN_TEST

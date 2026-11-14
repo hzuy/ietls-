@@ -55,7 +55,7 @@ import { useToast } from '../../context/ToastContext'
 import {
   createRunReport,
   createBlockedReport,
-  addRunOutcome, updateRunProgress, isRunServiceFailure, eligibleExplanationNumbers,
+  addRunOutcome, updateRunProgress, isRunServiceFailure, eligibleExplanationNumbers, reconcileRunReport,
   finishRunReport,
   loadRunReport,
   saveRunReport,
@@ -476,14 +476,14 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   const runErrorMessageByNumber = useMemo(() => {
     const map = {}
     for (const row of runReport?.rows || []) {
-      if (row.number != null) map[row.number] = row.message
+      if (row.number != null) map[row.number] = { ...row, failedAt: row.failedAt || runReport.finishedAt }
     }
     return map
   }, [runReport])
 
   // Báo cáo "thành công trọn vẹn" không cần chiếm chỗ trên trang; chỉ hiện khi
   // có lỗi, có câu cần kiểm tra, đang chạy, bị huỷ hoặc bị gián đoạn.
-  const runReportForPanel = runReport
+  const runReportForPanel = useMemo(() => reconcileRunReport(runReport, form.sections.flatMap(section => section.questionGroups || [])), [runReport, form.sections])
 
   const groupNumbersOf = useCallback((group) => {
     if (!group) return []

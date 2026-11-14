@@ -182,7 +182,7 @@ export default function ReadingPractice() {
   const [protectedStats, setProtectedStats] = useState({ reviewedCount: 0, editedCount: 0 })
   const [aiProgress, setAiProgress] = useState(null)
   const aiReport = usePracticeExplanationReport({
-    skill: 'reading', practiceId: editing?.id, enabled: view === 'form',
+    skill: 'reading', practiceId: editing?.id, enabled: view === 'form', groups: form.questionGroups,
   })
   const isCancellingAIRef = useRef(false)
   const abortControllerRef = useRef(null)

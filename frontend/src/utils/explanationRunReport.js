@@ -24,9 +24,15 @@ export const RUN_KINDS = Object.freeze({
   STALLED: 'stalled',
   VALIDATION: 'validation',
   UNKNOWN: 'unknown',
+  SAVE: 'save',
 })
 
 const KIND_META = Object.freeze({
+  [RUN_KINDS.SAVE]: {
+    message: 'AI đã tạo kết quả nhưng chưa lưu được vào cơ sở dữ liệu.',
+    hint: 'Tải lại để kiểm tra lời giải đã lưu trước khi thử lại câu này.',
+    retryable: true,
+  },
   [RUN_KINDS.BUSY]: {
     message: 'Đang có một tiến trình sinh AI khác chạy cho đề này.',
     hint: 'Chờ tiến trình kia xong rồi thử lại.',
@@ -123,7 +129,9 @@ export function classifyRunError(input, _ctx = {}) {
 
   let kind = RUN_KINDS.UNKNOWN
 
-  if (status === 409) kind = RUN_KINDS.BUSY
+  const data = input?.response?.data || input || {}
+  if (data.code === 'AI_SAVE_FAILED' || /P2028|Transaction (?:already closed|not found)/i.test(raw)) kind = RUN_KINDS.SAVE
+  else if (status === 409) kind = RUN_KINDS.BUSY
   else if (input?.code === 'AI_QUESTION_TIMEOUT') kind = RUN_KINDS.TIMEOUT
   else if (status === 429 || /quá tải|qua tai|rate.?limit|too many requests|\b429\b/i.test(raw)) kind = RUN_KINDS.RATE_LIMITED
   else if (status === 502 || status === 503 || status === 504) kind = RUN_KINDS.PROVIDER
@@ -137,7 +145,14 @@ export function classifyRunError(input, _ctx = {}) {
   const questionNumbers = kind === RUN_KINDS.MISSING_ANSWER ? extractQuestionNumbers(raw) : []
 
   let message = meta.message
-  if (kind === RUN_KINDS.MISSING_ANSWER && questionNumbers.length > 0) {
+  const timeoutMs = Number(data.timeoutMs) || null
+  if (kind === RUN_KINDS.SAVE && data.causeCode === 'P2028') {
+    message = 'Kết quả AI chưa được lưu vì bước lưu cơ sở dữ liệu hết thời gian.'
+  } else if (kind === RUN_KINDS.TIMEOUT && timeoutMs) {
+    const seconds = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 }).format(timeoutMs / 1000)
+    const stage = data.phase === 'queued' ? 'chờ lượt gọi AI' : data.phase === 'backoff' ? 'chờ thử lại dịch vụ AI' : 'xử lý câu này'
+    message = `Hết thời gian ${stage} sau ${seconds} giây.`
+  } else if (kind === RUN_KINDS.MISSING_ANSWER && questionNumbers.length > 0) {
     message = `Các câu ${questionNumbers.join(', ')} chưa có đáp án đúng nên AI không thể giải thích.`
   } else if (kind === RUN_KINDS.UNKNOWN && looksLikeFriendlyVietnamese(raw)) {
     message = raw
@@ -148,8 +163,18 @@ export function classifyRunError(input, _ctx = {}) {
     message,
     hint: meta.hint,
     retryable: meta.retryable,
-    technical: raw || null,
+    technical: redactRunTechnical([raw,
+      data.phase && `Giai đoạn: ${data.phase}`,
+      data.provider && `Provider: ${data.provider}`,
+      data.model && `Model: ${data.model}`,
+      data.causeCode && `Mã nguyên nhân: ${data.causeCode}`,
+    ].filter(Boolean).join('\n')) || null,
     questionNumbers,
+    failedAt: data.failedAt || null,
+    timeoutMs,
+    phase: data.phase || null,
+    causeCode: data.causeCode || null,
+    provider: data.provider || null,
   }
 }
 
@@ -263,6 +288,7 @@ export function addRunOutcome(report, { group, loopResult, sentNumbers = null, p
       groupLabel: groupLabelOf(group),
       attempted: err.attempted !== false,
       ...info,
+      failedAt: info.failedAt || new Date().toISOString(),
     })
   }
 
@@ -289,6 +315,8 @@ export function addRunOutcome(report, { group, loopResult, sentNumbers = null, p
       errors: (loopResult?.errors || []).map(error => ({
         number: error.number, code: error.code, status: error.response?.status || error.status,
         attempted: error.attempted, message: redactRunTechnical(asMessage(error)),
+        failedAt: error.failedAt, timeoutMs: error.timeoutMs, phase: error.phase,
+        causeCode: error.causeCode, provider: error.provider,
       })),
       needsRetryQuestions: (loopResult?.needsRetryQuestions || []).map(item => typeof item === 'object'
         ? { number: item.number, reason: redactRunTechnical(item.reason) } : item),
@@ -332,6 +360,30 @@ export function redactRunTechnical(value) {
 
 export function isRunServiceFailure(result) {
   return (result?.errors || []).some(error => [409, 429, 502, 503].includes(Number(error.response?.status || error.status)))
+}
+
+export function activeRunFailure(explanation, status, input) {
+  const failure = input && typeof input === 'object' ? input : { message: input }
+  const saved = Date.parse(explanation?.updatedAt)
+  const failed = Date.parse(failure.failedAt)
+  // An existing explanation alone proves nothing. Only a newer saved version
+  // supersedes the previous failure; unknown timestamps keep the warning.
+  return status === 'error' && Number.isFinite(saved) && Number.isFinite(failed) && saved > failed
+    ? null : failure
+}
+
+export function reconcileRunReport(report, groups = []) {
+  if (!report) return report
+  const saved = new Map()
+  for (const group of groups) for (const question of group.questions || []) {
+    saved.set(Number(question.number), question.explanation || group.explanations?.[question.number])
+  }
+  const rows = (report.rows || []).filter(row => activeRunFailure(saved.get(Number(row.number)), 'error', {
+    ...row, failedAt: row.failedAt || report.finishedAt,
+  }))
+  if (rows.length === (report.rows || []).length) return report
+  if (!rows.length && !report.needsRetry?.length && report.status !== 'running') return null
+  return { ...report, rows }
 }
 
 export function finishRunReport(report, { cancelled = false } = {}) {

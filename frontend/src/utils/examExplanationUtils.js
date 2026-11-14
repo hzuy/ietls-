@@ -550,6 +550,11 @@ export async function executeTimedAIGenerationLoop({
       }
       accumulatedErrors.push({
         status: err?.response?.status || 500,
+        code: err?.response?.data?.code || err?.code,
+        phase: err?.response?.data?.phase,
+        causeCode: err?.response?.data?.causeCode,
+        failedAt: err?.response?.data?.failedAt,
+        timeoutMs: err?.response?.data?.timeoutMs,
         message: err?.response?.data?.message || err?.message || 'Lỗi khi gọi AI giải thích',
       })
       break

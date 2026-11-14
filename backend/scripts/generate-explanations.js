@@ -709,7 +709,7 @@ function rateLimitWaitMs(err) {
   return 20000
 }
 
-async function callGroq(prompt, { maxRateLimitRetries = 6, signal = null } = {}) {
+async function callGroq(prompt, { maxRateLimitRetries = 6, signal = null, onDiagnostic = null } = {}) {
   const groq = getGroqClient()
   let completion
   for (let attempt = 0; ; attempt++) {
@@ -719,6 +719,7 @@ async function callGroq(prompt, { maxRateLimitRetries = 6, signal = null } = {})
       throw err
     }
     try {
+      onDiagnostic?.({ phase: 'provider', provider: 'Groq', model: getGroqModel() })
       const payload = {
         messages: [{ role: 'user', content: prompt }],
         model: getGroqModel(),
@@ -732,6 +733,7 @@ async function callGroq(prompt, { maxRateLimitRetries = 6, signal = null } = {})
       if (signal?.aborted) throw err
       const wait = rateLimitWaitMs(err)
       if (wait === null || attempt >= maxRateLimitRetries) throw err
+      onDiagnostic?.({ phase: 'backoff', provider: 'Groq', causeCode: err.status ? `HTTP_${err.status}` : 'PROVIDER_ERROR' })
       console.log(`   … Groq giới hạn tốc độ hoặc mất kết nối, chờ ${Math.round(wait / 1000)}s rồi thử lại`)
       await sleep(wait)
     }
@@ -864,7 +866,7 @@ function buildVisionUnavailableError() {
   return err
 }
 
-async function callAi(prompt, { questionType = null, rawOptions = null, model: customModel = null, maxRateLimitRetries = 6, isFixedMode = false, forceProvider = null, signal = null, images = [], requiresVision = false, responseSchema: customResponseSchema = null, maxTokens = 8192 } = {}) {
+async function callAi(prompt, { questionType = null, rawOptions = null, model: customModel = null, maxRateLimitRetries = 6, isFixedMode = false, forceProvider = null, signal = null, images = [], requiresVision = false, responseSchema: customResponseSchema = null, maxTokens = 8192, onDiagnostic = null } = {}) {
   const useGemini = process.env.GEMINI_API_KEY && (process.env.NODE_ENV !== 'test' || process.env.ENABLE_GEMINI_IN_TEST === 'true')
   const model = customModel || process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite'
   const hasImages = Array.isArray(images) && images.length > 0
@@ -875,7 +877,8 @@ async function callAi(prompt, { questionType = null, rawOptions = null, model: c
 
   if (forceProvider === 'Groq') {
     if (visionRequired) throw buildVisionUnavailableError()
-    const groqData = await callGroq(prompt, { maxRateLimitRetries, signal })
+    onDiagnostic?.({ phase: 'provider', provider: 'Groq', model: getGroqModel() })
+    const groqData = await callGroq(prompt, { maxRateLimitRetries, signal, onDiagnostic })
     return {
       data: groqData,
       provider: 'Groq',
@@ -901,6 +904,7 @@ async function callAi(prompt, { questionType = null, rawOptions = null, model: c
           responseSchema,
           max_tokens: maxTokens,
           withMetadata: true,
+          retriesPerModel: 0, allowModelFallback: false, onDiagnostic,
           images: Array.isArray(images) ? images : [],
           signal,
         })
@@ -913,9 +917,10 @@ async function callAi(prompt, { questionType = null, rawOptions = null, model: c
       } catch (geminiErr) {
         if (signal?.aborted) throw geminiErr
         const isTransient = geminiErr.status === 503 || geminiErr.status === 429 || /503|429|high demand/i.test(geminiErr.message)
-        if (isTransient && geminiAttempt < 2) {
+        if (isTransient && geminiAttempt < maxGeminiAttempts - 1) {
           const waitMs = geminiErr.retryWaitMs || ((geminiAttempt + 1) * 3000)
           console.warn(`   … [AI] Gemini giới hạn hoặc quá tải (${geminiErr.status || geminiErr.message}), chờ ${waitMs / 1000}s trước khi thử lại lượt ${geminiAttempt + 2}...`)
+          onDiagnostic?.({ phase: 'backoff', provider: 'Gemini', causeCode: `HTTP_${geminiErr.status || 503}` })
           await sleep(waitMs)
           continue
         }
@@ -932,7 +937,8 @@ async function callAi(prompt, { questionType = null, rawOptions = null, model: c
     throw new Error('Gemini API key is not configured or requestGeminiJson is unavailable')
   }
 
-  const groqData = await callGroq(prompt, { maxRateLimitRetries, signal })
+  onDiagnostic?.({ phase: 'provider', provider: 'Groq', model: getGroqModel() })
+  const groqData = await callGroq(prompt, { maxRateLimitRetries, signal, onDiagnostic })
   return {
     data: groqData,
     provider: 'Groq',
@@ -941,7 +947,7 @@ async function callAi(prompt, { questionType = null, rawOptions = null, model: c
   }
 }
 
-async function generateExplanation(q, family, ctx, { teacherFeedback = null, isFixedMode = false, targetAnswer = null, forceProvider = null, signal = null } = {}) {
+async function generateExplanation(q, family, ctx, { teacherFeedback = null, isFixedMode = false, targetAnswer = null, forceProvider = null, signal = null, onDiagnostic = null } = {}) {
   let previousError = null
 
   // Câu hỏi hình ảnh: chuyển ảnh (local /uploads hoặc Cloudinary) sang data URI để
@@ -972,7 +978,7 @@ async function generateExplanation(q, family, ctx, { teacherFeedback = null, isF
       forceProvider,
       signal,
       images,
-      requiresVision,
+      requiresVision, onDiagnostic,
     })
     const payload = aiResult?.data || aiResult
 

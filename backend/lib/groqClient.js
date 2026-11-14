@@ -48,6 +48,8 @@ async function requestGeminiJson(prompt, {
   max_tokens = 8192,
   withMetadata = false,
   retriesPerModel = 1,
+  allowModelFallback = true,
+  onDiagnostic = null,
   signal = null,
 } = {}) {
   const apiKey = process.env.GEMINI_API_KEY
@@ -56,11 +58,11 @@ async function requestGeminiJson(prompt, {
   const primaryModel = (model && model.startsWith('gemini-'))
     ? model
     : (process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite')
-  const candidateModels = [
+  const candidateModels = (allowModelFallback ? [
     primaryModel,
     'gemini-3.5-flash-lite',
     'gemini-3.1-flash-lite',
-  ].filter((v, i, a) => a.indexOf(v) === i)
+  ] : [primaryModel]).filter((v, i, a) => a.indexOf(v) === i)
 
   const parts = [{ text: prompt }]
 
@@ -135,14 +137,14 @@ async function requestGeminiJson(prompt, {
         throw err
       }
       try {
-        const fetchSignals = [AbortSignal.timeout(22000)]
-        if (signal) fetchSignals.push(signal)
-        const combinedSignal = (typeof AbortSignal.any === 'function')
-          ? AbortSignal.any(fetchSignals)
-          : fetchSignals[0]
-
-        const res = await scheduleGeminiCall(() =>
-          fetch(url, {
+        onDiagnostic?.({ phase: 'queued', provider: 'Gemini', model: targetModel })
+        const res = await scheduleGeminiCall(() => {
+          onDiagnostic?.({ phase: 'provider', provider: 'Gemini', model: targetModel })
+          // Provider timeout starts when the queued call actually runs.
+          const fetchSignals = [AbortSignal.timeout(22000)]
+          if (signal) fetchSignals.push(signal)
+          const combinedSignal = typeof AbortSignal.any === 'function' ? AbortSignal.any(fetchSignals) : fetchSignals[0]
+          return fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -150,7 +152,8 @@ async function requestGeminiJson(prompt, {
               generationConfig,
             }),
             signal: combinedSignal,
-          }),
+          })
+        },
           { signal }
         )
 
@@ -178,6 +181,7 @@ async function requestGeminiJson(prompt, {
         return parsed
       } catch (err) {
         lastError = err
+        onDiagnostic?.({ causeCode: err.status ? `HTTP_${err.status}` : err.name === 'TimeoutError' ? 'PROVIDER_TIMEOUT' : 'PROVIDER_ERROR' })
         if (signal?.aborted) throw err
         const isTransient = err.status === 503 || err.status === 429 || err instanceof SyntaxError
         if (isTransient && attempt < retriesPerModel) {
