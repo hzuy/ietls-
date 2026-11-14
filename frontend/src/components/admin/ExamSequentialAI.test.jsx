@@ -119,7 +119,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     expect(api.post.mock.calls[2][0]).toBe(`/admin/exams/${examId}/groups/201/generate-explanations`)
     expect(api.post.mock.calls[2][1].questionNumbers).toEqual([2])
     await waitFor(() => expect(screen.getByTestId('explanation-run-panel')).toHaveAttribute('data-status', 'done'))
-    expect(window.alert).not.toHaveBeenCalled()
+    expect(window.alert).toHaveBeenCalledTimes(1)
 
   })
 
@@ -240,10 +240,10 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
         expect.anything()
       )
     })
-    expect(window.alert).not.toHaveBeenCalled()
+    await waitFor(() => expect(window.alert).toHaveBeenCalledTimes(1))
   })
 
-  it('runs sequential generation across multiple groups and shows progress label', async () => {
+  it('runs sequential generation across multiple groups and alerts only once at completion', async () => {
     renderTab(<ReadingTab exams={[]} onRefresh={vi.fn()} />)
 
     fireEvent.click(screen.getByText('Edit Reading 10'))
@@ -284,6 +284,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     expect(screen.queryByRole('button', { name: /^Hủy$/ })).not.toBeInTheDocument()
 
     // Resolve group 1
+    expect(window.alert).not.toHaveBeenCalled()
     resolveGroup201({ data: { success: true, generatedCount: 2 } })
 
     // Verify group 2 was called after group 1
@@ -294,6 +295,8 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
         expect.anything()
       )
     })
+    await waitFor(() => expect(screen.getByTestId('explanation-run-panel')).toHaveAttribute('data-status', 'done'))
+    expect(window.alert).toHaveBeenCalledExactlyOnceWith('Đã lưu giải thích thành công.')
   })
 
   it('gracefully cancels sequential generation: displays completing message and finishes in-flight group before stopping', async () => {

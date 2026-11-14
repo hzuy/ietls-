@@ -1,3 +1,4 @@
+import { notifyExplanationSaved } from '../../utils/explanationSaveNotification'
 import ReadingPassagePreview from '../../components/practice/ReadingPassagePreview'
 import { needsParagraphLetters, paragraphLettersAlert, practiceParagraphLetters, syncParagraphGroups } from '../../utils/readingParagraphs'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
@@ -550,7 +551,8 @@ export default function ReadingPractice() {
         },
       })
 
-      aiReport.finish(loopResult)
+      const finishedReport = aiReport.finish(loopResult)
+      notifyExplanationSaved(finishedReport, loopResult.hasConflicts)
       if (loopResult.hasConflicts) {
         setAiConflicts(loopResult.conflicts || [])
         setConflictModalOpen(true)

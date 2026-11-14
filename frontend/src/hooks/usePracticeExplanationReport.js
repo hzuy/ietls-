@@ -74,6 +74,7 @@ export function usePracticeExplanationReport({ skill, practiceId, enabled, group
       for (const row of next?.needsRetry || []) if (row.number) states[row.number] = 'retry'
       return states
     })
+    return next
   }, [persist])
 
   const block = useCallback(errors => {

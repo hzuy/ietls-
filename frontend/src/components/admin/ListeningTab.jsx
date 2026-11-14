@@ -1,3 +1,4 @@
+import { notifyExplanationSaved } from '../../utils/explanationSaveNotification'
 import { buildExamPayload, hydrateExamForm } from '../../utils/examAuthoring'
 import AutoGrowTextarea from './AutoGrowTextarea'
 import QuestionTypePicker from './QuestionTypePicker'
@@ -732,7 +733,9 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
 
       finalizeRunStatus(targetNumbers, loopResult, { cancelled: Boolean(loopResult.cancelled) })
       const nextReport = addRunOutcome(liveReport, { group, loopResult, sentNumbers: targetNumbers })
-      persistRunReport(finishRunReport(nextReport, { cancelled: Boolean(loopResult.cancelled) }))
+      const finishedReport = finishRunReport(nextReport, { cancelled: Boolean(loopResult.cancelled) })
+      persistRunReport(finishedReport)
+      notifyExplanationSaved(finishedReport, loopResult.hasConflicts)
 
       if (loopResult.hasConflicts) {
         setAiConflicts(loopResult.conflicts || [])
@@ -954,6 +957,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
 
     const finishedReport = finishRunReport(latestReport, { cancelled: wasAborted })
     persistRunReport(finishedReport)
+    notifyExplanationSaved(finishedReport, accumulatedConflicts.length > 0)
 
     try {
       const fresh = await api.get(`/admin/exams/${editingId}`)

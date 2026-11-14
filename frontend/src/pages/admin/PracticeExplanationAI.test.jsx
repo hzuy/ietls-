@@ -63,7 +63,7 @@ describe.each(['reading', 'listening'])('%s Practice AI reports', skill => {
     expect(api.post.mock.calls[2][1]).toMatchObject({ questionNumbers: [2], overwriteProtected: false })
     await waitFor(() => expect(screen.getByTestId('explanation-run-panel')).toHaveAttribute('data-status', 'done'))
     expect(sessionStorage.getItem(`ai_exp_report_practice_${skill}_11`)).toBeNull()
-    expect(window.alert).not.toHaveBeenCalled()
+    expect(window.alert).toHaveBeenCalledTimes(1)
 
   })
 
@@ -192,5 +192,6 @@ describe.each(['reading', 'listening'])('%s Practice AI reports', skill => {
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(2))
     expect(api.post.mock.calls[1][1]).toMatchObject({ questionNumbers: [2], resolveChoices: { 2: 'ai' }, overwriteProtected: false })
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(window.alert).toHaveBeenCalledTimes(1)
   })
 })

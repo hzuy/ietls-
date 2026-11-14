@@ -27,6 +27,10 @@ Prisma's documented interactive transaction settings and rollback behavior: [tra
 
 ## Production rollout
 
+### Saved confirmation alert
+
+Successful current-visit generation and conflict confirmation now display one browser alert, `Đã lưu giải thích thành công.`, for Test and Practice Reading/Listening. The alert is emitted after the final persisted result, not per chunk. Reports with errors, cancellation, pending verification, unresolved answer conflicts or zero saved results do not trigger success. The change uses the existing shared alert utility; no backend/data changes. Unit tests cover suppression and successful notification; editor tests cover retry, confirmation and a single alert after multiple groups. Scoped lint, build, diff checks and frontend dependency audit passed (zero findings).
+
 ### Fresh editor visits
 
 Reading/Listening Test and Practice no longer restore AI heartbeat, progress or failure reports from a previous visit. Opening an editor clears its legacy report/evidence keys, does not query or poll `explanation-status`, and starts with unlocked controls and no resume banner. Current-visit progress and retry details remain in memory. Leaving/changing the edited target aborts the owned request; pagehide also aborts it. Saved database explanations and content drafts are unaffected. Server-side generation locks and request-abort handling remain in place for actual simultaneous requests; a real HTTP 409 remains visible as a request failure, without resurrecting an old progress screen.

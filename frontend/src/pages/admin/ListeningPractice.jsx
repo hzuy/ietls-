@@ -1,3 +1,4 @@
+import { notifyExplanationSaved } from '../../utils/explanationSaveNotification'
 import ListeningContentPreview from '../../components/practice/ListeningContentPreview'
 import InlinePreviewPanel from '../../components/common/InlinePreviewPanel'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
@@ -578,7 +579,8 @@ export default function ListeningPractice() {
         },
       })
 
-      aiReport.finish(loopResult)
+      const finishedReport = aiReport.finish(loopResult)
+      notifyExplanationSaved(finishedReport, loopResult.hasConflicts)
       if (loopResult.hasConflicts) {
         setAiConflicts(loopResult.conflicts || [])
         setConflictModalOpen(true)

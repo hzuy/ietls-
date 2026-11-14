@@ -1,3 +1,4 @@
+import { notifyExplanationSaved } from '../../utils/explanationSaveNotification'
 import { buildExamPayload, hydrateExamForm } from '../../utils/examAuthoring'
 import { needsParagraphLetters, paragraphLettersAlert, syncParagraphGroups } from '../../utils/readingParagraphs'
 import QuestionTypePicker from './QuestionTypePicker'
@@ -821,7 +822,9 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
 
       finalizeRunStatus(targetNumbers, loopResult, { cancelled: Boolean(loopResult.cancelled) })
       const nextReport = addRunOutcome(liveReport, { group, loopResult, sentNumbers: targetNumbers })
-      persistRunReport(finishRunReport(nextReport, { cancelled: Boolean(loopResult.cancelled) }))
+      const finishedReport = finishRunReport(nextReport, { cancelled: Boolean(loopResult.cancelled) })
+      persistRunReport(finishedReport)
+      notifyExplanationSaved(finishedReport, loopResult.hasConflicts)
 
       if (loopResult.hasConflicts) {
         setAiConflicts(loopResult.conflicts || [])
@@ -1048,6 +1051,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
 
     const finishedReport = finishRunReport(latestReport, { cancelled: wasAborted })
     persistRunReport(finishedReport)
+    notifyExplanationSaved(finishedReport, accumulatedConflicts.length > 0)
 
     try {
       const fresh = await api.get(`/admin/exams/${editingId}`)
