@@ -79,7 +79,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     localStorage.clear()
     sessionStorage.clear()
     window.scrollTo = vi.fn()
-    vi.spyOn(window, 'alert').mockImplementation(() => {})
+    vi.spyOn(window, 'alert').mockImplementation(() => {}).mockClear()
     api.get.mockImplementation((url) => {
       if (url === '/admin/exams/10') return Promise.resolve({ data: mockReadingExam })
       return Promise.resolve({ data: [] })
@@ -113,7 +113,8 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     expect(api.post.mock.calls[2][0]).toBe(`/admin/exams/${examId}/groups/201/generate-explanations`)
     expect(api.post.mock.calls[2][1].questionNumbers).toEqual([2])
     await waitFor(() => expect(screen.queryByTestId('explanation-run-panel')).not.toBeInTheDocument())
-    expect(window.alert).not.toHaveBeenCalled()
+    expect(window.alert).toHaveBeenCalledTimes(1)
+    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('Câu 2: AI phản hồi quá lâu'))
   })
 
   it.each(['reading', 'listening'])('asks before retrying against unsaved %s content and retains the retry scope', async skill => {

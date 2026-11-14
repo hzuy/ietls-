@@ -41,8 +41,8 @@ const STATUS_META = {
  * Báo cáo trong phiên cho một lần sinh giải thích AI (Cambridge Exam).
  *
  * Ba trạng thái: đang chạy (có huỷ, tiến trình), kết quả một phần (danh sách câu lỗi
- * + lý do + thử lại), hoàn tất. Không dùng window.alert; mọi thứ nằm trong trang
- * và đọc được bởi screen reader qua aria-live.
+ * + lý do + thử lại), hoàn tất. Alert thông báo kết quả lỗi một lần;
+ * báo cáo trong trang giữ chi tiết và thao tác thử lại.
  */
 export default function ExplanationRunPanel({
   report = null,
@@ -68,9 +68,14 @@ export default function ExplanationRunPanel({
   useEffect(() => {
     if (isGenerating || !hasIssues || !finishedReportKey || revealedReportRef.current === finishedReportKey) return
     revealedReportRef.current = finishedReportKey
+    const messages = [...new Set((report?.rows || []).map(row =>
+      `${row.number ? `Câu ${row.number}` : 'Cả đề'}: ${row.message}${row.hint ? ` ${row.hint}` : ''}`))]
+    const reviewNumbers = (report?.needsRetry || []).map(row => row.number).filter(Boolean)
+    if (reviewNumbers.length) messages.push(`Cần kiểm tra lại câu ${reviewNumbers.join(', ')}: kết quả AI dự phòng chưa đủ tin cậy.`)
+    window.alert(`Sinh giải thích AI: ${counts.generated}/${counts.totalQuestions || '?'} câu đã hoàn thành.\n\n${messages.slice(0, 10).join('\n\n')}${messages.length > 10 ? '\n\nXem các lỗi còn lại trong báo cáo bên dưới.' : ''}`)
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     panelRef.current?.scrollIntoView?.({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' })
-  }, [finishedReportKey, hasIssues, isGenerating])
+  }, [finishedReportKey, hasIssues, isGenerating, report, counts.generated, counts.totalQuestions])
 
   if (!report && !isGenerating) return null
 

@@ -27,6 +27,10 @@ const group = {
 }
 
 describe('explanationRunReport', () => {
+  it('identifies a numbered AI deadline as timeout rather than a generic provider outage', () => {
+    expect(classifyRunError({ number: 1, status: 504, code: 'AI_QUESTION_TIMEOUT', message: 'AI xử lý câu 1 quá 20 giây nên đã dừng yêu cầu.' }))
+      .toMatchObject({ kind: RUN_KINDS.TIMEOUT, retryable: true })
+  })
   it('retries only unfinished questions after a group-level timeout', () => {
     const report = addRunOutcome(createRunReport({ examId: 10, skill: 'reading' }), {
       group, sentNumbers: [1, 2],

@@ -22,7 +22,7 @@ describe.each(['reading', 'listening'])('%s Practice AI reports', skill => {
     vi.restoreAllMocks()
     localStorage.clear()
     sessionStorage.clear()
-    vi.spyOn(window, 'alert').mockImplementation(() => {})
+    vi.spyOn(window, 'alert').mockImplementation(() => {}).mockClear()
     window.scrollTo = vi.fn()
     vi.spyOn(service, reading ? 'getReadingPracticeList' : 'getListeningPracticeList').mockResolvedValue([practice])
     vi.spyOn(service, reading ? 'getReadingPractice' : 'getListeningPractice').mockResolvedValue(practice)
@@ -57,7 +57,8 @@ describe.each(['reading', 'listening'])('%s Practice AI reports', skill => {
     expect(api.post.mock.calls[2][1]).toMatchObject({ questionNumbers: [2], overwriteProtected: false })
     await waitFor(() => expect(screen.queryByTestId('explanation-run-panel')).not.toBeInTheDocument())
     expect(JSON.parse(sessionStorage.getItem(`ai_exp_report_practice_${skill}_11`))).toMatchObject({ status: 'done', scope: 'retry', generated: 1 })
-    expect(window.alert).not.toHaveBeenCalled()
+    await waitFor(() => expect(window.alert).toHaveBeenCalledTimes(1))
+    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('Câu 2: AI phản hồi quá lâu'))
   })
 
   it('renders provider errors with original details visible immediately', async () => {
@@ -69,7 +70,8 @@ describe.each(['reading', 'listening'])('%s Practice AI reports', skill => {
     expect(panel.querySelector('details')).toHaveAttribute('open')
     expect(within(panel).getByText(/Câu 1: 429 gemini provider quota/)).toBeVisible()
     expect(within(panel).getByRole('button', { name: 'Thử lại 2 câu lỗi' })).toBeEnabled()
-    expect(window.alert).not.toHaveBeenCalled()
+    await waitFor(() => expect(window.alert).toHaveBeenCalledTimes(1))
+    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('Hệ thống AI đang quá tải'))
   })
 
   it('does not loop after a 409 conflict and releases the editor', async () => {
@@ -108,7 +110,8 @@ describe.each(['reading', 'listening'])('%s Practice AI reports', skill => {
     expect(panel).toHaveAttribute('data-status', 'blocked')
     expect(api.post).not.toHaveBeenCalled()
     expect(within(panel).queryByRole('button', { name: /Thử lại/ })).not.toBeInTheDocument()
-    expect(window.alert).not.toHaveBeenCalled()
+    await waitFor(() => expect(window.alert).toHaveBeenCalledTimes(1))
+    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('Có 1 lỗi cần sửa'))
   })
 
   it('restores the failure report after remount without sharing an exam report key', async () => {

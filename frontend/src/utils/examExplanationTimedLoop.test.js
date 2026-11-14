@@ -2,6 +2,18 @@ import { describe, it, expect, vi } from 'vitest'
 import { executeTimedAIGenerationLoop } from './examExplanationUtils'
 
 describe('executeTimedAIGenerationLoop', () => {
+  it('keeps explicit question timeouts and advances instead of retrying the same stalled question', async () => {
+    const timeout = number => ({ number, code: 'AI_QUESTION_TIMEOUT', status: 504, message: `AI xử lý câu ${number} quá 20 giây.` })
+    const fetchChunk = vi.fn()
+      .mockResolvedValueOnce({ generatedCount: 0, totalQuestions: 2, remainingQuestionNumbers: [2], errors: [timeout(1)] })
+      .mockResolvedValueOnce({ generatedCount: 0, totalQuestions: 1, remainingQuestionNumbers: [], errors: [timeout(2)] })
+    const result = await executeTimedAIGenerationLoop({ fetchChunk, initialQuestionNumbers: [1, 2] })
+    expect(fetchChunk).toHaveBeenCalledTimes(2)
+    expect(fetchChunk.mock.calls[1][0].questionNumbers).toEqual([2])
+    expect(result.errors.map(error => error.number)).toEqual([1, 2])
+    expect(result.errors.every(error => error.code === 'AI_QUESTION_TIMEOUT')).toBe(true)
+    expect(result.ok).toBe(false)
+  })
   it('finishes successfully on the final allowed request and preserves retry scope', async () => {
     const fetchChunk = vi.fn().mockResolvedValue({ generatedCount: 1, totalQuestions: 1, remainingQuestionNumbers: [] })
     const result = await executeTimedAIGenerationLoop({ fetchChunk, initialQuestionNumbers: [2], maxIterations: 1 })

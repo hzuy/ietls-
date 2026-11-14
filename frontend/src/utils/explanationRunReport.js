@@ -124,6 +124,7 @@ export function classifyRunError(input, _ctx = {}) {
   let kind = RUN_KINDS.UNKNOWN
 
   if (status === 409) kind = RUN_KINDS.BUSY
+  else if (input?.code === 'AI_QUESTION_TIMEOUT') kind = RUN_KINDS.TIMEOUT
   else if (status === 429 || /quá tải|qua tai|rate.?limit|too many requests|\b429\b/i.test(raw)) kind = RUN_KINDS.RATE_LIMITED
   else if (status === 502 || status === 503 || status === 504) kind = RUN_KINDS.PROVIDER
   else if (/timeout|timed out|quá lâu|qua lau|ETIMEDOUT|AI_TIMEOUT|AbortError/i.test(raw)) kind = RUN_KINDS.TIMEOUT

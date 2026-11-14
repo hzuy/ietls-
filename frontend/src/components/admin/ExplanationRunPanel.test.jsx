@@ -52,6 +52,7 @@ describe('ExplanationRunPanel', () => {
   })
   beforeEach(() => {
     vi.restoreAllMocks()
+    vi.spyOn(window, 'alert').mockImplementation(() => {}).mockClear()
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: { writeText: vi.fn().mockResolvedValue(undefined) },
@@ -61,6 +62,19 @@ describe('ExplanationRunPanel', () => {
   it('renders nothing without a report and while idle', () => {
     const { container } = render(<ExplanationRunPanel report={null} isGenerating={false} />)
     expect(container.firstChild).toBeNull()
+  })
+
+  it('alerts once with question, cause and action, but never while generating', () => {
+    const report = partialReport()
+    const { rerender } = render(<ExplanationRunPanel report={report} isGenerating />)
+    expect(window.alert).not.toHaveBeenCalled()
+    rerender(<ExplanationRunPanel report={report} />)
+    expect(window.alert).toHaveBeenCalledTimes(1)
+    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('Câu 2: AI phản hồi quá lâu'))
+    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('Thử lại các câu lỗi'))
+    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('Cần kiểm tra lại câu 1'))
+    rerender(<ExplanationRunPanel report={{ ...report }} />)
+    expect(window.alert).toHaveBeenCalledTimes(1)
   })
 
   it('shows live progress and a cancel button while generating', () => {
