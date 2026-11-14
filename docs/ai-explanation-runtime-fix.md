@@ -27,6 +27,12 @@ Prisma's documented interactive transaction settings and rollback behavior: [tra
 
 ## Production rollout
 
+### Individually saved explanation synchronization
+
+Manual save/review callbacks previously updated editor form data without updating the per-question database snapshot, leaving a false `Chưa lưu` badge. Modal selection also retained the old `question.explanation`; Practice updated the group map while the question-level copy could still override it.
+
+Successful API callbacks now acknowledge only that question in the parent snapshot, synchronize both explanation copies and the selected modal question, and patch only the saved field in the Practice pristine signature. Unrelated content and explanation edits remain dirty. Failed requests never invoke acknowledgement. Four editor integration cases verify manual save, the `Đã sửa` badge and reopening with the returned explanation. Baseline unit cases cover isolated updates, input immutability and preservation of unrelated drafts. No backend endpoints, authorization or production data were changed during verification.
+
 ### Saved confirmation alert
 
 Successful current-visit generation and conflict confirmation now display one browser alert, `Đã lưu giải thích thành công.`, for Test and Practice Reading/Listening. The alert is emitted after the final persisted result, not per chunk. Reports with errors, cancellation, pending verification, unresolved answer conflicts or zero saved results do not trigger success. The change uses the existing shared alert utility; no backend/data changes. Unit tests cover suppression and successful notification; editor tests cover retry, confirmation and a single alert after multiple groups. Scoped lint, build, diff checks and frontend dependency audit passed (zero findings).

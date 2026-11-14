@@ -46,6 +46,31 @@ describe.each(['reading', 'listening'])('%s Practice AI reports', skill => {
     if (trigger.getAttribute('aria-expanded') !== 'true') fireEvent.click(trigger)
   }
 
+  it('marks an individually saved explanation as saved and retains it on reopening', async () => {
+    const old = { v: 2, status: 'ai_generated', answer: 'one', reasoning: 'Old reasoning' }
+    const saved = { ...old, status: 'teacher_edited', manualEdit: true, reasoning: 'Saved teacher reasoning' }
+    service[reading ? 'getReadingPractice' : 'getListeningPractice'].mockResolvedValue({
+      ...practice, questions: { groups: [{ ...groups[0],
+        questions: groups[0].questions.map(q => q.number === 1 ? { ...q, explanation: old } : q),
+        explanations: { 1: old },
+      }] },
+    })
+    vi.spyOn(api, 'put').mockResolvedValue({ data: { success: true, explanation: saved } })
+    await open()
+    fireEvent.click(screen.getByRole('button', { name: /^Câu 1/i }))
+    fireEvent.click(screen.getByRole('tab', { name: /Sửa trực tiếp/i }))
+    fireEvent.change(screen.getByPlaceholderText(/Lập luận vì sao đáp án này đúng/i), { target: { value: saved.reasoning } })
+    fireEvent.click(screen.getByRole('button', { name: /Lưu chỉnh sửa/i }))
+    await waitFor(() => expect(api.put).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(screen.getByText(saved.reasoning)).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng' }))
+    const chip = screen.getByRole('button', { name: /^Câu 1/i })
+    expect(chip).toHaveTextContent('Đã sửa')
+    expect(chip).not.toHaveTextContent('Chưa lưu')
+    fireEvent.click(chip)
+    expect(screen.getByText(saved.reasoning)).toBeInTheDocument()
+  })
+
   it('shows a partial timeout and retries only the unfinished question', async () => {
     api.post
       .mockResolvedValueOnce({ data: { generatedCount: 1, totalQuestions: 2, remainingQuestionNumbers: [2] } })

@@ -1,3 +1,4 @@
+import { acknowledgePracticeExplanation } from '../../utils/savedExplanationSync'
 import { notifyExplanationSaved } from '../../utils/explanationSaveNotification'
 import ReadingPassagePreview from '../../components/practice/ReadingPassagePreview'
 import { needsParagraphLetters, paragraphLettersAlert, practiceParagraphLetters, syncParagraphGroups } from '../../utils/readingParagraphs'
@@ -802,6 +803,10 @@ export default function ReadingPractice() {
                         isLast={i === form.questionGroups.length - 1}
                         isAIBusy={expLock.isLockedOperation}
                         unsavedQuestionNumbers={unsavedQuestionNumbers}
+                        onExplanationSaved={(explanation, number) => {
+                          pristineExplanationsRef.current = { ...pristineExplanationsRef.current, [number]: explanation }
+                          pristineRef.current = acknowledgePracticeExplanation(pristineRef.current, 2, number, explanation)
+                        }}
                         generatingQuestionNumbers={aiReport.generatingNumbers}
                         runStatusByNumber={aiReport.statuses}
                         runErrorMessageByNumber={aiReport.errorMessages}

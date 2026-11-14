@@ -9,6 +9,7 @@ vi.mock('../../utils/axios', () => ({
   default: {
     get: vi.fn(),
     post: vi.fn(),
+    put: vi.fn(),
     delete: vi.fn()
   }
 }))
@@ -90,6 +91,36 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     const trigger = await screen.findByRole('button', { name: /câu lỗi — xem chi tiết|Lỗi tác vụ — xem chi tiết/ })
     if (trigger.getAttribute('aria-expanded') !== 'true') fireEvent.click(trigger)
   }
+
+  it.each(['reading', 'listening'])('updates the saved %s question badge and modal after a manual save', async skill => {
+    const reading = skill === 'reading'
+    const examId = reading ? 10 : 20
+    const old = { v: 2, status: 'ai_generated', answer: 'TRUE', reasoning: 'Old reasoning' }
+    const saved = { ...old, status: 'teacher_edited', manualEdit: true, reasoning: 'Saved teacher reasoning' }
+    const exam = structuredClone(mockReadingExam)
+    exam.passages[0].questionGroups[0].questions[0].explanation = old
+    if (!reading) {
+      exam.id = 20
+      exam.listeningSections = exam.passages.map((passage, index) => ({ ...passage, number: index + 1,
+        context: 'Context', transcript: 'Transcript', audioUrl: '/test.mp3' }))
+    }
+    api.get.mockImplementation(url => Promise.resolve({ data: url === `/admin/exams/${examId}` ? exam : [] }))
+    api.put.mockResolvedValue({ data: { success: true, explanation: saved } })
+    renderTab(reading ? <ReadingTab exams={[]} onRefresh={vi.fn()} /> : <ListeningTab exams={[]} onRefresh={vi.fn()} />)
+    fireEvent.click(screen.getByText(reading ? 'Edit Reading 10' : 'Edit Listening 20'))
+    fireEvent.click(await screen.findByRole('button', { name: /^Câu 1/i }))
+    fireEvent.click(screen.getByRole('tab', { name: /Sửa trực tiếp/i }))
+    fireEvent.change(screen.getByPlaceholderText(/Lập luận vì sao đáp án này đúng/i), { target: { value: saved.reasoning } })
+    fireEvent.click(screen.getByRole('button', { name: /Lưu chỉnh sửa/i }))
+    await waitFor(() => expect(screen.getByText(saved.reasoning)).toBeInTheDocument())
+    expect(api.put).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng' }))
+    const chip = screen.getByRole('button', { name: /^Câu 1/i })
+    expect(chip).toHaveTextContent('Đã sửa')
+    expect(chip).not.toHaveTextContent('Chưa lưu')
+    fireEvent.click(chip)
+    expect(screen.getByText(saved.reasoning)).toBeInTheDocument()
+  })
 
   it.each(['reading', 'listening'])('retries only unfinished questions after a partial %s group times out', async (skill) => {
     const isReading = skill === 'reading'

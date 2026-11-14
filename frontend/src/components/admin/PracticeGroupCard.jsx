@@ -1,3 +1,4 @@
+import { withSavedExplanation } from '../../utils/savedExplanationSync'
 import AutoGrowTextarea from './AutoGrowTextarea'
 import AdditionalTaskEditor from './editors/AdditionalTaskEditor'
 import { GROUP_TYPE_ALIASES } from '../../utils/questionTypes'
@@ -61,7 +62,7 @@ export default function PracticeGroupCard({
   skill, group, onChange, onRemove, onMoveUp, onMoveDown, isFirst, isLast,
   expanded = true, onToggle, examId, passage = '', letteredParagraphs = false, isAIBusy = false,
   generatingQuestionNumbers = null, unsavedQuestionNumbers = null,
-  runStatusByNumber = null, runErrorMessageByNumber = null,
+  runStatusByNumber = null, runErrorMessageByNumber = null, onExplanationSaved,
 }) {
   const [selectedQModal, setSelectedQModal] = useState(null)
   const groupTypes = skill === 'listening' ? LISTENING_GROUP_TYPES : READING_GROUP_TYPES
@@ -243,9 +244,9 @@ export default function PracticeGroupCard({
           runErrorMessage={runErrorMessageByNumber?.[selectedQModal.qNum]}
           onExplanationUpdated={(newExp, qNum) => {
             const targetNum = qNum || selectedQModal?.qNum
-            const nextExplanations = { ...(group.explanations || {}), [targetNum]: newExp }
-            onChange({ ...group, explanations: nextExplanations })
-            setSelectedQModal(prev => prev ? { ...prev, explanation: newExp } : null)
+            onExplanationSaved?.(newExp, targetNum)
+            onChange(withSavedExplanation(group, targetNum, newExp))
+            setSelectedQModal(prev => prev ? { ...prev, question: { ...prev.question, explanation: newExp }, explanation: newExp } : null)
           }}
         />
       )}

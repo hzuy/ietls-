@@ -93,7 +93,7 @@ function GroupEditor({
   generatingQuestionNumbers: generatingQuestionNumbersProp = null,
   runStatusByNumber = null,
   runErrorMessageByNumber = null,
-  unsavedQuestionNumbers,
+  unsavedQuestionNumbers, onExplanationSaved,
 }) {
   const [selectedQModal, setSelectedQModal] = useState(null)
   const groupType = group?.type || 'fill_blank'
@@ -255,9 +255,10 @@ function GroupEditor({
                 ? { ...q, explanation: newExp }
                 : q
             )
+            onExplanationSaved?.(newExp, targetNum)
             const nextExplanations = { ...(group.explanations || {}), [targetNum]: newExp }
             onChange({ ...group, questions: updatedQuestions, explanations: nextExplanations })
-            setSelectedQModal(prev => prev ? { ...prev, explanation: newExp } : null)
+            setSelectedQModal(prev => prev ? { ...prev, question: { ...prev.question, explanation: newExp }, explanation: newExp } : null)
           }}
         />
       )}
@@ -1517,6 +1518,9 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
                               runStatusByNumber={runStatusByNumber}
                               runErrorMessageByNumber={runErrorMessageByNumber}
                               unsavedQuestionNumbers={unsavedQuestionNumbers}
+                            onExplanationSaved={(explanation, number) => {
+                              pristineExplanationsRef.current = { ...pristineExplanationsRef.current, [number]: explanation }
+                            }}
                             />
                           </div>
                         </div>

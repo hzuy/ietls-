@@ -1509,6 +1509,9 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
                             runStatusByNumber={runStatusByNumber}
                             runErrorMessageByNumber={runErrorMessageByNumber}
                             unsavedQuestionNumbers={unsavedQuestionNumbers}
+                            onExplanationSaved={(explanation, number) => {
+                              pristineExplanationsRef.current = { ...pristineExplanationsRef.current, [number]: explanation }
+                            }}
                           />
                         ))}
                       </div>

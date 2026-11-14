@@ -1,3 +1,4 @@
+import { acknowledgePracticeExplanation } from '../../utils/savedExplanationSync'
 import { notifyExplanationSaved } from '../../utils/explanationSaveNotification'
 import ListeningContentPreview from '../../components/practice/ListeningContentPreview'
 import InlinePreviewPanel from '../../components/common/InlinePreviewPanel'
@@ -946,6 +947,10 @@ export default function ListeningPractice() {
                         isLast={i === form.questionGroups.length - 1}
                         isAIBusy={expLock.isLockedOperation}
                         unsavedQuestionNumbers={unsavedQuestionNumbers}
+                        onExplanationSaved={(explanation, number) => {
+                          pristineExplanationsRef.current = { ...pristineExplanationsRef.current, [number]: explanation }
+                          pristineRef.current = acknowledgePracticeExplanation(pristineRef.current, 3, number, explanation)
+                        }}
                         generatingQuestionNumbers={aiReport.generatingNumbers}
                         runStatusByNumber={aiReport.statuses}
                         runErrorMessageByNumber={aiReport.errorMessages}

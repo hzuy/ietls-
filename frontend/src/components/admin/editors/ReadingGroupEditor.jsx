@@ -22,7 +22,7 @@ export default function ReadingGroupEditor({
   generatingQuestionNumbers: generatingQuestionNumbersProp = null,
   runStatusByNumber = null,
   runErrorMessageByNumber = null,
-  unsavedQuestionNumbers,
+  unsavedQuestionNumbers, onExplanationSaved,
 }) {
   const [selectedQModal, setSelectedQModal] = useState(null)
   const groupType = group?.type || 'short_answer'
@@ -211,9 +211,10 @@ export default function ReadingGroupEditor({
                 ? { ...q, explanation: newExp }
                 : q
             )
+            onExplanationSaved?.(newExp, targetNum)
             const nextExplanations = { ...(group.explanations || {}), [targetNum]: newExp }
             onChange({ ...group, questions: updatedQuestions, explanations: nextExplanations })
-            setSelectedQModal(prev => prev ? { ...prev, explanation: newExp } : null)
+            setSelectedQModal(prev => prev ? { ...prev, question: { ...prev.question, explanation: newExp }, explanation: newExp } : null)
           }}
         />
       )}
