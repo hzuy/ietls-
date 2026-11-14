@@ -27,6 +27,12 @@ Prisma's documented interactive transaction settings and rollback behavior: [tra
 
 ## Production rollout
 
+### Conflict confirmation follow-up
+
+The confirmation button previously re-entered generation, so even accepting an already persisted AI preview called the provider again. Test editors also omitted the selected question-number scope. Confirmation now scopes server and client work to the selected numbers and adopts the persisted `conflict_pending` explanation for the AI choice. Missing, inconsistent or unsupported previews return a per-question error instead of generating an unseen replacement. Existing teacher-protection and concurrent-update save guards remain. Keeping a teacher answer still uses the existing independent-evidence checks.
+
+Verification: 1,144 backend tests passed (64 isolated-database integration cases skipped); 958 frontend tests passed. New cases cover exact preview adoption without provider calls, excluding unrelated questions, and rejecting missing previews. Production build and scoped lint passed. Security review confirmed teacher-only routes, server-loaded previews, and existing protected/concurrent save guards. Dependency audit remains zero frontend findings and two existing moderate backend findings in exceljs/uuid; dependencies unchanged.
+
 - Deployed source `82c11bd4a434b245c0ce6869c96709f63a55428d` to https://hzuy.net on 2026-11-14.
 - Release: `/home/huuduy/releases/ai-runtime-82c11bd4-1794649619`; rollback backup: `/home/huuduy/backups/ai-runtime-82c11bd4-1794649619`.
 - Backend image: `sha256:d7b5ea2c5b9cd8cfac02cdd1baa37464277a4902e67fef9cb5235fe64fa80c9c`.

@@ -32,6 +32,42 @@ describe.each(['exam', 'practice'])('%s question deadline', kind => {
   })
   afterEach(() => vi.useRealTimers())
 
+  it('confirms the persisted AI preview without calling the provider again', async () => {
+    const preview = { v: 2, status: 'conflict_pending', answer: 'ten', aiAnswer: 'ten', reasoning: 'Reviewed preview', provider: 'Gemini' }
+    if (kind === 'exam') {
+      prismaMock.question.findMany.mockResolvedValue([
+        { id: 101, number: 1, type: 'fill_blank', correctAnswer: 'nine', explanation: preview, passage: { body: 'The library opens at ten.' } },
+        { id: 102, number: 2, type: 'fill_blank', correctAnswer: 'nine', passage: { body: 'The library opens at nine.' } },
+      ])
+    } else {
+      practiceRow.explanation = { byNumber: { 1: preview } }
+      const group = JSON.parse(practiceRow.content)
+      group.qNumberEnd = 2
+      group.questions.push({ number: 2, correctAnswer: 'nine' })
+      practiceRow.content = JSON.stringify(group)
+    }
+    const result = await (kind === 'exam' ? service.generateForExam(10, { force: true, resolveChoices: { 1: 'ai' } }) : service.generateForPracticeExam(10, { force: true, resolveChoices: { 1: 'ai' } }))
+    expect(generateExplanation).not.toHaveBeenCalled()
+    expect(result.generatedCount).toBe(1)
+    if (kind === 'exam') {
+      expect(prismaMock.question.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ correctAnswer: 'ten', explanation: expect.objectContaining({ reasoning: 'Reviewed preview', status: 'ai_generated' }) }) }))
+    } else {
+      expect(prismaMock.practiceQuestion.update).toHaveBeenCalled()
+      const data = prismaMock.practiceQuestion.update.mock.calls[0][0].data
+      expect(data.explanation.byNumber[1]).toMatchObject({ answer: 'ten', reasoning: 'Reviewed preview', status: 'ai_generated' })
+      expect(JSON.parse(data.content).questions[0].correctAnswer).toBe('ten')
+    }
+  })
+
+  it('does not regenerate or save when the pending preview is missing', async () => {
+    const result = await (kind === 'exam' ? service.generateForExam(10, { force: true, resolveChoices: { 1: 'ai' } }) : service.generateForPracticeExam(10, { force: true, resolveChoices: { 1: 'ai' } }))
+    expect(generateExplanation).not.toHaveBeenCalled()
+    expect(result.generatedCount).toBe(0)
+    expect(result.errors).toEqual([expect.objectContaining({ number: 1 })])
+    expect(prismaMock.question.update).not.toHaveBeenCalled()
+    expect(prismaMock.practiceQuestion.update).not.toHaveBeenCalled()
+  })
+
   it('allows a 5.323-second save within the remaining hard request budget', async () => {
     generateExplanation.mockResolvedValue({ v: 2, answer: 'nine', reasoning: 'The passage gives the opening time.' })
     prismaMock.$transaction.mockImplementationOnce(async (callback, options) => {

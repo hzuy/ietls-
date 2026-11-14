@@ -872,6 +872,7 @@ async function generateForPracticeExam(examId, {
   timeBudgetMs = null,
   signal = null,
 } = {}) {
+  if (Object.keys(resolveChoices).length) questionNumbers = Object.keys(resolveChoices).map(Number)
   const requestedBudget = (typeof timeBudgetMs === 'number' && timeBudgetMs > 0)
     ? timeBudgetMs
     : DEFAULT_TIME_BUDGET_MS
@@ -1027,7 +1028,13 @@ async function generateForPracticeExam(examId, {
 
     const timeoutMs = questionTimeoutMs(startTime, effectiveTimeBudget, generatedCount)
     try {
-      if (inputContradicted) {
+      if (choice === 'ai' && existing?.status === 'conflict_pending' && existing.aiAnswer && existing.answer === existing.aiAnswer && !existing.no_support) {
+        // Confirmation adopts the persisted preview, never a newly generated answer.
+        explanation = { ...existing }
+      } else if (choice === 'ai') {
+        failedQuestions.push({ number: qNum, message: 'Lời giải chờ xác nhận không còn hợp lệ. Tải lại để kiểm tra trước khi xác nhận.' })
+        continue
+      } else if (inputContradicted) {
         explanation = {
           ...(existing || {}),
           v: 2,
@@ -1333,6 +1340,7 @@ async function generateForExam(examId, {
   timeBudgetMs = null,
   signal = null,
 } = {}) {
+  if (Object.keys(resolveChoices).length) questionNumbers = Object.keys(resolveChoices).map(Number)
   const requestedBudget = (typeof timeBudgetMs === 'number' && timeBudgetMs > 0)
     ? timeBudgetMs
     : DEFAULT_TIME_BUDGET_MS
@@ -1571,7 +1579,12 @@ async function generateForExam(examId, {
 
     const timeoutMs = questionTimeoutMs(startTime, effectiveTimeBudget, generatedCount)
     try {
-      if (inputContradicted) {
+      if (choice === 'ai' && q.explanation?.status === 'conflict_pending' && q.explanation.aiAnswer && q.explanation.answer === q.explanation.aiAnswer && !q.explanation.no_support) {
+        explanation = { ...q.explanation }
+      } else if (choice === 'ai') {
+        failedQuestions.push({ number: q.number, message: 'Lời giải chờ xác nhận không còn hợp lệ. Tải lại để kiểm tra trước khi xác nhận.' })
+        continue
+      } else if (inputContradicted) {
         explanation = {
           ...(q.explanation || {}),
           v: 2,

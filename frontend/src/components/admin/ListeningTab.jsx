@@ -1618,9 +1618,9 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         conflicts={aiConflicts}
         onConfirmResolve={(choices) => {
           if (pendingAIFnRef.current) {
-            pendingAIFnRef.current({ resolveChoices: choices, overwriteProtected: false })
+            pendingAIFnRef.current({ resolveChoices: choices, overwriteProtected: false, questionNumbers: Object.keys(choices).map(Number) })
           } else {
-            handleGenerateSequentialAll({ resolveChoices: choices, overwriteProtected: false })
+            handleGenerateSequentialAll({ resolveChoices: choices, overwriteProtected: false, questionNumbers: Object.keys(choices).map(Number) })
           }
         }}
         isSubmitting={generatingAI}

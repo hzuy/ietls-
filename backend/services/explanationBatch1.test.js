@@ -168,6 +168,7 @@ describe('Batch 1 Explanation Logic Tests', () => {
           type: 'mcq',
           questionText: 'Q2',
           correctAnswer: 'students',
+          explanation: { v: 2, status: 'conflict_pending', answer: 'teachers', aiAnswer: 'teachers', reasoning: 'AI reasoning' },
           passage: { body: 'sample text' },
           options: JSON.stringify(['students', 'teachers']),
         },
@@ -180,6 +181,7 @@ describe('Batch 1 Explanation Logic Tests', () => {
       })
 
       const res = await generateForExam(10, { force: true, resolveChoices: { 2: 'ai' } })
+      expect(generateExplanationMock).not.toHaveBeenCalled()
       expect(res.ok).toBe(true)
       expect(res.hasConflicts).toBe(false)
 
