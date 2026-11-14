@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   addRunOutcome, clearRunReport, createBlockedReport, createRunReport,
-  finishRunReport, loadRunReport, makeRunReportKey, saveRunReport, updateRunProgress, reconcileRunReport,
+  finishRunReport, makeRunReportKey, updateRunProgress, reconcileRunReport,
 } from '../utils/explanationRunReport'
 
-// Practice IDs and exam IDs may overlap: keep their session reports separate.
+// Keep legacy report cleanup scoped to this practice, separate from Test IDs.
 export function usePracticeExplanationReport({ skill, practiceId, enabled, groups }) {
   const key = enabled && practiceId ? makeRunReportKey(`practice_${skill}`, practiceId) : null
   const [report, setReport] = useState(null)
@@ -14,20 +14,18 @@ export function usePracticeExplanationReport({ skill, practiceId, enabled, group
   const scopeRef = useRef([])
 
   useEffect(() => {
-    const saved = loadRunReport(key)
-    latestRef.current = saved
-    setReport(saved)
-    const next = {}
-    for (const row of saved?.rows || []) if (row.number) next[row.number] = 'error'
-    for (const row of saved?.needsRetry || []) if (row.number) next[row.number] = 'retry'
-    setStatuses(next)
+    clearRunReport(key)
+    latestRef.current = null
+    initialRef.current = null
+    scopeRef.current = []
+    setReport(null)
+    setStatuses({})
   }, [key])
 
   const persist = useCallback(next => {
     latestRef.current = next
     setReport(next)
-    saveRunReport(key, next)
-  }, [key])
+  }, [])
 
   const start = useCallback((numbers, { scope = 'all' } = {}) => {
     scopeRef.current = numbers
@@ -54,7 +52,7 @@ export function usePracticeExplanationReport({ skill, practiceId, enabled, group
       for (const item of data.needsRetryQuestions || []) next[typeof item === 'object' ? item.number : item] = 'retry'
       return next
     })
-    // Keep a partial report on refresh, without counting each chunk as a group.
+    // Update the current visit's report without counting each chunk as a group.
     const next = updateRunProgress(latestRef.current || initialRef.current, { data, sentNumbers: numbers })
     persist(next)
   }, [persist])

@@ -123,6 +123,27 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
 
   })
 
+  it.each(['reading', 'listening'])('opens %s without restoring a stale running report or locking controls', async skill => {
+    const reading = skill === 'reading'
+    const examId = reading ? 10 : 20
+    const exam = reading ? mockReadingExam : { ...mockReadingExam, id: 20,
+      listeningSections: mockReadingExam.passages.map((passage, index) => ({
+        ...passage, number: index + 1, context: 'Context', transcript: `Transcript ${index + 1}`, audioUrl: '/test.mp3',
+      })) }
+    const key = `ai_exp_report_${skill}_${examId}`
+    sessionStorage.setItem(key, JSON.stringify({ version: 1, status: 'running', totalQuestions: 38, generated: 0, rows: [], needsRetry: [] }))
+    localStorage.setItem(`ai_exp_active_exam_${examId}`, JSON.stringify({ isRunning: true, tabId: 'old', lastHeartbeat: Date.now(), current: 0, total: 38 }))
+    api.get.mockImplementation(url => Promise.resolve({ data: url === `/admin/exams/${examId}` ? exam : url.includes('explanation-status') ? { isLocked: true } : [] }))
+    renderTab(reading ? <ReadingTab exams={[]} onRefresh={vi.fn()} /> : <ListeningTab exams={[]} onRefresh={vi.fn()} />)
+    fireEvent.click(screen.getByText(reading ? 'Edit Reading 10' : 'Edit Listening 20'))
+    await screen.findByDisplayValue(reading ? 'Passage 1 text' : 'Transcript 1')
+    expect(screen.getByRole('button', { name: 'AI giải thích' })).toBeEnabled()
+    expect(screen.queryByTestId('explanation-run-panel')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('ai-resume-banner-running')).not.toBeInTheDocument()
+    expect(sessionStorage.getItem(key)).toBeNull()
+    expect(api.get.mock.calls.some(([url]) => url.includes('explanation-status'))).toBe(false)
+  })
+
   it.each(['reading', 'listening'])('asks before retrying against unsaved %s content and retains the retry scope', async skill => {
     const reading = skill === 'reading'
     const examId = reading ? 10 : 20
@@ -132,16 +153,17 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
         ...passage, number: index + 1, context: 'Context', transcript: `Transcript ${index + 1}`, audioUrl: '/test-audio.mp3',
       })),
     }
-    sessionStorage.setItem(`ai_exp_report_${skill}_${examId}`, JSON.stringify({
-      version: 1, status: 'partial', totalQuestions: 2, generated: 1,
-      rows: [{ id: 'failed-2', number: 2, retryable: true, message: 'Timeout' }], needsRetry: [],
-    }))
     api.get.mockImplementation(url => Promise.resolve({ data: url === `/admin/exams/${examId}` ? exam : [] }))
     api.post.mockResolvedValue({ data: { generatedCount: 1, remainingQuestionNumbers: [] } })
     renderTab(reading ? <ReadingTab exams={[]} onRefresh={vi.fn()} /> : <ListeningTab exams={[]} onRefresh={vi.fn()} />)
     fireEvent.click(screen.getByText(reading ? 'Edit Reading 10' : 'Edit Listening 20'))
     const source = await screen.findByDisplayValue(reading ? 'Passage 1 text' : 'Transcript 1')
     await waitFor(() => expect(screen.getByRole('button', { name: /AI giải thích/i })).toBeEnabled())
+    api.post.mockResolvedValueOnce({ data: { generatedCount: 1, remainingQuestionNumbers: [],
+      errors: [{ number: 2, code: 'AI_QUESTION_TIMEOUT', message: 'timeout' }] } })
+    fireEvent.click(screen.getAllByRole('button', { name: /Sinh AI nh\u00f3m n\u00e0y/i })[0])
+    await waitFor(() => expect(screen.getByTestId('explanation-run-panel')).toHaveAttribute('data-status', 'partial'))
+    api.post.mockClear()
     fireEvent.change(source, { target: { value: 'Unsaved teacher content' } })
     await revealRunErrors()
     fireEvent.click(await screen.findByRole('button', { name: 'Thử lại 1 câu lỗi' }))

@@ -62,7 +62,7 @@ describe.each(['reading', 'listening'])('%s Practice AI reports', skill => {
     expect(api.post.mock.calls[2][0]).toBe(`/practice/admin/${skill}/11/generate-explanations`)
     expect(api.post.mock.calls[2][1]).toMatchObject({ questionNumbers: [2], overwriteProtected: false })
     await waitFor(() => expect(screen.getByTestId('explanation-run-panel')).toHaveAttribute('data-status', 'done'))
-    expect(JSON.parse(sessionStorage.getItem(`ai_exp_report_practice_${skill}_11`))).toMatchObject({ status: 'done', scope: 'retry', generated: 1 })
+    expect(sessionStorage.getItem(`ai_exp_report_practice_${skill}_11`)).toBeNull()
     expect(window.alert).not.toHaveBeenCalled()
 
   })
@@ -156,19 +156,19 @@ describe.each(['reading', 'listening'])('%s Practice AI reports', skill => {
 
   })
 
-  it('restores the failure report after remount without sharing an exam report key', async () => {
+  it('starts fresh after remount without restoring the failure report', async () => {
     api.post.mockRejectedValueOnce(new Error('timeout'))
     const first = await open()
     fireEvent.click(screen.getByRole('button', { name: 'AI giải thích' }))
     await revealRunErrors()
     await screen.findByRole('button', { name: 'Thử lại 2 câu lỗi' })
     expect(sessionStorage.getItem(`ai_exp_report_${skill}_11`)).toBeNull()
-    expect(sessionStorage.getItem(`ai_exp_report_practice_${skill}_11`)).not.toBeNull()
+    expect(sessionStorage.getItem(`ai_exp_report_practice_${skill}_11`)).toBeNull()
     first.unmount()
     await open()
-    await revealRunErrors()
-    expect(await screen.findByRole('button', { name: 'Thử lại 2 câu lỗi' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^Câu 2/i })).toHaveTextContent('Lỗi')
+    expect(screen.queryByTestId('explanation-run-panel')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^C\u00e2u 2/i })).not.toHaveTextContent('L\u1ed7i')
+    expect(screen.getByRole('button', { name: 'AI gi\u1ea3i th\u00edch' })).toBeEnabled()
     expect(api.post).toHaveBeenCalledTimes(1)
   })
 

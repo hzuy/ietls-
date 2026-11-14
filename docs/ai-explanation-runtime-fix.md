@@ -27,6 +27,12 @@ Prisma's documented interactive transaction settings and rollback behavior: [tra
 
 ## Production rollout
 
+### Fresh editor visits
+
+Reading/Listening Test and Practice no longer restore AI heartbeat, progress or failure reports from a previous visit. Opening an editor clears its legacy report/evidence keys, does not query or poll `explanation-status`, and starts with unlocked controls and no resume banner. Current-visit progress and retry details remain in memory. Leaving/changing the edited target aborts the owned request; pagehide also aborts it. Saved database explanations and content drafts are unaffected. Server-side generation locks and request-abort handling remain in place for actual simultaneous requests; a real HTTP 409 remains visible as a request failure, without resurrecting an old progress screen.
+
+Verification: all 964 frontend tests passed, including four-editor fresh-visit checks and current-visit retry/unsaved-edit guards. Fourteen backend lock/cancellation regression tests passed. Build, scoped lint and diff checks passed; frontend production dependency audit returned zero findings. Security review confirmed the backend lock/auth/write guards remain intact and browser storage now contains no new run progress. Existing restore tests were updated to the requested fresh-visit behavior, while the unsaved-content retry test now creates its error during the active visit.
+
 ### Conflict confirmation follow-up
 
 The confirmation button previously re-entered generation, so even accepting an already persisted AI preview called the provider again. Test editors also omitted the selected question-number scope. Confirmation now scopes server and client work to the selected numbers and adopts the persisted `conflict_pending` explanation for the AI choice. Missing, inconsistent or unsupported previews return a per-question error instead of generating an unseen replacement. Existing teacher-protection and concurrent-update save guards remain. Keeping a teacher answer still uses the existing independent-evidence checks.

@@ -57,8 +57,6 @@ import {
   createBlockedReport,
   addRunOutcome, updateRunProgress, isRunServiceFailure, eligibleExplanationNumbers, reconcileRunReport,
   finishRunReport,
-  loadRunReport,
-  saveRunReport,
   clearRunReport,
   makeRunReportKey,
 
@@ -338,18 +336,14 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       setRunStatusByNumber({})
       return
     }
-    const saved = loadRunReport(runReportKey)
-    setRunReport(saved)
-    setRunStatusByNumber({
-      ...Object.fromEntries((saved?.rows || []).filter(row => row.number).map(row => [row.number, 'error'])),
-      ...Object.fromEntries((saved?.needsRetry || []).map(row => [row.number, 'retry'])),
-    })
+    clearRunReport(runReportKey)
+    setRunReport(null)
+    setRunStatusByNumber({})
   }, [runReportKey])
 
   const persistRunReport = useCallback((next) => {
     setRunReport(next)
-    if (runReportKey) saveRunReport(runReportKey, next)
-  }, [runReportKey])
+  }, [])
 
   const markRunStatus = useCallback((numbers, status) => {
     if (!Array.isArray(numbers) || numbers.length === 0) return
