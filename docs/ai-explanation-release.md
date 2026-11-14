@@ -1,5 +1,21 @@
 # Admin AI explanation release — 2026-11-13
 
+## Update — 2026-11-14
+
+Deployed source commit `02dae1062e5a291e21b9848756b13567acf21f1e` to `https://hzuy.net`.
+
+- Reading/Listening Test and Practice share a native alert on completed generation failures, validation blocks and fallback-review warnings. The alert lists affected questions, causes and next actions once per completed report; successful generation remains quiet. The existing report retains details and scoped retries.
+- Question deadlines now abort provider requests and return numbered `AI_QUESTION_TIMEOUT` errors. The deadline allows the provider request/retry window while reserving save time within the hard request budget.
+- Full frontend: **943 passed**, 119 files. Full backend: **1130 passed**, 64 skipped (six isolated development DB integration suites). Targeted ESLint, diff whitespace check, staged secret scan and production build passed.
+- Chromium fixture at 390/768/1440 px: one alert, scoped retry, no horizontal overflow or uncaught page errors. Four editor integration flows cover failure/retry behavior with mocked API responses.
+- Production frontend dependency audit: zero vulnerabilities. Backend: two moderate dependency findings in the existing `exceljs → uuid` chain; no dependency changes in this release.
+- Gemini environment was synchronized privately from local to the server: `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_MAX_RPM`. A synthetic JSON prompt directly to `gemini-3.5-flash-lite` passed in the running container. This provider check does not generate or modify real explanations.
+- Backend image: `sha256:edf6e078a0f22f54ba17662f4721b10c65cce1c16039b94a3306dd16c2d30f94`. Built from a committed source archive under `/home/huuduy/releases/ai-02dae106-1794631248`, preserving the historical dirty server checkout. Frontend was built locally and staged before replacement; asset checksums, public HTML/API/main JS and SELinux label were verified.
+- Backups: `/home/huuduy/backups/ai-02dae106-1794631248` contains frontend archive, private environment backup and old image ID. Previous image remains tagged `ielts-app-backend:previous`. Earlier deployment attempts rolled back after Cloudflare asset network failures; final verification passed with IPv4, bounded requests and local asset checksum comparison.
+- `prisma migrate status`: schema up to date, 14 migrations. No migration or production explanation generation was run.
+
+The sections below describe the preceding frontend-only release.
+
 Reading/Listening Test and Practice now show question-level generation failures and fallback-review flags, preserve partial results, and retry only unfinished questions. Session reports survive refresh without sharing keys between Test and Practice. Cancellation and 409 conflicts release editor controls without claiming completion.
 
 Test retries respect the generation lock and ask how to handle unsaved passage/transcript edits. Pending callbacks preserve the retry scope through dirty-form and answer-conflict confirmation. Practice saves dirty content before generation and passes retry scope through `initialQuestionNumbers`. Conflict confirmation submits the displayed default choice and only the confirmed question numbers; protected explanations remain protected.

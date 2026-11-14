@@ -85,6 +85,9 @@ Cần có sẵn trước khi deploy (thiết lập một lần trên máy điề
 | `DATABASE_URL` | ✅ | Supabase, dùng chung local/prod — xem [mục 1](#1-kiến-trúc-tổng-quan). |
 | `JWT_SECRET` | ✅ | Random 32+ ký tự. |
 | `GROQ_API_KEY` | ✅ | Chấm Writing/Speaking + chatbot + transcription. |
+| `GEMINI_API_KEY` | ✅ cho giải thích AI | Provider Gemini cho giải thích Reading/Listening Test và Practice. Đồng bộ riêng qua SSH, không in giá trị hoặc đưa vào archive/image. |
+| `GEMINI_MODEL` | ✅ cho giải thích AI | Khớp model đã kiểm tra ở local; release 2026-11-14 đã xác minh `gemini-3.5-flash-lite` bằng prompt JSON mẫu trên server. |
+| `GEMINI_MAX_RPM` | tùy chọn | Mặc định `12`; giới hạn lượt gọi Gemini. Sau khi đổi biến môi trường phải recreate container backend. |
 | `FRONTEND_URL` | ✅ | `https://hzuy.net` — thiếu → CORS chặn hết request từ domain thật (`server.js` chỉ thêm origin này vào allowlist khi biến tồn tại). |
 | `GOOGLE_CLIENT_ID` | ✅ | Google OAuth login (`routes/auth.js`) — verify `audience` khi decode token Google. Thiếu → endpoint Google login lỗi runtime (lazy init, không throw lúc khởi động nên dễ bỏ sót). |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | ✅ | Gửi mã xác thực email khi đăng ký (`lib/mailer.js`). Thiếu → đăng ký vẫn tạo tài khoản nhưng không gửi được mã, người dùng mới không đăng nhập được. Server phải mở kết nối ra cổng SMTP (587/465) — kiểm tra trước khi deploy. Gmail cần App Password. |
