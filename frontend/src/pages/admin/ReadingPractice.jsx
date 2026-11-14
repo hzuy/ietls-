@@ -28,13 +28,14 @@ import ExplanationConflictModal from '../../components/admin/ExplanationConflict
 import OverwriteProtectedConfirmModal from '../../components/admin/OverwriteProtectedConfirmModal'
 import { showAlert } from '../../utils/alertUtils'
 import { useToast } from '../../context/ToastContext'
+import { eligibleExplanationNumbers } from '../../utils/explanationRunReport'
 import { usePracticeExplanationReport } from '../../hooks/usePracticeExplanationReport'
 import ExplanationRunPanel from '../../components/admin/ExplanationRunPanel'
+import ExplanationQualityFilter from '../../components/admin/ExplanationQualityFilter'
 import { validatePracticeReading, formatValidationAlert } from '../../utils/questionValidation'
 import { executeTimedAIGenerationLoop } from '../../utils/examExplanationUtils'
 import { useExplanationGenerationLock } from '../../hooks/useExplanationGenerationLock'
 import { useAIExitGuard } from '../../hooks/useAIExitGuard'
-import AIGenerationStickyProgress from '../../components/admin/AIGenerationStickyProgress'
 import AIGenerationExitConfirmModal from '../../components/admin/AIGenerationExitConfirmModal'
 import AIGenerationResumeBanner from '../../components/admin/AIGenerationResumeBanner'
 import {
@@ -425,9 +426,7 @@ export default function ReadingPractice() {
     }
     const val = validatePracticeReading(form)
     if (!val.isValid) {
-      const alertMsg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
       aiReport.block(val.errors)
-      showToast(alertMsg, 'error')
 
       return
     }
@@ -453,9 +452,7 @@ export default function ReadingPractice() {
     }
     const val = validatePracticeReading(form)
     if (!val.isValid) {
-      const alertMsg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
       aiReport.block(val.errors)
-      showToast(alertMsg, 'error')
 
       return
     }
@@ -466,7 +463,7 @@ export default function ReadingPractice() {
     abortControllerRef.current = abortController
     setAiProgress({ current: 0, total: 0, label: 'chuẩn bị...' })
 
-    const availableNumbers = form.questionGroups.flatMap(g => (g.questions || []).map(q => Number(q.number)))
+    const availableNumbers = form.questionGroups.flatMap(g => eligibleExplanationNumbers(g, { overwriteProtected, resolveChoices }))
       .filter(n => Number.isInteger(n) && n > 0)
     const targetNumbers = Array.isArray(questionNumbers)
       ? [...new Set(questionNumbers.map(Number))].filter(n => availableNumbers.includes(n))
@@ -475,7 +472,8 @@ export default function ReadingPractice() {
       setGeneratingAI(false)
       setAiProgress(null)
       abortControllerRef.current = null
-      aiReport.block(['Không có câu hỏi hợp lệ trong phạm vi cần sinh.'])
+      aiReport.start([], { scope: 'all' })
+      aiReport.finish({ totalGenerated: 0, errors: [], remainingQuestionNumbers: [] })
       return
     }
     const totalTarget = targetNumbers.length
@@ -553,16 +551,11 @@ export default function ReadingPractice() {
       })
 
       aiReport.finish(loopResult)
-      if (loopResult.cancelled) {
-        showToast('Đã dừng tác vụ sinh AI. Các câu đã xong đã được lưu lại.', 'info')
-      } else if (loopResult.hasConflicts) {
+      if (loopResult.hasConflicts) {
         setAiConflicts(loopResult.conflicts || [])
         setConflictModalOpen(true)
-        showToast('AI phát hiện đáp án có sự khác biệt so với bài đọc. Vui lòng kiểm tra!', 'warning')
-      } else if (loopResult.errors?.length || loopResult.needsRetryQuestions?.length) {
-        showToast('Một số câu chưa sinh được hoặc cần kiểm tra. Xem báo cáo để biết lý do và thử lại.', 'warning')
-      } else {
-        showToast(`Đã tạo giải thích 4 bước thành công cho ${loopResult.totalGenerated} câu hỏi!`, 'success')
+
+      } else if (!loopResult.cancelled && !loopResult.errors?.length) {
         setConflictModalOpen(false)
         queryClient.invalidateQueries({ queryKey: ['admin', 'practice'] })
       }
@@ -570,9 +563,6 @@ export default function ReadingPractice() {
       const cancelled = abortController.signal.aborted || err.name === 'CanceledError' || err.code === 'ERR_CANCELED'
       loopResult = { cancelled, errors: cancelled ? [] : [err], totalGenerated: 0 }
       aiReport.finish(loopResult)
-      showToast(cancelled
-        ? 'Đã dừng tác vụ sinh AI. Các câu đã xong vẫn được giữ lại.'
-        : 'Không thể tạo giải thích bằng AI. Xem báo cáo để biết lý do.', cancelled ? 'info' : 'error')
     } finally {
       setGeneratingAI(false)
       setAiProgress(null)
@@ -604,7 +594,7 @@ export default function ReadingPractice() {
             </div>
 
             <div className="flex items-center gap-2">
-              {editing && (
+              {editing && !expLock.isGenerating && (
                 <button
                   type="button"
                   onClick={handleStartGenerateAI}
@@ -613,7 +603,7 @@ export default function ReadingPractice() {
                   title={expLock.isLockedGenerate ? (expLock.lockTooltip || 'Đang sinh giải thích AI, vui lòng chờ') : 'AI giải thích 4 bước cho bài đọc'}
                 >
                   <BookOpen className="w-3.5 h-3.5 text-zinc-600" />
-                  <span className="hidden sm:inline">AI giải thích</span>
+                  <span>AI giải thích</span>
                 </button>
               )}
               <button
@@ -640,7 +630,7 @@ export default function ReadingPractice() {
           </div>
 
           <AIGenerationResumeBanner
-            banner={expLock.resumeBanner}
+            banner={aiReport.report && expLock.resumeBanner?.variant !== 'running' ? null : expLock.resumeBanner}
             disabled={expLock.isLockedOperation}
           />
 
@@ -704,18 +694,19 @@ export default function ReadingPractice() {
             <div className="lg:col-span-7">
               <div className="bg-white rounded-2xl p-4 sm:p-5 border border-zinc-200 shadow-xs">
                 {/* Sticky Progress khi đang sinh AI */}
-                <AIGenerationStickyProgress
+                <ExplanationRunPanel
+                  report={aiReport.report}
                   isGenerating={expLock.isGenerating}
                   isCancelling={expLock.isCancelling}
                   progress={expLock.localProgress}
                   onCancel={handleCancelAI}
-                />
-                <ExplanationRunPanel
-                  report={expLock.isGenerating ? null : aiReport.report}
+                  onResume={!expLock.isLockedGenerate && ['interrupted', 'unprocessed'].includes(expLock.resumeBanner?.variant) ? expLock.resumeBanner.onAction : undefined}
                   onRetryFailed={expLock.isLockedGenerate ? undefined : numbers => handleGenerateAI({ questionNumbers: numbers, overwriteProtected: false })}
                   onDismiss={aiReport.dismiss}
                   className="mb-4"
                 />
+
+                <ExplanationQualityFilter groups={form.questionGroups} />
 
                 {/* Header thêm nhóm câu hỏi */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-zinc-100">

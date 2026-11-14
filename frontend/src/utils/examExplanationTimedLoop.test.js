@@ -2,6 +2,14 @@ import { describe, it, expect, vi } from 'vitest'
 import { executeTimedAIGenerationLoop } from './examExplanationUtils'
 
 describe('executeTimedAIGenerationLoop', () => {
+  it.each([429, 503])('does not send more chunks after a service failure (%s)', async status => {
+    const fetchChunk = vi.fn().mockResolvedValue({ generatedCount: 0, totalQuestions: 2,
+      remainingQuestionNumbers: [1, 2], errors: [{ status, message: 'service unavailable' }] })
+    const result = await executeTimedAIGenerationLoop({ fetchChunk, initialQuestionNumbers: [1, 2] })
+    expect(fetchChunk).toHaveBeenCalledTimes(1)
+    expect(result.ok).toBe(false)
+    expect(result.remainingQuestionNumbers).toEqual([1, 2])
+  })
   it('keeps explicit question timeouts and advances instead of retrying the same stalled question', async () => {
     const timeout = number => ({ number, code: 'AI_QUESTION_TIMEOUT', status: 504, message: `AI xử lý câu ${number} quá 20 giây.` })
     const fetchChunk = vi.fn()

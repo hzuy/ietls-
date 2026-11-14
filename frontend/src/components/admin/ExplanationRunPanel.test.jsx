@@ -3,188 +3,107 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import ExplanationRunPanel from './ExplanationRunPanel'
 import { createBlockedReport, createRunReport, addRunOutcome, finishRunReport } from '../../utils/explanationRunReport'
 
-const group = { id: 201, qNumberStart: 1, qNumberEnd: 2 }
-
 function partialReport() {
-  return finishRunReport(addRunOutcome(
-    createRunReport({ examId: 10, skill: 'reading', totalGroups: 1, totalQuestions: 2 }),
-    {
-      group,
-      sentNumbers: [1, 2],
-      loopResult: {
-        totalGenerated: 1,
-        errors: [{ number: 2, message: 'AI phản hồi quá lâu nên chưa có kết quả cho phần này.' }],
-        needsRetryQuestions: [{ number: 1, reason: 'Kết quả dự phòng chưa đủ tin cậy.' }],
-      },
-    }
-  ))
+  return finishRunReport(addRunOutcome(createRunReport({ examId: 10, skill: 'reading', totalQuestions: 38 }), {
+    group: { id: 201 }, sentNumbers: [8, 12], loopResult: { totalGenerated: 17,
+      errors: [{ number: 8, message: 'timeout' }, { number: 12, message: 'Câu 12 chưa có đáp án đúng' }],
+      needsRetryQuestions: [{ number: 1, reason: 'Kết quả dự phòng chưa đủ tin cậy.' }],
+    },
+  }))
 }
 
+const openErrors = () => fireEvent.click(screen.getByRole('button', { name: /câu lỗi — xem chi tiết/ }))
+
 describe('ExplanationRunPanel', () => {
-  it('reveals completed failures once without requiring the teacher to find the report', () => {
-    const scroll = vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockClear()
-    const report = partialReport()
-    const { rerender } = render(<ExplanationRunPanel report={null} />)
-    rerender(<ExplanationRunPanel report={report} />)
-    expect(scroll).toHaveBeenCalledTimes(1)
-    expect(scroll).toHaveBeenCalledWith(expect.objectContaining({ block: 'start' }))
-    expect(screen.getByText(/Chi tiết kỹ thuật/).closest('details')).toHaveAttribute('open')
-    rerender(<ExplanationRunPanel report={{ ...report }} />)
-    expect(scroll).toHaveBeenCalledTimes(1)
-  })
-  it('does not claim a successful copy when clipboard access is unavailable', async () => {
-    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined })
-    render(<ExplanationRunPanel report={partialReport()} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Sao chép chi tiết' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Không sao chép được')
-    expect(screen.queryByText('Đã sao chép')).not.toBeInTheDocument()
-  })
-  it('does not move the viewport for successful reports or unfinished generation', () => {
-    const scroll = vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockClear()
-    const success = finishRunReport(createRunReport({ examId: 10, skill: 'reading' }))
-    const { rerender } = render(<ExplanationRunPanel report={success} />)
-    expect(scroll).not.toHaveBeenCalled()
-    const failed = partialReport()
-    rerender(<ExplanationRunPanel report={failed} isGenerating />)
-    expect(scroll).not.toHaveBeenCalled()
-    rerender(<ExplanationRunPanel report={failed} />)
-    expect(scroll).toHaveBeenCalledTimes(1)
-  })
   beforeEach(() => {
     vi.restoreAllMocks()
     vi.spyOn(window, 'alert').mockImplementation(() => {}).mockClear()
-    Object.defineProperty(navigator, 'clipboard', {
-      configurable: true,
-      value: { writeText: vi.fn().mockResolvedValue(undefined) },
-    })
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: vi.fn().mockResolvedValue(undefined) } })
   })
-
-  it('renders nothing without a report and while idle', () => {
-    const { container } = render(<ExplanationRunPanel report={null} isGenerating={false} />)
-    expect(container.firstChild).toBeNull()
+  it('renders nothing without a report while idle', () => {
+    expect(render(<ExplanationRunPanel />).container.firstChild).toBeNull()
   })
-
-  it('alerts once with question, cause and action, but never while generating', () => {
+  it('counts saved and failed questions once, excluding review warnings from progress', () => {
+    render(<ExplanationRunPanel report={partialReport()} isGenerating />)
+    expect(screen.getByText('Đã xử lý 19/38 câu · 50%')).toBeInTheDocument()
+    expect(screen.getByText('Đã lưu 17 câu')).toBeInTheDocument()
+    expect(screen.getByText('Còn 19 câu')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '19')
+  })
+  it('lets the teacher open live errors and view a question while retries are locked', async () => {
+    const open = vi.fn()
+    render(<ExplanationRunPanel report={partialReport()} isGenerating onOpenQuestion={open} onRetryFailed={vi.fn()} />)
+    const trigger = screen.getByRole('button', { name: /2 câu lỗi — xem chi tiết/ })
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(trigger)
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    await waitFor(() => expect(screen.getByText('Lỗi và câu cần kiểm tra')).toHaveFocus())
+    fireEvent.click(screen.getByRole('button', { name: 'Xem câu 8' }))
+    expect(open).toHaveBeenCalledWith(8, 201)
+    expect(screen.getByRole('button', { name: 'Thử lại 1 câu lỗi' })).toBeDisabled()
+    expect(window.alert).not.toHaveBeenCalled()
+  })
+  it('does not interrupt or scroll when errors arrive or the run finishes', () => {
+    const scroll = vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockClear()
     const report = partialReport()
     const { rerender } = render(<ExplanationRunPanel report={report} isGenerating />)
-    expect(window.alert).not.toHaveBeenCalled()
     rerender(<ExplanationRunPanel report={report} />)
-    expect(window.alert).toHaveBeenCalledTimes(1)
-    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('Câu 2: AI phản hồi quá lâu'))
-    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('Thử lại các câu lỗi'))
-    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('Cần kiểm tra lại câu 1'))
+    expect(scroll).not.toHaveBeenCalled()
+    expect(window.alert).not.toHaveBeenCalled()
+    expect(screen.getByText('Lỗi và câu cần kiểm tra')).not.toBeVisible()
+  })
+  it('preserves an explicit disclosure choice across progress updates and finish', () => {
+    const report = partialReport()
+    const { rerender } = render(<ExplanationRunPanel report={report} isGenerating />)
+    fireEvent.click(screen.getByRole('button', { name: /2 câu lỗi/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Thu gọn' }))
     rerender(<ExplanationRunPanel report={{ ...report }} />)
-    expect(window.alert).toHaveBeenCalledTimes(1)
+    expect(screen.getByText('Lỗi và câu cần kiểm tra')).not.toBeVisible()
   })
-
-  it('shows live progress and a cancel button while generating', () => {
-    const onCancel = vi.fn()
-    render(
-      <ExplanationRunPanel
-        report={createRunReport({ examId: 10, skill: 'reading', totalGroups: 2, totalQuestions: 4 })}
-        isGenerating
-        progress={{ current: 1, total: 4, groupLabel: 'nhóm 1/2 (Câu 1–2)' }}
-        onCancel={onCancel}
-      />
-    )
-
-    const panel = screen.getByTestId('explanation-run-panel')
-    expect(panel).toHaveAttribute('data-status', 'running')
-    expect(screen.getByText(/Đang sinh giải thích AI/i)).toBeInTheDocument()
-    expect(screen.getByText(/nhóm 1\/2 \(Câu 1–2\)/)).toBeInTheDocument()
-    expect(screen.getByText(/mục tiêu 4 câu/)).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: /Hủy sinh/i }))
-    expect(onCancel).toHaveBeenCalledTimes(1)
+  it('retries only retryable failures and leaves validation failures for editing', () => {
+    const retry = vi.fn()
+    render(<ExplanationRunPanel report={partialReport()} onRetryFailed={retry} />)
+    openErrors()
+    fireEvent.click(screen.getByRole('button', { name: 'Thử lại 1 câu lỗi' }))
+    expect(retry).toHaveBeenCalledWith([8])
+    expect(screen.getByText(/Các câu 12 chưa có đáp án đúng/)).toBeInTheDocument()
   })
-
-  it('disables the cancel button while cancelling', () => {
-    render(
-      <ExplanationRunPanel
-        report={createRunReport({ examId: 10, skill: 'reading', totalQuestions: 2 })}
-        isGenerating
-        isCancelling
-        onCancel={vi.fn()}
-      />
-    )
-    expect(screen.getByRole('button', { name: /Đang dừng/i })).toBeDisabled()
-    expect(screen.getByText(/Đang dừng tiến trình sinh AI/i)).toBeInTheDocument()
-  })
-
-  it('lists failed questions with plain-language causes and retries only retryable numbers', () => {
-    const onRetryFailed = vi.fn()
-    const onOpenGroup = vi.fn()
-    render(
-      <ExplanationRunPanel
-        report={partialReport()}
-        onRetryFailed={onRetryFailed}
-        onOpenGroup={onOpenGroup}
-      />
-    )
-
-    expect(screen.getByTestId('explanation-run-panel')).toHaveAttribute('data-status', 'partial')
-    expect(screen.getByText(/Đã sinh xong một phần/i)).toBeInTheDocument()
-    expect(screen.getAllByText(/Câu 2/).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/AI phản hồi quá lâu/).length).toBeGreaterThan(0)
-    expect(screen.getByText(/Cần kiểm tra lại \(kết quả dự phòng/)).toBeInTheDocument()
-    expect(screen.getByText(/Câu 1 — Kết quả dự phòng chưa đủ tin cậy/)).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: /Thử lại 1 câu lỗi/i }))
-    expect(onRetryFailed).toHaveBeenCalledWith([2])
-
-    const openGroupButtons = screen.getAllByRole('button', { name: /Mở nhóm/i })
-    fireEvent.click(openGroupButtons[0])
-    expect(onOpenGroup).toHaveBeenCalledWith(201)
-  })
-
-  it('shows the original failure in an expanded technical section', () => {
-    const report = finishRunReport(addRunOutcome(
-      createRunReport({ examId: 10, skill: 'reading', totalQuestions: 1 }),
-      {
-        group: { ...group, qNumberEnd: 1 },
-        sentNumbers: [1],
-        loopResult: { totalGenerated: 0, errors: [{ number: 1, message: '429 Too Many Requests from gemini' }] },
-      }
-    ))
-
+  it('collapses and redacts technical details, including clipboard output', async () => {
+    const report = partialReport()
+    report.rows[0].technical = 'https://example.com?key=secret-value Bearer private-token'
     render(<ExplanationRunPanel report={report} />)
-
-    const summary = screen.getByText(/Chi tiết kỹ thuật/i)
-    expect(summary).toBeInTheDocument()
-    expect(summary.closest('details')).toHaveAttribute('open')
-    expect(screen.getByText(/429 Too Many Requests from gemini/)).toBeInTheDocument()
-  })
-
-  it('shows blocked validation reports without a retry button', () => {
-    const report = createBlockedReport({
-      examId: 10,
-      skill: 'reading',
-      message: 'Có 1 lỗi cần sửa trước khi sinh giải thích.',
-      details: ['Câu 1 chưa có đáp án đúng'],
-    })
-    render(<ExplanationRunPanel report={report} />)
-
-    expect(screen.getByTestId('explanation-run-panel')).toHaveAttribute('data-status', 'blocked')
-    expect(screen.getByText(/Chưa thể sinh giải thích/i)).toBeInTheDocument()
-    expect(screen.getByText(/Có 1 lỗi cần sửa/)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Thử lại/i })).not.toBeInTheDocument()
-  })
-
-  it('copies a plain-text report and confirms it', async () => {
-    render(<ExplanationRunPanel report={partialReport()} />)
-
-    fireEvent.click(screen.getByRole('button', { name: /Sao chép chi tiết/i }))
-
+    openErrors()
+    expect(screen.getByText('Chi tiết kỹ thuật').closest('details')).not.toHaveAttribute('open')
+    fireEvent.click(screen.getByRole('button', { name: 'Sao chép chi tiết' }))
     await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledTimes(1))
-    const text = navigator.clipboard.writeText.mock.calls[0][0]
-    expect(text).toContain('Câu 2')
-    await waitFor(() => expect(screen.getByText(/Đã sao chép/)).toBeInTheDocument())
+    expect(navigator.clipboard.writeText.mock.calls[0][0]).not.toMatch(/secret-value|private-token/)
+    expect(screen.getByText(/https:\/\/example.com/)).not.toHaveTextContent('secret-value')
   })
-
-  it('dismisses a finished report', () => {
-    const onDismiss = vi.fn()
-    render(<ExplanationRunPanel report={partialReport()} onDismiss={onDismiss} />)
-    fireEvent.click(screen.getByRole('button', { name: /Đóng báo cáo sinh giải thích/i }))
-    expect(onDismiss).toHaveBeenCalledTimes(1)
+  it('shows clipboard failures honestly', async () => {
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined })
+    render(<ExplanationRunPanel report={partialReport()} />)
+    openErrors()
+    fireEvent.click(screen.getByRole('button', { name: 'Sao chép chi tiết' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Không sao chép được')
+  })
+  it('uses an inline alert for blocked validation without offering retry', () => {
+    render(<ExplanationRunPanel report={createBlockedReport({ examId: 10, skill: 'reading', message: 'Có 1 lỗi cần sửa.', details: ['Thiếu đáp án câu 1'] })} />)
+    expect(screen.getByRole('alert')).toHaveTextContent('Có 1 lỗi cần sửa.')
+    expect(screen.queryByRole('button', { name: /Thử lại/ })).not.toBeInTheDocument()
+  })
+  it('has one stop control and disables it while cancelling', () => {
+    const stop = vi.fn()
+    const { rerender } = render(<ExplanationRunPanel isGenerating onCancel={stop} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Dừng tạo' }))
+    expect(stop).toHaveBeenCalledTimes(1)
+    rerender(<ExplanationRunPanel isGenerating isCancelling onCancel={stop} />)
+    expect(screen.getByRole('button', { name: 'Đang dừng…' })).toBeDisabled()
+  })
+  it('keeps a quiet success result and supports dismiss', () => {
+    const close = vi.fn()
+    render(<ExplanationRunPanel report={finishRunReport(createRunReport({ examId: 10 }))} onDismiss={close} />)
+    expect(screen.getByText('Không có câu nào cần sinh (có thể đã có lời giải).')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng báo cáo sinh giải thích' }))
+    expect(close).toHaveBeenCalledTimes(1)
   })
 })

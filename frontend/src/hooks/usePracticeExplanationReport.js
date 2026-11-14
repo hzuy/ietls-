@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   addRunOutcome, clearRunReport, createBlockedReport, createRunReport,
-  finishRunReport, loadRunReport, makeRunReportKey, saveRunReport,
+  finishRunReport, loadRunReport, makeRunReportKey, saveRunReport, updateRunProgress,
 } from '../utils/explanationRunReport'
 
 // Practice IDs and exam IDs may overlap: keep their session reports separate.
@@ -31,10 +31,13 @@ export function usePracticeExplanationReport({ skill, practiceId, enabled }) {
 
   const start = useCallback((numbers, { scope = 'all' } = {}) => {
     scopeRef.current = numbers
-    const initial = createRunReport({ examId: practiceId, skill, scope, totalGroups: 1, totalQuestions: numbers.length })
+    const initial = createRunReport({ examId: practiceId, skill, scope, totalGroups: 1, totalQuestions: numbers.length,
+      questionNumbers: numbers, previousReport: latestRef.current })
     initialRef.current = initial
     persist(initial)
-    setStatuses(Object.fromEntries(numbers.map(number => [number, 'generating'])))
+    setStatuses({ ...Object.fromEntries(initial.rows.filter(row => row.number).map(row => [row.number, 'error'])),
+      ...Object.fromEntries(initial.needsRetry.map(row => [row.number, 'retry'])),
+      ...Object.fromEntries(numbers.map(number => [number, 'queued'])) })
   }, [practiceId, skill, persist])
 
   const progress = useCallback(data => {
@@ -45,17 +48,14 @@ export function usePracticeExplanationReport({ skill, practiceId, enabled }) {
       const remaining = new Set((data.remainingQuestionNumbers || []).map(Number))
       for (const number of numbers) {
         if (next[number] === 'error' || next[number] === 'retry') continue
-        next[number] = remaining.has(number) ? 'generating' : 'done'
+        next[number] = remaining.has(number) ? 'queued' : 'done'
       }
       for (const error of data.errors || []) if (error.number) next[error.number] = 'error'
       for (const item of data.needsRetryQuestions || []) next[typeof item === 'object' ? item.number : item] = 'retry'
       return next
     })
     // Keep a partial report on refresh, without counting each chunk as a group.
-    const next = { ...addRunOutcome(latestRef.current || initialRef.current, {
-      group: null, sentNumbers: numbers,
-      loopResult: { ...data, totalGenerated: data.generatedCount || 0 },
-    }), finishedGroups: 0 }
+    const next = updateRunProgress(latestRef.current || initialRef.current, { data, sentNumbers: numbers })
     persist(next)
   }, [persist])
 
@@ -69,7 +69,7 @@ export function usePracticeExplanationReport({ skill, practiceId, enabled }) {
       const states = { ...prev }
       for (const number of numbers) {
         if (result?.cancelled) {
-          if (states[number] === 'generating') delete states[number]
+          if (states[number] === 'generating' || states[number] === 'queued') delete states[number]
         } else states[number] = 'done'
       }
       for (const row of next?.rows || []) if (row.number) states[row.number] = 'error'
@@ -86,6 +86,7 @@ export function usePracticeExplanationReport({ skill, practiceId, enabled }) {
 
   const dismiss = useCallback(() => {
     clearRunReport(key)
+    latestRef.current = null
     setReport(null)
     setStatuses({})
   }, [key])
@@ -94,7 +95,5 @@ export function usePracticeExplanationReport({ skill, practiceId, enabled }) {
     .filter(number => statuses[number] === 'generating').map(Number)), [statuses])
   const errorMessages = useMemo(() => Object.fromEntries((report?.rows || [])
     .filter(row => row.number).map(row => [row.number, row.message])), [report])
-  const visibleReport = report?.status === 'done' && !report?.needsRetry?.length ? null : report
-
-  return { report: visibleReport, statuses, generatingNumbers, errorMessages, start, progress, finish, block, dismiss }
+  return { report, statuses, generatingNumbers, errorMessages, start, progress, finish, block, dismiss }
 }

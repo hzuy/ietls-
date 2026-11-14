@@ -86,6 +86,11 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     })
   })
 
+  async function revealRunErrors() {
+    const trigger = await screen.findByRole('button', { name: /câu lỗi — xem chi tiết|Lỗi tác vụ — xem chi tiết/ })
+    if (trigger.getAttribute('aria-expanded') !== 'true') fireEvent.click(trigger)
+  }
+
   it.each(['reading', 'listening'])('retries only unfinished questions after a partial %s group times out', async (skill) => {
     const isReading = skill === 'reading'
     const examId = isReading ? 10 : 20
@@ -104,17 +109,18 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     fireEvent.click(screen.getByText(isReading ? 'Edit Reading 10' : 'Edit Listening 20'))
     const buttons = await screen.findAllByRole('button', { name: /Sinh AI nhóm này/i })
     fireEvent.click(buttons[0])
+    await revealRunErrors()
     const retry = await screen.findByRole('button', { name: 'Thử lại 1 câu lỗi' })
     const report = screen.getByTestId('explanation-run-panel')
-    expect(report.querySelector('details')).toHaveAttribute('open')
-    expect(within(report).getByText('Câu 2: timeout')).toBeVisible()
+    expect(within(report).getByRole('region', { name: 'Chi tiết lỗi sinh AI' })).toBeVisible()
+    expect(within(report).getByText(/AI phản hồi quá lâu/)).toBeVisible()
     fireEvent.click(retry)
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(3))
     expect(api.post.mock.calls[2][0]).toBe(`/admin/exams/${examId}/groups/201/generate-explanations`)
     expect(api.post.mock.calls[2][1].questionNumbers).toEqual([2])
-    await waitFor(() => expect(screen.queryByTestId('explanation-run-panel')).not.toBeInTheDocument())
-    expect(window.alert).toHaveBeenCalledTimes(1)
-    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('Câu 2: AI phản hồi quá lâu'))
+    await waitFor(() => expect(screen.getByTestId('explanation-run-panel')).toHaveAttribute('data-status', 'done'))
+    expect(window.alert).not.toHaveBeenCalled()
+
   })
 
   it.each(['reading', 'listening'])('asks before retrying against unsaved %s content and retains the retry scope', async skill => {
@@ -137,14 +143,49 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     const source = await screen.findByDisplayValue(reading ? 'Passage 1 text' : 'Transcript 1')
     await waitFor(() => expect(screen.getByRole('button', { name: /AI giải thích/i })).toBeEnabled())
     fireEvent.change(source, { target: { value: 'Unsaved teacher content' } })
+    await revealRunErrors()
     fireEvent.click(await screen.findByRole('button', { name: 'Thử lại 1 câu lỗi' }))
     expect(await screen.findByText('Đề thi có thay đổi chưa lưu')).toBeInTheDocument()
     expect(api.post).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: /Tiếp tục sinh AI theo CSDL hiện tại/ }))
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
     expect(api.post.mock.calls[0][1].questionNumbers).toEqual([2])
-    await waitFor(() => expect(screen.queryByTestId('explanation-run-panel')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.getByTestId('explanation-run-panel')).toHaveAttribute('data-status', 'done'))
     expect(screen.getByDisplayValue('Unsaved teacher content')).toBeInTheDocument()
+  })
+
+  it.each(['reading', 'listening'])('shows %s errors while the next group runs and opens a closed passage/section', async skill => {
+    const reading = skill === 'reading'
+    const examId = reading ? 10 : 20
+    const base = structuredClone(mockReadingExam)
+    base.passages[1].questionGroups = [base.passages[0].questionGroups.pop()]
+    const exam = reading ? base : { ...base, id: 20, listeningSections: base.passages.map((passage, index) => ({
+      ...passage, number: index + 1, transcript: `Transcript ${index + 1}`, audioUrl: '/test.mp3', context: 'Context',
+    })) }
+    api.get.mockImplementation(url => Promise.resolve({ data: url === `/admin/exams/${examId}` ? exam : [] }))
+    api.post.mockResolvedValueOnce({ data: { generatedCount: 1, totalQuestions: 2, remainingQuestionNumbers: [],
+      errors: [{ number: 1, code: 'AI_QUESTION_TIMEOUT', message: 'timeout' }] } })
+      .mockImplementationOnce((_url, _body, { signal }) => new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(Object.assign(new Error('cancelled'), { name: 'AbortError' })), { once: true })
+      }))
+    renderTab(reading ? <ReadingTab exams={[]} onRefresh={vi.fn()} /> : <ListeningTab exams={[]} onRefresh={vi.fn()} />)
+    fireEvent.click(screen.getByText(reading ? 'Edit Reading 10' : 'Edit Listening 20'))
+    const generate = await screen.findByRole('button', { name: 'AI giải thích' })
+    await waitFor(() => expect(generate).toBeEnabled())
+    fireEvent.click(generate)
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(2))
+    fireEvent.click(screen.getByRole('button', { name: reading ? /Passage 2.*lời giải/ : /Section 2.*lời giải/ }))
+    fireEvent.click(screen.getByRole('button', { name: '1 câu lỗi — xem chi tiết' }))
+    expect(screen.getByText('Đã xử lý 2/4 câu · 50%')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Thử lại 1 câu lỗi' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Xem câu 1' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('AI phản hồi quá lâu')
+    expect(screen.getByRole('button', { name: reading ? 'Cập nhật đề Reading' : 'Cập nhật đề Listening' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Dừng tạo' }))
+    await waitFor(() => expect(screen.getByTestId('explanation-run-panel')).toHaveAttribute('data-status', 'cancelled'))
+    expect(screen.getByText('Chưa xử lý 2 câu')).toBeInTheDocument()
+    expect(window.alert).not.toHaveBeenCalled()
   })
 
   it('triggers single group AI generation when "Sinh AI nhóm này" is clicked', async () => {
@@ -210,17 +251,14 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
 
     // Verify progress label is displayed during group 1
     await waitFor(() => {
-      expect(screen.getByText(/Đang sinh AI/)).toBeInTheDocument()
+      expect(screen.getByText(/Đang sinh giải thích AI/)).toBeInTheDocument()
     })
 
     // Nhãn nhóm câu chỉ nằm trong tooltip để thanh trạng thái luôn gọn 1 dòng
-    expect(screen.getByText(/Đang sinh AI/).parentElement).toHaveAttribute(
-      'title',
-      expect.stringContaining('Câu 1–2')
-    )
+    expect(screen.getByText(/nhóm 1\/2 \(Câu 1–2\)/)).toBeInTheDocument()
 
     // Chỉ còn 1 nút hủy sinh trong thanh tiến độ (đã bỏ nút Hủy trùng cạnh Preview)
-    expect(screen.getByRole('button', { name: /Hủy sinh/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Dừng tạo/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Hủy$/ })).not.toBeInTheDocument()
 
     // Resolve group 1
@@ -259,11 +297,11 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     fireEvent.click(toolbarAIBtn)
 
     await waitFor(() => {
-      expect(screen.getByText(/Đang sinh AI/)).toBeInTheDocument()
+      expect(screen.getByText(/Đang sinh giải thích AI/)).toBeInTheDocument()
     })
 
     // Click Hủy sinh (nút duy nhất, nằm trong thanh tiến độ)
-    const cancelBtn = screen.getByRole('button', { name: /Hủy sinh/i })
+    const cancelBtn = screen.getByRole('button', { name: /Dừng tạo/i })
     fireEvent.click(cancelBtn)
 
     // Displays "Đang dừng…" until in-flight finishes
@@ -306,7 +344,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     fireEvent.click(toolbarAIBtn)
 
     await waitFor(() => {
-      expect(screen.getByText(/Đang sinh AI/)).toBeInTheDocument()
+      expect(screen.getByText(/Đang sinh giải thích AI/)).toBeInTheDocument()
     })
 
     // "Hủy sửa" button must be disabled

@@ -119,7 +119,7 @@ function looksLikeFriendlyVietnamese(text) {
  */
 export function classifyRunError(input, _ctx = {}) {
   const status = Number(input?.response?.status || input?.status || 0)
-  const raw = asMessage(input)
+  const raw = redactRunTechnical(asMessage(input))
 
   let kind = RUN_KINDS.UNKNOWN
 
@@ -166,13 +166,25 @@ function enumerateGroupNumbers(group) {
   return list
 }
 
+export function eligibleExplanationNumbers(group, { overwriteProtected = false, resolveChoices = {} } = {}) {
+  return enumerateGroupNumbers(group).filter(number => {
+    let explanation = group.questions?.find(question => Number(question.number) === number)?.explanation
+      || group.explanations?.[number]
+    if (typeof explanation === 'string') { try { explanation = JSON.parse(explanation) } catch { return true } }
+    return overwriteProtected || Boolean(resolveChoices[number])
+      || !['teacher_reviewed', 'teacher_edited'].includes(explanation?.status)
+  })
+}
+
 export function groupLabelOf(group) {
   if (!group) return null
   if (group.qNumberStart == null || group.qNumberEnd == null) return null
   return `Nhóm câu ${group.qNumberStart}–${group.qNumberEnd}`
 }
 
-export function createRunReport({ examId, skill, scope = 'all', totalGroups = 0, totalQuestions = 0 }) {
+export function createRunReport({ examId, skill, scope = 'all', totalGroups = 0, totalQuestions = 0, previousReport = null, questionNumbers = null }) {
+  const selected = new Set((questionNumbers || []).map(Number))
+  const retain = row => Number(row.number) && !selected.has(Number(row.number))
   return {
     version: REPORT_VERSION,
     examId: Number(examId) || null,
@@ -185,8 +197,9 @@ export function createRunReport({ examId, skill, scope = 'all', totalGroups = 0,
     finishedGroups: 0,
     totalQuestions,
     generated: 0,
-    rows: [],
-    needsRetry: [],
+    scopeNumbers: questionNumbers,
+    rows: scope !== 'all' && selected.size ? (previousReport?.rows || []).filter(retain) : [],
+    needsRetry: scope !== 'all' && selected.size ? (previousReport?.needsRetry || []).filter(retain) : [],
   }
 }
 
@@ -207,7 +220,8 @@ export function createBlockedReport({ examId, skill, scope = 'all', message, det
       message: message || KIND_META[RUN_KINDS.VALIDATION].message,
       hint: KIND_META[RUN_KINDS.VALIDATION].hint,
       retryable: false,
-      technical,
+      technical: redactRunTechnical(technical),
+      validationIssues: details.map(redactRunTechnical),
       questionNumbers: [],
     }],
   }
@@ -217,21 +231,25 @@ export function createBlockedReport({ examId, skill, scope = 'all', message, det
  * Gộp kết quả một lượt gọi (một nhóm câu) vào báo cáo.
  * Không mutate đầu vào.
  */
-export function addRunOutcome(report, { group, loopResult, sentNumbers = null }) {
+export function addRunOutcome(report, { group, loopResult, sentNumbers = null, progress = false }) {
   if (!report) return report
   const sent = Array.isArray(sentNumbers) ? sentNumbers : enumerateGroupNumbers(group)
   const unfinished = Array.isArray(loopResult?.remainingQuestionNumbers)
     ? loopResult.remainingQuestionNumbers.filter(number => sent.includes(Number(number)))
     : sent
   const rowsByKey = new Map()
+  const groupId = group?.id ?? group?._id ?? null
+  const snapshotKey = String(groupId ?? 'practice')
+  const previousSnapshot = report.snapshots?.[snapshotKey]
   for (const row of report.rows || []) {
+    if (sent.includes(Number(row.number)) || (row.number == null && row.groupId === groupId)) continue
     rowsByKey.set(`${row.groupId ?? 'none'}:${row.number ?? row.id}`, row)
   }
 
   const errors = (loopResult?.errors || []).flatMap(err => {
     if (Number(err?.number)) return [err]
     return unfinished.length > 0
-      ? unfinished.map(number => ({ ...err, message: asMessage(err), number: Number(number) }))
+      ? unfinished.map(number => ({ ...err, message: asMessage(err), number: Number(number), attempted: false }))
       : [err]
   })
   for (const err of errors) {
@@ -243,32 +261,77 @@ export function addRunOutcome(report, { group, loopResult, sentNumbers = null })
       number,
       groupId: group?.id ?? group?._id ?? null,
       groupLabel: groupLabelOf(group),
+      attempted: err.attempted !== false,
       ...info,
     })
   }
 
-  const needsRetry = [...(report.needsRetry || [])]
+  const needsRetry = (report.needsRetry || []).filter(row => !sent.includes(Number(row.number)))
   for (const item of loopResult?.needsRetryQuestions || []) {
     const number = Number(typeof item === 'object' ? item?.number : item) || null
     if (!number) continue
-    if (needsRetry.some(entry => entry.number === number && entry.groupId === (group?.id ?? null))) continue
+    if (needsRetry.some(entry => entry.number === number && entry.groupId === groupId)) continue
     needsRetry.push({
       number,
       groupId: group?.id ?? group?._id ?? null,
       groupLabel: groupLabelOf(group),
-      message: (typeof item === 'object' && item?.reason)
-        || 'Kết quả dự phòng chưa đủ tin cậy, nên kiểm tra lại câu này.',
+      message: redactRunTechnical((typeof item === 'object' && item?.reason)
+        || 'Kết quả dự phòng chưa đủ tin cậy, nên kiểm tra lại câu này.'),
     })
   }
 
   return {
     ...report,
-    finishedGroups: (report.finishedGroups || 0) + 1,
-    generated: (report.generated || 0) + (Number(loopResult?.totalGenerated) || 0),
+    finishedGroups: (report.finishedGroups || 0) + (!progress && !previousSnapshot?.finished ? 1 : 0),
+    generated: (report.generated || 0) - (previousSnapshot?.generated || 0) + (Number(loopResult?.totalGenerated) || 0),
+    snapshots: { ...report.snapshots, [snapshotKey]: {
+      generated: Number(loopResult?.totalGenerated) || 0,
+      errors: (loopResult?.errors || []).map(error => ({
+        number: error.number, code: error.code, status: error.response?.status || error.status,
+        attempted: error.attempted, message: redactRunTechnical(asMessage(error)),
+      })),
+      needsRetryQuestions: (loopResult?.needsRetryQuestions || []).map(item => typeof item === 'object'
+        ? { number: item.number, reason: redactRunTechnical(item.reason) } : item),
+      finished: !progress,
+    } },
     totalQuestions: report.totalQuestions || sent.length,
     rows: [...rowsByKey.values()],
     needsRetry,
   }
+}
+
+// Chunk counts are incremental; final loop counts are cumulative. Replace the
+// provisional group outcome at finish instead of counting those chunks twice.
+export function updateRunProgress(report, { group = null, data, sentNumbers }) {
+  if (!report || !data) return report
+  const snapshot = report.snapshots?.[String(group?.id ?? group?._id ?? 'practice')]
+  return addRunOutcome(report, { group, sentNumbers, progress: true, loopResult: {
+    ...data,
+    totalGenerated: (snapshot?.generated || 0) + (Number(data.generatedCount) || 0),
+    errors: [...(snapshot?.errors || []), ...(data.errors || [])],
+    needsRetryQuestions: [...(snapshot?.needsRetryQuestions || []), ...(data.needsRetryQuestions || [])],
+  } })
+}
+
+export function getRunProgress(report, progress = null) {
+  const total = Number(report?.totalQuestions) || Number(progress?.total) || 0
+  const active = report?.scopeNumbers ? new Set(report.scopeNumbers.map(Number)) : null
+  const errors = new Set((report?.rows || []).filter(row => row.attempted !== false && Number(row.number) && (!active || active.has(Number(row.number)))).map(row => Number(row.number))).size
+  const generated = Math.min(total || Infinity, Number(report?.generated) || 0)
+  const processed = Math.min(total, generated + errors)
+  return { total, generated, processed, remaining: Math.max(0, total - processed), percent: total ? Math.round(processed / total * 100) : 0 }
+}
+
+export function redactRunTechnical(value) {
+  return String(value || '')
+    .replace(/\bAIza[\w-]+|\bgsk_[\w-]+|\beyJ[\w.-]+/g, '[đã ẩn]')
+    .replace(/(Bearer\s+)[\w.-]+/gi, '$1[đã ẩn]')
+    .replace(/([?&](?:key|api_key|token|access_token)=)[^&\s]+/gi, '$1[đã ẩn]')
+    .replace(/(\w+:\/\/)[^\s/@]+:[^\s/@]+@/g, '$1[đã ẩn]@')
+}
+
+export function isRunServiceFailure(result) {
+  return (result?.errors || []).some(error => [409, 429, 502, 503].includes(Number(error.response?.status || error.status)))
 }
 
 export function finishRunReport(report, { cancelled = false } = {}) {
@@ -288,9 +351,9 @@ export function getRunReportCounts(report) {
   }
   const rows = report.rows || []
   return {
-    errors: rows.length,
-    retryable: rows.filter(row => row.retryable && Number(row.number)).length,
-    needsRetry: (report.needsRetry || []).length,
+    errors: new Set(rows.map(row => row.number ? `q${row.number}` : row.id)).size,
+    retryable: retryableNumbers(report).length,
+    needsRetry: new Set((report.needsRetry || []).map(row => row.number)).size,
     generated: Number(report.generated) || 0,
     totalQuestions: Number(report.totalQuestions) || 0,
   }
@@ -309,7 +372,8 @@ export function retryableNumbers(report) {
 export function saveRunReport(key, report) {
   if (!key || !report) return
   try {
-    sessionStorage.setItem(key, JSON.stringify({ ...report, savedAt: Date.now() }))
+    sessionStorage.setItem(key, JSON.stringify({ ...report, savedAt: Date.now() }, (_key, value) =>
+      typeof value === 'string' ? redactRunTechnical(value) : value))
   } catch { /* sessionStorage đầy hoặc bị chặn: báo cáo vẫn còn trong state */ }
 }
 
@@ -318,7 +382,7 @@ export function loadRunReport(key) {
   try {
     const raw = sessionStorage.getItem(key)
     if (!raw) return null
-    const parsed = JSON.parse(raw)
+    const parsed = JSON.parse(raw, (_key, value) => typeof value === 'string' ? redactRunTechnical(value) : value)
     if (!parsed || parsed.version !== REPORT_VERSION) return null
     if (parsed.savedAt && Date.now() - parsed.savedAt > REPORT_TTL_MS) {
       sessionStorage.removeItem(key)

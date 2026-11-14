@@ -645,7 +645,7 @@ export async function executeTimedAIGenerationLoop({
       }
     }
 
-    if (remaining.length === 0 || signal?.aborted) {
+    if (remaining.length === 0 || signal?.aborted || accumulatedErrors.some(error => [409, 429, 502, 503].includes(Number(error.status)))) {
       if (signal?.aborted) isCancelled = true
       break
     }

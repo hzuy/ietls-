@@ -6,7 +6,7 @@ import {
   classifyRunError,
   createRunReport,
   createBlockedReport,
-  addRunOutcome,
+  addRunOutcome, updateRunProgress, getRunProgress, redactRunTechnical, eligibleExplanationNumbers,
   finishRunReport,
   getRunReportCounts,
   retryableNumbers,
@@ -27,6 +27,56 @@ const group = {
 }
 
 describe('explanationRunReport', () => {
+  it('counts only eligible questions when protected explanations are kept', () => {
+    const protectedGroup = { questions: [
+      { number: 1, explanation: { status: 'teacher_reviewed' } },
+      { number: 2 }, { number: 3, explanation: { status: 'teacher_edited' } },
+    ] }
+    expect(eligibleExplanationNumbers(protectedGroup)).toEqual([2])
+    expect(eligibleExplanationNumbers(protectedGroup, { overwriteProtected: true })).toEqual([1, 2, 3])
+    expect(eligibleExplanationNumbers(protectedGroup, { resolveChoices: { 1: 'input' } })).toEqual([1, 2])
+  })
+  it('replaces provisional chunks with final counts without counting generation twice', () => {
+    const initial = createRunReport({ examId: 10, totalQuestions: 3 })
+    const first = updateRunProgress(initial, { group, sentNumbers: [1, 2, 3], data: {
+      generatedCount: 1, remainingQuestionNumbers: [3], errors: [{ number: 2, code: 'AI_QUESTION_TIMEOUT', message: 'timeout' }],
+    } })
+    expect(first.generated).toBe(1)
+    expect(first.rows[0].message).toMatch(/quá lâu/)
+    expect(getRunProgress(first)).toMatchObject({ processed: 2, remaining: 1, percent: 67 })
+    const second = updateRunProgress(first, { group, sentNumbers: [1, 2, 3], data: { generatedCount: 1, remainingQuestionNumbers: [] } })
+    const final = addRunOutcome(second, { group, sentNumbers: [1, 2, 3], loopResult: { totalGenerated: 2,
+      errors: [{ number: 2, message: 'timeout' }], remainingQuestionNumbers: [] } })
+    expect(final.generated).toBe(2)
+    expect(final.finishedGroups).toBe(1)
+    expect(getRunProgress(final)).toMatchObject({ processed: 3, remaining: 0, percent: 100 })
+  })
+
+  it('retains errors outside a scoped retry without adding them to its progress', () => {
+    const old = addRunOutcome(createRunReport({ examId: 10, totalQuestions: 3 }), { group, sentNumbers: [1, 2, 3],
+      loopResult: { errors: [{ number: 2, message: 'timeout' }, { number: 3, message: 'timeout' }] } })
+    const retry = createRunReport({ examId: 10, scope: 'retry', totalQuestions: 1, questionNumbers: [2], previousReport: old })
+    expect(retry.rows.map(row => row.number)).toEqual([3])
+    expect(getRunProgress(retry)).toMatchObject({ processed: 0, remaining: 1 })
+    const final = addRunOutcome(retry, { group, sentNumbers: [2], loopResult: { totalGenerated: 1 } })
+    expect(final.rows.map(row => row.number)).toEqual([3])
+    expect(getRunProgress(final)).toMatchObject({ processed: 1, remaining: 0 })
+  })
+
+  it('does not count a service failure affecting queued questions as processed questions', () => {
+    const report = addRunOutcome(createRunReport({ examId: 10, totalQuestions: 3 }), {
+      group, sentNumbers: [1, 2, 3], loopResult: { totalGenerated: 1, remainingQuestionNumbers: [2, 3], errors: [{ status: 429, message: 'quota' }] },
+    })
+    expect(report.rows).toHaveLength(2)
+    expect(getRunProgress(report)).toMatchObject({ processed: 1, remaining: 2 })
+  })
+
+  it('redacts credentials before storing or copying a provider error', () => {
+    const raw = 'Gemini https://example.com?key=private-key Bearer secret-token postgresql://user:pass@host/db'
+    const error = classifyRunError({ message: raw })
+    expect(error.technical).not.toMatch(/private-key|secret-token|user:pass/)
+    expect(redactRunTechnical(raw)).toContain('[đã ẩn]')
+  })
   it('identifies a numbered AI deadline as timeout rather than a generic provider outage', () => {
     expect(classifyRunError({ number: 1, status: 504, code: 'AI_QUESTION_TIMEOUT', message: 'AI xử lý câu 1 quá 20 giây nên đã dừng yêu cầu.' }))
       .toMatchObject({ kind: RUN_KINDS.TIMEOUT, retryable: true })

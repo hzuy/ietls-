@@ -80,6 +80,7 @@ export default function ExplanationChipGrid({
             <button
               key={qNum}
               type="button"
+              data-explanation-question={qNum}
               onClick={(e) => {
                 e.stopPropagation()
                 onSelectQuestion?.({ question: q, qNum, explanation: exp })

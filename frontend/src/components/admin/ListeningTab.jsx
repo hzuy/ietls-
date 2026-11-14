@@ -47,21 +47,21 @@ import {
 } from '../../utils/examExplanationUtils'
 import { useExplanationGenerationLock } from '../../hooks/useExplanationGenerationLock'
 import { useAIExitGuard } from '../../hooks/useAIExitGuard'
-import AIGenerationStickyProgress from './AIGenerationStickyProgress'
 import AIGenerationExitConfirmModal from './AIGenerationExitConfirmModal'
 import AIGenerationResumeBanner from './AIGenerationResumeBanner'
 import ExplanationRunPanel from './ExplanationRunPanel'
+import ExplanationQualityFilter from './ExplanationQualityFilter'
 import { useToast } from '../../context/ToastContext'
 import {
   createRunReport,
   createBlockedReport,
-  addRunOutcome,
+  addRunOutcome, updateRunProgress, isRunServiceFailure, eligibleExplanationNumbers,
   finishRunReport,
   loadRunReport,
   saveRunReport,
   clearRunReport,
   makeRunReportKey,
-  getRunReportCounts,
+
 } from '../../utils/explanationRunReport'
 import { DraftBanner } from './contentPageUI'
 import {
@@ -300,7 +300,6 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   const previewRef = useRef(null)
   const pristineFormSigRef = useRef('')
 
-  const examStats = useMemo(() => calculateExamExplanationStats(form), [form])
 
   const countProtectedQuestions = () => {
     let reviewedCount = 0
@@ -318,7 +317,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
 
   const [generatingGroupId, setGeneratingGroupId] = useState(null)
   const [aiProgress, setAiProgress] = useState(null)
-  const [isCancellingAI, setIsCancellingAI] = useState(false)
+  const [, setIsCancellingAI] = useState(false)
   const isCancellingAIRef = useRef(false)
   const abortControllerRef = useRef(null)
   const pendingAIFnRef = useRef(null)
@@ -340,8 +339,12 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       setRunStatusByNumber({})
       return
     }
-    setRunReport(loadRunReport(runReportKey))
-    setRunStatusByNumber({})
+    const saved = loadRunReport(runReportKey)
+    setRunReport(saved)
+    setRunStatusByNumber({
+      ...Object.fromEntries((saved?.rows || []).filter(row => row.number).map(row => [row.number, 'error'])),
+      ...Object.fromEntries((saved?.needsRetry || []).map(row => [row.number, 'retry'])),
+    })
   }, [runReportKey])
 
   const persistRunReport = useCallback((next) => {
@@ -364,14 +367,16 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
 
   // Bắt đầu một lần chạy mới: bỏ mọi trạng thái còn sót của lần trước để chip
   // không hiển thị lỗi cũ cho những câu không nằm trong lần chạy này.
-  const beginRunStatus = useCallback((numbers, status = 'queued') => {
-    const next = {}
+  const beginRunStatus = useCallback((numbers, status = 'queued', preserve = false) => {
+    const selected = new Set((numbers || []).map(Number))
+    const next = Object.fromEntries(Object.entries(runStatusByNumber).filter(([number, value]) =>
+      preserve && !selected.has(Number(number)) && (value === 'error' || value === 'retry')))
     for (const raw of numbers || []) {
       const num = Number(raw)
       if (Number.isInteger(num) && num > 0) next[num] = status
     }
     setRunStatusByNumber(next)
-  }, [])
+  }, [runStatusByNumber])
 
   const clearPendingRunStatus = useCallback(() => {
     setRunStatusByNumber(prev => {
@@ -449,6 +454,18 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     setTimeout(() => target.classList.remove('ring-2', 'ring-amber-300'), 1600)
   }, [])
 
+  const openRunQuestion = (number) => {
+    const index = (form.sections || []).findIndex(section => (section.questionGroups || []).some(group =>
+      (group.questions || []).some(question => Number(question.number) === Number(number))))
+    if (index < 0) return
+    setOpenSection(index)
+    setTimeout(() => {
+      const button = formRef.current?.querySelector(`[data-explanation-question="${Number(number)}"]`)
+      button?.focus()
+      button?.click()
+    }, 0)
+  }
+
   const generatingQuestionNumbers = useMemo(() => {
     const set = new Set()
     for (const [num, status] of Object.entries(runStatusByNumber)) {
@@ -465,15 +482,9 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     return map
   }, [runReport])
 
-  const runCounts = useMemo(() => getRunReportCounts(runReport), [runReport])
-
   // Báo cáo "thành công trọn vẹn" không cần chiếm chỗ trên trang; chỉ hiện khi
   // có lỗi, có câu cần kiểm tra, đang chạy, bị huỷ hoặc bị gián đoạn.
-  const runReportForPanel = useMemo(() => {
-    if (!runReport) return null
-    if (runReport.status === 'done' && (runReport.needsRetry || []).length === 0) return null
-    return runReport
-  }, [runReport])
+  const runReportForPanel = runReport
 
   const groupNumbersOf = useCallback((group) => {
     if (!group) return []
@@ -602,7 +613,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         message: `Có ${val.errors.length} lỗi cần sửa trước khi sinh giải thích.`,
         details: String(msg).split('\n').filter(Boolean),
       }))
-      showToast(`Chưa thể sinh AI: có ${val.errors.length} lỗi cần sửa. Xem chi tiết trong báo cáo.`, 'error')
+
       return
     }
     pendingAIFnRef.current = (opts) => handleGenerateSequentialAll(opts)
@@ -644,9 +655,14 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     group = latestFormRef.current.sections.flatMap(p => p.questionGroups || []).find(g => (group?.id != null && g.id === group.id) || (group?._id != null && g._id === group._id)) || group
 
     const isRetryScope = Array.isArray(questionNumbers) && questionNumbers.length > 0
-    const targetNumbers = isRetryScope
+    const eligible = eligibleExplanationNumbers(group, { overwriteProtected, resolveChoices })
+    const targetNumbers = (isRetryScope
       ? questionNumbers.map(Number).filter(n => Number.isInteger(n) && n > 0)
-      : groupNumbersOf(group)
+      : eligible).filter(number => eligible.includes(number))
+    if (!targetNumbers.length) {
+      persistRunReport(finishRunReport(createRunReport({ examId: editingId, skill: 'listening', scope: 'group', totalQuestions: 0 })))
+      return
+    }
 
     setGeneratingAI(true)
     setIsCancellingAI(false)
@@ -667,14 +683,16 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       examId: editingId,
       skill: 'listening',
       scope: isRetryScope ? 'retry' : 'group',
+      previousReport: runReport, questionNumbers: targetNumbers,
       totalGroups: 1,
       totalQuestions: totalTarget,
     })
     persistRunReport(report)
-    beginRunStatus(targetNumbers, 'generating')
+    beginRunStatus(targetNumbers, 'queued', true)
 
     let loopResult = null
     let caughtError = null
+    let liveReport = report
 
     try {
       loopResult = await executeTimedAIGenerationLoop({
@@ -689,15 +707,18 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         signal: abortController.signal,
         initialQuestionNumbers: isRetryScope ? targetNumbers : null,
         onProgress: ({ current, total, data }) => {
-          const countText = total > 0 ? ` (${current}/${total} câu)` : ''
           const p = {
             current,
             total,
-            groupLabel: `nhóm câu ${group.qNumberStart}–${group.qNumberEnd}${countText}`,
+            groupLabel: `nhóm câu ${group.qNumberStart}–${group.qNumberEnd}`,
           }
           setAiProgress(p)
           expLock.updateLocalProgress(p)
-          if (data) applyChunkStatus(targetNumbers, data)
+          if (data) {
+            applyChunkStatus(targetNumbers, data)
+            liveReport = updateRunProgress(liveReport, { group, data, sentNumbers: targetNumbers })
+            persistRunReport(liveReport)
+          }
         },
         onChunkSuccess: async () => {
           expLock.notifyChunkEnd({
@@ -717,26 +738,19 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       })
 
       finalizeRunStatus(targetNumbers, loopResult, { cancelled: Boolean(loopResult.cancelled) })
-      const nextReport = addRunOutcome(report, { group, loopResult, sentNumbers: targetNumbers })
+      const nextReport = addRunOutcome(liveReport, { group, loopResult, sentNumbers: targetNumbers })
       persistRunReport(finishRunReport(nextReport, { cancelled: Boolean(loopResult.cancelled) }))
 
-      if (loopResult.cancelled) {
-        showToast('Đã dừng tác vụ sinh AI. Các câu đã xong đã được lưu lại.', 'info')
-      } else if (loopResult.hasConflicts) {
+      if (loopResult.hasConflicts) {
         setAiConflicts(loopResult.conflicts || [])
         setConflictModalOpen(true)
-      } else if (loopResult.errors?.length || loopResult.needsRetryQuestions?.length) {
-        showToast('Một số câu chưa sinh được. Xem báo cáo để biết lý do và thử lại các câu lỗi.', 'error')
-      } else {
-        showToast(`Đã tạo giải thích cho nhóm câu ${group.qNumberStart}–${group.qNumberEnd}!`)
-        setConflictModalOpen(false)
-      }
+      } else if (!loopResult.errors?.length && !loopResult.cancelled) setConflictModalOpen(false)
     } catch (err) {
       caughtError = err
       if (abortController.signal.aborted || err.name === 'CanceledError' || err.code === 'ERR_CANCELED') {
         finalizeRunStatus(targetNumbers, null, { cancelled: true })
-        persistRunReport(finishRunReport(report, { cancelled: true }))
-        showToast('Đã dừng tác vụ sinh AI. Các câu đã xong đã được lưu lại.', 'info')
+        persistRunReport(finishRunReport(liveReport, { cancelled: true }))
+
       } else {
         finalizeRunStatus(targetNumbers, { errors: [err] })
         const nextReport = addRunOutcome(report, {
@@ -745,7 +759,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
           sentNumbers: targetNumbers,
         })
         persistRunReport(finishRunReport(nextReport))
-        showToast('Không thể tạo giải thích cho nhóm này. Xem báo cáo để biết lý do.', 'error')
+
       }
     } finally {
       setGeneratingAI(false)
@@ -771,7 +785,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         message: `Có ${val.errors.length} lỗi cần sửa trước khi sinh giải thích.`,
         details: String(msg).split('\n').filter(Boolean),
       }))
-      showToast(`Chưa thể sinh AI: có ${val.errors.length} lỗi cần sửa. Xem chi tiết trong báo cáo.`, 'error')
+
       return
     }
 
@@ -800,11 +814,16 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     }
 
     const numbersForGroup = (group) => {
-      const nums = groupNumbersOf(group)
+      const nums = eligibleExplanationNumbers(group, { overwriteProtected, resolveChoices })
       if (!requestedSet) return nums
       return nums.filter(n => requestedSet.has(n))
     }
 
+    allGroups = allGroups.filter(group => numbersForGroup(group).length > 0)
+    if (!allGroups.length) {
+      persistRunReport(finishRunReport(createRunReport({ examId: editingId, skill: 'listening', totalQuestions: 0 })))
+      return
+    }
     const plannedNumbers = allGroups.flatMap(numbersForGroup)
     const totalQuestions = plannedNumbers.length
 
@@ -825,24 +844,24 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       examId: editingId,
       skill: 'listening',
       scope: isRetryScope ? 'retry' : 'all',
+      previousReport: runReport, questionNumbers: plannedNumbers,
       totalGroups: allGroups.length,
       totalQuestions,
     })
     persistRunReport(report)
-    beginRunStatus(plannedNumbers, 'queued')
+    beginRunStatus(plannedNumbers, 'queued', isRetryScope)
 
     let totalGenerated = 0
     const accumulatedConflicts = []
     let latestReport = report
     let failedGroupCount = 0
-    let stoppedByBusy = false
 
     for (let i = 0; i < allGroups.length; i++) {
       if (isCancellingAIRef.current || abortController.signal.aborted) break
       const group = allGroups[i]
       const groupNums = numbersForGroup(group)
       setGeneratingGroupId(group.id)
-      markRunStatus(groupNums, 'generating')
+      markRunStatus(groupNums, 'queued')
       const groupLabel = `nhóm ${i + 1}/${allGroups.length} (Câu ${group.qNumberStart}–${group.qNumberEnd})`
       setAiProgress({ current: i + 1, total: allGroups.length, groupLabel })
 
@@ -862,12 +881,11 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
           basePayload: { force: true, overwriteProtected, resolveChoices },
           signal: abortController.signal,
           initialQuestionNumbers: requestedSet ? groupNums : null,
-          onProgress: ({ current, total, data }) => {
-            const subCountText = total > 0 ? ` [${current}/${total} câu]` : ''
+          onProgress: ({ current, data }) => {
             const p = {
               current: i + 1,
               total: allGroups.length,
-              groupLabel: `nhóm ${i + 1}/${allGroups.length} (Câu ${group.qNumberStart}–${group.qNumberEnd})${subCountText}`,
+              groupLabel: `nhóm ${i + 1}/${allGroups.length} (Câu ${group.qNumberStart}–${group.qNumberEnd})`,
             }
             setAiProgress(p)
             expLock.updateLocalProgress({
@@ -875,7 +893,11 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
               total: totalQuestions,
               label: `${totalGenerated + current}/${totalQuestions} câu`,
             })
-            if (data) applyChunkStatus(groupNums, data)
+            if (data) {
+              applyChunkStatus(groupNums, data)
+              latestReport = updateRunProgress(latestReport, { group, data, sentNumbers: groupNums })
+              persistRunReport(latestReport)
+            }
           },
           onChunkSuccess: async () => {
             expLock.notifyChunkEnd({
@@ -906,8 +928,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         if (loopResult.cancelled) break
         if (loopResult.errors?.length) {
           failedGroupCount++
-          if (loopResult.errors.some(e => e?.status === 409)) {
-            stoppedByBusy = true
+          if (isRunServiceFailure(loopResult)) {
             break
           }
         }
@@ -921,8 +942,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
           sentNumbers: groupNums,
         })
         persistRunReport(latestReport)
-        if (err.response?.status === 409) {
-          stoppedByBusy = true
+        if (isRunServiceFailure({ errors: [err] })) {
           break
         }
       }
@@ -951,20 +971,6 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     } catch { /* Fresh data is best-effort; retain the current form on refresh failure. */ }
 
     onRefresh()
-
-    const counts = getRunReportCounts(finishedReport)
-    if (wasAborted) {
-      showToast('Đã dừng tác vụ sinh AI. Các câu đã xong đã được lưu lại.', 'info')
-    } else if (stoppedByBusy) {
-      showToast('Tiến trình AI khác đang chạy cho đề này. Xem báo cáo để biết phần đã xong.', 'warning')
-    } else if (counts.errors > 0 || counts.needsRetry > 0) {
-      showToast(
-        `Đã sinh ${counts.generated}/${totalQuestions} câu. Còn ${counts.errors} lỗi và ${counts.needsRetry} câu cần kiểm tra — xem báo cáo để thử lại.`,
-        'error'
-      )
-    } else {
-      showToast(`Đã tạo giải thích thành công cho toàn bộ ${allGroups.length} nhóm (${totalGenerated} câu)!`)
-    }
 
     if (accumulatedConflicts.length > 0) {
       setAiConflicts(accumulatedConflicts)
@@ -1106,9 +1112,9 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     try {
       const res = await api.post('/admin/transcribe', { audioUrl })
       updateSection(si, 'transcript', res.data.transcript || '')
-    } catch (err) { 
+    } catch (err) {
       const errMsg = err?.response?.data?.message || err?.message || 'Lỗi phiên âm audio — thử lại sau'
-      showToast(errMsg) 
+      showToast(errMsg)
     }
     finally { setTranscribing(t => ({ ...t, [si]: false })) }
   }
@@ -1253,7 +1259,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         </h3>
 
         <AIGenerationResumeBanner
-          banner={expLock.resumeBanner}
+          banner={runReport && expLock.resumeBanner?.variant !== 'running' ? null : expLock.resumeBanner}
           disabled={expLock.isLockedOperation}
         />
 
@@ -1268,48 +1274,19 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
           }}
         />
 
-        <AIGenerationStickyProgress
-          isGenerating={expLock.isGenerating}
-          isCancelling={expLock.isCancelling}
-          progress={expLock.localProgress}
-          runErrorCount={runCounts.errors}
-          runAttentionCount={runCounts.needsRetry}
-          onCancel={handleCancelAI}
-        />
-
         {editingId && (
-          <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-3 mb-4 flex flex-nowrap items-center justify-between gap-3">
-            <div className="flex flex-nowrap items-center gap-3 min-w-0">
+          <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-3 mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               <span
                 className="min-w-0 truncate text-sm font-semibold text-zinc-800"
                 title={form.title ? `Đang sửa đề: ${form.title}` : `Đang sửa đề ${editingId}`}
               >
                 {form.title ? `Đang sửa đề: ${form.title}` : `Đang sửa đề ${editingId}`}
               </span>
-              <div className="flex shrink-0 items-center gap-2">
-                <ExamExplanationOverviewBadge
-                  stats={examStats}
-                  runErrorCount={runCounts.errors}
-                  runAttentionCount={runCounts.needsRetry}
-                  onOpenRunPanel={() => runPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                />
-              </div>
+
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              {generatingAI ? (
-                <span
-                  className={`inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 text-xs font-medium ${
-                    isCancellingAI
-                      ? 'bg-amber-50 border-amber-300 text-amber-900'
-                      : 'bg-zinc-100 border-zinc-300 text-zinc-800'
-                  }`}
-                  title={isCancellingAI ? 'Đang hoàn tất nhóm hiện tại rồi dừng' : `Đang xử lý ${aiProgress?.groupLabel || '...'}`}
-                  aria-live="polite"
-                >
-                  <Loader2 className={`w-3.5 h-3.5 animate-spin shrink-0 ${isCancellingAI ? 'text-amber-700' : 'text-zinc-700'}`} />
-                  <span>{isCancellingAI ? 'Đang dừng…' : 'Đang sinh AI…'}</span>
-                </span>
-              ) : (
+              {!generatingAI && (
                 <button
                   type="button"
                   onClick={handleStartGenerateAI}
@@ -1340,7 +1317,13 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
 
         <div ref={runPanelRef}>
           <ExplanationRunPanel
-            report={expLock.isGenerating ? null : runReportForPanel}
+            report={runReportForPanel}
+            isGenerating={expLock.isGenerating}
+            isCancelling={expLock.isCancelling}
+            progress={{ ...expLock.localProgress, groupLabel: aiProgress?.groupLabel }}
+            onCancel={handleCancelAI}
+            onResume={!expLock.isLockedGenerate && ['interrupted', 'unprocessed'].includes(expLock.resumeBanner?.variant) ? expLock.resumeBanner.onAction : undefined}
+            onOpenQuestion={openRunQuestion}
             onRetryFailed={expLock.isLockedGenerate ? undefined : handleRetryFailedAI}
             onOpenGroup={focusExplanationGroup}
             onDismiss={() => {
@@ -1351,6 +1334,8 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
             className="mb-4"
           />
         </div>
+
+        <ExplanationQualityFilter sections={form.sections} onOpenQuestion={openRunQuestion} />
 
         <div className="mb-3">
           <label className={labelCls}>Tên đề</label>

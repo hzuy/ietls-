@@ -3,7 +3,7 @@ import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import AIGenerationExitConfirmModal from './AIGenerationExitConfirmModal'
 import AIGenerationResumeBanner from './AIGenerationResumeBanner'
-import AIGenerationStickyProgress from './AIGenerationStickyProgress'
+import ExplanationRunPanel from './ExplanationRunPanel'
 import ExplanationChipGrid from './ExplanationChipGrid'
 import {
   smartMergeDraft,
@@ -23,7 +23,8 @@ describe('Explanation Lock, Safe Exit, Resume Banner, and Smart Draft Merge', ()
     it('hiển thị thanh tiến độ sticky và nút Hủy hoạt động bình thường', () => {
       const onCancel = vi.fn()
       const { rerender } = render(
-        <AIGenerationStickyProgress
+        <ExplanationRunPanel
+          report={{ generated: 2, totalQuestions: 5 }}
           isGenerating={true}
           isCancelling={false}
           progress={{ current: 2, total: 5, label: '2/5 câu' }}
@@ -33,21 +34,22 @@ describe('Explanation Lock, Safe Exit, Resume Banner, and Smart Draft Merge', ()
 
       expect(screen.getByText(/Đang sinh giải thích AI/i)).toBeInTheDocument()
       expect(screen.getByText(/2\/5 câu/i)).toBeInTheDocument()
-      const cancelBtn = screen.getByRole('button', { name: /Hủy sinh/i })
+      const cancelBtn = screen.getByRole('button', { name: /Dừng tạo/i })
       expect(cancelBtn).toBeInTheDocument()
       fireEvent.click(cancelBtn)
       expect(onCancel).toHaveBeenCalledTimes(1)
 
       // Khi isCancelling = true, chuyển sang trạng thái dừng an toàn
       rerender(
-        <AIGenerationStickyProgress
-          isGenerating={false}
+        <ExplanationRunPanel
+          report={{ generated: 2, totalQuestions: 5 }}
+          isGenerating={true}
           isCancelling={true}
           progress={{ current: 2, total: 5, label: '2/5 câu' }}
           onCancel={onCancel}
         />
       )
-      expect(screen.getByText(/Đang dừng tiến trình sinh AI.../i)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Đang dừng…' })).toBeDisabled()
     })
   })
 

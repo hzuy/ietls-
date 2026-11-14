@@ -1,6 +1,6 @@
 # Đề xuất thống nhất tiến trình và lỗi sinh giải thích AI
 
-Ngày: 2026-11-14. Trạng thái: đề xuất, chưa thay code ứng dụng hoặc deploy.
+Ngày: 2026-11-14. Trạng thái: đã được duyệt, đang triển khai và xác minh.
 
 ## Mục tiêu và phạm vi
 
@@ -60,7 +60,7 @@ Mỗi câu phải có nguyên nhân cụ thể. Chi tiết kỹ thuật mặc đ
 - Đang chạy: cho xem lỗi/lời giải; giữ khóa sửa và retry để tránh ghi đè/race. Lỗi mới cập nhật ngay trong danh sách nhưng không tự cuộn, không tự mở modal và không cướp focus.
 - Lỗi riêng câu: ghi nhận rồi tiếp tục câu đủ điều kiện. Lỗi toàn hệ thống/quota/khóa tác vụ: dừng hoặc chờ theo phản hồi thực, ghi rõ lý do; không tạo hàng loạt request vô ích.
 - Dừng tạo: “Đang dừng…” → “Đã dừng · 17 câu đã lưu · 2 câu lỗi · 19 câu chưa xử lý”. Không gọi câu chưa xử lý là lỗi hay đã xong.
-- Kết thúc có lỗi: giữ cùng khối, mở danh sách lỗi nếu người dùng chưa chủ động thu gọn; retry đúng câu retryable, giữ lời giải đã lưu và bảo vệ câu giáo viên duyệt/sửa.
+- Kết thúc có lỗi: giữ cùng khối và mặc định thu gọn danh sách theo yêu cầu tối giản được bổ sung; người dùng bấm số lỗi để xem. Retry đúng câu retryable, giữ lời giải đã lưu và bảo vệ câu giáo viên duyệt/sửa.
 - Retry chỉ cập nhật kết quả các câu được chọn; lỗi khác không biến mất khi bắt đầu một lượt retry phạm vi hẹp. Ghi rõ phạm vi của lượt retry và trạng thái “Đang thử lại”.
 - Thành công: một dòng kết quả trong khối; không thêm đồng thời toast, alert và report lặp lại.
 - F5: “Lượt trước bị gián đoạn”, giữ báo cáo gần nhất; đối chiếu trạng thái lưu trên server trước khi đánh dấu thành công hoặc tiếp tục. Không tự khởi động lại tác vụ chỉ vì tải trang.
@@ -69,7 +69,7 @@ Mỗi câu phải có nguyên nhân cụ thể. Chi tiết kỹ thuật mặc đ
 
 Không giữ nhãn mơ hồ “14 câu cần chú ý” cạnh lỗi lượt chạy. Đặt bộ lọc “Cần kiểm tra lời giải (14)” cạnh danh sách câu, có phân loại nguyên nhân và mở đúng tập câu. Không cộng số này với lỗi lượt chạy vì một câu có thể thuộc cả hai.
 
-Khuyến nghị dùng alert trong trang (`role=alert`) cho lỗi ngăn bắt đầu hoặc dừng toàn tác vụ, gắn cạnh thao tác liên quan. Lỗi riêng câu nằm trong danh sách có thể mở, không bật native alert liên tiếp. Nếu giữ popup tổng kết theo yêu cầu trước, chỉ bật một lần cuối lượt, có “Xem lỗi”, không thêm toast cùng nội dung. Đây là thay đổi đề xuất cần thống nhất trước triển khai.
+Dùng alert trong trang (`role=alert`) cho lỗi ngăn bắt đầu, gắn cạnh thao tác liên quan. Lỗi riêng câu và gián đoạn dịch vụ nằm trong danh sách có thể mở. Theo yêu cầu tối giản được xác nhận, không dùng native alert hoặc toast tổng kết trùng với báo cáo. Chi tiết kỹ thuật và bộ lọc chất lượng mặc định thu gọn.
 
 ## Hình thức
 
