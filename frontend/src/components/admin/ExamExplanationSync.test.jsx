@@ -182,14 +182,16 @@ describe('Exam Explanation Sync & Dirty Handling (Batch 1)', () => {
       return Promise.resolve({ data: [] })
     })
 
-    // Teacher chooses: "Tiếp tục sinh AI theo CSDL hiện tại"
-    fireEvent.click(screen.getByRole('button', { name: /Tiếp tục sinh AI theo CSDL hiện tại/i }))
+    const savedExam = structuredClone(mockExamData)
+    savedExam.passages[0].body = 'TEACHER EDITED PASSAGE 1 TEXT (UNSAVED DRAFT)'
+    api.put.mockResolvedValueOnce({ data: savedExam })
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu đề & tạo lời giải' }))
 
     // 6. Verify AI generation was triggered (sequential group endpoint in Batch 3)
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith(
         '/admin/exams/10/groups/201/generate-explanations',
-        expect.objectContaining({ force: true, overwriteProtected: false }),
+        expect.objectContaining({ force: false }),
         expect.objectContaining({ signal: expect.anything() })
       )
     })
@@ -319,12 +321,15 @@ describe('Exam Explanation Sync & Dirty Handling (Batch 1)', () => {
       return Promise.resolve({ data: [] })
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /Tiếp tục sinh AI theo CSDL hiện tại/i }))
+    const savedExam = structuredClone(mockListeningData)
+    savedExam.listeningSections[0].transcript = 'TEACHER EDITED TRANSCRIPT (UNSAVED DRAFT)'
+    api.put.mockResolvedValueOnce({ data: savedExam })
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu đề & tạo lời giải' }))
 
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith(
         '/admin/exams/20/groups/601/generate-explanations',
-        expect.objectContaining({ force: true }),
+        expect.objectContaining({ force: false }),
         expect.objectContaining({ signal: expect.anything() })
       )
     })

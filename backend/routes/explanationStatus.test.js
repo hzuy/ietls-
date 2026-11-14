@@ -39,6 +39,7 @@ require.cache[authUserPath] = {
 }
 
 const { acquireLock, releaseLock, clearAllLocks } = require('../lib/explanationLock')
+const { draftEnvelope } = require('../lib/explanationWorkflow')
 const app = require('../server')
 
 const makeToken = role => jwt.sign({ userId: 99, email: `${role}@example.com`, role }, process.env.JWT_SECRET)
@@ -51,6 +52,30 @@ describe('GET /explanation-status (Exam & Practice read-only endpoints)', () => 
     clearAllLocks()
     vi.clearAllMocks()
     authUserMock.verifySession.mockResolvedValue(null)
+  })
+
+  it.each(['exam', 'practice'])('counts v3 drafts, publications and stale content for %s without exposing payloads', async kind => {
+    const payload = { answer: 'A', reasoning: 'PRIVATE_REASONING' }
+    const explanations = [
+      draftEnvelope(null, payload, 'source'),
+      { workflowVersion: 3, published: { ...payload, status: 'teacher_reviewed' }, draft: null },
+      { ...draftEnvelope(null, payload, 'source'), status: 'possibly_stale' },
+      null,
+    ]
+    const rows = explanations.map((explanation, index) => ({ id: index + 1, number: index + 1, explanation }))
+    if (kind === 'exam') {
+      prismaMock.exam.findFirst.mockResolvedValue({ id: 10, skill: 'reading' })
+      prismaMock.question.findMany.mockResolvedValue(rows)
+    } else prismaMock.practiceExam.findFirst.mockResolvedValue({ id: 10, skill: 'reading', questions: [{
+      id: 201, content: JSON.stringify({ questions: rows.map(row => ({ number: row.number })) }),
+      explanation: { byNumber: Object.fromEntries(rows.map(row => [row.number, row.explanation])) },
+    }] })
+    const path = kind === 'exam' ? '/api/admin/exams/10/explanation-status' : '/api/practice/admin/reading/10/explanation-status'
+    const result = await request(app).get(path).set('Authorization', `Bearer ${teacherToken}`).expect(200)
+    expect(result.body).toMatchObject({ totalQuestions: 4, generatedCount: 3, unprocessedCount: 1,
+      unprocessedQuestionNumbers: [4], statusCounts: { draft_ready: 1, published: 1, possibly_stale: 1, none: 1 } })
+    expect(JSON.stringify(result.body)).not.toContain('PRIVATE_REASONING')
+    expect(JSON.stringify(result.body)).not.toContain('source')
   })
 
   describe('GET /api/admin/exams/:id/explanation-status', () => {
@@ -132,6 +157,7 @@ describe('GET /explanation-status (Exam & Practice read-only endpoints)', () => 
         unprocessedCount: 1,
         unprocessedQuestionNumbers: [3],
         statusCounts: {
+          draft_ready: 0, published: 0, possibly_stale: 0,
           ai_generated: 1,
           teacher_reviewed: 1,
           teacher_edited: 0,
@@ -250,6 +276,7 @@ describe('GET /explanation-status (Exam & Practice read-only endpoints)', () => 
         unprocessedCount: 2,
         unprocessedQuestionNumbers: [2, 3],
         statusCounts: {
+          draft_ready: 0, published: 0, possibly_stale: 0,
           ai_generated: 1,
           teacher_reviewed: 0,
           teacher_edited: 0,

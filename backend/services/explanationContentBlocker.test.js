@@ -153,14 +153,15 @@ describe('B.3 Content Blocker & Internal Jargon Detection', () => {
       expect(filterLearnerExplanation(expEdited)).toBeNull()
     })
 
-    it('shows clean ai_generated explanation even if teacher_note has jargon', () => {
+    it('shows clean ai_generated content while stripping teacher-only notes from the learner response', () => {
       const exp = {
         status: 'ai_generated',
         reasoning: 'Đoạn văn thứ 2 nêu rõ nguyên nhân.',
         teacher_note: 'Người dùng nhập đáp án A nhưng AI phát hiện đáp án đúng là B.',
       }
       expect(isExplanationVisibleToLearner(exp)).toBe(true)
-      expect(filterLearnerExplanation(exp)).toEqual(exp)
+      expect(filterLearnerExplanation(exp)).toEqual({ status: exp.status, reasoning: exp.reasoning })
+      expect(exp).toHaveProperty('teacher_note')
     })
   })
 

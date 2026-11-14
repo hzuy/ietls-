@@ -6,6 +6,7 @@ import { AUDIT_ACTIONS } from '../lib/auditActions'
 process.env.JWT_SECRET = 'test_secret_key'
 
 const prismaMock = {
+  $executeRawUnsafe: vi.fn(async () => 1),
   exam: {
     create: vi.fn(),
     groupBy: vi.fn().mockResolvedValue([
@@ -284,6 +285,7 @@ describe('Admin Exams Router — PUT (diff-based upsert)', () => {
       .expect(200)
 
     expect(prismaMock.passage.update).toHaveBeenCalledWith({ where: { id: 501 }, data: { title: 'Renamed passage' } })
+    expect(prismaMock.$executeRawUnsafe).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock($1::integer, $2::integer)', 72413, 10)
     expect(prismaMock.question.update).not.toHaveBeenCalled()
     expect(prismaMock.question.delete).not.toHaveBeenCalled()
     expect(prismaMock.questionGroup.delete).not.toHaveBeenCalled()

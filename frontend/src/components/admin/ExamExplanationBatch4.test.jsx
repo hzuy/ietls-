@@ -128,7 +128,7 @@ describe('Batch 4: Comprehensive test suite for Exam Explanations', () => {
     })
 
     // Close modal by clicking "Hủy và quay lại sửa"
-    const closeBtn = screen.getByRole('button', { name: /Hủy và quay lại sửa/i })
+    const closeBtn = screen.getByRole('button', { name: /Quay lại sửa/i })
     fireEvent.click(closeBtn)
 
     await waitFor(() => {

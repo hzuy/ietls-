@@ -1,3 +1,4 @@
+import UnsavedChangesAIModal from '../../components/admin/UnsavedChangesAIModal'
 import { acknowledgePracticeExplanation } from '../../utils/savedExplanationSync'
 import { notifyExplanationSaved } from '../../utils/explanationSaveNotification'
 import ReadingPassagePreview from '../../components/practice/ReadingPassagePreview'
@@ -26,8 +27,6 @@ import ImageWithFallback from '../../components/common/ImageWithFallback'
 import Select from '../../components/admin/Select'
 import { AdminTableSkeleton } from '../../components/skeletons'
 import api from '../../utils/axios'
-import ExplanationConflictModal from '../../components/admin/ExplanationConflictModal'
-import OverwriteProtectedConfirmModal from '../../components/admin/OverwriteProtectedConfirmModal'
 import { showAlert } from '../../utils/alertUtils'
 import { useToast } from '../../context/ToastContext'
 import { eligibleExplanationNumbers } from '../../utils/explanationRunReport'
@@ -178,10 +177,8 @@ export default function ReadingPractice() {
     setSortBy('newest')
   }
   const [generatingAI, setGeneratingAI] = useState(false)
-  const [aiConflicts, setAiConflicts] = useState([])
-  const [conflictModalOpen, setConflictModalOpen] = useState(false)
-  const [overwriteModalOpen, setOverwriteModalOpen] = useState(false)
-  const [protectedStats, setProtectedStats] = useState({ reviewedCount: 0, editedCount: 0 })
+  const [sourceGuardOpen, setSourceGuardOpen] = useState(false)
+  const pendingDraftOptionsRef = useRef({})
   const [aiProgress, setAiProgress] = useState(null)
   const aiReport = usePracticeExplanationReport({
     skill: 'reading', practiceId: editing?.id, enabled: view === 'form', groups: form.questionGroups,
@@ -408,18 +405,6 @@ export default function ReadingPractice() {
     groupCollapse.reveal(newGroup._id)
   }
 
-  const countProtectedQuestions = () => {
-    let reviewedCount = 0
-    let editedCount = 0
-    for (const g of form.questionGroups || []) {
-      const byNumber = g.explanations || {}
-      for (const exp of Object.values(byNumber)) {
-        if (exp?.status === 'teacher_reviewed') reviewedCount++
-        if (exp?.status === 'teacher_edited') editedCount++
-      }
-    }
-    return { reviewedCount, editedCount }
-  }
 
   const handleStartGenerateAI = (e, { questionNumbers = null } = {}) => {
     if (!editing?.id) {
@@ -432,13 +417,12 @@ export default function ReadingPractice() {
 
       return
     }
-    const stats = countProtectedQuestions()
-    if (stats.reviewedCount + stats.editedCount > 0) {
-      setProtectedStats(stats)
-      setOverwriteModalOpen(true)
-    } else {
-      handleGenerateAI({ overwriteProtected: false, questionNumbers })
+    if (isDirty) {
+      pendingDraftOptionsRef.current = { questionNumbers }
+      setSourceGuardOpen(true)
+      return
     }
+    handleGenerateAI({ questionNumbers })
   }
 
   const handleCancelAI = () => {
@@ -465,7 +449,7 @@ export default function ReadingPractice() {
     abortControllerRef.current = abortController
     setAiProgress({ current: 0, total: 0, label: 'chuẩn bị...' })
 
-    const availableNumbers = form.questionGroups.flatMap(g => eligibleExplanationNumbers(g, { overwriteProtected, resolveChoices }))
+    const availableNumbers = form.questionGroups.flatMap(g => eligibleExplanationNumbers(g, { overwriteProtected, resolveChoices, questionNumbers }))
       .filter(n => Number.isInteger(n) && n > 0)
     const targetNumbers = Array.isArray(questionNumbers)
       ? [...new Set(questionNumbers.map(Number))].filter(n => availableNumbers.includes(n))
@@ -520,7 +504,7 @@ export default function ReadingPractice() {
           })
           return api.post(`/practice/admin/reading/${editing.id}/generate-explanations`, payload, opts)
         },
-        basePayload: { force: true, overwriteProtected, resolveChoices },
+        basePayload: { force: Array.isArray(questionNumbers) && questionNumbers.length > 0 },
         initialQuestionNumbers: Array.isArray(questionNumbers) ? targetNumbers : null,
         signal: abortController.signal,
         onProgress: ({ current, total, data }) => {
@@ -554,12 +538,7 @@ export default function ReadingPractice() {
 
       const finishedReport = aiReport.finish(loopResult)
       notifyExplanationSaved(finishedReport, loopResult.hasConflicts)
-      if (loopResult.hasConflicts) {
-        setAiConflicts(loopResult.conflicts || [])
-        setConflictModalOpen(true)
-
-      } else if (!loopResult.cancelled && !loopResult.errors?.length) {
-        setConflictModalOpen(false)
+      if (!loopResult.cancelled && !loopResult.errors?.length) {
         queryClient.invalidateQueries({ queryKey: ['admin', 'practice'] })
       }
     } catch (err) {
@@ -578,6 +557,11 @@ export default function ReadingPractice() {
   if (view === 'form') {
     return (
       <>
+        <UnsavedChangesAIModal isOpen={sourceGuardOpen} onClose={() => setSourceGuardOpen(false)}
+          isSaving={generatingAI} onSaveAndGenerate={() => {
+            setSourceGuardOpen(false)
+            handleGenerateAI(pendingDraftOptionsRef.current)
+          }} />
         <fieldset disabled={saving} className="min-w-0 border-0 p-0 m-0">
         <div className="p-4 sm:p-6 max-w-[1520px] mx-auto">
           {/* Top Bar: Tiêu đề + Bộ nút thao tác chính (Sticky top) */}
@@ -652,7 +636,7 @@ export default function ReadingPractice() {
                   progress={expLock.localProgress}
                   onCancel={handleCancelAI}
                   onResume={!expLock.isLockedGenerate && ['interrupted', 'unprocessed'].includes(expLock.resumeBanner?.variant) ? expLock.resumeBanner.onAction : undefined}
-                  onRetryFailed={expLock.isLockedGenerate ? undefined : numbers => handleGenerateAI({ questionNumbers: numbers, overwriteProtected: false })}
+                  onRetryFailed={expLock.isLockedGenerate ? undefined : numbers => handleStartGenerateAI(null, { questionNumbers: numbers })}
                   onDismiss={aiReport.dismiss}
                   className="mb-4"
                 />
@@ -803,10 +787,7 @@ export default function ReadingPractice() {
                         isLast={i === form.questionGroups.length - 1}
                         isAIBusy={expLock.isLockedOperation}
                         unsavedQuestionNumbers={unsavedQuestionNumbers}
-                        onResolveConflict={conflict => {
-                          setAiConflicts([conflict])
-                          setConflictModalOpen(true)
-                        }}
+                        onGenerateDraft={number => handleStartGenerateAI(null, { questionNumbers: [number] })}
                         onExplanationSaved={(explanation, number) => {
                           pristineExplanationsRef.current = { ...pristineExplanationsRef.current, [number]: explanation }
                           aiReport.acknowledgeSaved(number)
@@ -832,26 +813,6 @@ export default function ReadingPractice() {
             onClose={() => { setShowPreview(false); setShowAnswers(false) }}
           />
         )}
-
-        <ExplanationConflictModal
-          isOpen={conflictModalOpen}
-          onClose={() => setConflictModalOpen(false)}
-          conflicts={aiConflicts}
-          isSubmitting={generatingAI}
-          onConfirmResolve={(choices) => handleGenerateAI({ resolveChoices: choices, overwriteProtected: false, questionNumbers: Object.keys(choices).map(Number) })}
-        />
-
-        <OverwriteProtectedConfirmModal
-          isOpen={overwriteModalOpen}
-          onClose={() => setOverwriteModalOpen(false)}
-          reviewedCount={protectedStats.reviewedCount}
-          editedCount={protectedStats.editedCount}
-          isSubmitting={generatingAI}
-          onConfirm={({ overwriteProtected }) => {
-            setOverwriteModalOpen(false)
-            handleGenerateAI({ overwriteProtected })
-          }}
-        />
 
         <AIGenerationExitConfirmModal
           isOpen={expLock.exitConfirmOpen}
@@ -1005,14 +966,6 @@ export default function ReadingPractice() {
         onCancel={() => setDelConfirm(null)}
         onConfirm={() => handleDelete(delConfirm)}
         loading={deleting}
-      />
-
-      <ExplanationConflictModal
-        isOpen={conflictModalOpen}
-        onClose={() => setConflictModalOpen(false)}
-        conflicts={aiConflicts}
-        isSubmitting={generatingAI}
-        onConfirmResolve={(choices) => handleGenerateAI({ resolveChoices: choices, overwriteProtected: false, questionNumbers: Object.keys(choices).map(Number) })}
       />
     </>
   )

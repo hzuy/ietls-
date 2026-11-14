@@ -191,13 +191,15 @@ function enumerateGroupNumbers(group) {
   return list
 }
 
-export function eligibleExplanationNumbers(group, { overwriteProtected = false, resolveChoices = {} } = {}) {
+export function eligibleExplanationNumbers(group, { overwriteProtected = false, resolveChoices = {}, questionNumbers = null } = {}) {
   return enumerateGroupNumbers(group).filter(number => {
     let explanation = group.questions?.find(question => Number(question.number) === number)?.explanation
       || group.explanations?.[number]
     if (typeof explanation === 'string') { try { explanation = JSON.parse(explanation) } catch { return true } }
-    return overwriteProtected || Boolean(resolveChoices[number])
-      || !['teacher_reviewed', 'teacher_edited'].includes(explanation?.status)
+    if (Array.isArray(questionNumbers) && questionNumbers.map(Number).includes(number)) return true
+    if (overwriteProtected || Boolean(resolveChoices[number])) return true
+    if (!explanation) return true
+    return ['needs_regeneration', 'possibly_stale', 'error'].includes(explanation.status)
   })
 }
 

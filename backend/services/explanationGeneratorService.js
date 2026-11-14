@@ -1,4 +1,5 @@
 const { saveExplanationBatch } = require('../lib/explanationSave')
+const { isWorkflow, adminView, publishedView } = require('../lib/explanationWorkflow')
 const prisma = require('../lib/prisma')
 const {
   classifyFamily,
@@ -164,6 +165,7 @@ function containsInternalJargon(explanation) {
 }
 
 function isExplanationVisibleToLearner(explanation) {
+  if (isWorkflow(explanation)) return isExplanationVisibleToLearner(publishedView(explanation))
   if (!explanation || typeof explanation !== 'object') return false
   // 3.2 TƯƠNG THÍCH NGƯỢC: lời giải cũ (chưa có status) coi như ai_generated, vẫn hiển thị bình thường
   if (explanation.status && !['ai_generated', 'teacher_reviewed', 'teacher_edited'].includes(explanation.status)) {
@@ -177,6 +179,11 @@ function isExplanationVisibleToLearner(explanation) {
 }
 
 function sanitizeExplanationForRead(explanation, questionType = null) {
+  if (isWorkflow(explanation)) {
+    const view = adminView(explanation)
+    return { ...sanitizeExplanationForRead({ ...view, workflowVersion: undefined }, questionType), workflowVersion: 3,
+      publishedExplanation: view.publishedExplanation ? sanitizeExplanationForRead(view.publishedExplanation, questionType) : null }
+  }
   if (!explanation || typeof explanation !== 'object') return explanation
 
   // Nếu là wrapper byNumber (dùng trong PracticeQuestion)
@@ -206,8 +213,12 @@ function sanitizeExplanationForRead(explanation, questionType = null) {
 }
 
 function filterLearnerExplanation(explanation, questionType = null) {
+  if (isWorkflow(explanation)) return filterLearnerExplanation(publishedView(explanation), questionType)
   if (!isExplanationVisibleToLearner(explanation)) return null
-  return sanitizeExplanationForRead(explanation, questionType)
+  const result = sanitizeExplanationForRead(explanation, questionType)
+  for (const key of ['teacher_note', 'teacherKeptAnswer', 'aiAnswer', 'no_support', 'supportNote', 'needsRegenerationReason',
+    'provider', 'model', 'isFallback', 'validationIssue', 'draftVersion', 'sourceHash', 'publishedExplanation', 'workflowVersion']) delete result[key]
+  return result
 }
 
 function validateManualExplanation(data, { sourceText = null, family = 'GENERIC', prevExp = {}, targetAnswer = null } = {}) {

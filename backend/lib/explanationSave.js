@@ -10,6 +10,7 @@ async function saveExplanationBatch(prisma, callback, { startTime, target }) {
     if (remaining < 100) throw Object.assign(new Error('Save budget exhausted'), { code: 'AI_SAVE_BUDGET' })
     return await prisma.$transaction(callback, { maxWait, timeout })
   } catch (cause) {
+    if (cause?.name === 'AbortError' || ['SOURCE_CHANGED', 'DRAFT_CHANGED'].includes(cause?.code)) throw cause
     const causeCode = /^P\d{4}$/.test(cause?.code || '') ? cause.code : cause?.code === 'AI_SAVE_BUDGET' ? cause.code : 'DATABASE_ERROR'
     const failure = Object.assign(new Error(causeCode === 'P2028' || causeCode === 'AI_SAVE_BUDGET'
       ? 'AI đã tạo kết quả nhưng bước lưu cơ sở dữ liệu hết thời gian. Lời giải đã lưu trước đó được giữ nguyên.'

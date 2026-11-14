@@ -6,7 +6,7 @@ describe('saved explanation alert', () => {
   const saved = { status: 'done', generated: 2, rows: [], needsRetry: [] }
   it('announces a confirmed save once', () => {
     expect(notifyExplanationSaved(saved)).toBe(true)
-    expect(window.alert).toHaveBeenCalledExactlyOnceWith('Đã lưu giải thích thành công.')
+    expect(window.alert).toHaveBeenCalledExactlyOnceWith('Đã lưu bản nháp. Kiểm tra và chọn Sử dụng lời giải để áp dụng cho học sinh.')
   })
   it.each([
     { ...saved, status: 'running' }, { ...saved, status: 'cancelled' },

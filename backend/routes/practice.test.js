@@ -12,6 +12,7 @@ process.env.JWT_SECRET = 'test_secret_key'
 // handler, not middleware, so these tests verify each call site directly.
 
 const prismaMock = {
+  $executeRawUnsafe: vi.fn(async () => 1),
   practiceExam: {
     create: vi.fn(),
     update: vi.fn(),
@@ -20,7 +21,8 @@ const prismaMock = {
     findMany: vi.fn().mockResolvedValue([])
   },
   practiceQuestion: {
-    findMany: vi.fn().mockResolvedValue([])
+    findMany: vi.fn().mockResolvedValue([]),
+    update: vi.fn().mockResolvedValue({})
   },
   auditLog: {
     create: vi.fn().mockResolvedValue({})
@@ -53,6 +55,30 @@ describe('routes/practice.js — audit log wiring', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     prismaMock.$transaction.mockImplementation(async (cb) => cb(prismaMock))
+  })
+
+  it('rejects duplicate stable question IDs across groups before creating data', async () => {
+    const groups = [1, 2].map(number => ({ type: 'note_completion', questions: [{ number, correctAnswer: 'A', _explanationId: 'duplicate-item' }] }))
+    await request(app).post('/api/practice/admin/reading')
+      .set('Authorization', `Bearer ${token}`).send({ title: 'Duplicate identity practice', questions: groups }).expect(400)
+    expect(prismaMock.practiceExam.create).not.toHaveBeenCalled()
+    expect(prismaMock.auditLog.create).not.toHaveBeenCalled()
+  })
+
+  it.each(['reading', 'listening'])('invalidates saved explanations after a %s source-only update without replacing questions', async skill => {
+    const sourceField = skill === 'reading' ? 'passage' : 'transcript'
+    prismaMock.practiceExam.findFirst.mockResolvedValueOnce({ id: 100, title: 'Existing practice', [sourceField]: 'Old source' })
+    const stored = { workflowVersion: 3, published: { status: 'teacher_reviewed', answer: 'A', reasoning: 'Old explanation' }, draft: null }
+    prismaMock.practiceQuestion.findMany.mockResolvedValueOnce([{ id: 201,
+      content: JSON.stringify({ type: 'mcq', questions: [{ number: 1, correctAnswer: 'A' }] }), explanation: { byNumber: { 1: stored } } }])
+    prismaMock.practiceExam.update.mockResolvedValueOnce({ id: 100, title: 'Existing practice', questions: [{ id: 201 }] })
+    await request(app).put(`/api/practice/admin/${skill}/100`)
+      .set('Authorization', `Bearer ${token}`).send({ [sourceField]: 'New source' }).expect(200)
+    expect(prismaMock.practiceQuestion.update).toHaveBeenCalledWith({ where: { id: 201 }, data: { explanation: { byNumber: {
+      1: expect.objectContaining({ workflowVersion: 3, status: 'possibly_stale', published: stored.published }),
+    } } } })
+    expect(prismaMock.practiceExam.update.mock.calls[0][0].data.questions).toBeUndefined()
+    expect(prismaMock.$executeRawUnsafe).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock($1::integer, $2::integer)', 72414, 100)
   })
 
   it('POST /admin/reading logs practice.create with skill + questionCount', async () => {

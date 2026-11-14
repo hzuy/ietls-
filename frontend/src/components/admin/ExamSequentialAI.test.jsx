@@ -110,12 +110,12 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     fireEvent.click(screen.getByText(reading ? 'Edit Reading 10' : 'Edit Listening 20'))
     fireEvent.click(await screen.findByRole('button', { name: /^Câu 1/i }))
     expect(screen.queryByRole('button', { name: /Duyệt giải thích câu/ })).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận đáp án' }))
-    expect(screen.getAllByRole('dialog')).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: /X\u00e1c nh\u1eadn \u0111\u00e1p \u00e1n/ })).not.toBeInTheDocument()
     expect(api.post).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận & Lưu giải thích' }))
+    fireEvent.click(screen.getByRole('button', { name: 'T\u1ea1o b\u1ea3n nh\u00e1p m\u1edbi' }))
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
-    expect(api.post.mock.calls[0][1]).toMatchObject({ questionNumbers: [1], resolveChoices: { 1: 'ai' } })
+    expect(api.post.mock.calls[0][1]).toMatchObject({ questionNumbers: [1], force: true })
+    expect(api.post.mock.calls[0][1]).not.toHaveProperty('resolveChoices')
   })
 
   it.each(['reading', 'listening'])('updates the saved %s question badge and modal after a manual save', async skill => {
@@ -137,7 +137,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     fireEvent.click(await screen.findByRole('button', { name: /^Câu 1/i }))
     fireEvent.click(screen.getByRole('tab', { name: /Sửa trực tiếp/i }))
     fireEvent.change(screen.getByPlaceholderText(/Lập luận vì sao đáp án này đúng/i), { target: { value: saved.reasoning } })
-    fireEvent.click(screen.getByRole('button', { name: /Lưu chỉnh sửa/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Lưu bản nháp/i }))
     await waitFor(() => expect(screen.getByText(saved.reasoning)).toBeInTheDocument())
     expect(api.put).toHaveBeenCalledTimes(1)
     fireEvent.click(screen.getByRole('button', { name: 'Đóng' }))
@@ -226,7 +226,13 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     fireEvent.click(await screen.findByRole('button', { name: 'Thử lại 1 câu lỗi' }))
     expect(await screen.findByText('Đề thi có thay đổi chưa lưu')).toBeInTheDocument()
     expect(api.post).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: /Tiếp tục sinh AI theo CSDL hiện tại/ }))
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const saved = structuredClone(exam)
+    if (reading) saved.passages[0].body = 'Unsaved teacher content'
+    else saved.listeningSections[0].transcript = 'Unsaved teacher content'
+    api.put.mockResolvedValue({ data: saved })
+    api.get.mockImplementation(url => Promise.resolve({ data: url === `/admin/exams/${examId}` ? saved : [] }))
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu đề & tạo lời giải' }))
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
     expect(api.post.mock.calls[0][1].questionNumbers).toEqual([2])
     await waitFor(() => expect(screen.getByTestId('explanation-run-panel')).toHaveAttribute('data-status', 'done'))
@@ -293,7 +299,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith(
         '/admin/exams/10/groups/201/generate-explanations',
-        expect.objectContaining({ force: true, overwriteProtected: false }),
+        expect.objectContaining({ force: false }),
         expect.anything()
       )
     })
@@ -353,7 +359,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
       )
     })
     await waitFor(() => expect(screen.getByTestId('explanation-run-panel')).toHaveAttribute('data-status', 'done'))
-    expect(window.alert).toHaveBeenCalledExactlyOnceWith('Đã lưu giải thích thành công.')
+    expect(window.alert).toHaveBeenCalledExactlyOnceWith('Đã lưu bản nháp. Kiểm tra và chọn Sử dụng lời giải để áp dụng cho học sinh.')
   })
 
   it('gracefully cancels sequential generation: displays completing message and finishes in-flight group before stopping', async () => {
@@ -451,7 +457,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     })
   })
 
-  it('accumulates conflicts when middle group has conflict and opens conflict modal once at end (Requirement A.4)', async () => {
+  it('continues later groups and reports questions requiring review without answer-selection dialog', async () => {
     const mock3GroupsExam = {
       ...mockReadingExam,
       passages: [
@@ -504,8 +510,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
         return Promise.resolve({
           data: {
             success: false,
-            hasConflicts: true,
-            conflicts: [{ number: 3, aiAnswer: 'diff_word', inputAnswer: 'word1', type: 'summary_completion' }],
+            needsRetryQuestions: [{ number: 3, reason: 'Không đủ bằng chứng trong bài đọc.' }],
             generatedCount: 1
           }
         })
@@ -523,11 +528,10 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
       expect(api.post).toHaveBeenCalledWith(expect.stringContaining('/groups/203/'), expect.anything(), expect.anything())
     })
 
-    await waitFor(() => {
-      expect(screen.getByText(/Xác nhận đáp án/i)).toBeInTheDocument()
-      const dialog = screen.getByRole('dialog')
-      expect(within(dialog).getByText(/Câu 3/i)).toBeInTheDocument()
-    })
+    await waitFor(() => expect(screen.getByTestId('explanation-run-panel')).toHaveAttribute('data-status', 'done'))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '1 câu cần kiểm tra' }))
+    expect(screen.getByText('Không đủ bằng chứng trong bài đọc.')).toBeInTheDocument()
   })
 
   it('triggers single group AI generation and sequential generation in ListeningTab', async () => {
@@ -583,7 +587,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith(
         '/admin/exams/20/groups/601/generate-explanations',
-        expect.objectContaining({ force: true, overwriteProtected: false }),
+        expect.objectContaining({ force: false }),
         expect.anything()
       )
     })

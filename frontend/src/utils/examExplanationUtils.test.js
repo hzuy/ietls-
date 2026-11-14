@@ -496,7 +496,7 @@ describe('examExplanationUtils', () => {
       expect(stats.statusCounts.possibly_stale).toBe(1)
 
       // Check text reasons (non-color based labels)
-      expect(stats.attentionReasons).toContain('1 câu Chờ xác nhận')
+      expect(stats.attentionReasons).toContain('1 câu Cần kiểm tra')
       expect(stats.attentionReasons).toContain('1 câu Cần kiểm tra')
       expect(stats.attentionReasons).toContain('1 câu Nội dung đã đổi')
     })

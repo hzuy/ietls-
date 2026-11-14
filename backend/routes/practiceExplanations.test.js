@@ -12,6 +12,42 @@ const group = (start, answers) => ({
 const row = (g, byNumber) => ({ content: JSON.stringify(g), explanation: byNumber ? { byNumber } : null })
 
 describe('practice explanations', () => {
+  it('never exposes drafts or provider metadata from authoritative or embedded practice explanations', () => {
+    const { draftEnvelope, adminView } = require('../lib/explanationWorkflow')
+    const published = { v: 2, answer: 'TRUE', status: 'teacher_reviewed', reasoning: 'Published reasoning', provider: 'Gemini', teacher_note: 'private-note' }
+    const envelope = draftEnvelope(published, { answer: 'TRUE', reasoning: 'Secret draft reasoning' }, 'source')
+    const embedded = group(1, ['TRUE', 'FALSE'])
+    embedded.questions[0].explanation = adminView(envelope)
+    embedded.questions[1].explanation = adminView(draftEnvelope(null, { answer: 'FALSE', reasoning: 'Unpublished second draft' }, 'source'))
+    embedded.explanations = { 1: adminView(envelope) }
+    const learner = practiceGroupsWithExplanations([row(embedded, { 1: envelope })], { forAdmin: false })
+    expect(learner[0].explanations[1]).toMatchObject({ answer: 'TRUE', reasoning: 'Published reasoning' })
+    expect(learner[0].questions[0]).not.toHaveProperty('explanation')
+    const encoded = JSON.stringify(learner)
+    for (const secret of ['Secret draft', 'Unpublished second', 'private-note', 'Gemini', 'publishedExplanation', 'draftVersion', 'sourceHash']) expect(encoded).not.toContain(secret)
+    const admin = practiceGroupsWithExplanations([row(embedded, { 1: envelope })], { forAdmin: true })
+    expect(admin[0].explanations[1]).toMatchObject({ status: 'draft_ready', reasoning: 'Secret draft reasoning' })
+  })
+
+  it('marks existing publications stale on source changes even when individual answers are unchanged', () => {
+    const { draftEnvelope, publishedView } = require('../lib/explanationWorkflow')
+    const current = group(1, ['TRUE'])
+    const envelope = draftEnvelope({ answer: 'TRUE', status: 'teacher_reviewed' }, { answer: 'TRUE', reasoning: 'Draft' }, 'source')
+    const result = carryOverExplanations([row(current, { 1: envelope })], [current], { sourceChanged: true })
+    expect(result[0].byNumber[1].status).toBe('possibly_stale')
+    expect(publishedView(result[0].byNumber[1])).toBeNull()
+  })
+
+  it('carries a practice explanation by stable item id when its display number changes', () => {
+    const original = group(1, ['TRUE'])
+    original.questions[0]._explanationId = 'stable-item-1'
+    const moved = group(5, ['TRUE'])
+    moved.questions[0]._explanationId = 'stable-item-1'
+    const explanation = { answer: 'TRUE', status: 'teacher_reviewed' }
+    const result = carryOverExplanations([row(original, { 1: explanation })], [moved])
+    expect(result[0].byNumber[5]).toEqual(explanation)
+    expect(result[0].byNumber[1]).toBeUndefined()
+  })
   it('attaches explanations by question number to each group for admin', () => {
     const groups = practiceGroupsWithExplanations(
       [

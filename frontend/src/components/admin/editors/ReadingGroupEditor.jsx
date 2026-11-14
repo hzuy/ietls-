@@ -22,7 +22,7 @@ export default function ReadingGroupEditor({
   generatingQuestionNumbers: generatingQuestionNumbersProp = null,
   runStatusByNumber = null,
   runErrorMessageByNumber = null,
-  unsavedQuestionNumbers, onExplanationSaved, onResolveConflict,
+  unsavedQuestionNumbers, onExplanationSaved, onGenerateDraft,
 }) {
   const [selectedQModal, setSelectedQModal] = useState(null)
   const groupType = group?.type || 'short_answer'
@@ -204,7 +204,7 @@ export default function ReadingGroupEditor({
           isAIBusy={isAIBusy}
           runStatus={runStatusByNumber?.[selectedQModal.qNum] ?? null}
           runErrorMessage={runErrorMessageByNumber?.[selectedQModal.qNum] ?? null}
-          onResolveConflict={onResolveConflict}
+          onGenerateDraft={onGenerateDraft}
           onExplanationUpdated={(newExp, qNum) => {
             const targetNum = qNum || selectedQModal?.qNum
             const updatedQuestions = (group.questions || []).map(q =>

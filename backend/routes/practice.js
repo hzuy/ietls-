@@ -1,3 +1,5 @@
+const { lockExplanationTarget } = require('../lib/explanationWriteLock')
+const { generateForPracticeExam, regenerateQuestionExplanation, updateManualExplanation, reviewQuestionExplanation } = require('../services/explanationDraftService')
 const { explanationFailureResponse } = require('../lib/explanationSave')
 const express = require('express')
 const multer = require('multer')
@@ -12,13 +14,9 @@ const { getQuestionCount, getPracticeListCached } = require('../lib/publicConten
 const { createPracticeSchema, updatePracticeSchema, practiceAttemptSchema } = require('../validators/contentValidator')
 const { uploadAudio, uploadOptimizedCover } = require('../services/storageService')
 const {
-  generateForPracticeExam,
   isExplanationVisibleToLearner,
   filterLearnerExplanation,
   sanitizeExplanationForRead,
-  regenerateQuestionExplanation,
-  updateManualExplanation,
-  reviewQuestionExplanation,
 } = require('../services/explanationGeneratorService')
 const { logAuditEvent } = require('../lib/auditLog')
 const { AUDIT_ACTIONS } = require('../lib/auditActions')
@@ -78,8 +76,15 @@ const { teacherStrict, learnerOnly } = require('../lib/roles')
 function practiceGroupsWithExplanations(rows, { forAdmin = false } = {}) {
   return (rows || []).map(pq => {
     const group = JSON.parse(pq.content)
-    const byNumber = pq.explanation?.byNumber
-    if (!byNumber) return group
+    // Never return embedded admin draft projections from saved group content.
+    const byNumber = { ...group.explanations }
+    group.questions = (group.questions || []).map(question => {
+      const { explanation, ...clean } = question
+      if (explanation) byNumber[question.number] = explanation
+      return clean
+    })
+    Object.assign(byNumber, pq.explanation?.byNumber)
+    delete group.explanations
     const qTypeMap = {}
     for (const q of group.questions || []) {
       qTypeMap[q.number] = q.type || group.type || pq.type
@@ -103,7 +108,7 @@ function practiceGroupsWithExplanations(rows, { forAdmin = false } = {}) {
   })
 }
 
-function carryOverExplanations(oldRows, newGroups) {
+function carryOverExplanations(oldRows, newGroups, { sourceChanged = false } = {}) {
   const old = {}
   for (const row of oldRows || []) {
     const byNumber = row.explanation?.byNumber
@@ -112,11 +117,12 @@ function carryOverExplanations(oldRows, newGroups) {
     try { group = JSON.parse(row.content) } catch { continue }
     for (const q of group.questions || []) {
       if (byNumber[q.number]) {
-        old[q.number] = {
+        old[q._explanationId || q.number] = {
           answer: String(q.correctAnswer ?? '').trim(),
           text: String(q.questionText ?? '').trim(),
           options: JSON.stringify(q.options ?? null),
-          explanation: byNumber[q.number]
+          explanation: byNumber[q.number],
+          groupSource: JSON.stringify([group.type, group.instruction, group.imageUrl, group.noteSections, group.matchingOptions, group.canReuse, group.maxChoices])
         }
       }
     }
@@ -125,12 +131,13 @@ function carryOverExplanations(oldRows, newGroups) {
     const group = typeof g === 'string' ? (() => { try { return JSON.parse(g) } catch { return {} } })() : g
     const byNumber = {}
     for (const q of group.questions || []) {
-      const prev = old[q.number]
+      const prev = old[q._explanationId || q.number]
       if (prev && prev.explanation) {
         const answerChanged = prev.answer !== String(q.correctAnswer ?? '').trim()
         const textChanged = prev.text !== String(q.questionText ?? '').trim()
         const optionsChanged = prev.options !== JSON.stringify(q.options ?? null)
-        if (answerChanged || textChanged || optionsChanged) {
+        const groupChanged = prev.groupSource !== JSON.stringify([group.type, group.instruction, group.imageUrl, group.noteSections, group.matchingOptions, group.canReuse, group.maxChoices])
+        if (answerChanged || textChanged || optionsChanged || sourceChanged || groupChanged) {
           // 3.8: Không xóa lời giải, đánh dấu status 'possibly_stale'
           let staleReason = 'Nội dung câu hỏi đã thay đổi'
           if (answerChanged) staleReason = 'Đáp án đã thay đổi'
@@ -148,6 +155,24 @@ function carryOverExplanations(oldRows, newGroups) {
     }
     return Object.keys(byNumber).length ? { byNumber } : null
   })
+}
+
+function contentWithoutExplanations(value) {
+  const group = typeof value === 'string' ? JSON.parse(value) : value
+  const { explanations, ...clean } = group
+  return { ...clean, questions: (group.questions || []).map(question => {
+    const { explanation, ...item } = question
+    return item
+  }) }
+}
+
+function validateQuestionIdentities(groups) {
+  const seen = new Set()
+  for (const value of groups || []) for (const question of contentWithoutExplanations(value).questions || []) {
+    if (!question._explanationId) continue
+    if (seen.has(question._explanationId)) throw Object.assign(new Error('Câu hỏi có định danh trùng. Vui lòng tạo bản sao với định danh mới.'), { status: 400 })
+    seen.add(question._explanationId)
+  }
 }
 
 function makePracticeListHandler(skill) {
@@ -334,6 +359,7 @@ router.post('/admin/:skill', authMiddleware, teacherStrict, validate(createPract
   const { title, level, thumbnailUrl, audioUrl, passage, transcript, questions } = req.body
 
   try {
+    try { validateQuestionIdentities(questions) } catch (error) { return res.status(400).json({ message: error.message }) }
     if (await findTitleConflict(prisma.practiceExam, title, { skill })) return res.status(409).json({ message: 'Tên bài luyện tập đã tồn tại trong kỹ năng này' })
     const exam = await prisma.practiceExam.create({
       data: {
@@ -348,7 +374,7 @@ router.post('/admin/:skill', authMiddleware, teacherStrict, validate(createPract
         // ✅ CORRECT: Relation is now named 'questions'
         questions: {
           create: (questions || []).map((q, index) => ({
-            content: typeof q === 'string' ? q : JSON.stringify(q),
+            content: JSON.stringify(contentWithoutExplanations(q)),
             correctAnswer: q.correctAnswer || '',
             options: q.options ? (typeof q.options === 'string' ? q.options : JSON.stringify(q.options)) : null,
             orderNum: q.orderIndex !== undefined ? q.orderIndex : index,
@@ -395,16 +421,27 @@ router.put('/admin/:skill/:id', authMiddleware, teacherStrict, validate(updatePr
   try {
     // Trả về bản ghi sau khi update (kèm questions) để dùng cho audit log bên
     // dưới — không đổi response cho client, vẫn chỉ res.json({ ok: true }).
-    const target = await prisma.practiceExam.findFirst({ where: { id: practiceId, skill, deletedAt: null }, select: { id: true } })
+    const target = await prisma.practiceExam.findFirst({ where: { id: practiceId, skill, deletedAt: null }, select: { id: true, passage: true, transcript: true } })
     if (!target) return res.status(404).json({ message: 'Không tìm thấy bài luyện tập' })
     if (title !== undefined && await findTitleConflict(prisma.practiceExam, title, { skill }, practiceId)) {
       return res.status(409).json({ message: 'Tên bài luyện tập đã tồn tại trong kỹ năng này' })
     }
+    try { validateQuestionIdentities(questions) } catch (error) { return res.status(400).json({ message: error.message }) }
     const updatedExam = await prisma.$transaction(async (tx) => {
-      const oldRows = Array.isArray(questions)
-        ? await tx.practiceQuestion.findMany({ where: { examId: parseInt(id) }, select: { content: true, explanation: true } })
+      await lockExplanationTarget(tx, 'practice', practiceId)
+      const currentSource = await tx.practiceExam.findUnique({ where: { id: practiceId }, select: { passage: true, transcript: true } })
+      const sourceChanged = (passage !== undefined && passage !== currentSource?.passage) || (transcript !== undefined && transcript !== currentSource?.transcript)
+      const oldRows = Array.isArray(questions) || sourceChanged
+        ? await tx.practiceQuestion.findMany({ where: { examId: parseInt(id) }, select: { id: true, content: true, explanation: true } })
         : []
-      const keptExplanations = Array.isArray(questions) ? carryOverExplanations(oldRows, questions) : []
+      const keptExplanations = Array.isArray(questions) ? carryOverExplanations(oldRows, questions, { sourceChanged }) : []
+      if (sourceChanged && !Array.isArray(questions)) {
+        for (const row of oldRows) {
+          if (!row.explanation?.byNumber) continue
+          const byNumber = Object.fromEntries(Object.entries(row.explanation.byNumber).map(([number, explanation]) => [number, { ...explanation, status: 'possibly_stale', staleReason: 'Source changed', staleAt: new Date().toISOString() }]))
+          await tx.practiceQuestion.update({ where: { id: row.id }, data: { explanation: { byNumber } } })
+        }
+      }
       const updateData = { isNormalized: true }
       if (title !== undefined) updateData.title = title.trim()
       if (level !== undefined) updateData.level = level
@@ -421,7 +458,7 @@ router.put('/admin/:skill/:id', authMiddleware, teacherStrict, validate(updatePr
           questions: questions !== undefined && Array.isArray(questions) ? {
             deleteMany: {},
             create: questions.map((q, index) => ({
-              content: typeof q === 'string' ? q : JSON.stringify(q),
+              content: JSON.stringify(contentWithoutExplanations(q)),
               correctAnswer: q.correctAnswer || '',
               options: q.options ? (typeof q.options === 'string' ? q.options : JSON.stringify(q.options)) : null,
               orderNum: q.orderIndex !== undefined ? q.orderIndex : index,
@@ -492,7 +529,7 @@ router.post('/admin/:skill/:id/thumbnail', authMiddleware, teacherStrict, thumbU
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
   try {
     const { url: thumbnailUrl } = await uploadOptimizedCover(req.file, { dir: thumbDir, urlPrefix: '/uploads/thumbnails', folder: 'thumbnails' })
-    const target = await prisma.practiceExam.findFirst({ where: { id: parseInt(req.params.id), skill: req.params.skill, deletedAt: null }, select: { id: true } })
+    const target = await prisma.practiceExam.findFirst({ where: { id: parseInt(req.params.id), skill: req.params.skill, deletedAt: null }, select: { id: true, passage: true, transcript: true } })
     if (!target) return res.status(404).json({ message: 'Không tìm thấy bài luyện tập' })
     const exam = await prisma.practiceExam.update({
       where: { id: target.id },
@@ -515,7 +552,7 @@ router.post('/admin/listening/:id/audio', authMiddleware, teacherStrict, audioUp
   if (!req.file) return res.status(400).json({ message: 'Không có file' })
   try {
     const { url: audioUrl } = await uploadAudio(req.file, { subdir: 'audio', folder: 'audio' })
-    const target = await prisma.practiceExam.findFirst({ where: { id: parseInt(req.params.id), skill: 'listening', deletedAt: null }, select: { id: true } })
+    const target = await prisma.practiceExam.findFirst({ where: { id: parseInt(req.params.id), skill: 'listening', deletedAt: null }, select: { id: true, passage: true, transcript: true } })
     if (!target) return res.status(404).json({ message: 'Không tìm thấy bài luyện tập' })
     const exam = await prisma.practiceExam.update({
       where: { id: target.id },
@@ -585,6 +622,7 @@ router.get('/admin/:skill/:id/explanation-status', authMiddleware, teacherStrict
     const isLockedNow = isLocked(lockKey)
 
     const statusCounts = {
+      draft_ready: 0, published: 0, possibly_stale: 0,
       ai_generated: 0,
       teacher_reviewed: 0,
       teacher_edited: 0,
@@ -618,6 +656,7 @@ router.get('/admin/:skill/:id/explanation-status', authMiddleware, teacherStrict
         if (typeof exp === 'string') {
           try { exp = JSON.parse(exp) } catch { exp = null }
         }
+        exp = sanitizeExplanationForRead(exp)
         const hasExp = exp && typeof exp === 'object' && (exp.steps || exp.reasoning || exp.aiExplanation || exp.status)
         if (hasExp) {
           generatedCount++
@@ -651,7 +690,7 @@ router.get('/admin/:skill/:id/explanation-status', authMiddleware, teacherStrict
 // ─── ADMIN: generate AI explanations with conflict detection ──────────────────
 router.post('/admin/:skill/:id/generate-explanations', authMiddleware, teacherStrict, aiExplanationLimiter, async (req, res) => {
   const { id } = req.params
-  const { force = false, resolveChoices = {}, overwriteProtected = false, questionNumbers = null, timeBudgetMs = null } = req.body || {}
+  const { force = false, resolveChoices = {}, overwriteProtected = false, questionNumbers = null, timeBudgetMs = null, operationId = null } = req.body || {}
   const practiceId = parseInt(id, 10)
   const lockKey = `practice:${practiceId}`
 
@@ -669,7 +708,7 @@ router.post('/admin/:skill/:id/generate-explanations', authMiddleware, teacherSt
       resolveChoices,
       overwriteProtected,
       questionNumbers,
-      timeBudgetMs,
+      timeBudgetMs, operationId,
       signal: abort.signal,
     })
     res.json(result)
@@ -680,7 +719,7 @@ router.post('/admin/:skill/:id/generate-explanations', authMiddleware, teacherSt
     }
     console.error('[GENERATE PRACTICE EXPLANATIONS ERROR]', err)
     const failure = explanationFailureResponse(err)
-    res.status(failure?.status || 500).json(failure?.body || { message: err.message || 'Lỗi khi tạo giải thích bằng AI' })
+    res.status(failure?.status || err.status || 500).json(failure?.body || { code: err.code, message: err.message || 'Lỗi khi tạo giải thích bằng AI' })
   } finally {
     abort.dispose()
     releaseLock(lockKey)
@@ -727,7 +766,7 @@ router.post('/admin/:skill/:id/questions/:qNum/regenerate-explanation', authMidd
         message: 'Hết thời gian xử lý AI khi tạo lại giải thích (quá 48s). Vui lòng thử lại.',
       })
     }
-    res.status(500).json({ message: err.message || 'Lỗi khi tạo lại giải thích' })
+    res.status(err.status || 500).json({ code: err.code, message: err.message || 'Lỗi khi tạo lại giải thích' })
   } finally {
     abort.dispose()
     releaseLock(lockKey)
@@ -751,12 +790,12 @@ router.put('/admin/:skill/:id/questions/:qNum/explanation', authMiddleware, teac
       examId: practiceId,
       questionNumber: parseInt(qNum, 10),
       isPractice: true,
-      fields: req.body || {},
+      fields: req.body || {}, actorId: req.user?.id,
     })
     res.json(result)
   } catch (err) {
     console.error('[EDIT PRACTICE QUESTION EXPLANATION ERROR]', err)
-    res.status(400).json({ message: err.message || 'Lỗi khi lưu chỉnh sửa giải thích' })
+    res.status(err.status || 400).json({ code: err.code, message: err.message || 'Lỗi khi lưu chỉnh sửa giải thích' })
   }
 })
 
@@ -777,11 +816,12 @@ router.post('/admin/:skill/:id/questions/:qNum/review-explanation', authMiddlewa
       examId: practiceId,
       questionNumber: parseInt(qNum, 10),
       isPractice: true,
+      fields: req.body || {}, actorId: req.user?.id,
     })
     res.json(result)
   } catch (err) {
     console.error('[REVIEW PRACTICE QUESTION EXPLANATION ERROR]', err)
-    res.status(400).json({ message: err.message || 'Lỗi khi duyệt giải thích' })
+    res.status(err.status || 400).json({ code: err.code, message: err.message || 'Lỗi khi duyệt giải thích' })
   }
 })
 

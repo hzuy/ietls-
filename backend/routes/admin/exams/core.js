@@ -1,4 +1,7 @@
+const { lockExplanationTarget } = require('../../../lib/explanationWriteLock')
+const { generateForExam, regenerateQuestionExplanation, updateManualExplanation, reviewQuestionExplanation } = require('../../../services/explanationDraftService')
 const { explanationFailureResponse } = require('../../../lib/explanationSave')
+const { fingerprint } = require('../../../lib/explanationWorkflow')
 const { ExamIdentityConflict, matchExistingGroup } = require('../../../lib/examIdentity')
 const express = require('express')
 const { sendServerError } = require('../../../lib/httpErrors')
@@ -20,10 +23,6 @@ const { logAuditEvent } = require('../../../lib/auditLog')
 const { AUDIT_ACTIONS } = require('../../../lib/auditActions')
 const { bindRequestAbort } = require('../../../lib/requestAbort')
 const {
-  generateForExam,
-  regenerateQuestionExplanation,
-  updateManualExplanation,
-  reviewQuestionExplanation,
   sanitizeExplanationForRead,
 } = require('../../../services/explanationGeneratorService')
 
@@ -87,6 +86,7 @@ router.get('/exams/:id/explanation-status', authMiddleware, teacherOnly, async (
     const isLockedNow = isLocked(lockKey)
 
     const statusCounts = {
+      draft_ready: 0, published: 0, possibly_stale: 0,
       ai_generated: 0,
       teacher_reviewed: 0,
       teacher_edited: 0,
@@ -102,6 +102,7 @@ router.get('/exams/:id/explanation-status', authMiddleware, teacherOnly, async (
       if (typeof exp === 'string') {
         try { exp = JSON.parse(exp) } catch { exp = null }
       }
+      exp = sanitizeExplanationForRead(exp)
       const hasExp = exp && typeof exp === 'object' && (exp.steps || exp.reasoning || exp.aiExplanation || exp.status)
       if (hasExp) {
         generatedCount++
@@ -134,7 +135,7 @@ router.get('/exams/:id/explanation-status', authMiddleware, teacherOnly, async (
 // ─── ADMIN: GENERATE EXPLANATIONS FOR EXAM WITH CONFLICT DETECTION ──────────
 router.post('/exams/:id/generate-explanations', authMiddleware, teacherOnly, aiExplanationLimiter, async (req, res) => {
   const { id } = req.params
-  const { force = false, resolveChoices = {}, overwriteProtected = false, questionNumbers = null, timeBudgetMs = null } = req.body || {}
+  const { force = false, resolveChoices = {}, overwriteProtected = false, questionNumbers = null, timeBudgetMs = null, operationId = null } = req.body || {}
   const examIdNum = parseInt(id, 10)
   const lockKey = `exam:${examIdNum}`
 
@@ -152,7 +153,7 @@ router.post('/exams/:id/generate-explanations', authMiddleware, teacherOnly, aiE
       resolveChoices,
       overwriteProtected,
       questionNumbers,
-      timeBudgetMs,
+      timeBudgetMs, operationId,
       signal: abort.signal,
     })
     res.json(result)
@@ -163,7 +164,7 @@ router.post('/exams/:id/generate-explanations', authMiddleware, teacherOnly, aiE
     }
     console.error('[GENERATE EXAM EXPLANATIONS ERROR]', err)
     const failure = explanationFailureResponse(err)
-    res.status(failure?.status || 500).json(failure?.body || { message: err.message || 'Lỗi khi tạo giải thích bằng AI' })
+    res.status(failure?.status || err.status || 500).json(failure?.body || { code: err.code, message: err.message || 'Lỗi khi tạo giải thích bằng AI' })
   } finally {
     abort.dispose()
     releaseLock(lockKey)
@@ -173,7 +174,7 @@ router.post('/exams/:id/generate-explanations', authMiddleware, teacherOnly, aiE
 // ─── ADMIN: GENERATE EXPLANATIONS FOR SINGLE QUESTION GROUP ─────────────────
 router.post('/exams/:id/groups/:groupId/generate-explanations', authMiddleware, teacherOnly, aiExplanationLimiter, async (req, res) => {
   const { id, groupId } = req.params
-  const { force = false, resolveChoices = {}, overwriteProtected = false, questionNumbers = null, timeBudgetMs = null } = req.body || {}
+  const { force = false, resolveChoices = {}, overwriteProtected = false, questionNumbers = null, timeBudgetMs = null, operationId = null } = req.body || {}
   const examIdNum = parseInt(id, 10)
   const groupIdNum = parseInt(groupId, 10)
   const lockKey = `exam:${examIdNum}`
@@ -193,7 +194,7 @@ router.post('/exams/:id/groups/:groupId/generate-explanations', authMiddleware, 
       overwriteProtected,
       groupId: groupIdNum,
       questionNumbers,
-      timeBudgetMs,
+      timeBudgetMs, operationId,
       signal: abort.signal,
     })
     res.json(result)
@@ -204,7 +205,7 @@ router.post('/exams/:id/groups/:groupId/generate-explanations', authMiddleware, 
     }
     console.error('[GENERATE GROUP EXPLANATIONS ERROR]', err)
     const failure = explanationFailureResponse(err)
-    res.status(failure?.status || 500).json(failure?.body || { message: err.message || 'Lỗi khi tạo giải thích cho nhóm câu hỏi' })
+    res.status(failure?.status || err.status || 500).json(failure?.body || { code: err.code, message: err.message || 'Lỗi khi tạo giải thích cho nhóm câu hỏi' })
   } finally {
     abort.dispose()
     releaseLock(lockKey)
@@ -250,7 +251,7 @@ router.post('/exams/:id/questions/:qId/regenerate-explanation', authMiddleware, 
         message: 'Hết thời gian xử lý AI khi tạo lại giải thích (quá 48s). Vui lòng thử lại.',
       })
     }
-    res.status(500).json({ message: err.message || 'Lỗi khi tạo lại giải thích' })
+    res.status(err.status || 500).json({ code: err.code, message: err.message || 'Lỗi khi tạo lại giải thích' })
   } finally {
     abort.dispose()
     releaseLock(lockKey)
@@ -274,12 +275,12 @@ router.put('/exams/:id/questions/:qId/explanation', authMiddleware, teacherOnly,
       examId: examIdNum,
       questionId: qId,
       isPractice: false,
-      fields: req.body || {},
+      fields: req.body || {}, actorId: req.user?.id,
     })
     res.json(result)
   } catch (err) {
     console.error('[EDIT EXAM QUESTION EXPLANATION ERROR]', err)
-    res.status(400).json({ message: err.message || 'Lỗi khi lưu chỉnh sửa giải thích' })
+    res.status(err.status || 400).json({ code: err.code, message: err.message || 'Lỗi khi lưu chỉnh sửa giải thích' })
   }
 })
 
@@ -300,11 +301,12 @@ router.post('/exams/:id/questions/:qId/review-explanation', authMiddleware, teac
       examId: examIdNum,
       questionId: qId,
       isPractice: false,
+      fields: req.body || {}, actorId: req.user?.id,
     })
     res.json(result)
   } catch (err) {
     console.error('[REVIEW EXAM QUESTION EXPLANATION ERROR]', err)
-    res.status(400).json({ message: err.message || 'Lỗi khi duyệt giải thích' })
+    res.status(err.status || 400).json({ code: err.code, message: err.message || 'Lỗi khi duyệt giải thích' })
   }
 })
 
@@ -660,7 +662,9 @@ function planQuestionDiff(existingQuestions, submittedQuestions, fieldMapper, so
     const answerChanged = String(ex.correctAnswer ?? '').trim() !== String(fields.correctAnswer ?? '').trim()
     const textChanged = String(ex.questionText ?? '').trim() !== String(fields.questionText ?? '').trim()
     const optionsChanged = String(ex.options ?? '').trim() !== String(fields.options ?? '').trim()
-    if (answerChanged || textChanged || optionsChanged || sourceStaleReason) {
+    const imageChanged = String(ex.imageUrl ?? '') !== String(fields.imageUrl ?? '')
+    const typeChanged = ex.type !== fields.type
+    if (answerChanged || textChanged || optionsChanged || imageChanged || typeChanged || sourceStaleReason) {
       let staleReason = sourceStaleReason || 'Nội dung câu hỏi đã thay đổi'
       if (answerChanged) staleReason = 'Đáp án đã thay đổi'
       else if (textChanged) staleReason = 'Nội dung câu hỏi đã thay đổi'
@@ -722,6 +726,16 @@ function planQuestionDiff(existingQuestions, submittedQuestions, fieldMapper, so
 // the route handler) instead of writing immediately, and returns the question
 // rows that are candidates for pruning (not yet deleted).
 function planGroupUpdate(tx, oldGroup, g, gi, skill, operations, sourceStaleReason = null) {
+  const contextSnapshot = group => ({
+    type: group.type, instruction: group.instruction || '', imageUrl: group.imageUrl || null,
+    canReuse: Boolean(group.canReuse), maxChoices: group.maxChoices ?? 2,
+    noteSections: buildNoteSectionsRaw(group),
+    matchingOptions: (group.matchingOptions || []).map((option, index) => ({
+      optionLetter: option.optionLetter ?? option.letter, optionText: option.optionText ?? option.text ?? '', sortOrder: index,
+    })),
+  })
+  const groupSourceChanged = fingerprint(contextSnapshot(oldGroup)) !== fingerprint(contextSnapshot({ ...oldGroup, ...g }))
+  if (groupSourceChanged) sourceStaleReason ||= 'Dữ liệu nhóm câu hỏi đã thay đổi'
   const isReading = skill === 'reading'
   const matchingTypes = isReading ? READING_MATCHING_GROUP_TYPES : LISTENING_MATCHING_GROUP_TYPES
   const mapFn = isReading ? mapReadingQuestionFields : mapListeningQuestionFields
@@ -768,6 +782,9 @@ function planGroupUpdate(tx, oldGroup, g, gi, skill, operations, sourceStaleReas
   }
 
   const plan = g.questions === undefined ? { toUpdate: [], toCreate: [], toPrune: [] } : planQuestionDiff(oldGroup.questions, g.questions, q => mapFn(g.type || oldGroup.type, q), sourceStaleReason)
+  if (g.questions === undefined && sourceStaleReason) for (const question of oldGroup.questions) {
+    if (question.explanation) operations.push(() => tx.question.update({ where: { id: question.id }, data: { explanation: buildStaleExplanation(question, sourceStaleReason) } }))
+  }
   for (const u of plan.toUpdate) operations.push(() => tx.question.update({ where: { id: u.id }, data: u.data }))
   if (plan.toCreate.length) operations.push(() => tx.question.createMany({ data: plan.toCreate.map(q => ({ ...q, groupId: oldGroup.id })) }))
   // created/updated dùng cho audit log (exam.update, xem PUT /exams/:id) — số lượng
@@ -885,6 +902,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema,
 
       try {
         const updated = await prisma.$transaction(async (tx) => {
+          await lockExplanationTarget(tx, 'exam', id)
           // Everything below is planned first with zero DB writes; writes are
           // deferred into `operations` and only executed once we've confirmed
           // (further down) that nothing answer-blocked needs deleting — so a
@@ -1056,6 +1074,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema,
 
       try {
         const updated = await prisma.$transaction(async (tx) => {
+          await lockExplanationTarget(tx, 'exam', id)
           // Same defer-then-check-then-apply pattern as Reading above.
           const operations = [() => tx.exam.update({ where: { id }, data: { ...(title !== undefined ? { title } : {}), bookNumber: bn, testNumber: tn, ...(seriesId !== undefined ? { seriesId: targetSeriesId } : {}) } })]
 

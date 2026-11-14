@@ -12,7 +12,7 @@ it.each([
   expect(info.action).toBe('edit')
 })
 it('makes a saved answer conflict actionable without presenting it as a provider error', () => {
-  expect(getExplanationAttention({ status: 'conflict_pending' })).toMatchObject({ title: 'Chờ xác nhận', action: 'confirm' })
+  expect(getExplanationAttention({ status: 'conflict_pending' })).toMatchObject({ title: 'Cần kiểm tra', action: 'edit' })
 })
 it('does not claim that a retained approved explanation is hidden after a fallback attempt', () => {
   const info = getExplanationAttention({ status: 'teacher_reviewed' }, 'retry', { message: 'Chưa kiểm chứng được kết quả dự phòng' })

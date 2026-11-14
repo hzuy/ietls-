@@ -22,8 +22,6 @@ import ExamList from './ExamList'
 import AdminGroupPreview from '../practice/AdminGroupPreview'
 import ReadingGroupEditor from './editors/ReadingGroupEditor'
 import { Eye, ChevronDown, Volume2, History, BookOpen } from 'lucide-react'
-import ExplanationConflictModal from './ExplanationConflictModal'
-import OverwriteProtectedConfirmModal from './OverwriteProtectedConfirmModal'
 import UnsavedChangesAIModal from './UnsavedChangesAIModal'
 import ExamExplanationOverviewBadge from './ExamExplanationOverviewBadge'
 import {
@@ -378,29 +376,12 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   const [draftBanner, setDraftBanner] = useState(null)
   const [editHighlight, setEditHighlight] = useState(false)
   const [generatingAI, setGeneratingAI] = useState(false)
-  const [aiConflicts, setAiConflicts] = useState([])
-  const [conflictModalOpen, setConflictModalOpen] = useState(false)
-  const [overwriteModalOpen, setOverwriteModalOpen] = useState(false)
   const [unsavedModalOpen, setUnsavedModalOpen] = useState(false)
-  const [protectedStats, setProtectedStats] = useState({ reviewedCount: 0, editedCount: 0 })
   const formRef = useRef(null)
   const previewRef = useRef(null)
   const pristineFormSigRef = useRef('')
 
 
-  const countProtectedQuestions = () => {
-    let reviewedCount = 0
-    let editedCount = 0
-    for (const p of (form.passages || [])) {
-      for (const g of (p.questionGroups || [])) {
-        for (const q of (g.questions || [])) {
-          if (q.explanation?.status === 'teacher_reviewed') reviewedCount++
-          if (q.explanation?.status === 'teacher_edited') editedCount++
-        }
-      }
-    }
-    return { reviewedCount, editedCount }
-  }
 
   const [generatingGroupId, setGeneratingGroupId] = useState(null)
   const [aiProgress, setAiProgress] = useState(null)
@@ -654,35 +635,9 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     abortControllerRef.current?.abort()
   }
 
-  const countGroupProtected = (g) => {
-    let reviewedCount = 0
-    let editedCount = 0
-    for (const q of (g.questions || [])) {
-      if (q.explanation?.status === 'teacher_reviewed') reviewedCount++
-      if (q.explanation?.status === 'teacher_edited') editedCount++
-    }
-    return { reviewedCount, editedCount }
-  }
 
-  const proceedWithAIGeneration = () => {
-    const stats = countProtectedQuestions()
-    if (stats.reviewedCount + stats.editedCount > 0) {
-      setProtectedStats(stats)
-      setOverwriteModalOpen(true)
-    } else {
-      handleGenerateSequentialAll({ overwriteProtected: false })
-    }
-  }
-
-  const proceedWithGroupAIGeneration = (group) => {
-    const stats = countGroupProtected(group)
-    if (stats.reviewedCount + stats.editedCount > 0) {
-      setProtectedStats(stats)
-      setOverwriteModalOpen(true)
-    } else {
-      handleGenerateGroupAI(group, { overwriteProtected: false })
-    }
-  }
+  const proceedWithAIGeneration = () => handleGenerateSequentialAll()
+  const proceedWithGroupAIGeneration = group => handleGenerateGroupAI(group)
 
   const handleStartGenerateAI = () => {
     if (!editingId || generatingAI) return
@@ -737,7 +692,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     group = latestFormRef.current.passages.flatMap(p => p.questionGroups || []).find(g => (group?.id != null && g.id === group.id) || (group?._id != null && g._id === group._id)) || group
 
     const isRetryScope = Array.isArray(questionNumbers) && questionNumbers.length > 0
-    const eligible = eligibleExplanationNumbers(group, { overwriteProtected, resolveChoices })
+    const eligible = eligibleExplanationNumbers(group, { overwriteProtected, resolveChoices, questionNumbers })
     const targetNumbers = (isRetryScope
       ? questionNumbers.map(Number).filter(n => Number.isInteger(n) && n > 0)
       : eligible).filter(number => eligible.includes(number))
@@ -786,7 +741,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
           })
           return api.post(`/admin/exams/${editingId}/groups/${group.id}/generate-explanations`, payload, opts)
         },
-        basePayload: { force: true, overwriteProtected, resolveChoices },
+        basePayload: { force: Array.isArray(questionNumbers) && questionNumbers.length > 0 },
         signal: abortController.signal,
         initialQuestionNumbers: isRetryScope ? targetNumbers : null,
         onProgress: ({ current, total, data }) => {
@@ -826,10 +781,6 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       persistRunReport(finishedReport)
       notifyExplanationSaved(finishedReport, loopResult.hasConflicts)
 
-      if (loopResult.hasConflicts) {
-        setAiConflicts(loopResult.conflicts || [])
-        setConflictModalOpen(true)
-      } else if (!loopResult.errors?.length && !loopResult.cancelled) setConflictModalOpen(false)
     } catch (err) {
       caughtError = err
       if (abortController.signal.aborted || err.name === 'CanceledError' || err.code === 'ERR_CANCELED') {
@@ -901,7 +852,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
 
     // Với phạm vi "thử lại câu lỗi", chỉ gửi đúng các câu được yêu cầu.
     const numbersForGroup = (group) => {
-      const nums = eligibleExplanationNumbers(group, { overwriteProtected, resolveChoices })
+      const nums = eligibleExplanationNumbers(group, { overwriteProtected, resolveChoices, questionNumbers })
       if (!requestedSet) return nums
       return nums.filter(n => requestedSet.has(n))
     }
@@ -967,7 +918,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
               opts
             )
           },
-          basePayload: { force: true, overwriteProtected, resolveChoices },
+          basePayload: { force: Array.isArray(questionNumbers) && questionNumbers.length > 0 },
           signal: abortController.signal,
           initialQuestionNumbers: requestedSet ? groupNums : null,
           onProgress: ({ current, data }) => {
@@ -1063,10 +1014,6 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
 
     onRefresh()
 
-    if (accumulatedConflicts.length > 0) {
-      setAiConflicts(accumulatedConflicts)
-      setConflictModalOpen(true)
-    }
   }
 
   // Scroll the preview panel into view once it has rendered (not when hidden).
@@ -1509,11 +1456,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
                             runStatusByNumber={runStatusByNumber}
                             runErrorMessageByNumber={runErrorMessageByNumber}
                             unsavedQuestionNumbers={unsavedQuestionNumbers}
-                            onResolveConflict={conflict => {
-                              pendingAIFnRef.current = opts => handleGenerateGroupAI(group, opts)
-                              setAiConflicts([conflict])
-                              setConflictModalOpen(true)
-                            }}
+                            onGenerateDraft={number => handleRetryFailedAI([number])}
                             onExplanationSaved={(explanation, number) => {
                               pristineExplanationsRef.current = { ...pristineExplanationsRef.current, [number]: explanation }
                               setRunReport(previous => clearSavedQuestionIssue(previous, number))
@@ -1604,44 +1547,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
             }
           }
         }}
-        onContinueWithoutSaving={() => {
-          setUnsavedModalOpen(false)
-          if (pendingAIFnRef.current) {
-            pendingAIFnRef.current()
-          } else {
-            proceedWithAIGeneration()
-          }
-        }}
-      />
 
-      <ExplanationConflictModal
-        isOpen={conflictModalOpen}
-        onClose={() => { setConflictModalOpen(false); pendingAIFnRef.current = null }}
-        conflicts={aiConflicts}
-        onConfirmResolve={(choices) => {
-          if (pendingAIFnRef.current) {
-            pendingAIFnRef.current({ resolveChoices: choices, overwriteProtected: false, questionNumbers: Object.keys(choices).map(Number) })
-          } else {
-            handleGenerateSequentialAll({ resolveChoices: choices, overwriteProtected: false, questionNumbers: Object.keys(choices).map(Number) })
-          }
-        }}
-        isSubmitting={generatingAI}
-      />
-
-      <OverwriteProtectedConfirmModal
-        isOpen={overwriteModalOpen}
-        onClose={() => { setOverwriteModalOpen(false); pendingAIFnRef.current = null }}
-        reviewedCount={protectedStats.reviewedCount}
-        editedCount={protectedStats.editedCount}
-        isSubmitting={generatingAI}
-        onConfirm={({ overwriteProtected }) => {
-          setOverwriteModalOpen(false)
-          if (pendingAIFnRef.current) {
-            pendingAIFnRef.current({ overwriteProtected })
-          } else {
-            handleGenerateSequentialAll({ overwriteProtected })
-          }
-        }}
       />
 
       <AIGenerationExitConfirmModal

@@ -86,9 +86,9 @@ describe('executeTimedAIGenerationLoop', () => {
 
     expect(fetchChunk).toHaveBeenCalledTimes(2)
     // First call passed questionNumbers: null
-    expect(fetchChunk).toHaveBeenNthCalledWith(1, { force: true, questionNumbers: null }, { signal: null })
+    expect(fetchChunk).toHaveBeenNthCalledWith(1, { force: true, questionNumbers: null, operationId: expect.any(String) }, { signal: null })
     // Second call passed remaining questions [4, 5]
-    expect(fetchChunk).toHaveBeenNthCalledWith(2, { force: true, questionNumbers: [4, 5] }, { signal: null })
+    expect(fetchChunk).toHaveBeenNthCalledWith(2, { force: true, questionNumbers: [4, 5], operationId: fetchChunk.mock.calls[0][0].operationId }, { signal: null })
 
     expect(result.ok).toBe(true)
     expect(result.totalGenerated).toBe(5)

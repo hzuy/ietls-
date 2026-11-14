@@ -18,6 +18,7 @@ vi.mock('../../utils/axios', () => ({
 describe('QuestionExplanationModal & Badge Helpers', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.spyOn(window, 'alert').mockImplementation(() => {}).mockClear()
   })
 
   describe('getExplanationStatusInfo & Badge', () => {
@@ -49,7 +50,7 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
     it('correctly maps conflict_pending status', () => {
       const info = getExplanationStatusInfo({ status: 'conflict_pending' })
       expect(info.status).toBe('conflict_pending')
-      expect(info.label).toBe('Chờ xác nhận')
+      expect(info.label).toBe('Cần kiểm tra')
     })
 
     it('correctly maps needs_regeneration status', () => {
@@ -169,7 +170,7 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
       expect(screen.getByText(/The text directly mentions oxygen/i)).toBeInTheDocument()
     })
 
-    it('calls review API when "Duyệt giải thích" button is clicked', async () => {
+    it('calls review API when "Sử dụng lời giải" button is clicked', async () => {
       api.post.mockResolvedValueOnce({
         data: {
           success: true,
@@ -192,13 +193,13 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
         />
       )
 
-      const reviewBtn = screen.getByRole('button', { name: /Duyệt giải thích/i })
+      const reviewBtn = screen.getByRole('button', { name: /Sử dụng lời giải/i })
       fireEvent.click(reviewBtn)
 
       await waitFor(() => {
         expect(api.post).toHaveBeenCalledWith(
           '/practice/admin/reading/10/questions/1/review-explanation',
-          {}
+          { draftVersion: null, sourceHash: null }
         )
       })
       expect(handleUpdated).toHaveBeenCalled()
@@ -224,7 +225,7 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
         />
       )
 
-      fireEvent.click(screen.getByRole('button', { name: /Duyệt giải thích/i }))
+      fireEvent.click(screen.getByRole('button', { name: /Sử dụng lời giải/i }))
 
       const alertBox = await screen.findByRole('alert')
       expect(alertBox).toHaveTextContent('Không thể duyệt lúc này')
@@ -234,7 +235,7 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
 
       await waitFor(() => expect(api.post).toHaveBeenCalledTimes(2))
       await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
-      expect(screen.getByText(/Đã duyệt bởi giáo viên/i)).toBeInTheDocument()
+      expect(screen.getByText('Đã duyệt')).toBeInTheDocument()
     })
 
     it('renders banner displaying which answer this explanation explains and warns if mismatched (C.4)', () => {
@@ -307,7 +308,7 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
       const reasoningTextarea = screen.getByPlaceholderText(/Lập luận vì sao đáp án này đúng/i)
       fireEvent.change(reasoningTextarea, { target: { value: 'Teacher custom reasoning.' } })
 
-      const saveBtn = screen.getByRole('button', { name: /Lưu chỉnh sửa/i })
+      const saveBtn = screen.getByRole('button', { name: /Lưu bản nháp/i })
       fireEvent.click(saveBtn)
 
       await waitFor(() => {
@@ -400,7 +401,7 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
       fireEvent.change(keywordInputs[keywordInputs.length - 1], { target: { value: 'atmosphere' } })
 
       // Click save
-      const saveBtn = screen.getByRole('button', { name: /Lưu chỉnh sửa/i })
+      const saveBtn = screen.getByRole('button', { name: /Lưu bản nháp/i })
       fireEvent.click(saveBtn)
 
       await waitFor(() => {
@@ -452,7 +453,7 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
       expect(closeButtons[0].querySelector('svg')).toBeInTheDocument()
     })
 
-    it('shows "Duyệt giải thích câu 1" only on view tab, never on edit tab', () => {
+    it('shows "Sử dụng lời giải" only on view tab, never on edit tab', () => {
       render(
         <QuestionExplanationModal
           isOpen={true}
@@ -466,8 +467,8 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
         />
       )
 
-      // On view tab: shows "Duyệt giải thích câu 1"
-      expect(screen.getByRole('button', { name: /Duyệt giải thích câu 1/i })).toBeInTheDocument()
+      // On view tab: shows "Sử dụng lời giải"
+      expect(screen.getByRole('button', { name: /Sử dụng lời giải/i })).toBeInTheDocument()
 
       // Only 2 tabs remain: "Xem lời giải" and "Sửa trực tiếp"
       expect(screen.getAllByRole('tab')).toHaveLength(2)
@@ -475,8 +476,8 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
 
       // Switch to edit tab: no review button, has save button and NO "Sửa tay an toàn (3.7)"
       fireEvent.click(screen.getByRole('tab', { name: /Sửa trực tiếp/i }))
-      expect(screen.queryByRole('button', { name: /Duyệt giải thích/i })).not.toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /Lưu chỉnh sửa/i })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Sử dụng lời giải/i })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Lưu bản nháp/i })).toBeInTheDocument()
       expect(screen.queryByText(/Sửa tay an toàn \(3\.7\)/i)).not.toBeInTheDocument()
     })
 

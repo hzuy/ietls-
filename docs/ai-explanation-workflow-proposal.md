@@ -194,3 +194,19 @@ Không ấn định số ngày ở bước rà soát này. Ước lượng sau k
 | Phản biện | Ép đáp án đề có thể khiến AI hợp thức hóa đáp án sai. | Bắt buộc cho phép thiếu/mâu thuẫn bằng chứng, không tự duyệt, không bịa quote; đổi đáp án là thao tác giáo viên riêng. |
 
 Kết luận phản biện: phương án B phù hợp để tiếp tục **đặc tả**, chưa phải lệnh triển khai. Các quyết định dữ liệu cũ và kiểm soát xuất bản phải được giải quyết trước khi đổi schema hoặc phát hành.
+
+## 10. Quyết định triển khai đã được duyệt (2026-11-15)
+
+Người dùng đã yêu cầu triển khai và chọn giữ bản cũ đang hiển thị; mọi bản AI mới phải được giáo viên xác nhận sử dụng. Luồng chung cho Reading/Listening, Test/Practice: **Tạo nháp → Lưu bản nháp → Sử dụng lời giải**. Hai thao tác sau không gọi AI. AI chỉ giải thích đáp án đã lưu; đổi đáp án thuộc phần sửa đề.
+
+Để giảm phạm vi chuyển đổi dữ liệu, bản đầu dùng envelope JSON `workflowVersion: 3` trong cột lời giải hiện có, chứa riêng `published` và `draft`, thay cho bảng nháp mới dự kiến. Chỉ chuyển cấu trúc khi giáo viên thao tác với câu; không migration/backfill dữ liệu thật. Bản cũ được giữ nguyên làm bản đang dùng, không gán nhãn đã được giáo viên duyệt. Chưa cung cấp lịch sử phiên bản vô hạn.
+
+Mỗi bản nháp có version và hash nguồn; lưu/duyệt kiểm tra lại trong transaction. Thao tác sửa nguồn và lời giải dùng chung advisory lock theo bài, chỉ giữ khóa trong lúc đọc/ghi DB. Nguồn hoặc đáp án thay đổi khiến lời giải cũ cần kiểm tra lại. Practice bổ sung ID ổn định khi ghi lời giải và kiểm tra ID trùng khi sửa đề.
+
+API học sinh chỉ nhận bản đang dùng; dữ liệu nháp và metadata nội bộ được loại khỏi cả JSON câu Practice. Giao diện mở lại bắt đầu phiên tiến trình mới, vẫn đọc được các bản nháp đã lưu. Lỗi kỹ thuật và vấn đề bằng chứng được tách biệt; chỉ đếm câu đã commit thành công.
+
+Mỗi câu có giới hạn thời gian gọi AI; Gemini không tự retry nhiều model, chỉ fallback Groq một lần với lỗi 429/5xx và đầu vào không có ảnh. `operationId` chống gọi lại khi gửi lại cùng lượt đã commit. Giới hạn hiện tại: người dùng chủ động tạo lại sau lỗi mạng là một lượt mới; cần tải lại dữ liệu để kiểm tra bản đã lưu trước khi tạo lại. Kiểm tra trích dẫn tự động không thay thế đánh giá ngữ nghĩa của giáo viên.
+
+Kiểm chứng: backend 1.211 test đạt (64 bài kiểm tra DB được bỏ qua ở suite mặc định); frontend 1.002 test đạt. Chromium kiểm tra bốn editor ở 390px và 1440px, 8/8 trường hợp đạt. ESLint phần frontend thay đổi không có lỗi; toàn repo còn lỗi lint cũ ngoài phạm vi. Kiểm tra PostgreSQL tách biệt và smoke sau deploy được ghi trong bằng chứng release, không chạy thao tác tạo lời giải trên dữ liệu thật để kiểm thử.
+
+PostgreSQL 16 tách biệt: cả bốn tổ hợp Test/Practice × Reading/Listening đạt với Prisma thật; kiểm tra JSON compare-and-swap, đúng phiên bản được duyệt, giữ đáp án, không gọi AI khi lưu/duyệt, và chờ khóa nguồn rồi từ chối `SOURCE_CHANGED`. Provider giả lập, không có lượt gọi AI thật; DB/container kiểm thử dùng mạng riêng không mở cổng host. Script tái hiện: `backend/scripts/smoke-explanation-workflow-isolated.js`, chặn chạy nếu URL không trỏ đúng DB kiểm thử.

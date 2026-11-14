@@ -21,6 +21,7 @@ export function isExplanationUnsupportedGroup(group) {
 }
 
 export const EXAM_EXPLANATION_ATTENTION_STATUSES = new Set([
+  'draft_ready',
   'conflict_pending',
   'needs_regeneration',
   'possibly_stale'
@@ -129,6 +130,8 @@ export function calculateExamExplanationStats(target) {
     attentionQuestions: 0,
 
     statusCounts: {
+      draft_ready: 0,
+      published: 0,
       ai_generated: 0,
       teacher_reviewed: 0,
       teacher_edited: 0,
@@ -257,8 +260,12 @@ export function calculateExamExplanationStats(target) {
   result.hasAttention = result.attentionSlots > 0
   result.isFullyExplained = result.supportedSlots > 0 && result.explainedSlots === result.supportedSlots
 
+  if (result.statusCounts.draft_ready > 0) {
+    result.attentionReasons.push(`${result.statusCounts.draft_ready} câu Chờ duyệt`)
+  }
+
   if (result.statusCounts.conflict_pending > 0) {
-    result.attentionReasons.push(`${result.statusCounts.conflict_pending} câu Chờ xác nhận`)
+    result.attentionReasons.push(`${result.statusCounts.conflict_pending} câu Cần kiểm tra`)
   }
   if (result.statusCounts.needs_regeneration > 0) {
     result.attentionReasons.push(`${result.statusCounts.needs_regeneration} câu Cần kiểm tra`)
@@ -504,6 +511,8 @@ export async function executeTimedAIGenerationLoop({
   maxIterations = 20,
   initialQuestionNumbers = null,
 }) {
+  // Keep one identity across timed chunks so an uncertain response cannot commit twice.
+  const operationId = basePayload.operationId || globalThis.crypto?.randomUUID?.() || `ai-${Date.now()}-${Math.random().toString(36).slice(2)}`
   let remainingNumbers = Array.isArray(initialQuestionNumbers) && initialQuestionNumbers.length > 0
     ? [...initialQuestionNumbers]
     : null
@@ -528,6 +537,7 @@ export async function executeTimedAIGenerationLoop({
 
     const payload = {
       ...basePayload,
+      operationId,
       questionNumbers: remainingNumbers,
     }
 

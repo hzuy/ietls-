@@ -12,8 +12,8 @@ const {
  * in test environments (where GROQ_API_KEY is not set) is safe.
  * Call getGroqClient() only inside request handlers or async functions.
  */
-function getGroqClient() {
-  return new Groq({ apiKey: process.env.GROQ_API_KEY })
+function getGroqClient(options = {}) {
+  return new Groq({ ...options, apiKey: process.env.GROQ_API_KEY })
 }
 
 // Groq gỡ model cũ khá thường xuyên (vd. llama-3.3-70b-versatile bị gỡ 08/2026).

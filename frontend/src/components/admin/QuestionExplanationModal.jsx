@@ -2,11 +2,13 @@ import { EXPLANATION_ATTENTION_LABELS, getExplanationAttention } from '../../uti
 import { useState, useEffect, useRef } from 'react'
 import {
   X, Check, AlertTriangle, Edit3, Eye,
-  CheckCircle2, AlertCircle, Loader2, Plus, Trash2,
+  AlertCircle, Loader2, Plus, Trash2,
 } from 'lucide-react'
 import api from '../../utils/axios'
 import ReviewExplanation from '../exam/ReviewExplanation'
 import { activeRunFailure } from '../../utils/explanationRunReport'
+import { showAlert } from '../../utils/alertUtils'
+import { canUseExplanation, draftSaveMetadata, explanationPublishMetadata } from '../../utils/explanationDraftWorkflow'
 
 function AutoResizeTextarea({
   value = '',
@@ -123,6 +125,17 @@ export function getExplanationStatusInfo(explanation, {
   }
 
   const s = explanation.status
+
+  if (s === 'draft_ready') return {
+    status: s, label: 'Chờ duyệt', chipLabel: 'Chờ duyệt',
+    fullLabel: 'Bản nháp đã lưu, chờ giáo viên xác nhận sử dụng',
+    badgeClass: 'bg-amber-50 text-amber-800 border-amber-300', dotClass: 'bg-amber-500',
+  }
+  if (s === 'published') return {
+    status: s, label: 'Đang sử dụng', chipLabel: 'Đang sử dụng',
+    fullLabel: 'Lời giải giáo viên đã xác nhận sử dụng cho học sinh',
+    badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-300', dotClass: 'bg-emerald-500',
+  }
 
   if (s === 'error') {
     return {
@@ -261,12 +274,13 @@ export default function QuestionExplanationModal({
   skill = 'reading',
   isPractice = false,
   onExplanationUpdated,
-  onResolveConflict,
+  onGenerateDraft,
   isAIBusy = false,
   runStatus = null,
   runErrorMessage = null,
 }) {
   const [activeTab, setActiveTab] = useState('view') // 'view' | 'edit'
+  const [previewPublished, setPreviewPublished] = useState(false)
   const [currentExplanation, setCurrentExplanation] = useState(() => question?.explanation || initialExplanation || null)
 
   // Edit tab state
@@ -291,7 +305,6 @@ export default function QuestionExplanationModal({
   // Review state
   const [isReviewing, setIsReviewing] = useState(false)
   const [reviewError, setReviewError] = useState(null)
-  const [toastMessage, setToastMessage] = useState(null)
   const prevQKeyRef = useRef(null)
 
   const qType = (question?.type || question?.group?.type || '').toLowerCase()
@@ -316,6 +329,7 @@ export default function QuestionExplanationModal({
       prevQKeyRef.current = qKey
       setCurrentExplanation(exp)
       setReviewError(null)
+      setPreviewPublished(false)
       // Bước 1
       setEditPredict(exp?.predict || '')
       setEditQuestionChunks(Array.isArray(exp?.question_chunks) ? exp.question_chunks.map(c => ({ text: c.text || '', label: c.label || '' })) : [])
@@ -361,17 +375,13 @@ export default function QuestionExplanationModal({
 
   const currentFailure = runStatus === 'error' ? activeRunFailure(currentExplanation, runStatus, runErrorMessage) : null
   const effectiveRunStatus = runStatus === 'error' && !currentFailure ? null : runStatus
-  const statusInfo = getExplanationStatusInfo(currentExplanation, { runStatus: effectiveRunStatus, runErrorMessage })
   const attention = currentFailure ? null : getExplanationAttention(currentExplanation, effectiveRunStatus, runErrorMessage)
+  const displayExplanation = previewPublished ? currentExplanation?.publishedExplanation : currentExplanation
   const formatTime = value => Number.isFinite(Date.parse(value))
     ? new Date(value).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : null
   const qNum = question.number
   const qId = question.id || qNum
 
-  const showToast = (msg) => {
-    setToastMessage(msg)
-    setTimeout(() => setToastMessage(null), 3000)
-  }
 
   // ─── 4.4 MANUAL EDIT HANDLER ──────────────────────────────────────────────
   const handleSaveEdit = async () => {
@@ -384,6 +394,7 @@ export default function QuestionExplanationModal({
         : `/admin/exams/${examId}/questions/${qId}/explanation`
 
       const payload = {
+        ...draftSaveMetadata(currentExplanation),
         // Bước 1
         predict: editPredict,
         question_chunks: editQuestionChunks.filter(c => (c.text || '').trim()),
@@ -420,7 +431,8 @@ export default function QuestionExplanationModal({
         setCurrentExplanation(data.explanation)
         onExplanationUpdated?.(data.explanation, qNum)
         setActiveTab('view')
-        showToast('Đã lưu chỉnh sửa lời giải!')
+        setPreviewPublished(false)
+        showAlert('Đã lưu bản nháp.', 'success')
       }
     } catch (err) {
       console.error('[SAVE EDIT ERROR]', err)
@@ -439,13 +451,14 @@ export default function QuestionExplanationModal({
         ? `/practice/admin/${skill}/${examId}/questions/${qNum}/review-explanation`
         : `/admin/exams/${examId}/questions/${qId}/review-explanation`
 
-      const res = await api.post(url, {})
+      const res = await api.post(url, explanationPublishMetadata(currentExplanation))
       const data = res.data
 
       if (data.explanation) {
         setCurrentExplanation(data.explanation)
         onExplanationUpdated?.(data.explanation, qNum)
-        showToast('Đã duyệt lời giải thành công!')
+        setPreviewPublished(false)
+        showAlert('Đã cập nhật lời giải cho học sinh.', 'success')
       }
     } catch (err) {
       console.error('[REVIEW ERROR]', err)
@@ -552,14 +565,6 @@ export default function QuestionExplanationModal({
       }}
     >
       <div className="bg-white rounded-3xl w-[960px] max-w-[95vw] h-[720px] max-h-[92vh] p-6 sm:p-7 shadow-2xl relative border border-zinc-100 flex flex-col my-auto">
-        {/* Toast notification */}
-        {toastMessage && (
-          <div className="absolute top-5 right-16 z-20 bg-zinc-900 text-white px-4 py-2 rounded-full text-xs font-semibold shadow-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            {toastMessage}
-          </div>
-        )}
-
         {/* Modal Header */}
         <div className="flex items-start justify-between pb-4 border-b border-zinc-100 shrink-0">
           <div className="flex flex-col gap-2 min-w-0">
@@ -596,8 +601,17 @@ export default function QuestionExplanationModal({
           <p className="mt-1 mb-0 text-sm text-rose-800">{currentFailure?.message || 'Chưa nhận được kết quả AI cho câu này. Xem báo cáo lượt chạy để biết thêm chi tiết.'}</p>
           <p className="mt-1 mb-0 text-xs text-zinc-600">{formatTime(currentFailure?.failedAt) ? `Lần lỗi: ${formatTime(currentFailure.failedAt)}. ` : ''}{formatTime(currentExplanation?.updatedAt) ? `Đang xem lời giải lưu lúc ${formatTime(currentExplanation.updatedAt)}.` : currentExplanation ? 'Đang hiển thị lời giải đã lưu trước đó.' : ''}</p>
         </div>}
-        {runStatus === 'retry' && <p className="my-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Kết quả AI dự phòng chưa đủ tin cậy. Kiểm tra lời giải và đáp án trước khi duyệt.</p>}
         {/* Tabs Bar */}
+        {currentExplanation?.workflowVersion === 3 && <div className="flex flex-wrap items-center gap-2 pt-3 text-xs">
+          {currentExplanation.hasDraft && <span className="text-zinc-600">Bản nháp đã lưu, chưa áp dụng cho học sinh.</span>}
+          {!currentExplanation.hasDraft && <span className="text-zinc-600">Học sinh đang xem lời giải này.</span>}
+          {currentExplanation.hasDraft && currentExplanation.publishedExplanation && <div role="group" aria-label="Phiên bản lời giải" className="ml-auto flex gap-1">
+            <button type="button" onClick={() => setPreviewPublished(false)} aria-pressed={!previewPublished}
+              className={`min-h-9 rounded-lg px-3 focus-visible:outline-2 cursor-pointer ${!previewPublished ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-700'}`}>Bản nháp</button>
+            <button type="button" onClick={() => { setPreviewPublished(true); setActiveTab('view') }} aria-pressed={previewPublished}
+              className={`min-h-9 rounded-lg px-3 focus-visible:outline-2 cursor-pointer ${previewPublished ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-700'}`}>Đang sử dụng</button>
+          </div>}
+        </div>}
         <div className="flex items-center gap-1.5 border-b border-zinc-100 pt-3.5 pb-2.5 shrink-0">
           <button
             type="button"
@@ -617,8 +631,9 @@ export default function QuestionExplanationModal({
             type="button"
             role="tab"
             aria-selected={activeTab === 'edit'}
-            disabled={isAIBusy}
-            onClick={() => setActiveTab('edit')}
+            disabled={isAIBusy || previewPublished}
+            title={previewPublished ? 'Chọn Bản nháp để chỉnh sửa' : undefined}
+            onClick={() => { setPreviewPublished(false); setActiveTab('edit') }}
             className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition cursor-pointer ${
               activeTab === 'edit'
                 ? 'bg-zinc-900 text-white shadow-xs'
@@ -635,26 +650,14 @@ export default function QuestionExplanationModal({
           {/* TAB 1: VIEW EXPLANATION */}
           {activeTab === 'view' && (
             <div className="space-y-4">
-              {attention && <section aria-label={attention.title} className="rounded-xl border border-amber-200 bg-amber-50/50 p-3.5 text-sm">
+              {!previewPublished && attention && <section aria-label={attention.title} className="rounded-xl border border-amber-200 bg-amber-50/50 p-3.5 text-sm">
                 <p className="m-0 font-semibold text-amber-900">{attention.title}</p>
                 <p className="mt-1 mb-0 text-zinc-800 break-words">{attention.reason}</p>
-                {attention.action === 'confirm' && <dl className="mt-3 mb-0 grid grid-cols-2 gap-3 text-xs">
-                  <div><dt className="text-zinc-500">Đáp án trong đề</dt><dd className="m-0 mt-1 font-semibold break-words">{question.correctAnswer || 'Chưa có'}</dd></div>
-                  <div><dt className="text-zinc-500">AI đề xuất</dt><dd className="m-0 mt-1 font-semibold break-words">{currentExplanation?.aiAnswer || currentExplanation?.answer}</dd></div>
-                </dl>}
                 <p className="mt-2 mb-0 text-xs text-zinc-600">{attention.hint}</p>
                 <button type="button" disabled={isAIBusy || isSavingEdit || isReviewing}
-                  onClick={() => {
-                    if (attention.action !== 'confirm' || !onResolveConflict) { setActiveTab('edit'); return }
-                    onClose()
-                    onResolveConflict({ number: qNum, type: qType, inputAnswer: question.correctAnswer,
-                      aiAnswer: currentExplanation.aiAnswer || currentExplanation.answer,
-                      explanation: currentExplanation, reasoning: currentExplanation.reasoning,
-                      evidence: currentExplanation.evidence?.parts?.[0]?.text || '',
-                    })
-                  }}
+                  onClick={() => setActiveTab('edit')}
                   className="mt-3 min-h-9 rounded-lg bg-zinc-900 px-3 text-xs font-semibold text-white hover:bg-zinc-700 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 cursor-pointer">
-                  {attention.action === 'confirm' && onResolveConflict ? 'Xác nhận đáp án' : 'Sửa lời giải'}
+                  {'S\u1eeda l\u1eddi gi\u1ea3i'}
                 </button>
               </section>}
 
@@ -663,7 +666,7 @@ export default function QuestionExplanationModal({
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-zinc-600">Lời giải này giải thích đáp án:</span>
                   <span className="px-2.5 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 font-mono font-bold text-emerald-700 text-xs">
-                    {currentExplanation?.answer || question.correctAnswer}
+                    {displayExplanation?.answer || question.correctAnswer}
                   </span>
                 </div>
                 {!attention && currentExplanation?.answer && question.correctAnswer && !isSameAnswer(currentExplanation.answer, question.correctAnswer) && (
@@ -677,7 +680,7 @@ export default function QuestionExplanationModal({
               </div>
 
               {/* 4-Step Explanation View */}
-              <ReviewExplanation explanation={currentExplanation} correctAnswer={question.correctAnswer} />
+              <ReviewExplanation explanation={displayExplanation} correctAnswer={question.correctAnswer} />
             </div>
           )}
 
@@ -1187,35 +1190,14 @@ export default function QuestionExplanationModal({
 
         {/* Modal Footer */}
         <div className="pt-4 border-t border-zinc-100 flex items-center justify-end shrink-0 gap-3">
-          {activeTab === 'view' && (
-            <div className="flex items-center gap-2">
-              {statusInfo.status === 'teacher_reviewed' ? (
-                <span className="text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-300 px-4 py-2 rounded-xl flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600" />
-                  Đã duyệt bởi giáo viên
-                </span>
-              ) : statusInfo.status === 'teacher_edited' ? (
-                <span className="text-sm font-semibold text-indigo-700 bg-indigo-50 border border-indigo-300 px-4 py-2 rounded-xl flex items-center gap-2">
-                  <Check className="w-4 h-4 text-indigo-600" />
-                  Đã sửa tay bởi giáo viên
-                </span>
-              ) : !attention && (!currentExplanation?.answer || isSameAnswer(currentExplanation.answer, question.correctAnswer)) ? (
-                <button
-                  type="button"
-                  onClick={handleReview}
-                  disabled={isReviewing || !currentExplanation || isAIBusy}
-                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold transition flex items-center gap-2 cursor-pointer disabled:opacity-40 shadow-xs"
-                  title={isAIBusy ? "Đang có tác vụ AI khác đang chạy..." : `Đánh dấu đã duyệt câu ${qNum} để công bố cho học sinh`}
-                >
-                  {isReviewing ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Check className="w-4 h-4" />
-                  )}
-                  Duyệt giải thích câu {qNum}
-                </button>
-              ) : null}
-            </div>
+          {activeTab === 'view' && onGenerateDraft && <button type="button" disabled={isAIBusy || isSavingEdit || isReviewing}
+            onClick={() => { onClose(); onGenerateDraft(qNum) }}
+            className="min-h-10 rounded-xl border border-zinc-200 px-4 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 focus-visible:outline-2 disabled:opacity-50 cursor-pointer">Tạo bản nháp mới</button>}
+          {activeTab === 'view' && !previewPublished && canUseExplanation(currentExplanation) && (
+            <button type="button" onClick={handleReview} disabled={isReviewing || isAIBusy}
+              className="min-h-10 rounded-xl bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-700 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 cursor-pointer">
+              {isReviewing ? '\u0110ang c\u1eadp nh\u1eadt\u2026' : 'S\u1eed d\u1ee5ng l\u1eddi gi\u1ea3i'}
+            </button>
           )}
 
           {activeTab === 'edit' && (
@@ -1229,12 +1211,12 @@ export default function QuestionExplanationModal({
               {isSavingEdit ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Đang lưu chỉnh sửa...
+                  Đang lưu bản nháp…
                 </>
               ) : (
                 <>
                   <Check className="w-4 h-4" />
-                  Lưu chỉnh sửa
+                  Lưu bản nháp
                 </>
               )}
             </button>
