@@ -1,0 +1,196 @@
+# Đề xuất thống nhất chức năng AI giải thích Reading/Listening
+
+Ngày rà soát: 2026-11-14. Phạm vi: Test và Practice, cả Reading và Listening. **Trạng thái: đề xuất để xem xét; chưa triển khai.** Phiên này chỉ đọc code/cấu hình và lập tài liệu; không sửa ứng dụng, commit, deploy, chạy sinh AI hoặc ghi dữ liệu thật.
+
+## 1. Yêu cầu đã được người dùng xác nhận
+
+1. AI giải thích đáp án đã có trong đề; khi thiếu bằng chứng phải báo rõ, không tự đổi đáp án.
+2. Lời giải AI mới chỉ được hiển thị cho học sinh sau khi giáo viên xác nhận sử dụng.
+3. Một luồng chung cho bốn màn hình, tối ưu và tối giản; không tiếp tục vá từng thông báo độc lập.
+4. Mở lại bài là một phiên thao tác mới, không dựng lại màn hình tiến trình cũ. Nội dung đã lưu và việc khôi phục tiến trình là hai việc riêng.
+
+Các phần kiến trúc, API, lưu trữ và lộ trình bên dưới là đề xuất của người rà soát, chưa phải quyết định triển khai đã được phê duyệt.
+
+## 2. Đối chiếu hiện tại và đề xuất
+
+| Hạng mục | Hiện tại, theo code | Hạn chế / ảnh hưởng | Đề xuất |
+| --- | --- | --- | --- |
+| Nhiệm vụ của AI | Lượt tạo mặc định cho AI tự giải; có nhánh giải thích đáp án cố định và nhánh giải mù kiểm chứng. | Trộn hai sản phẩm: giải thích đáp án và kiểm định đáp án. Sinh thêm xung đột, lượt gọi và thao tác. | Mặc định chỉ giải thích đáp án đề. Kiểm định đáp án là một chức năng riêng, không chạy ngầm. |
+| Thay đổi đáp án | Chỉ nhánh giáo viên chọn AI mới cập nhật đáp án; hiện không phải AI tự ý đổi mọi đáp án. | Thao tác đổi đáp án vẫn nằm trong quy trình tạo lời giải. | API tạo/lưu/sử dụng lời giải không có quyền ghi đáp án. Muốn đổi đáp án phải vào chỉnh sửa đề và xác nhận riêng. |
+| Ai được xem | Bộ lọc cho học sinh chấp nhận `ai_generated`, `teacher_reviewed`, `teacher_edited`. | Tạo AI hoặc lưu sửa có thể làm lời giải xuất hiện mà không có bước xác nhận sử dụng riêng. Không đáp ứng chính sách mới. | Chỉ trả bản giáo viên đã xác nhận sử dụng và còn phù hợp phiên bản đề. |
+| Bản mới và bản cũ | Một trường JSON lời giải cho mỗi câu; Practice bọc theo `byNumber`. | Chưa có nơi lưu riêng bản mới chờ duyệt và bản đang dùng. Tạo lại có thể thay bản AI đã lưu. | Bản nháp tách khỏi bản đang dùng; tạo lại không đè bản đang dùng. |
+| Lưu và duyệt | Đã có API sửa tay và API duyệt riêng; sửa tay gán `teacher_edited`, bản này được phép hiển thị cho học sinh. | “Lưu” và “cho học sinh sử dụng” chưa tách hẳn. | Hai thao tác rõ: **Lưu bản nháp** và **Sử dụng lời giải**. Cả hai không gọi AI. |
+| Nội dung đầu vào | Có passage/transcript, câu hỏi, options, ảnh. Một số nhánh Listening cho phép dùng `context` hoặc passage thay transcript. | Mô tả bối cảnh không bảo đảm chứa lời nói thực tế cần làm bằng chứng. | Reading cần passage; Listening cần transcript. Câu bản đồ/sơ đồ cần thêm ảnh. Audio đơn lẻ chưa đủ cho luồng này. |
+| Căn cứ trả lời | Đã kiểm tra trích dẫn có trong nguồn và có cơ chế `no_support`. | Trích dẫn tồn tại không tự chứng minh lập luận đúng; nhiều nhánh hiện vẫn kiểm tra bằng giải mù/fallback. | Giữ kiểm tra trích dẫn, cấu trúc, đáp án và giới hạn từ; chặn nội dung không đủ căn cứ; giáo viên quyết định sử dụng. Không dùng điểm tự tin của AI để tự duyệt. |
+| Tốc độ | Gemini trên server đang cấu hình 12 lượt/phút; hàng đợi chạy tuần tự. Có retry provider, sửa đầu ra và kiểm chứng lại khi fallback lệch đáp án. | Nhiều lớp gọi làm thời gian tăng mạnh. Với 38 lượt độc lập, riêng nhịp 12/phút đã tạo mốc lý thuyết khoảng 185 giây từ lượt đầu đến lượt cuối, chưa tính các chờ khác. | Giảm số lượt gọi, giới hạn tổng số lần thử ở một nơi; dừng sớm khi provider quá tải; không tăng RPM khi chưa xác minh quota. |
+| Tiến trình | Trình duyệt nối các request có ngân sách thời gian; đã hủy khi rời trang và không khôi phục màn hình tiến trình cũ. | Logic điều phối và trạng thái còn lặp ở bốn editor; sửa một nơi dễ lệch nơi khác. | Một bộ điều phối UI, một pipeline backend; adapter chỉ chuyển dữ liệu Test/Practice. Giữ phiên UI mới khi mở lại. |
+| Đếm đã lưu | `generatedCount` tăng trước transaction. Transaction có thể bỏ qua câu được bảo vệ hoặc vừa thay đổi. | Có nguy cơ báo số đã lưu cao hơn số thực ghi trong các nhánh bỏ qua. Đây là rủi ro xác định từ code, chưa tái hiện bằng ghi dữ liệu thật trong lần rà soát này. | Trả số ghi thành công sau commit, cùng kết quả từng câu: đã lưu / bỏ qua / lỗi. |
+| Trạng thái | Có trạng thái nội dung, lỗi lượt gọi, nhãn bảo vệ, bản nháp UI và báo cáo; đã thống nhất một phần nhãn. | Đổi nhãn không xử lý triệt để việc đang trộn trạng thái tạo, chất lượng và sử dụng. | Tách ba trục ở dữ liệu; giao diện chỉ hiện nhãn và hành động cần thiết. |
+| Đồng thời / dữ liệu thay đổi | Có khóa trong bộ nhớ, timestamp, bảo vệ lời giải giáo viên sửa và đánh dấu stale ở một số đường lưu. | Khóa không bền qua restart; timestamp không thay thế việc đối chiếu toàn bộ đầu vào. Số câu Practice cũng có thể đổi khi sắp xếp lại. | Kiểm tra phiên bản nguồn ở backend khi lưu/duyệt; định danh ổn định cho câu Practice; chống request lặp và bản trả về muộn. |
+| Chẩn đoán | Đã có mã lỗi, provider/model, thời điểm, phase và timeout ở một số nhánh. | Chưa có một hợp đồng kết quả và phép đo xuyên suốt để phân biệt chờ quota, sinh, kiểm tra, ghi DB. | Một mã lượt thao tác, thời gian từng bước, số lần gọi thực và kết quả commit; không ghi API key hoặc toàn bộ nội dung đề vào log. |
+
+### Bằng chứng code chính
+
+- `backend/services/explanationGeneratorService.js:169`: điều kiện học sinh được xem; `:867` và `:1334`: hai đường xử lý Practice/Test; `:1031` và `:1582`: xác nhận dùng lại preview đã lưu; `:1077` và `:1632`: đếm trước commit; `:1230` và `:1805`: ghi và bỏ qua trong transaction; `:2665`: sửa tay; `:2822`: duyệt.
+- `backend/scripts/generate-explanations.js:412`: dựng nguồn Reading/Listening; `:447`: hai kiểu prompt; `:747`: schema; `:869` và `:950`: gọi provider và vòng sửa đầu ra.
+- `backend/scripts/import-practice-explanations.js`: adapter câu Practice; `backend/prisma/schema.prisma:95`, `:409`: hai dạng lưu câu hỏi.
+- `backend/lib/geminiRateLimiter.js`, `backend/lib/explanationLock.js`, `backend/lib/requestAbort.js`: nhịp gọi, khóa và hủy.
+- `frontend/src/utils/examExplanationUtils.js:495`, `frontend/src/hooks/useExplanationGenerationLock.js`: điều phối request và vòng đời phiên hiện tại.
+- Cấu hình server được đọc riêng bằng danh sách biến cho phép: `GEMINI_MODEL=gemini-3.5-flash-lite`, `GEMINI_MAX_RPM=12`. Không đọc/in giá trị API key.
+
+## 3. Luồng thống nhất được đề xuất
+
+```mermaid
+flowchart TD
+  A[Chọn câu cần tạo lời giải] --> B[Kiểm tra dữ liệu đã lưu]
+  B -->|Thiếu dữ liệu| C[Báo đúng trường cần bổ sung]
+  B -->|Hợp lệ| D[AI giải thích đáp án đề]
+  D --> E[Kiểm tra cấu trúc và bằng chứng]
+  E -->|Đạt| F[Lưu bản nháp chờ giáo viên duyệt]
+  E -->|Chưa đủ căn cứ| G[Lưu nhận xét cần kiểm tra]
+  D -->|Lỗi kỹ thuật| H[Báo lỗi lượt tạo; giữ bản đang dùng]
+  F --> I[Giáo viên xem hoặc sửa bản nháp]
+  G --> I
+  I --> J[Lưu bản nháp]
+  J --> K[Giáo viên chọn Sử dụng lời giải]
+  K --> L[Kiểm tra lại phiên bản đề và điều kiện sử dụng]
+  L -->|Đạt| M[Cập nhật bản đang sử dụng]
+  L -->|Không đạt| I
+  M --> N[Học sinh được xem]
+```
+
+### Bước 1 — Chuẩn bị
+
+- Phạm vi: câu chưa có lời giải, một nhóm hoặc các câu giáo viên chọn. Mặc định không tạo lại các câu đã có bản đang dùng.
+- Nếu đề có chỉnh sửa chưa lưu, yêu cầu thao tác rõ **Lưu đề & tạo lời giải**; không âm thầm tạo theo một bản CSDL khác với nội dung đang nhìn.
+- Kiểm tra đúng passage/transcript, đáp án, loại câu, lựa chọn, yêu cầu số từ và ảnh liên quan. Hiển thị thiếu gì ở đúng câu; không gửi yêu cầu AI chắc chắn thiếu dữ liệu.
+- Lấy bản đầu vào đã lưu và tạo dấu vân tay nguồn, gồm cả nội dung, đáp án, options, instruction và phiên bản ảnh. Các câu không hợp lệ không ngăn câu độc lập hợp lệ được tạo.
+
+### Bước 2 — AI tạo bản nháp
+
+- Gửi đáp án đề như một giá trị cố định. AI trả bằng chứng và diễn giải hoặc kết luận không đủ căn cứ; mọi đáp án khác chỉ là nhận xét cần kiểm tra, không thành một lựa chọn tự động sửa đề.
+- Giữ cách trình bày bốn bước đang có nhưng rút ngắn nội dung: phân tích câu hỏi → tìm vị trí → trích bằng chứng → giải thích đáp án/loại phương án sai.
+- Bộ máy không cố tạo dẫn chứng cho đáp án không được nguồn hỗ trợ.
+- Lưu bản nháp ở server sau mỗi đơn vị hoàn tất. Nếu lưu lỗi, có thể thử lưu lại kết quả đang có khi còn hiệu lực; không bắt giáo viên trả chi phí gọi AI lại chỉ vì DB chậm.
+
+### Bước 3 — Kiểm tra theo dạng câu
+
+| Dạng | Kiểm tra bắt buộc |
+| --- | --- |
+| Điền từ / trả lời ngắn | Đúng đáp án, giới hạn từ/số, ngữ pháp câu điền và trích dẫn thực tế. |
+| Trắc nghiệm / chọn nhiều | Đúng tập lựa chọn và số lượng cần chọn; lý do loại phương án sai dựa trên nguồn. |
+| Matching / headings | Đúng danh sách lựa chọn, đoạn tương ứng và quy tắc được/không được dùng lại. |
+| True/False/Not Given | Phân biệt mâu thuẫn với không có thông tin. NOT GIVEN có thể không có trích dẫn khẳng định; không ép AI bịa một câu làm bằng chứng cho sự vắng mặt. |
+| Bản đồ / sơ đồ | Có ảnh và nguồn đủ để giải thích; không dùng provider không đọc ảnh cho câu cần thị giác. |
+| Listening | Trích đúng transcript, giải thích cách diễn đạt lại/bẫy sửa ý khi có trong nguồn. Chỉ dùng mốc audio khi đã có dữ liệu thời gian thật; không tự bịa timestamp. |
+
+Các kiểm tra tự động chỉ xác nhận những gì máy kiểm tra được. Lập luận có thật sự thuyết phục vẫn cần giáo viên duyệt.
+
+### Bước 4 — Giáo viên xem và lưu
+
+- Bản đạt điều kiện: **Chờ duyệt**. Bản không đủ căn cứ: **Cần kiểm tra**, kèm một lý do và một hành động cụ thể.
+- **Lưu bản nháp** chỉ lưu nội dung giáo viên sửa; chưa thay lời giải học sinh đang thấy.
+- Nếu thay đáp án hoặc nội dung đề, thực hiện trong phần sửa đề. Hệ thống đánh dấu bản nháp/lời giải liên quan cần kiểm tra lại; không âm thầm chuyển sang đáp án AI.
+- Giáo viên được sửa một bản bị đánh dấu thiếu bằng chứng, nhưng chỉ được sử dụng sau khi giải quyết các điều kiện bị chặn. Nếu xác nhận ngoại lệ về mặt chuyên môn, cần ghi nhận lý do; không cho vượt kiểm tra nguồn/đáp án bằng một nút duyệt chung chung.
+
+### Bước 5 — Xác nhận sử dụng
+
+- Nút **Sử dụng lời giải** là bước riêng, không gọi AI.
+- Backend đối chiếu lại đáp án, dấu vân tay nguồn, phiên bản bản nháp và quyền giáo viên; lưu nguyên bản đã được xem/sửa.
+- Chỉ sau transaction thành công mới cập nhật UI và báo **Đã cập nhật lời giải cho học sinh**.
+- Nếu chỉ lưu nháp: báo **Đã lưu bản nháp**. Không dùng một thông báo cho cả hai nghiệp vụ.
+- Khi có bản đang dùng và giáo viên tạo lại với cùng nội dung đề, học sinh tiếp tục xem bản cũ cho đến khi bản mới được sử dụng.
+- Khi nội dung/đáp án nguồn đã thực sự thay đổi và khiến bản cũ không còn phù hợp, không tiếp tục phát bản cũ như thể vẫn đúng; đánh dấu cần duyệt lại ở server.
+
+### Bước 6 — Dừng / rời trang / lỗi
+
+- Dừng không tạo thêm câu; hủy yêu cầu đang chạy khi có thể. Những bản nháp đã commit trước khi dừng vẫn được giữ. Không hứa hủy có thể đảo ngược dữ liệu đã commit.
+- Mở lại: UI mới, không khôi phục thanh tiến trình. Các bản nháp đã lưu vẫn là nội dung bình thường và có thể mở xem.
+- Lỗi kỹ thuật chỉ thuộc lượt tạo/lưu đó, không ghi đè trạng thái bản đang dùng.
+- Thử lại chỉ áp dụng câu đã chọn. Nhận biết request đã commit nhưng mất phản hồi để không sinh hoặc lưu trùng.
+- Một tab khác thực sự đang ghi cùng câu vẫn được backend bảo vệ; không mở khóa bằng cách bỏ qua kiểm tra server.
+
+## 4. Giao diện tối giản
+
+Ngoài danh sách câu, chỉ cần một nút **Tạo lời giải AI** và một dòng tiến độ khi đang chạy. Phạm vi chọn ở một nơi, không đồng thời đặt nhiều nút tạo lại cho cùng việc.
+
+Nhãn nội dung dùng thống nhất: **Chưa có · Chờ duyệt · Cần kiểm tra · Đang sử dụng**. Khi vừa có bản đang dùng vừa có bản mới chờ duyệt, nhãn chỉ việc đang cần làm; trong câu ghi rõ học sinh vẫn xem bản cũ. Lỗi timeout/DB nằm ở kết quả lượt thao tác, không biến thành một trạng thái chất lượng lời giải.
+
+Trong câu: đáp án đề, một khối lý do nếu cần xử lý, nội dung lời giải, và hành động phù hợp. Nếu có hai phiên bản, cho xem **Đang sử dụng / Bản mới**, không đặt hai lời giải dài cạnh nhau trên mobile.
+
+Thông báo chỉ một lần cho mỗi hành động hoàn tất. Lỗi hàng loạt gom thành số câu; mở câu mới xem nguyên nhân. Không mở liên tiếp popup cho từng câu. Phần cần kiểm tra tiếp tục dùng danh sách số câu gọn.
+
+## 5. So sánh ba phương án kiến trúc
+
+| Phương án | Ưu điểm | Điểm yếu | Đánh giá |
+| --- | --- | --- | --- |
+| A. Tiếp tục sửa trên luồng hiện tại | Ít thay đổi ban đầu. | Vẫn trộn tự giải/giải thích, lưu/phát hành và nhiều bộ trạng thái. | Không đáp ứng triệt để yêu cầu đã chốt. |
+| B. Một pipeline, tách bản nháp/bản dùng; xử lý request nhỏ | Đồng bộ bốn màn hình, tái sử dụng phần kiểm tra tốt, phù hợp server hiện tại và phiên mới khi mở lại. | Cần thiết kế phiên bản và chuyển đổi dữ liệu cũ cẩn thận. | **Đề xuất cho giai đoạn đầu.** |
+| C. Job nền bền vững và hàng đợi riêng | Hợp chạy nền dài, nhiều giáo viên, quy mô lớn. | Tăng hạ tầng/vận hành, chính sách hủy/khôi phục và độ phức tạp. Không tự làm model nhanh hơn. | Chỉ cân nhắc sau khi số đo thực tế chứng minh cần. |
+
+### Thành phần tối thiểu cho phương án B
+
+1. **Adapter Test/Practice**: đưa về một dữ liệu câu thống nhất; Reading/Listening khác nguồn và quy tắc kiểm tra, không khác quy trình lưu/duyệt.
+2. **Dịch vụ chung**: kiểm tra đầu vào → dựng prompt cố định đáp án → gọi provider → kiểm tra kết quả → lưu bản nháp.
+3. **Dịch vụ sử dụng lời giải**: kiểm tra phiên bản → ghi bản đã duyệt → làm mới cache cho học sinh. Không gọi provider.
+4. **Bộ điều phối giao diện chung**: tiến độ, dừng, thử lại, phản hồi lưu. Bốn trang chỉ truyền dữ liệu/adapter.
+5. **Nơi lưu bản nháp riêng**: đề xuất bảng nhỏ chuyên biệt có target ổn định, payload, source hash, draft version, validation issue, metadata và thời gian. Giữ payload lời giải hiện tại để tái sử dụng bộ hiển thị. Bản đang sử dụng được ghi/cập nhật nguyên tử qua adapter và có metadata người duyệt/phiên bản.
+
+Không đề xuất normalize lại toàn bộ dữ liệu Practice hay bổ sung Redis ở bước đầu. Tuy nhiên phải xử lý định danh câu Practice trước khi dựa vào bản nháp: số thứ tự câu chỉ để hiển thị, không làm định danh duy nhất sau khi chuyển/sắp xếp nhóm. Có thể thêm ID ổn định trong JSON hiện có; kế hoạch chuyển đổi cần dry-run và xác nhận trước mọi ghi dữ liệu thật.
+
+## 6. Tối ưu cụ thể và cách đo
+
+- Tái sử dụng bộ kiểm tra trích dẫn, chuẩn hóa đáp án, bảo vệ lời giải giáo viên và xử lý hủy hiện có.
+- Một nơi sở hữu retry. Đề xuất tối đa hai lượt gọi provider cho một lần tạo/câu: lượt chính và một lượt thử lại hoặc dự phòng, dùng chung ngân sách thời gian. Tránh SDK retry ngầm làm vượt ngân sách này.
+- Không giải mù kiểm chứng tất cả câu trong luồng giải thích mặc định. Chỉ mở kiểm định đáp án như thao tác riêng nếu sau này cần.
+- Tạm bỏ qua provider đang lỗi liên tiếp theo một khoảng chờ cấu hình; không liên tục quay lại provider vừa quá tải sau mỗi fallback.
+- Giữ đầu ra có cấu trúc, giới hạn độ dài từng trường, bỏ phần không áp dụng với loại câu. Không gửi một yêu cầu sinh JSON rất dài cho cả đề 38 câu.
+- Dùng chung ngữ cảnh đã chuẩn hóa trong nhóm. Khởi đầu mỗi kết quả vẫn nhận diện riêng từng câu; chỉ gộp vài câu/nhóm ảnh sau khi đo được chất lượng, độ trễ và khả năng tách lỗi từng câu.
+- Khi chỉ DB lỗi, tách việc thử lưu khỏi gọi AI. Khi chỉ sử dụng bản nháp đã có, không gọi AI.
+- Phản hồi gồm kết quả từng câu và số **đã commit**, không suy ra từ số AI vừa sinh. Khóa bản nháp/phiên bản và operation ID ngăn ghi trùng hoặc kết quả cũ đè bản mới.
+- Đo queue wait, provider time, validation time, DB commit time; số lần gọi/câu; p50/p95; tỷ lệ thiếu căn cứ; tỷ lệ giáo viên phải sửa. So sánh trước/sau trên cùng bộ câu mẫu.
+
+Chưa cam kết một mức thời gian tạo cả đề khi chưa có benchmark và quota thực tế. Tăng số request đồng thời hoặc đổi model không thay thế việc giảm số lần gọi và sửa luồng.
+
+## 7. Kế hoạch triển khai có điểm kiểm tra
+
+| Giai đoạn | Đầu ra | Điều kiện đi tiếp |
+| --- | --- | --- |
+| 1. Chốt đặc tả | Luồng, hợp đồng dữ liệu/API, định nghĩa lưu nháp/sử dụng, bảng trạng thái và bộ câu mẫu. | Người dùng duyệt luồng; các tình huống mẫu có kết quả kỳ vọng rõ. |
+| 2. Nền tảng bản nháp/phiên bản | Adapter chung, định danh ổn định, lưu nháp tách bản dùng, kiểm tra source hash, idempotency và hợp đồng kết quả commit. | Tạo/lưu không sửa đáp án; mất phản hồi không gây bản trùng; bản đang dùng không bị ghi đè. |
+| 3. Pipeline giải thích | Prompt theo đáp án đề, validation theo loại câu, giới hạn retry và đo thời gian. | Đầu vào thiếu bị chặn đúng; bằng chứng giả bị từ chối; NOT GIVEN hợp lệ không bị ép có quote. |
+| 4. Duyệt và giao diện chung | Một bộ UI cho bốn trang, lưu nháp/sử dụng tách biệt, đúng số đã lưu, thông báo tối giản. | Lưu/sử dụng không gọi AI; bản chưa duyệt không đến học sinh; lỗi một câu không làm mất kết quả khác. |
+| 5. Kiểm thử và chuyển đổi | Test chức năng, bộ câu giáo viên đánh giá, so sánh hiệu năng, security review, dry-run dữ liệu cũ và rollback. | Kết quả kiểm thử đạt; chính sách dữ liệu cũ được chốt trước khi ghi; chỉ deploy sau khi người dùng đồng ý triển khai. |
+
+Không ấn định số ngày ở bước rà soát này. Ước lượng sau khi chốt dữ liệu cũ, cách lưu bản nháp và số dạng câu cần đưa vào bản đầu.
+
+### Bộ tình huống bắt buộc
+
+1. Tạo mới câu đủ dữ liệu; câu thiếu transcript; map thiếu ảnh; matching thiếu options; completion vượt số từ.
+2. AI trả đúng schema nhưng trích dẫn không có thật; trích dẫn có thật nhưng không ủng hộ đáp án; NOT GIVEN không có quote khẳng định.
+3. Model 503/429/timeout/JSON lỗi; fallback; DB lỗi sau khi AI đã trả; mất phản hồi sau commit.
+4. Lưu bản nháp, sửa bản nháp, sử dụng bản nháp: kiểm tra số lượt AI không tăng ở các thao tác lưu/duyệt.
+5. Học sinh không đọc được bản chưa duyệt qua Test, Practice, API kết quả hay chatbot; cache không trả bản cũ sai chính sách.
+6. Có bản đang dùng, tạo bản mới rồi lỗi/hủy: bản cũ còn nguyên nếu nguồn chưa đổi. Đổi đáp án/nguồn: bản cũ không được tiếp tục dùng như bản hợp lệ.
+7. Hai tab, sửa nguồn trong khi AI chạy, di chuyển/đánh số lại câu Practice, lưu câu khác đồng thời và sửa tay lời giải đã bảo vệ.
+8. Dừng/rời trang/mở lại: phiên UI mới; bản nháp đã lưu còn xem được; kết quả trả muộn không đè phiên mới.
+9. Đồng bộ bốn editor; desktop/mobile/bàn phím; không có nhãn chưa lưu sau khi server đã xác nhận đúng phiên bản.
+
+## 8. Dữ liệu cũ và các điểm cần chốt trước khi code
+
+- Chưa tự chuyển hàng loạt trạng thái hay ẩn lời giải đang hiển thị. Cần thống kê chỉ đọc và chốt cách phân loại dữ liệu cũ theo người đã duyệt, trạng thái và chất lượng. Các bản AI cũ chưa có dấu duyệt không được mặc nhiên gán là giáo viên đã duyệt.
+- Chốt bản đầu chỉ duyệt từng câu hay thêm duyệt các câu đã chọn sau khi giáo viên đã xem. Không có nút tự duyệt mọi kết quả chỉ vì kiểm tra tự động đạt.
+- Chốt cách tạo ID ổn định cho câu Practice, bảng nháp và phương án tương thích với JSON lời giải hiện tại. Không coi số câu là một khóa bền vững.
+- Chốt thời gian lưu lịch sử bản nháp và mức chi tiết cần giữ; không xây lịch sử vô hạn nếu không có nhu cầu.
+
+## 9. Phản biện thiết kế
+
+| Góc nhìn | Rủi ro | Cách khống chế trong đề xuất |
+| --- | --- | --- |
+| Kiến trúc | Lập thêm nhiều dịch vụ/hạ tầng cho project một người. | Giữ Express/PostgreSQL hiện tại, adapter chung và một pipeline; chưa thêm hàng đợi nền. |
+| Bảo mật/dữ liệu | Bản nháp bị lộ qua một đường đọc phụ; prompt từ nội dung đề dẫn dắt model. | Tách dữ liệu nháp, kiểm soát quyền ở backend, kiểm tra mọi đường học sinh/chatbot; coi passage/transcript là dữ liệu, không là chỉ dẫn; không thực thi đầu ra AI. |
+| Hiệu năng | Retry/call kiểm chứng làm lời giải lâu dù đổi giao diện. | Một ngân sách retry, đầu ra ngắn, đo từng bước, không giải mù mặc định và không tăng quota tùy tiện. |
+| UX | Có bản nháp được lưu nhưng người dùng tưởng học sinh đã thấy. | Tên nút/thông báo riêng cho lưu nháp và sử dụng; trong câu chỉ rõ phiên bản học sinh đang xem. |
+| Phản biện | Ép đáp án đề có thể khiến AI hợp thức hóa đáp án sai. | Bắt buộc cho phép thiếu/mâu thuẫn bằng chứng, không tự duyệt, không bịa quote; đổi đáp án là thao tác giáo viên riêng. |
+
+Kết luận phản biện: phương án B phù hợp để tiếp tục **đặc tả**, chưa phải lệnh triển khai. Các quyết định dữ liệu cũ và kiểm soát xuất bản phải được giải quyết trước khi đổi schema hoặc phát hành.
