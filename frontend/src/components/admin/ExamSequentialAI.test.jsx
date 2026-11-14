@@ -92,6 +92,32 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     if (trigger.getAttribute('aria-expanded') !== 'true') fireEvent.click(trigger)
   }
 
+  it.each(['reading', 'listening'])('reopens saved %s answer confirmation without generating a replacement', async skill => {
+    const reading = skill === 'reading'
+    const examId = reading ? 10 : 20
+    const exam = structuredClone(mockReadingExam)
+    exam.passages[0].questionGroups[0].questions[0].explanation = {
+      v: 2, status: 'conflict_pending', answer: 'FALSE', aiAnswer: 'FALSE', reasoning: 'Independent result',
+    }
+    if (!reading) {
+      exam.id = 20
+      exam.listeningSections = exam.passages.map((passage, index) => ({ ...passage, number: index + 1,
+        context: 'Context', transcript: 'Transcript', audioUrl: '/test.mp3' }))
+    }
+    api.get.mockImplementation(url => Promise.resolve({ data: url === `/admin/exams/${examId}` ? exam : [] }))
+    api.post.mockResolvedValue({ data: { generatedCount: 1, remainingQuestionNumbers: [] } })
+    renderTab(reading ? <ReadingTab exams={[]} onRefresh={vi.fn()} /> : <ListeningTab exams={[]} onRefresh={vi.fn()} />)
+    fireEvent.click(screen.getByText(reading ? 'Edit Reading 10' : 'Edit Listening 20'))
+    fireEvent.click(await screen.findByRole('button', { name: /^Câu 1/i }))
+    expect(screen.queryByRole('button', { name: /Duyệt giải thích câu/ })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận đáp án' }))
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
+    expect(api.post).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận & Lưu giải thích' }))
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
+    expect(api.post.mock.calls[0][1]).toMatchObject({ questionNumbers: [1], resolveChoices: { 1: 'ai' } })
+  })
+
   it.each(['reading', 'listening'])('updates the saved %s question badge and modal after a manual save', async skill => {
     const reading = skill === 'reading'
     const examId = reading ? 10 : 20
@@ -498,7 +524,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     })
 
     await waitFor(() => {
-      expect(screen.getByText(/Phát hiện lệch đáp án/i)).toBeInTheDocument()
+      expect(screen.getByText(/Xác nhận đáp án/i)).toBeInTheDocument()
       const dialog = screen.getByRole('dialog')
       expect(within(dialog).getByText(/Câu 3/i)).toBeInTheDocument()
     })

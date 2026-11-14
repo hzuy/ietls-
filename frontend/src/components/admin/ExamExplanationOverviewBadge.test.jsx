@@ -18,7 +18,7 @@ describe('ExamExplanationOverviewBadge', () => {
       attentionSlots: 3,
       hasAttention: true,
       hasUnsupported: false,
-      attentionReasons: ['3 câu Chờ duyệt (Lệch)'],
+      attentionReasons: ['3 câu Chờ xác nhận'],
     }
 
     render(<ExamExplanationOverviewBadge stats={stats} />)
@@ -27,7 +27,7 @@ describe('ExamExplanationOverviewBadge', () => {
     expect(screen.getByTestId('exam-explanation-attention-badge')).toHaveTextContent('3 câu cần chú ý')
     expect(screen.getByTestId('exam-explanation-attention-badge')).toHaveAttribute(
       'title',
-      expect.stringContaining('3 câu Chờ duyệt (Lệch)')
+      expect.stringContaining('3 câu Chờ xác nhận')
     )
   })
 
@@ -68,7 +68,7 @@ describe('ExamExplanationOverviewBadge', () => {
       attentionSlots: 1,
       hasAttention: true,
       hasUnsupported: false,
-      attentionReasons: ['1 câu Cần sinh lại'],
+      attentionReasons: ['1 câu Cần kiểm tra'],
     }
 
     const { container } = render(<ExamExplanationOverviewBadge stats={stats} compact />)

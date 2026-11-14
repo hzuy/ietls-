@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  addRunOutcome, clearRunReport, createBlockedReport, createRunReport,
+  addRunOutcome, clearRunReport, clearSavedQuestionIssue, createBlockedReport, createRunReport,
   finishRunReport, makeRunReportKey, updateRunProgress, reconcileRunReport,
 } from '../utils/explanationRunReport'
 
@@ -90,10 +90,19 @@ export function usePracticeExplanationReport({ skill, practiceId, enabled, group
     setStatuses({})
   }, [key])
 
+  const acknowledgeSaved = useCallback(number => {
+    setStatuses(previous => {
+      const next = { ...previous }
+      delete next[number]
+      return next
+    })
+    persist(clearSavedQuestionIssue(latestRef.current, number))
+  }, [persist])
+
   const generatingNumbers = useMemo(() => new Set(Object.keys(statuses)
     .filter(number => statuses[number] === 'generating').map(Number)), [statuses])
-  const errorMessages = useMemo(() => Object.fromEntries((report?.rows || [])
+  const errorMessages = useMemo(() => Object.fromEntries([...(report?.needsRetry || []), ...(report?.rows || [])]
     .filter(row => row.number).map(row => [row.number, { ...row, failedAt: row.failedAt || report.finishedAt }])), [report])
   const visibleReport = useMemo(() => reconcileRunReport(report, groups), [report, groups])
-  return { report: visibleReport, statuses, generatingNumbers, errorMessages, start, progress, finish, block, dismiss }
+  return { report: visibleReport, statuses, generatingNumbers, errorMessages, start, progress, finish, block, dismiss, acknowledgeSaved }
 }

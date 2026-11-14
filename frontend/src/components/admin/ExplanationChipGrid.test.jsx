@@ -46,7 +46,7 @@ describe('ExplanationChipGrid', () => {
 
     expect(screen.getAllByRole('button').length).toBe(7)
     expect(screen.getByText('Đã sửa')).toBeInTheDocument()
-    expect(screen.getByText('Chờ duyệt')).toBeInTheDocument()
+    expect(screen.getByText('Chờ xác nhận')).toBeInTheDocument()
   })
 
   it('renders correctly with groups of 10 questions', () => {

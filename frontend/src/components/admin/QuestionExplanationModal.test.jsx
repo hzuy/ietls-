@@ -49,19 +49,19 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
     it('correctly maps conflict_pending status', () => {
       const info = getExplanationStatusInfo({ status: 'conflict_pending' })
       expect(info.status).toBe('conflict_pending')
-      expect(info.label).toBe('Chờ duyệt')
+      expect(info.label).toBe('Chờ xác nhận')
     })
 
     it('correctly maps needs_regeneration status', () => {
       const info = getExplanationStatusInfo({ status: 'needs_regeneration' })
       expect(info.status).toBe('needs_regeneration')
-      expect(info.label).toBe('Cần sinh lại')
+      expect(info.label).toBe('Cần kiểm tra')
     })
 
     it('correctly maps possibly_stale status', () => {
       const info = getExplanationStatusInfo({ status: 'possibly_stale' })
       expect(info.status).toBe('possibly_stale')
-      expect(info.label).toBe('Có thể lỗi thời')
+      expect(info.label).toBe('Nội dung đã đổi')
     })
 
     it('renders ExplanationStatusBadge with correct label', () => {

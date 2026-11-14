@@ -258,13 +258,13 @@ export function calculateExamExplanationStats(target) {
   result.isFullyExplained = result.supportedSlots > 0 && result.explainedSlots === result.supportedSlots
 
   if (result.statusCounts.conflict_pending > 0) {
-    result.attentionReasons.push(`${result.statusCounts.conflict_pending} câu Chờ duyệt (Lệch)`)
+    result.attentionReasons.push(`${result.statusCounts.conflict_pending} câu Chờ xác nhận`)
   }
   if (result.statusCounts.needs_regeneration > 0) {
-    result.attentionReasons.push(`${result.statusCounts.needs_regeneration} câu Cần sinh lại`)
+    result.attentionReasons.push(`${result.statusCounts.needs_regeneration} câu Cần kiểm tra`)
   }
   if (result.statusCounts.possibly_stale > 0) {
-    result.attentionReasons.push(`${result.statusCounts.possibly_stale} câu Có thể lỗi thời`)
+    result.attentionReasons.push(`${result.statusCounts.possibly_stale} câu Nội dung đã đổi`)
   }
 
   return result

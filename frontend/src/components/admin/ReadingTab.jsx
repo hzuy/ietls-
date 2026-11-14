@@ -46,7 +46,7 @@ import {
   createBlockedReport,
   addRunOutcome, updateRunProgress, isRunServiceFailure, eligibleExplanationNumbers, reconcileRunReport,
   finishRunReport,
-  clearRunReport,
+  clearRunReport, clearSavedQuestionIssue,
   makeRunReportKey,
 
 } from '../../utils/explanationRunReport'
@@ -558,7 +558,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
 
   const runErrorMessageByNumber = useMemo(() => {
     const map = {}
-    for (const row of runReport?.rows || []) {
+    for (const row of [...(runReport?.needsRetry || []), ...(runReport?.rows || [])]) {
       if (row.number != null) map[row.number] = { ...row, failedAt: row.failedAt || runReport.finishedAt }
     }
     return map
@@ -1509,8 +1509,19 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
                             runStatusByNumber={runStatusByNumber}
                             runErrorMessageByNumber={runErrorMessageByNumber}
                             unsavedQuestionNumbers={unsavedQuestionNumbers}
+                            onResolveConflict={conflict => {
+                              pendingAIFnRef.current = opts => handleGenerateGroupAI(group, opts)
+                              setAiConflicts([conflict])
+                              setConflictModalOpen(true)
+                            }}
                             onExplanationSaved={(explanation, number) => {
                               pristineExplanationsRef.current = { ...pristineExplanationsRef.current, [number]: explanation }
+                              setRunReport(previous => clearSavedQuestionIssue(previous, number))
+                              setRunStatusByNumber(previous => {
+                                const next = { ...previous }
+                                delete next[number]
+                                return next
+                              })
                             }}
                           />
                         ))}

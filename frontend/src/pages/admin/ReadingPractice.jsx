@@ -803,8 +803,13 @@ export default function ReadingPractice() {
                         isLast={i === form.questionGroups.length - 1}
                         isAIBusy={expLock.isLockedOperation}
                         unsavedQuestionNumbers={unsavedQuestionNumbers}
+                        onResolveConflict={conflict => {
+                          setAiConflicts([conflict])
+                          setConflictModalOpen(true)
+                        }}
                         onExplanationSaved={(explanation, number) => {
                           pristineExplanationsRef.current = { ...pristineExplanationsRef.current, [number]: explanation }
+                          aiReport.acknowledgeSaved(number)
                           pristineRef.current = acknowledgePracticeExplanation(pristineRef.current, 2, number, explanation)
                         }}
                         generatingQuestionNumbers={aiReport.generatingNumbers}

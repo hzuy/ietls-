@@ -397,6 +397,16 @@ export function finishRunReport(report, { cancelled = false } = {}) {
   }
 }
 
+// A successful manual save/review supersedes only this question's run issue.
+export function clearSavedQuestionIssue(report, number) {
+  if (!report) return report
+  const rows = (report.rows || []).filter(row => Number(row.number) !== Number(number))
+  const needsRetry = (report.needsRetry || []).filter(row => Number(row.number) !== Number(number))
+  if (rows.length === (report.rows || []).length && needsRetry.length === (report.needsRetry || []).length) return report
+  if (!rows.length && !needsRetry.length && report.status !== 'running') return null
+  return { ...report, rows, needsRetry }
+}
+
 export function getRunReportCounts(report) {
   if (!report) {
     return { errors: 0, retryable: 0, needsRetry: 0, generated: 0, totalQuestions: 0 }

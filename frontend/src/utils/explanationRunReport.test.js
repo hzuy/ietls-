@@ -12,9 +12,17 @@ import {
   retryableNumbers,
   saveRunReport,
   loadRunReport,
-  clearRunReport,
+  clearRunReport, clearSavedQuestionIssue,
   copyRunReportText,
 } from './explanationRunReport'
+
+it('clears only the acknowledged question from current-run errors and review warnings', () => {
+  const report = { status: 'done', rows: [{ number: 1 }, { number: 2 }], needsRetry: [{ number: 1 }, { number: 3 }] }
+  expect(clearSavedQuestionIssue(report, 1)).toEqual({ ...report, rows: [{ number: 2 }], needsRetry: [{ number: 3 }] })
+  expect(clearSavedQuestionIssue({ status: 'done', rows: [], needsRetry: [{ number: 1 }] }, 1)).toBeNull()
+  expect(clearSavedQuestionIssue({ status: 'running', rows: [], needsRetry: [{ number: 1 }] }, 1)).toMatchObject({ status: 'running', needsRetry: [] })
+  expect(report.rows).toHaveLength(2)
+})
 
 const group = {
   id: 201,

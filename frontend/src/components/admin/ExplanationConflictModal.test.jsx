@@ -27,6 +27,17 @@ describe('ExplanationConflictModal', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
+  it('uses labeled radios and preserves the teacher choice on confirmation', () => {
+    const resolve = vi.fn()
+    render(<ExplanationConflictModal isOpen onClose={vi.fn()} conflicts={sampleConflicts} onConfirmResolve={resolve} />)
+    const teacher = screen.getByRole('radio', { name: /Giữ đáp án đề/ })
+    fireEvent.click(teacher)
+    expect(teacher).toBeChecked()
+    expect(screen.getByRole('radio', { name: /Dùng đáp án AI/ })).not.toBeChecked()
+    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận & Lưu giải thích' }))
+    expect(resolve).toHaveBeenCalledExactlyOnceWith({ 1: 'input' })
+  })
+
   it('renders conflict details and allows selecting choice', () => {
     const handleResolve = vi.fn()
     render(
@@ -39,7 +50,7 @@ describe('ExplanationConflictModal', () => {
     )
 
     expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(screen.getByText(/Phát hiện lệch đáp án \(1 câu\)/i)).toBeInTheDocument()
+    expect(screen.getByText(/Xác nhận đáp án \(1 câu\)/i)).toBeInTheDocument()
     expect(screen.getByText('peers')).toBeInTheDocument()
     expect(screen.getByText('patients')).toBeInTheDocument()
     expect(screen.getByText(/one of the patients told him/i)).toBeInTheDocument()
@@ -74,7 +85,7 @@ describe('ExplanationConflictModal', () => {
       />
     )
 
-    expect(screen.getByText(/Ghi chú đối chiếu từ AI \(chỉ giáo viên thấy\):/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Xem dẫn chứng và lý do'))
     expect(screen.getByText(/Ghi chú giáo viên: đáp án đúng là patients, không phải peers/i)).toBeInTheDocument()
     expect(screen.queryByText('Học sinh đọc reasoning này')).not.toBeInTheDocument()
   })
@@ -101,7 +112,7 @@ describe('ExplanationConflictModal', () => {
       />
     )
 
-    expect(screen.getByText(/Lập luận & Phản biện của AI:/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Xem dẫn chứng và lý do'))
     expect(screen.getByText(/Lập luận cũ chưa có teacher_note/i)).toBeInTheDocument()
   })
 })

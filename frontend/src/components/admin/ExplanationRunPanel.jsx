@@ -67,7 +67,7 @@ export default function ExplanationRunPanel({
         <div className="min-w-0">
           <h4 className="m-0 flex items-center gap-2 text-sm font-semibold">
             <Icon aria-hidden="true" className={`h-4 w-4 shrink-0 ${isGenerating && !isCancelling ? 'animate-spin motion-reduce:animate-none' : ''} ${issues && !isGenerating ? 'text-amber-700' : 'text-zinc-600'}`} />
-            {isCancelling ? 'Đang dừng…' : TITLES[status] || TITLES.partial}
+            {isCancelling ? 'Đang dừng…' : !isGenerating && status === 'done' && needsRetry.length ? 'Còn câu cần kiểm tra' : TITLES[status] || TITLES.partial}
           </h4>
           {isGenerating && (isCancelling || progress?.groupLabel || report?.scope === 'retry') && <p className="mt-1 mb-0 text-xs text-zinc-500 break-words">{isCancelling
             ? 'Đang hủy yêu cầu hiện tại. Các câu đã lưu vẫn được giữ lại.'
@@ -107,7 +107,7 @@ export default function ExplanationRunPanel({
             <div className="mt-2 flex flex-wrap gap-2">{entry.questions.map(row => <button type="button" key={row.number} onClick={() => openQuestion(row)} className={buttonClass}>Xem câu {row.number}</button>)}</div>
           </div>)}
           {needsRetry.map(row => <div key={`${row.groupId}:${row.number}`} className="rounded-lg border border-amber-200 bg-amber-50/40 p-3">
-            <p className="m-0 text-xs font-semibold">Câu {row.number} · Cần kiểm tra lại (kết quả dự phòng chưa chắc chắn)</p>
+            <p className="m-0 text-xs font-semibold">Câu {row.number} · Cần kiểm tra</p>
             <p className="mt-1 mb-2 text-xs text-zinc-600">{row.message}</p>
             <button type="button" onClick={() => openQuestion(row)} className={buttonClass}>Xem câu {row.number}</button>
           </div>)}

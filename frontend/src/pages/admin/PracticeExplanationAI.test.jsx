@@ -46,6 +46,23 @@ describe.each(['reading', 'listening'])('%s Practice AI reports', skill => {
     if (trigger.getAttribute('aria-expanded') !== 'true') fireEvent.click(trigger)
   }
 
+  it('opens a persisted answer conflict for confirmation without calling AI first', async () => {
+    const pending = { v: 2, status: 'conflict_pending', answer: 'three', aiAnswer: 'three', reasoning: 'Independent result' }
+    service[reading ? 'getReadingPractice' : 'getListeningPractice'].mockResolvedValue({
+      ...practice, questions: { groups: [{ ...groups[0], explanations: { 2: pending } }] },
+    })
+    api.post.mockResolvedValue({ data: { generatedCount: 1, remainingQuestionNumbers: [] } })
+    await open()
+    fireEvent.click(screen.getByRole('button', { name: /^Câu 2/i }))
+    expect(screen.queryByRole('button', { name: /Duyệt giải thích câu/ })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận đáp án' }))
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
+    expect(api.post).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận & Lưu giải thích' }))
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
+    expect(api.post.mock.calls[0][1]).toMatchObject({ questionNumbers: [2], resolveChoices: { 2: 'ai' } })
+  })
+
   it('marks an individually saved explanation as saved and retains it on reopening', async () => {
     const old = { v: 2, status: 'ai_generated', answer: 'one', reasoning: 'Old reasoning' }
     const saved = { ...old, status: 'teacher_edited', manualEdit: true, reasoning: 'Saved teacher reasoning' }

@@ -1,7 +1,8 @@
+import { EXPLANATION_ATTENTION_LABELS, getExplanationAttention } from '../../utils/explanationPresentation'
 import { useState, useEffect, useRef } from 'react'
 import {
-  X, Check, AlertTriangle, RefreshCw, Edit3, Eye,
-  CheckCircle2, AlertCircle, Loader2, ArrowRight, Plus, Trash2,
+  X, Check, AlertTriangle, Edit3, Eye,
+  CheckCircle2, AlertCircle, Loader2, Plus, Trash2,
 } from 'lucide-react'
 import api from '../../utils/axios'
 import ReviewExplanation from '../exam/ReviewExplanation'
@@ -91,7 +92,7 @@ export function getExplanationStatusInfo(explanation, {
   if (runStatus === 'retry') {
     return {
       status: 'needs_retry',
-      label: 'Cần kiểm tra lại',
+      label: 'Cần kiểm tra',
       chipLabel: 'Cần kiểm tra',
       fullLabel: 'Kết quả dự phòng chưa đủ tin cậy, nên mở câu này để kiểm tra lại',
       badgeClass: 'bg-amber-50 text-amber-800 border-amber-300',
@@ -171,9 +172,9 @@ export function getExplanationStatusInfo(explanation, {
   if (s === 'conflict_pending') {
     return {
       status: 'conflict_pending',
-      label: 'Chờ duyệt',
-      chipLabel: 'Chờ duyệt',
-      fullLabel: 'Chờ duyệt (Lệch đáp án giữa AI và giáo viên)',
+      label: EXPLANATION_ATTENTION_LABELS.conflict_pending,
+      chipLabel: EXPLANATION_ATTENTION_LABELS.conflict_pending,
+      fullLabel: getExplanationAttention(explanation).reason,
       badgeClass: 'bg-amber-50 text-amber-800 border-amber-300',
       dotClass: 'bg-amber-500',
     }
@@ -182,9 +183,9 @@ export function getExplanationStatusInfo(explanation, {
   if (s === 'needs_regeneration') {
     return {
       status: 'needs_regeneration',
-      label: 'Cần sinh lại',
-      chipLabel: 'Cần sinh lại',
-      fullLabel: 'Cần sinh lại lời giải do đổi đáp án',
+      label: EXPLANATION_ATTENTION_LABELS.needs_regeneration,
+      chipLabel: EXPLANATION_ATTENTION_LABELS.needs_regeneration,
+      fullLabel: getExplanationAttention(explanation).reason,
       badgeClass: 'bg-orange-50 text-orange-700 border-orange-300',
       dotClass: 'bg-orange-500',
     }
@@ -193,9 +194,9 @@ export function getExplanationStatusInfo(explanation, {
   if (s === 'possibly_stale') {
     return {
       status: 'possibly_stale',
-      label: 'Có thể lỗi thời',
-      chipLabel: 'Lỗi thời',
-      fullLabel: 'Có thể lỗi thời do câu hỏi đã đổi',
+      label: EXPLANATION_ATTENTION_LABELS.possibly_stale,
+      chipLabel: EXPLANATION_ATTENTION_LABELS.possibly_stale,
+      fullLabel: getExplanationAttention(explanation).reason,
       badgeClass: 'bg-zinc-100 text-zinc-600 border-zinc-300',
       dotClass: 'bg-zinc-400',
     }
@@ -222,9 +223,7 @@ export function ExplanationStatusBadge({
   const info = getExplanationStatusInfo(explanation, { isGenerating, isUnsaved, runStatus, runErrorMessage })
   const isConflict = info.status === 'conflict_pending'
   const isGeneratingStatus = info.status === 'generating'
-  const tooltipText = isConflict
-    ? 'Chờ duyệt (Lệch đáp án giữa AI và giáo viên)'
-    : info.fullLabel || `Trạng thái: ${info.label}`
+  const tooltipText = info.fullLabel || info.label
   const displayLabel = info.chipLabel || info.label
 
   return (
@@ -262,6 +261,7 @@ export default function QuestionExplanationModal({
   skill = 'reading',
   isPractice = false,
   onExplanationUpdated,
+  onResolveConflict,
   isAIBusy = false,
   runStatus = null,
   runErrorMessage = null,
@@ -359,9 +359,10 @@ export default function QuestionExplanationModal({
 
   if (!isOpen || !question) return null
 
-  const currentFailure = activeRunFailure(currentExplanation, runStatus, runErrorMessage)
+  const currentFailure = runStatus === 'error' ? activeRunFailure(currentExplanation, runStatus, runErrorMessage) : null
   const effectiveRunStatus = runStatus === 'error' && !currentFailure ? null : runStatus
   const statusInfo = getExplanationStatusInfo(currentExplanation, { runStatus: effectiveRunStatus, runErrorMessage })
+  const attention = currentFailure ? null : getExplanationAttention(currentExplanation, effectiveRunStatus, runErrorMessage)
   const formatTime = value => Number.isFinite(Date.parse(value))
     ? new Date(value).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : null
   const qNum = question.number
@@ -540,9 +541,10 @@ export default function QuestionExplanationModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 overflow-y-auto"
       role="dialog"
       aria-modal="true"
+      aria-label={`Giải thích câu ${qNum}`}
       onClick={(e) => {
         if (e.target === e.currentTarget && !isSavingEdit && !isReviewing) {
           onClose()
@@ -633,47 +635,28 @@ export default function QuestionExplanationModal({
           {/* TAB 1: VIEW EXPLANATION */}
           {activeTab === 'view' && (
             <div className="space-y-4">
-              {/* Conflict banner */}
-              {statusInfo.status === 'conflict_pending' && (
-                <div className="rounded-2xl border border-amber-300 bg-amber-50/80 p-3.5 text-xs text-amber-900 flex items-start gap-3">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <p className="font-bold">Lệch đáp án giữa AI và giáo viên (Chờ duyệt)</p>
-                    <p>
-                      Đáp án do AI sinh ra là: <strong className="underline">{currentExplanation?.aiAnswer || currentExplanation?.answer}</strong>, trong khi đáp án của đề là: <strong className="underline">{question.correctAnswer}</strong>.
-                    </p>
-                    <p className="text-amber-800 font-medium">
-                      🔒 Lời giải này đang được <strong>ẨN KHỎI HỌC SINH</strong>. Bạn có thể mở tab <em>Sửa trực tiếp</em> để chỉnh lời giải cho khớp đáp án, hoặc bấm <em>Duyệt</em> nếu bạn đồng ý với lời giải hiện tại.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Needs regeneration banner */}
-              {statusInfo.status === 'needs_regeneration' && (
-                <div className="rounded-2xl border border-orange-300 bg-orange-50/80 p-3.5 text-xs text-orange-900 flex items-start gap-3">
-                  <RefreshCw className="w-4 h-4 text-orange-600 shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <p className="font-bold">Đáp án gốc của giáo viên được giữ nguyên</p>
-                    <p>
-                      Lời giải hiện tại từng được sinh cho một đáp án khác nên đang bị ẩn khỏi học sinh. Vui lòng mở tab <strong>"Sửa trực tiếp"</strong> để cập nhật lời giải cho khớp với đáp án <strong>"{question.correctAnswer}"</strong>.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Possibly stale banner */}
-              {statusInfo.status === 'possibly_stale' && (
-                <div className="rounded-2xl border border-zinc-300 bg-zinc-50 p-3.5 text-xs text-zinc-800 flex items-start gap-3">
-                  <AlertCircle className="w-4 h-4 text-zinc-500 shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <p className="font-bold">Đề bài hoặc đáp án vừa được chỉnh sửa (Có thể lỗi thời)</p>
-                    <p>
-                      {currentExplanation?.staleReason || 'Câu hỏi đã thay đổi sau khi tạo giải thích.'} Lời giải đang tạm ẩn khỏi học sinh cho đến khi được duyệt hoặc tạo lại.
-                    </p>
-                  </div>
-                </div>
-              )}
+              {attention && <section aria-label={attention.title} className="rounded-xl border border-amber-200 bg-amber-50/50 p-3.5 text-sm">
+                <p className="m-0 font-semibold text-amber-900">{attention.title}</p>
+                <p className="mt-1 mb-0 text-zinc-800 break-words">{attention.reason}</p>
+                {attention.action === 'confirm' && <dl className="mt-3 mb-0 grid grid-cols-2 gap-3 text-xs">
+                  <div><dt className="text-zinc-500">Đáp án trong đề</dt><dd className="m-0 mt-1 font-semibold break-words">{question.correctAnswer || 'Chưa có'}</dd></div>
+                  <div><dt className="text-zinc-500">AI đề xuất</dt><dd className="m-0 mt-1 font-semibold break-words">{currentExplanation?.aiAnswer || currentExplanation?.answer}</dd></div>
+                </dl>}
+                <p className="mt-2 mb-0 text-xs text-zinc-600">{attention.hint}</p>
+                <button type="button" disabled={isAIBusy || isSavingEdit || isReviewing}
+                  onClick={() => {
+                    if (attention.action !== 'confirm' || !onResolveConflict) { setActiveTab('edit'); return }
+                    onClose()
+                    onResolveConflict({ number: qNum, type: qType, inputAnswer: question.correctAnswer,
+                      aiAnswer: currentExplanation.aiAnswer || currentExplanation.answer,
+                      explanation: currentExplanation, reasoning: currentExplanation.reasoning,
+                      evidence: currentExplanation.evidence?.parts?.[0]?.text || '',
+                    })
+                  }}
+                  className="mt-3 min-h-9 rounded-lg bg-zinc-900 px-3 text-xs font-semibold text-white hover:bg-zinc-700 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 cursor-pointer">
+                  {attention.action === 'confirm' && onResolveConflict ? 'Xác nhận đáp án' : 'Sửa lời giải'}
+                </button>
+              </section>}
 
               {/* C.4: Banner displaying which answer this explanation explains */}
               <div className="rounded-2xl border border-zinc-200 bg-zinc-50/90 p-3 flex flex-wrap items-center justify-between gap-2.5 text-xs">
@@ -683,7 +666,7 @@ export default function QuestionExplanationModal({
                     {currentExplanation?.answer || question.correctAnswer}
                   </span>
                 </div>
-                {currentExplanation?.answer && question.correctAnswer && !isSameAnswer(currentExplanation.answer, question.correctAnswer) && (
+                {!attention && currentExplanation?.answer && question.correctAnswer && !isSameAnswer(currentExplanation.answer, question.correctAnswer) && (
                   <div className="flex items-center gap-1.5 text-amber-800 bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-200">
                     <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                     <span className="font-medium">
@@ -1216,7 +1199,7 @@ export default function QuestionExplanationModal({
                   <Check className="w-4 h-4 text-indigo-600" />
                   Đã sửa tay bởi giáo viên
                 </span>
-              ) : (
+              ) : !attention && (!currentExplanation?.answer || isSameAnswer(currentExplanation.answer, question.correctAnswer)) ? (
                 <button
                   type="button"
                   onClick={handleReview}
@@ -1231,7 +1214,7 @@ export default function QuestionExplanationModal({
                   )}
                   Duyệt giải thích câu {qNum}
                 </button>
-              )}
+              ) : null}
             </div>
           )}
 

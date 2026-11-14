@@ -58,7 +58,7 @@ import {
   createBlockedReport,
   addRunOutcome, updateRunProgress, isRunServiceFailure, eligibleExplanationNumbers, reconcileRunReport,
   finishRunReport,
-  clearRunReport,
+  clearRunReport, clearSavedQuestionIssue,
   makeRunReportKey,
 
 } from '../../utils/explanationRunReport'
@@ -93,7 +93,7 @@ function GroupEditor({
   generatingQuestionNumbers: generatingQuestionNumbersProp = null,
   runStatusByNumber = null,
   runErrorMessageByNumber = null,
-  unsavedQuestionNumbers, onExplanationSaved,
+  unsavedQuestionNumbers, onExplanationSaved, onResolveConflict,
 }) {
   const [selectedQModal, setSelectedQModal] = useState(null)
   const groupType = group?.type || 'fill_blank'
@@ -248,6 +248,7 @@ function GroupEditor({
           isAIBusy={isAIBusy}
           runStatus={runStatusByNumber?.[selectedQModal.qNum] ?? null}
           runErrorMessage={runErrorMessageByNumber?.[selectedQModal.qNum] ?? null}
+          onResolveConflict={onResolveConflict}
           onExplanationUpdated={(newExp, qNum) => {
             const targetNum = qNum || selectedQModal?.qNum
             const updatedQuestions = (group.questions || []).map(q =>
@@ -471,7 +472,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
 
   const runErrorMessageByNumber = useMemo(() => {
     const map = {}
-    for (const row of runReport?.rows || []) {
+    for (const row of [...(runReport?.needsRetry || []), ...(runReport?.rows || [])]) {
       if (row.number != null) map[row.number] = { ...row, failedAt: row.failedAt || runReport.finishedAt }
     }
     return map
@@ -1518,8 +1519,19 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
                               runStatusByNumber={runStatusByNumber}
                               runErrorMessageByNumber={runErrorMessageByNumber}
                               unsavedQuestionNumbers={unsavedQuestionNumbers}
+                            onResolveConflict={conflict => {
+                              pendingAIFnRef.current = opts => handleGenerateGroupAI(group, opts)
+                              setAiConflicts([conflict])
+                              setConflictModalOpen(true)
+                            }}
                             onExplanationSaved={(explanation, number) => {
                               pristineExplanationsRef.current = { ...pristineExplanationsRef.current, [number]: explanation }
+                              setRunReport(previous => clearSavedQuestionIssue(previous, number))
+                              setRunStatusByNumber(previous => {
+                                const next = { ...previous }
+                                delete next[number]
+                                return next
+                              })
                             }}
                             />
                           </div>
