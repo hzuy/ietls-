@@ -49,3 +49,9 @@ Planning note: AgentKit CLI is unavailable in this environment; the scoped plan 
 - Production build passed. Scoped lint has zero errors and the four pre-existing modal hook/refresh warnings. Frontend production dependency audit: zero findings. Impeccable detector: no findings. Existing CSS highlight and chunk-size build warnings remain.
 - Security review: all data remains React text, technical reasons are redacted, no credentials or raw SQL added, no authorization/learner visibility checks weakened, no real data generated/modified by tests. Manual acknowledgement clears only the saved question's run issue.
 - The previously verified manual-save synchronization checkpoint is `202b2bfb5b1016363f1023f9820228fcd8f36a26`; deploy it together with this scoped presentation repair.
+
+## Minimal quality-list follow-up
+
+The collapsed summary keeps only its title and count. Expanding shows a wrapping row of numbered question buttons; removed the reason filters, explanatory paragraph and repeated status labels. Reasons remain in accessible button names/tooltips and the question modal. Existing question selection and all four editor integrations are unchanged. Chromium verified 11 items at 390/1440 px, keyboard disclosure, selected-question routing and no horizontal overflow. Scoped lint, build, dependency audit (zero findings) and detector passed; the change adds no API calls or data writes.
+
+The existing fresh-visit integration test now waits for the storage-cleanup effect instead of assuming it has finished when the form input first appears. Its assertion is unchanged; the initial full run exposed that timing assumption under load.

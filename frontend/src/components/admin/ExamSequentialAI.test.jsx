@@ -197,7 +197,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     expect(screen.getByRole('button', { name: 'AI giải thích' })).toBeEnabled()
     expect(screen.queryByTestId('explanation-run-panel')).not.toBeInTheDocument()
     expect(screen.queryByTestId('ai-resume-banner-running')).not.toBeInTheDocument()
-    expect(sessionStorage.getItem(key)).toBeNull()
+    await waitFor(() => expect(sessionStorage.getItem(key)).toBeNull())
     expect(api.get.mock.calls.some(([url]) => url.includes('explanation-status'))).toBe(false)
   })
 
