@@ -642,6 +642,18 @@ export default function ReadingPractice() {
             onDismiss={clearDraft}
           />
 
+                <ExplanationRunPanel
+                  report={aiReport.report}
+                  isGenerating={expLock.isGenerating}
+                  isCancelling={expLock.isCancelling}
+                  progress={expLock.localProgress}
+                  onCancel={handleCancelAI}
+                  onResume={!expLock.isLockedGenerate && ['interrupted', 'unprocessed'].includes(expLock.resumeBanner?.variant) ? expLock.resumeBanner.onAction : undefined}
+                  onRetryFailed={expLock.isLockedGenerate ? undefined : numbers => handleGenerateAI({ questionNumbers: numbers, overwriteProtected: false })}
+                  onDismiss={aiReport.dismiss}
+                  className="mb-4"
+                />
+
           {/* Grid 2 cột: Cột trái (Bài đọc & Thông tin), Cột phải (Nhóm câu hỏi) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* ── CỘT TRÁI (5/12): THÔNG TIN BÀI & PASSAGE BÀI ĐỌC (Sticky) ── */}
@@ -694,17 +706,7 @@ export default function ReadingPractice() {
             <div className="lg:col-span-7">
               <div className="bg-white rounded-2xl p-4 sm:p-5 border border-zinc-200 shadow-xs">
                 {/* Sticky Progress khi đang sinh AI */}
-                <ExplanationRunPanel
-                  report={aiReport.report}
-                  isGenerating={expLock.isGenerating}
-                  isCancelling={expLock.isCancelling}
-                  progress={expLock.localProgress}
-                  onCancel={handleCancelAI}
-                  onResume={!expLock.isLockedGenerate && ['interrupted', 'unprocessed'].includes(expLock.resumeBanner?.variant) ? expLock.resumeBanner.onAction : undefined}
-                  onRetryFailed={expLock.isLockedGenerate ? undefined : numbers => handleGenerateAI({ questionNumbers: numbers, overwriteProtected: false })}
-                  onDismiss={aiReport.dismiss}
-                  className="mb-4"
-                />
+
 
                 <ExplanationQualityFilter groups={form.questionGroups} />
 

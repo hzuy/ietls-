@@ -331,7 +331,6 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   )
   const [runReport, setRunReport] = useState(null)
   const [runStatusByNumber, setRunStatusByNumber] = useState({})
-  const runPanelRef = useRef(null)
 
   useEffect(() => {
     if (!runReportKey) {
@@ -1315,8 +1314,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
           </div>
         )}
 
-        <div ref={runPanelRef}>
-          <ExplanationRunPanel
+        <ExplanationRunPanel
             report={runReportForPanel}
             isGenerating={expLock.isGenerating}
             isCancelling={expLock.isCancelling}
@@ -1332,8 +1330,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
               setRunStatusByNumber({})
             }}
             className="mb-4"
-          />
-        </div>
+        />
 
         <ExplanationQualityFilter sections={form.sections} onOpenQuestion={openRunQuestion} />
 

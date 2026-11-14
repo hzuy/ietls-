@@ -62,7 +62,7 @@ export default function ExplanationRunPanel({
   return (
     <section ref={panelRef} data-testid="explanation-run-panel" data-status={status}
       aria-label="Báo cáo sinh giải thích AI"
-      className={`${isGenerating ? 'sticky top-20 z-30' : ''} scroll-mt-28 rounded-xl border border-zinc-200 bg-white text-zinc-800 [&_button]:focus-visible:outline-2 [&_button]:focus-visible:outline-offset-2 ${className}`}>
+      className={`${isGenerating ? 'sm:sticky sm:top-20 z-30' : ''} scroll-mt-28 rounded-xl border border-zinc-200 bg-white text-zinc-800 [&_button]:focus-visible:outline-2 [&_button]:focus-visible:outline-offset-2 ${className}`}>
       <div className="flex flex-wrap items-start justify-between gap-3 p-4">
         <div className="min-w-0">
           <h4 className="m-0 flex items-center gap-2 text-sm font-semibold">
