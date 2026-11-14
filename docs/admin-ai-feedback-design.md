@@ -1,6 +1,6 @@
 # Đề xuất thống nhất tiến trình và lỗi sinh giải thích AI
 
-Ngày: 2026-11-14. Trạng thái: đã được duyệt, đang triển khai và xác minh.
+Ngày: 2026-11-14. Trạng thái: đã triển khai và xác minh trên production.
 
 ## Mục tiêu và phạm vi
 
@@ -84,3 +84,13 @@ Nền trắng, viền xám nhẹ, chữ nội dung dễ đọc; một progress b
 5. Chạy regression, review bảo mật thông báo/secret, build; sau khi triển khai được yêu cầu, stage-then-swap và smoke test theo DEPLOY.md. Không tạo/sửa lời giải trên DB thật để thử giao diện.
 
 Rủi ro cần chặn trước triển khai: phần trăm phải có đúng mẫu số; snapshot của retry không làm mất lỗi ngoài phạm vi; report phục hồi không giả nhận đang chạy; xem chi tiết không mở khóa ghi trong tác vụ đang hoạt động; lỗi kỹ thuật không lộ key/token/URL có thông tin xác thực.
+
+## Kết quả triển khai
+
+- Source frontend: `afc2f846a3c8fc8eaefa789d5b9ff3f37d481775`; release `/home/huuduy/releases/ai-feedback-afc2f846-1794634437`.
+- Một panel duy nhất, đặt dưới toolbar trước nội dung Test/Practice. Danh sách lỗi chỉ mở khi bấm; thông báo chặn bắt đầu hiển thị trong trang. Bộ lọc chất lượng và chi tiết kỹ thuật mặc định thu gọn. Không còn toast/native alert tổng kết trùng lặp.
+- Full frontend: 954 test đạt. Sau thay đổi vị trí panel: 42 test tập trung đạt. Backend: 1130 test đạt, 64 test tích hợp DB dev được bỏ qua.
+- Chromium: đủ 12 trường hợp (bốn editor × 390/768/1440 px) đạt xem lỗi khi đang chạy, mở câu, khóa sửa/retry, dừng và retry đúng câu. Kiểm tra riêng trạng thái mặc định thu gọn trên mobile/desktop đạt. Dữ liệu browser là fixture, không ghi DB thật.
+- Production build, ESLint phần thay đổi, secret scan và audit frontend production đạt; detector giao diện không có finding. Cảnh báo CSS highlight/bundle size sẵn có không thay đổi.
+- Deploy frontend theo stage-then-swap; 96 file khớp checksum, HTML và JS chính qua domain khớp build, API public trả JSON hợp lệ. Backend image/Gemini không thay đổi; không chạy migration hoặc sinh giải thích trên dữ liệu thật.
+- Rollback frontend: `/home/huuduy/backups/ai-feedback-afc2f846-1794634437/frontend.tar.gz`. Source archive, manifest và marker `DEPLOYED` giữ tại thư mục release trên server; giữ nguyên historical dirty checkout.

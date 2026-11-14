@@ -1,5 +1,17 @@
 # Admin AI explanation release — 2026-11-13
 
+## Minimal feedback UI — 2026-11-14
+
+Deployed frontend `afc2f846a3c8fc8eaefa789d5b9ff3f37d481775` to `https://hzuy.net`. A single progress panel replaces duplicated toolbar badges, sticky progress and outcome toasts/alerts. Errors remain collapsed until explicitly opened, including after completion; blocking validation stays visible inline. Both Practice panels sit above the two-column editor so mobile users can see progress immediately.
+
+Question failures expose causes in the question modal while the task continues; editing and retry remain locked. Reports update with each chunk without double-counting the final group result, retain failures outside scoped retries, distinguish queued service failures from processed questions, and exclude protected questions from the planned workload. Saved explanation quality has its own collapsed reason filter.
+
+Validation: full frontend **954 passed**; final panel placement **42 targeted tests passed**; backend **1130 passed, 64 skipped**; Chromium **12 scenarios passed** across all four editors and three widths. Production frontend dependency audit and source secret scan passed. Error messages, session reports and clipboard details redact credentials. Existing CSS highlight/bundle-size warnings remain.
+
+Frontend deployment backed up and staged before swapping, verified checksums for all **96 files**, matched public HTML/main JS to the local build, checked the public API, and confirmed the backend image remained unchanged. Release: `/home/huuduy/releases/ai-feedback-afc2f846-1794634437`. Rollback: `/home/huuduy/backups/ai-feedback-afc2f846-1794634437/frontend.tar.gz`. Source was archived separately to preserve the historical server working tree. No DB writes, migration or live explanation generation were used for this UI release.
+
+See [accepted design and verification](admin-ai-feedback-design.md).
+
 ## Update — 2026-11-14
 
 Deployed source commit `02dae1062e5a291e21b9848756b13567acf21f1e` to `https://hzuy.net`.
