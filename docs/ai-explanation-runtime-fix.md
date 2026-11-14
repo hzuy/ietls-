@@ -25,4 +25,12 @@ Prisma's documented interactive transaction settings and rollback behavior: [tra
 - Chromium: 12 scenarios across four editors verify old explanation/failure timestamps, queue timeout duration, database save labeling, and removal of a superseded warning. All requests use fixtures.
 - Production build and source syntax checks passed. Scoped ESLint has no errors; existing modal hook/refresh warnings remain. Frontend production dependency audit: zero findings. Backend retains the two previously documented moderate `exceljs → uuid` dependency findings; no dependencies changed.
 
-Deployment verification will use a bounded read-only `SELECT` transaction lasting over five seconds plus a synthetic Gemini JSON request. These probes do not generate or update real explanations.
+## Production rollout
+
+- Deployed source `82c11bd4a434b245c0ce6869c96709f63a55428d` to https://hzuy.net on 2026-11-14.
+- Release: `/home/huuduy/releases/ai-runtime-82c11bd4-1794649619`; rollback backup: `/home/huuduy/backups/ai-runtime-82c11bd4-1794649619`.
+- Backend image: `sha256:d7b5ea2c5b9cd8cfac02cdd1baa37464277a4902e67fef9cb5235fe64fa80c9c`.
+- Candidate image passed a transaction explicitly set READ ONLY with `SELECT 1 AS ok FROM pg_sleep(5.4)`: total 7,542 ms. This validates the production connection with the new save limits without updating application data.
+- Candidate Gemini client returned valid synthetic JSON using `gemini-3.5-flash-lite`.
+- Backend API smoke passed. Staged frontend asset checksums and public HTML/main JavaScript checksums matched the local build after activation. Prisma reports all 14 migrations up to date; no migrations or real explanation generation were run.
+- Initial candidate probe used Docker's raw env-file parsing, which preserved quotes that Compose normally strips. It failed before activation. The successful probe used the existing container's parsed environment; no environment values were changed.
