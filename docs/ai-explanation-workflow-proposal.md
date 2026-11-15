@@ -218,3 +218,12 @@ PostgreSQL 16 tách biệt: cả bốn tổ hợp Test/Practice × Reading/Liste
 - Dữ liệu cũ được chuẩn hóa khi đọc, không ghi đè hàng loạt. Giao diện xem và sửa cùng dùng ngữ cảnh dạng câu/nhóm và ngân hàng lựa chọn.
 - “Chờ duyệt” là bản nháp hợp lệ, không nằm trong danh sách lỗi “Cần kiểm tra”. Câu có xung đột hiển thị đáp án đề và đáp án trong lời giải AI; sửa lời giải hoặc quay lại sửa đề, còn tạo lại theo đáp án đề là thao tác riêng. AI không tự sửa đáp án đề.
 - Bốn editor dùng chung một mục “Cần kiểm tra lời giải”: hợp nhất trạng thái đã lưu và lỗi lượt chạy theo số câu, không đếm trùng. Bỏ báo cáo kết thúc riêng cùng các dòng tổng kết lặp; chỉ giữ tiến độ khi đang chạy. Mở câu, thử lại lỗi đủ điều kiện và chi tiết kỹ thuật thu gọn nằm trong mục chung. Lỗi thiếu dữ liệu không gắn số câu vẫn được giữ, còn lỗi cũ được bỏ sau khi có bản lưu mới hơn.
+
+## 12. Hotfix phản hồi bị cắt và phân loại lỗi nội dung — đã duyệt
+
+Đã tái hiện chỉ đọc với Test 23 câu 1: HTTP 200 nhưng Gemini kết thúc `MAX_TOKENS` ở giới hạn 4096 token, JSON không hoàn chỉnh. Bản nháp cũ cùng đáp án `press` bị lỗi bản dịch, đang bị gán chung `no_support`. Người dùng duyệt sửa cả pipeline và hướng xử lý, giữ một mục kiểm tra chung.
+
+1. Giới hạn đầu ra bằng prompt và schema; không chỉ tăng token. Phản hồi bị cắt không được vá rồi coi là kết quả hợp lệ. Chỉ thử lại một lần với yêu cầu ngắn hơn nếu còn đủ ngân sách thời gian; giữ bản đã lưu khi thất bại.
+2. Giữ reasoning/bằng chứng/câu hoàn chỉnh đã hợp lệ khi bản dịch thiếu/sai. Lưu nháp với lý do riêng, chặn xuất bản đến khi giáo viên sửa; không đánh đồng với thiếu bằng chứng. Lỗi JSON/schema không được biến thành `no_support`.
+3. Thiếu bằng chứng là kết quả cần đối chiếu nguồn/đáp án, không tự thử lại vô hạn. UI hiện đúng nguyên nhân và gợi ý sửa bản dịch, sửa lời giải hoặc sửa đề; không đổi đáp án tự động.
+4. Test các trường hợp cắt JSON (kể cả JSON còn parse được), retry và timeout/cancel, thiếu/sai bản dịch, thiếu bằng chứng, lưu/duyệt không gọi AI và bảo vệ bản đang dùng. Review bảo mật, probe Gemini chỉ đọc, deploy stage-then-swap; không backfill/ghi DB thật để thử nghiệm.
