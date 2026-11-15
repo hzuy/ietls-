@@ -49,6 +49,7 @@ async function requestGeminiJson(prompt, {
   withMetadata = false,
   retriesPerModel = 1,
   allowModelFallback = true,
+  strictJson = false,
   onDiagnostic = null,
   signal = null,
 } = {}) {
@@ -166,22 +167,42 @@ async function requestGeminiJson(prompt, {
         }
 
         const data = await res.json()
-        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+        const candidate = data.candidates?.[0]
+        const rawText = strictJson
+          ? (candidate?.content?.parts || []).filter(part => !part.thought).map(part => part.text || '').join('')
+          : candidate?.content?.parts?.[0]?.text || ''
         const { repairTruncatedJson } = require('../services/json/jsonSanitizer')
-        const finishReason = data.candidates?.[0]?.finishReason || null
-        const parsed = JSON.parse(repairTruncatedJson(rawText, finishReason))
+        const finishReason = candidate?.finishReason || null
+        const tokenUsage = Object.fromEntries(['promptTokenCount', 'candidatesTokenCount', 'totalTokenCount']
+          .filter(key => Number.isFinite(data.usageMetadata?.[key])).map(key => [key, data.usageMetadata[key]]))
+        const outputError = truncated => Object.assign(new Error(truncated
+          ? 'Phản hồi AI bị cắt vì vượt giới hạn độ dài.'
+          : 'Phản hồi AI không có dữ liệu hoàn chỉnh, hợp lệ.'), {
+          code: truncated ? 'AI_RESPONSE_TRUNCATED' : 'AI_RESPONSE_INVALID', status: 502,
+          phase: 'parsing', causeCode: truncated ? 'MAX_TOKENS' : 'INVALID_JSON', finishReason, tokenUsage,
+        })
+        // A parseable prefix is not proof that generation completed. Never publish
+        // repaired/truncated explanation JSON; other AI integrations keep their policy.
+        if (strictJson && finishReason === 'MAX_TOKENS') throw outputError(true)
+        if (strictJson && finishReason && finishReason !== 'STOP') throw outputError(false)
+        let parsed
+        try { parsed = JSON.parse(strictJson ? rawText.trim() : repairTruncatedJson(rawText, finishReason)) }
+        catch (error) { if (strictJson) throw outputError(false); throw error }
+        if (strictJson && (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))) throw outputError(false)
 
         if (withMetadata) {
           return {
             data: parsed,
             provider: 'Gemini',
             model: targetModel,
+            ...(strictJson ? { finishReason, tokenUsage } : {}),
           }
         }
         return parsed
       } catch (err) {
         lastError = err
-        onDiagnostic?.({ causeCode: err.status ? `HTTP_${err.status}` : err.name === 'TimeoutError' ? 'PROVIDER_TIMEOUT' : 'PROVIDER_ERROR' })
+        onDiagnostic?.({ causeCode: err.causeCode || (err.status ? `HTTP_${err.status}` : err.name === 'TimeoutError' ? 'PROVIDER_TIMEOUT' : 'PROVIDER_ERROR'),
+          ...(err.phase ? { phase: err.phase, finishReason: err.finishReason, tokenUsage: err.tokenUsage } : {}) })
         if (signal?.aborted) throw err
         const isTransient = err.status === 503 || err.status === 429 || err instanceof SyntaxError
         if (isTransient && attempt < retriesPerModel) {

@@ -219,7 +219,7 @@ function filterLearnerExplanation(explanation, questionType = null, options = nu
   if (!isExplanationVisibleToLearner(explanation)) return null
   const result = sanitizeExplanationForRead(explanation, questionType, options)
   for (const key of ['teacher_note', 'teacherKeptAnswer', 'aiAnswer', 'no_support', 'supportNote', 'needsRegenerationReason',
-    'provider', 'model', 'isFallback', 'validationIssue', 'draftVersion', 'sourceHash', 'publishedExplanation', 'workflowVersion']) delete result[key]
+    'provider', 'model', 'isFallback', 'validationIssue', 'draftVersion', 'sourceHash', 'publishedExplanation', 'workflowVersion', 'contentIssue']) delete result[key]
   return result
 }
 

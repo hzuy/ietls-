@@ -16,6 +16,29 @@ import {
   copyRunReportText,
 } from './explanationRunReport'
 
+it.each(['AI_RESPONSE_TRUNCATED', 'AI_RESPONSE_INVALID'])('explains parsing failures specifically for %s', code => {
+  const result = classifyRunError({ response: { status: 502, data: { code, phase: 'parsing', message: 'provider raw JSON' } } })
+  expect(result.code).toBe(code)
+  expect(result.message).not.toBe('Dịch vụ AI tạm thời gián đoạn.')
+  expect(result.message).toMatch(code === 'AI_RESPONSE_TRUNCATED' ? /cắt/ : /không hợp lệ/)
+})
+it('retains content codes/actions through report snapshots without enabling bulk retry', () => {
+  const report = addRunOutcome(createRunReport({ examId: 10 }), { sentNumbers: [1, 2], loopResult: {
+    errors: [{ number: 1, code: 'MISSING_EVIDENCE', action: 'edit_source', message: 'Không có câu chứng minh.' }],
+    needsRetryQuestions: [{ number: 2, code: 'TRANSLATION_INVALID', action: 'edit_translation', reason: 'Bản dịch còn tiếng Anh.' }],
+  } })
+  expect(report.rows[0]).toMatchObject({ code: 'MISSING_EVIDENCE', action: 'edit_source', retryable: false })
+  expect(report.needsRetry[0]).toMatchObject({ code: 'TRANSLATION_INVALID', action: 'edit_translation' })
+  expect(report.snapshots.practice.errors[0]).toMatchObject({ code: 'MISSING_EVIDENCE', action: 'edit_source' })
+  expect(report.snapshots.practice.needsRetryQuestions[0]).toMatchObject({ code: 'TRANSLATION_INVALID', action: 'edit_translation' })
+  expect(retryableNumbers(report)).toEqual([])
+})
+it('skips saved missing-proof drafts by default but allows an explicit teacher regeneration', () => {
+  const group = { questions: [{ number: 1, explanation: { status: 'needs_regeneration', contentIssue: { code: 'MISSING_EVIDENCE' } } }] }
+  expect(eligibleExplanationNumbers(group)).toEqual([])
+  expect(eligibleExplanationNumbers(group, { questionNumbers: [1] })).toEqual([1])
+})
+
 it('clears only the acknowledged question from current-run errors and review warnings', () => {
   const report = { status: 'done', rows: [{ number: 1 }, { number: 2 }], needsRetry: [{ number: 1 }, { number: 3 }] }
   expect(clearSavedQuestionIssue(report, 1)).toEqual({ ...report, rows: [{ number: 2 }], needsRetry: [{ number: 3 }] })

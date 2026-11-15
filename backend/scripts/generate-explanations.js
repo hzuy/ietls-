@@ -285,7 +285,7 @@ function isVietnameseTranslation(text) {
   return true
 }
 
-function enrichExplanation(raw, ctx, correctAnswer, family = 'GENERIC', { attempt = 0 } = {}) {
+function enrichExplanation(raw, ctx, correctAnswer, family = 'GENERIC', { attempt = 0, allowPartialTranslation = false } = {}) {
   if (ctx.questionType && classifyFamily(ctx.questionType) !== 'GENERIC') family = classifyFamily(ctx.questionType)
   if (!raw || typeof raw !== 'object') throw new ExplanationValidationError('JSON trả về không phải object')
   const questionChunks = cleanChunks(raw.question_chunks, 12)
@@ -360,6 +360,7 @@ function enrichExplanation(raw, ctx, correctAnswer, family = 'GENERIC', { attemp
 
   let fullSentence = ''
   let translation = ''
+  let contentIssue = null
 
   if (family === 'COMPLETION') {
     const rawTranslation = cleanString(raw.translation)
@@ -369,7 +370,10 @@ function enrichExplanation(raw, ctx, correctAnswer, family = 'GENERIC', { attemp
       fullSentence = rawFullSentence
       translation = rawTranslation
     } else {
-      if (attempt === 0) {
+      if (allowPartialTranslation) {
+        fullSentence = rawFullSentence
+        contentIssue = { code: 'TRANSLATION_INVALID', message: 'Cần sửa bản dịch tiếng Việt.' }
+      } else if (attempt === 0) {
         throw new ExplanationValidationError(
           'Bản dịch (translation) cho câu điền từ phải là câu tiếng Việt hoàn chỉnh có dấu thanh, không được để tiếng Anh hoặc ghép cả hai ngôn ngữ.'
         )
@@ -398,6 +402,7 @@ function enrichExplanation(raw, ctx, correctAnswer, family = 'GENERIC', { attemp
     teacher_note: cleanString(raw.teacher_note, 1000) || null,
     paraphrases,
     distractors,
+    ...(contentIssue ? { contentIssue } : {}),
   }
 }
 
@@ -537,7 +542,7 @@ function buildPrompt(q, family, ctx, previousError = null, teacherFeedback = nul
 }`
   }
 
-  return `Bạn là gia sư IELTS, giải thích theo phương pháp "Linear thinking": tách câu thành từng cụm ý ngắn, gắn nghĩa tiếng Việt cho từng cụm, rồi đối chiếu câu hỏi với ${sourceName} theo 4 bước. Đề thi ${skillLabel}.
+  return `${optionsOrFixed?.compact ? require('../lib/explanationOutputPolicy').compactInstruction(optionsOrFixed) + '\n\n' : ''}Bạn là gia sư IELTS, giải thích theo phương pháp "Linear thinking": tách câu thành từng cụm ý ngắn, gắn nghĩa tiếng Việt cho từng cụm, rồi đối chiếu câu hỏi với ${sourceName} theo 4 bước. Đề thi ${skillLabel}.
 
 ${TYPE_INSTRUCTION[family]}
 ${alternativesInstruction(family, extractOptionPairs(questionOptions(q)))}
@@ -864,12 +869,20 @@ function buildResponseSchema(type, rawOptions = null, schemaOpts = {}) {
   if (isFixedMode) {
     required.push('no_support')
   }
+  if (schemaOpts?.compact && family === 'COMPLETION') {
+    // Optional schema fields were being omitted despite the prompt. Empty values
+    // are still permitted when the model explicitly reports no supporting evidence.
+    required.push('full_sentence', 'translation')
+    properties.full_sentence.description = 'Bắt buộc khi no_support=false: câu tiếng Anh hoàn chỉnh sau khi điền đáp án vào ngữ cảnh câu hỏi.'
+    properties.translation.description = 'Bắt buộc khi no_support=false: bản dịch tiếng Việt có dấu của full_sentence, không để trống.'
+  }
 
-  return {
+  const schema = {
     type: 'OBJECT',
     properties,
     required,
   }
+  return schemaOpts?.compact ? require('../lib/explanationOutputPolicy').compactSchema(schema, schemaOpts) : schema
 }
 
 function buildVisionUnavailableError() {

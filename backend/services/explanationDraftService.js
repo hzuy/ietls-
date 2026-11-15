@@ -87,7 +87,7 @@ function preflight(data) {
   return null
 }
 
-function payloadIssue(data, payload) {
+function corePayloadIssue(data, payload) {
   if (payload.no_support) return payload.supportNote || payload.support_note || 'Chưa tìm thấy bằng chứng phù hợp với đáp án đề.'
   if (!legacy.isAnswerMatch(data.answer, payload.answer, generator.questionOptions(data.q), data.q.type)) return 'Lời giải không khớp đáp án đã lưu trong đề.'
   if (!String(payload.reasoning || '').trim()) return 'Lời giải chưa có phần giải thích đáp án.'
@@ -106,34 +106,85 @@ function payloadIssue(data, payload) {
   return null
 }
 
-async function fixedDraft(data, signal, onDiagnostic) {
-  const prompt = generator.buildPrompt(data.q, data.family, data.ctx, null, null, { isFixedMode: true, targetAnswer: data.answer })
+function contentIssue(data, payload) {
+  const message = corePayloadIssue(data, payload)
+  if (message) {
+    if (payload.no_support) return { code: 'MISSING_EVIDENCE', message, action: 'edit_source' }
+    if (!legacy.isAnswerMatch(data.answer, payload.answer, generator.questionOptions(data.q), data.q.type)) return { code: 'ANSWER_MISMATCH', message, action: 'retry_generation' }
+    if (/trích dẫn/i.test(message)) return { code: 'MISSING_EVIDENCE', message, action: 'edit_source' }
+    return { code: 'EXPLANATION_INVALID', message, action: 'retry_generation' }
+  }
+  if (data.family === 'COMPLETION') {
+    if (!String(payload.full_sentence || '').trim()) return { code: 'TRANSLATION_INVALID', message: 'Cần bổ sung câu hoàn chỉnh và bản dịch tiếng Việt.', action: 'edit_translation' }
+    if (!generator.isVietnameseTranslation(payload.translation)) return { code: 'TRANSLATION_INVALID', message: 'Cần sửa bản dịch tiếng Việt.', action: 'edit_translation' }
+  }
+  return null
+}
+
+function payloadIssue(data, payload) { return contentIssue(data, payload)?.message || null }
+
+function responseMetadata(value) {
+  const tokenUsage = Object.fromEntries(['promptTokenCount', 'candidatesTokenCount', 'totalTokenCount']
+    .filter(key => Number.isFinite(value?.tokenUsage?.[key])).map(key => [key, value.tokenUsage[key]]))
+  return { ...(typeof value?.finishReason === 'string' ? { finishReason: value.finishReason.slice(0, 40) } : {}),
+    ...(Object.keys(tokenUsage).length ? { tokenUsage } : {}) }
+}
+
+function parsingError(code, causeCode) {
+  return Object.assign(workflowError(code, code === 'AI_RESPONSE_TRUNCATED'
+    ? 'AI trả lời vượt giới hạn độ dài. Thử tạo lại lời giải ngắn hơn.' : 'AI trả về dữ liệu chưa đúng định dạng. Thử tạo lại.', 502), { phase: 'parsing', causeCode })
+}
+
+async function fixedDraft(data, signal, onDiagnostic, deadline) {
   const images = data.ctx.images.length ? await generator.resolveContextImages(data.ctx.images) : []
   if (signal.aborted) throw Object.assign(new Error('Cancelled'), { name: 'AbortError' })
   if (data.family === 'IMAGE' && !images.length) throw workflowError('MISSING_IMAGE', 'Không đọc được ảnh của câu hỏi.', 400)
   let raw, provider = 'Gemini', model = process.env.GEMINI_MODEL
+  let attempts = 0
+  const gemini = async extraCompact => {
+    attempts++
+    onDiagnostic?.({ attempts, phase: 'generating', ...(extraCompact ? { retryReason: 'AI_RESPONSE_TRUNCATED' } : {}) })
+    const prompt = generator.buildPrompt(data.q, data.family, data.ctx, null, null, { isFixedMode: true, targetAnswer: data.answer, compact: true, extraCompact })
+    const retryController = new AbortController()
+    const retrySignal = extraCompact ? AbortSignal.any([signal, retryController.signal]) : signal
+    const timer = extraCompact ? setTimeout(() => retryController.abort(), Math.max(1, Math.min(15000, deadline - Date.now()))) : null
+    try {
+      const response = await requestGeminiJson(prompt, { images, responseSchema: generator.buildResponseSchema(data.q.type, generator.questionOptions(data.q), { isFixedMode: true, compact: true, extraCompact }),
+        strictJson: true, retriesPerModel: 0, allowModelFallback: false, max_tokens: extraCompact ? 2048 : 3072, withMetadata: true, signal: retrySignal, onDiagnostic })
+      onDiagnostic?.(responseMetadata(response))
+      return response
+    } catch (error) {
+      if (retryController.signal.aborted && !signal.aborted) throw workflowError('AI_QUESTION_TIMEOUT', 'Hết thời gian tạo lời giải ngắn cho câu này.', 504)
+      throw error
+    } finally { if (timer) clearTimeout(timer) }
+  }
   try {
-    const response = await requestGeminiJson(prompt, { images, responseSchema: generator.buildResponseSchema(data.q.type, generator.questionOptions(data.q), { isFixedMode: true }),
-      retriesPerModel: 0, allowModelFallback: false, max_tokens: 4096, withMetadata: true, signal, onDiagnostic })
+    let response
+    try { response = await gemini(false) } catch (error) {
+      if (error.code !== 'AI_RESPONSE_TRUNCATED' || signal.aborted || deadline - Date.now() < 8000) throw error
+      response = await gemini(true)
+    }
     raw = response.data; model = response.model
   } catch (error) {
-    if (signal.aborted || images.length || ![429, 500, 502, 503, 504].includes(error.status)) throw error
+    if (signal.aborted || attempts >= 2 || ['AI_RESPONSE_TRUNCATED', 'AI_RESPONSE_INVALID'].includes(error.code) || images.length || ![429, 500, 502, 503, 504].includes(error.status)) throw error
     // Exactly one fallback, with SDK retries explicitly disabled.
     provider = 'Groq'; model = getGroqModel()
-    onDiagnostic?.({ phase: 'provider', provider, model })
+    attempts++
+    onDiagnostic?.({ phase: 'provider', provider, model, attempts })
+    const prompt = generator.buildPrompt(data.q, data.family, data.ctx, null, null, { isFixedMode: true, targetAnswer: data.answer, compact: true })
     const completion = await getGroqClient({ maxRetries: 0 }).chat.completions.create({ model, messages: [{ role: 'user', content: prompt }],
-      temperature: 0, max_tokens: 4096, response_format: { type: 'json_object' } }, { signal })
-    raw = JSON.parse(completion.choices[0]?.message?.content || '')
+      temperature: 0, max_tokens: 3072, response_format: { type: 'json_object' } }, { signal })
+    if (completion.choices[0]?.finish_reason === 'length') throw Object.assign(parsingError('AI_RESPONSE_TRUNCATED', 'MAX_TOKENS'), { finishReason: 'length' })
+    try { raw = JSON.parse(completion.choices[0]?.message?.content || '') } catch { throw parsingError('AI_RESPONSE_INVALID', 'INVALID_JSON') }
   }
   if (raw?.no_support) return { v: 2, answer: data.answer, no_support: true,
     supportNote: generator.cleanString(raw.support_note, 500), reasoning: generator.cleanString(raw.reasoning, 900), provider, model }
   try {
-    const explanation = generator.enrichExplanation(raw, data.ctx, data.answer, data.family)
+    const explanation = generator.enrichExplanation(raw, data.ctx, data.answer, data.family, { allowPartialTranslation: true })
     return { ...explanation, provider, model }
   } catch (error) {
     if (!(error instanceof generator.ExplanationValidationError)) throw error
-    return { v: 2, answer: data.answer, no_support: true, reasoning: '',
-      supportNote: generator.cleanString(error.message, 500), provider, model }
+    throw Object.assign(workflowError('EXPLANATION_INVALID', 'AI trả về lời giải chưa hợp lệ. Thử tạo lại câu này.', 502), { phase: 'validation', causeCode: error.code || 'EXPLANATION_VALIDATION_FAILED' })
   }
 }
 
@@ -142,7 +193,7 @@ async function boundedGenerate(data, signal, timeoutMs, diagnostic) {
   const combined = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal
   let timer
   try {
-    return await Promise.race([fixedDraft(data, combined, event => Object.assign(diagnostic, event)), new Promise((_, reject) => {
+    return await Promise.race([fixedDraft(data, combined, event => Object.assign(diagnostic, event), Date.now() + timeoutMs), new Promise((_, reject) => {
       timer = setTimeout(() => { controller.abort(); reject(workflowError('AI_QUESTION_TIMEOUT', 'Hết thời gian tạo lời giải cho câu này.', 504)) }, timeoutMs)
     })])
   } finally { clearTimeout(timer) }
@@ -187,7 +238,7 @@ async function generate(kind, examId, options = {}) {
   const operationId = typeof options.operationId === 'string' && /^[A-Za-z0-9_-]{8,128}$/.test(options.operationId) ? options.operationId : null
   const candidates = items.filter(item => (operationId && item.raw?.lastGenerationOperation?.id === operationId && item.raw.lastGenerationOperation.sourceHash === input(item).sourceHash)
     || options.force || item.raw?.status === 'possibly_stale' || (!isWorkflow(item.raw) && !legacy.isExplanationVisibleToLearner(item.raw))
-    || (isWorkflow(item.raw) && (item.raw.draft?.issue || (!item.raw.published && !item.raw.draft))))
+    || (isWorkflow(item.raw) && (!item.raw.published && !item.raw.draft)))
   let generatedCount = 0
   const errors = [], needsRetryQuestions = [], completed = new Set()
   for (const target of candidates) {
@@ -195,28 +246,37 @@ async function generate(kind, examId, options = {}) {
     const remaining = 48000 - (Date.now() - startTime) - 11000
     if (remaining < 5000) break
   const data = input(target), invalid = preflight(data)
-    if (invalid) { errors.push({ number: target.number, code: 'MISSING_DATA', status: 400, message: invalid }); completed.add(target.number); continue }
+    if (invalid) { errors.push({ number: target.number, code: 'MISSING_DATA', status: 400, message: invalid, action: 'edit_source' }); completed.add(target.number); continue }
     const diagnostic = { phase: 'generating' }
     if (operationId && target.raw?.lastGenerationOperation?.id === operationId && target.raw.lastGenerationOperation.sourceHash === data.sourceHash) {
       generatedCount++
-      if (target.raw.draft?.issue) needsRetryQuestions.push({ number: target.number, reason: target.raw.draft.issue })
+      if (target.raw.draft?.issue) {
+        const issue = contentIssue(data, target.raw.draft.payload)
+        needsRetryQuestions.push({ number: target.number, reason: target.raw.draft.issue, ...(issue ? { code: issue.code, action: issue.action } : {}) })
+      }
       completed.add(target.number)
       continue
     }
     try {
       const payload = await boundedGenerate(data, options.signal, Math.min(35000, remaining), diagnostic)
       if (options.signal?.aborted) break
-      const issue = payloadIssue(data, payload)
-      await write(target, fresh => ({ ...draftEnvelope(fresh.raw, payload, data.sourceHash, issue),
+      const issue = contentIssue(data, payload)
+      if (issue) payload.contentIssue = issue
+      else delete payload.contentIssue
+      await write(target, fresh => ({ ...draftEnvelope(fresh.raw, payload, data.sourceHash, issue?.message || null),
         lastGenerationOperation: operationId ? { id: operationId, sourceHash: data.sourceHash } : null }), { startTime, signal: options.signal })
       generatedCount++ // Count only committed drafts.
-      if (issue) needsRetryQuestions.push({ number: target.number, reason: issue })
+      if (issue) needsRetryQuestions.push({ number: target.number, reason: issue.message, code: issue.code, action: issue.action })
     } catch (error) {
       if (options.signal?.aborted || error.name === 'AbortError') break
       errors.push({ number: target.number, code: error.code || 'AI_GENERATION_FAILED', status: error.status || 503,
-        ...diagnostic, phase: error.phase || diagnostic.phase, operationId,
+        ...diagnostic, ...responseMetadata(error), phase: error.phase || diagnostic.phase, operationId,
         failedAt: new Date().toISOString(), causeCode: error.causeCode || (error.status ? `HTTP_${error.status}` : 'PROVIDER_ERROR'),
-        message: error.code === 'AI_SAVE_FAILED' ? error.message : error.status === 409 ? error.message : 'Không tạo được bản nháp. Kiểm tra chi tiết và thử lại riêng câu này.' })
+        action: 'retry_generation',
+        message: error.code === 'AI_SAVE_FAILED' || error.status === 409 ? error.message
+          : ['AI_RESPONSE_TRUNCATED', 'AI_RESPONSE_INVALID'].includes(error.code) ? parsingError(error.code, error.causeCode).message
+          : error.code === 'EXPLANATION_INVALID' ? 'AI trả về lời giải chưa hợp lệ. Thử tạo lại câu này.'
+          : 'Không tạo được bản nháp. Kiểm tra chi tiết và thử lại riêng câu này.' })
       console.error('[AI_DRAFT_FAILED]', { kind, examId, number: target.number, code: error.code, status: error.status, phase: diagnostic.phase })
     }
     completed.add(target.number)
@@ -248,8 +308,10 @@ async function saveDraft(options) {
   const clean = legacy.validateManualExplanation(fields, { sourceText: data.source, family: data.family, prevExp: previous, targetAnswer: data.answer,
     options: generator.questionOptions(data.q) || data.q.group?.options, questionType: data.q.type })
   const payload = { ...previous, ...clean, answer: data.answer, no_support: false, supportNote: null, manualEdit: true }
-  const issue = payloadIssue(data, payload)
-  const explanation = await write(target, fresh => draftEnvelope(fresh.raw, payload, data.sourceHash, issue))
+  const issue = contentIssue(data, payload)
+  if (issue) payload.contentIssue = issue
+  else delete payload.contentIssue
+  const explanation = await write(target, fresh => draftEnvelope(fresh.raw, payload, data.sourceHash, issue?.message || null))
   return { ok: true, status: explanation.status, explanation, message: 'Đã lưu bản nháp.' }
 }
 

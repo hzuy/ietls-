@@ -14,6 +14,17 @@ beforeEach(() => {
   vi.spyOn(window, 'alert').mockImplementation(() => {}).mockClear()
 })
 
+it('opens translation repair at the translation field without calling AI or overwriting published content', async () => {
+  render(<QuestionExplanationModal isOpen onClose={vi.fn()} examId={10} question={question}
+    initialExplanation={{ ...draft, status: 'needs_regeneration', contentIssue: { code: 'TRANSLATION_INVALID', message: 'Bản dịch còn tiếng Anh.' } }} />)
+  expect(screen.getByText('Cần sửa bản dịch')).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Sửa bản dịch' }))
+  await waitFor(() => expect(screen.getByPlaceholderText('Dịch nghĩa tiếng Việt của câu trên...')).toHaveFocus())
+  expect(api.post).not.toHaveBeenCalled()
+  expect(api.put).not.toHaveBeenCalled()
+  expect(published.reasoning).toBe('Previously published explanation')
+})
+
 describe.each(['reading', 'listening'])('%s shared draft workflow', skill => {
   it.each([false, true])('saves a versioned draft then explicitly publishes it (practice: %s)', async isPractice => {
     const saved = { ...draft, reasoning: 'Teacher saved draft', draftVersion: 'draft-2' }

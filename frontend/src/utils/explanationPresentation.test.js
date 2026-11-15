@@ -2,6 +2,17 @@ import { expect, it } from 'vitest'
 import { getExplanationAttention } from './explanationPresentation'
 
 it.each([
+  { contentIssue: { code: 'TRANSLATION_INVALID', message: 'Bản dịch còn chứa tiếng Anh.' } },
+  { validationIssue: 'Bản dịch chưa hợp lệ.' },
+])('identifies translation repair without treating it as missing evidence', extra => {
+  expect(getExplanationAttention({ status: 'needs_regeneration', ...extra })).toMatchObject({ title: 'Cần sửa bản dịch', action: 'edit_translation' })
+})
+it('keeps content issue metadata and its actual reason actionable', () => {
+  expect(getExplanationAttention({ status: 'published' }, 'retry', { code: 'MISSING_EVIDENCE', action: 'edit_source', message: 'Transcript không chứng minh đáp án nine.' }))
+    .toMatchObject({ reason: 'Transcript không chứng minh đáp án nine.', action: 'edit_source' })
+})
+
+it.each([
   ['needs_regeneration', { needsRegenerationReason: 'Không tìm thấy bằng chứng cho đáp án A' }, 'Không tìm thấy bằng chứng cho đáp án A'],
   ['needs_regeneration', { needsRegenerationReason: 'Lời giải chứa cụm từ nội bộ' }, 'Lời giải chứa cụm từ nội bộ'],
   ['needs_regeneration', { no_support: true }, 'Chưa tìm thấy bằng chứng phù hợp với đáp án đã chọn.'],

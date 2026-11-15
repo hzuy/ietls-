@@ -281,6 +281,7 @@ export default function QuestionExplanationModal({
   runErrorMessage = null,
 }) {
   const [activeTab, setActiveTab] = useState('view') // 'view' | 'edit'
+  const focusTranslationRef = useRef(false)
   const [previewPublished, setPreviewPublished] = useState(false)
   const [currentExplanation, setCurrentExplanation] = useState(() => question?.explanation || initialExplanation || null)
 
@@ -371,6 +372,15 @@ export default function QuestionExplanationModal({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [isOpen, isSavingEdit, isReviewing, onClose])
+
+  useEffect(() => {
+    if (activeTab === 'edit' && focusTranslationRef.current) {
+      focusTranslationRef.current = false
+      const field = document.getElementById(`explanation-translation-${question?.id || question?.number}`)
+      field?.focus()
+      field?.scrollIntoView({ block: 'nearest' })
+    }
+  }, [activeTab, question?.id, question?.number])
 
   if (!isOpen || !question) return null
 
@@ -1072,6 +1082,7 @@ export default function QuestionExplanationModal({
                         <span className="text-[11px] text-zinc-400">{editTranslation.length}/1000</span>
                       </div>
                       <AutoResizeTextarea
+                        id={`explanation-translation-${qId}`}
                         minRows={2}
                         value={editTranslation}
                         onChange={(e) => setEditTranslation(e.target.value.slice(0, 1000))}
@@ -1199,9 +1210,9 @@ export default function QuestionExplanationModal({
           {activeTab === 'view' && onGenerateDraft && <button type="button" disabled={isAIBusy || isSavingEdit || isReviewing}
             onClick={() => { onClose(); onGenerateDraft(qNum) }}
             className="min-h-10 rounded-xl border border-zinc-200 px-4 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 focus-visible:outline-2 disabled:opacity-50 cursor-pointer">{attention ? 'Tạo lại theo đáp án đề' : 'Tạo bản nháp mới'}</button>}
-          {activeTab === 'view' && !previewPublished && attention && <button type="button" onClick={() => setActiveTab('edit')}
+          {activeTab === 'view' && !previewPublished && attention && <button type="button" onClick={() => { focusTranslationRef.current = attention.action === 'edit_translation'; setActiveTab('edit') }}
             disabled={isAIBusy || isSavingEdit || isReviewing}
-            className="min-h-10 rounded-xl bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-700 focus-visible:outline-2 disabled:opacity-50 cursor-pointer">Sửa lời giải</button>}
+            className="min-h-10 rounded-xl bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-700 focus-visible:outline-2 disabled:opacity-50 cursor-pointer">{attention.action === 'edit_translation' ? 'Sửa bản dịch' : 'Sửa lời giải'}</button>}
           {activeTab === 'view' && !previewPublished && canUseExplanation(currentExplanation) && (
             <button type="button" onClick={handleReview} disabled={isReviewing || isAIBusy}
               className="min-h-10 rounded-xl bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-700 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 cursor-pointer">

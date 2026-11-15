@@ -15,13 +15,14 @@ inject('../lib/prisma', prisma)
 const requestGeminiJson = vi.fn(), groqCreate = vi.fn(), getGroqClient = vi.fn(() => ({ chat: { completions: { create: groqCreate } } }))
 inject('../lib/groqClient', { requestGeminiJson, getGroqClient, getGroqModel: () => 'test-groq' })
 const originalGenerator = require('../scripts/generate-explanations')
-inject('../scripts/generate-explanations', { ...originalGenerator, enrichExplanation: raw => ({ ...raw, v: 2 }) })
+const enrichExplanation = vi.fn(raw => ({ ...raw, v: 2 }))
+inject('../scripts/generate-explanations', { ...originalGenerator, enrichExplanation })
 const service = require('./explanationDraftService')
 const legacy = require('./explanationGeneratorService')
 const { draftEnvelope } = require('../lib/explanationWorkflow')
 
 const source = 'The library opens at nine.'
-const valid = { v: 2, answer: 'nine', reasoning: 'The source gives the opening time.', evidence: { parts: [{ text: source }] } }
+const valid = { v: 2, answer: 'nine', reasoning: 'The source gives the opening time.', evidence: { parts: [{ text: source }] }, full_sentence: source, translation: 'Thư viện mở cửa lúc chín giờ.' }
 
 describe.each(['exam', 'practice'])('%s draft service', kind => {
   let question, row, practice
@@ -33,6 +34,7 @@ describe.each(['exam', 'practice'])('%s draft service', kind => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    enrichExplanation.mockImplementation(raw => ({ ...raw, v: 2 }))
     question = { id: 101, number: 1, type: 'fill_blank', questionText: 'The library opens at ___.', correctAnswer: 'nine', explanation: null,
       passage: { body: source, examId: 10 }, group: { id: 11, instruction: 'ONE WORD ONLY', noteSections: [], matchingOptions: [] } }
     row = { id: 201, content: JSON.stringify({ type: 'note_completion', instruction: 'ONE WORD ONLY', questions: [{ number: 1, questionText: question.questionText, correctAnswer: 'nine' }] }), explanation: null }
@@ -52,6 +54,8 @@ describe.each(['exam', 'practice'])('%s draft service', kind => {
     expect(legacy.filterLearnerExplanation(raw())).toBeNull()
     expect(requestGeminiJson.mock.calls[0][0]).toContain('nine')
     expect(requestGeminiJson.mock.calls[0][1]).toMatchObject({ retriesPerModel: 0, allowModelFallback: false })
+    expect(requestGeminiJson.mock.calls[0][1]).toMatchObject({ strictJson: true, max_tokens: 3072 })
+    expect(enrichExplanation.mock.calls[0][4]).toEqual({ allowPartialTranslation: true })
     expect(prisma.$executeRawUnsafe).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock($1::integer, $2::integer)', kind === 'practice' ? 72414 : 72413, 10)
     if (kind === 'exam') expect(prisma.question.updateMany.mock.calls[0][0].data).not.toHaveProperty('correctAnswer')
     else expect(JSON.parse(row.content).questions[0].correctAnswer).toBe('nine')
@@ -119,6 +123,153 @@ describe.each(['exam', 'practice'])('%s draft service', kind => {
     expect(groqCreate).toHaveBeenCalledTimes(1)
     expect(getGroqClient).toHaveBeenCalledWith({ maxRetries: 0 })
     expect(raw().draft.payload.provider).toBe('Groq')
+  })
+
+  it('retries truncation once with a smaller strict budget and no Groq fallback', async () => {
+    requestGeminiJson.mockRejectedValueOnce(Object.assign(new Error('Truncated'), { code: 'AI_RESPONSE_TRUNCATED', status: 502 }))
+    const result = await generate({ force: true })
+    expect(result.generatedCount).toBe(1)
+    expect(requestGeminiJson).toHaveBeenCalledTimes(2)
+    expect(requestGeminiJson.mock.calls[1][1]).toMatchObject({ strictJson: true, max_tokens: 2048, retriesPerModel: 0, allowModelFallback: false })
+    expect(groqCreate).not.toHaveBeenCalled()
+  })
+
+  it('preserves the existing draft after two truncated responses with safe metadata', async () => {
+    const initial = draftEnvelope(null, valid, service.input(await target()).sourceHash)
+    setRaw(initial)
+    const error = Object.assign(new Error('private provider response'), { code: 'AI_RESPONSE_TRUNCATED', status: 502, phase: 'parsing', causeCode: 'MAX_TOKENS',
+      finishReason: 'MAX_TOKENS', tokenUsage: { promptTokenCount: 30, candidatesTokenCount: 3072, totalTokenCount: 3102, secret: 'private' } })
+    requestGeminiJson.mockRejectedValueOnce(error).mockRejectedValueOnce(error)
+    const result = await generate({ force: true })
+    expect(requestGeminiJson).toHaveBeenCalledTimes(2)
+    expect(groqCreate).not.toHaveBeenCalled()
+    expect(result.generatedCount).toBe(0)
+    expect(result.errors[0]).toMatchObject({ code: 'AI_RESPONSE_TRUNCATED', phase: 'parsing', causeCode: 'MAX_TOKENS', action: 'retry_generation', finishReason: 'MAX_TOKENS',
+      tokenUsage: { promptTokenCount: 30, candidatesTokenCount: 3072, totalTokenCount: 3102 } })
+    expect(JSON.stringify(result)).not.toContain('private')
+    expect(raw()).toEqual(initial)
+  })
+
+  it('does not retry truncation with less than eight seconds remaining', async () => {
+    const now = Date.now()
+    let elapsed = 0
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => now + elapsed)
+    requestGeminiJson.mockImplementationOnce(async () => {
+      elapsed = 30000
+      throw Object.assign(new Error('Truncated'), { code: 'AI_RESPONSE_TRUNCATED', status: 502 })
+    })
+    try {
+      expect((await generate({ force: true })).errors[0].code).toBe('AI_RESPONSE_TRUNCATED')
+      expect(requestGeminiJson).toHaveBeenCalledTimes(1)
+      expect(groqCreate).not.toHaveBeenCalled()
+    } finally { clock.mockRestore() }
+  })
+
+  it('does not retry or fallback for invalid JSON', async () => {
+    requestGeminiJson.mockRejectedValueOnce(Object.assign(new Error('private JSON body'), { code: 'AI_RESPONSE_INVALID', status: 502, phase: 'parsing', causeCode: 'INVALID_JSON' }))
+    const result = await generate({ force: true })
+    expect(result.errors[0]).toMatchObject({ code: 'AI_RESPONSE_INVALID', phase: 'parsing', causeCode: 'INVALID_JSON' })
+    expect(requestGeminiJson).toHaveBeenCalledTimes(1)
+    expect(groqCreate).not.toHaveBeenCalled()
+    expect(JSON.stringify(result)).not.toContain('private')
+  })
+
+  it('never opens a third provider attempt when the compact retry fails with transport overload', async () => {
+    requestGeminiJson.mockRejectedValueOnce(Object.assign(new Error('Truncated'), { code: 'AI_RESPONSE_TRUNCATED', status: 502 }))
+      .mockRejectedValueOnce(Object.assign(new Error('Unavailable'), { status: 503 }))
+    const result = await generate({ force: true })
+    expect(result.generatedCount).toBe(0)
+    expect(requestGeminiJson).toHaveBeenCalledTimes(2)
+    expect(groqCreate).not.toHaveBeenCalled()
+  })
+
+  it('cancels the compact retry without committing a draft or starting fallback', async () => {
+    const controller = new AbortController()
+    requestGeminiJson.mockRejectedValueOnce(Object.assign(new Error('Truncated'), { code: 'AI_RESPONSE_TRUNCATED', status: 502 }))
+      .mockImplementationOnce((_prompt, options) => new Promise((_resolve, reject) => {
+        options.signal.addEventListener('abort', () => reject(Object.assign(new Error('Cancelled'), { name: 'AbortError' })), { once: true })
+      }))
+    const pending = generate({ force: true, signal: controller.signal })
+    await vi.waitFor(() => expect(requestGeminiJson).toHaveBeenCalledTimes(2))
+    controller.abort()
+    const result = await pending
+    expect(result.generatedCount).toBe(0)
+    expect(result.remainingQuestionNumbers).toEqual([1])
+    expect(groqCreate).not.toHaveBeenCalled()
+    expect(prisma.question.updateMany).not.toHaveBeenCalled()
+    expect(prisma.practiceQuestion.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('limits total attempts to two when a transport fallback is truncated', async () => {
+    requestGeminiJson.mockRejectedValueOnce(Object.assign(new Error('Unavailable'), { status: 503 }))
+    groqCreate.mockResolvedValueOnce({ choices: [{ finish_reason: 'length', message: { content: JSON.stringify(valid) } }] })
+    const result = await generate({ force: true })
+    expect(result.errors[0].code).toBe('AI_RESPONSE_TRUNCATED')
+    expect(requestGeminiJson).toHaveBeenCalledTimes(1)
+    expect(groqCreate).toHaveBeenCalledTimes(1)
+    expect(result.generatedCount).toBe(0)
+  })
+
+  it('preserves core content and publication while translation is edited without regeneration', async () => {
+    setRaw({ ...valid, status: 'teacher_reviewed', reasoning: 'Published old wording' })
+    requestGeminiJson.mockResolvedValueOnce({ data: { ...valid, translation: '', contentIssue: { code: 'TRANSLATION_INVALID', message: 'Cần sửa bản dịch tiếng Việt.' } } })
+    const result = await generate({ force: true })
+    expect(result).toMatchObject({ generatedCount: 1, errors: [], needsRetryQuestions: [{ number: 1, code: 'TRANSLATION_INVALID', action: 'edit_translation' }] })
+    expect(raw().draft.payload).toMatchObject({ reasoning: valid.reasoning, evidence: valid.evidence, full_sentence: source, translation: '', contentIssue: { code: 'TRANSLATION_INVALID' } })
+    expect(raw().draft.payload.no_support).not.toBe(true)
+    expect(legacy.filterLearnerExplanation(raw()).reasoning).toBe('Published old wording')
+    await expect(service.reviewQuestionExplanation({ ...args(), fields: { draftVersion: raw().draft.version } })).rejects.toMatchObject({ code: 'DRAFT_INVALID' })
+    requestGeminiJson.mockClear()
+    expect((await generate({ force: false })).generatedCount).toBe(0)
+    expect(requestGeminiJson).not.toHaveBeenCalled()
+    await service.updateManualExplanation({ ...args(), fields: { reasoning: 'Teacher edited reasoning', expectedDraftVersion: raw().draft.version } })
+    expect(raw().draft.payload.contentIssue.code).toBe('TRANSLATION_INVALID')
+    await service.updateManualExplanation({ ...args(), fields: { translation: valid.translation, expectedDraftVersion: raw().draft.version } })
+    expect(raw().draft.issue).toBeNull()
+    expect(raw().draft.payload).not.toHaveProperty('contentIssue')
+    await service.reviewQuestionExplanation({ ...args(), fields: { draftVersion: raw().draft.version } })
+    expect(raw().published.reasoning).toBe('Teacher edited reasoning')
+    expect(requestGeminiJson).not.toHaveBeenCalled()
+  })
+
+  it('integrates real enrichment to save valid core when Gemini returns an English translation', async () => {
+    enrichExplanation.mockImplementationOnce(originalGenerator.enrichExplanation)
+    requestGeminiJson.mockResolvedValueOnce({ data: {
+      question_chunks: [{ text: 'opening time', label: 'time' }], predict: 'Find the opening time.',
+      answer: 'nine', reasoning: valid.reasoning, evidence_quote: source, full_sentence: source, translation: source,
+    } })
+    const result = await generate({ force: true })
+    expect(result.errors).toEqual([])
+    expect(result.needsRetryQuestions[0]).toMatchObject({ code: 'TRANSLATION_INVALID', action: 'edit_translation' })
+    expect(raw().draft.payload).toMatchObject({ answer: 'nine', reasoning: valid.reasoning, translation: '', full_sentence: source, evidence: { parts: [{ text: source }] } })
+    expect(raw().draft.payload.no_support).not.toBe(true)
+  })
+
+  it('bounds the compact retry to fifteen seconds without another provider attempt', async () => {
+    vi.useFakeTimers()
+    requestGeminiJson.mockRejectedValueOnce(Object.assign(new Error('Truncated'), { code: 'AI_RESPONSE_TRUNCATED', status: 502 }))
+      .mockImplementationOnce((_prompt, options) => new Promise((_resolve, reject) => {
+        options.signal.addEventListener('abort', () => reject(Object.assign(new Error('Timed out'), { name: 'AbortError' })), { once: true })
+      }))
+    try {
+      const pending = generate({ force: true })
+      await vi.waitFor(() => expect(requestGeminiJson).toHaveBeenCalledTimes(2))
+      await vi.advanceTimersByTimeAsync(15001)
+      const result = await pending
+      expect(result.errors[0].code).toBe('AI_QUESTION_TIMEOUT')
+      expect(result.generatedCount).toBe(0)
+      expect(groqCreate).not.toHaveBeenCalled()
+    } finally { vi.useRealTimers() }
+  })
+
+  it('reports generic content validation separately from missing evidence', async () => {
+    enrichExplanation.mockImplementationOnce(() => { throw new originalGenerator.ExplanationValidationError('private invalid output') })
+    const result = await generate({ force: true })
+    expect(result.generatedCount).toBe(0)
+    expect(result.errors[0]).toMatchObject({ code: 'EXPLANATION_INVALID', phase: 'validation' })
+    expect(result.needsRetryQuestions).toEqual([])
+    expect(raw()).toBeFalsy()
+    expect(JSON.stringify(result)).not.toContain('private invalid output')
   })
 
   it('keeps a source-invalid old publication hidden until the new source draft is explicitly published', async () => {
@@ -218,9 +369,13 @@ describe.each(['exam', 'practice'])('%s draft service', kind => {
     requestGeminiJson.mockResolvedValueOnce({ data: { no_support: true, support_note: 'The source does not support this answer' }, model: 'test' })
     const result = await generate({ force: true, questionNumbers: [1] })
     expect(result.needsRetryQuestions).toEqual([expect.objectContaining({ number: 1, reason: 'The source does not support this answer' })])
+    expect(result.needsRetryQuestions[0]).toMatchObject({ code: 'MISSING_EVIDENCE', action: 'edit_source' })
     const envelope = raw()
     await expect(service.reviewQuestionExplanation({ ...args(), fields: { draftVersion: envelope.draft.version, sourceHash: envelope.draft.sourceHash } })).rejects.toMatchObject({ code: 'DRAFT_INVALID', status: 400 })
     expect(legacy.filterLearnerExplanation(envelope)).toBeNull()
+    requestGeminiJson.mockClear()
+    expect((await generate({ force: false })).generatedCount).toBe(0)
+    expect(requestGeminiJson).not.toHaveBeenCalled()
   })
 
   it('accepts an explicit teacher publication of a valid legacy explanation', async () => {
@@ -304,6 +459,10 @@ describe('shared input and output validation', () => {
   })
   it('rejects an empty quote instead of treating it as evidence', () => {
     expect(service.payloadIssue(data(reading), { ...valid, evidence: { parts: [{ text: '' }] } })).toBeTruthy()
+  })
+  it('identifies a missing full sentence separately from a bad translation', () => {
+    expect(service.payloadIssue(data(reading), { ...valid, full_sentence: '' })).toBe('Cần bổ sung câu hoàn chỉnh và bản dịch tiếng Việt.')
+    expect(service.payloadIssue(data(reading), { ...valid, translation: source })).toBe('Cần sửa bản dịch tiếng Việt.')
   })
   it('requires transcript evidence for Listening image questions', () => {
     const context = data({ ...reading, type: 'map_diagram', passage: null, listeningSection: { transcript: source }, group: {} })

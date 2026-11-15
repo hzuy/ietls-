@@ -130,7 +130,9 @@ export function classifyRunError(input, _ctx = {}) {
   let kind = RUN_KINDS.UNKNOWN
 
   const data = input?.response?.data || input || {}
-  if (data.code === 'AI_SAVE_FAILED' || /P2028|Transaction (?:already closed|not found)/i.test(raw)) kind = RUN_KINDS.SAVE
+  const contentFailure = ['TRANSLATION_INVALID', 'MISSING_EVIDENCE', 'ANSWER_MISMATCH', 'EXPLANATION_INVALID'].includes(data.code)
+  if (contentFailure) kind = RUN_KINDS.VALIDATION
+  else if (data.code === 'AI_SAVE_FAILED' || /P2028|Transaction (?:already closed|not found)/i.test(raw)) kind = RUN_KINDS.SAVE
   else if (status === 409) kind = RUN_KINDS.BUSY
   else if (input?.code === 'AI_QUESTION_TIMEOUT') kind = RUN_KINDS.TIMEOUT
   else if (status === 429 || /quá tải|qua tai|rate.?limit|too many requests|\b429\b/i.test(raw)) kind = RUN_KINDS.RATE_LIMITED
@@ -146,7 +148,13 @@ export function classifyRunError(input, _ctx = {}) {
 
   let message = meta.message
   const timeoutMs = Number(data.timeoutMs) || null
-  if (kind === RUN_KINDS.SAVE && data.causeCode === 'P2028') {
+  if (data.code === 'AI_RESPONSE_TRUNCATED') {
+    message = 'AI trả về kết quả bị cắt giữa chừng, chưa tạo được lời giải đầy đủ.'
+  } else if (data.code === 'AI_RESPONSE_INVALID') {
+    message = 'AI trả về dữ liệu lời giải không hợp lệ.'
+  } else if (contentFailure) {
+    message = raw || (data.code === 'TRANSLATION_INVALID' ? 'Bản dịch tiếng Việt chưa hợp lệ.' : 'Lời giải cần được đối chiếu với dữ liệu đề.')
+  } else if (kind === RUN_KINDS.SAVE && data.causeCode === 'P2028') {
     message = 'Kết quả AI chưa được lưu vì bước lưu cơ sở dữ liệu hết thời gian.'
   } else if (kind === RUN_KINDS.TIMEOUT && timeoutMs) {
     const seconds = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 }).format(timeoutMs / 1000)
@@ -160,6 +168,8 @@ export function classifyRunError(input, _ctx = {}) {
 
   return {
     kind,
+    code: data.code || null,
+    action: data.action || (data.code === 'TRANSLATION_INVALID' ? 'edit_translation' : contentFailure ? 'edit_source' : 'retry_generation'),
     message,
     hint: meta.hint,
     retryable: meta.retryable,
@@ -199,6 +209,8 @@ export function eligibleExplanationNumbers(group, { overwriteProtected = false, 
     if (Array.isArray(questionNumbers) && questionNumbers.map(Number).includes(number)) return true
     if (overwriteProtected || Boolean(resolveChoices[number])) return true
     if (!explanation) return true
+    if (['TRANSLATION_INVALID', 'MISSING_EVIDENCE', 'ANSWER_MISMATCH', 'EXPLANATION_INVALID'].includes(explanation.contentIssue?.code)
+      || /bản dịch|translation/i.test(explanation.validationIssue || '')) return false
     return ['needs_regeneration', 'possibly_stale', 'error'].includes(explanation.status)
   })
 }
@@ -303,6 +315,8 @@ export function addRunOutcome(report, { group, loopResult, sentNumbers = null, p
       number,
       groupId: group?.id ?? group?._id ?? null,
       groupLabel: groupLabelOf(group),
+      code: typeof item === 'object' ? item.code || null : null,
+      action: typeof item === 'object' ? item.action || null : null,
       message: redactRunTechnical((typeof item === 'object' && item?.reason)
         || 'Kết quả dự phòng chưa đủ tin cậy, nên kiểm tra lại câu này.'),
     })
@@ -315,13 +329,13 @@ export function addRunOutcome(report, { group, loopResult, sentNumbers = null, p
     snapshots: { ...report.snapshots, [snapshotKey]: {
       generated: Number(loopResult?.totalGenerated) || 0,
       errors: (loopResult?.errors || []).map(error => ({
-        number: error.number, code: error.code, status: error.response?.status || error.status,
+        number: error.number, code: error.code || error.response?.data?.code, action: error.action || error.response?.data?.action, status: error.response?.status || error.status,
         attempted: error.attempted, message: redactRunTechnical(asMessage(error)),
         failedAt: error.failedAt, timeoutMs: error.timeoutMs, phase: error.phase,
         causeCode: error.causeCode, provider: error.provider,
       })),
       needsRetryQuestions: (loopResult?.needsRetryQuestions || []).map(item => typeof item === 'object'
-        ? { number: item.number, reason: redactRunTechnical(item.reason) } : item),
+        ? { number: item.number, reason: redactRunTechnical(item.reason), code: item.code || null, action: item.action || null } : item),
       finished: !progress,
     } },
     totalQuestions: report.totalQuestions || sent.length,
