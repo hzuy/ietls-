@@ -231,3 +231,13 @@ PostgreSQL 16 tách biệt: cả bốn tổ hợp Test/Practice × Reading/Liste
 Kết quả triển khai: strict JSON chỉ bật cho pipeline lời giải, giữ tương thích các tính năng chấm bài khác. Lượt đầu tối đa 3072 token; chỉ thử thêm một lượt rút gọn 2048 token khi bị cắt và còn ít nhất 8 giây trong ngân sách câu. Cả fallback cũng tính vào giới hạn hai lượt. Câu điền từ bắt buộc có hai trường `full_sentence`/`translation` trong schema; kiểm tra nội dung lúc lưu/duyệt vẫn độc lập, không coi schema là bằng chứng đáp án đúng.
 
 Kiểm chứng cuối: backend 1.298 test đạt, 64 bỏ qua; frontend 1.046 test đạt, build/lint phần sửa đạt; browser 8/8 trường hợp cho bốn editor ở 390/1440px. Probe chỉ đọc trên Test 23 câu 1 bằng image ứng viên: một lượt, `STOP`, 542 token đầu ra, đáp án `press`, đủ bằng chứng/câu hoàn chỉnh/bản dịch và không có lỗi nội dung. Đây là bằng chứng một lần kiểm tra, không phải cam kết thời gian hay số token cho mọi câu. Không ghi lại lời giải hoặc dữ liệu đề production; bản cũ cần được giáo viên chủ động tạo lại/sửa và duyệt theo luồng bình thường.
+
+## 13. Hotfix ràng buộc đúng câu hỏi và bản nháp thiếu nội dung
+
+Rà soát thực tế bổ sung: chỉ kiểm tra khớp đáp án và trích dẫn có trong passage là chưa đủ. Cambridge 17 Test 1, câu 1 đang có lời giải của chỗ trống 5; câu 4 giải thích chỗ trống 2. Hàm lấy ngữ cảnh đang gửi cả NoteSection nhiều chỗ trống, khiến AI chọn câu phù hợp với đáp án đã nhập. Câu 3 là bản nháp `no_support`, nên không có đủ dữ liệu cho bốn bước; UI vẫn dựng các thẻ trống gây hiểu nhầm đang lỗi tải. Kết luận kiểm tra ở mục 12 chỉ xác nhận cấu trúc/đáp án, chưa xác nhận đúng câu hỏi; cần bổ sung ràng buộc này.
+
+- Chọn chính xác dòng có token `[Q:n]` cùng ngữ cảnh cần thiết; không để các chỗ trống khác cạnh tranh với câu mục tiêu. Khi không xác định được mục tiêu, yêu cầu kiểm tra dữ liệu thay vì tự chọn câu khác.
+- Kiểm tra câu hoàn chỉnh và nhãn chỗ trống theo câu mục tiêu khi có template rõ ràng, áp dụng cả lúc xuất bản. Nếu đề yêu cầu lấy nguyên từ passage, không chấp nhận từ đồng nghĩa không có trong passage. Không tự đổi đáp án đã nhập hay ép AI chứng minh một đáp án không phù hợp.
+- Projection admin đánh dấu nháp cũ lệch câu khi đọc, không cập nhật hàng loạt DB; chỉ giáo viên mới quyết định sửa/tạo lại. Giữ khóa nguồn và version, giới hạn lượt gọi/thời gian hiện tại.
+- Bản nháp thiếu bằng chứng hiển thị trạng thái chưa có lời giải đầy đủ và phần phân tích hiện có, không dựng bốn bước trống hay khẳng định bài không đề cập như trường hợp NOT GIVEN.
+- Kiểm thử nhầm câu 1/5, 4/2, token 1/10, nhiều chỗ trống cùng dòng, trường hợp ngữ cảnh thiếu và các loại câu khác; review bảo mật, probe chỉ đọc rồi deploy theo runbook.
