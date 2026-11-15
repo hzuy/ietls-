@@ -65,6 +65,34 @@ describe.each(['exam', 'practice'])('%s draft service', kind => {
     expect(raw().draft.payload.reasoning).toBe(valid.reasoning)
   })
 
+  it('never stores invented alternatives for an open question, even if a provider returns them', async () => {
+    requestGeminiJson.mockResolvedValueOnce({ data: { ...valid, distractors: [{ option: 'library', reason: 'Invented alternative' }] } })
+    await generate({ force: true, questionNumbers: [1] })
+    expect(raw().draft.payload.distractors).toEqual([])
+  })
+  it('keeps the existing stored type and source identity for same-family open groups', async () => {
+    if (kind === 'exam') question.group.type = 'note_completion'
+    const current = await target()
+    expect(current.q.type).toBe('fill_blank')
+    expect(service.input(current).sourceHash).toBe(service.input({ ...current, q: { ...current.q, type: 'fill_blank' } }).sourceHash)
+  })
+
+  it('preserves actual word-bank alternatives when a child question uses fill_blank', async () => {
+    const matchingOptions = [{ optionLetter: 'A', optionText: 'nine' }, { optionLetter: 'B', optionText: 'ten' }]
+    if (kind === 'exam') Object.assign(question.group, { type: 'drag_word_bank', matchingOptions })
+    else {
+      const content = JSON.parse(row.content)
+      Object.assign(content, { type: 'drag_word_bank', matchingOptions })
+      content.questions[0].type = 'fill_blank'
+      row.content = JSON.stringify(content)
+    }
+    const alternative = { option: 'ten', reason: 'The source says nine.' }
+    requestGeminiJson.mockResolvedValueOnce({ data: { ...valid, distractors: [alternative] } })
+    const result = await generate({ force: true, questionNumbers: [1] })
+    expect(result.generatedCount).toBe(1)
+    expect(raw().draft.payload.distractors).toEqual([alternative])
+  })
+
   it('does not regenerate visible legacy content by default even when questionNumbers selects the scope', async () => {
     setRaw({ ...valid, status: 'ai_generated' })
     expect(await generate({ force: false, questionNumbers: [1] })).toMatchObject({ generatedCount: 0 })

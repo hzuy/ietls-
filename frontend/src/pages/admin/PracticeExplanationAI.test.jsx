@@ -56,7 +56,7 @@ describe.each(['reading', 'listening'])('%s Practice AI reports', skill => {
     fireEvent.click(screen.getByRole('button', { name: /^Câu 2/i }))
     expect(screen.queryByRole('button', { name: /Duyệt giải thích câu/ })).not.toBeInTheDocument()
     expect(api.post).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'T\u1ea1o b\u1ea3n nh\u00e1p m\u1edbi' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Tạo lại theo đáp án đề' }))
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
     expect(api.post.mock.calls[0][1]).toMatchObject({ questionNumbers: [2], force: true })
     expect(api.post.mock.calls[0][1]).not.toHaveProperty('resolveChoices')

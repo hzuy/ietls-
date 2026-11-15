@@ -112,7 +112,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     expect(screen.queryByRole('button', { name: /Duyệt giải thích câu/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /X\u00e1c nh\u1eadn \u0111\u00e1p \u00e1n/ })).not.toBeInTheDocument()
     expect(api.post).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'T\u1ea1o b\u1ea3n nh\u00e1p m\u1edbi' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Tạo lại theo đáp án đề' }))
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
     expect(api.post.mock.calls[0][1]).toMatchObject({ questionNumbers: [1], force: true })
     expect(api.post.mock.calls[0][1]).not.toHaveProperty('resolveChoices')

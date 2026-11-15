@@ -86,20 +86,22 @@ function practiceGroupsWithExplanations(rows, { forAdmin = false } = {}) {
     Object.assign(byNumber, pq.explanation?.byNumber)
     delete group.explanations
     const qTypeMap = {}
+    const qOptionsMap = {}
     for (const q of group.questions || []) {
-      qTypeMap[q.number] = q.type || group.type || pq.type
+      qTypeMap[q.number] = group.type || q.type || pq.type
+      qOptionsMap[q.number] = q.options || (group.matchingOptions?.length ? group.matchingOptions : group.options)
     }
     if (forAdmin) {
       const sanitizedByNumber = {}
       for (const [k, exp] of Object.entries(byNumber)) {
-        sanitizedByNumber[k] = sanitizeExplanationForRead(exp, qTypeMap[k] || group.type || pq.type)
+        sanitizedByNumber[k] = sanitizeExplanationForRead(exp, qTypeMap[k] || group.type || pq.type, qOptionsMap[k])
       }
       return { ...group, explanations: sanitizedByNumber }
     }
     // 3.1: Ẩn lời giải chưa duyệt hoặc conflict khỏi học sinh; lọc translation/full_sentence theo 2.3
     const filteredByNumber = {}
     for (const [k, exp] of Object.entries(byNumber)) {
-      const filtered = filterLearnerExplanation(exp, qTypeMap[k] || group.type || pq.type)
+      const filtered = filterLearnerExplanation(exp, qTypeMap[k] || group.type || pq.type, qOptionsMap[k])
       if (filtered) {
         filteredByNumber[k] = filtered
       }

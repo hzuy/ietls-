@@ -210,3 +210,10 @@ Mỗi câu có giới hạn thời gian gọi AI; Gemini không tự retry nhi�
 Kiểm chứng: backend 1.211 test đạt (64 bài kiểm tra DB được bỏ qua ở suite mặc định); frontend 1.002 test đạt. Chromium kiểm tra bốn editor ở 390px và 1440px, 8/8 trường hợp đạt. ESLint phần frontend thay đổi không có lỗi; toàn repo còn lỗi lint cũ ngoài phạm vi. Kiểm tra PostgreSQL tách biệt và smoke sau deploy được ghi trong bằng chứng release, không chạy thao tác tạo lời giải trên dữ liệu thật để kiểm thử.
 
 PostgreSQL 16 tách biệt: cả bốn tổ hợp Test/Practice × Reading/Listening đạt với Prisma thật; kiểm tra JSON compare-and-swap, đúng phiên bản được duyệt, giữ đáp án, không gọi AI khi lưu/duyệt, và chờ khóa nguồn rồi từ chối `SOURCE_CHANGED`. Provider giả lập, không có lượt gọi AI thật; DB/container kiểm thử dùng mạng riêng không mở cổng host. Script tái hiện: `backend/scripts/smoke-explanation-workflow-isolated.js`, chặn chạy nếu URL không trỏ đúng DB kiểm thử.
+
+## 11. Rà soát nội dung theo dạng câu (hotfix)
+
+- Note/Form/Table/Sentence/Summary/Flow-chart Completion, Short Answer và điền từ tự do: không sinh, lưu hoặc hiển thị “Những lựa chọn còn lại”. Không biến từ trong passage/transcript thành lựa chọn giả.
+- MCQ một/nhiều đáp án, Matching, Word Bank và hình/bản đồ có ngân hàng đáp án: chỉ phân tích lựa chọn thật của đề, loại đáp án đúng khỏi danh sách bị loại. True/False/Not Given và Yes/No/Not Given dùng tập lựa chọn cố định; chuẩn hóa cả đáp án viết tắt.
+- Dữ liệu cũ được chuẩn hóa khi đọc, không ghi đè hàng loạt. Giao diện xem và sửa cùng dùng ngữ cảnh dạng câu/nhóm và ngân hàng lựa chọn.
+- “Chờ duyệt” là bản nháp hợp lệ, không nằm trong danh sách lỗi “Cần kiểm tra”. Câu có xung đột hiển thị đáp án đề và đáp án trong lời giải AI; sửa lời giải hoặc quay lại sửa đề, còn tạo lại theo đáp án đề là thao tác riêng. AI không tự sửa đáp án đề.

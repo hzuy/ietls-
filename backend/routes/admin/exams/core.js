@@ -498,21 +498,21 @@ router.get('/exams/:id', authMiddleware, teacherOnly, async (req, res) => {
       }
     })
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy đề' })
-    const parseQ = q => ({
+    const parseQ = (q, group = null) => ({
       ...q,
       options: q.options ? JSON.parse(q.options) : null,
       explanation: sanitizeExplanationForRead(
         typeof q.explanation === 'string' ? (() => { try { return JSON.parse(q.explanation) } catch { return q.explanation } })() : q.explanation,
-        q.type
+        group?.type || q.type, q.options || group?.matchingOptions || group?.options
       ),
     })
     exam.passages?.forEach(p => {
-      p.questions = p.questions.map(parseQ)
-      p.questionGroups?.forEach(g => { g.questions = g.questions.map(parseQ) })
+      p.questions = p.questions.map(q => parseQ(q))
+      p.questionGroups?.forEach(g => { g.questions = g.questions.map(q => parseQ(q, g)) })
     })
     exam.listeningSections?.forEach(s => {
-      s.questions = s.questions.map(parseQ)
-      s.questionGroups?.forEach(g => { g.questions = g.questions.map(parseQ) })
+      s.questions = s.questions.map(q => parseQ(q))
+      s.questionGroups?.forEach(g => { g.questions = g.questions.map(q => parseQ(q, g)) })
     })
     res.json(exam)
   } catch (error) {

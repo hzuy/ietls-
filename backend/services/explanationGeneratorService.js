@@ -1,4 +1,5 @@
 const { saveExplanationBatch } = require('../lib/explanationSave')
+const { normalizeAlternatives } = require('../lib/explanationAlternatives')
 const { isWorkflow, adminView, publishedView } = require('../lib/explanationWorkflow')
 const prisma = require('../lib/prisma')
 const {
@@ -178,11 +179,11 @@ function isExplanationVisibleToLearner(explanation) {
   return true
 }
 
-function sanitizeExplanationForRead(explanation, questionType = null) {
+function sanitizeExplanationForRead(explanation, questionType = null, options = null) {
   if (isWorkflow(explanation)) {
     const view = adminView(explanation)
-    return { ...sanitizeExplanationForRead({ ...view, workflowVersion: undefined }, questionType), workflowVersion: 3,
-      publishedExplanation: view.publishedExplanation ? sanitizeExplanationForRead(view.publishedExplanation, questionType) : null }
+    return { ...sanitizeExplanationForRead({ ...view, workflowVersion: undefined }, questionType, options), workflowVersion: 3,
+      publishedExplanation: view.publishedExplanation ? sanitizeExplanationForRead(view.publishedExplanation, questionType, options) : null }
   }
   if (!explanation || typeof explanation !== 'object') return explanation
 
@@ -190,13 +191,14 @@ function sanitizeExplanationForRead(explanation, questionType = null) {
   if (explanation.byNumber && typeof explanation.byNumber === 'object') {
     const sanitizedByNumber = {}
     for (const [key, subExp] of Object.entries(explanation.byNumber)) {
-      sanitizedByNumber[key] = sanitizeExplanationForRead(subExp, questionType)
+      sanitizedByNumber[key] = sanitizeExplanationForRead(subExp, questionType, options)
     }
     return { ...explanation, byNumber: sanitizedByNumber }
   }
 
   const family = questionType ? classifyFamily(questionType) : null
   const res = { ...explanation }
+  if (family && res.distractors !== undefined) res.distractors = normalizeAlternatives(res.distractors, { family, pairs: extractOptionPairs(options), answer: res.answer, type: questionType })
 
   if (family && family !== 'COMPLETION') {
     // 2.3: Họ khác Completion thì không trả hai trường translation và full_sentence
@@ -212,16 +214,16 @@ function sanitizeExplanationForRead(explanation, questionType = null) {
   return res
 }
 
-function filterLearnerExplanation(explanation, questionType = null) {
-  if (isWorkflow(explanation)) return filterLearnerExplanation(publishedView(explanation), questionType)
+function filterLearnerExplanation(explanation, questionType = null, options = null) {
+  if (isWorkflow(explanation)) return filterLearnerExplanation(publishedView(explanation), questionType, options)
   if (!isExplanationVisibleToLearner(explanation)) return null
-  const result = sanitizeExplanationForRead(explanation, questionType)
+  const result = sanitizeExplanationForRead(explanation, questionType, options)
   for (const key of ['teacher_note', 'teacherKeptAnswer', 'aiAnswer', 'no_support', 'supportNote', 'needsRegenerationReason',
     'provider', 'model', 'isFallback', 'validationIssue', 'draftVersion', 'sourceHash', 'publishedExplanation', 'workflowVersion']) delete result[key]
   return result
 }
 
-function validateManualExplanation(data, { sourceText = null, family = 'GENERIC', prevExp = {}, targetAnswer = null } = {}) {
+function validateManualExplanation(data, { sourceText = null, family = 'GENERIC', prevExp = {}, targetAnswer = null, options = null, questionType = '' } = {}) {
   if (!data || typeof data !== 'object') {
     throw new Error('Dữ liệu sửa giải thích không hợp lệ')
   }
@@ -445,6 +447,7 @@ function validateManualExplanation(data, { sourceText = null, family = 'GENERIC'
     })
   }
 
+  allowed.distractors = normalizeAlternatives(allowed.distractors ?? prevExp.distractors, { family, pairs: extractOptionPairs(options), answer: targetAnswer || prevExp.answer, type: questionType })
   return allowed
 }
 
@@ -2720,6 +2723,7 @@ async function updateManualExplanation({ examId, questionId = null, questionNumb
       family,
       prevExp: prev,
       targetAnswer: String(targetQItem.correctAnswer || ''),
+      options: qCtx.options || (qCtx.group?.matchingOptions?.length ? qCtx.group.matchingOptions : qCtx.group?.options), questionType: qCtx.group?.type || qCtx.type,
     })
 
     const updated = {
@@ -2796,6 +2800,7 @@ async function updateManualExplanation({ examId, questionId = null, questionNumb
       family,
       prevExp: prev,
       targetAnswer: String(question.correctAnswer || ''),
+      options: question.options || question.group?.matchingOptions, questionType: question.group?.type || question.type,
     })
 
     const updated = {

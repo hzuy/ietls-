@@ -359,6 +359,7 @@ router.get('/exams/:id/result-detail', authMiddleware, learnerOnly, validate(res
                 ],
                 select: {
                   id: true, type: true, qNumberStart: true, qNumberEnd: true, maxChoices: true,
+                  matchingOptions: { orderBy: { sortOrder: 'asc' }, select: { optionLetter: true, optionText: true } },
                   questions: {
                     orderBy: { number: 'asc' },
                     select: qSelect
@@ -459,7 +460,7 @@ router.get('/exams/:id/result-detail', authMiddleware, learnerOnly, validate(res
           rawCorrectAnswer,
           options: parsedOpts,
           type: q.type,
-          explanation: filterLearnerExplanation(q.explanation, q.type),
+          explanation: filterLearnerExplanation(q.explanation, q.type, q.options),
           grouped: false
         })
       }
@@ -527,7 +528,7 @@ router.get('/exams/:id/result-detail', authMiddleware, learnerOnly, validate(res
               }
             }
             
-            const parsedOpts = parseOptions(q.options)
+            const parsedOpts = parseOptions(q.options) || (g.matchingOptions?.length ? g.matchingOptions.map(option => `${option.optionLetter}. ${option.optionText}`) : null)
             const userAnswers = rawUserAnswers.map(a => a ? resolveAnswerToLetter(a, parsedOpts) : null)
             const answers = rawAnswers.map(a => a ? resolveAnswerToLetter(a, parsedOpts) : a)
 
@@ -541,7 +542,7 @@ router.get('/exams/:id/result-detail', authMiddleware, learnerOnly, validate(res
               statuses,
               options: parsedOpts,
               type: g.type,
-              explanation: filterLearnerExplanation(q.explanation, g.type || q.type)
+              explanation: filterLearnerExplanation(q.explanation, g.type || q.type, parsedOpts)
             })
           } else {
             // All other group types — flatten to individual questions
@@ -558,7 +559,7 @@ router.get('/exams/:id/result-detail', authMiddleware, learnerOnly, validate(res
 
             const rawUserAnswer = ans?.userAnswer || ''
             const rawCorrectAnswer = q.correctAnswer || ''
-            const parsedOpts = parseOptions(q.options)
+            const parsedOpts = parseOptions(q.options) || (g.matchingOptions?.length ? g.matchingOptions.map(option => `${option.optionLetter}. ${option.optionText}`) : null)
             const displayUserAnswer = resolveAnswerToLetter(rawUserAnswer, parsedOpts)
             const displayCorrectAnswer = resolveAnswerToLetter(rawCorrectAnswer, parsedOpts)
 
@@ -570,7 +571,7 @@ router.get('/exams/:id/result-detail', authMiddleware, learnerOnly, validate(res
               rawCorrectAnswer,
               options: parsedOpts,
               type: g.type || q.type,
-              explanation: filterLearnerExplanation(q.explanation, g.type || q.type),
+              explanation: filterLearnerExplanation(q.explanation, g.type || q.type, parsedOpts),
               grouped: false
             })
           }

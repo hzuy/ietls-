@@ -4,6 +4,7 @@ const { Prisma } = require('@prisma/client')
 const prisma = require('../lib/prisma')
 const { saveExplanationBatch } = require('../lib/explanationSave')
 const { lockExplanationTarget } = require('../lib/explanationWriteLock')
+const { normalizeAlternatives } = require('../lib/explanationAlternatives')
 const { fingerprint, isWorkflow, versionOf, adminView, draftEnvelope, workflowError } = require('../lib/explanationWorkflow')
 const generator = require('../scripts/generate-explanations')
 const legacy = require('./explanationGeneratorService')
@@ -13,6 +14,10 @@ const { invalidate } = require('../lib/swrCache')
 const { invalidateExamCaches } = require('../utils/cache')
 
 const canonicalType = type => ({ true_false_not_given: 'true_false_ng', yes_no_not_given: 'yes_no_ng', multiple_choice: 'mcq' }[type] || type)
+const effectiveType = (type, groupType) => {
+  const family = generator.classifyFamily(groupType)
+  return family !== 'GENERIC' && (family !== generator.classifyFamily(type) || ['mcq_multi', 'list_selection'].includes(groupType)) ? groupType : type
+}
 function sourceOnly(value) {
   if (Array.isArray(value)) return value.map(sourceOnly)
   if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).filter(([key]) =>
@@ -30,7 +35,7 @@ async function targets(client, kind, examId, { questionId = null, questionNumber
   if (kind === 'exam') {
     const rows = await client.question.findMany({ where: { AND: [examScope(examId), ...(questionId ? [{ id: Number(questionId) }] : []), ...(groupId ? [{ groupId: Number(groupId) }] : [])] }, include: questionInclude, orderBy: { number: 'asc' } })
     return rows.filter(q => !selected || selected.has(q.number)).map(q => ({ kind, examId, id: q.id, number: q.number,
-      q: { ...q, type: canonicalType(generator.classifyFamily(q.group?.type) === 'IMAGE' ? q.group.type : q.type) }, raw: q.explanation }))
+      q: { ...q, type: canonicalType(effectiveType(q.type, q.group?.type)) }, raw: q.explanation }))
   }
   const exam = await client.practiceExam.findUnique({ where: { id: examId }, include: { questions: { orderBy: { orderNum: 'asc' } } } })
   if (!exam || exam.deletedAt) throw workflowError('NOT_FOUND', 'Không tìm thấy bài luyện tập.', 404)
@@ -43,7 +48,7 @@ async function targets(client, kind, examId, { questionId = null, questionNumber
       if (selected && !selected.has(number)) continue
       const q = practiceQuestionContext(exam, group, number)
       if (!q) continue
-      q.type = canonicalType(generator.classifyFamily(group.type) === 'IMAGE' ? group.type : q.type)
+      q.type = canonicalType(effectiveType(q.type, group.type))
       // A context description is not an audio transcript.
       if (exam.skill === 'listening') q.group.section = { transcript: exam.transcript || '' }
       result.push({ kind, examId, id: row.id, number, q, row, group, item: question, raw: row.explanation?.byNumber?.[number] || question.explanation || group.explanations?.[number] || null })
@@ -60,6 +65,7 @@ function input(target) {
   const source = ctx.skill === 'listening' ? q.listeningSection?.transcript || q.group?.section?.transcript : q.passage?.body || q.group?.passage?.body
   const sourceHash = fingerprint({ type: q.type, text: q.questionText || '', answer, options: q.options || null,
     source: source || '', instruction: q.group?.instruction || '', image: ctx.images,
+    ...(generator.extractOptionPairs(q.group?.options).length ? { groupOptions: q.group.options } : {}),
     noteSections: sourceOnly(q.group?.noteSections || []), matchingOptions: sourceOnly(q.group?.matchingOptions || []), canReuse: q.group?.canReuse, maxChoices: q.group?.maxChoices })
   return { q, family, ctx, answer, source, sourceHash }
 }
@@ -68,9 +74,9 @@ function preflight(data) {
   if (!data.answer) return 'Câu chưa có đáp án trong đề.'
   if (!data.source?.trim()) return data.ctx.skill === 'listening' ? 'Cần bổ sung transcript trước khi tạo lời giải.' : 'Cần bổ sung nội dung bài đọc trước khi tạo lời giải.'
   if (data.family === 'IMAGE' && !data.ctx.images.length) return 'Cần bổ sung ảnh bản đồ hoặc sơ đồ.'
-  if (['MCQ', 'MATCHING'].includes(data.family) && !generator.extractOptionPairs(data.q.options || data.q.group?.matchingOptions).length) return 'Cần bổ sung các lựa chọn của câu hỏi.'
+  if (['MCQ', 'MATCHING'].includes(data.family) && !generator.extractOptionPairs(generator.questionOptions(data.q)).length) return 'Cần bổ sung các lựa chọn của câu hỏi.'
   if (['MCQ', 'MATCHING'].includes(data.family)) {
-    const pairs = generator.extractOptionPairs(data.q.options || data.q.group?.matchingOptions)
+    const pairs = generator.extractOptionPairs(generator.questionOptions(data.q))
     if (['mcq_multi', 'list_selection'].includes(data.q.type)) {
       const tokens = legacy.extractMultiChoiceTokens(data.answer, pairs)
       const valid = new Set(pairs.map(pair => pair.letter.toUpperCase()))
@@ -83,7 +89,7 @@ function preflight(data) {
 
 function payloadIssue(data, payload) {
   if (payload.no_support) return payload.supportNote || payload.support_note || 'Chưa tìm thấy bằng chứng phù hợp với đáp án đề.'
-  if (!legacy.isAnswerMatch(data.answer, payload.answer, data.q.options || data.q.group?.matchingOptions, data.q.type)) return 'Lời giải không khớp đáp án đã lưu trong đề.'
+  if (!legacy.isAnswerMatch(data.answer, payload.answer, generator.questionOptions(data.q), data.q.type)) return 'Lời giải không khớp đáp án đã lưu trong đề.'
   if (!String(payload.reasoning || '').trim()) return 'Lời giải chưa có phần giải thích đáp án.'
   if (legacy.containsInternalJargon(payload)) return 'Lời giải chứa nội dung không phù hợp với học sinh.'
   const notGiven = data.family === 'TFNG' && /^(NOT GIVEN|NG|NOTGIVEN)$/i.test(data.answer)
@@ -107,7 +113,7 @@ async function fixedDraft(data, signal, onDiagnostic) {
   if (data.family === 'IMAGE' && !images.length) throw workflowError('MISSING_IMAGE', 'Không đọc được ảnh của câu hỏi.', 400)
   let raw, provider = 'Gemini', model = process.env.GEMINI_MODEL
   try {
-    const response = await requestGeminiJson(prompt, { images, responseSchema: generator.buildResponseSchema(data.q.type, data.q.options || data.q.group?.matchingOptions, { isFixedMode: true }),
+    const response = await requestGeminiJson(prompt, { images, responseSchema: generator.buildResponseSchema(data.q.type, generator.questionOptions(data.q), { isFixedMode: true }),
       retriesPerModel: 0, allowModelFallback: false, max_tokens: 4096, withMetadata: true, signal, onDiagnostic })
     raw = response.data; model = response.model
   } catch (error) {
@@ -151,6 +157,12 @@ async function write(target, transform, { startTime = Date.now(), signal = null 
     if (!fresh || fingerprint(fresh.raw) !== fingerprint(target.raw) || input(fresh).sourceHash !== input(target).sourceHash) throw workflowError('SOURCE_CHANGED', 'Câu hỏi hoặc lời giải đã thay đổi. Tải lại trước khi tiếp tục.')
     if (signal?.aborted) throw Object.assign(new Error('Cancelled'), { name: 'AbortError' })
     stored = transform(fresh)
+    const current = input(fresh)
+    const normalizePayload = payload => ({ ...payload, distractors: normalizeAlternatives(payload.distractors, {
+      family: current.family, pairs: current.ctx.optionPairs || [], answer: current.answer, type: current.q.type,
+    }) })
+    if (stored.draft?.payload) stored.draft = { ...stored.draft, payload: normalizePayload(stored.draft.payload) }
+    else if (stored.published) stored.published = normalizePayload(stored.published)
     let changed
     if (target.kind === 'exam') changed = await tx.question.updateMany({ where: { id: fresh.id, explanation: { equals: fresh.raw == null ? Prisma.DbNull : fresh.raw } }, data: { explanation: stored } })
     else {
@@ -165,7 +177,7 @@ async function write(target, transform, { startTime = Date.now(), signal = null 
   }, { startTime, target: `${target.kind}:${target.examId}:${target.number}` })
   if (target.kind === 'exam') invalidateExamCaches(target.examId)
   else invalidate('practice:')
-  return legacy.sanitizeExplanationForRead(stored, target.q.type)
+  return legacy.sanitizeExplanationForRead(stored, target.q.type, generator.questionOptions(target.q) || target.q.group?.options)
 }
 
 async function generate(kind, examId, options = {}) {
@@ -233,7 +245,8 @@ async function saveDraft(options) {
   if (invalid) throw workflowError('MISSING_DATA', invalid, 400)
   expectedDraft(target, fields.expectedDraftVersion, fields.expectedSourceHash, fields.expectedPublishedVersion)
   const previous = isWorkflow(target.raw) ? target.raw.draft?.payload || target.raw.published || {} : target.raw || {}
-  const clean = legacy.validateManualExplanation(fields, { sourceText: data.source, family: data.family, prevExp: previous, targetAnswer: data.answer })
+  const clean = legacy.validateManualExplanation(fields, { sourceText: data.source, family: data.family, prevExp: previous, targetAnswer: data.answer,
+    options: generator.questionOptions(data.q) || data.q.group?.options, questionType: data.q.type })
   const payload = { ...previous, ...clean, answer: data.answer, no_support: false, supportNote: null, manualEdit: true }
   const issue = payloadIssue(data, payload)
   const explanation = await write(target, fresh => draftEnvelope(fresh.raw, payload, data.sourceHash, issue))

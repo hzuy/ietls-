@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import api from '../../utils/axios'
 import ReviewExplanation from '../exam/ReviewExplanation'
+import { hasExplanationChoices } from '../../utils/explanationQuestionPolicy'
 import { activeRunFailure } from '../../utils/explanationRunReport'
 import { showAlert } from '../../utils/alertUtils'
 import { canUseExplanation, draftSaveMetadata, explanationPublishMetadata } from '../../utils/explanationDraftWorkflow'
@@ -377,6 +378,10 @@ export default function QuestionExplanationModal({
   const effectiveRunStatus = runStatus === 'error' && !currentFailure ? null : runStatus
   const attention = currentFailure ? null : getExplanationAttention(currentExplanation, effectiveRunStatus, runErrorMessage)
   const displayExplanation = previewPublished ? currentExplanation?.publishedExplanation : currentExplanation
+  const hasChoices = hasExplanationChoices(question)
+  const explainedAnswer = ['conflict_pending', 'needs_regeneration'].includes(currentExplanation?.status)
+    ? currentExplanation?.aiAnswer || currentExplanation?.answer : currentExplanation?.answer
+  const hasAnswerConflict = Boolean(explainedAnswer && question.correctAnswer && !isSameAnswer(explainedAnswer, question.correctAnswer))
   const formatTime = value => Number.isFinite(Date.parse(value))
     ? new Date(value).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : null
   const qNum = question.number
@@ -421,7 +426,7 @@ export default function QuestionExplanationModal({
         full_sentence: isCompletion ? editFullSentence : '',
         translation: isCompletion ? editTranslation : '',
         reasoning: editReasoning,
-        distractors: editDistractors.filter(d => (d.option || '').trim() && (d.reason || '').trim()),
+        distractors: hasChoices ? editDistractors.filter(d => (d.option || '').trim() && (d.reason || '').trim()) : [],
       }
 
       const res = await api.put(url, payload)
@@ -653,20 +658,21 @@ export default function QuestionExplanationModal({
               {!previewPublished && attention && <section aria-label={attention.title} className="rounded-xl border border-amber-200 bg-amber-50/50 p-3.5 text-sm">
                 <p className="m-0 font-semibold text-amber-900">{attention.title}</p>
                 <p className="mt-1 mb-0 text-zinc-800 break-words">{attention.reason}</p>
+                {hasAnswerConflict && <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-zinc-800">
+                  <p className="m-0">Đáp án đề: <strong>{question.correctAnswer}</strong></p>
+                  <p className="m-0"><span>Đáp án trong lời giải AI:</span> <strong>{explainedAnswer}</strong></p>
+                </div>}
                 <p className="mt-2 mb-0 text-xs text-zinc-600">{attention.hint}</p>
-                <button type="button" disabled={isAIBusy || isSavingEdit || isReviewing}
-                  onClick={() => setActiveTab('edit')}
-                  className="mt-3 min-h-9 rounded-lg bg-zinc-900 px-3 text-xs font-semibold text-white hover:bg-zinc-700 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 cursor-pointer">
-                  {'S\u1eeda l\u1eddi gi\u1ea3i'}
-                </button>
+                {hasAnswerConflict && <button type="button" onClick={onClose} disabled={isSavingEdit || isReviewing}
+                  className="mt-2 min-h-9 text-xs font-medium underline underline-offset-4 focus-visible:outline-2 cursor-pointer">Quay lại sửa đề</button>}
               </section>}
 
               {/* C.4: Banner displaying which answer this explanation explains */}
-              <div className="rounded-2xl border border-zinc-200 bg-zinc-50/90 p-3 flex flex-wrap items-center justify-between gap-2.5 text-xs">
+              {!(attention && hasAnswerConflict && !previewPublished) && <div className="rounded-2xl border border-zinc-200 bg-zinc-50/90 p-3 flex flex-wrap items-center justify-between gap-2.5 text-xs">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-zinc-600">Lời giải này giải thích đáp án:</span>
                   <span className="px-2.5 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 font-mono font-bold text-emerald-700 text-xs">
-                    {displayExplanation?.answer || question.correctAnswer}
+                    {previewPublished ? displayExplanation?.answer || question.correctAnswer : explainedAnswer || question.correctAnswer}
                   </span>
                 </div>
                 {!attention && currentExplanation?.answer && question.correctAnswer && !isSameAnswer(currentExplanation.answer, question.correctAnswer) && (
@@ -677,10 +683,10 @@ export default function QuestionExplanationModal({
                     </span>
                   </div>
                 )}
-              </div>
+              </div>}
 
               {/* 4-Step Explanation View */}
-              <ReviewExplanation explanation={displayExplanation} correctAnswer={question.correctAnswer} />
+              <ReviewExplanation explanation={displayExplanation} correctAnswer={previewPublished ? displayExplanation?.answer : explainedAnswer || question.correctAnswer} question={question} />
             </div>
           )}
 
@@ -1094,7 +1100,7 @@ export default function QuestionExplanationModal({
                 </div>
 
                 {/* Distractors list */}
-                <div className="space-y-3 pt-2 border-t border-zinc-100">
+                {hasChoices && <div className="space-y-3 pt-2 border-t border-zinc-100">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-zinc-700">
                       Phân tích các đáp án sai / nhiễu (distractors, tối đa 10):
@@ -1165,7 +1171,7 @@ export default function QuestionExplanationModal({
                       </div>
                     </div>
                   ))}
-                </div>
+                </div>}
               </div>
             </div>
           )}
@@ -1189,10 +1195,13 @@ export default function QuestionExplanationModal({
         )}
 
         {/* Modal Footer */}
-        <div className="pt-4 border-t border-zinc-100 flex items-center justify-end shrink-0 gap-3">
+        <div className="pt-4 border-t border-zinc-100 flex flex-wrap items-center justify-end shrink-0 gap-3">
           {activeTab === 'view' && onGenerateDraft && <button type="button" disabled={isAIBusy || isSavingEdit || isReviewing}
             onClick={() => { onClose(); onGenerateDraft(qNum) }}
-            className="min-h-10 rounded-xl border border-zinc-200 px-4 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 focus-visible:outline-2 disabled:opacity-50 cursor-pointer">Tạo bản nháp mới</button>}
+            className="min-h-10 rounded-xl border border-zinc-200 px-4 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 focus-visible:outline-2 disabled:opacity-50 cursor-pointer">{attention ? 'Tạo lại theo đáp án đề' : 'Tạo bản nháp mới'}</button>}
+          {activeTab === 'view' && !previewPublished && attention && <button type="button" onClick={() => setActiveTab('edit')}
+            disabled={isAIBusy || isSavingEdit || isReviewing}
+            className="min-h-10 rounded-xl bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-700 focus-visible:outline-2 disabled:opacity-50 cursor-pointer">Sửa lời giải</button>}
           {activeTab === 'view' && !previewPublished && canUseExplanation(currentExplanation) && (
             <button type="button" onClick={handleReview} disabled={isReviewing || isAIBusy}
               className="min-h-10 rounded-xl bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-700 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 cursor-pointer">

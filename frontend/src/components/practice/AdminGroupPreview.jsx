@@ -14,7 +14,7 @@ export default function AdminGroupPreview({ group, skill = 'reading', practice =
       ? questions.map((q, idx) => {
           const qNum = q.number || (qStart + idx)
           const exp = q.explanation || group.explanations?.[qNum] || group.explanations?.[String(qNum)]
-          return { qNum, correctAnswer: q.correctAnswer, exp, id: q.id || qNum || idx }
+          return { qNum, correctAnswer: q.correctAnswer, question: q, exp, id: q.id || qNum || idx }
         }).filter(item => Boolean(item.exp))
       : Object.entries(group.explanations || {}).map(([numStr, exp]) => ({
           qNum: Number(numStr) || numStr,
@@ -33,7 +33,7 @@ export default function AdminGroupPreview({ group, skill = 'reading', practice =
         </div>
 
         <div className="space-y-3 bg-zinc-50/80 rounded-xl p-3.5 border border-zinc-200">
-          {expList.map(({ qNum, correctAnswer, exp, id }) => {
+          {expList.map(({ qNum, correctAnswer, question, exp, id }) => {
             let parsedExp = exp
             if (typeof parsedExp === 'string') {
               try { parsedExp = JSON.parse(parsedExp) } catch { /* Preserve legacy plain text explanations. */ }
@@ -51,7 +51,7 @@ export default function AdminGroupPreview({ group, skill = 'reading', practice =
                     </span>
                   )}
                 </div>
-                <ReviewExplanation explanation={parsedExp} />
+                <ReviewExplanation explanation={parsedExp} question={{ ...question, group }} />
               </div>
             )
           })}

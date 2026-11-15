@@ -352,7 +352,7 @@ describe('enrichExplanation — chỉ giữ thông tin có thật trong bài', (
   })
 
   it('câu điền từ: bỏ lựa chọn nhiễu không có trong bài', () => {
-    expect(out.distractors.map(d => d.option)).toEqual(['shipping'])
+    expect(out.distractors).toEqual([])
   })
 
   it('bỏ tiền tố "STEP n —" và đổi [Q:n] thành "n. ___"', () => {

@@ -12,7 +12,7 @@ export function getExplanationAttention(explanation, runStatus = null, runIssue 
   if (status === 'conflict_pending') return {
     title: 'Cần kiểm tra', action: 'edit',
     reason: 'Lời giải cũ đang giải thích một đáp án khác đáp án trong đề.',
-    hint: 'Sửa lời giải theo đáp án đề hoặc tạo bản nháp mới. AI không thay đổi đáp án đề.',
+    hint: 'Nếu đáp án đề đúng, sửa lời giải hoặc tạo lại theo đáp án đề. Nếu đáp án đề sai, quay lại sửa đề và lưu trước.',
   }
   if (status === 'needs_regeneration') return {
     title: EXPLANATION_ATTENTION_LABELS[status], action: 'edit',

@@ -57,6 +57,7 @@ function practiceQuestionContext(exam, group, number) {
       imageUrl: group.imageUrl || null,
       noteSections,
       matchingOptions: group.matchingOptions || [],
+      options: group.options || [],
       passage: exam.skill === 'reading' ? { body: sectionText } : null,
       section: exam.skill === 'listening' ? { transcript: sectionText } : null,
     },

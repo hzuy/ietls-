@@ -12,7 +12,7 @@ export default function ExplanationQualityFilter({ sections = [], groups = [], o
       for (const question of group.questions || []) {
         let explanation = question.explanation || group.explanations?.[question.number]
         if (typeof explanation === 'string') { try { explanation = JSON.parse(explanation) } catch { continue } }
-        if (!REASONS[explanation?.status]) continue
+        if (!REASONS[explanation?.status] || explanation.status === 'draft_ready') continue
         results.set(Number(question.number), { number: Number(question.number), reason: explanation.status, groupId: group.id ?? group._id })
       }
     }

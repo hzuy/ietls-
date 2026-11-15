@@ -75,7 +75,7 @@ describe('B.4: Manual Edit Steps 1-4 Tests (Sửa trực tiếp)', () => {
         ],
       }
 
-      const cleaned = validateManualExplanation(payload, { sourceText: samplePassage, family: 'MCQ' })
+      const cleaned = validateManualExplanation(payload, { sourceText: samplePassage, family: 'MCQ', options: ['Geneva', 'Paris'], targetAnswer: 'Geneva' })
 
       // Step 1
       expect(cleaned.predict).toBe('Dự đoán câu hỏi cần tìm địa điểm hội nghị.')

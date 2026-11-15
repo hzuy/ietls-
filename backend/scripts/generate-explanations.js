@@ -26,6 +26,7 @@
 //                   NULL) — dùng để chạy thử trên vài câu cụ thể thuộc nhiều loại
 
 const prisma = require('../lib/prisma')
+const { allowsAlternatives, normalizeAlternatives, alternativesInstruction } = require('../lib/explanationAlternatives')
 const { Prisma } = require('@prisma/client')
 const { getGroqClient, getGroqModel, requestGeminiJson } = require('../lib/groqClient')
 const { cleanJsonRaw, repairTruncatedJson } = require('../services/json/jsonSanitizer')
@@ -52,9 +53,9 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 // ─── Phân họ loại câu hỏi — quyết định ngữ cảnh nào cần gửi kèm + chỉ dẫn nào
 // cho AI. Chung 1 schema JSON đầu ra cho mọi họ (đã xác nhận với người dùng).
 const FAMILY = {
-  MCQ: ['mcq', 'mcq_multi', 'choose_title', 'list_selection'],
-  TFNG: ['true_false_ng', 'yes_no_ng'],
-  MATCHING: ['matching', 'matching_headings', 'matching_features', 'matching_paragraph', 'matching_endings', 'categorisation'],
+  MCQ: ['mcq', 'mcq_multi', 'choose_title', 'list_selection', 'multiple_choice'],
+  TFNG: ['true_false_ng', 'yes_no_ng', 'true_false_not_given', 'yes_no_not_given'],
+  MATCHING: ['matching', 'matching_headings', 'matching_features', 'matching_paragraph', 'matching_information', 'matching_drag', 'matching_endings', 'categorisation', 'drag_word_bank'],
   COMPLETION: [
     'fill_blank',
     'short_answer',
@@ -132,7 +133,7 @@ const TYPE_INSTRUCTION = {
   MCQ: 'Đây là câu trắc nghiệm. "question_chunks" là phần thân câu hỏi. Nếu câu hỏi yêu cầu chọn nhiều chữ cái (như Choose TWO letters hoặc loại câu mcq_multi), "answer" PHẢI ghi đầy đủ các chữ cái cách nhau bằng dấu phẩy theo thứ tự chữ cái (ví dụ "B, C"). "distractors" PHẢI liệt kê TỪNG lựa chọn sai (ghi cả chữ cái, ví dụ "B. ...") kèm lý do sai dựa trên bài.',
   TFNG: 'Đây là câu True/False/Not Given hoặc Yes/No/Not Given. "question_chunks" là nhận định cần xét. Trong "reasoning" phân biệt rõ "bài nói ngược lại" (False/No) với "bài không đề cập" (Not Given). Nếu đáp án là NOT GIVEN và bài không có câu nào liên quan trực tiếp thì để "evidence_quote" là chuỗi rỗng. "distractors" là 2 đáp án còn lại kèm lý do loại.',
   MATCHING: 'Đây là câu nối thông tin. "question_chunks" là nhận định/câu hỏi cần nối. "distractors" là 1-3 lựa chọn dễ nhầm nhất trong danh sách để nối, kèm lý do không phù hợp.',
-  COMPLETION: 'Đây là câu điền từ. "question_chunks" là câu chứa chỗ trống, viết chỗ trống thành "<số câu>. ___". "full_sentence" là câu hoàn chỉnh sau khi điền đáp án, "translation" là bản dịch tiếng Việt của câu đó. Trong "reasoning" nhắc giới hạn số từ nếu đề có. "distractors" là 1-3 từ trong bài dễ điền nhầm, kèm lý do.',
+  COMPLETION: 'Đây là câu điền từ. "question_chunks" là câu chứa chỗ trống, viết chỗ trống thành "<số câu>. ___". "full_sentence" là câu hoàn chỉnh sau khi điền đáp án, "translation" là bản dịch tiếng Việt của câu đó. Trong "reasoning" nhắc giới hạn số từ nếu đề có. "distractors" PHẢI là []; không tự tạo lựa chọn từ các từ trong bài.',
   IMAGE: 'Đây là câu LABEL MAP/DIAGRAM: đề bài nằm trong HÌNH ẢNH bản đồ/sơ đồ được đính kèm trong tin nhắn này. BẮT BUỘC quan sát hình để xác định chỗ trống/vị trí của câu hỏi (chữ cái A, B, C... hoặc chỗ trống trên sơ đồ), rồi đối chiếu với transcript/bài đọc để chọn đáp án đúng. Trong "reasoning" PHẢI nêu rõ vị trí trên hình (ví dụ: "vị trí G nằm ở góc trái phía trên khu Old Stables, ngay trên bãi đỗ xe") để người học đối chiếu được với hình. Tuyệt đối KHÔNG bịa vị trí/chi tiết không có trên hình; nếu không xác định được vị trí của câu hỏi trên hình, nói rõ điều đó trong "reasoning".',
   GENERIC: 'Hãy giải thích dựa trên những thông tin có sẵn bên dưới.',
 }
@@ -190,6 +191,10 @@ function extractOptionPairs(rawOptions) {
     }
     return { letter: defaultLetter, text: String(item || '') }
   }).filter(Boolean)
+}
+
+function questionOptions(q) {
+  return [q.options, q.group?.matchingOptions, q.group?.options].find(value => extractOptionPairs(value).some(pair => String(pair.text || '').trim())) || null
 }
 
 function splitParagraphs(text) {
@@ -281,6 +286,7 @@ function isVietnameseTranslation(text) {
 }
 
 function enrichExplanation(raw, ctx, correctAnswer, family = 'GENERIC', { attempt = 0 } = {}) {
+  if (ctx.questionType && classifyFamily(ctx.questionType) !== 'GENERIC') family = classifyFamily(ctx.questionType)
   if (!raw || typeof raw !== 'object') throw new ExplanationValidationError('JSON trả về không phải object')
   const questionChunks = cleanChunks(raw.question_chunks, 12)
   const predict = cleanString(raw.predict)
@@ -347,11 +353,10 @@ function enrichExplanation(raw, ctx, correctAnswer, family = 'GENERIC', { attemp
     .filter(p => p.question && p.passage && (!hasSource || findParagraph(paragraphs, p.passage) !== -1))
     .slice(0, 5)
 
-  const distractors = (Array.isArray(raw.distractors) ? raw.distractors : [])
+  const distractors = normalizeAlternatives((Array.isArray(raw.distractors) ? raw.distractors : [])
     .map(d => ({ option: cleanString(d?.option, 160), label: cleanString(d?.label, 80), reason: cleanString(d?.reason, 400) }))
     .filter(d => d.option && d.reason)
-    .filter(d => family !== 'COMPLETION' || !hasSource || findParagraph(paragraphs, d.option) !== -1)
-    .slice(0, 4)
+    .slice(0, 4), { family, pairs: ctx.optionPairs || [], answer: correctAnswer, type: ctx.questionType })
 
   let fullSentence = ''
   let translation = ''
@@ -441,17 +446,22 @@ function buildContext(q, family) {
   } else if (family === 'IMAGE') {
     parts.push({ label: 'HÌNH ẢNH ĐÍNH KÈM', text: '(không có ảnh — không thể xác định vị trí trên bản đồ/sơ đồ)' })
   }
-  return { skill, parts, sourceText: passageText, images }
+  return { skill, parts, sourceText: passageText, images,
+    optionPairs: extractOptionPairs(questionOptions(q)), questionType: q.group?.type || q.type }
 }
 
 function buildPrompt(q, family, ctx, previousError = null, teacherFeedback = null, optionsOrFixed = {}) {
+  if (ctx.questionType && classifyFamily(ctx.questionType) !== 'GENERIC') family = classifyFamily(ctx.questionType)
+  const distractorExample = allowsAlternatives(family, ctx.optionPairs || [])
+    ? '[{ "option": "lựa chọn có thật trong đề", "label": "nghĩa ngắn", "reason": "1-2 câu vì sao sai" }]'
+    : '[]'
   const isFixedMode = Boolean(optionsOrFixed?.isFixedMode)
   const targetAnswer = optionsOrFixed?.targetAnswer != null ? String(optionsOrFixed.targetAnswer).trim() : null
   const skillLabel = ctx.skill === 'reading' ? 'Reading' : ctx.skill === 'listening' ? 'Listening' : 'Practice'
   const sourceName = ctx.skill === 'listening' ? 'transcript' : 'bài đọc'
 
   let optionsBlock = ''
-  const pairs = extractOptionPairs(q.options || (q.group?.matchingOptions?.length ? q.group.matchingOptions : null))
+  const pairs = extractOptionPairs(questionOptions(q))
   if (pairs.length > 0) {
     optionsBlock = `- Các lựa chọn: ${pairs.map(p => `${p.letter}. ${p.text}`).join(' | ')}\n`
   }
@@ -502,14 +512,14 @@ function buildPrompt(q, family, ctx, previousError = null, teacherFeedback = nul
   "translation": "dịch tiếng Việt của full_sentence (để rỗng nếu full_sentence rỗng)",
   "reasoning": "2-3 câu: chứng minh mạch tư duy vì sao đáp án này đúng theo ${sourceName}. Dành cho học sinh đọc — TUYỆT ĐỐI KHÔNG nhắc người dùng, người nhập, giáo viên, ngộ nhận.",
   "paraphrases": [{ "question": "cụm trong câu hỏi", "question_label": "nghĩa", "passage": "cụm NGUYÊN VĂN trong ${sourceName}", "passage_label": "nghĩa" }],
-  "distractors": [{ "option": "lựa chọn/từ dễ nhầm", "label": "nghĩa ngắn", "reason": "1-2 câu vì sao sai" }]
+  "distractors": ${distractorExample}
 }`
   } else {
     modeInstruction = `QUY TẮC TỰ GIẢI ĐỘC LẬP:
 1. Bạn là chuyên gia IELTS có TƯ DUY PHẢN BIỆN ĐỘC LẬP. Bạn PHẢI tự mình giải câu hỏi độc lập 100% dựa trên bằng chứng trong ${sourceName}.
 2. Trường "answer": PHẢI là đáp án THỰC TẾ CHÍNH XÁC NHẤT theo ${sourceName} (nếu có lựa chọn A/B/C/D hoặc số La Mã, ghi đúng ký hiệu lựa chọn. Nếu câu hỏi yêu cầu chọn từ 2 chữ cái trở lên hoặc loại câu mcq_multi, ghi đầy đủ các chữ cái cách nhau bằng dấu phẩy theo thứ tự chữ cái, ví dụ: "B, C").
 3. Trường "reasoning": 2-3 câu chứng minh mạch tư duy vì sao đáp án đúng theo phương pháp Linear thinking. Đây là phần DÀNH CHO HỌC SINH ĐỌC. TUYỆT ĐỐI KHÔNG nhắc đến "người dùng", "người nhập", "giáo viên", "ngộ nhận", "thử thách", và KHÔNG phán xét người nhập. Chỉ tập trung vào dữ liệu ${sourceName} và mạch suy luận để ra đáp án đúng.
-4. Trường "distractors": Phân tích trung thực lý do các phương án nhiễu khác bị sai.`
+4. Trường "distractors": chỉ phân tích lựa chọn có thật trong đề. Câu tự điền không có lựa chọn: trả [].`
 
     jsonFieldsInstruction = `{
   "question_chunks": [{ "text": "cụm tiếng Anh của câu hỏi", "label": "nghĩa/vai trò của cụm, 2-6 từ tiếng Việt" }],
@@ -523,13 +533,14 @@ function buildPrompt(q, family, ctx, previousError = null, teacherFeedback = nul
   "translation": "dịch tiếng Việt của full_sentence (để rỗng nếu full_sentence rỗng)",
   "reasoning": "2-3 câu: chứng minh mạch tư duy vì sao đáp án này đúng theo ${sourceName}. Dành cho học sinh đọc — TUYỆT ĐỐI KHÔNG nhắc người dùng, người nhập, giáo viên, ngộ nhận.",
   "paraphrases": [{ "question": "cụm trong câu hỏi", "question_label": "nghĩa", "passage": "cụm NGUYÊN VĂN trong ${sourceName}", "passage_label": "nghĩa" }],
-  "distractors": [{ "option": "lựa chọn/từ dễ nhầm", "label": "nghĩa ngắn", "reason": "1-2 câu vì sao sai" }]
+  "distractors": ${distractorExample}
 }`
   }
 
   return `Bạn là gia sư IELTS, giải thích theo phương pháp "Linear thinking": tách câu thành từng cụm ý ngắn, gắn nghĩa tiếng Việt cho từng cụm, rồi đối chiếu câu hỏi với ${sourceName} theo 4 bước. Đề thi ${skillLabel}.
 
 ${TYPE_INSTRUCTION[family]}
+${alternativesInstruction(family, extractOptionPairs(questionOptions(q)))}
 ${imageBlock}${noSourceBlock}
 THÔNG TIN CÂU HỎI:
 - Số câu: ${q.number ?? '(không rõ)'}
@@ -569,7 +580,7 @@ function buildBatchPrompt(questions, family, ctx, previousError = null) {
     : ''
 
   const questionBlocks = list.map(q => {
-    const pairs = extractOptionPairs(q.options || (q.group?.matchingOptions?.length ? q.group.matchingOptions : null))
+    const pairs = extractOptionPairs(questionOptions(q))
     const optionsLine = pairs.length > 0
       ? `\n   + Các lựa chọn: ${pairs.map(p => `${p.letter}. ${p.text}`).join(' | ')}`
       : ''
@@ -578,7 +589,7 @@ function buildBatchPrompt(questions, family, ctx, previousError = null) {
       const noteText = findNoteSectionContext(q.group, q.number)
       if (noteText) parts.push(`\n   + Đoạn ghi chú chứa chỗ trống (giữ nguyên nhãn [Q:n], chỗ trống cần giải thích là [Q:${q.number}]):\n${noteText}`)
     }
-    return `- Câu ${q.number ?? '(không rõ)'} (loại: ${q.type || '(không rõ)'}): ${q.questionText || '(không có sẵn — câu hỏi nằm trong hình/ngữ cảnh)'}${optionsLine}${parts.join('')}`
+    return `- Câu ${q.number ?? '(không rõ)'} (loại: ${q.type || '(không rõ)'}): ${q.questionText || '(không có sẵn — câu hỏi nằm trong hình/ngữ cảnh)'}${optionsLine}${parts.join('')}\n   + ${alternativesInstruction(family, pairs)}`
   }).join('\n')
 
   const jsonFieldsInstruction = `{
@@ -596,7 +607,7 @@ function buildBatchPrompt(questions, family, ctx, previousError = null) {
       "translation": "dịch tiếng Việt của full_sentence (để rỗng nếu full_sentence rỗng)",
       "reasoning": "2-3 câu: chứng minh mạch tư duy vì sao đáp án này đúng theo ${sourceName} (với câu bản đồ/sơ đồ phải nêu rõ vị trí trên hình). Dành cho học sinh đọc — TUYỆT ĐỐI KHÔNG nhắc người dùng, người nhập, giáo viên, ngộ nhận.",
       "paraphrases": [{ "question": "cụm trong câu hỏi", "question_label": "nghĩa", "passage": "cụm NGUYÊN VĂN trong ${sourceName}", "passage_label": "nghĩa" }],
-      "distractors": [{ "option": "lựa chọn/từ dễ nhầm", "label": "nghĩa ngắn", "reason": "1-2 câu vì sao sai" }]
+      "distractors": ${list.some(q => allowsAlternatives(family, extractOptionPairs(questionOptions(q)))) ? '[{ "option": "lựa chọn có thật trong đề", "label": "nghĩa ngắn", "reason": "1-2 câu vì sao sai" }]' : '[]'}
     }
   ]
 }`
@@ -829,6 +840,7 @@ function buildResponseSchema(type, rawOptions = null, schemaOpts = {}) {
     },
     distractors: {
       type: 'ARRAY',
+      ...(family && !allowsAlternatives(family, pairs) ? { maxItems: 0 } : {}),
       items: {
         type: 'OBJECT',
         properties: {
@@ -969,7 +981,7 @@ async function generateExplanation(q, family, ctx, { teacherFeedback = null, isF
       err.name = 'AbortError'
       throw err
     }
-    const rawOptions = q.options || (q.group?.matchingOptions?.length ? q.group.matchingOptions : null)
+    const rawOptions = questionOptions(q)
     const prompt = buildPrompt(q, family, ctx, previousError, teacherFeedback, { isFixedMode, targetAnswer })
     const aiResult = await callAi(prompt, {
       questionType: q.type,
@@ -1079,7 +1091,9 @@ async function generateBatchExplanations(questions, family, ctx, { signal = null
       // Bỏ qua số câu lạ hoặc trùng lặp (giữ kết quả đầu tiên).
       if (!q || byNumber.has(num)) continue
       try {
-        const explanation = enrichExplanation(item, ctx, q.correctAnswer, family)
+        const explanation = enrichExplanation(item, { ...ctx,
+          optionPairs: extractOptionPairs(questionOptions(q)),
+          questionType: q.group?.type || q.type }, q.correctAnswer, family)
         explanation.provider = aiResult?.provider || 'Gemini'
         if (aiResult?.model) explanation.model = aiResult.model
         if (aiResult?.isFallback) explanation.isFallback = true
@@ -1284,6 +1298,7 @@ module.exports = {
   buildResponseSchema,
   cleanString,
   extractOptionPairs,
+  questionOptions,
   ROMAN_NUMERALS,
   stripTrailingPunctuation,
   isVietnameseTranslation,

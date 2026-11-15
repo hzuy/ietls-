@@ -37,7 +37,7 @@ describe('ReviewExplanation', () => {
     expect(screen.getAllByText('Đoạn 1').length).toBeGreaterThan(0)
     expect(screen.getByText('Đáp án phù hợp nhất:')).toBeInTheDocument()
     expect(screen.getByText('built his wealth')).toBeInTheDocument()
-    expect(screen.getByText('shipping')).toBeInTheDocument()
+    expect(screen.queryByText('Những lựa chọn còn lại')).not.toBeInTheDocument()
     expect(screen.getAllByText('(…)').length).toBeGreaterThan(0)
   })
 

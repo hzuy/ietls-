@@ -665,7 +665,7 @@ export default function ExamReview({ skill = 'reading', practice = null }) {
               <LocateSwitch checked={locate && canLocate} disabled={!canLocate} onChange={toggleLocate} />
             </div>
 
-            <ReviewExplanation explanation={explanation} paragraphLabel={paragraphLabel} />
+            <ReviewExplanation explanation={explanation} paragraphLabel={paragraphLabel} question={{ ...(activeGroupQuestion || activeFlatQuestion), group: activeGroup || undefined }} />
           </div>
         </div>
       </div>

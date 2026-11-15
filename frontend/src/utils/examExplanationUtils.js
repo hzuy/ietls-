@@ -21,7 +21,6 @@ export function isExplanationUnsupportedGroup(group) {
 }
 
 export const EXAM_EXPLANATION_ATTENTION_STATUSES = new Set([
-  'draft_ready',
   'conflict_pending',
   'needs_regeneration',
   'possibly_stale'
@@ -259,10 +258,6 @@ export function calculateExamExplanationStats(target) {
 
   result.hasAttention = result.attentionSlots > 0
   result.isFullyExplained = result.supportedSlots > 0 && result.explainedSlots === result.supportedSlots
-
-  if (result.statusCounts.draft_ready > 0) {
-    result.attentionReasons.push(`${result.statusCounts.draft_ready} câu Chờ duyệt`)
-  }
 
   if (result.statusCounts.conflict_pending > 0) {
     result.attentionReasons.push(`${result.statusCounts.conflict_pending} câu Cần kiểm tra`)

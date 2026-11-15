@@ -86,7 +86,7 @@ export default function ExplanationChipGrid({
               data-explanation-question={qNum}
               onClick={(e) => {
                 e.stopPropagation()
-                onSelectQuestion?.({ question: q, qNum, explanation: exp })
+                onSelectQuestion?.({ question: { ...q, group }, qNum, explanation: exp })
               }}
               className="h-10 w-full min-w-0 px-1.5 sm:px-2 inline-flex items-center justify-between gap-1 rounded-xl text-xs font-medium border bg-white hover:bg-zinc-50 border-zinc-200 hover:border-zinc-300 text-zinc-800 transition shadow-2xs cursor-pointer select-none"
               title={chipTitle}

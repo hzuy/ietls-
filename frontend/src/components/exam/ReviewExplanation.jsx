@@ -1,5 +1,6 @@
 import { X, HelpCircle } from 'lucide-react'
 import { findRange, normalizeText } from '../../utils/textMatch'
+import { hasExplanationChoices } from '../../utils/explanationQuestionPolicy'
 
 function StepCard({ index, total, title, children }) {
   return (
@@ -119,7 +120,7 @@ function ParagraphTag({ children }) {
   )
 }
 
-function V2Steps({ explanation: ex, paragraphLabel, correctAnswer }) {
+function V2Steps({ explanation: ex, paragraphLabel, correctAnswer, question }) {
   const evidenceParts = ex.evidence?.parts || []
   const answer = correctAnswer || ex.answer
   const steps = [
@@ -193,7 +194,7 @@ function V2Steps({ explanation: ex, paragraphLabel, correctAnswer }) {
               ))}
             </div>
           )}
-          {ex.distractors?.length > 0 && (
+          {hasExplanationChoices(question) && ex.distractors?.length > 0 && (
             <div className="flex flex-col gap-2">
               <p className="m-0 font-semibold text-zinc-900">Những lựa chọn còn lại</p>
               {ex.distractors.map((d, i) => (
@@ -235,7 +236,7 @@ function LegacySteps({ explanation: ex }) {
   ))
 }
 
-export default function ReviewExplanation({ explanation, paragraphLabel = i => `Đoạn ${i + 1}`, correctAnswer }) {
+export default function ReviewExplanation({ explanation, paragraphLabel = i => `Đoạn ${i + 1}`, correctAnswer, question = {} }) {
   if (!explanation) {
     return (
       <div className="flex items-center gap-3 rounded-2xl border border-dashed border-zinc-300 bg-white px-4 py-5 text-sm text-zinc-500">
@@ -247,7 +248,7 @@ export default function ReviewExplanation({ explanation, paragraphLabel = i => `
   return (
     <div className="flex flex-col gap-3">
       {explanation.v === 2
-        ? <V2Steps explanation={explanation} paragraphLabel={paragraphLabel} correctAnswer={correctAnswer} />
+        ? <V2Steps explanation={explanation} paragraphLabel={paragraphLabel} correctAnswer={correctAnswer} question={question} />
         : <LegacySteps explanation={explanation} />}
     </div>
   )

@@ -98,7 +98,7 @@ function QuestionResultCard({ q, passageIndex, activeLocator, setActiveLocator }
         </div>
         
         <div className="p-4 bg-white">
-          <ReviewExplanation explanation={q.explanation} />
+          <ReviewExplanation explanation={q.explanation} question={q} />
         </div>
       </div>
     )
@@ -150,7 +150,7 @@ function QuestionResultCard({ q, passageIndex, activeLocator, setActiveLocator }
       
       {/* Explanation Body */}
       <div className="p-4 bg-white">
-        <ReviewExplanation explanation={q.explanation} />
+        <ReviewExplanation explanation={q.explanation} question={q} />
       </div>
     </div>
   )
@@ -175,7 +175,7 @@ export default function ReadingResultSplitScreen({ data, onRetry, isPractice, on
       questions: (sec.questions || []).map(q => {
         let expObj = q.explanation
         if (typeof expObj === 'string') {
-          try { expObj = JSON.parse(expObj) } catch (e) {}
+          try { expObj = JSON.parse(expObj) } catch { /* Preserve legacy explanation text. */ }
         }
         return { ...q, explanation: expObj }
       })
