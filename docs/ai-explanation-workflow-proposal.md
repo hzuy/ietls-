@@ -241,3 +241,36 @@ Rà soát thực tế bổ sung: chỉ kiểm tra khớp đáp án và trích d�
 - Projection admin đánh dấu nháp cũ lệch câu khi đọc, không cập nhật hàng loạt DB; chỉ giáo viên mới quyết định sửa/tạo lại. Giữ khóa nguồn và version, giới hạn lượt gọi/thời gian hiện tại.
 - Bản nháp thiếu bằng chứng hiển thị trạng thái chưa có lời giải đầy đủ và phần phân tích hiện có, không dựng bốn bước trống hay khẳng định bài không đề cập như trường hợp NOT GIVEN.
 - Kiểm thử nhầm câu 1/5, 4/2, token 1/10, nhiều chỗ trống cùng dòng, trường hợp ngữ cảnh thiếu và các loại câu khác; review bảo mật, probe chỉ đọc rồi deploy theo runbook.
+
+Đối chiếu thêm toàn luồng phát hiện lỗi định danh ở hai editor Test: khi mở đề, frontend tự đánh lại số câu theo thứ tự token rồi coi là trạng thái đã lưu, trong khi DB giữ số cũ. Với thứ tự token `6,1,2,3,4,5`, nút tạo lại của câu hiển thị có thể gửi số thuộc một câu DB khác. Sửa bằng cách giữ nguyên số/ID đã lưu khi tải đề; đánh lại số chỉ khi giáo viên thực sự sửa cấu trúc và đi qua luồng lưu trước khi sinh. Practice tải nhóm trực tiếp nên không có bước đánh lại số âm thầm này. Có test UI tái hiện thất bại trước sửa ở cả Reading/Listening, kiểm tra đúng phạm vi request và đúng bản nháp cập nhật.
+
+Schema fixed-answer ràng buộc trường `answer` theo đúng đáp án đề; nếu không có bằng chứng cho đáp án này, model phải dùng `no_support`, không đổi sang đáp án khác. Fallback vẫn được kiểm tra lệch đáp án, và lỗi lệch đáp án có ưu tiên hơn sai template nếu model đã trả một đáp án khác. Các khóa đáp án cũ không được sửa tự động; khắc phục code không đồng nghĩa hợp thức hóa đáp án không phù hợp với câu hỏi.
+
+## 14. Triển khai P0/P1/P2 cho luồng sinh lời giải admin (2026-11-15)
+
+Phần này ghi lại thay đổi đã làm và các hạng mục chủ động hoãn, kèm lý do, để lần rà soát sau không mở lại tranh luận cũ.
+
+### P0 — đã triển khai
+
+- **Rate limit theo lượt chạy**: thêm `aiExplanationRunLimiter` (middleware/rateLimiter.js). Quota tính theo `operationId` (8–128 ký tự) với hai mức: tối đa 30 lượt chạy khác nhau/user/15 phút (`RATE_LIMIT_AI_EXPLANATION_MAX`) và tối đa 60 request trong cùng một lượt (`RATE_LIMIT_AI_EXPLANATION_RUN_MAX`). Client cũ không gửi `operationId` rơi về limiter request như trước, nên không phá hành vi cũ. Phản hồi lỗi: HTTP 429 `{ code: 'AI_RATE_LIMITED', retryAfter }`.
+- **Trả lời giải ngay trong response**: `generate()` trả thêm `saved: [{ number, questionId, explanation }]` và `runId`. Bốn editor dùng `applySavedExplanations` để cập nhật form, bỏ hẳn `GET /admin/exams/:id` sau mỗi chunk; chỉ fallback tải lại khi response không có `saved` (backend cũ trong lúc deploy).
+- **Truy vấn hẹp trong bước ghi**: `write()` dùng `singleTarget()` (một câu) thay vì quét cả đề trong transaction, giữ transaction ngắn và tránh timeout Prisma.
+- **Bỏ tham số chết**: `overwriteProtected` không còn nhận/gửi từ route. `timeBudgetMs` được nối thật vào cả generate và `saveExplanationBatch` (clamp 15–60 giây). `teacherFeedback` vào prompt và được lọc khỏi mọi payload trả cho học viên (`filterLearnerExplanation`).
+- **Telemetry có cấu trúc**: mỗi lượt chạy ghi một dòng `[AI_EXPLANATION_RUN]` JSON (queue wait, provider p50/p95, save, committed/failed/needsReview, duration). Thêm `GET /api/admin/explanations/metrics?limit=50` (teacher) trả aggregate + 200 lượt gần nhất trong ring buffer, không chứa nội dung prompt.
+
+### P1 — đã triển khai
+
+- **Song song có kiểm soát**: mỗi request sinh tối đa `AI_EXPLANATION_QUESTION_CONCURRENCY` câu (mặc định 2, clamp 1–4) qua worker pool. Hai tab hỏi cùng câu sẽ dùng chung một promise provider (dedupe `kind:examId:number`), tab thua chỉ đọc lại bản nháp đã ghi thay vì gọi provider lần hai.
+- **Khoá đa slot**: `explanationLock` hỗ trợ nhiều slot/key. Số request đồng thời cho một đề cấu hình bằng `AI_EXPLANATION_HTTP_CONCURRENCY` (mặc định 1 = giữ hành vi “một tác vụ AI/đề”); khi hết slot trả 409 `{ code: 'AI_BUSY', retryAfter: 5 }`.
+- **Điều phối dùng chung cho editor**: `runExplanationGroups()` trong `examExplanationUtils.js` gom vòng lặp theo nhóm của Reading/Listening Test (kiểm tra huỷ, dừng khi lỗi dịch vụ, cộng dồn kết quả), thay cho hai bản sao trong `ReadingTab` và `ListeningTab`.
+
+### P2 — hoãn có chủ đích
+
+- **Sinh theo lô (batch generation)**: schema fixed-answer hiện ràng buộc `answer` bằng `enum` đúng một đáp án của câu. Gộp nhiều câu vào một lần gọi buộc phải dùng `anyOf` cho từng item, làm mất khả năng ánh xạ kết quả về đúng câu và tăng nguy cơ gán lời giải sai câu — rủi ro cao hơn lợi ích. Chỉ xem lại khi có schema trả về kèm `questionNumber` tường minh và test ánh xạ riêng.
+- **Background job**: chưa cần vì mỗi request đã bị chặn trong 48 giây và frontend chia nhỏ theo nhóm câu. Chỉ nâng cấp khi metrics cho thấy `providerP95Ms` sát ngưỡng hoặc `failed` tăng do timeout; khi đó job nền cần thêm hàng đợi bền, trạng thái theo `runId` và UI poll — ngoài phạm vi hiện tại.
+- **Prompt caching**: chưa có bằng chứng đo được là prompt lặp lại đủ nhiều trên provider; telemetry hiện tại đã đủ để quyết định sau vài tuần dữ liệu thật.
+
+### Kiểm thử
+
+- Backend: toàn bộ 1.419 test (1.355 chạy, 64 skip) pass, gồm test mới cho slot lock, run limiter, `saved`/`runId`, dedupe provider và clamp `timeBudgetMs`.
+- Frontend: toàn bộ 128 file / 1.066 test pass, gồm test mới cho `applySavedExplanations` (Exam Reading/Listening, Practice) và fallback refetch.
