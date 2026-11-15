@@ -32,7 +32,6 @@ import { useToast } from '../../context/ToastContext'
 import { eligibleExplanationNumbers } from '../../utils/explanationRunReport'
 import { usePracticeExplanationReport } from '../../hooks/usePracticeExplanationReport'
 import ExplanationRunPanel from '../../components/admin/ExplanationRunPanel'
-import ExplanationQualityFilter from '../../components/admin/ExplanationQualityFilter'
 import { validatePracticeReading, formatValidationAlert } from '../../utils/questionValidation'
 import { executeTimedAIGenerationLoop } from '../../utils/examExplanationUtils'
 import { useExplanationGenerationLock } from '../../hooks/useExplanationGenerationLock'
@@ -630,6 +629,7 @@ export default function ReadingPractice() {
           />
 
                 <ExplanationRunPanel
+                  groups={form.questionGroups}
                   report={aiReport.report}
                   isGenerating={expLock.isGenerating}
                   isCancelling={expLock.isCancelling}
@@ -695,7 +695,6 @@ export default function ReadingPractice() {
                 {/* Sticky Progress khi đang sinh AI */}
 
 
-                <ExplanationQualityFilter groups={form.questionGroups} />
 
                 {/* Header thêm nhóm câu hỏi */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-zinc-100">

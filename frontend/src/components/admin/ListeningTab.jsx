@@ -49,7 +49,6 @@ import { useAIExitGuard } from '../../hooks/useAIExitGuard'
 import AIGenerationExitConfirmModal from './AIGenerationExitConfirmModal'
 import AIGenerationResumeBanner from './AIGenerationResumeBanner'
 import ExplanationRunPanel from './ExplanationRunPanel'
-import ExplanationQualityFilter from './ExplanationQualityFilter'
 import { useToast } from '../../context/ToastContext'
 import {
   createRunReport,
@@ -1262,6 +1261,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         )}
 
         <ExplanationRunPanel
+            sections={form.sections}
             report={runReportForPanel}
             isGenerating={expLock.isGenerating}
             isCancelling={expLock.isCancelling}
@@ -1279,7 +1279,6 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
             className="mb-4"
         />
 
-        <ExplanationQualityFilter sections={form.sections} onOpenQuestion={openRunQuestion} />
 
         <div className="mb-3">
           <label className={labelCls}>Tên đề</label>

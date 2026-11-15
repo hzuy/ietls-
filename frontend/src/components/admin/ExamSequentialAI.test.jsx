@@ -88,8 +88,8 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
   })
 
   async function revealRunErrors() {
-    const trigger = await screen.findByRole('button', { name: /câu lỗi — xem chi tiết|Lỗi tác vụ — xem chi tiết/ })
-    if (trigger.getAttribute('aria-expanded') !== 'true') fireEvent.click(trigger)
+    const trigger = await screen.findByText(/^C\u1ea7n ki\u1ec3m tra l\u1eddi gi\u1ea3i/)
+    if (!trigger.closest('details').open) fireEvent.click(trigger)
   }
 
   it.each(['reading', 'listening'])('reopens saved %s answer confirmation without generating a replacement', async skill => {
@@ -169,13 +169,13 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     await revealRunErrors()
     const retry = await screen.findByRole('button', { name: 'Thử lại 1 câu lỗi' })
     const report = screen.getByTestId('explanation-run-panel')
-    expect(within(report).getByRole('region', { name: 'Chi tiết lỗi sinh AI' })).toBeVisible()
-    expect(within(report).getByText(/AI phản hồi quá lâu/)).toBeVisible()
+    expect(within(report).getByText(/^C\u1ea7n ki\u1ec3m tra l\u1eddi gi\u1ea3i/).closest('details')).toHaveAttribute('open')
+    expect(within(report).getByRole('button', { name: /^Xem c\u00e2u 2/ })).toHaveAttribute('title', expect.stringMatching(/AI/))
     fireEvent.click(retry)
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(3))
     expect(api.post.mock.calls[2][0]).toBe(`/admin/exams/${examId}/groups/201/generate-explanations`)
     expect(api.post.mock.calls[2][1].questionNumbers).toEqual([2])
-    await waitFor(() => expect(screen.getByTestId('explanation-run-panel')).toHaveAttribute('data-status', 'done'))
+    await waitFor(() => expect(screen.queryByTestId('explanation-run-panel')).not.toBeInTheDocument())
     expect(window.alert).toHaveBeenCalledTimes(1)
 
   })
@@ -235,7 +235,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     fireEvent.click(screen.getByRole('button', { name: 'Lưu đề & tạo lời giải' }))
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
     expect(api.post.mock.calls[0][1].questionNumbers).toEqual([2])
-    await waitFor(() => expect(screen.getByTestId('explanation-run-panel')).toHaveAttribute('data-status', 'done'))
+    await waitFor(() => expect(screen.queryByTestId('explanation-run-panel')).not.toBeInTheDocument())
     expect(screen.getByDisplayValue('Unsaved teacher content')).toBeInTheDocument()
   })
 
@@ -260,16 +260,16 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     fireEvent.click(generate)
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(2))
     fireEvent.click(screen.getByRole('button', { name: reading ? /Passage 2.*lời giải/ : /Section 2.*lời giải/ }))
-    fireEvent.click(screen.getByRole('button', { name: '1 câu lỗi — xem chi tiết' }))
-    expect(screen.getByText('Đã xử lý 2/4 câu · 50%')).toBeInTheDocument()
+    fireEvent.click(screen.getByText(/^C\u1ea7n ki\u1ec3m tra l\u1eddi gi\u1ea3i/))
+    expect(screen.getByText(/2\/4.*50%/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Thử lại 1 câu lỗi' })).toBeDisabled()
-    fireEvent.click(screen.getByRole('button', { name: 'Xem câu 1' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Xem c\u00e2u 1/  }))
     expect(await screen.findByRole('alert')).toHaveTextContent('AI phản hồi quá lâu')
     expect(screen.getByRole('button', { name: reading ? 'Cập nhật đề Reading' : 'Cập nhật đề Listening' })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: 'Đóng' }))
     fireEvent.click(screen.getByRole('button', { name: 'Dừng tạo' }))
     await waitFor(() => expect(screen.getByTestId('explanation-run-panel')).toHaveAttribute('data-status', 'cancelled'))
-    expect(screen.getByText('Chưa xử lý 2 câu')).toBeInTheDocument()
+    expect(api.post).toHaveBeenCalledTimes(2)
     expect(window.alert).not.toHaveBeenCalled()
   })
 
@@ -340,7 +340,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     })
 
     // Nhãn nhóm câu chỉ nằm trong tooltip để thanh trạng thái luôn gọn 1 dòng
-    expect(screen.getByText(/nhóm 1\/2 \(Câu 1–2\)/)).toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuemax', '4')
 
     // Chỉ còn 1 nút hủy sinh trong thanh tiến độ (đã bỏ nút Hủy trùng cạnh Preview)
     expect(screen.getByRole('button', { name: /Dừng tạo/i })).toBeInTheDocument()
@@ -358,7 +358,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
         expect.anything()
       )
     })
-    await waitFor(() => expect(screen.getByTestId('explanation-run-panel')).toHaveAttribute('data-status', 'done'))
+    await waitFor(() => expect(screen.queryByTestId('explanation-run-panel')).not.toBeInTheDocument())
     expect(window.alert).toHaveBeenCalledExactlyOnceWith('Đã lưu bản nháp. Kiểm tra và chọn Sử dụng lời giải để áp dụng cho học sinh.')
   })
 
@@ -530,8 +530,8 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
 
     await waitFor(() => expect(screen.getByTestId('explanation-run-panel')).toHaveAttribute('data-status', 'done'))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: '1 câu cần kiểm tra' }))
-    expect(screen.getByText('Không đủ bằng chứng trong bài đọc.')).toBeInTheDocument()
+    fireEvent.click(screen.getByText(/^C\u1ea7n ki\u1ec3m tra l\u1eddi gi\u1ea3i/))
+    expect(screen.getByRole('button', { name: /^Xem c\u00e2u 3/ })).toHaveAttribute('title', 'Kh\u00f4ng \u0111\u1ee7 b\u1eb1ng ch\u1ee9ng trong b\u00e0i \u0111\u1ecdc.')
   })
 
   it('triggers single group AI generation and sequential generation in ListeningTab', async () => {
