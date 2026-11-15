@@ -130,7 +130,7 @@ export function classifyRunError(input, _ctx = {}) {
   let kind = RUN_KINDS.UNKNOWN
 
   const data = input?.response?.data || input || {}
-  const contentFailure = ['TRANSLATION_INVALID', 'MISSING_EVIDENCE', 'ANSWER_MISMATCH', 'EXPLANATION_INVALID'].includes(data.code)
+  const contentFailure = ['TRANSLATION_INVALID', 'MISSING_EVIDENCE', 'MISSING_DATA', 'QUESTION_CONTEXT_MISMATCH', 'QUESTION_CONTEXT_MISSING', 'ANSWER_NOT_IN_SOURCE', 'ANSWER_MISMATCH', 'EXPLANATION_INVALID'].includes(data.code)
   if (contentFailure) kind = RUN_KINDS.VALIDATION
   else if (data.code === 'AI_SAVE_FAILED' || /P2028|Transaction (?:already closed|not found)/i.test(raw)) kind = RUN_KINDS.SAVE
   else if (status === 409) kind = RUN_KINDS.BUSY
@@ -209,7 +209,7 @@ export function eligibleExplanationNumbers(group, { overwriteProtected = false, 
     if (Array.isArray(questionNumbers) && questionNumbers.map(Number).includes(number)) return true
     if (overwriteProtected || Boolean(resolveChoices[number])) return true
     if (!explanation) return true
-    if (['TRANSLATION_INVALID', 'MISSING_EVIDENCE', 'ANSWER_MISMATCH', 'EXPLANATION_INVALID'].includes(explanation.contentIssue?.code)
+    if (['TRANSLATION_INVALID', 'MISSING_EVIDENCE', 'MISSING_DATA', 'QUESTION_CONTEXT_MISMATCH', 'QUESTION_CONTEXT_MISSING', 'ANSWER_NOT_IN_SOURCE', 'ANSWER_MISMATCH', 'EXPLANATION_INVALID'].includes(explanation.contentIssue?.code)
       || /bản dịch|translation/i.test(explanation.validationIssue || '')) return false
     return ['needs_regeneration', 'possibly_stale', 'error'].includes(explanation.status)
   })

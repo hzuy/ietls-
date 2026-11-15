@@ -87,7 +87,7 @@ function addGeminiTelemetryListener(fn) { telemetryListeners.push(fn) }
 function removeGeminiTelemetryListener(fn) { telemetryListeners = telemetryListeners.filter(l => l !== fn) }
 function notifyTelemetry(event) { for (const l of telemetryListeners) { try { l(event) } catch {} } }
 
-function scheduleGeminiCall(fn, { signal = null } = {}) {
+function scheduleGeminiCall(fn, { signal = null, meta = null } = {}) {
   const queuedAt = Date.now()
   if (signal?.aborted) {
     const err = new Error('Yêu cầu AI đã bị hủy trước khi vào hàng đợi')
@@ -130,11 +130,11 @@ function scheduleGeminiCall(fn, { signal = null } = {}) {
     try {
       const res = await fn()
       const apiMs = Date.now() - apiStart
-      notifyTelemetry({ type: 'call', queueWaitMs, apiMs, ok: true })
+      notifyTelemetry({ ...(meta || {}), type: 'call', queueWaitMs, apiMs, ok: true })
       return res
     } catch (err) {
       const apiMs = Date.now() - apiStart
-      notifyTelemetry({ type: 'call', queueWaitMs, apiMs, ok: false, error: err.message, status: err.status })
+      notifyTelemetry({ ...(meta || {}), type: 'call', queueWaitMs, apiMs, ok: false, error: err.message, status: err.status })
       throw err
     }
   }

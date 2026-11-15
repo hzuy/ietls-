@@ -47,8 +47,32 @@ describe('ReviewExplanation', () => {
   })
 
   it('NOT GIVEN không có câu trích → báo bài không nói trực tiếp', () => {
-    render(<ReviewExplanation explanation={{ ...V2, evidence: null }} />)
+    render(<ReviewExplanation explanation={{ ...V2, answer: 'NOT GIVEN', evidence: null }} question={{ type: 'true_false_not_given' }} />)
     expect(screen.getByText('Bài không có câu nào nói trực tiếp tới thông tin này.')).toBeInTheDocument()
+  })
+
+  it('shows unsupported q3 as one incomplete state with its real reasoning, not four empty cards', () => {
+    render(<ReviewExplanation explanation={{ v: 2, no_support: true, answer: 'traffic', reasoning: 'The source states businessmen, not traffic.', evidence: { parts: [] } }} />)
+    expect(screen.getByText('Lời giải chưa hoàn chỉnh')).toBeInTheDocument()
+    expect(screen.getByText('The source states businessmen, not traffic.')).toBeInTheDocument()
+    expect(screen.queryByText(/^STEP /)).not.toBeInTheDocument()
+    expect(screen.queryByText('Bài không có câu nào nói trực tiếp tới thông tin này.')).not.toBeInTheDocument()
+  })
+  it('does not render wrong-question q4 content as a valid four-step explanation', () => {
+    render(<ReviewExplanation explanation={{ ...V2, contentIssue: { code: 'QUESTION_CONTEXT_MISMATCH', message: 'Lời giải đang nói về câu 2, không phải câu 4.' } }} />)
+    expect(screen.getByText('Lời giải đang nói về câu 2, không phải câu 4.')).toBeInTheDocument()
+    expect(screen.queryByText(/^STEP /)).not.toBeInTheDocument()
+  })
+  it.each(['QUESTION_CONTEXT_MISSING', 'ANSWER_NOT_IN_SOURCE'])('keeps invalid-source q4 compact for %s', code => {
+    render(<ReviewExplanation explanation={{ ...V2, contentIssue: { code, message: 'Câu 4 chưa có đủ dữ liệu nguồn để xác nhận outskirts.' } }} />)
+    expect(screen.getByText('Lời giải chưa hoàn chỉnh')).toBeInTheDocument()
+    expect(screen.getByText('Câu 4 chưa có đủ dữ liệu nguồn để xác nhận outskirts.')).toBeInTheDocument()
+    expect(screen.queryByText(/^STEP /)).not.toBeInTheDocument()
+  })
+  it('does not infer NOT GIVEN from a missing evidence quote on a completion question', () => {
+    render(<ReviewExplanation explanation={{ ...V2, evidence: null }} question={{ type: 'note_completion' }} />)
+    expect(screen.getByText('Chưa có trích dẫn bằng chứng trong lời giải.')).toBeInTheDocument()
+    expect(screen.queryByText('Bài không có câu nào nói trực tiếp tới thông tin này.')).not.toBeInTheDocument()
   })
 
   it('giải thích dạng cũ (4 đoạn chữ) vẫn hiển thị thành các bước', () => {

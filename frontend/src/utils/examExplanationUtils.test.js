@@ -4,7 +4,9 @@ import {
   normalizeFormForDirtyCheck,
   isExamFormDirty,
   calculateExamExplanationStats,
-  isExplanationUnsupportedGroup
+  isExplanationUnsupportedGroup,
+  applySavedExplanations,
+  savedExplanationsMap,
 } from './examExplanationUtils'
 
 describe('examExplanationUtils', () => {
@@ -523,4 +525,50 @@ describe('examExplanationUtils', () => {
     })
 
   })
+
+  describe('applySavedExplanations (dùng `saved` từ API thay vì tải lại cả đề)', () => {
+    const explanation = (text) => ({ workflowVersion: 3, reasoning: text, status: 'draft_ready' })
+
+    it('áp lời giải vào câu hỏi và map explanations của group (Exam Reading)', () => {
+      const form = {
+        passages: [{
+          questions: [{ id: 1, number: 1, explanation: null }],
+          questionGroups: [{ id: 11, questions: [{ id: 2, number: 2, explanation: null }], explanations: {} }],
+        }],
+      }
+      const next = applySavedExplanations(form, [
+        { number: 1, explanation: explanation('one') },
+        { number: 2, explanation: explanation('two') },
+      ])
+
+      expect(next.passages[0].questions[0].explanation.reasoning).toBe('one')
+      expect(next.passages[0].questionGroups[0].questions[0].explanation.reasoning).toBe('two')
+      expect(next.passages[0].questionGroups[0].explanations[2].reasoning).toBe('two')
+      // Form gốc không bị mutate.
+      expect(form.passages[0].questions[0].explanation).toBeNull()
+    })
+
+    it('áp lời giải cho Exam Listening (sections) và Practice (questionGroups)', () => {
+      const listening = applySavedExplanations(
+        { sections: [{ questionGroups: [{ questions: [{ number: 5, explanation: null }], explanations: {} }] }] },
+        [{ number: 5, explanation: explanation('five') }],
+      )
+      expect(listening.sections[0].questionGroups[0].explanations[5].reasoning).toBe('five')
+
+      const practice = applySavedExplanations(
+        { questionGroups: [{ questions: [{ number: 3, explanation: null }], explanations: {} }] },
+        [{ number: 3, explanation: explanation('three') }],
+      )
+      expect(practice.questionGroups[0].explanations[3].reasoning).toBe('three')
+    })
+
+    it('trả null khi không có `saved` hoặc không khớp câu nào (để caller fallback refetch)', () => {
+      const form = { questionGroups: [{ questions: [{ number: 1 }], explanations: {} }] }
+      expect(applySavedExplanations(form, undefined)).toBeNull()
+      expect(applySavedExplanations(form, [])).toBeNull()
+      expect(applySavedExplanations(form, [{ number: 99, explanation: explanation('x') }])).toBeNull()
+      expect(savedExplanationsMap([{ number: 1, explanation: explanation('one') }, { number: 'bad' }])).toEqual({ 1: explanation('one') })
+    })
+  })
+
 })

@@ -1,9 +1,12 @@
 'use strict'
 
+const DEFAULT_HTTP_BUDGET_MS = 48000
+
 // Generation already spent most of the HTTP budget. Bound both connection wait
 // and transaction runtime; never inherit Prisma's 5-second batch-save default.
-async function saveExplanationBatch(prisma, callback, { startTime, target }) {
-  const remaining = 48000 - (Date.now() - startTime) - 500
+async function saveExplanationBatch(prisma, callback, { startTime, target, budgetMs = DEFAULT_HTTP_BUDGET_MS } = {}) {
+  const budget = Number.isFinite(budgetMs) && budgetMs > 0 ? budgetMs : DEFAULT_HTTP_BUDGET_MS
+  const remaining = budget - (Date.now() - startTime) - 500
   const maxWait = Math.max(1, Math.min(2000, Math.floor(remaining / 4)))
   const timeout = Math.max(1, Math.min(10000, remaining - maxWait))
   try {
@@ -31,4 +34,4 @@ function explanationFailureResponse(error) {
   } }
 }
 
-module.exports = { saveExplanationBatch, explanationFailureResponse }
+module.exports = { saveExplanationBatch, explanationFailureResponse, DEFAULT_HTTP_BUDGET_MS }

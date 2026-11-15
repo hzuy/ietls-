@@ -52,6 +52,7 @@ async function requestGeminiJson(prompt, {
   strictJson = false,
   onDiagnostic = null,
   signal = null,
+  meta = null,
 } = {}) {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) throw new Error('GEMINI_API_KEY is not configured')
@@ -155,7 +156,7 @@ async function requestGeminiJson(prompt, {
             signal: combinedSignal,
           })
         },
-          { signal }
+          { signal, meta }
         )
 
         if (!res.ok) {

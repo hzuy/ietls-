@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-const { ExplanationLock, acquireLock, releaseLock, isLocked, clearAllLocks } = require('./explanationLock')
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+const { ExplanationLock, acquireLock, acquireRunSlot, releaseLock, isLocked, clearAllLocks, httpRunConcurrency, normalizeLimit } = require('./explanationLock')
 
 describe('ExplanationLock (Requirement 2.5 & A.2)', () => {
   beforeEach(() => {
@@ -48,5 +48,47 @@ describe('ExplanationLock (Requirement 2.5 & A.2)', () => {
     releaseLock('exam:1')
     expect(isLocked('exam:1')).toBe(false)
     expect(isLocked('exam:2')).toBe(true)
+  })
+})
+
+describe('ExplanationLock slot limit', () => {
+  const env = process.env.AI_EXPLANATION_HTTP_CONCURRENCY
+
+  beforeEach(() => clearAllLocks())
+  afterEach(() => {
+    if (env === undefined) delete process.env.AI_EXPLANATION_HTTP_CONCURRENCY
+    else process.env.AI_EXPLANATION_HTTP_CONCURRENCY = env
+  })
+
+  it('allows up to the requested number of concurrent holders', () => {
+    expect(acquireLock('exam:30', undefined, 2)).toBe(true)
+    expect(acquireLock('exam:30', undefined, 2)).toBe(true)
+    expect(acquireLock('exam:30', undefined, 2)).toBe(false) // both slots taken
+
+    releaseLock('exam:30') // a single release frees exactly one slot
+    expect(acquireLock('exam:30', undefined, 2)).toBe(true)
+
+    releaseLock('exam:30')
+    releaseLock('exam:30')
+    expect(isLocked('exam:30')).toBe(false)
+  })
+
+  it('clamps the limit to the supported maximum', () => {
+    expect(normalizeLimit(99)).toBe(4)
+    expect(normalizeLimit(0)).toBe(1)
+    expect(normalizeLimit('abc')).toBe(1)
+  })
+
+  it('defaults the HTTP slot count to one and honours the env override', () => {
+    delete process.env.AI_EXPLANATION_HTTP_CONCURRENCY
+    expect(httpRunConcurrency()).toBe(1)
+    expect(acquireRunSlot('exam:31')).toBe(true)
+    expect(acquireRunSlot('exam:31')).toBe(false)
+
+    process.env.AI_EXPLANATION_HTTP_CONCURRENCY = '2'
+    expect(httpRunConcurrency()).toBe(2)
+    expect(acquireRunSlot('exam:32')).toBe(true)
+    expect(acquireRunSlot('exam:32')).toBe(true)
+    expect(acquireRunSlot('exam:32')).toBe(false)
   })
 })

@@ -16,6 +16,11 @@ import {
   copyRunReportText,
 } from './explanationRunReport'
 
+it.each(['MISSING_DATA', 'QUESTION_CONTEXT_MISMATCH', 'QUESTION_CONTEXT_MISSING', 'ANSWER_NOT_IN_SOURCE'])('never bulk-retries %s as a transport failure', code => {
+  const result = classifyRunError({ code, message: 'Cần kiểm tra đúng câu đang giải thích.', action: 'edit_source' })
+  expect(result).toMatchObject({ code, retryable: false, action: 'edit_source', kind: RUN_KINDS.VALIDATION })
+})
+
 it.each(['AI_RESPONSE_TRUNCATED', 'AI_RESPONSE_INVALID'])('explains parsing failures specifically for %s', code => {
   const result = classifyRunError({ response: { status: 502, data: { code, phase: 'parsing', message: 'provider raw JSON' } } })
   expect(result.code).toBe(code)

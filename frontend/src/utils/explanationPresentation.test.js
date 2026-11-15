@@ -1,6 +1,12 @@
 import { expect, it } from 'vitest'
 import { getExplanationAttention } from './explanationPresentation'
 
+it.each(['MISSING_DATA', 'QUESTION_CONTEXT_MISMATCH', 'QUESTION_CONTEXT_MISSING', 'ANSWER_NOT_IN_SOURCE'])('keeps the actual %s content reason separate from network failures', code => {
+  const result = getExplanationAttention({ status: 'needs_regeneration', contentIssue: { code, message: 'Lời giải đang dùng dữ liệu của câu khác.' } })
+  expect(result.reason).toBe('Lời giải đang dùng dữ liệu của câu khác.')
+  expect(result.action).toBe(code === 'QUESTION_CONTEXT_MISMATCH' ? 'retry_generation' : 'edit_source')
+})
+
 it.each([
   { contentIssue: { code: 'TRANSLATION_INVALID', message: 'Bản dịch còn chứa tiếng Anh.' } },
   { validationIssue: 'Bản dịch chưa hợp lệ.' },

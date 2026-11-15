@@ -1,4 +1,5 @@
 const { lockExplanationTarget } = require('../lib/explanationWriteLock')
+const { adminTargetView } = require('../lib/explanationQuestionContext')
 const { generateForPracticeExam, regenerateQuestionExplanation, updateManualExplanation, reviewQuestionExplanation } = require('../services/explanationDraftService')
 const { explanationFailureResponse } = require('../lib/explanationSave')
 const express = require('express')
@@ -6,7 +7,7 @@ const multer = require('multer')
 const path = require('path')
 const fs = require('fs')
 const authMiddleware = require('../middleware/auth')
-const { aiExplanationLimiter } = require('../middleware/rateLimiter')
+const { aiExplanationRunLimiter } = require('../middleware/rateLimiter')
 const validate = require('../middleware/validate')
 const prisma = require('../lib/prisma')
 const { invalidate } = require('../lib/swrCache')
@@ -20,7 +21,15 @@ const {
 } = require('../services/explanationGeneratorService')
 const { logAuditEvent } = require('../lib/auditLog')
 const { AUDIT_ACTIONS } = require('../lib/auditActions')
-const { acquireLock, releaseLock, isLocked } = require('../lib/explanationLock')
+const { acquireRunSlot, releaseLock, isLocked } = require('../lib/explanationLock')
+
+function busyResponse(res) {
+  return res.status(409).json({
+    code: 'AI_BUSY',
+    retryAfter: 5,
+    message: 'Đang có tác vụ AI khác đang chạy cho bài luyện tập này. Vui lòng chờ hoàn thành.',
+  })
+}
 const { bindRequestAbort } = require('../lib/requestAbort')
 const { sendServerError } = require('../lib/httpErrors')
 const { findTitleConflict } = require('../lib/titleConflict')
@@ -73,7 +82,7 @@ const { teacherStrict, learnerOnly } = require('../lib/roles')
 // ─── PUBLIC: list ─────────────────────────────────────────────────────────────
 // Fetcher + SWR cache nằm ở lib/publicContent.js (chia sẻ cache với /api/home).
 // getQuestionCount cũng import từ đó — còn dùng cho các route /admin bên dưới.
-function practiceGroupsWithExplanations(rows, { forAdmin = false } = {}) {
+function practiceGroupsWithExplanations(rows, { forAdmin = false, source = null } = {}) {
   return (rows || []).map(pq => {
     const group = JSON.parse(pq.content)
     // Never return embedded admin draft projections from saved group content.
@@ -92,9 +101,12 @@ function practiceGroupsWithExplanations(rows, { forAdmin = false } = {}) {
       qOptionsMap[q.number] = q.options || (group.matchingOptions?.length ? group.matchingOptions : group.options)
     }
     if (forAdmin) {
+      const context = { ...group, ...(source?.skill === 'listening' ? { section: { transcript: source.transcript } }
+        : source?.passage ? { passage: { body: source.passage } } : {}) }
       const sanitizedByNumber = {}
       for (const [k, exp] of Object.entries(byNumber)) {
-        sanitizedByNumber[k] = sanitizeExplanationForRead(exp, qTypeMap[k] || group.type || pq.type, qOptionsMap[k])
+        const question = group.questions.find(q => Number(q.number) === Number(k)) || { number: Number(k), type: group.type || pq.type }
+        sanitizedByNumber[k] = adminTargetView(sanitizeExplanationForRead(exp, qTypeMap[k] || group.type || pq.type, qOptionsMap[k]), question, context)
       }
       return { ...group, explanations: sanitizedByNumber }
     }
@@ -350,7 +362,7 @@ router.get('/admin/:skill/:id', authMiddleware, teacherStrict, async (req, res) 
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy' })
     
     // Map to JSON for editor (bao gồm cả explanations đã lưu)
-    const groups = practiceGroupsWithExplanations(exam.questions, { forAdmin: true })
+    const groups = practiceGroupsWithExplanations(exam.questions, { forAdmin: true, source: exam })
     res.json({ ...exam, questions: JSON.stringify({ groups }) })
   } catch (err) { sendServerError(res, err, 'Lỗi server') }
 })
@@ -658,7 +670,9 @@ router.get('/admin/:skill/:id/explanation-status', authMiddleware, teacherStrict
         if (typeof exp === 'string') {
           try { exp = JSON.parse(exp) } catch { exp = null }
         }
-        exp = sanitizeExplanationForRead(exp)
+        const context = { ...group, ...(exam.skill === 'listening' ? { section: { transcript: exam.transcript } }
+          : exam.passage ? { passage: { body: exam.passage } } : {}) }
+        exp = adminTargetView(sanitizeExplanationForRead(exp, group.type || q.type), q, context)
         const hasExp = exp && typeof exp === 'object' && (exp.steps || exp.reasoning || exp.aiExplanation || exp.status)
         if (hasExp) {
           generatedCount++
@@ -690,17 +704,13 @@ router.get('/admin/:skill/:id/explanation-status', authMiddleware, teacherStrict
 })
 
 // ─── ADMIN: generate AI explanations with conflict detection ──────────────────
-router.post('/admin/:skill/:id/generate-explanations', authMiddleware, teacherStrict, aiExplanationLimiter, async (req, res) => {
+router.post('/admin/:skill/:id/generate-explanations', authMiddleware, teacherStrict, aiExplanationRunLimiter, async (req, res) => {
   const { id } = req.params
-  const { force = false, resolveChoices = {}, overwriteProtected = false, questionNumbers = null, timeBudgetMs = null, operationId = null } = req.body || {}
+  const { force = false, resolveChoices = {}, questionNumbers = null, timeBudgetMs = null, operationId = null, teacherFeedback = null } = req.body || {}
   const practiceId = parseInt(id, 10)
   const lockKey = `practice:${practiceId}`
 
-  if (!acquireLock(lockKey)) {
-    return res.status(409).json({
-      message: 'Đang có một tác vụ AI khác đang chạy cho bài luyện tập này. Vui lòng chờ hoàn thành.'
-    })
-  }
+  if (!acquireRunSlot(lockKey)) return busyResponse(res)
 
   const abort = bindRequestAbort(req, res)
 
@@ -708,9 +718,8 @@ router.post('/admin/:skill/:id/generate-explanations', authMiddleware, teacherSt
     const result = await generateForPracticeExam(practiceId, {
       force,
       resolveChoices,
-      overwriteProtected,
       questionNumbers,
-      timeBudgetMs, operationId,
+      timeBudgetMs, operationId, teacherFeedback,
       signal: abort.signal,
     })
     res.json(result)
@@ -729,17 +738,13 @@ router.post('/admin/:skill/:id/generate-explanations', authMiddleware, teacherSt
 })
 
 // ─── ADMIN: regenerate single question explanation with teacher feedback ─────────
-router.post('/admin/:skill/:id/questions/:qNum/regenerate-explanation', authMiddleware, teacherStrict, aiExplanationLimiter, async (req, res) => {
+router.post('/admin/:skill/:id/questions/:qNum/regenerate-explanation', authMiddleware, teacherStrict, aiExplanationRunLimiter, async (req, res) => {
   const { skill, id, qNum } = req.params
-  const { teacherFeedback, proposedAnswer, confirmChangeAnswer } = req.body || {}
+  const { teacherFeedback, proposedAnswer, confirmChangeAnswer, operationId = null, timeBudgetMs = null } = req.body || {}
   const practiceId = parseInt(id, 10)
   const lockKey = `practice:${practiceId}`
 
-  if (!acquireLock(lockKey)) {
-    return res.status(409).json({
-      message: 'Đang có một tác vụ AI khác đang chạy cho bài luyện tập này. Vui lòng chờ hoàn thành.'
-    })
-  }
+  if (!acquireRunSlot(lockKey)) return busyResponse(res)
 
   const abort = bindRequestAbort(req, res)
 
@@ -752,6 +757,8 @@ router.post('/admin/:skill/:id/questions/:qNum/regenerate-explanation', authMidd
       teacherFeedback,
       proposedAnswer,
       confirmChangeAnswer: Boolean(confirmChangeAnswer),
+      operationId,
+      timeBudgetMs,
       signal: abort.signal,
     })
     res.json(result)

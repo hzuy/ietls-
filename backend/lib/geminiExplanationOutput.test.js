@@ -69,6 +69,12 @@ describe('bounded explanation generation and partial translation', () => {
     expect(partial.no_support).not.toBe(true)
     expect(() => generator.enrichExplanation(raw, ctx, 'nine', family)).toThrow(/translation/)
   })
+  it.each([false, true])('fixes the schema answer to the exact teacher key in compact mode (recovery: %s)', extraCompact => {
+    const schema = generator.buildResponseSchema('note_completion', null, { isFixedMode: true, compact: true, extraCompact, targetAnswer: 'traffic' })
+    expect(schema.properties.answer.enum).toEqual(['traffic'])
+    expect(generator.buildResponseSchema('mcq_multi', ['First', 'Second', 'Third'], { isFixedMode: true, targetAnswer: 'B, C' }).properties.answer.enum).toEqual(['B, C'])
+    expect(generator.buildResponseSchema('note_completion', null, { isFixedMode: false, targetAnswer: 'traffic' }).properties.answer.enum).toBeUndefined()
+  })
   it('does not preserve fabricated evidence as a translation-only issue', () => {
     expect(() => generator.enrichExplanation({ ...raw, evidence_quote: 'Invented source sentence.' }, ctx, 'nine', family, { allowPartialTranslation: true })).toThrow(/evidence_quote/)
   })

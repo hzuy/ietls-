@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const prisma = {
   $executeRawUnsafe: vi.fn(async () => 1),
-  question: { findMany: vi.fn(), updateMany: vi.fn() },
+  question: { findMany: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn() },
   practiceExam: { findUnique: vi.fn() },
-  practiceQuestion: { updateMany: vi.fn() },
+  practiceQuestion: { findUnique: vi.fn(), updateMany: vi.fn() },
   $transaction: vi.fn(async callback => callback(prisma)),
 }
 function inject(path, exports) {
@@ -31,6 +31,27 @@ describe.each(['exam', 'practice'])('%s draft service', kind => {
   const setRaw = value => { if (kind === 'exam') question.explanation = value; else row.explanation = { byNumber: { 1: value } } }
   const target = async () => (await service.targets(prisma, kind, 10, kind === 'exam' ? { questionId: 101 } : { questionNumber: 1 }))[0]
   const generate = options => kind === 'exam' ? service.generateForExam(10, options) : service.generateForPracticeExam(10, options)
+  const installNotes = (answer, { instruction = 'Complete the notes.', bank = false } = {}) => {
+    const noteSource = 'The population of London increased. Some businessmen supported Pearson. Families moved to the suburbs. Articles appeared in the press.'
+    const group = { type: bank ? 'drag_word_bank' : 'note_completion', instruction,
+      noteSections: [{ title: 'London underground', lines: [
+        { contentWithTokens: 'The [Q:1] of London increased rapidly', lineType: 'heading' },
+        { contentWithTokens: 'Building the railway moved families to housing in the [Q:2]' },
+        { contentWithTokens: 'Negative articles appeared in the [Q:5]' },
+      ] }], ...(bank ? { matchingOptions: [{ optionLetter: 'A', optionText: 'population' }, { optionLetter: 'B', optionText: 'press' }] } : {}) }
+    if (kind === 'exam') {
+      question.correctAnswer = answer
+      question.questionText = ''
+      question.passage.body = noteSource
+      Object.assign(question.group, group)
+    } else {
+      const content = { ...JSON.parse(row.content), ...group }
+      Object.assign(content.questions[0], { correctAnswer: answer, questionText: '' })
+      row.content = JSON.stringify(content)
+      practice.passage = noteSource
+    }
+    return noteSource
+  }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -40,7 +61,12 @@ describe.each(['exam', 'practice'])('%s draft service', kind => {
     row = { id: 201, content: JSON.stringify({ type: 'note_completion', instruction: 'ONE WORD ONLY', questions: [{ number: 1, questionText: question.questionText, correctAnswer: 'nine' }] }), explanation: null }
     practice = { id: 10, skill: 'reading', passage: source, questions: [row] }
     prisma.question.findMany.mockImplementation(async () => [structuredClone(question)])
+    prisma.question.findFirst.mockImplementation(async ({ where }) => {
+      const id = where?.AND?.find(part => part.id)?.id
+      return id && id !== question.id ? null : structuredClone(question)
+    })
     prisma.practiceExam.findUnique.mockImplementation(async () => structuredClone(practice))
+    prisma.practiceQuestion.findUnique.mockImplementation(async ({ where }) => (where?.id === row.id ? structuredClone(row) : null))
     prisma.question.updateMany.mockImplementation(async ({ data }) => { question.explanation = structuredClone(data.explanation); return { count: 1 } })
     prisma.practiceQuestion.updateMany.mockImplementation(async ({ data }) => { Object.assign(row, structuredClone(data)); return { count: 1 } })
     requestGeminiJson.mockResolvedValue({ data: valid, provider: 'Gemini', model: 'test-gemini' })
@@ -55,10 +81,40 @@ describe.each(['exam', 'practice'])('%s draft service', kind => {
     expect(requestGeminiJson.mock.calls[0][0]).toContain('nine')
     expect(requestGeminiJson.mock.calls[0][1]).toMatchObject({ retriesPerModel: 0, allowModelFallback: false })
     expect(requestGeminiJson.mock.calls[0][1]).toMatchObject({ strictJson: true, max_tokens: 3072 })
+    expect(requestGeminiJson.mock.calls[0][1].responseSchema.properties.answer.enum).toEqual(['nine'])
     expect(enrichExplanation.mock.calls[0][4]).toEqual({ allowPartialTranslation: true })
     expect(prisma.$executeRawUnsafe).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock($1::integer, $2::integer)', kind === 'practice' ? 72414 : 72413, 10)
     if (kind === 'exam') expect(prisma.question.updateMany.mock.calls[0][0].data).not.toHaveProperty('correctAnswer')
     else expect(JSON.parse(row.content).questions[0].correctAnswer).toBe('nine')
+  })
+
+  it('returns the committed explanations so the editor does not refetch the whole exam', async () => {
+    const result = await generate({ force: true, questionNumbers: [1] })
+    expect(result.saved).toHaveLength(1)
+    expect(result.saved[0]).toMatchObject({ number: 1 })
+    expect(result.saved[0].explanation).toMatchObject({ reasoning: valid.reasoning, workflowVersion: 3, status: 'draft_ready' })
+    expect(result.saved[0].questionId).toBe(kind === 'exam' ? 101 : null)
+    expect(result.runId).toMatch(/^[0-9a-f-]{36}$/)
+  })
+
+  it('shares a single provider call when two runs ask for the same question', async () => {
+    let resolveCall
+    requestGeminiJson.mockImplementationOnce(() => new Promise(resolve => { resolveCall = resolve }))
+    const firstRun = generate({ force: true, questionNumbers: [1] })
+    const secondRun = generate({ force: true, questionNumbers: [1] })
+    await vi.waitFor(() => expect(requestGeminiJson).toHaveBeenCalledTimes(1))
+    resolveCall({ data: valid, provider: 'Gemini', model: 'test-gemini' })
+
+    const results = await Promise.all([firstRun, secondRun])
+    expect(requestGeminiJson).toHaveBeenCalledTimes(1)
+    expect(results.map(item => item.generatedCount)).toEqual([1, 1])
+  })
+
+  it('clamps the HTTP time budget to the supported range', () => {
+    expect(service.resolveBudget(1000)).toBe(15000)
+    expect(service.resolveBudget(45000)).toBe(45000)
+    expect(service.resolveBudget(999999)).toBe(60000)
+    expect(service.resolveBudget(null)).toBe(48000)
   })
 
   it('retains the old published result while generating a replacement draft', async () => {
@@ -131,6 +187,7 @@ describe.each(['exam', 'practice'])('%s draft service', kind => {
     expect(result.generatedCount).toBe(1)
     expect(requestGeminiJson).toHaveBeenCalledTimes(2)
     expect(requestGeminiJson.mock.calls[1][1]).toMatchObject({ strictJson: true, max_tokens: 2048, retriesPerModel: 0, allowModelFallback: false })
+    expect(requestGeminiJson.mock.calls[1][1].responseSchema.properties.answer.enum).toEqual(['nine'])
     expect(groqCreate).not.toHaveBeenCalled()
   })
 
@@ -232,10 +289,99 @@ describe.each(['exam', 'practice'])('%s draft service', kind => {
     expect(requestGeminiJson).not.toHaveBeenCalled()
   })
 
+  it('binds the AI prompt to the selected blank and rejects an explanation of another note', async () => {
+    const noteSource = installNotes('press')
+    const previous = { ...valid, answer: 'press', status: 'teacher_reviewed', reasoning: 'Previous visible wording' }
+    setRaw(previous)
+    requestGeminiJson.mockResolvedValueOnce({ data: { ...valid, answer: 'press', full_sentence: 'Negative articles appeared in the press.',
+      evidence: { parts: [{ text: noteSource }] }, question_chunks: [{ text: '5. ___ ___' }] } })
+    const result = await generate({ force: true })
+    expect(result.needsRetryQuestions[0]).toMatchObject({ code: 'QUESTION_CONTEXT_MISMATCH', action: 'retry_generation' })
+    expect(requestGeminiJson.mock.calls[0][0]).toContain('The [Q:1] of London increased rapidly')
+    expect(requestGeminiJson.mock.calls[0][0]).not.toContain('[Q:2]')
+    expect(requestGeminiJson.mock.calls[0][0]).not.toContain('[Q:5]')
+    expect(raw().published).toEqual(previous)
+    expect(raw().draft.payload.contentIssue.code).toBe('QUESTION_CONTEXT_MISMATCH')
+    await expect(service.reviewQuestionExplanation({ ...args(), fields: { draftVersion: raw().draft.version } })).rejects.toMatchObject({ code: 'DRAFT_INVALID' })
+    const current = await target()
+    expect(current.q.correctAnswer).toBe('press')
+  })
+
+  it('preserves a genuine unsupported response for a forced key instead of borrowing another blank', async () => {
+    installNotes('press')
+    requestGeminiJson.mockResolvedValueOnce({ data: { no_support: true, support_note: 'The selected blank concerns population, not newspapers.' } })
+    const result = await generate({ force: true })
+    expect(result.needsRetryQuestions[0]).toMatchObject({ code: 'MISSING_EVIDENCE', action: 'edit_source' })
+    expect(raw().draft.payload.no_support).toBe(true)
+    expect((await target()).q.correctAnswer).toBe('press')
+  })
+
+  it.each(['Gemini', 'Groq'])('prioritizes the actual q3 answer mismatch over a filled-template mismatch from %s', async provider => {
+    const noteSource = installNotes('traffic')
+    const targetLine = "A number of [Q:3] agreed with Pearson's idea"
+    if (kind === 'exam') {
+      question.number = 3
+      question.group.noteSections[0].lines = [{ contentWithTokens: targetLine }]
+    } else {
+      const content = JSON.parse(row.content)
+      content.questions[0].number = 3
+      content.noteSections[0].lines = [{ contentWithTokens: targetLine }]
+      row.content = JSON.stringify(content)
+    }
+    const wrong = { ...valid, answer: 'businessmen', no_support: false, full_sentence: "A number of businessmen agreed with Pearson's idea",
+      question_chunks: [{ text: 'A number of' }, { text: '3. ___' }], evidence: { parts: [{ text: noteSource }] } }
+    if (provider === 'Gemini') requestGeminiJson.mockResolvedValueOnce({ data: wrong })
+    else {
+      requestGeminiJson.mockRejectedValueOnce(Object.assign(new Error('Unavailable'), { status: 503 }))
+      groqCreate.mockResolvedValueOnce({ choices: [{ message: { content: JSON.stringify(wrong) } }] })
+    }
+    const result = await generate({ force: true, questionNumbers: [3] })
+    expect(result.needsRetryQuestions[0]).toMatchObject({ number: 3, code: 'ANSWER_MISMATCH', action: 'retry_generation' })
+    expect(requestGeminiJson.mock.calls[0][1].responseSchema.properties.answer.enum).toEqual(['traffic'])
+    const current = (await service.targets(prisma, kind, 10, { questionNumber: 3 }))[0]
+    expect(current.q.correctAnswer).toBe('traffic')
+    expect(current.raw.draft.payload.contentIssue.code).toBe('ANSWER_MISMATCH')
+    expect(current.raw.draft.payload.no_support).not.toBe(true)
+    await expect(service.reviewQuestionExplanation({ examId: 10, isPractice: kind === 'practice',
+      ...(kind === 'exam' ? { questionId: 101 } : { questionNumber: 3 }), fields: { draftVersion: current.raw.draft.version } }))
+      .rejects.toMatchObject({ code: 'DRAFT_INVALID' })
+  })
+
+  it('reports a reading key absent from a passage-word task before making an AI request', async () => {
+    installNotes('outskirts', { instruction: 'Write ONE WORD ONLY from the passage for each answer.' })
+    const result = await generate({ force: true })
+    expect(result.errors[0]).toMatchObject({ code: 'ANSWER_NOT_IN_SOURCE', action: 'edit_source', status: 400 })
+    expect(result.generatedCount).toBe(0)
+    expect(requestGeminiJson).not.toHaveBeenCalled()
+    expect((await target()).q.correctAnswer).toBe('outskirts')
+  })
+
+  it('rechecks explicit target templates on manual save and publication without calling AI', async () => {
+    const noteSource = installNotes('population')
+    const current = await target()
+    setRaw(draftEnvelope(null, { ...valid, answer: 'population', question_chunks: [{ text: '1. ___' }],
+      evidence: { parts: [{ text: noteSource }] }, full_sentence: 'The population of London increased rapidly' }, service.input(current).sourceHash))
+    const version = raw().draft.version
+    await service.updateManualExplanation({ ...args(), fields: { expectedDraftVersion: version, full_sentence: 'Negative articles appeared in the population.' } })
+    expect(raw().draft.payload.contentIssue.code).toBe('QUESTION_CONTEXT_MISMATCH')
+    await expect(service.reviewQuestionExplanation({ ...args(), fields: { draftVersion: raw().draft.version } })).rejects.toMatchObject({ code: 'DRAFT_INVALID' })
+    expect(requestGeminiJson).not.toHaveBeenCalled()
+  })
+
+  it('focuses word-bank notes despite their mapped fill_blank child type', async () => {
+    const noteSource = installNotes('A', { bank: true })
+    requestGeminiJson.mockResolvedValueOnce({ data: { ...valid, answer: 'A', question_chunks: [{ text: '5. ___' }], evidence: { parts: [{ text: noteSource }] } } })
+    const result = await generate({ force: true })
+    expect(result.needsRetryQuestions[0]).toMatchObject({ code: 'QUESTION_CONTEXT_MISMATCH' })
+    expect(requestGeminiJson.mock.calls[0][0]).toContain('The [Q:1] of London increased rapidly')
+    expect(requestGeminiJson.mock.calls[0][0]).not.toContain('[Q:5]')
+    expect((await target()).q.correctAnswer).toBe('A')
+  })
+
   it('integrates real enrichment to save valid core when Gemini returns an English translation', async () => {
     enrichExplanation.mockImplementationOnce(originalGenerator.enrichExplanation)
     requestGeminiJson.mockResolvedValueOnce({ data: {
-      question_chunks: [{ text: 'opening time', label: 'time' }], predict: 'Find the opening time.',
+      question_chunks: [{ text: 'The library opens at', label: 'time' }], predict: 'Find the opening time.',
       answer: 'nine', reasoning: valid.reasoning, evidence_quote: source, full_sentence: source, translation: source,
     } })
     const result = await generate({ force: true })
@@ -407,7 +553,7 @@ describe.each(['exam', 'practice'])('%s draft service', kind => {
 
   it('rejects a write when group instructions change during generation', async () => {
     const original = await target()
-    const sourceReader = kind === 'exam' ? prisma.question.findMany : prisma.practiceExam.findUnique
+    const sourceReader = kind === 'exam' ? prisma.question.findFirst : prisma.practiceQuestion.findUnique
     sourceReader.mockClear()
     if (kind === 'exam') question.group.instruction = 'TWO WORDS ONLY'
     else {

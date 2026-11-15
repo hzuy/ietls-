@@ -54,6 +54,20 @@ describe('GET /explanation-status (Exam & Practice read-only endpoints)', () => 
     authUserMock.verifySession.mockResolvedValue(null)
   })
 
+  it.each(['exam', 'practice'])('counts wrong-blank drafts consistently with the admin editor for %s', async kind => {
+    const g = { type: 'note_completion', noteSections: [{ lines: [{ contentWithTokens: 'The [Q:1] of London increased rapidly.' }, { contentWithTokens: 'Articles appeared in the [Q:5].' }] }], questions: [{ number: 1, correctAnswer: 'press' }] }
+    const raw = draftEnvelope(null, { v: 2, answer: 'press', reasoning: 'Other question', full_sentence: 'Articles appeared in the press.' }, 'source')
+    if (kind === 'exam') {
+      prismaMock.exam.findFirst.mockResolvedValue({ id: 10, skill: 'reading' })
+      prismaMock.question.findMany.mockResolvedValue([{ id: 1, number: 1, type: 'fill_blank', correctAnswer: 'press', group: g, explanation: raw }])
+    } else prismaMock.practiceExam.findFirst.mockResolvedValue({ id: 10, skill: 'reading', questions: [{ content: JSON.stringify(g), explanation: { byNumber: { 1: raw } } }] })
+    const path = kind === 'exam' ? '/api/admin/exams/10/explanation-status' : '/api/practice/admin/reading/10/explanation-status'
+    const res = await request(app).get(path).set('Authorization', `Bearer ${teacherToken}`).expect(200)
+    expect(res.body.statusCounts.needs_regeneration).toBe(1)
+    expect(res.body.statusCounts.draft_ready).toBe(0)
+    expect(JSON.stringify(res.body)).not.toContain('Other question')
+  })
+
   it.each(['exam', 'practice'])('counts v3 drafts, publications and stale content for %s without exposing payloads', async kind => {
     const payload = { answer: 'A', reasoning: 'PRIVATE_REASONING' }
     const explanations = [

@@ -1,7 +1,9 @@
 const { lockExplanationTarget } = require('../../../lib/explanationWriteLock')
-const { generateForExam, regenerateQuestionExplanation, updateManualExplanation, reviewQuestionExplanation } = require('../../../services/explanationDraftService')
+const { generateForExam, regenerateQuestionExplanation, updateManualExplanation, reviewQuestionExplanation, questionConcurrency } = require('../../../services/explanationDraftService')
+const { listRuns, aggregate } = require('../../../lib/explanationMetrics')
 const { explanationFailureResponse } = require('../../../lib/explanationSave')
 const { fingerprint } = require('../../../lib/explanationWorkflow')
+const { adminTargetView } = require('../../../lib/explanationQuestionContext')
 const { ExamIdentityConflict, matchExistingGroup } = require('../../../lib/examIdentity')
 const express = require('express')
 const { sendServerError } = require('../../../lib/httpErrors')
@@ -15,7 +17,7 @@ router.param('id', (req, res, next, value) => {
 const authMiddleware = require('../../../middleware/auth')
 const validate = require('../../../middleware/validate')
 const { teacherOnly } = require('../../../lib/roles')
-const { aiExplanationLimiter } = require('../../../middleware/rateLimiter')
+const { aiExplanationRunLimiter } = require('../../../middleware/rateLimiter')
 const { updateExamSchema } = require('../../../validators/adminExamValidator')
 const { invalidate } = require('../../../lib/swrCache')
 const { invalidateExamCaches } = require('../../../utils/cache')
@@ -44,7 +46,17 @@ router.get('/exams/counts', authMiddleware, teacherOnly, async (req, res) => {
   }
 })
 
-const { acquireLock, releaseLock, isLocked } = require('../../../lib/explanationLock')
+const { acquireRunSlot, httpRunConcurrency, releaseLock, isLocked } = require('../../../lib/explanationLock')
+
+// One shared 409 payload so every explanation route answers the same way when
+// all run slots for an exam are busy.
+function busyResponse(res, examIdNum, extra = '') {
+  return res.status(409).json({
+    code: 'AI_BUSY',
+    retryAfter: 5,
+    message: `Đang có tác vụ AI khác đang chạy cho đề thi #${examIdNum}. Vui lòng chờ hoàn thành.${extra}`,
+  })
+}
 
 // ─── ADMIN: GET EXPLANATION STATUS FOR EXAM (READ-ONLY) ─────────────────────
 router.get('/exams/:id/explanation-status', authMiddleware, teacherOnly, async (req, res) => {
@@ -77,6 +89,10 @@ router.get('/exams/:id/explanation-status', authMiddleware, teacherOnly, async (
       select: {
         id: true,
         number: true,
+        type: true, questionText: true, correctAnswer: true,
+        passage: { select: { body: true } }, listeningSection: { select: { transcript: true } },
+        group: { select: { type: true, instruction: true, noteSections: { include: { lines: true } },
+          passage: { select: { body: true } }, section: { select: { transcript: true } } } },
         explanation: true,
       },
       orderBy: { number: 'asc' },
@@ -102,7 +118,7 @@ router.get('/exams/:id/explanation-status', authMiddleware, teacherOnly, async (
       if (typeof exp === 'string') {
         try { exp = JSON.parse(exp) } catch { exp = null }
       }
-      exp = sanitizeExplanationForRead(exp)
+      exp = adminTargetView(sanitizeExplanationForRead(exp, q.group?.type || q.type), q, q.group)
       const hasExp = exp && typeof exp === 'object' && (exp.steps || exp.reasoning || exp.aiExplanation || exp.status)
       if (hasExp) {
         generatedCount++
@@ -133,17 +149,13 @@ router.get('/exams/:id/explanation-status', authMiddleware, teacherOnly, async (
 })
 
 // ─── ADMIN: GENERATE EXPLANATIONS FOR EXAM WITH CONFLICT DETECTION ──────────
-router.post('/exams/:id/generate-explanations', authMiddleware, teacherOnly, aiExplanationLimiter, async (req, res) => {
+router.post('/exams/:id/generate-explanations', authMiddleware, teacherOnly, aiExplanationRunLimiter, async (req, res) => {
   const { id } = req.params
-  const { force = false, resolveChoices = {}, overwriteProtected = false, questionNumbers = null, timeBudgetMs = null, operationId = null } = req.body || {}
+  const { force = false, resolveChoices = {}, questionNumbers = null, timeBudgetMs = null, operationId = null, teacherFeedback = null } = req.body || {}
   const examIdNum = parseInt(id, 10)
   const lockKey = `exam:${examIdNum}`
 
-  if (!acquireLock(lockKey)) {
-    return res.status(409).json({
-      message: `Đang có một tác vụ AI khác đang chạy cho đề thi #${examIdNum}. Vui lòng chờ hoàn thành.`
-    })
-  }
+  if (!acquireRunSlot(lockKey)) return busyResponse(res, examIdNum)
 
   const abort = bindRequestAbort(req, res)
 
@@ -151,9 +163,8 @@ router.post('/exams/:id/generate-explanations', authMiddleware, teacherOnly, aiE
     const result = await generateForExam(examIdNum, {
       force,
       resolveChoices,
-      overwriteProtected,
       questionNumbers,
-      timeBudgetMs, operationId,
+      timeBudgetMs, operationId, teacherFeedback,
       signal: abort.signal,
     })
     res.json(result)
@@ -172,18 +183,14 @@ router.post('/exams/:id/generate-explanations', authMiddleware, teacherOnly, aiE
 })
 
 // ─── ADMIN: GENERATE EXPLANATIONS FOR SINGLE QUESTION GROUP ─────────────────
-router.post('/exams/:id/groups/:groupId/generate-explanations', authMiddleware, teacherOnly, aiExplanationLimiter, async (req, res) => {
+router.post('/exams/:id/groups/:groupId/generate-explanations', authMiddleware, teacherOnly, aiExplanationRunLimiter, async (req, res) => {
   const { id, groupId } = req.params
-  const { force = false, resolveChoices = {}, overwriteProtected = false, questionNumbers = null, timeBudgetMs = null, operationId = null } = req.body || {}
+  const { force = false, resolveChoices = {}, questionNumbers = null, timeBudgetMs = null, operationId = null, teacherFeedback = null } = req.body || {}
   const examIdNum = parseInt(id, 10)
   const groupIdNum = parseInt(groupId, 10)
   const lockKey = `exam:${examIdNum}`
 
-  if (!acquireLock(lockKey)) {
-    return res.status(409).json({
-      message: `Đang có một tác vụ AI khác đang chạy cho đề thi #${examIdNum}. Vui lòng chờ hoàn thành.`
-    })
-  }
+  if (!acquireRunSlot(lockKey)) return busyResponse(res, examIdNum)
 
   const abort = bindRequestAbort(req, res)
 
@@ -191,10 +198,9 @@ router.post('/exams/:id/groups/:groupId/generate-explanations', authMiddleware, 
     const result = await generateForExam(examIdNum, {
       force,
       resolveChoices,
-      overwriteProtected,
       groupId: groupIdNum,
       questionNumbers,
-      timeBudgetMs, operationId,
+      timeBudgetMs, operationId, teacherFeedback,
       signal: abort.signal,
     })
     res.json(result)
@@ -213,17 +219,13 @@ router.post('/exams/:id/groups/:groupId/generate-explanations', authMiddleware, 
 })
 
 // ─── ADMIN: REGENERATE SINGLE QUESTION EXPLANATION WITH TEACHER FEEDBACK ───
-router.post('/exams/:id/questions/:qId/regenerate-explanation', authMiddleware, teacherOnly, aiExplanationLimiter, async (req, res) => {
+router.post('/exams/:id/questions/:qId/regenerate-explanation', authMiddleware, teacherOnly, aiExplanationRunLimiter, async (req, res) => {
   const { id, qId } = req.params
-  const { teacherFeedback, proposedAnswer, confirmChangeAnswer } = req.body || {}
+  const { teacherFeedback, proposedAnswer, confirmChangeAnswer, operationId = null, timeBudgetMs = null } = req.body || {}
   const examIdNum = parseInt(id, 10)
   const lockKey = `exam:${examIdNum}`
 
-  if (!acquireLock(lockKey)) {
-    return res.status(409).json({
-      message: `Đang có một tác vụ AI khác đang chạy cho đề thi #${examIdNum}. Vui lòng chờ hoàn thành.`
-    })
-  }
+  if (!acquireRunSlot(lockKey)) return busyResponse(res, examIdNum)
 
   const abort = bindRequestAbort(req, res)
 
@@ -235,6 +237,8 @@ router.post('/exams/:id/questions/:qId/regenerate-explanation', authMiddleware, 
       teacherFeedback,
       proposedAnswer,
       confirmChangeAnswer: Boolean(confirmChangeAnswer),
+      operationId,
+      timeBudgetMs,
       signal: abort.signal,
     })
     res.json(result)
@@ -308,6 +312,18 @@ router.post('/exams/:id/questions/:qId/review-explanation', authMiddleware, teac
     console.error('[REVIEW EXAM QUESTION EXPLANATION ERROR]', err)
     res.status(err.status || 400).json({ code: err.code, message: err.message || 'Lỗi khi duyệt giải thích' })
   }
+})
+
+// ─── ADMIN: EXPLANATION RUN METRICS (in-memory, last 200 runs) ──────────────
+// Read-only diagnostics for the AI explanation pipeline: queue wait, provider
+// time (p50/p95), save time and failure counts. Contains no prompt content.
+router.get('/explanations/metrics', authMiddleware, teacherOnly, (req, res) => {
+  const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 50))
+  res.json({
+    ...aggregate(limit),
+    limits: { httpConcurrency: httpRunConcurrency(), questionConcurrency: questionConcurrency() },
+    runs: listRuns(limit),
+  })
 })
 
 // Prisma relation filter "đề đã có ít nhất 1 câu hỏi", theo từng skill.
@@ -498,21 +514,21 @@ router.get('/exams/:id', authMiddleware, teacherOnly, async (req, res) => {
       }
     })
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy đề' })
-    const parseQ = (q, group = null) => ({
+    const parseQ = (q, group = null, source = {}) => ({
       ...q,
       options: q.options ? JSON.parse(q.options) : null,
-      explanation: sanitizeExplanationForRead(
+      explanation: adminTargetView(sanitizeExplanationForRead(
         typeof q.explanation === 'string' ? (() => { try { return JSON.parse(q.explanation) } catch { return q.explanation } })() : q.explanation,
         group?.type || q.type, q.options || group?.matchingOptions || group?.options
-      ),
+      ), { ...q, ...source }, group ? { ...group, ...source } : null),
     })
     exam.passages?.forEach(p => {
-      p.questions = p.questions.map(q => parseQ(q))
-      p.questionGroups?.forEach(g => { g.questions = g.questions.map(q => parseQ(q, g)) })
+      p.questions = p.questions.map(q => parseQ(q, null, { passage: p }))
+      p.questionGroups?.forEach(g => { g.questions = g.questions.map(q => parseQ(q, g, { passage: p })) })
     })
     exam.listeningSections?.forEach(s => {
-      s.questions = s.questions.map(q => parseQ(q))
-      s.questionGroups?.forEach(g => { g.questions = g.questions.map(q => parseQ(q, g)) })
+      s.questions = s.questions.map(q => parseQ(q, null, { listeningSection: s }))
+      s.questionGroups?.forEach(g => { g.questions = g.questions.map(q => parseQ(q, g, { section: s })) })
     })
     res.json(exam)
   } catch (error) {

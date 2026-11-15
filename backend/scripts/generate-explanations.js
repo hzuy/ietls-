@@ -27,6 +27,7 @@
 
 const prisma = require('../lib/prisma')
 const { allowsAlternatives, normalizeAlternatives, alternativesInstruction } = require('../lib/explanationAlternatives')
+const { completionTarget, targetIssue } = require('../lib/explanationQuestionContext')
 const { Prisma } = require('@prisma/client')
 const { getGroqClient, getGroqModel, requestGeminiJson } = require('../lib/groqClient')
 const { cleanJsonRaw, repairTruncatedJson } = require('../services/json/jsonSanitizer')
@@ -385,7 +386,7 @@ function enrichExplanation(raw, ctx, correctAnswer, family = 'GENERIC', { attemp
     }
   }
 
-  return {
+  const explanation = {
     v: 2,
     question_chunks: questionChunks,
     predict,
@@ -404,19 +405,16 @@ function enrichExplanation(raw, ctx, correctAnswer, family = 'GENERIC', { attemp
     distractors,
     ...(contentIssue ? { contentIssue } : {}),
   }
+  const questionIssue = ctx.targetQuestion ? targetIssue(explanation, ctx.targetQuestion) : null
+  if (questionIssue) explanation.contentIssue = questionIssue
+  return explanation
 }
 
 // Tìm đoạn NoteSection (giữ nguyên token [Q:n]) chứa đúng câu hỏi này — nguồn
 // ngữ cảnh thật cho câu điền từ/bảng, KHÔNG phải Question.questionText (các
 // editor như NoteCompletionEditor.jsx không set trường này).
 function findNoteSectionContext(group, questionNumber) {
-  if (!group?.noteSections) return null
-  const token = `[Q:${questionNumber}]`
-  for (const section of group.noteSections) {
-    const text = (section.lines || []).map(l => l.contentWithTokens || '').join('\n')
-    if (text.includes(token)) return text
-  }
-  return null
+  return completionTarget({ number: questionNumber, type: 'note_completion', group }, group).context
 }
 
 function buildContext(q, family) {
@@ -430,9 +428,9 @@ function buildContext(q, family) {
   const images = collectQuestionImages(q)
 
   const parts = []
-  if (family === 'COMPLETION') {
-    const noteText = findNoteSectionContext(q.group, q.number)
-    if (noteText) parts.push({ label: 'ĐOẠN GHI CHÚ CHỨA CHỖ TRỐNG (giữ nguyên nhãn [Q:n], chỗ trống cần giải thích là ' + `[Q:${q.number}]` + ')', text: noteText })
+  const target = family === 'COMPLETION' || q.group?.type === 'drag_word_bank' ? completionTarget(q) : null
+  if (target?.applicable) {
+    if (target.found) parts.push({ kind: 'completion_target', label: `ĐÚNG CÂU CẦN GIẢI THÍCH [Q:${q.number}]`, text: target.context })
   }
   if (family === 'MATCHING' && q.group?.matchingOptions?.length) {
     const opts = q.group.matchingOptions.map(o => `${o.optionLetter}. ${o.optionText}`).join('\n')
@@ -452,6 +450,7 @@ function buildContext(q, family) {
     parts.push({ label: 'HÌNH ẢNH ĐÍNH KÈM', text: '(không có ảnh — không thể xác định vị trí trên bản đồ/sơ đồ)' })
   }
   return { skill, parts, sourceText: passageText, images,
+    ...(target ? { completionTarget: target, targetQuestion: q } : {}),
     optionPairs: extractOptionPairs(questionOptions(q)), questionType: q.group?.type || q.type }
 }
 
@@ -472,6 +471,9 @@ function buildPrompt(q, family, ctx, previousError = null, teacherFeedback = nul
   }
 
   const contextBlock = ctx.parts.map(p => `${p.label}:\n${p.text}`).join('\n\n')
+  const targetBlock = ctx.completionTarget?.explicit
+    ? `\nCHỈ GIẢI THÍCH CHỖ TRỐNG [Q:${q.number}]: ${ctx.completionTarget.template}\n"question_chunks" chỉ tách các cụm nguyên văn thuộc đúng câu/đoạn này, không dùng số câu hoặc cụm từ của câu khác.${family === 'COMPLETION' ? ` "full_sentence" PHẢI giữ đúng nguyên văn câu/đoạn trên, chỉ thay [Q:${q.number}] bằng đáp án đã chốt.` : ''} Không dùng câu khác để hợp thức hóa đáp án. Nếu đáp án không được bài chứng minh cho ĐÚNG chỗ trống này, trả "no_support": true; không chuyển sang chỗ trống khác.\n`
+    : ''
 
   const hasSource = Boolean(ctx.sourceText && String(ctx.sourceText).trim())
   const hasImages = Array.isArray(ctx.images) && ctx.images.length > 0
@@ -546,11 +548,11 @@ function buildPrompt(q, family, ctx, previousError = null, teacherFeedback = nul
 
 ${TYPE_INSTRUCTION[family]}
 ${alternativesInstruction(family, extractOptionPairs(questionOptions(q)))}
-${imageBlock}${noSourceBlock}
+${imageBlock}${noSourceBlock}${targetBlock}
 THÔNG TIN CÂU HỎI:
 - Số câu: ${q.number ?? '(không rõ)'}
 - Loại câu hỏi: ${q.type || '(không rõ)'}
-- Câu hỏi: ${q.questionText || '(không có sẵn — xem ngữ cảnh bên dưới, câu hỏi nằm trong đó)'}
+- Câu hỏi: ${ctx.completionTarget?.explicit ? ctx.completionTarget.template : q.questionText || '(không có sẵn — xem ngữ cảnh bên dưới, câu hỏi nằm trong đó)'}
 ${optionsBlock}
 ${modeInstruction}
 ${feedbackBlock}
@@ -570,7 +572,7 @@ function buildBatchPrompt(questions, family, ctx, previousError = null) {
   const numbers = list.map(q => q.number)
   const skillLabel = ctx.skill === 'reading' ? 'Reading' : ctx.skill === 'listening' ? 'Listening' : 'Practice'
   const sourceName = ctx.skill === 'listening' ? 'transcript' : 'bài đọc'
-  const contextBlock = ctx.parts.map(p => `${p.label}:\n${p.text}`).join('\n\n')
+  const contextBlock = ctx.parts.filter(p => p.kind !== 'completion_target').map(p => `${p.label}:\n${p.text}`).join('\n\n')
 
   const hasSource = Boolean(ctx.sourceText && String(ctx.sourceText).trim())
   const hasImages = Array.isArray(ctx.images) && ctx.images.length > 0
@@ -590,11 +592,12 @@ function buildBatchPrompt(questions, family, ctx, previousError = null) {
       ? `\n   + Các lựa chọn: ${pairs.map(p => `${p.letter}. ${p.text}`).join(' | ')}`
       : ''
     const parts = []
-    if (family === 'COMPLETION') {
-      const noteText = findNoteSectionContext(q.group, q.number)
-      if (noteText) parts.push(`\n   + Đoạn ghi chú chứa chỗ trống (giữ nguyên nhãn [Q:n], chỗ trống cần giải thích là [Q:${q.number}]):\n${noteText}`)
+    const target = completionTarget(q)
+    if (target.applicable && target.found) {
+      parts.push(`\n   + Chỉ giải thích đúng chỗ trống [Q:${q.number}], không mượn câu khác:\n${target.context}`)
+      if (target.explicit && family === 'COMPLETION') parts.push(`\n   + "full_sentence" phải là nguyên văn mẫu này, chỉ thay [Q:${q.number}] bằng đáp án: ${target.template}`)
     }
-    return `- Câu ${q.number ?? '(không rõ)'} (loại: ${q.type || '(không rõ)'}): ${q.questionText || '(không có sẵn — câu hỏi nằm trong hình/ngữ cảnh)'}${optionsLine}${parts.join('')}\n   + ${alternativesInstruction(family, pairs)}`
+    return `- Câu ${q.number ?? '(không rõ)'} (loại: ${q.type || '(không rõ)'}): ${target.explicit ? target.template : q.questionText || '(không có sẵn — câu hỏi nằm trong hình/ngữ cảnh)'}${optionsLine}${parts.join('')}\n   + ${alternativesInstruction(family, pairs)}`
   }).join('\n')
 
   const jsonFieldsInstruction = `{
@@ -796,6 +799,9 @@ function buildResponseSchema(type, rawOptions = null, schemaOpts = {}) {
     }
   }
 
+  if (isFixedMode && typeof schemaOpts?.targetAnswer === 'string' && schemaOpts.targetAnswer.trim()) {
+    answerSchema = { type: 'STRING', enum: [schemaOpts.targetAnswer.trim()] }
+  }
   const properties = {
     question_chunks: {
       type: 'ARRAY',
@@ -1104,7 +1110,7 @@ async function generateBatchExplanations(questions, family, ctx, { signal = null
       // Bỏ qua số câu lạ hoặc trùng lặp (giữ kết quả đầu tiên).
       if (!q || byNumber.has(num)) continue
       try {
-        const explanation = enrichExplanation(item, { ...ctx,
+        const explanation = enrichExplanation(item, { ...ctx, ...((family === 'COMPLETION' || q.group?.type === 'drag_word_bank') ? { completionTarget: completionTarget(q), targetQuestion: q } : {}),
           optionPairs: extractOptionPairs(questionOptions(q)),
           questionType: q.group?.type || q.type }, q.correctAnswer, family)
         explanation.provider = aiResult?.provider || 'Gemini'

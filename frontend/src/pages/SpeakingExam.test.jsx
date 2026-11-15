@@ -289,7 +289,9 @@ describe('SpeakingExam Part 2 flow', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Bắt đầu Part 2' })).toBeInTheDocument()
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Bắt đầu Part 2' }))
+    // Match the real pointer interaction used by the manual-submit scenario;
+    // an immediate synthetic click can race the restored-part cleanup effect.
+    await userEvent.click(screen.getByRole('button', { name: 'Bắt đầu Part 2' }))
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Đã chuẩn bị xong' })).toBeInTheDocument()

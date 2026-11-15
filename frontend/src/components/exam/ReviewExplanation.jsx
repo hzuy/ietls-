@@ -123,13 +123,23 @@ function ParagraphTag({ children }) {
 function V2Steps({ explanation: ex, paragraphLabel, correctAnswer, question }) {
   const evidenceParts = ex.evidence?.parts || []
   const answer = correctAnswer || ex.answer
+  const notGiven = ['true_false_ng', 'yes_no_ng', 'true_false_not_given', 'yes_no_not_given'].includes(question.group?.type || question.type)
+    && ['NOTGIVEN', 'NG'].includes(String(answer || '').replace(/[^a-z]/gi, '').toUpperCase())
+  if (ex.no_support || ['QUESTION_CONTEXT_MISMATCH', 'QUESTION_CONTEXT_MISSING', 'ANSWER_NOT_IN_SOURCE'].includes(ex.contentIssue?.code)) {
+    const reason = ex.contentIssue?.message || ex.supportNote || ex.needsRegenerationReason || ex.reasoning
+    return <section className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
+      <p className="m-0 font-semibold text-zinc-900">Lời giải chưa hoàn chỉnh</p>
+      <p className="mt-2 mb-0 break-words">{reason || 'Chưa đủ dữ liệu để giải thích đáp án này.'}</p>
+      {ex.reasoning && ex.reasoning !== reason && <p className="mt-2 mb-0 break-words">{ex.reasoning}</p>}
+    </section>
+  }
   const steps = [
     {
       title: 'Phân tích câu hỏi và dự đoán',
       body: (
         <>
           {ex.question_chunks?.length > 0 && <QuestionChunks chunks={ex.question_chunks} />}
-          <p className="m-0">{ex.predict}</p>
+          <p className="m-0">{ex.predict || (!ex.question_chunks?.length ? 'Chưa có phân tích câu hỏi trong lời giải.' : '')}</p>
         </>
       ),
     },
@@ -138,6 +148,7 @@ function V2Steps({ explanation: ex, paragraphLabel, correctAnswer, question }) {
       body: (
         <>
           {ex.locate?.note && <p className="m-0">{ex.locate.note}</p>}
+          {!ex.locate?.note && ex.locate?.paragraph == null && !ex.locate?.keywords?.length && <p className="m-0 text-zinc-500">Chưa có vị trí thông tin trong lời giải.</p>}
           {(ex.locate?.paragraph != null || ex.locate?.keywords?.length > 0) && (
             <div className="flex flex-wrap items-center gap-2">
               {ex.locate?.paragraph != null && <ParagraphTag>{paragraphLabel(ex.locate.paragraph)}</ParagraphTag>}
@@ -163,7 +174,7 @@ function V2Steps({ explanation: ex, paragraphLabel, correctAnswer, question }) {
           </div>
         ))
       ) : (
-        <p className="m-0 text-zinc-500 italic">Bài không có câu nào nói trực tiếp tới thông tin này.</p>
+        <p className="m-0 text-zinc-500 italic">{notGiven ? 'Bài không có câu nào nói trực tiếp tới thông tin này.' : 'Chưa có trích dẫn bằng chứng trong lời giải.'}</p>
       ),
     },
     {

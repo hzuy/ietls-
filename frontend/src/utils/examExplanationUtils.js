@@ -475,6 +475,145 @@ export function mergeExamExplanations(currentForm, freshExam, resolvedChoices = 
 }
 
 /**
+ * Map `saved` entries from the generate endpoint to `{ [number]: explanation }`
+ * so an editor can refresh its "clean" snapshot without refetching the exam.
+ */
+export function savedExplanationsMap(saved) {
+  const map = {}
+  if (!Array.isArray(saved)) return map
+  for (const item of saved) {
+    const number = Number(item?.number)
+    if (!Number.isInteger(number) || !item?.explanation) continue
+    map[number] = item.explanation
+  }
+  return map
+}
+
+/**
+ * Apply explanations returned by the generate endpoint (`saved`) to the current
+ * editor form. Returns `null` when the payload has nothing applicable (legacy
+ * backend without `saved`, or numbers not present in the form) so the caller can
+ * fall back to a full refetch.
+ */
+export function applySavedExplanations(form, saved) {
+  if (!form) return null
+  const byNumber = savedExplanationsMap(saved)
+  const numbers = Object.keys(byNumber).map(Number)
+  if (numbers.length === 0) return null
+
+  let matched = 0
+  const applyQuestionList = (questions = []) => questions.map(q => {
+    const number = Number(q?.number)
+    if (!byNumber[number]) return q
+    matched += 1
+    return { ...q, explanation: byNumber[number] }
+  })
+
+  const applyGroup = group => {
+    const questions = applyQuestionList(group.questions || [])
+    const explanations = { ...(group.explanations || {}) }
+    for (const q of questions) {
+      const number = Number(q?.number)
+      if (byNumber[number]) explanations[q.number] = byNumber[number]
+    }
+    return { ...group, questions, explanations }
+  }
+
+  let next = null
+  if (Array.isArray(form.passages)) {
+    next = {
+      ...form,
+      passages: form.passages.map(passage => ({
+        ...passage,
+        questions: passage.questions ? applyQuestionList(passage.questions) : passage.questions,
+        questionGroups: (passage.questionGroups || []).map(applyGroup),
+      })),
+    }
+  } else if (Array.isArray(form.sections)) {
+    next = {
+      ...form,
+      sections: form.sections.map(section => ({
+        ...section,
+        questions: section.questions ? applyQuestionList(section.questions) : section.questions,
+        questionGroups: (section.questionGroups || []).map(applyGroup),
+      })),
+    }
+  } else if (Array.isArray(form.questionGroups)) {
+    next = { ...form, questionGroups: form.questionGroups.map(applyGroup) }
+  }
+
+  if (!next || matched === 0) return null
+  return next
+}
+
+/**
+ * Runs one explanation group at a time across an exam, with a single place for
+ * abort checks, service-failure short-circuits and result accumulation.
+ *
+ * @param {object} params
+ * @param {Array} params.groups - groups to run, in order
+ * @param {Function} params.onGroup - async ({ group, index, total }) => ({ loopResult?, failed?, stop? })
+ * @param {Function} [params.onGroupError] - async ({ group, index, err }) => boolean (true = stop the run)
+ * @param {AbortSignal} [params.signal]
+ * @param {Function} [params.isCancelling] - () => boolean
+ * @returns {Promise<{ totalGenerated: number, conflicts: Array, failedGroupCount: number, cancelled: boolean }>}
+ */
+export async function runExplanationGroups({
+  groups = [],
+  onGroup,
+  onGroupError = null,
+  signal = null,
+  isCancelling = () => false,
+}) {
+  let totalGenerated = 0
+  const conflicts = []
+  let failedGroupCount = 0
+  let cancelled = false
+
+  const isAbort = err => signal?.aborted || err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED'
+
+  for (let index = 0; index < groups.length; index += 1) {
+    if (signal?.aborted || isCancelling()) {
+      cancelled = true
+      break
+    }
+    const group = groups[index]
+    let outcome
+    try {
+      outcome = await onGroup({ group, index, total: groups.length })
+    } catch (err) {
+      if (isAbort(err)) {
+        cancelled = true
+        break
+      }
+      failedGroupCount += 1
+      const stop = onGroupError ? await onGroupError({ group, index, err }) : false
+      if (stop) break
+      continue
+    }
+
+    if (!outcome) continue
+    totalGenerated += outcome.loopResult?.totalGenerated || 0
+    if (outcome.loopResult?.hasConflicts && outcome.loopResult?.conflicts?.length) {
+      conflicts.push(...outcome.loopResult.conflicts)
+    }
+    if (outcome.failed) failedGroupCount += 1
+    if (outcome.loopResult?.cancelled) {
+      cancelled = true
+      break
+    }
+    if (outcome.stop) break
+  }
+
+  return {
+    totalGenerated,
+    conflicts,
+    failedGroupCount,
+    cancelled: cancelled || Boolean(signal?.aborted),
+  }
+}
+
+/**
  * Executes a chunked, timed loop for generating AI explanations.
  * Keeps running requests with remaining question numbers until finished or aborted.
  *

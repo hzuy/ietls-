@@ -31,6 +31,9 @@ import {
   calculateExamExplanationStats,
   isExplanationUnsupportedGroup,
   executeTimedAIGenerationLoop,
+  runExplanationGroups,
+  applySavedExplanations,
+  savedExplanationsMap,
 } from '../../utils/examExplanationUtils'
 import { useExplanationGenerationLock } from '../../hooks/useExplanationGenerationLock'
 import { useAIExitGuard } from '../../hooks/useAIExitGuard'
@@ -482,6 +485,17 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     })
   }, [])
 
+  // Áp lời giải vừa lưu từ response (`saved`) vào form, tránh tải lại cả đề sau
+  // mỗi chunk. Trả về false khi backend cũ không trả `saved` để nơi gọi fallback.
+  const applyChunkExplanations = useCallback(data => {
+    const next = applySavedExplanations(latestFormRef.current, data?.saved)
+    if (!next) return false
+    setForm(prev => applySavedExplanations(prev, data?.saved) || prev)
+    pristineExplanationsRef.current = { ...pristineExplanationsRef.current, ...savedExplanationsMap(data?.saved) }
+    latestFormRef.current = next
+    return true
+  }, [])
+
   const applyChunkStatus = useCallback((sentNumbers, data) => {
     const sent = (Array.isArray(sentNumbers) ? sentNumbers : []).map(Number).filter(Boolean)
     const errors = (data?.errors || []).map(item => Number(item?.number)).filter(Boolean)
@@ -757,11 +771,12 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
             persistRunReport(liveReport)
           }
         },
-        onChunkSuccess: async () => {
+        onChunkSuccess: async (data) => {
           expLock.notifyChunkEnd({
             current: aiProgress?.current || 0,
             total: totalTarget,
           })
+          if (applyChunkExplanations(data)) return
           try {
             const fresh = await api.get(`/admin/exams/${editingId}`)
             if (fresh?.data) {
@@ -888,27 +903,27 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     persistRunReport(report)
     beginRunStatus(plannedNumbers, 'queued', isRetryScope)
 
-    let totalGenerated = 0
-    const accumulatedConflicts = []
     let latestReport = report
-    let failedGroupCount = 0
+    let completedBefore = 0
+    // Một operationId cho cả lượt chạy: quota rate limit và telemetry gom đúng
+    // một lần bấm "tạo tất cả" thay vì mỗi nhóm một lượt.
+    const runOperationId = globalThis.crypto?.randomUUID?.() || `run-${Date.now()}-${Math.random().toString(36).slice(2)}`
 
-    for (let i = 0; i < allGroups.length; i++) {
-      if (isCancellingAIRef.current || abortController.signal.aborted) break
-      const group = allGroups[i]
-      const groupNums = numbersForGroup(group)
-      setGeneratingGroupId(group.id)
-      markRunStatus(groupNums, 'queued')
-      const groupLabel = `nhóm ${i + 1}/${allGroups.length} (Câu ${group.qNumberStart}–${group.qNumberEnd})`
-      setAiProgress({ current: i + 1, total: allGroups.length, groupLabel })
+    const runResult = await runExplanationGroups({
+      groups: allGroups,
+      signal: abortController.signal,
+      isCancelling: () => isCancellingAIRef.current,
+      onGroup: async ({ group, index }) => {
+        const groupNums = numbersForGroup(group)
+        setGeneratingGroupId(group.id)
+        markRunStatus(groupNums, 'queued')
+        const groupLabel = `nhóm ${index + 1}/${allGroups.length} (Câu ${group.qNumberStart}–${group.qNumberEnd})`
+        setAiProgress({ current: index + 1, total: allGroups.length, groupLabel })
 
-      let loopResult = null
-
-      try {
-        loopResult = await executeTimedAIGenerationLoop({
+        const loopResult = await executeTimedAIGenerationLoop({
           fetchChunk: (payload, opts) => {
             expLock.notifyChunkStart({
-              current: totalGenerated,
+              current: completedBefore,
               total: totalQuestions,
             })
             return api.post(
@@ -917,20 +932,20 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
               opts
             )
           },
-          basePayload: { force: Array.isArray(questionNumbers) && questionNumbers.length > 0 },
+          basePayload: { force: Array.isArray(questionNumbers) && questionNumbers.length > 0, operationId: runOperationId },
           signal: abortController.signal,
           initialQuestionNumbers: requestedSet ? groupNums : null,
           onProgress: ({ current, data }) => {
             const p = {
-              current: i + 1,
+              current: index + 1,
               total: allGroups.length,
-              groupLabel: `nhóm ${i + 1}/${allGroups.length} (Câu ${group.qNumberStart}–${group.qNumberEnd})`,
+              groupLabel: `nhóm ${index + 1}/${allGroups.length} (Câu ${group.qNumberStart}–${group.qNumberEnd})`,
             }
             setAiProgress(p)
             expLock.updateLocalProgress({
-              current: totalGenerated + current,
+              current: completedBefore + current,
               total: totalQuestions,
-              label: `${totalGenerated + current}/${totalQuestions} câu`,
+              label: `${completedBefore + current}/${totalQuestions} câu`,
             })
             if (data) {
               applyChunkStatus(groupNums, data)
@@ -938,11 +953,12 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
               persistRunReport(latestReport)
             }
           },
-          onChunkSuccess: async () => {
+          onChunkSuccess: async (data) => {
             expLock.notifyChunkEnd({
-              current: totalGenerated,
+              current: completedBefore,
               total: totalQuestions,
             })
+            if (applyChunkExplanations(data)) return
             try {
               const fresh = await api.get(`/admin/exams/${editingId}`)
               if (fresh?.data) {
@@ -955,26 +971,20 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
           },
         })
 
-        totalGenerated += loopResult.totalGenerated || 0
-        if (loopResult.hasConflicts && loopResult.conflicts?.length) {
-          accumulatedConflicts.push(...loopResult.conflicts)
-        }
-
+        completedBefore += loopResult.totalGenerated || 0
         finalizeRunStatus(groupNums, loopResult, { cancelled: Boolean(loopResult.cancelled) })
         latestReport = addRunOutcome(latestReport, { group, loopResult, sentNumbers: groupNums })
         persistRunReport(latestReport)
 
-        if (loopResult.cancelled) break
-        if (loopResult.errors?.length) {
-          failedGroupCount++
+        return {
+          loopResult,
+          failed: Boolean(loopResult.errors?.length),
           // 409: dừng cả lượt, không đánh dấu các nhóm còn lại là "xong".
-          if (isRunServiceFailure(loopResult)) {
-            break
-          }
+          stop: isRunServiceFailure(loopResult),
         }
-      } catch (err) {
-        if (abortController.signal.aborted || err.name === 'CanceledError' || err.code === 'ERR_CANCELED') break
-        failedGroupCount++
+      },
+      onGroupError: ({ group, err }) => {
+        const groupNums = numbersForGroup(group)
         finalizeRunStatus(groupNums, { errors: [err] })
         latestReport = addRunOutcome(latestReport, {
           group,
@@ -982,26 +992,22 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
           sentNumbers: groupNums,
         })
         persistRunReport(latestReport)
-        if (isRunServiceFailure({ errors: [err] })) {
-          break
-        }
-      }
+        return isRunServiceFailure({ errors: [err] })
+      },
+    })
 
-      if (isCancellingAIRef.current) break
-    }
-
-    const wasAborted = isCancellingAIRef.current || abortController.signal.aborted
+    const wasAborted = runResult.cancelled
     setGeneratingAI(false)
     setIsCancellingAI(false)
     setGeneratingGroupId(null)
     setAiProgress(null)
     clearPendingRunStatus()
     abortControllerRef.current = null
-    expLock.endLocalGeneration({ completed: !wasAborted && failedGroupCount === 0, cancelled: Boolean(wasAborted) })
+    expLock.endLocalGeneration({ completed: !wasAborted && runResult.failedGroupCount === 0, cancelled: Boolean(wasAborted) })
 
     const finishedReport = finishRunReport(latestReport, { cancelled: wasAborted })
     persistRunReport(finishedReport)
-    notifyExplanationSaved(finishedReport, accumulatedConflicts.length > 0)
+    notifyExplanationSaved(finishedReport, runResult.conflicts.length > 0)
 
     try {
       const fresh = await api.get(`/admin/exams/${editingId}`)
@@ -1080,7 +1086,6 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       if (sequence !== loadSequenceRef.current) return
       const exam = res.data
       const loadedWithNumbers = hydrateExamForm(exam, 'reading')
-      loadedWithNumbers.passages = recalcAllGroupNumbers(loadedWithNumbers.passages)
       setForm(loadedWithNumbers)
       pristineFormSigRef.current = normalizeFormForDirtyCheck(loadedWithNumbers)
       pristineExplanationsRef.current = extractExplanationsMap(loadedWithNumbers)

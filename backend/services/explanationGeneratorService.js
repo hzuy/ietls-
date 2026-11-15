@@ -1,3 +1,9 @@
+// LEGACY / FROZEN pipeline. The admin Reading/Listening routes and the practice
+// routes use services/explanationDraftService.js (fixed-answer draft workflow).
+// The batch generator here is kept only for the CLI import scripts and the
+// regression suites that guard old stored data; do not add new features or new
+// callers. Fixes for prompt/validation logic belong in the shared helpers from
+// scripts/generate-explanations.js, which both pipelines import.
 const { saveExplanationBatch } = require('../lib/explanationSave')
 const { normalizeAlternatives } = require('../lib/explanationAlternatives')
 const { isWorkflow, adminView, publishedView } = require('../lib/explanationWorkflow')
@@ -219,7 +225,8 @@ function filterLearnerExplanation(explanation, questionType = null, options = nu
   if (!isExplanationVisibleToLearner(explanation)) return null
   const result = sanitizeExplanationForRead(explanation, questionType, options)
   for (const key of ['teacher_note', 'teacherKeptAnswer', 'aiAnswer', 'no_support', 'supportNote', 'needsRegenerationReason',
-    'provider', 'model', 'isFallback', 'validationIssue', 'draftVersion', 'sourceHash', 'publishedExplanation', 'workflowVersion', 'contentIssue']) delete result[key]
+    'teacherFeedback', 'feedbackHistory', 'provider', 'model', 'isFallback', 'validationIssue', 'draftVersion', 'sourceHash',
+    'publishedExplanation', 'workflowVersion', 'contentIssue']) delete result[key]
   return result
 }
 

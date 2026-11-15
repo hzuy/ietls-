@@ -33,7 +33,7 @@ import { eligibleExplanationNumbers } from '../../utils/explanationRunReport'
 import { usePracticeExplanationReport } from '../../hooks/usePracticeExplanationReport'
 import ExplanationRunPanel from '../../components/admin/ExplanationRunPanel'
 import { validatePracticeReading, formatValidationAlert } from '../../utils/questionValidation'
-import { executeTimedAIGenerationLoop } from '../../utils/examExplanationUtils'
+import { executeTimedAIGenerationLoop, applySavedExplanations, savedExplanationsMap } from '../../utils/examExplanationUtils'
 import { useExplanationGenerationLock } from '../../hooks/useExplanationGenerationLock'
 import { useAIExitGuard } from '../../hooks/useAIExitGuard'
 import AIGenerationExitConfirmModal from '../../components/admin/AIGenerationExitConfirmModal'
@@ -516,11 +516,17 @@ export default function ReadingPractice() {
           setAiProgress(p)
           expLock.updateLocalProgress(p)
         },
-        onChunkSuccess: async () => {
+        onChunkSuccess: async (data) => {
           expLock.notifyChunkEnd({
             current: aiProgress?.current || 0,
             total: aiProgress?.total || totalTarget,
           })
+          // Backend trả `saved` -> áp thẳng vào form, không tải lại cả bài.
+          if (applySavedExplanations(form, data?.saved)) {
+            setForm(prev => applySavedExplanations(prev, data?.saved) || prev)
+            pristineExplanationsRef.current = { ...pristineExplanationsRef.current, ...savedExplanationsMap(data?.saved) }
+            return
+          }
           try {
             const fresh = await getReadingPractice(editing.id)
             const qData = typeof fresh.questions === 'string'

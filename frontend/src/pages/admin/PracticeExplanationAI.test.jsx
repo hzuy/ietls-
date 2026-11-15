@@ -46,6 +46,29 @@ describe.each(['reading', 'listening'])('%s Practice AI reports', skill => {
     if (!trigger.closest('details').open) fireEvent.click(trigger)
   }
 
+  it('preserves persisted question six when its note token precedes question one', async () => {
+    const old = number => ({ v: 2, status: 'ai_generated', answer: number === 6 ? 'six' : 'one', reasoning: `Old persisted ${number}` })
+    const item = { ...practice, questions: { groups: [{ ...groups[0], qNumberEnd: 6, lines: ['First [6]', 'Then [1]'],
+      questions: [{ id: 301, number: 1, correctAnswer: 'one', explanation: old(1) }, { id: 306, number: 6, correctAnswer: 'six', explanation: old(6) }],
+    }] } }
+    service[reading ? 'getReadingPractice' : 'getListeningPractice'].mockResolvedValue(item)
+    api.post.mockImplementation(async (_url, body) => {
+      expect(body.questionNumbers).toEqual([6])
+      const fresh = structuredClone(item)
+      fresh.questions.groups[0].questions[1].explanation = { ...old(6), reasoning: 'Fresh persisted six' }
+      service[reading ? 'getReadingPractice' : 'getListeningPractice'].mockResolvedValue(fresh)
+      return { data: { generatedCount: 1, remainingQuestionNumbers: [] } }
+    })
+    await open()
+    fireEvent.click(screen.getByRole('button', { name: /^Câu 6/ }))
+    expect(screen.getByText('Old persisted 6')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Tạo bản nháp mới' }))
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Dừng tạo' })).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /^Câu 6/ }))
+    expect(screen.getByText('Fresh persisted six')).toBeInTheDocument()
+  })
+
   it('opens a persisted answer conflict for confirmation without calling AI first', async () => {
     const pending = { v: 2, status: 'conflict_pending', answer: 'three', aiAnswer: 'three', reasoning: 'Independent result' }
     service[reading ? 'getReadingPractice' : 'getListeningPractice'].mockResolvedValue({

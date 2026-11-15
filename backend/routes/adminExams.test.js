@@ -123,6 +123,34 @@ describe('Admin Exams Router & Pagination', () => {
     vi.clearAllMocks()
   })
 
+  it('marks a saved draft explaining another note blank for review without rewriting stored data', async () => {
+    const { draftEnvelope } = require('../lib/explanationWorkflow')
+    const payload = { v: 2, answer: 'press', reasoning: 'Wrong question reasoning', full_sentence: 'Negative articles appeared in the press.',
+      question_chunks: [{ text: '5. ___', label: 'blank' }] }
+    const raw = draftEnvelope(null, payload, 'source')
+    const snapshot = structuredClone(raw)
+    prismaMock.exam.findUnique.mockResolvedValueOnce({ id: 23, skill: 'reading', passages: [{ questions: [], questionGroups: [{
+      type: 'note_completion', noteSections: [{ lines: [{ contentWithTokens: 'The [Q:1] of London increased rapidly.' }, { contentWithTokens: 'Negative articles appeared in the [Q:5].' }] }],
+      questions: [{ id: 1472, number: 1, type: 'fill_blank', correctAnswer: 'press', explanation: raw }],
+    }] }], listeningSections: [] })
+    const res = await request(app).get('/api/admin/exams/23').set('Authorization', `Bearer ${teacherToken}`).expect(200)
+    expect(res.body.passages[0].questionGroups[0].questions[0].explanation).toMatchObject({ status: 'needs_regeneration', contentIssue: { code: 'QUESTION_CONTEXT_MISMATCH' } })
+    expect(raw).toEqual(snapshot)
+    expect(prismaMock.question.update).not.toHaveBeenCalled()
+  })
+
+  it('uses parent passage context for existing admin drafts with nonliteral answer keys', async () => {
+    const { draftEnvelope } = require('../lib/explanationWorkflow')
+    const raw = draftEnvelope(null, { v: 2, answer: 'outskirts', reasoning: 'Wrong source word', full_sentence: 'The company needed outskirts for the project.' }, 'source')
+    prismaMock.exam.findUnique.mockResolvedValueOnce({ id: 23, passages: [{ body: 'The company needed funding for the project.', questions: [], questionGroups: [{
+      type: 'note_completion', instruction: 'Write ONE WORD ONLY from the passage.', noteSections: [{ lines: [{ contentWithTokens: 'The company needed [Q:4] for the project.' }] }],
+      questions: [{ id: 1469, number: 4, type: 'fill_blank', correctAnswer: 'outskirts', explanation: raw }],
+    }] }], listeningSections: [] })
+    const res = await request(app).get('/api/admin/exams/23').set('Authorization', `Bearer ${teacherToken}`).expect(200)
+    expect(res.body.passages[0].questionGroups[0].questions[0].explanation).toMatchObject({ status: 'needs_regeneration', contentIssue: { code: 'ANSWER_NOT_IN_SOURCE' } })
+    expect(raw.draft.issue).toBeNull()
+  })
+
   it('rejects an exam title that already exists, including on another skill', async () => {
     prismaMock.exam.findFirst.mockResolvedValueOnce(null)
     prismaMock.exam.findMany.mockResolvedValueOnce([{ id: 44, title: 'Old Exam', skill: 'listening' }])

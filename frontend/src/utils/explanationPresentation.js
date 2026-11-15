@@ -16,8 +16,8 @@ export function getExplanationAttention(explanation, runStatus = null, runIssue 
     reason: reason || 'Bản dịch tiếng Việt chưa hợp lệ.',
     hint: 'Sửa bản dịch theo câu tiếng Anh rồi lưu bản nháp để kiểm tra lại.',
   }
-  if (issue?.code === 'MISSING_EVIDENCE') return {
-    title: 'Cần kiểm tra', action: 'edit_source',
+  if (['MISSING_EVIDENCE', 'MISSING_DATA', 'QUESTION_CONTEXT_MISMATCH', 'QUESTION_CONTEXT_MISSING', 'ANSWER_NOT_IN_SOURCE'].includes(issue?.code)) return {
+    title: 'Cần kiểm tra', action: issue?.action || (issue?.code === 'QUESTION_CONTEXT_MISMATCH' ? 'retry_generation' : 'edit_source'),
     reason: reason || 'Chưa tìm thấy bằng chứng phù hợp với đáp án đề.',
     hint: 'Đối chiếu bài đọc hoặc transcript với đáp án đề. Bổ sung dữ liệu hoặc sửa lời giải trước khi sử dụng.',
   }

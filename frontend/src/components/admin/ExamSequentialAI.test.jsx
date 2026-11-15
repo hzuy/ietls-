@@ -87,6 +87,38 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     })
   })
 
+  it.each(['reading', 'listening'])('preserves persisted %s question identity when note tokens are ordered 6 then 1', async skill => {
+    const reading = skill === 'reading', examId = reading ? 10 : 20
+    const old = number => ({ v: 2, status: 'ai_generated', answer: number === 6 ? 'six' : 'one', reasoning: `Old question ${number}` })
+    const group = { id: 201, type: 'note_completion', qNumberStart: 1, qNumberEnd: 6,
+      instruction: 'Complete the notes', noteSections: [{ title: '', lines: [{ contentWithTokens: 'First [6]' }, { contentWithTokens: 'Then [1]' }] }],
+      questions: [{ id: 301, number: 1, correctAnswer: 'one', explanation: old(1) }, { id: 306, number: 6, correctAnswer: 'six', explanation: old(6) }] }
+    const base = structuredClone(mockReadingExam)
+    base.passages = base.passages.map((part, index) => ({ ...part, number: index + 1 }))
+    base.passages[0].questionGroups = [group]
+    const exam = reading ? base : { ...base, id: 20, listeningSections: base.passages.map((part, i) => ({ ...part, number: i + 1, transcript: 'Source text', audioUrl: '/test.mp3' })) }
+    let current = exam
+    api.get.mockImplementation(url => Promise.resolve({ data: url === `/admin/exams/${examId}` ? current : [] }))
+    api.post.mockImplementation(async (_url, body) => {
+      expect(body.questionNumbers).toEqual([6])
+      current = structuredClone(exam)
+      const parts = reading ? current.passages : current.listeningSections
+      parts[0].questionGroups[0].questions[1].explanation = { ...old(6), reasoning: 'Fresh persisted question six' }
+      return { data: { generatedCount: 1, remainingQuestionNumbers: [] } }
+    })
+    renderTab(reading ? <ReadingTab exams={[]} onRefresh={vi.fn()} /> : <ListeningTab exams={[]} onRefresh={vi.fn()} />)
+    fireEvent.click(screen.getByText(reading ? 'Edit Reading 10' : 'Edit Listening 20'))
+    await screen.findByDisplayValue(reading ? 'Passage 1 text' : 'Source text')
+    fireEvent.click(await screen.findByRole('button', { name: /^Câu 6/ }))
+    expect(screen.getByText('Old question 6')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Tạo bản nháp mới' }))
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Dừng tạo' })).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /^Câu 6/ }))
+    expect(screen.getByText('Fresh persisted question six')).toBeInTheDocument()
+    expect(api.put).not.toHaveBeenCalled()
+  })
+
   async function revealRunErrors() {
     const trigger = await screen.findByText(/^C\u1ea7n ki\u1ec3m tra l\u1eddi gi\u1ea3i/)
     if (!trigger.closest('details').open) fireEvent.click(trigger)

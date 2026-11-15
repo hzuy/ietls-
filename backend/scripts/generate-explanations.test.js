@@ -199,7 +199,7 @@ describe('findNoteSectionContext', () => {
   it('tìm đúng đoạn NoteSection chứa token [Q:n]', () => {
     const ctx = findNoteSectionContext(group, 2)
     expect(ctx).toContain('[Q:2]')
-    expect(ctx).toContain('Name: [Q:1]')
+    expect(ctx).not.toContain('Name: [Q:1]')
   })
 
   it('trả về null nếu không tìm thấy token', () => {
