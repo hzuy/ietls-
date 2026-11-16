@@ -811,7 +811,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     allGroups = allGroups.filter(group => numbersForGroup(group).length > 0)
     if (!allGroups.length) {
       persistRunReport(finishRunReport(createRunReport({ examId: editingId, skill: 'listening', totalQuestions: 0 })))
-      showToast('Tất cả câu hỏi đã có lời giải thích hoàn chỉnh. Nếu muốn tạo lại, hãy dùng tùy chọn tạo lại.', 'info')
+      showToast('Tất cả câu hỏi đã có lời giải thích hoàn chỉnh', 'info')
       return
     }
     const plannedNumbers = allGroups.flatMap(numbersForGroup)

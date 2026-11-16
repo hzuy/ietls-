@@ -483,7 +483,7 @@ export default function ListeningPractice() {
       abortControllerRef.current = null
       aiReport.start([], { scope: 'all' })
       aiReport.finish({ totalGenerated: 0, errors: [], remainingQuestionNumbers: [] })
-      showToast('Tất cả câu hỏi đã có lời giải thích hoàn chỉnh.', 'info')
+      showToast('Tất cả câu hỏi đã có lời giải thích hoàn chỉnh', 'info')
       return
     }
     const totalTarget = targetNumbers.length
