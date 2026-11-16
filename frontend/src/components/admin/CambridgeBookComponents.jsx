@@ -7,6 +7,7 @@ import { resolveImg } from '../../utils/media'
 import Modal from '../common/Modal'
 import AcademicCover from '../common/AcademicCover'
 import { BookOpen, Pencil } from 'lucide-react'
+import { fieldSm } from './formField'
 
 // ─── CAMBRIDGE BOOK MODAL — Cover upload ──────────────────────────────────────
 
@@ -83,7 +84,7 @@ function BookModal({ bookNumber, seriesId, seriesName, coverUrl, onClose, onCove
   }
 
   return (
-    <Modal onClose={onClose} title={`${seriesName} ${bookNumber} — Ảnh bìa`} size="lg">
+    <Modal onClose={onClose} title={`${seriesName} ${bookNumber} — Ảnh bìa`} size="lg" className="admin-modal-form">
       <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200 shrink-0">
         <div className="flex items-center gap-3">
           {activeCover && <img key={activeCover} src={resolveImg(activeCover)} alt="" onError={handleImgError} className="w-8 h-10 rounded object-cover shadow" loading="lazy" decoding="async" />}
@@ -117,10 +118,10 @@ function SeriesCard({ s, onManage, onEdit, onDelete }) {
       </div>
       {confirmDelete && (
         <Modal onClose={() => setConfirmDelete(false)} title="Xóa bộ đề" size="xs" className="p-6">
-          <h3 className="font-bold text-zinc-900 dark:text-slate-100 mb-2">Xóa bộ đề?</h3>
-          <p className="text-sm text-zinc-500 dark:text-slate-400 mb-4">Tất cả thông tin trong bộ đề <strong>{s.name}</strong> sẽ bị xóa.</p>
+          <h3 className="font-bold text-zinc-900 mb-2">Xóa bộ đề?</h3>
+          <p className="text-sm text-zinc-500 mb-4">Tất cả thông tin trong bộ đề <strong>{s.name}</strong> sẽ bị xóa.</p>
           <div className="flex gap-2.5">
-            <button onClick={() => setConfirmDelete(false)} className="flex-1 h-9 px-4 rounded-full border border-zinc-200 dark:border-slate-700 text-zinc-700 dark:text-slate-300 text-xs sm:text-sm font-semibold hover:bg-zinc-50 dark:hover:bg-slate-800 transition-colors cursor-pointer">Hủy</button>
+            <button onClick={() => setConfirmDelete(false)} className="flex-1 h-9 px-4 rounded-full border border-zinc-200 text-zinc-700 text-xs sm:text-sm font-semibold hover:bg-zinc-50 transition-colors cursor-pointer">Hủy</button>
             <button onClick={() => { setConfirmDelete(false); onDelete(s.id) }} className="flex-1 h-9 px-4 rounded-full bg-red-600 text-white text-xs sm:text-sm font-semibold hover:bg-red-700 transition-colors shadow-xs cursor-pointer">Xóa</button>
           </div>
         </Modal>
@@ -252,7 +253,7 @@ function SeriesDetailView({ series, books, booksError, onBack, onBooksChanged, s
                   onChange={e => setEditValue(e.target.value)}
                   onBlur={commitEdit}
                   onKeyDown={handleEditKeyDown}
-                  className="w-14 text-xs text-center border border-zinc-400 rounded px-1 py-0.5 outline-none font-medium focus:border-zinc-900"
+                  className={`${fieldSm} w-14 text-center font-medium`}
                 />
               ) : (
                 <div className="flex items-center gap-0.5">
@@ -287,10 +288,10 @@ function SeriesDetailView({ series, books, booksError, onBack, onBooksChanged, s
 
       {deleteBook && (
         <Modal onClose={() => setDeleteBook(null)} title={`Xóa cuốn ${deleteBook}`} size="xs" className="p-6">
-          <h3 className="font-bold text-zinc-900 dark:text-slate-100 mb-2">Xóa cuốn {deleteBook}?</h3>
-          <p className="text-sm text-zinc-500 dark:text-slate-400 mb-4">Tất cả đề thi (Reading, Listening, Writing, Speaking) trong cuốn này sẽ được chuyển vào Thùng rác và có thể khôi phục.</p>
+          <h3 className="font-bold text-zinc-900 mb-2">Xóa cuốn {deleteBook}?</h3>
+          <p className="text-sm text-zinc-500 mb-4">Tất cả đề thi (Reading, Listening, Writing, Speaking) trong cuốn này sẽ được chuyển vào Thùng rác và có thể khôi phục.</p>
           <div className="flex gap-2.5">
-            <button onClick={() => setDeleteBook(null)} className="flex-1 h-9 px-4 rounded-full border border-zinc-200 dark:border-slate-700 text-zinc-700 dark:text-slate-300 text-xs sm:text-sm font-semibold hover:bg-zinc-50 dark:hover:bg-slate-800 transition-colors cursor-pointer">Hủy</button>
+            <button onClick={() => setDeleteBook(null)} className="flex-1 h-9 px-4 rounded-full border border-zinc-200 text-zinc-700 text-xs sm:text-sm font-semibold hover:bg-zinc-50 transition-colors cursor-pointer">Hủy</button>
             <button onClick={() => handleDeleteBook(deleteBook)} className="flex-1 h-9 px-4 rounded-full bg-red-600 text-white text-xs sm:text-sm font-semibold hover:bg-red-700 transition-colors shadow-xs cursor-pointer">Xóa</button>
           </div>
         </Modal>

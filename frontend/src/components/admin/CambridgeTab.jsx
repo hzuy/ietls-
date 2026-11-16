@@ -5,6 +5,7 @@ import { notifyTrashChanged } from '../../services/adminService'
 import { SeriesCard, SeriesDetailView } from './CambridgeBookComponents'
 import { BookOpen } from 'lucide-react'
 import { AdminGridSkeleton } from '../skeletons'
+import { fieldBase } from './formField'
 
 // ─── TAB: SERIES & BOOKS ──────────────────────────────────────────────────────
 
@@ -161,7 +162,7 @@ function CambridgeTab({ initialSeriesList = [], onExamsChanged }) {
               <input
                 autoFocus
                 disabled={addingSeries}
-                className="flex-1 border border-zinc-200 rounded-lg px-3 py-2 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 outline-none disabled:opacity-60"
+                className={`${fieldBase} flex-1`}
                 placeholder="Tên bộ đề (VD: IELTS Practice Test Plus)"
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
@@ -195,7 +196,7 @@ function CambridgeTab({ initialSeriesList = [], onExamsChanged }) {
                     <input
                       autoFocus
                       disabled={savingEdit}
-                      className="border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 outline-none disabled:opacity-60"
+                      className={fieldBase}
                       value={editName}
                       onChange={e => setEditName(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') handleEditSeries(s.id); if (e.key === 'Escape') setEditId(null) }}

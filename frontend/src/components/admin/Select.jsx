@@ -37,7 +37,7 @@ export default function Select({
             <ListboxButton
               id={id}
               aria-label={ariaLabel}
-              className={`relative w-full ${multiline ? 'min-h-9 py-2' : 'h-9'} text-xs border border-zinc-200 ${pill ? 'rounded-full' : 'rounded-lg'} text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition font-normal bg-white shadow-2xs flex items-center ${Icon ? 'pl-8' : 'pl-3'} pr-8 ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'} ${buttonClassName}`}
+              className={`relative w-full border border-zinc-200 ${multiline ? 'min-h-9 py-2' : 'h-9'} ${pill ? 'rounded-full bg-zinc-50' : 'rounded-lg bg-white'} text-zinc-900 hover:border-zinc-300 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition-colors font-normal flex items-center ${Icon ? 'pl-8' : 'pl-3'} pr-8 ${disabled ? 'bg-zinc-50 text-zinc-500 opacity-70 cursor-not-allowed' : 'cursor-pointer'} ${buttonClassName}`}
             >
               {Icon && <Icon className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />}
               <span className={`${multiline ? 'whitespace-normal [overflow-wrap:anywhere]' : 'truncate'} min-w-0 text-left flex-1`}>{selected ? selected.label : placeholder}</span>

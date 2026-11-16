@@ -3,6 +3,7 @@ import { getQuestionGroupTheme as getAdminTheme } from '../adminConstants'
 import { getQuestionGroupTheme as getPracticeTheme } from '../../../utils/practiceConfig'
 import { deriveCorrectIndices, correctAnswerFromIndices, reindexAfterRemoval } from '../../../utils/mcqAnswer'
 import { AlertCircle } from 'lucide-react'
+import { fieldSm } from '../formField'
 
 export default function MCQGroupEditor({
   group = {},
@@ -124,7 +125,7 @@ export default function MCQGroupEditor({
           <span className="text-xs font-medium text-zinc-800 shrink-0">Số đáp án cần chọn (maxChoices):</span>
           <input
             type="number" min={1} max={10}
-            className="w-16 border border-zinc-300 rounded-lg px-2 py-1 text-xs text-center font-medium focus:outline-none focus:border-zinc-500 bg-white text-zinc-900"
+            className={`${fieldSm} w-16 text-center font-medium`}
             value={maxChoices}
             onChange={e => {
               const newMax = parseInt(e.target.value) || 2

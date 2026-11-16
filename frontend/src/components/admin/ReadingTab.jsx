@@ -16,6 +16,7 @@ import {
   inputCls, labelCls, btnSecondary,
   useExamSeriesList, useSeriesBooks,
 } from './adminConstants'
+import { textareaBase, checkboxBase } from './formField'
 import InlinePreviewPanel from '../common/InlinePreviewPanel'
 import Select from './Select'
 import ExamList from './ExamList'
@@ -653,8 +654,15 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   const proceedWithGroupAIGeneration = group => handleGenerateGroupAI(group)
 
   const handleStartGenerateAI = () => {
-    if (!editingId || generatingAI) return
-    const val = validateExamReading(form)
+    if (!editingId) {
+      showToast('Vui lòng lưu đề thi trước khi tạo giải thích bằng AI', 'info')
+      return
+    }
+    if (generatingAI || expLock.isLockedGenerate) {
+      showToast(expLock.lockTooltip || 'Đang sinh giải thích AI, vui lòng chờ.', 'info')
+      return
+    }
+    const val = validateExamReading(form, { isForAI: true })
     if (!val.isValid) {
       const msg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
       persistRunReport(createBlockedReport({
@@ -663,7 +671,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         message: `Có ${val.errors.length} lỗi cần sửa trước khi sinh giải thích.`,
         details: String(msg).split('\n').filter(Boolean),
       }))
-
+      showAlert(msg, 'error')
       return
     }
     pendingAIFnRef.current = (opts) => handleGenerateSequentialAll(opts)
@@ -675,7 +683,14 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   }
 
   const handleRetryFailedAI = (numbers) => {
-    if (!editingId || expLock.isLockedGenerate) return
+    if (!editingId) {
+      showToast('Vui lòng lưu đề thi trước khi tạo giải thích bằng AI', 'info')
+      return
+    }
+    if (expLock.isLockedGenerate) {
+      showToast(expLock.lockTooltip || 'Đang sinh giải thích AI, vui lòng chờ.', 'info')
+      return
+    }
     pendingAIFnRef.current = (opts = {}) => handleGenerateSequentialAll({
       ...opts, questionNumbers: numbers, overwriteProtected: false,
     })
@@ -687,7 +702,14 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   }
 
   const handleStartGenerateGroupAI = (group) => {
-    if (!editingId || generatingAI) return
+    if (!editingId) {
+      showToast('Vui lòng lưu đề thi trước khi tạo giải thích bằng AI', 'info')
+      return
+    }
+    if (generatingAI || expLock.isLockedGenerate) {
+      showToast(expLock.lockTooltip || 'Đang sinh giải thích AI, vui lòng chờ.', 'info')
+      return
+    }
     if (!group || !group.id) {
       showToast('Vui lòng lưu đề thi trước khi sinh AI cho nhóm câu hỏi mới tạo.', 'info')
       return
@@ -711,6 +733,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       : eligible).filter(number => eligible.includes(number))
     if (!targetNumbers.length) {
       persistRunReport(finishRunReport(createRunReport({ examId: editingId, skill: 'reading', scope: 'group', totalQuestions: 0 })))
+      showToast('Nhóm câu hỏi này đã có đầy đủ lời giải thích.', 'info')
       return
     }
 
@@ -826,8 +849,11 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
   }
 
   const handleGenerateSequentialAll = async ({ resolveChoices = {}, overwriteProtected = false, questionNumbers = null } = {}) => {
-    if (!editingId) return
-    const val = validateExamReading(form)
+    if (!editingId) {
+      showToast('Vui lòng lưu đề thi trước khi tạo giải thích bằng AI', 'info')
+      return
+    }
+    const val = validateExamReading(form, { isForAI: true })
     if (!val.isValid) {
       const msg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
       persistRunReport(createBlockedReport({
@@ -836,7 +862,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
         message: `Có ${val.errors.length} lỗi cần sửa trước khi sinh giải thích.`,
         details: String(msg).split('\n').filter(Boolean),
       }))
-
+      showAlert(msg, 'error')
       return
     }
 
@@ -874,6 +900,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
     allGroups = allGroups.filter(group => numbersForGroup(group).length > 0)
     if (!allGroups.length) {
       persistRunReport(finishRunReport(createRunReport({ examId: editingId, skill: 'reading', totalQuestions: 0 })))
+      showToast('Tất cả câu hỏi đã có lời giải thích hoàn chỉnh. Nếu muốn tạo lại, hãy dùng tùy chọn tạo lại.', 'info')
       return
     }
     const plannedNumbers = allGroups.flatMap(numbersForGroup)
@@ -1424,14 +1451,14 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
                       <label className="flex items-center gap-2 cursor-pointer select-none">
                         <input type="checkbox" checked={passage.letteredParagraphs}
                           onChange={e => updatePassage(pi, 'letteredParagraphs', e.target.checked)}
-                          className="accent-zinc-900" />
+                          className={checkboxBase} />
                         <span className="text-xs text-zinc-600 font-medium">Đoạn văn có ký hiệu chữ cái (A, B, C...) — dùng cho Matching Information và Matching Headings</span>
                       </label>
                     </div>
 
                     <div>
                       <label className={labelCls}>Nội dung bài đọc</label>
-                      <textarea className={`${inputCls} resize-none`} rows={10}
+                      <textarea className={`${textareaBase}`} rows={10}
                         placeholder="Dán toàn bộ nội dung bài đọc vào đây. Dùng dòng trống để phân cách đoạn văn..."
                         value={passage.body} onChange={e => updatePassage(pi, 'body', e.target.value)} />
                     </div>

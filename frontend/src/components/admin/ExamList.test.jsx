@@ -199,10 +199,8 @@ describe('ExamList — Speaking Part Badge & Validation Count', () => {
 
     render(<ExamList exams={exams} skill="reading" paginationData={{ total: 20, page: 1, pages: 10 }} />)
 
-    expect(screen.getByText(/Hiển thị/)).toBeInTheDocument()
-    expect(screen.getByText('2')).toBeInTheDocument()
-    expect(screen.getByText('20')).toBeInTheDocument()
-    expect(screen.getByText(/trên tổng số/)).toBeInTheDocument()
+    expect(screen.getByText(/Trang 1 \/ 10/)).toBeInTheDocument()
+    expect(screen.getByText(/20 đề thi/)).toBeInTheDocument()
   })
 
   it('gọi fetchExams với tham số đúng khi đổi bộ lọc bộ đề/sắp xếp qua dropdown', () => {

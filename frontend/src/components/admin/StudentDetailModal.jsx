@@ -5,27 +5,27 @@ import { SKILL_LABEL } from '../../utils/adminSkillColors'
 
 const SKILL_CARD_THEMES = {
   reading: {
-    bg: 'bg-blue-50/60 dark:bg-blue-950/20',
-    border: 'border-blue-200/80 dark:border-blue-800/60',
-    badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300',
+    bg: 'bg-blue-50/60 ',
+    border: 'border-blue-200/80 ',
+    badge: 'bg-blue-100 text-blue-700  ',
     dot: 'bg-blue-500',
   },
   listening: {
-    bg: 'bg-emerald-50/60 dark:bg-emerald-950/20',
-    border: 'border-emerald-200/80 dark:border-emerald-800/60',
-    badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300',
+    bg: 'bg-emerald-50/60 ',
+    border: 'border-emerald-200/80 ',
+    badge: 'bg-emerald-100 text-emerald-700  ',
     dot: 'bg-emerald-500',
   },
   writing: {
-    bg: 'bg-purple-50/60 dark:bg-purple-950/20',
-    border: 'border-purple-200/80 dark:border-purple-800/60',
-    badge: 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300',
+    bg: 'bg-purple-50/60 ',
+    border: 'border-purple-200/80 ',
+    badge: 'bg-purple-100 text-purple-700  ',
     dot: 'bg-purple-500',
   },
   speaking: {
-    bg: 'bg-amber-50/60 dark:bg-amber-950/20',
-    border: 'border-amber-200/80 dark:border-amber-800/60',
-    badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',
+    bg: 'bg-amber-50/60 ',
+    border: 'border-amber-200/80 ',
+    badge: 'bg-amber-100 text-amber-700  ',
     dot: 'bg-amber-500',
   },
 }
@@ -66,23 +66,23 @@ export default function StudentDetailModal({
   return (
     <Modal onClose={onClose} title={`Chi tiết học viên ${user.name}`} size="xl">
       {/* Header */}
-      <div className="p-5 border-b border-zinc-200 dark:border-zinc-800 flex items-start justify-between gap-4 bg-zinc-50/70 dark:bg-zinc-900/50">
+      <div className="p-5 border-b border-zinc-200 flex items-start justify-between gap-4 bg-zinc-50/70 ">
         <div className="flex items-center gap-3.5 min-w-0">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-zinc-800 via-zinc-900 to-zinc-950 text-white font-bold text-lg flex items-center justify-center border border-zinc-700/80 shadow-xs shrink-0">
             {initialLetter}
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 truncate">
+              <h2 className="text-base sm:text-lg font-bold text-zinc-900 truncate">
                 {user.name}
               </h2>
               {rank && (
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shrink-0">
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-zinc-900 text-white shrink-0">
                   Hạng #{rank}
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400 mt-1 flex-wrap font-mono">
+            <div className="flex items-center gap-3 text-xs text-zinc-500 mt-1 flex-wrap font-mono">
               <span className="flex items-center gap-1 truncate">
                 <Mail size={12} className="shrink-0" />
                 {user.email || 'student@ielts.vn'}
@@ -97,7 +97,7 @@ export default function StudentDetailModal({
 
         <div className="flex items-center gap-2 shrink-0">
           <div className="text-right">
-            <div className="text-2xl sm:text-3xl font-black font-mono text-zinc-900 dark:text-zinc-100 leading-none">
+            <div className="text-2xl sm:text-3xl font-black font-mono text-zinc-900 leading-none">
               {formatBand(student.avgScore)}
             </div>
             <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 mt-0.5">
@@ -195,7 +195,7 @@ export default function StudentDetailModal({
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${theme.badge}`}>
                             {SKILL_LABEL[skill]}
                           </span>
-                          <span className="font-mono font-bold text-zinc-900 dark:text-slate-100 bg-zinc-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs">
+                          <span className="font-mono font-bold text-zinc-900 bg-zinc-100 px-2 py-0.5 rounded text-xs">
                             {att.score != null ? `Band ${formatBand(att.score)}` : '—'}
                           </span>
                         </div>

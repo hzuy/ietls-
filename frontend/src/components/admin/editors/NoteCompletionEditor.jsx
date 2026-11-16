@@ -197,7 +197,7 @@ export default function NoteCompletionEditor({
                       <AutoGrowTextarea
                         ref={el => { lineRefs.current[`${nsi}-${li}`] = el }}
                         rows={1}
-                        className={`order-last basis-full sm:order-none sm:basis-0 flex-1 border rounded-lg px-2 py-1 text-xs resize-none focus:outline-none font-mono text-zinc-900 placeholder:text-zinc-400 ${
+                        className={`order-last basis-full sm:order-none sm:basis-0 flex-1 border rounded-lg px-2 py-1 text-xs resize-none focus:outline-none font-sans text-zinc-900 placeholder:text-zinc-400 ${
                           isHeading
                             ? 'font-bold border-zinc-300 focus:border-zinc-400 bg-zinc-50 text-zinc-700'
                             : `${theme.subBoxBorder} focus:border-amber-400`

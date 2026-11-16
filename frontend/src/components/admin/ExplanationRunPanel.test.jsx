@@ -66,26 +66,13 @@ describe('ExplanationRunPanel', () => {
     expect(retry).toHaveBeenCalledWith([8])
     expect(screen.getByRole('button', { name: /^Xem câu 12/ })).toHaveAttribute('title', expect.stringMatching(/chưa có đáp án đúng/))
   })
-  it('folds and redacts technical details, including clipboard output', async () => {
+  it('does not render technical details block in issues panel', () => {
     const report = partialReport()
     report.rows[0].technical = 'https://example.com?key=secret-value Bearer private-token'
     render(<ExplanationRunPanel report={report} />)
     openIssues()
-    const technical = screen.getByText('Chi tiết kỹ thuật')
-    expect(technical.closest('details')).not.toHaveAttribute('open')
-    fireEvent.click(technical)
-    fireEvent.click(screen.getByRole('button', { name: 'Sao chép chi tiết' }))
-    await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledTimes(1))
-    expect(navigator.clipboard.writeText.mock.calls[0][0]).not.toMatch(/secret-value|private-token/)
-    expect(screen.getByText(/https:\/\/example.com/)).not.toHaveTextContent('secret-value')
-  })
-  it('reports clipboard failures honestly', async () => {
-    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined })
-    render(<ExplanationRunPanel report={partialReport()} />)
-    openIssues()
-    fireEvent.click(screen.getByText('Chi tiết kỹ thuật'))
-    fireEvent.click(screen.getByRole('button', { name: 'Sao chép chi tiết' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Không sao chép được')
+    expect(screen.queryByText('Chi tiết kỹ thuật')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Sao chép chi tiết' })).not.toBeInTheDocument()
   })
   it('expands blocked validation without offering retry', () => {
     render(<ExplanationRunPanel report={createBlockedReport({ examId: 10, skill: 'reading', message: 'Có 1 lỗi cần sửa.', details: ['Thiếu đáp án câu 1'] })} />)

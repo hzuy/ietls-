@@ -3,7 +3,8 @@ import AdditionalTaskEditor from './AdditionalTaskEditor'
 import { GROUP_TYPE_ALIASES } from '../../../utils/questionTypes'
 import { useState } from 'react'
 import { Sparkles, Loader2 } from 'lucide-react'
-import { READING_GROUP_TYPES, labelCls, inputCls, getQuestionTypeTheme } from '../adminConstants'
+import { READING_GROUP_TYPES, labelCls, getQuestionTypeTheme } from '../adminConstants'
+import { textareaBase, checkboxBase } from '../formField'
 import QuestionExplanationModal, { ExplanationStatusBadge } from '../QuestionExplanationModal'
 import ExplanationChipGrid from '../ExplanationChipGrid'
 import TrueFalseEditor from '../../practice/TrueFalseEditor'
@@ -140,7 +141,7 @@ export default function ReadingGroupEditor({
         <div>
           <label className={labelCls}>Instruction (hiển thị cho học sinh)</label>
           <AutoGrowTextarea rows={2}
-            className={`${inputCls} resize-none`}
+            className={`${textareaBase}`}
             placeholder="Hướng dẫn làm bài..."
             value={group.instruction}
             onChange={e => onChange({ ...group, instruction: e.target.value })} />
@@ -164,7 +165,7 @@ export default function ReadingGroupEditor({
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={group.canReuse || false}
                 onChange={e => onChange({ ...group, canReuse: e.target.checked })}
-                className="accent-zinc-900" />
+                className={checkboxBase} />
               <span className="text-xs text-zinc-600 font-medium">Cho phép dùng lại chữ cái (mỗi đoạn có thể khớp nhiều câu)</span>
             </label>
             <MatchingEditor group={group} onChange={onChange} passage={passage} letteredParagraphs={letteredParagraphs} />
@@ -178,7 +179,7 @@ export default function ReadingGroupEditor({
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={group.canReuse || false}
                 onChange={e => onChange({ ...group, canReuse: e.target.checked })}
-                className="accent-zinc-900" />
+                className={checkboxBase} />
               <span className="text-xs text-zinc-600 font-medium">Cho phép dùng lại chữ cái (mỗi lựa chọn có thể khớp nhiều câu)</span>
             </label>
             <MatchingEditor group={group} onChange={onChange} />

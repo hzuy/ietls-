@@ -310,7 +310,7 @@ aside nav a, aside nav button { font-family: inherit; }
    desktop-only, so pull every control back to --fs-sm (~14px) here for one
    consistent scale. Labels sit at text-xs via labelCls and are unaffected;
    section titles / meta text use <span>/<h*> and are unaffected. */
-.admin-main :is(input, textarea, select, button, [role="button"]) { font-size: var(--fs-sm); }
+.admin-main :is(input, textarea, select, button, [role="button"]) { font-size: 0.875rem; }
 
 /* Modal.jsx portals its content to document.body (see that component's own
    comment) — so it sits OUTSIDE .admin-main in the DOM and escapes the rule
@@ -318,7 +318,7 @@ aside nav a, aside nav button { font-family: inherit; }
    dialogs. Admin dialogs whose content is a real form (not just confirm
    buttons) opt in with this class on <Modal className="..."> to get the same
    --fs-sm pull-back as the rest of the admin panel. */
-.admin-modal-form :is(input, textarea, select, button, [role="button"]) { font-size: var(--fs-sm); }
+.admin-modal-form :is(input, textarea, select, button, [role="button"]) { font-size: 0.875rem; }
 
 /* ─── AI Tutor chatbot ───────────────────────────────────────────────────────── */
 /* Same footgun as above: the unlayered `button { font-size: var(--fs-base) }`
@@ -977,17 +977,40 @@ input:focus, textarea:focus, select:focus {
   text-decoration: none;
 }
 
-.admin-scope :is(input:not([type="radio"]):not([type="checkbox"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="file"]):not([type="range"]):not([type="color"]), textarea, select):not(.grouped-field):hover,
-.admin-main :is(input:not([type="radio"]):not([type="checkbox"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="file"]):not([type="range"]):not([type="color"]), textarea, select):not(.grouped-field):hover {
-  border-color: #d4d4d8 !important; /* zinc-300 */
-  box-shadow: none !important;
+.admin-scope :is(input:not([type="radio"], [type="checkbox"], [type="button"], [type="submit"], [type="reset"], [type="file"], [type="range"], [type="color"]), textarea, select):not(.grouped-field),
+.admin-main :is(input:not([type="radio"], [type="checkbox"], [type="button"], [type="submit"], [type="reset"], [type="file"], [type="range"], [type="color"]), textarea, select):not(.grouped-field),
+.admin-modal-form :is(input:not([type="radio"], [type="checkbox"], [type="button"], [type="submit"], [type="reset"], [type="file"], [type="range"], [type="color"]), textarea, select):not(.grouped-field) {
+  border-color: #e4e4e7; /* zinc-200 */
 }
 
-.admin-scope :is(input:not([type="radio"]):not([type="checkbox"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="file"]):not([type="range"]):not([type="color"]), textarea, select):not(.grouped-field):focus,
-.admin-main :is(input:not([type="radio"]):not([type="checkbox"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="file"]):not([type="range"]):not([type="color"]), textarea, select):not(.grouped-field):focus {
+.admin-scope :is(input:not([type="radio"], [type="checkbox"], [type="button"], [type="submit"], [type="reset"], [type="file"], [type="range"], [type="color"]), textarea, select):not(.grouped-field):hover,
+.admin-main :is(input:not([type="radio"], [type="checkbox"], [type="button"], [type="submit"], [type="reset"], [type="file"], [type="range"], [type="color"]), textarea, select):not(.grouped-field):hover,
+.admin-modal-form :is(input:not([type="radio"], [type="checkbox"], [type="button"], [type="submit"], [type="reset"], [type="file"], [type="range"], [type="color"]), textarea, select):not(.grouped-field):hover {
+  border-color: #d4d4d8; /* zinc-300 */
+}
+
+/* Focus: viền zinc-900 + ring 1px — cùng một kiểu cho input, textarea, select
+   và field trong modal (trước đây ring bị `box-shadow: none !important` giết). */
+.admin-scope :is(input:not([type="radio"], [type="checkbox"], [type="button"], [type="submit"], [type="reset"], [type="file"], [type="range"], [type="color"]), textarea, select):not(.grouped-field):focus,
+.admin-main :is(input:not([type="radio"], [type="checkbox"], [type="button"], [type="submit"], [type="reset"], [type="file"], [type="range"], [type="color"]), textarea, select):not(.grouped-field):focus,
+.admin-modal-form :is(input:not([type="radio"], [type="checkbox"], [type="button"], [type="submit"], [type="reset"], [type="file"], [type="range"], [type="color"]), textarea, select):not(.grouped-field):focus {
   border-color: #18181b !important; /* zinc-900 */
-  box-shadow: none !important;
+  box-shadow: 0 0 0 1px #18181b !important;
   outline: none !important;
+}
+
+/* Trạng thái lỗi: đặt aria-invalid="true" trên field (Field.jsx tự làm khi có error) */
+.admin-scope :is(input, textarea, select)[aria-invalid="true"],
+.admin-main :is(input, textarea, select)[aria-invalid="true"],
+.admin-modal-form :is(input, textarea, select)[aria-invalid="true"] {
+  border-color: #ef4444 !important; /* red-500 */
+}
+
+.admin-scope :is(input, textarea, select)[aria-invalid="true"]:focus,
+.admin-main :is(input, textarea, select)[aria-invalid="true"]:focus,
+.admin-modal-form :is(input, textarea, select)[aria-invalid="true"]:focus {
+  border-color: #dc2626 !important; /* red-600 */
+  box-shadow: 0 0 0 1px #dc2626 !important;
 }
 
 /* `.grouped-field` — opt-out for an <input>/<select> nested inside a shared

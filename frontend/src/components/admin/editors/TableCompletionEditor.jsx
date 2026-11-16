@@ -208,7 +208,7 @@ export default function TableCompletionEditor({
                           <AutoGrowTextarea
                             ref={el => { cellRefs.current[`${ri}-${ci}`] = el }}
                             rows={2}
-                            className={`flex-1 border ${theme.subBoxBorder} rounded px-1.5 py-1 text-xs font-mono focus:outline-none resize-none`}
+                            className={`flex-1 border ${theme.subBoxBorder} rounded px-1.5 py-1 text-xs font-sans focus:outline-none resize-none`}
                             placeholder={`text [Q:${nextQNum}] text`}
                             value={cells[ci] || ''}
                             onChange={e => updateCell(ri, ci, e.target.value)}

@@ -23,18 +23,18 @@ export function ConfirmDeleteModal({ open, title, message = 'Hành động này 
   return (
     <Modal onClose={loading ? undefined : onCancel} title={title} size="sm" className="p-6">
       <div className="flex items-center gap-3 mb-3">
-        <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950/40 flex items-center justify-center shrink-0">
-          <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />
+        <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+          <Trash2 className="w-5 h-5 text-red-600 " />
         </div>
-        <h3 id="del-confirm-title" className="font-bold text-zinc-900 dark:text-slate-100 text-sm sm:text-base">{title}</h3>
+        <h3 id="del-confirm-title" className="font-bold text-zinc-900 text-sm sm:text-base">{title}</h3>
       </div>
-      <p className="text-xs sm:text-sm text-zinc-500 dark:text-slate-400 mb-5 leading-relaxed">{message}</p>
+      <p className="text-xs sm:text-sm text-zinc-500 mb-5 leading-relaxed">{message}</p>
       <div className="flex gap-2.5 justify-end">
         <button
           type="button"
           onClick={onCancel}
           disabled={loading}
-          className="h-9 px-5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs sm:text-sm text-zinc-700 dark:text-slate-300 hover:bg-zinc-50 dark:hover:bg-slate-800 font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="h-9 px-5 rounded-full border border-zinc-200 text-xs sm:text-sm text-zinc-700 hover:bg-zinc-50 font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Hủy
         </button>
@@ -153,13 +153,13 @@ export function DraftSavedHint({ at }) {
 export function AdminListHeader({ title, onAdd, addLabel = '+ Thêm mới', children }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-      <h1 className="text-xl font-semibold text-zinc-900 dark:text-slate-100 tracking-tight">{title}</h1>
+      <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">{title}</h1>
       {(onAdd || children) && (
         <div className="flex items-center gap-3 flex-wrap">
           {children}
           {onAdd && (
             <button onClick={onAdd}
-              className="h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 text-xs sm:text-sm font-medium inline-flex items-center gap-2 shadow-xs transition-colors cursor-pointer">
+              className="h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs sm:text-sm font-medium inline-flex items-center gap-2 shadow-xs transition-colors cursor-pointer">
               {addLabel}
             </button>
           )}

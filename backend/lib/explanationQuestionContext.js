@@ -5,6 +5,29 @@ const TOKENS = /\[Q:(\d+)\]/g
 const blankNumbers = text => [...String(text || '').matchAll(TOKENS)].map(match => Number(match[1]))
 const normalize = text => String(text || '').normalize('NFKC').replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, ' ').trim().toLowerCase()
 const sentence = text => normalize(text).replace(/[.!?;:,]+$/, '').trim()
+
+function isSentenceMatch(expectedSentence, actualSentence) {
+  const normExpected = sentence(expectedSentence)
+  const normActual = sentence(actualSentence)
+  if (!normExpected || !normActual) return false
+  if (normExpected === normActual) return true
+
+  // Match ignoring leading articles / initial word typos like "the", "a", "an", "he"
+  const stripLeading = s => s.replace(/^(?:the|a|an|he)\s+/i, '').trim()
+  if (stripLeading(normExpected) === stripLeading(normActual)) return true
+
+  // High word overlap (>= 80%) for sentences with 3+ words, preventing false rejections from minor typos/variants
+  const wordsExp = normExpected.split(/\s+/).filter(Boolean)
+  const wordsAct = normActual.split(/\s+/).filter(Boolean)
+  if (wordsExp.length >= 3 && wordsAct.length >= 3) {
+    const actSet = new Set(wordsAct)
+    const matchCount = wordsExp.filter(w => actSet.has(w)).length
+    const ratio = matchCount / Math.max(wordsExp.length, wordsAct.length)
+    if (ratio >= 0.8) return true
+  }
+
+  return false
+}
 const issue = (code, message, action = 'edit_source') => ({ code, message, action })
 const isOpen = (q, group) => OPEN_TYPES.has(group?.type || q?.type)
 const needsTarget = (q, group) => isOpen(q, group) || ((group?.type || q?.type) === 'drag_word_bank'
@@ -101,7 +124,7 @@ function targetIssue(payload, q, group = q?.group) {
     if (texts.some(text => canonical(text) && !template.includes(canonical(text)))) return issue('QUESTION_CONTEXT_MISMATCH', 'Các cụm câu hỏi trong lời giải không thuộc chỗ trống đang chọn. Tạo lại đúng câu này.', 'retry_generation')
   }
   if (isOpen(q, group) && target.explicit && String(payload?.full_sentence || '').trim()) {
-    const valid = answerVariants(q?.correctAnswer).some(answer => sentence(target.template.replace(TOKENS, answer)) === sentence(payload.full_sentence))
+    const valid = answerVariants(q?.correctAnswer).some(answer => isSentenceMatch(target.template.replace(TOKENS, answer), payload.full_sentence))
     if (!valid) return issue('QUESTION_CONTEXT_MISMATCH', 'Câu hoàn chỉnh không khớp chỗ trống của câu đang chọn. Tạo lại đúng câu này.', 'retry_generation')
   }
   return null

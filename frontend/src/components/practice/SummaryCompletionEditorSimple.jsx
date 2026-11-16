@@ -98,7 +98,7 @@ export default function SummaryCompletionEditorSimple({ group, onChange }) {
             {ns.lines.map((line, li) => (
               <div key={li} className="flex flex-wrap sm:flex-nowrap items-start gap-2">
                 <AutoGrowTextarea ref={el => lineRefs.current[`${nsi}-${li}`] = el} rows={1}
-                  className="order-last basis-full sm:order-none sm:basis-0 flex-1 border border-[#BFDBFE] rounded-lg px-2 py-1 text-sm resize-none focus:outline-none font-mono focus:border-[#1D4ED8]"
+                  className="order-last basis-full sm:order-none sm:basis-0 flex-1 border border-[#BFDBFE] rounded-lg px-2 py-1 text-sm resize-none focus:outline-none font-sans focus:border-[#1D4ED8]"
                   placeholder={`VD: The team studied [Q:${group.qNumberStart}] different methods...`}
                   value={line.content} onChange={e => updateLine(nsi, li, e.target.value)}
                   style={{ minHeight: '34px' }} />

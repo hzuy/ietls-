@@ -5,6 +5,7 @@ import { showAlert } from '../../utils/alertUtils'
 import { notifyTrashChanged } from '../../services/adminService'
 import { isExamFormDirty, normalizeFormForDirtyCheck } from '../../utils/examExplanationUtils'
 import { emptySpeakingForm, inputCls, labelCls, btnSecondary, useExamSeriesList, useSeriesBooks } from './adminConstants'
+import { textareaBase } from './formField'
 import Select from './Select'
 import ExamList from './ExamList'
 import InlinePreviewPanel from '../common/InlinePreviewPanel'
@@ -329,7 +330,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
           </div>
           <div className="mb-3">
             <label className={labelCls}>Mô tả / Hướng dẫn cho thí sinh</label>
-            <textarea className={`${inputCls} h-20 resize-none`}
+            <textarea className={`${textareaBase} h-20`}
               placeholder="VD: The examiner asks you about yourself, your home, work or studies and other familiar topics."
               value={form.part1.description}
               onChange={e => setForm({ ...form, part1: { ...form.part1, description: e.target.value } })} />
@@ -366,14 +367,14 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
           </div>
           <div className="mb-3">
             <label className={labelCls}>Mô tả / Hướng dẫn cho thí sinh</label>
-            <textarea className={`${inputCls} h-16 resize-none`}
+            <textarea className={`${textareaBase} h-16`}
               placeholder="VD: You will have to talk about the topic for one to two minutes..."
               value={form.part2.instructions}
               onChange={e => setForm({ ...form, part2: { ...form.part2, instructions: e.target.value } })} />
           </div>
           <div className="mb-4">
             <label className={labelCls}>Nội dung Cue Card</label>
-            <textarea className={`${inputCls} h-36 resize-none`}
+            <textarea className={`${textareaBase} h-36`}
               placeholder={`Describe a law that was introduced in your country and that you thought was a very good idea.\n\nYou should say:\n  what the law was\n  who introduced it\n  when and why it was introduced\nand explain why you thought this law was such a good idea.`}
               value={form.part2.cueCard}
               onChange={e => setForm({ ...form, part2: { ...form.part2, cueCard: e.target.value } })} />
@@ -395,7 +396,7 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
 
           <div className="mb-4">
             <label className={labelCls}>Mô tả / Hướng dẫn cho thí sinh</label>
-            <textarea className={`${inputCls} h-16 resize-none`}
+            <textarea className={`${textareaBase} h-16`}
               placeholder="VD: Discussion topics: The examiner will ask you questions about the following topics."
               value={form.part3.description}
               onChange={e => setForm({ ...form, part3: { ...form.part3, description: e.target.value } })} />

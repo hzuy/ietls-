@@ -47,6 +47,16 @@ describe('completion question identity', () => {
   it('accepts only the exact target filled with its answer, ignoring case and trailing punctuation', () => {
     expect(targetIssue(payload('THE POPULATION OF LONDON INCREASED RAPIDLY BETWEEN 1800 AND 1850.'), q(1))).toBeNull()
   })
+  it('accepts full sentence when leading article or minor typo differs (e.g. "The Chinese team" vs "he Chinese team")', () => {
+    const question = q(26, 'drought', {
+      group: {
+        type: 'note_completion',
+        instruction: 'Choose ONE WORD ONLY from the passage for each answer.',
+        noteSections: [{ lines: [{ content: 'he Chinese team produced a tomato that resists [Q:26] and also carries extra vitamin C.' }] }],
+      },
+    })
+    expect(targetIssue(payload('The Chinese team produced a tomato that resists drought and also carries extra vitamin C.', '26. ___'), question)).toBeNull()
+  })
   it('preserves an explicit no_support response for the correct target instead of inventing a correction', () => {
     expect(targetIssue({ no_support: true, supportNote: 'The blank concerns population, not press.' }, q(1, 'press'))).toBeNull()
     expect(q(1, 'press').correctAnswer).toBe('press')

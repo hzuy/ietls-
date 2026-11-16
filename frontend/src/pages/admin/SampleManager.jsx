@@ -6,6 +6,8 @@ import { ConfirmDeleteModal, DraftBanner, DraftSavedHint, AdminListHeader, Thumb
 import { useToast } from '../../context/ToastContext'
 import ImageWithFallback from '../../components/common/ImageWithFallback'
 import Select from '../../components/admin/Select'
+import { fieldBase, fieldSm, labelBase, requiredMark } from '../../components/admin/formField'
+import SearchField from '../../components/admin/SearchField'
 import { AdminTableSkeleton } from '../../components/skeletons'
 import FetchingDim from '../../components/admin/FetchingDim'
 import { RotateCcw } from 'lucide-react'
@@ -338,10 +340,10 @@ export default function SampleManager({ kind }) {
               {/* Basic info */}
               <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-xs">
                 <div className="mb-3.5">
-                  <label className="block text-xs font-medium text-zinc-700 mb-1.5">{cfg.nameLabel} <span className="text-red-500 font-normal">*</span></label>
+                  <label className={labelBase}>{cfg.nameLabel} <span className={requiredMark}>*</span></label>
                   <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                     placeholder={cfg.namePlaceholder}
-                    className="w-full px-3 py-2 border border-zinc-200 rounded-xl text-xs focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 transition bg-white text-zinc-900 placeholder:text-zinc-400 shadow-2xs" />
+                    className={fieldBase} />
                 </div>
                 <div className="mb-3.5">
                   <label className="block text-xs font-medium text-zinc-700 mb-1.5">{cfg.taskFieldLabel}</label>
@@ -364,7 +366,7 @@ export default function SampleManager({ kind }) {
                   ) : (
                     <input value={form.examType} onChange={e => setForm(f => ({ ...f, examType: e.target.value }))}
                       placeholder={cfg.examTypePlaceholder[form.level] || cfg.examTypePlaceholder['']}
-                      className="w-full px-3 py-2 border border-zinc-200 rounded-xl text-xs focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 transition bg-white text-zinc-900 placeholder:text-zinc-400 shadow-2xs" />
+                      className={fieldBase} />
                   )}
                 </div>
                 {/* Tags */}
@@ -383,7 +385,7 @@ export default function SampleManager({ kind }) {
                       <input value={form.tagInput} onChange={e => setForm(f => ({ ...f, tagInput: e.target.value }))}
                         onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag() } }}
                         placeholder={cfg.tagPlaceholder}
-                        className="flex-1 px-3 py-1.5 border border-zinc-200 rounded-lg text-xs focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 transition bg-white text-zinc-900 placeholder:text-zinc-400 shadow-2xs" />
+                        className={`${fieldSm} flex-1`} />
                       <button onClick={addTag} className={`px-3 py-1.5 rounded-lg ${cfg.tagAddBtnClass} text-xs font-medium`}>+ Thêm</button>
                     </div>
                   </div>
@@ -425,13 +427,12 @@ export default function SampleManager({ kind }) {
         {/* Search & filter bar */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <label htmlFor="sample-manager-search" className="sr-only">Tìm kiếm</label>
-          <input
+          <SearchField
             id="sample-manager-search"
-            type="text"
+            className="flex-1 min-w-[160px]"
             placeholder={kind === 'writing' ? 'Tìm theo tên bài mẫu hoặc dạng đề...' : 'Tìm theo chủ đề hoặc dạng đề...'}
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="flex-1 min-w-[160px] h-9 px-3.5 text-xs border border-zinc-200 rounded-full focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 bg-white text-zinc-900 placeholder:text-zinc-400"
           />
           <label htmlFor="sample-manager-level" className="sr-only">Lọc theo {cfg.taskFieldLabel}</label>
           <Select
@@ -502,7 +503,7 @@ export default function SampleManager({ kind }) {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 hidden sm:table-cell">{cfg.taskColHeader}</th>
                   {cfg.showTags && <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 hidden sm:table-cell">Tags</th>}
                   <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 hidden sm:table-cell">Ngày tạo</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-slate-400">HÀNH ĐỘNG</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500 ">HÀNH ĐỘNG</th>
                 </tr></thead>
                 <tbody>
                   {filteredList.map(item => (
@@ -533,8 +534,8 @@ export default function SampleManager({ kind }) {
                       {cfg.showTags && <td data-label="Tags" className="px-4 py-3 hidden sm:table-cell"><div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{(item.tags || []).map(t => <span key={t} style={{ fontSize: 11, background: cfg.listChipStyle.background, color: cfg.listChipStyle.color, borderRadius: 6, padding: '2px 8px', border: '1px solid #e4e4e7' }}>{t}</span>)}</div></td>}
                       <td data-label="Ngày tạo" className="px-4 py-3 text-sm text-zinc-500 hidden sm:table-cell">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</td>
                       <td className="rt-actions px-4 py-3"><div className="flex items-center justify-end gap-2">
-                        <button onClick={() => openEdit(item)} disabled={loadingEditId !== null} className="h-8 px-3.5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs font-medium text-zinc-700 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-slate-800 transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Sửa</button>
-                        <button onClick={() => setDelConfirm(item.id)} disabled={loadingEditId !== null} className="h-8 px-3.5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs font-medium text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-200 transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Xóa</button>
+                        <button onClick={() => openEdit(item)} disabled={loadingEditId !== null} className="h-8 px-3.5 rounded-full border border-zinc-200 text-xs font-medium text-zinc-700 hover:bg-zinc-100 transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Sửa</button>
+                        <button onClick={() => setDelConfirm(item.id)} disabled={loadingEditId !== null} className="h-8 px-3.5 rounded-full border border-zinc-200 text-xs font-medium text-red-500 hover:bg-red-50 hover:border-red-200 transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Xóa</button>
                       </div></td>
                     </tr>
                   ))}

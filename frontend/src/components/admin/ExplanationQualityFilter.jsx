@@ -1,16 +1,14 @@
 import { useMemo, useRef, useState } from 'react'
 import { collectExplanationIssues } from '../../utils/explanationIssues'
-import { copyRunReportText, retryableNumbers, redactRunTechnical } from '../../utils/explanationRunReport'
+import { retryableNumbers, redactRunTechnical } from '../../utils/explanationRunReport'
 
 export default function ExplanationQualityFilter({ sections = [], groups = [], report = null, issues = null,
   isGenerating = false, onOpenQuestion, onOpenGroup, onRetryFailed }) {
   const rootRef = useRef(null)
-  const [copyState, setCopyState] = useState(null)
   const [disclosure, setDisclosure] = useState(null)
   const collected = useMemo(() => issues || collectExplanationIssues({ sections, groups, report }), [issues, sections, groups, report])
   const { questions, general, report: activeReport } = collected
   const retryNumbers = retryableNumbers(activeReport)
-  const technical = [...new Set((activeReport?.rows || []).filter(row => row.technical).map(row => redactRunTechnical(row.technical)))]
   if (!questions.length && !general.length) return null
   const runKey = activeReport?.startedAt || 'saved'
   const expanded = disclosure?.key === runKey ? disclosure.open : activeReport?.status === 'blocked'
@@ -19,13 +17,6 @@ export default function ExplanationQualityFilter({ sections = [], groups = [], r
     const button = rootRef.current?.closest('form, fieldset')?.querySelector(`[data-explanation-question="${question.number}"]`)
     if (button) button.click()
     else if (onOpenGroup && question.groupId != null) onOpenGroup(question.groupId)
-  }
-  const copy = async () => {
-    try {
-      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable')
-      await navigator.clipboard.writeText(redactRunTechnical(copyRunReportText(activeReport)))
-      setCopyState('done')
-    } catch { setCopyState('error') }
   }
   return <details ref={rootRef} open={expanded} onToggle={event => setDisclosure({ key: runKey, open: event.currentTarget.open })}
     className="border-b border-zinc-200 text-zinc-700">
@@ -49,11 +40,5 @@ export default function ExplanationQualityFilter({ sections = [], groups = [], r
       className="mb-3 min-h-9 rounded-lg border border-zinc-200 bg-white px-3 text-xs font-medium hover:bg-zinc-50 focus-visible:outline-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
       Thử lại {retryNumbers.length} câu lỗi
     </button>}
-    {technical.length > 0 && <details className="mb-3 text-xs text-zinc-500">
-      <summary className="min-h-9 cursor-pointer py-2 focus-visible:outline-2">Chi tiết kỹ thuật</summary>
-      <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words">{technical.join('\n')}</pre>
-      <button type="button" onClick={copy} className="min-h-9 underline underline-offset-4 focus-visible:outline-2 cursor-pointer">{copyState === 'done' ? 'Đã sao chép' : 'Sao chép chi tiết'}</button>
-      {copyState === 'error' && <p role="alert">Không sao chép được. Hãy sao chép thủ công phần chi tiết.</p>}
-    </details>}
   </details>
 }

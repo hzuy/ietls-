@@ -84,7 +84,7 @@ export function formatValidationAlert(title, errors = []) {
 /**
  * Validates Reading Practice form
  */
-export function validatePracticeReading(form) {
+export function validatePracticeReading(form, { isForAI = false } = {}) {
   const errors = []
   const missingAnswers = []
   const missingTexts = []
@@ -115,6 +115,11 @@ export function validatePracticeReading(form) {
         if (missing.includes('text')) missingTexts.push(qNum)
       })
     })
+  }
+
+  const totalQuestions = groups.reduce((acc, g) => acc + (g.questions || []).length, 0)
+  if (isForAI && totalQuestions === 0) {
+    errors.push('Bài luyện tập chưa có câu hỏi nào để tạo giải thích AI')
   }
 
   if (missingAnswers.length > 0) {
@@ -171,6 +176,11 @@ export function validatePracticeListening(form, { isForAI = false } = {}) {
     })
   }
 
+  const totalQuestions = groups.reduce((acc, g) => acc + (g.questions || []).length, 0)
+  if (isForAI && totalQuestions === 0) {
+    errors.push('Bài luyện tập chưa có câu hỏi nào để tạo giải thích AI')
+  }
+
   if (missingAnswers.length > 0) {
     errors.push(`Các câu hỏi chưa có đáp án đúng: Câu ${missingAnswers.join(', ')}`)
   }
@@ -204,10 +214,14 @@ export function validateExamReading(form, { isForAI = false } = {}) {
   } else {
     passages.forEach((p, pi) => {
       const pNum = p.number || (pi + 1)
-      if (!String(p.title ?? '').trim() || !String(p.body ?? '').trim()) {
-        errors.push(`Passage ${pNum}: chưa có tiêu đề hoặc nội dung bài đọc`)
-      }
       const groups = p.questionGroups || []
+      const hasQuestions = groups.some(g => (g.questions || []).length > 0)
+      // Khi sinh AI, các passage rỗng không có câu hỏi sẽ không làm chặn cả đề
+      if (!isForAI || hasQuestions) {
+        if (!String(p.title ?? '').trim() || !String(p.body ?? '').trim()) {
+          errors.push(`Passage ${pNum}: chưa có tiêu đề hoặc nội dung bài đọc`)
+        }
+      }
       groups.forEach((group, gi) => {
         errors.push(...validateParagraphSource(group, p.body))
         const qs = group.questions || []
@@ -263,13 +277,14 @@ export function validateExamListening(form, { isForAI = false } = {}) {
   } else {
     sections.forEach((s, si) => {
       const sNum = s.number || (si + 1)
-      if (s.questionGroups?.length > 0 && !(s.audioUrl || '').trim() && !s.audioFile) {
+      const groups = s.questionGroups || []
+      const hasQuestions = groups.some(g => (g.questions || []).length > 0)
+      if (hasQuestions && !(s.audioUrl || '').trim() && !s.audioFile) {
         errors.push(`Section ${sNum}: có nhóm câu hỏi nhưng chưa có file audio`)
       }
-      if (isForAI && !String(s.transcript ?? '').trim() && !String(s.context ?? '').trim()) {
+      if (isForAI && hasQuestions && !String(s.transcript ?? '').trim() && !String(s.context ?? '').trim()) {
         errors.push(`Section ${sNum}: chưa có transcript bài nghe để AI phân tích giải thích`)
       }
-      const groups = s.questionGroups || []
       groups.forEach((group, gi) => {
         const qs = group.questions || []
         const gLabel = group.type || `Nhóm ${gi + 1}`

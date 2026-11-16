@@ -115,6 +115,82 @@ describe('questionValidation utility', () => {
     })
   })
 
+  describe('validateExamReading for AI', () => {
+    it('allows empty passages without questions when isForAI is true', () => {
+      const form = {
+        title: 'Cambridge 14 Test 1',
+        passages: [
+          {
+            number: 1,
+            title: 'Passage 1',
+            body: 'Passage 1 body text here...',
+            questionGroups: [
+              {
+                type: 'true_false_ng',
+                questions: [{ number: 1, questionText: 'Statement 1', correctAnswer: 'TRUE' }],
+              },
+            ],
+          },
+          { number: 2, title: '', body: '', questionGroups: [] },
+          { number: 3, title: '', body: '', questionGroups: [] },
+        ],
+      }
+      const res = validateExamReading(form, { isForAI: true })
+      expect(res.isValid).toBe(true)
+      expect(res.errors).toHaveLength(0)
+    })
+
+    it('requires title and body for empty passages when saving (isForAI is false)', () => {
+      const form = {
+        title: 'Cambridge 14 Test 1',
+        passages: [
+          {
+            number: 1,
+            title: 'Passage 1',
+            body: 'Passage 1 body text',
+            questionGroups: [
+              {
+                type: 'true_false_ng',
+                questions: [{ number: 1, questionText: 'Statement 1', correctAnswer: 'TRUE' }],
+              },
+            ],
+          },
+          { number: 2, title: '', body: '', questionGroups: [] },
+        ],
+      }
+      const res = validateExamReading(form, { isForAI: false })
+      expect(res.isValid).toBe(false)
+      expect(res.errors.some(e => e.includes('Passage 2'))).toBe(true)
+    })
+  })
+
+  describe('validateExamListening for AI', () => {
+    it('allows empty sections without questions when isForAI is true', () => {
+      const form = {
+        title: 'Cambridge 18 Test 1 Listening',
+        sections: [
+          {
+            number: 1,
+            audioUrl: 'http://example.com/audio.mp3',
+            transcript: 'Transcript section 1 here...',
+            questionGroups: [
+              {
+                type: 'note_completion',
+                questions: [{ number: 1, correctAnswer: 'library' }],
+              },
+            ],
+          },
+          { number: 2, audioUrl: '', transcript: '', context: '', questionGroups: [] },
+          { number: 3, audioUrl: '', transcript: '', context: '', questionGroups: [] },
+          { number: 4, audioUrl: '', transcript: '', context: '', questionGroups: [] },
+        ],
+      }
+      const res = validateExamListening(form, { isForAI: true })
+      expect(res.isValid).toBe(true)
+      expect(res.errors).toHaveLength(0)
+    })
+  })
+
   describe('formatValidationAlert', () => {
     it('formats bullet points nicely', () => {
       const alert = formatValidationAlert('Không thể lưu bài', ['Thiếu tiêu đề', 'Thiếu đáp án câu 1'])

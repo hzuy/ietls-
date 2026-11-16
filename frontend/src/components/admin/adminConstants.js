@@ -344,8 +344,9 @@ export const emptySpeakingForm = () => ({
 })
 
 // ─── STYLES ──────────────────────────────────────────────────────────────────
-export const inputCls = 'w-full border border-zinc-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200 transition bg-white text-zinc-900 placeholder:text-zinc-400'
-export const labelCls = 'block text-xs font-medium text-zinc-700 mb-1.5'
+// Style field/label lấy từ một nguồn duy nhất (components/admin/formField.js)
+// để admin panel không còn 3 bản `inputCls` lệch nhau.
+export { inputCls, labelCls } from './formField'
 export const btnPrimary = 'bg-zinc-900 text-white px-3.5 py-2 rounded-lg font-medium text-xs hover:bg-zinc-800 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed'
 export const btnSecondary = 'bg-white border border-zinc-200 text-zinc-900 px-3.5 py-2 rounded-lg text-xs font-medium hover:bg-zinc-50 transition shadow-xs'
 export const btnDanger = 'text-red-600 hover:text-red-700 text-xs px-2 py-1 rounded-lg hover:bg-red-50 transition font-medium'

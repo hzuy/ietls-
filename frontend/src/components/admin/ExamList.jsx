@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getExams } from '../../services/examService'
 import { formatBand } from '../../utils/ielts'
@@ -8,6 +8,8 @@ import FetchingDim from './FetchingDim'
 import { Star, RotateCcw } from 'lucide-react'
 import Modal from '../common/Modal'
 import Select from './Select'
+import SearchField from './SearchField'
+import Pagination from './Pagination'
 
 // Bản đồ tùy chọn sort (UI) → cặp { sortBy, sortOrder } gửi lên GET /admin/exams
 const SORT_MAP = {
@@ -37,30 +39,62 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
     setPage(1)
   }, [debouncedSearch, filterSeries, filterStatus, sortBy, skill])
 
+  const PAGE_SIZE = 10
+
   // TanStack Query: Quản lý cache và nạp đề thi theo kỹ năng
   const { data: examsData, isPending: queryLoading, isFetching: queryFetching, isError: queryError, refetch } = useQuery({
-    queryKey: ['admin', 'exams', skill, { page, search: debouncedSearch, status: filterStatus, seriesId: filterSeries, sortBy: sort.sortBy, sortOrder: sort.sortOrder }],
+    queryKey: ['admin', 'exams', skill, { page, limit: PAGE_SIZE, search: debouncedSearch, status: filterStatus, seriesId: filterSeries, sortBy: sort.sortBy, sortOrder: sort.sortOrder }],
     queryFn: () => getExams({
       skill,
       page,
-      limit: 20,
+      limit: PAGE_SIZE,
       search: debouncedSearch,
       seriesId: filterSeries,
       status: filterStatus,
       sortBy: sort.sortBy,
       sortOrder: sort.sortOrder,
     }),
-    staleTime: 1000 * 60 * 10, // Giữ fresh 10 phút
-    gcTime: 1000 * 60 * 30,    // Giữ cache 30 phút
+    staleTime: 1000 * 30, // Giữ fresh 30 giây
+    gcTime: 1000 * 60 * 10, // Giữ cache 10 phút
     placeholderData: (previousData) => previousData, // Giữ nguyên dữ liệu cũ khi đổi filter, không giật màn hình
     enabled: !!skill && (!exams || exams.length === 0),
   })
 
-  const activeData = examsData || paginationData || (exams?.length ? { exams, total: exams.length, page: 1, pages: 1, stats: null } : null)
-  const listExams = activeData?.exams || (Array.isArray(activeData) ? activeData : null) || exams || []
-  const totalPages = activeData?.pages || paginationData?.pages || 1
+  // Hỗ trợ client-side pagination khi exams được truyền trực tiếp dạng mảng
+  const isClientMode = !examsData && !paginationData && Array.isArray(exams) && exams.length > 0
+  const clientFilteredList = useMemo(() => {
+    if (!isClientMode) return []
+    let res = exams.filter(e => !skill || e.skill === skill)
+    if (debouncedSearch) {
+      const q = debouncedSearch.toLowerCase()
+      res = res.filter(e => (e.title || '').toLowerCase().includes(q))
+    }
+    if (filterSeries) {
+      res = res.filter(e => String(e.seriesId || '') === String(filterSeries))
+    }
+    if (filterStatus === 'has_questions') {
+      res = res.filter(e => (e.questionCount ?? 0) > 0 || (e.passages?.length ?? 0) > 0)
+    } else if (filterStatus === 'no_questions') {
+      res = res.filter(e => (e.questionCount ?? 0) === 0 && (e.passages?.length ?? 0) === 0)
+    }
+    return res
+  }, [isClientMode, exams, skill, debouncedSearch, filterSeries, filterStatus])
+
+  const clientTotal = isClientMode ? clientFilteredList.length : 0
+  const clientPages = isClientMode ? Math.max(1, Math.ceil(clientTotal / PAGE_SIZE)) : 1
+  const clientPagedExams = isClientMode ? clientFilteredList.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE) : []
+
+  const activeData = examsData || paginationData || (isClientMode ? {
+    exams: clientPagedExams,
+    total: clientTotal,
+    page,
+    pages: clientPages,
+    stats: null,
+  } : null)
+  const listExams = activeData?.exams || (Array.isArray(activeData) ? activeData : null) || (isClientMode ? clientPagedExams : exams) || []
+  const totalPages = activeData?.pages || paginationData?.pages || (isClientMode ? clientPages : 1)
   const currentPage = activeData?.page || paginationData?.page || page || 1
-  const totalCount = activeData?.total ?? paginationData?.total ?? listExams.length
+  const totalCount = activeData?.total ?? paginationData?.total ?? (isClientMode ? clientTotal : listExams.length)
   // Số liệu tổng quan toàn DB (theo skill + bộ đề + tìm kiếm) — do backend tính,
   // không phải cộng dồn trên mảng exams (chỉ chứa dữ liệu trang hiện tại).
   const stats = activeData?.stats || paginationData?.stats || null
@@ -77,6 +111,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
     const s = SORT_MAP[sortBy] || SORT_MAP.newest
     fetchExams({
       page: 1,
+      limit: PAGE_SIZE,
       search: debouncedSearch,
       seriesId: filterSeries,
       status: filterStatus,
@@ -237,13 +272,12 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
       {/* Search + Filter */}
       <div className="flex flex-wrap gap-2 mb-4">
         <label htmlFor="examlist-search" className="sr-only">Tìm theo tên đề</label>
-        <input
+        <SearchField
           id="examlist-search"
-          type="text"
+          className="flex-1 min-w-[160px]"
           placeholder="Tìm theo tên đề..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="flex-1 min-w-[160px] h-9 px-3.5 text-xs border border-zinc-200 rounded-full focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 bg-white text-zinc-900 placeholder:text-zinc-400"
         />
         <label htmlFor="examlist-series" className="sr-only">Lọc theo bộ đề</label>
         <Select
@@ -377,7 +411,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
                   <button
                     onClick={() => !anyLoading && handleEdit(exam)}
                     disabled={anyLoading}
-                    className="h-8 px-4 rounded-full border border-zinc-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-zinc-800 dark:text-slate-200 hover:bg-zinc-100 dark:hover:bg-slate-700 text-xs font-medium min-w-[64px] justify-center flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                    className="h-8 px-4 rounded-full border border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-100 text-xs font-medium min-w-[64px] justify-center flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
                   >
                     {isLoading ? (
                       <>
@@ -391,7 +425,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
                   <button
                     onClick={() => !anyLoading && setConfirmDelete({ id: exam.id, title: exam.title })}
                     disabled={anyLoading}
-                    className="h-8 px-3.5 rounded-full text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
+                    className="h-8 px-3.5 rounded-full text-xs font-medium text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
                   >{exam.id === deletingId ? 'Đang xóa...' : 'Xóa'}</button>
                 </div>
               </div>
@@ -402,50 +436,30 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
       )}
 
       {/* Footer / Pagination Controls */}
-      {filtered.length > 0 && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-6 pt-4 border-t border-zinc-200">
-          <span className="text-xs text-zinc-500">
-            Hiển thị <span className="font-semibold text-zinc-800">{filtered.length}</span> trên tổng số <span className="font-semibold text-zinc-800">{totalCount}</span> đề thi
-          </span>
-          {totalPages > 1 && (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage <= 1 || isCurrentLoading}
-                className="px-3.5 py-2 rounded-lg border border-zinc-200 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs"
-              >
-                ← Trang trước
-              </button>
-              <span className="text-xs text-zinc-500 px-1 font-medium">
-                {currentPage} / {totalPages}
-              </span>
-              <button
-                type="button"
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage >= totalPages || isCurrentLoading}
-                className="px-3.5 py-2 rounded-lg border border-zinc-200 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs"
-              >
-                Trang sau →
-              </button>
-            </div>
-          )}
-        </div>
+      {totalCount > 0 && (
+        <Pagination
+          page={currentPage}
+          pages={totalPages}
+          onChange={handlePageChange}
+          disabled={isCurrentLoading || isRefetching}
+          summary={`Trang ${currentPage} / ${totalPages} · ${totalCount} đề thi`}
+          className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50/50"
+        />
       )}
 
       {/* Delete confirm modal */}
       {confirmDelete && (
         <Modal onClose={() => setConfirmDelete(null)} title="Xác nhận xóa" size="sm" className="p-6">
-          <h3 id="examlist-delete-title" className="font-semibold text-zinc-900 dark:text-slate-100 text-sm mb-2">Xác nhận xóa</h3>
-          <p className="text-xs text-zinc-600 dark:text-slate-400 leading-relaxed mb-6">
-            Bạn có chắc muốn xóa đề <span className="font-medium text-zinc-900 dark:text-slate-100">"{confirmDelete.title}"</span> không? Hành động này không thể hoàn tác.
+          <h3 id="examlist-delete-title" className="font-semibold text-zinc-900 text-sm mb-2">Xác nhận xóa</h3>
+          <p className="text-xs text-zinc-600 leading-relaxed mb-6">
+            Bạn có chắc muốn xóa đề <span className="font-medium text-zinc-900 ">"{confirmDelete.title}"</span> không? Hành động này không thể hoàn tác.
           </p>
           <div className="flex gap-2.5 justify-end">
             <button
               type="button"
               autoFocus
               onClick={() => setConfirmDelete(null)}
-              className="h-9 px-5 rounded-full border border-zinc-200 dark:border-slate-700 text-zinc-700 dark:text-slate-300 text-xs sm:text-sm font-medium hover:bg-zinc-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              className="h-9 px-5 rounded-full border border-zinc-200 text-zinc-700 text-xs sm:text-sm font-medium hover:bg-zinc-50 transition-colors cursor-pointer"
             >Quay lại</button>
             <button
               type="button"

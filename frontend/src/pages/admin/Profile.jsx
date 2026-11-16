@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { getAdminMe, changeAdminPassword } from '../../services/adminService'
 import { usePasswordChange } from '../../hooks/usePasswordChange'
 import PasswordInput from '../../components/common/PasswordInput'
+import { fieldBase, labelBase } from '../../components/admin/formField'
 import { readPasswordForm } from '../../utils/passwordUtils'
 
 
@@ -82,8 +83,8 @@ export default function Profile() {
 
   const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
 
-  const inputCls = 'w-full px-3 py-2 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 bg-white text-zinc-900 placeholder:text-zinc-400 transition shadow-2xs'
-  const labelCls = 'block text-xs font-medium text-zinc-700 mb-1.5'
+  const inputCls = fieldBase
+  const labelCls = labelBase
 
   if (isPending && !profile) return <ProfileSkeleton />
 

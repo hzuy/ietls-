@@ -780,6 +780,48 @@ function isAnswerMatch(a, b, rawOptionsOrOpts = null, explicitType = null) {
     }
   }
 
+  // 3.5. Direct Letter Prefix Matching (for "A. he is..." vs "A", "A. he is..." vs "he is...", etc. without requiring optionPairs)
+  const parseLetterPrefix = (str) => {
+    const trimmed = stripTrailingPunctuation(str)
+    const mPrefix = trimmed.match(/^([A-Za-z])[\.\:\)]\s*(.*)$/)
+    if (mPrefix) {
+      const text = stripTrailingPunctuation(mPrefix[2])
+      if (/^[A-Za-z]\.?$/.test(text)) return null
+      return { letter: mPrefix[1].toUpperCase(), text, hasPrefix: true }
+    }
+    const mSingle = trimmed.match(/^([A-Za-z])[\.\:\)]?$/)
+    if (mSingle) {
+      return { letter: mSingle[1].toUpperCase(), text: '', hasPrefix: false }
+    }
+    return null
+  }
+
+  const pA = parseLetterPrefix(strA)
+  const pB = parseLetterPrefix(strB)
+
+  if (pA && pB) {
+    if (pA.letter === pB.letter) {
+      return true
+    }
+    return false
+  }
+  if (pA && !pB) {
+    if (pA.text) {
+      if (normalizeText(pA.text) === normB) return true
+      const vTextA = expandCompletionVariants(pA.text)
+      const vB = expandCompletionVariants(strB)
+      if (vTextA.length > 0 && vB.length > 0 && vTextA.some(va => vB.includes(va))) return true
+    }
+  }
+  if (!pA && pB) {
+    if (pB.text) {
+      if (normA === normalizeText(pB.text)) return true
+      const vA = expandCompletionVariants(strA)
+      const vTextB = expandCompletionVariants(pB.text)
+      if (vA.length > 0 && vTextB.length > 0 && vA.some(va => vTextB.includes(va))) return true
+    }
+  }
+
   // 4. Roman Numeral Direct Matching (Matching Headings without options or direct check)
   const lowerA = normA.toLowerCase()
   const lowerB = normB.toLowerCase()
@@ -1018,7 +1060,7 @@ async function generateForPracticeExam(examId, {
     let explanation
     const choice = resolveChoices[qNum]
     const inputAnswer = String(qCtx.correctAnswer || '').trim()
-    const rawOptions = qCtx.options || (group.matchingOptions?.length ? group.matchingOptions : null)
+    const rawOptions = qCtx.options || (group.matchingOptions?.length ? group.matchingOptions : (group.options?.length ? group.options : null))
 
     // Nếu lần giải mù trước đó AI đã tự ra một đáp án KHÁC đáp án giáo viên muốn giữ thì
     // không gọi AI sinh lời giải cho đáp án đó nữa (tránh bịa dẫn chứng).
@@ -1569,7 +1611,7 @@ async function generateForExam(examId, {
     let explanation
     const choice = resolveChoices[q.number]
     const inputAnswer = String(q.correctAnswer || '').trim()
-    const rawOptions = q.options || (q.group?.matchingOptions?.length ? q.group.matchingOptions : null)
+    const rawOptions = q.options || (q.group?.matchingOptions?.length ? q.group.matchingOptions : (q.group?.options?.length ? q.group.options : null))
 
     // Nếu lần giải mù trước đó AI đã tự ra một đáp án KHÁC đáp án giáo viên muốn giữ thì
     // không gọi AI sinh lời giải cho đáp án đó nữa (tránh bịa dẫn chứng).
@@ -2523,7 +2565,7 @@ async function regenerateQuestionExplanation({
         const ctx = buildContext(qCtx, family)
 
         const oldExp = targetRow.explanation?.byNumber?.[targetNum] || {}
-        const rawOptions = qCtx.options || (targetGroup.matchingOptions?.length ? targetGroup.matchingOptions : null)
+        const rawOptions = qCtx.options || (targetGroup.matchingOptions?.length ? targetGroup.matchingOptions : (targetGroup.options?.length ? targetGroup.options : null))
 
         let attemptCount = 0
         try {
@@ -2625,7 +2667,7 @@ async function regenerateQuestionExplanation({
         const ctx = buildContext(question, family)
 
         const oldExp = (question.explanation && typeof question.explanation === 'object') ? question.explanation : {}
-        const rawOptions = question.options || (question.group?.matchingOptions?.length ? question.group.matchingOptions : null)
+        const rawOptions = question.options || (question.group?.matchingOptions?.length ? question.group.matchingOptions : (question.group?.options?.length ? question.group.options : null))
 
         let attemptCount = 0
         try {
@@ -2882,7 +2924,7 @@ async function reviewQuestionExplanation({ examId, questionId = null, questionNu
 
       const inputAnswer = String(targetQItem.correctAnswer ?? '').trim()
       const expAnswer = String(prev.answer ?? '').trim()
-      const rawOptions = targetQItem.options || (targetGroup.matchingOptions?.length ? targetGroup.matchingOptions : null)
+      const rawOptions = targetQItem.options || (targetGroup.matchingOptions?.length ? targetGroup.matchingOptions : (targetGroup.options?.length ? targetGroup.options : null))
       const qType = targetGroup.type || targetQItem.type
       if (!isAnswerMatch(inputAnswer, expAnswer, rawOptions, qType)) {
         throw new Error(`Không thể duyệt lời giải vì đáp án trong lời giải ("${expAnswer}") không khớp với đáp án đúng của câu hỏi ("${inputAnswer}").`)
@@ -2935,7 +2977,7 @@ async function reviewQuestionExplanation({ examId, questionId = null, questionNu
 
     const inputAnswer = String(question.correctAnswer ?? '').trim()
     const expAnswer = String(question.explanation.answer ?? '').trim()
-    const rawOptions = question.options || (question.group?.matchingOptions?.length ? question.group.matchingOptions : null)
+    const rawOptions = question.options || (question.group?.matchingOptions?.length ? question.group.matchingOptions : (question.group?.options?.length ? question.group.options : null))
     const qType = question.type || question.group?.type
     if (!isAnswerMatch(inputAnswer, expAnswer, rawOptions, qType)) {
       throw new Error(`Không thể duyệt lời giải vì đáp án trong lời giải ("${expAnswer}") không khớp với đáp án đúng của câu hỏi ("${inputAnswer}").`)

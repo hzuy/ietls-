@@ -21,6 +21,7 @@ import {
   getQuestionTypeTheme,
   recalcAllListeningNumbers,
 } from './adminConstants'
+import { textareaBase, checkboxBase } from './formField'
 import Select from './Select'
 import ExamList from './ExamList'
 import DiagramLabelEditor from '../practice/DiagramLabelEditor'
@@ -185,7 +186,7 @@ function GroupEditor({
         <div>
           <label className={labelCls}>Instruction (hiển thị cho học sinh)</label>
           <AutoGrowTextarea rows={2}
-            className={`${inputCls} resize-none`}
+            className={textareaBase}
             placeholder="VD: Choose the correct letter, A, B or C."
             value={group.instruction}
             onChange={e => onChange({ ...group, instruction: e.target.value })} />
@@ -207,7 +208,7 @@ function GroupEditor({
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={group.canReuse || false}
                   onChange={e => onChange({ ...group, canReuse: e.target.checked })}
-                  className="accent-zinc-900" />
+                  className={checkboxBase} />
                 <span className="text-xs text-zinc-600 font-medium">Cho phép dùng lại chữ cái (mỗi lựa chọn có thể khớp nhiều câu)</span>
               </label>
             )}
@@ -222,7 +223,7 @@ function GroupEditor({
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={group.canReuse || false}
                 onChange={e => onChange({ ...group, canReuse: e.target.checked })}
-                className="accent-zinc-900" />
+                className={checkboxBase} />
               <span className="text-xs text-zinc-600 font-medium">Cho phép dùng lại chữ cái (mỗi lựa chọn có thể khớp nhiều câu)</span>
             </label>
             <MatchingEditor group={group} onChange={onChange} />
@@ -567,7 +568,14 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   const proceedWithGroupAIGeneration = group => handleGenerateGroupAI(group)
 
   const handleStartGenerateAI = () => {
-    if (!editingId || generatingAI) return
+    if (!editingId) {
+      showToast('Vui lòng lưu đề thi trước khi tạo giải thích bằng AI', 'info')
+      return
+    }
+    if (generatingAI || expLock.isLockedGenerate) {
+      showToast(expLock.lockTooltip || 'Đang sinh giải thích AI, vui lòng chờ.', 'info')
+      return
+    }
     const val = validateExamListening(form, { isForAI: true })
     if (!val.isValid) {
       const msg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
@@ -577,7 +585,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         message: `Có ${val.errors.length} lỗi cần sửa trước khi sinh giải thích.`,
         details: String(msg).split('\n').filter(Boolean),
       }))
-
+      showAlert(msg, 'error')
       return
     }
     pendingAIFnRef.current = (opts) => handleGenerateSequentialAll(opts)
@@ -589,7 +597,14 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   }
 
   const handleRetryFailedAI = (numbers) => {
-    if (!editingId || expLock.isLockedGenerate) return
+    if (!editingId) {
+      showToast('Vui lòng lưu đề thi trước khi tạo giải thích bằng AI', 'info')
+      return
+    }
+    if (expLock.isLockedGenerate) {
+      showToast(expLock.lockTooltip || 'Đang sinh giải thích AI, vui lòng chờ.', 'info')
+      return
+    }
     pendingAIFnRef.current = (opts = {}) => handleGenerateSequentialAll({
       ...opts, questionNumbers: numbers, overwriteProtected: false,
     })
@@ -601,7 +616,14 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   }
 
   const handleStartGenerateGroupAI = (group) => {
-    if (!editingId || generatingAI) return
+    if (!editingId) {
+      showToast('Vui lòng lưu đề thi trước khi tạo giải thích bằng AI', 'info')
+      return
+    }
+    if (generatingAI || expLock.isLockedGenerate) {
+      showToast(expLock.lockTooltip || 'Đang sinh giải thích AI, vui lòng chờ.', 'info')
+      return
+    }
     if (!group || !group.id) {
       showToast('Vui lòng lưu đề thi trước khi sinh AI cho nhóm câu hỏi mới tạo.', 'info')
       return
@@ -625,6 +647,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
       : eligible).filter(number => eligible.includes(number))
     if (!targetNumbers.length) {
       persistRunReport(finishRunReport(createRunReport({ examId: editingId, skill: 'listening', scope: 'group', totalQuestions: 0 })))
+      showToast('Nhóm câu hỏi này đã có đầy đủ lời giải thích.', 'info')
       return
     }
 
@@ -738,7 +761,10 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
   }
 
   const handleGenerateSequentialAll = async ({ resolveChoices = {}, overwriteProtected = false, questionNumbers = null } = {}) => {
-    if (!editingId) return
+    if (!editingId) {
+      showToast('Vui lòng lưu đề thi trước khi tạo giải thích bằng AI', 'info')
+      return
+    }
     const val = validateExamListening(form, { isForAI: true })
     if (!val.isValid) {
       const msg = formatValidationAlert('Không thể tạo giải thích bằng AI', val.errors)
@@ -748,7 +774,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
         message: `Có ${val.errors.length} lỗi cần sửa trước khi sinh giải thích.`,
         details: String(msg).split('\n').filter(Boolean),
       }))
-
+      showAlert(msg, 'error')
       return
     }
 
@@ -785,6 +811,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
     allGroups = allGroups.filter(group => numbersForGroup(group).length > 0)
     if (!allGroups.length) {
       persistRunReport(finishRunReport(createRunReport({ examId: editingId, skill: 'listening', totalQuestions: 0 })))
+      showToast('Tất cả câu hỏi đã có lời giải thích hoàn chỉnh. Nếu muốn tạo lại, hãy dùng tùy chọn tạo lại.', 'info')
       return
     }
     const plannedNumbers = allGroups.flatMap(numbersForGroup)
@@ -1404,7 +1431,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
 
                   <div>
                     <label className={labelCls}>Mô tả tình huống (Context)</label>
-                    <textarea className={`${inputCls} h-16 resize-none`}
+                    <textarea className={`${textareaBase} h-16`}
                       placeholder={section.number <= 2 ? 'VD: Two friends are discussing their weekend plans...' : 'VD: A professor is giving a lecture about climate change...'}
                       value={section.context} onChange={e => updateSection(si, 'context', e.target.value)} />
                   </div>
@@ -1434,7 +1461,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
                         )}
                       </button>
                     </div>
-                    <textarea className={`${inputCls} h-28 resize-none`}
+                    <textarea className={`${textareaBase} h-28`}
                       placeholder={section.audioUrl ? 'Nhấn "AI Phiên âm" hoặc nhập thủ công...' : 'Upload audio để dùng AI phiên âm...'}
                       value={section.transcript} onChange={e => updateSection(si, 'transcript', e.target.value)} />
                   </div>

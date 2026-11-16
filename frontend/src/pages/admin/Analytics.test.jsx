@@ -156,8 +156,8 @@ describe('Admin Analytics Component', () => {
     expect(container.querySelector('.bg-purple-500')).toBeInTheDocument()
     expect(container.querySelector('.bg-amber-500')).toBeInTheDocument()
 
-    // Verify progress bar tracks have dark mode rounded styling
-    const tracks = container.querySelectorAll('.bg-zinc-100.dark\\:bg-zinc-800')
+    // Verify progress bar tracks use the light zinc track with rounded styling
+    const tracks = container.querySelectorAll('.bg-zinc-100.rounded-full.overflow-hidden')
     expect(tracks.length).toBeGreaterThanOrEqual(4)
   })
 

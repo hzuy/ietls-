@@ -111,7 +111,7 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
     await screen.findByDisplayValue(reading ? 'Passage 1 text' : 'Source text')
     fireEvent.click(await screen.findByRole('button', { name: /^Câu 6/ }))
     expect(screen.getByText('Old question 6')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Tạo bản nháp mới' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Tạo lại giải thích AI' }))
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Dừng tạo' })).not.toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: /^Câu 6/ }))
@@ -648,5 +648,60 @@ describe('Batch 3: Group AI generation & Sequential generation with cancel & 409
       expect(screen.queryByText(/Đang tạo.../i)).not.toBeInTheDocument()
     })
     expect(window.alert).not.toHaveBeenCalled()
+  })
+
+  it('alerts when validation fails instead of failing silently on AI explanation click', async () => {
+    const invalidExam = structuredClone(mockReadingExam)
+    invalidExam.passages[0].questionGroups[0].questions[0].correctAnswer = ''
+    api.get.mockImplementation((url) => {
+      if (url === '/admin/exams/10') return Promise.resolve({ data: invalidExam })
+      return Promise.resolve({ data: [] })
+    })
+
+    renderTab(<ReadingTab exams={[]} onRefresh={vi.fn()} />)
+    fireEvent.click(screen.getByText('Edit Reading 10'))
+    await waitFor(() => {
+      expect(screen.getByText(/Đang sửa đề/i)).toBeInTheDocument()
+    })
+
+    const allAIButtons = screen.getAllByRole('button', { name: /AI giải thích/i })
+    fireEvent.click(allAIButtons[0])
+
+    await waitFor(() => {
+      expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('Không thể tạo giải thích bằng AI'))
+    })
+  })
+
+  it('allows AI explanation generation on exam with empty unused passages', async () => {
+    const partialExam = structuredClone(mockReadingExam)
+    partialExam.passages[1].title = ''
+    partialExam.passages[1].body = ''
+    partialExam.passages[2].title = ''
+    partialExam.passages[2].body = ''
+
+    api.get.mockImplementation((url) => {
+      if (url === '/admin/exams/10') return Promise.resolve({ data: partialExam })
+      return Promise.resolve({ data: [] })
+    })
+    api.post.mockResolvedValue({
+      data: { generatedCount: 2, totalQuestions: 2, remainingQuestionNumbers: [] }
+    })
+
+    renderTab(<ReadingTab exams={[]} onRefresh={vi.fn()} />)
+    fireEvent.click(screen.getByText('Edit Reading 10'))
+    await waitFor(() => {
+      expect(screen.getByText(/Đang sửa đề/i)).toBeInTheDocument()
+    })
+
+    const allAIButtons = screen.getAllByRole('button', { name: /AI giải thích/i })
+    fireEvent.click(allAIButtons[0])
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith(
+        '/admin/exams/10/groups/201/generate-explanations',
+        expect.anything(),
+        expect.anything()
+      )
+    })
   })
 })

@@ -25,6 +25,8 @@ import { Eye, BookOpen, Loader2, RotateCcw } from 'lucide-react'
 import AdminGroupPreview from '../../components/practice/AdminGroupPreview'
 import ImageWithFallback from '../../components/common/ImageWithFallback'
 import Select from '../../components/admin/Select'
+import SearchField from '../../components/admin/SearchField'
+import { textareaBase, requiredMark } from '../../components/admin/formField'
 import { AdminTableSkeleton } from '../../components/skeletons'
 import api from '../../utils/axios'
 import { showAlert } from '../../utils/alertUtils'
@@ -410,10 +412,14 @@ export default function ReadingPractice() {
       showToast('Vui lòng lưu bài thi trước khi tạo giải thích bằng AI', 'info')
       return
     }
-    const val = validatePracticeReading(form)
+    if (generatingAI || expLock.isLockedGenerate) {
+      showToast(expLock.lockTooltip || 'Đang sinh giải thích AI, vui lòng chờ.', 'info')
+      return
+    }
+    const val = validatePracticeReading(form, { isForAI: true })
     if (!val.isValid) {
       aiReport.block(val.errors)
-
+      showToast(val.errors[0] || 'Không thể tạo giải thích bằng AI. Vui lòng kiểm tra lại thông tin.', 'error')
       return
     }
     if (isDirty) {
@@ -435,10 +441,10 @@ export default function ReadingPractice() {
       showToast('Vui lòng lưu bài thi trước khi tạo giải thích bằng AI', 'info')
       return
     }
-    const val = validatePracticeReading(form)
+    const val = validatePracticeReading(form, { isForAI: true })
     if (!val.isValid) {
       aiReport.block(val.errors)
-
+      showToast(val.errors[0] || 'Không thể tạo giải thích bằng AI. Vui lòng kiểm tra lại thông tin.', 'error')
       return
     }
 
@@ -459,6 +465,7 @@ export default function ReadingPractice() {
       abortControllerRef.current = null
       aiReport.start([], { scope: 'all' })
       aiReport.finish({ totalGenerated: 0, errors: [], remainingQuestionNumbers: [] })
+      showToast('Tất cả câu hỏi đã có lời giải thích hoàn chỉnh.', 'info')
       return
     }
     const totalTarget = targetNumbers.length
@@ -654,7 +661,7 @@ export default function ReadingPractice() {
               {/* Card 1: Tên bài & Thumbnail */}
               <div className="bg-white rounded-2xl p-4 sm:p-5 border border-zinc-200 shadow-xs space-y-3.5">
                 <div>
-                  <label className={labelCls}>Tên bài đọc <span className="text-red-500 font-normal">*</span></label>
+                  <label className={labelCls}>Tên bài đọc <span className={requiredMark}>*</span></label>
                   <input
                     value={form.title}
                     onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
@@ -689,7 +696,7 @@ export default function ReadingPractice() {
                   value={form.passage}
                   onChange={e => { const passage = e.target.value; setForm(f => ({ ...f, passage, questionGroups: syncParagraphGroups(f.questionGroups, passage, f.letteredParagraphs) })) }}
                   placeholder="Nhập hoặc dán nội dung bài đọc (Passage) tại đây..."
-                  className="w-full px-3 py-2.5 border border-zinc-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 resize-y font-mono bg-white text-zinc-900 placeholder:text-zinc-400 min-h-[320px] lg:h-[calc(100vh-450px)] lg:min-h-[280px]"
+                  className={`${textareaBase} min-h-[320px] lg:h-[calc(100vh-450px)] lg:min-h-[280px]`}
                   style={{ lineHeight: 1.7 }}
                 />
               </div>
@@ -844,13 +851,12 @@ export default function ReadingPractice() {
         {/* Search & filter bar */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <label htmlFor="reading-practice-search" className="sr-only">Tìm kiếm</label>
-          <input
+          <SearchField
             id="reading-practice-search"
-            type="text"
+            className="flex-1 min-w-[160px]"
             placeholder="Tìm theo tên bài..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="flex-1 min-w-[160px] h-9 px-3.5 text-xs border border-zinc-200 rounded-full focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 bg-white text-zinc-900 placeholder:text-zinc-400"
           />
           <label htmlFor="reading-practice-status" className="sr-only">Lọc theo trạng thái câu hỏi</label>
           <Select
@@ -925,7 +931,7 @@ export default function ReadingPractice() {
                   <th className="min-w-[10rem] px-4 py-3 text-left text-xs font-semibold text-zinc-500">Tên bài</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 hidden sm:table-cell">Số câu</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 hidden sm:table-cell">Ngày tạo</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-slate-400">HÀNH ĐỘNG</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500 ">HÀNH ĐỘNG</th>
                 </tr>
               </thead>
               <tbody>
@@ -951,8 +957,8 @@ export default function ReadingPractice() {
                     <td data-label="Ngày tạo" className="px-4 py-3 text-sm text-zinc-500 hidden sm:table-cell">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</td>
                     <td className="rt-actions px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => openEdit(item)} disabled={loadingEditId !== null} className="h-8 px-3.5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs font-medium text-zinc-700 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-slate-800 transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Sửa</button>
-                        <button onClick={() => setDelConfirm(item.id)} disabled={loadingEditId !== null} className="h-8 px-3.5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs font-medium text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-200 transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Xóa</button>
+                        <button onClick={() => openEdit(item)} disabled={loadingEditId !== null} className="h-8 px-3.5 rounded-full border border-zinc-200 text-xs font-medium text-zinc-700 hover:bg-zinc-100 transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Sửa</button>
+                        <button onClick={() => setDelConfirm(item.id)} disabled={loadingEditId !== null} className="h-8 px-3.5 rounded-full border border-zinc-200 text-xs font-medium text-red-500 hover:bg-red-50 hover:border-red-200 transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Xóa</button>
                       </div>
                     </td>
                   </tr>

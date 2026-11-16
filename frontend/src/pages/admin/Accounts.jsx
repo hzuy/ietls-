@@ -7,6 +7,7 @@ import { useToast } from '../../context/ToastContext'
 import { showAlert } from '../../utils/alertUtils'
 import { SkeletonTable } from '../../components/skeletons'
 import { AdminListHeader } from '../../components/admin/contentPageUI'
+import { fieldBase, errorBase } from '../../components/admin/formField'
 import Modal from '../../components/common/Modal'
 import Select from '../../components/admin/Select'
 
@@ -30,6 +31,7 @@ export default function Accounts() {
   const [submitting, setSubmitting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [error, setError] = useState('')
+  const [passwordError, setPasswordError] = useState('')
   const [togglingId, setTogglingId] = useState(null)
   const [confirmLock, setConfirmLock] = useState(null)
   const [confirmUnlock, setConfirmUnlock] = useState(null)
@@ -104,6 +106,7 @@ export default function Accounts() {
     setEditingId(null)
     setShowPassword(false)
     setError('')
+    setPasswordError('')
     setShowForm(true)
   }
 
@@ -112,12 +115,13 @@ export default function Accounts() {
     setEditingId(acc.id)
     setShowPassword(false)
     setError('')
+    setPasswordError('')
     setShowForm(true)
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setSubmitting(true); setError('')
+    setSubmitting(true); setError(''); setPasswordError('')
     if (editingId) {
       const payload = { name: form.name, role: form.role }
       if (form.password) {
@@ -126,9 +130,7 @@ export default function Accounts() {
       saveAccountMutation.mutate({ id: editingId, payload })
     } else {
       if (!form.password) {
-        const msg = 'Vui lòng nhập mật khẩu'
-        setError(msg)
-        showAlert(msg, 'error')
+        setPasswordError('Vui lòng nhập mật khẩu')
         setSubmitting(false)
         return
       }
@@ -169,12 +171,12 @@ export default function Accounts() {
                 <div>
                   <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Họ tên</label>
                   <input value={form.name} onChange={e => setForm({...form, name: e.target.value})} required
-                    className="w-full h-9 px-3 text-xs border border-zinc-200 rounded-md focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 bg-white text-zinc-900 placeholder:text-zinc-400 transition shadow-2xs" />
+                    className={fieldBase} />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Email</label>
                   <input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} required disabled={!!editingId}
-                    className="w-full h-9 px-3 text-xs border border-zinc-200 rounded-md focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 disabled:bg-zinc-50 bg-white transition shadow-2xs text-zinc-900 placeholder:text-zinc-400" />
+                    className={fieldBase} />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-zinc-700 mb-1.5 block">
@@ -184,9 +186,10 @@ export default function Accounts() {
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={form.password}
-                      onChange={e => setForm({ ...form, password: e.target.value })}
+                      onChange={e => { setForm({ ...form, password: e.target.value }); if (passwordError) setPasswordError('') }}
                       placeholder={editingId ? 'Mật khẩu mới' : 'Mật khẩu'}
-                      className="w-full h-9 pl-3 pr-10 text-xs border border-zinc-200 rounded-md focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 bg-white text-zinc-900 placeholder:text-zinc-400 transition shadow-2xs"
+                      aria-invalid={passwordError ? 'true' : undefined}
+                      className={`${fieldBase} pr-10`}
                     />
                     <button
                       type="button"
@@ -197,6 +200,7 @@ export default function Accounts() {
                       {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
+                  {passwordError && <p className={errorBase} role="alert">{passwordError}</p>}
                 </div>
                 {/* Only admin can change roles — hide for teachers */}
                 {currentUser.role !== 'teacher' && (
@@ -214,7 +218,7 @@ export default function Accounts() {
                   </div>
                 )}
               </div>
-              {error && <p className="text-xs text-red-500">{error}</p>}
+              {error && <p className={errorBase} role="alert">{error}</p>}
               <div className="flex gap-2.5 justify-end pt-2">
                 <button type="button" onClick={() => setShowForm(false)}
                   className="h-9 px-5 rounded-full border border-zinc-200 text-xs sm:text-sm text-zinc-700 hover:bg-zinc-50 font-medium transition-colors cursor-pointer">Huỷ</button>

@@ -76,7 +76,7 @@ export default function Pagination({ page, pages, onChange, summary, disabled = 
                 onChange={e => setJump(e.target.value)}
                 placeholder={String(page)}
                 disabled={disabled}
-                className="w-14 h-8 px-2 text-xs text-center rounded-full border border-zinc-200 bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                className="w-14 h-8 px-2 text-xs text-center rounded-full border border-zinc-200 bg-white text-zinc-900 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
             </form>
           )}

@@ -7,8 +7,9 @@ import { Sparkles } from 'lucide-react'
 import {
   READING_GROUP_TYPES, LISTENING_GROUP_TYPES,
   GROUP_TYPE_COLORS, getQuestionTypeTheme,
-  inputCls, labelCls,
+  labelCls,
 } from '../../utils/practiceConfig'
+import { textareaBase, checkboxBase } from './formField'
 import QuestionExplanationModal, { ExplanationStatusBadge } from './QuestionExplanationModal'
 import ExplanationChipGrid from './ExplanationChipGrid'
 import TrueFalseEditor from '../practice/TrueFalseEditor'
@@ -162,7 +163,7 @@ export default function PracticeGroupCard({
 
         <div>
           <label className={labelCls}>Instruction (hiển thị cho học sinh)</label>
-          <AutoGrowTextarea rows={2} className={`${inputCls} resize-none`}
+          <AutoGrowTextarea rows={2} className={`${textareaBase}`}
             placeholder="Hướng dẫn làm bài..."
             value={group.instruction}
             onChange={e => onChange({ ...group, instruction: e.target.value })} />
@@ -186,7 +187,7 @@ export default function PracticeGroupCard({
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={group.canReuse || false}
                 onChange={e => onChange({ ...group, canReuse: e.target.checked })}
-                className="accent-zinc-900" />
+                className={checkboxBase} />
               <span className="text-xs text-zinc-600 font-medium">Cho phép dùng lại chữ cái (mỗi đoạn có thể khớp nhiều câu)</span>
             </label>
             <MatchingEditor group={group} onChange={onChange} themeSource="practice" passage={passage} letteredParagraphs={letteredParagraphs} />
@@ -205,7 +206,7 @@ export default function PracticeGroupCard({
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={group.canReuse || false}
                 onChange={e => onChange({ ...group, canReuse: e.target.checked })}
-                className="accent-zinc-900" />
+                className={checkboxBase} />
               <span className="text-xs text-zinc-600 font-medium">Cho phép dùng lại đáp án (mỗi đáp án có thể khớp nhiều câu)</span>
             </label>
             <MatchingEditor group={group} onChange={onChange} themeSource="practice" />
@@ -219,7 +220,7 @@ export default function PracticeGroupCard({
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={group.canReuse || false}
                 onChange={e => onChange({ ...group, canReuse: e.target.checked })}
-                className="accent-zinc-900" />
+                className={checkboxBase} />
               <span className="text-xs text-zinc-600 font-medium">Cho phép dùng lại heading (heading có thể khớp nhiều đoạn)</span>
             </label>
             <MatchingHeadingsEditor sourceMode={skill === 'listening' ? 'manual' : 'paragraphs'} letteredParagraphs={letteredParagraphs} passage={passage} group={group} onChange={onChange} />

@@ -8,6 +8,7 @@ import FetchingDim from '../../components/admin/FetchingDim'
 import { Pencil, Lock, Unlock, Trash2, SearchX } from 'lucide-react'
 import Modal from '../../components/common/Modal'
 import Select from '../../components/admin/Select'
+import SearchField from '../../components/admin/SearchField'
 import Pagination from '../../components/admin/Pagination'
 
 import { roundIELTS } from '../../utils/ielts'
@@ -163,12 +164,11 @@ export default function Users() {
         {/* ── Filter bar ─────────────────────────────────── */}
         <div className="bg-white rounded-2xl border border-zinc-200 p-4 mb-4 shadow-xs">
           <div className="flex flex-wrap gap-2">
-            <input
-              type="text"
+            <SearchField
+              className="w-full sm:w-[220px]"
               placeholder="Tìm tên / email..."
               value={search}
               onChange={e => { setSearch(e.target.value); setPage(1) }}
-              className="w-full sm:w-[220px] h-9 px-3.5 text-xs border border-zinc-200 rounded-full focus:outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 bg-white text-zinc-900 placeholder:text-zinc-400"
             />
             <Select
               pill

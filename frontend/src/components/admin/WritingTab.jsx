@@ -5,6 +5,7 @@ import { showAlert } from '../../utils/alertUtils'
 import { notifyTrashChanged } from '../../services/adminService'
 import { isExamFormDirty, normalizeFormForDirtyCheck } from '../../utils/examExplanationUtils'
 import { emptyWritingForm, inputCls, labelCls, btnPrimary, btnSecondary, toImgSrc, useExamSeriesList, useSeriesBooks } from './adminConstants'
+import { textareaBase } from './formField'
 import Select from './Select'
 import ExamList from './ExamList'
 import InlinePreviewPanel from '../common/InlinePreviewPanel'
@@ -539,7 +540,7 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
           </div>
           <div>
             <label className={labelCls}>Đề bài Task 1</label>
-            <textarea className={`${inputCls} h-28 resize-none`}
+            <textarea className={`${textareaBase} h-28`}
               placeholder="VD: The chart below shows the percentage of households in owned and rented accommodation in England and Wales between 1918 and 2011. Summarise the information by selecting and reporting the main features, and make comparisons where relevant."
               value={form.task1.prompt} required
               onChange={e => setForm({ ...form, task1: { ...form.task1, prompt: e.target.value } })} />
@@ -554,7 +555,7 @@ function WritingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
           </div>
           <div>
             <label className={labelCls}>Đề bài Task 2 (Essay)</label>
-            <textarea className={`${inputCls} h-32 resize-none`}
+            <textarea className={`${textareaBase} h-32`}
               placeholder="VD: Some people believe that governments should invest more money in public transport rather than building new roads. To what extent do you agree or disagree?"
               value={form.task2.prompt} required
               onChange={e => setForm({ ...form, task2: { prompt: e.target.value } })} />

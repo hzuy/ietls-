@@ -2,6 +2,7 @@ import AutoGrowTextarea from '../AutoGrowTextarea'
 import { useState, useRef } from 'react'
 import { uploadImage as uploadImageService } from '../../../services/examService'
 import { inputCls, labelCls, btnSecondary, toImgSrc } from '../adminConstants'
+import { textareaBase } from '../formField'
 import { getQuestionGroupTheme as getAdminTheme } from '../adminConstants'
 import { getQuestionGroupTheme as getPracticeTheme } from '../../../utils/practiceConfig'
 import { useToast } from '../../../context/ToastContext'
@@ -195,7 +196,7 @@ export default function MatchingEditor({
             <span className="pt-2 text-xs font-semibold text-zinc-700">Q{q.number}</span>
             <AutoGrowTextarea
               aria-label={`Nội dung câu ${q.number}`}
-              className="min-w-0 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 focus-visible:outline-2 focus-visible:outline-zinc-700"
+              className={`${textareaBase} min-w-0`}
               placeholder={isMap ? 'Tên mục (VD: Farm shop, Disabled entry...)' : 'Đối tượng cần matching (VD: Cafe, Shop...)'}
               value={q.questionText || ''}
               onChange={e => updateQ(qi, 'questionText', e.target.value)}

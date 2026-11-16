@@ -10,6 +10,7 @@ import { hasExplanationChoices } from '../../utils/explanationQuestionPolicy'
 import { activeRunFailure } from '../../utils/explanationRunReport'
 import { showAlert } from '../../utils/alertUtils'
 import { canUseExplanation, draftSaveMetadata, explanationPublishMetadata } from '../../utils/explanationDraftWorkflow'
+import { fieldBase, textareaBase } from './formField'
 
 function AutoResizeTextarea({
   value = '',
@@ -48,7 +49,7 @@ function AutoResizeTextarea({
       placeholder={placeholder}
       maxLength={maxLength}
       disabled={disabled}
-      className={`w-full text-sm leading-relaxed p-3.5 rounded-xl border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900 font-sans resize-none overflow-hidden ${className}`}
+      className={`${textareaBase} text-sm leading-relaxed !py-3.5 resize-none overflow-hidden ${className}`}
       {...props}
     />
   )
@@ -259,11 +260,53 @@ export function ExplanationStatusBadge({
 
 export function isSameAnswer(a, b) {
   if (a == null || b == null) return false
-  const cleanA = String(a).trim().toLowerCase().replace(/^[A-Za-z][.:)]\s*/, '').replace(/[.,;:!?]+$/, '')
-  const cleanB = String(b).trim().toLowerCase().replace(/^[A-Za-z][.:)]\s*/, '').replace(/[.,;:!?]+$/, '')
-  const rawA = String(a).trim().toLowerCase().replace(/[.,;:!?]+$/, '')
-  const rawB = String(b).trim().toLowerCase().replace(/[.,;:!?]+$/, '')
-  return rawA === rawB || cleanA === cleanB || cleanA === rawB || rawA === cleanB
+  const rawA = String(a).trim().replace(/[.,;:!?]+$/, '').trim()
+  const rawB = String(b).trim().replace(/[.,;:!?]+$/, '').trim()
+  if (!rawA || !rawB) return false
+
+  const lowerA = rawA.toLowerCase()
+  const lowerB = rawB.toLowerCase()
+  if (lowerA === lowerB) return true
+
+  // Helper to parse letter prefix (e.g. "A. he is...", "A: he is...", "A) he is...")
+  // or single letter choice ("A", "a", "A.")
+  const parseLetter = (str) => {
+    const s = String(str).trim().replace(/[.,;:!?]+$/, '').trim()
+    const mPrefix = s.match(/^([A-Za-z])[.:)]\s*(.*)$/)
+    if (mPrefix) {
+      const text = mPrefix[2].trim().replace(/[.,;:!?]+$/, '').trim()
+      if (/^[A-Za-z]\.?$/.test(text)) return null
+      return { letter: mPrefix[1].toUpperCase(), text, hasPrefix: true }
+    }
+    const mSingle = s.match(/^([A-Za-z])[.:)]?$/)
+    if (mSingle) {
+      return { letter: mSingle[1].toUpperCase(), text: '', hasPrefix: false }
+    }
+    return null
+  }
+
+  const pA = parseLetter(rawA)
+  const pB = parseLetter(rawB)
+
+  if (pA && pB) {
+    // Both specify an option letter -> must match the same letter
+    return pA.letter === pB.letter
+  }
+
+  if (pA && !pB) {
+    // A has prefix (e.g. "A. he is..."), B is plain text (e.g. "he is...")
+    if (pA.text && pA.text.toLowerCase() === lowerB) return true
+  }
+
+  if (!pA && pB) {
+    // A is plain text (e.g. "he is..."), B has prefix (e.g. "A. he is...")
+    if (pB.text && lowerA === pB.text.toLowerCase()) return true
+  }
+
+  // Fallback for completion / text normalization (collapse spaces)
+  const cleanA = lowerA.replace(/^[a-z][.:)]\s*/, '').replace(/\s+/g, ' ')
+  const cleanB = lowerB.replace(/^[a-z][.:)]\s*/, '').replace(/\s+/g, ' ')
+  return cleanA === cleanB
 }
 
 export default function QuestionExplanationModal({
@@ -579,7 +622,7 @@ export default function QuestionExplanationModal({
         }
       }}
     >
-      <div className="bg-white rounded-3xl w-[960px] max-w-[95vw] h-[720px] max-h-[92vh] p-6 sm:p-7 shadow-2xl relative border border-zinc-100 flex flex-col my-auto">
+      <div className="admin-modal-form bg-white rounded-3xl w-[960px] max-w-[95vw] h-[720px] max-h-[92vh] p-6 sm:p-7 shadow-2xl relative border border-zinc-100 flex flex-col my-auto">
         {/* Modal Header */}
         <div className="flex items-start justify-between pb-4 border-b border-zinc-100 shrink-0">
           <div className="flex flex-col gap-2 min-w-0">
@@ -760,14 +803,14 @@ export default function QuestionExplanationModal({
                           value={chunk.text || ''}
                           onChange={(e) => updateQuestionChunkField(idx, 'text', e.target.value.slice(0, 200))}
                           placeholder="Cụm tiếng Anh (VD: the global summit)"
-                          className="text-xs p-2 rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                          className={fieldBase}
                         />
                         <input
                           type="text"
                           value={chunk.label || ''}
                           onChange={(e) => updateQuestionChunkField(idx, 'label', e.target.value.slice(0, 80))}
                           placeholder="Nghĩa / vai trò tiếng Việt (VD: chủ ngữ)"
-                          className="text-xs p-2 rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                          className={fieldBase}
                         />
                       </div>
                       <button
@@ -837,7 +880,7 @@ export default function QuestionExplanationModal({
                         value={kw || ''}
                         onChange={(e) => updateLocateKeyword(idx, e.target.value.slice(0, 120))}
                         placeholder="Từ khóa nguyên văn trong bài đọc..."
-                        className="flex-1 text-xs p-2 rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                        className={`${fieldBase} flex-1`}
                       />
                       <button
                         type="button"
@@ -952,7 +995,7 @@ export default function QuestionExplanationModal({
                           onChange={(e) => updateEvidenceChunkField(idx, 'text', e.target.value.slice(0, 200))}
                           placeholder="Cụm từ nguyên văn trong câu trích"
                           disabled={['diagram_completion', 'diagram_label', 'map_diagram'].includes(question.type)}
-                          className="text-xs p-2 rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                          className={fieldBase}
                         />
                         <input
                           type="text"
@@ -960,7 +1003,7 @@ export default function QuestionExplanationModal({
                           onChange={(e) => updateEvidenceChunkField(idx, 'label', e.target.value.slice(0, 80))}
                           placeholder="Nghĩa ngắn tiếng Việt"
                           disabled={['diagram_completion', 'diagram_label', 'map_diagram'].includes(question.type)}
-                          className="text-xs p-2 rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                          className={fieldBase}
                         />
                       </div>
                       <button
@@ -1016,28 +1059,28 @@ export default function QuestionExplanationModal({
                           value={p.question || ''}
                           onChange={(e) => updateParaphraseField(idx, 'question', e.target.value.slice(0, 160))}
                           placeholder="Cụm trong câu hỏi..."
-                          className="text-xs p-2 rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                          className={fieldBase}
                         />
                         <input
                           type="text"
                           value={p.question_label || ''}
                           onChange={(e) => updateParaphraseField(idx, 'question_label', e.target.value.slice(0, 80))}
                           placeholder="Nghĩa cụm câu hỏi..."
-                          className="text-xs p-2 rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                          className={fieldBase}
                         />
                         <input
                           type="text"
                           value={p.passage || ''}
                           onChange={(e) => updateParaphraseField(idx, 'passage', e.target.value.slice(0, 160))}
                           placeholder="Cụm NGUYÊN VĂN trong bài..."
-                          className="text-xs p-2 rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                          className={fieldBase}
                         />
                         <input
                           type="text"
                           value={p.passage_label || ''}
                           onChange={(e) => updateParaphraseField(idx, 'passage_label', e.target.value.slice(0, 80))}
                           placeholder="Nghĩa cụm bài đọc..."
-                          className="text-xs p-2 rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                          className={fieldBase}
                         />
                       </div>
                     </div>
@@ -1209,7 +1252,7 @@ export default function QuestionExplanationModal({
         <div className="pt-4 border-t border-zinc-100 flex flex-wrap items-center justify-end shrink-0 gap-3">
           {activeTab === 'view' && onGenerateDraft && <button type="button" disabled={isAIBusy || isSavingEdit || isReviewing}
             onClick={() => { onClose(); onGenerateDraft(qNum) }}
-            className="min-h-10 rounded-xl border border-zinc-200 px-4 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 focus-visible:outline-2 disabled:opacity-50 cursor-pointer">{attention ? 'Tạo lại theo đáp án đề' : 'Tạo bản nháp mới'}</button>}
+            className="min-h-10 rounded-xl border border-zinc-200 px-4 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 focus-visible:outline-2 disabled:opacity-50 cursor-pointer">{attention ? 'Tạo lại theo đáp án đề' : 'Tạo lại giải thích AI'}</button>}
           {activeTab === 'view' && !previewPublished && attention && <button type="button" onClick={() => { focusTranslationRef.current = attention.action === 'edit_translation'; setActiveTab('edit') }}
             disabled={isAIBusy || isSavingEdit || isReviewing}
             className="min-h-10 rounded-xl bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-700 focus-visible:outline-2 disabled:opacity-50 cursor-pointer">{attention.action === 'edit_translation' ? 'Sửa bản dịch' : 'Sửa lời giải'}</button>}

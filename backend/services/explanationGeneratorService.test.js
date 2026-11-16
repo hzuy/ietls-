@@ -115,6 +115,34 @@ describe('explanationGeneratorService', () => {
       expect(isAnswerMatch('C', 'students', objectOptions)).toBe(true)
     })
 
+    it('handles letter-prefixed answers like "A. he is..." without requiring options', () => {
+      // Single letter vs prefixed string
+      expect(isAnswerMatch('A. he is...', 'A')).toBe(true)
+      expect(isAnswerMatch('A', 'A. he is...')).toBe(true)
+      expect(isAnswerMatch('A. he is...', 'A.')).toBe(true)
+      expect(isAnswerMatch('A. he is a doctor', 'A')).toBe(true)
+      expect(isAnswerMatch('A: he is a doctor', 'A')).toBe(true)
+      expect(isAnswerMatch('A) he is a doctor', 'A')).toBe(true)
+
+      // Prefix text vs plain text
+      expect(isAnswerMatch('A. he is...', 'he is...')).toBe(true)
+      expect(isAnswerMatch('he is...', 'A. he is...')).toBe(true)
+      expect(isAnswerMatch('A. he is a doctor', 'he is a doctor')).toBe(true)
+
+      // Identical prefixed strings
+      expect(isAnswerMatch('A. he is...', 'A. he is...')).toBe(true)
+
+      // Mismatch cases: different letters must not match
+      expect(isAnswerMatch('A. he is...', 'B')).toBe(false)
+      expect(isAnswerMatch('A. he is...', 'B. he is...')).toBe(false)
+      expect(isAnswerMatch('A. he is...', 'B. she is...')).toBe(false)
+      expect(isAnswerMatch('A. he is...', 'she is...')).toBe(false)
+
+      // Abbreviations and decimals are preserved and not falsely parsed as options
+      expect(isAnswerMatch('U.S.', 'US', null, 'fill_blank')).toBe(false)
+      expect(isAnswerMatch('3.5', '35', null, 'fill_blank')).toBe(false)
+    })
+
     describe('MCQ Multi normalization (Set-based comparison)', () => {
       const options = [
         'A. Agricultural pesticides',

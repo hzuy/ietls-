@@ -145,7 +145,7 @@ export default function SummaryCompletionEditor({ group, onChange }) {
                       <AutoGrowTextarea
                         ref={el => lineRefs.current[`${nsi}-${li}`] = el}
                         rows={1}
-                        className={`order-last basis-full sm:order-none sm:basis-0 flex-1 border rounded-lg px-2 py-1 text-sm resize-none focus:outline-none font-mono ${isHeading ? 'font-bold border-slate-300 focus:border-slate-400 bg-slate-50 text-slate-700' : `${theme.subBoxBorder} focus:border-lime-500`}`}
+                        className={`order-last basis-full sm:order-none sm:basis-0 flex-1 border rounded-lg px-2 py-1 text-sm resize-none focus:outline-none font-sans ${isHeading ? 'font-bold border-slate-300 focus:border-slate-400 bg-slate-50 text-slate-700' : `${theme.subBoxBorder} focus:border-lime-500`}`}
                         placeholder={isHeading ? 'VD: THE PARK / BENEFITS OF...' : `VD: The process was [Q:${group.qNumberStart}] in the early stages.`}
                         value={line.content}
                         onChange={e => updateLine(nsi, li, e.target.value)}

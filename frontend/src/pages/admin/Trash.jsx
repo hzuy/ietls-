@@ -3,11 +3,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Modal from '../../components/common/Modal'
 import { AdminTableSkeleton } from '../../components/skeletons'
 import Select from '../../components/admin/Select'
+import SearchField from '../../components/admin/SearchField'
 import { MobileFilterToggle } from '../../components/admin/contentPageUI'
 
 import { getAdminTrash, restoreTrashItem, permanentDeleteTrashItem, purgeTrash, purgeExpiredTrash, notifyTrashChanged } from '../../services/adminService'
 import { useAuth } from '../../context/AuthContext'
-import { Trash2, RotateCcw, AlertTriangle, Search } from 'lucide-react'
+import { Trash2, RotateCcw, AlertTriangle } from 'lucide-react'
 import { showAlert } from '../../utils/alertUtils'
 
 const PURGE_DAYS = 30
@@ -239,13 +240,10 @@ export default function Trash() {
               <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Tìm kiếm</label>
               <div className="flex gap-2">
                 <div className="relative flex-1 min-w-0">
-                  <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    type="text"
+                  <SearchField
                     placeholder="Tìm theo tên mục đã xóa..."
                     value={search}
                     onChange={e => setSearch(e.target.value)}
-                    className="w-full h-9 pl-8 pr-3 text-xs border border-zinc-200 rounded-full text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition shadow-2xs bg-zinc-50"
                   />
                 </div>
                 <MobileFilterToggle

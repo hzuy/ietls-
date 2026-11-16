@@ -86,9 +86,9 @@ export default function UserDetail() {
               <p className="text-xs text-zinc-500 mt-1">{user.email}</p>
               <div className="flex flex-wrap gap-2 mt-1.5 [&>span]:whitespace-nowrap">
                 {user.role === 'admin' ? (
-                  <span className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-xs px-2.5 py-0.5 rounded-full font-medium">Admin</span>
+                  <span className="bg-purple-500/10 text-purple-600 border border-purple-500/20 text-xs px-2.5 py-0.5 rounded-full font-medium">Admin</span>
                 ) : (
-                  <span className="bg-zinc-100 dark:bg-slate-800 text-zinc-700 dark:text-slate-300 border border-zinc-200 dark:border-slate-700 text-xs px-2.5 py-0.5 rounded-full font-medium">Student</span>
+                  <span className="bg-zinc-100 text-zinc-700 border border-zinc-200 text-xs px-2.5 py-0.5 rounded-full font-medium">Student</span>
                 )}
                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${user.isLocked ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-zinc-100 text-zinc-800 border border-zinc-200'}`}>
                   {user.isLocked ? 'Đã khoá' : 'Hoạt động'}
@@ -101,16 +101,16 @@ export default function UserDetail() {
               {/* Action buttons */}
               <div className="flex flex-wrap items-center gap-2 mt-1">
                 <button onClick={handleToggleLock} disabled={togglingLock}
-                  className={`h-9 px-4 text-xs rounded-full border border-zinc-200 dark:border-slate-700 font-medium transition text-zinc-700 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-slate-800 cursor-pointer shadow-2xs`}>
+                  className={`h-9 px-4 text-xs rounded-full border border-zinc-200 font-medium transition text-zinc-700 hover:bg-zinc-100 cursor-pointer shadow-2xs`}>
                   {togglingLock ? '...' : user.isLocked ? 'Mở khoá' : 'Khoá'}
                 </button>
                 <button onClick={() => setConfirmReset(true)} disabled={resettingPassword}
-                  className="h-9 px-4 text-xs rounded-full border border-zinc-200 dark:border-slate-700 text-zinc-700 dark:text-slate-300 hover:bg-zinc-100 dark:hover:bg-slate-800 font-medium transition shadow-2xs flex items-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                  className="h-9 px-4 text-xs rounded-full border border-zinc-200 text-zinc-700 hover:bg-zinc-100 font-medium transition shadow-2xs flex items-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
                   <KeyRound size={14} />
                   {resettingPassword ? 'Đang reset...' : 'Reset MK'}
                 </button>
                 <button onClick={() => setConfirmDelete(true)} disabled={deletingUser}
-                  className="h-9 px-4 text-xs rounded-full border border-zinc-200 dark:border-slate-700 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-200 font-medium transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                  className="h-9 px-4 text-xs rounded-full border border-zinc-200 text-red-500 hover:bg-red-50 hover:border-red-200 font-medium transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
                   {deletingUser ? 'Đang xóa...' : 'Xóa'}
                 </button>
               </div>
@@ -186,13 +186,13 @@ export default function UserDetail() {
       {/* Reset password confirm modal */}
       {confirmReset && (
         <Modal onClose={() => setConfirmReset(false)} title="Reset mật khẩu" size="sm" className="p-6">
-          <h3 className="text-sm font-semibold text-zinc-900 dark:text-slate-100 mb-2">Reset mật khẩu</h3>
-          <p className="text-xs text-zinc-600 dark:text-slate-400 mb-6">
+          <h3 className="text-sm font-semibold text-zinc-900 mb-2">Reset mật khẩu</h3>
+          <p className="text-xs text-zinc-600 mb-6">
             Tạo mật khẩu ngẫu nhiên mới cho <strong>{user.name}</strong>? Mật khẩu cũ sẽ không còn hợp lệ.
           </p>
           <div className="flex gap-2.5 justify-end">
-            <button onClick={() => setConfirmReset(false)} disabled={resettingPassword} className="h-9 px-5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs sm:text-sm text-zinc-700 dark:text-slate-300 hover:bg-zinc-50 dark:hover:bg-slate-800 font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Huỷ</button>
-            <button onClick={handleResetPassword} disabled={resettingPassword} className="h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed">Reset</button>
+            <button onClick={() => setConfirmReset(false)} disabled={resettingPassword} className="h-9 px-5 rounded-full border border-zinc-200 text-xs sm:text-sm text-zinc-700 hover:bg-zinc-50 font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Huỷ</button>
+            <button onClick={handleResetPassword} disabled={resettingPassword} className="h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed">Reset</button>
           </div>
         </Modal>
       )}
@@ -200,14 +200,14 @@ export default function UserDetail() {
       {/* Reset password result modal */}
       {newPassword && (
         <Modal onClose={() => setNewPassword(null)} title="Mật khẩu mới" size="sm" className="p-6">
-          <h3 className="text-sm font-semibold text-zinc-900 dark:text-slate-100 mb-2">Mật khẩu mới</h3>
-          <p className="text-xs text-zinc-600 dark:text-slate-400 mb-3">Mật khẩu mới của <strong>{user.name}</strong>:</p>
-          <code className="block w-full text-center text-sm font-mono font-bold tracking-widest bg-zinc-100 dark:bg-slate-800 rounded-xl px-4 py-3 mb-3 text-zinc-800 dark:text-slate-200 select-all border border-zinc-200 dark:border-slate-700">
+          <h3 className="text-sm font-semibold text-zinc-900 mb-2">Mật khẩu mới</h3>
+          <p className="text-xs text-zinc-600 mb-3">Mật khẩu mới của <strong>{user.name}</strong>:</p>
+          <code className="block w-full text-center text-sm font-mono font-bold tracking-widest bg-zinc-100 rounded-xl px-4 py-3 mb-3 text-zinc-800 select-all border border-zinc-200 ">
             {newPassword}
           </code>
-          <p className="text-[11px] text-amber-600 dark:text-amber-400 mb-5">Chỉ hiển thị 1 lần — hãy gửi cho user ngay</p>
+          <p className="text-[11px] text-amber-600 mb-5">Chỉ hiển thị 1 lần — hãy gửi cho user ngay</p>
           <div className="flex justify-end">
-            <button onClick={() => setNewPassword(null)} className="h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer">Đã copy / Đóng</button>
+            <button onClick={() => setNewPassword(null)} className="h-9 px-5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer">Đã copy / Đóng</button>
           </div>
         </Modal>
       )}
@@ -215,10 +215,10 @@ export default function UserDetail() {
       {/* Delete confirmation modal */}
       {confirmDelete && (
         <Modal onClose={() => setConfirmDelete(false)} title="Xác nhận xóa" size="sm" className="p-6">
-          <h3 className="text-sm font-semibold text-zinc-900 dark:text-slate-100 mb-2">Xác nhận xóa</h3>
-          <p className="text-xs text-zinc-600 dark:text-slate-400 mb-6">Xóa người dùng <strong>{user.name}</strong>? Lịch sử thi sẽ được giữ lại (soft delete).</p>
+          <h3 className="text-sm font-semibold text-zinc-900 mb-2">Xác nhận xóa</h3>
+          <p className="text-xs text-zinc-600 mb-6">Xóa người dùng <strong>{user.name}</strong>? Lịch sử thi sẽ được giữ lại (soft delete).</p>
           <div className="flex gap-2.5 justify-end">
-            <button onClick={() => setConfirmDelete(false)} disabled={deletingUser} className="h-9 px-5 rounded-full border border-zinc-200 dark:border-slate-700 text-xs sm:text-sm text-zinc-700 dark:text-slate-300 hover:bg-zinc-50 dark:hover:bg-slate-800 font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Huỷ</button>
+            <button onClick={() => setConfirmDelete(false)} disabled={deletingUser} className="h-9 px-5 rounded-full border border-zinc-200 text-xs sm:text-sm text-zinc-700 hover:bg-zinc-50 font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Huỷ</button>
             <button onClick={handleDelete} disabled={deletingUser} className="h-9 px-5 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed inline-flex items-center gap-2">
               {deletingUser && <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />}
               {deletingUser ? 'Đang xóa...' : 'Xóa'}

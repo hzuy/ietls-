@@ -8,10 +8,13 @@ import FetchingDim from '../../components/admin/FetchingDim'
 import { ADMIN_SKILL_COLORS, SKILL_LABEL } from '../../utils/adminSkillColors'
 import Modal from '../../components/common/Modal'
 import Select from '../../components/admin/Select'
+import SearchField from '../../components/admin/SearchField'
+import RangeField from '../../components/admin/RangeField'
+import { checkboxBase } from '../../components/admin/formField'
 import { MobileFilterToggle } from '../../components/admin/contentPageUI'
 import Pagination from '../../components/admin/Pagination'
 
-import { Download, RotateCcw, Eye, Search, ArrowUpDown } from 'lucide-react'
+import { Download, RotateCcw, Eye, ArrowUpDown } from 'lucide-react'
 import { useDebounce } from '../../hooks/useDebounce'
 
 const CRITERION_LABEL = {
@@ -53,19 +56,19 @@ function AttemptDetailModal({ attempt: a, onClose }) {
 
   return (
     <Modal onClose={onClose} title={`Chi tiết lượt thi #${a.id}`} size="md" className="overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200 dark:border-slate-800 shrink-0">
-        <h2 className="text-sm font-semibold text-zinc-900 dark:text-slate-100">Chi tiết lượt thi</h2>
+      <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200 shrink-0">
+        <h2 className="text-sm font-semibold text-zinc-900 ">Chi tiết lượt thi</h2>
         <button onClick={onClose} aria-label="Đóng"
-          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-slate-800 text-zinc-400 hover:text-zinc-600 dark:hover:text-slate-200 font-bold transition-colors cursor-pointer">✕</button>
+          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 font-bold transition-colors cursor-pointer">✕</button>
       </div>
 
       <div className="p-5 space-y-4 text-xs">
         <div>
-          <p className="font-semibold text-zinc-900 dark:text-slate-100 text-xs">{a.user?.name || '—'}</p>
-          <p className="text-[11px] text-zinc-500 dark:text-slate-400">{a.user?.email || ''}</p>
+          <p className="font-semibold text-zinc-900 text-xs">{a.user?.name || '—'}</p>
+          <p className="text-[11px] text-zinc-500 ">{a.user?.email || ''}</p>
         </div>
 
-        <dl className="space-y-2.5 pt-3 border-t border-zinc-100 dark:border-slate-800">
+        <dl className="space-y-2.5 pt-3 border-t border-zinc-100 ">
           <DetailRow label="Kỹ năng">{SKILL_LABEL[a.exam?.skill] || a.exam?.skill || '—'}</DetailRow>
           <DetailRow label="Đề thi">{a.exam?.title || '—'}</DetailRow>
           <DetailRow label="Band">{getBandPill(a.score)}</DetailRow>
@@ -79,13 +82,13 @@ function AttemptDetailModal({ attempt: a, onClose }) {
         </dl>
 
         {criteria && (
-          <div className="pt-3 border-t border-zinc-100 dark:border-slate-800 space-y-2">
-            <p className="font-semibold text-zinc-700 dark:text-slate-300 text-xs">Điểm từng tiêu chí AI</p>
+          <div className="pt-3 border-t border-zinc-100 space-y-2">
+            <p className="font-semibold text-zinc-700 text-xs">Điểm từng tiêu chí AI</p>
             <div className="grid grid-cols-2 gap-2">
               {Object.entries(criteria).map(([k, v]) => (
-                <div key={k} className="p-2 rounded-lg bg-zinc-50 dark:bg-slate-800/60 border border-zinc-100 dark:border-slate-800 flex items-center justify-between">
-                  <span className="text-zinc-500 dark:text-slate-400 text-[11px]">{CRITERION_LABEL[k] || k}</span>
-                  <span className="font-semibold text-zinc-900 dark:text-slate-100 font-mono text-[11px]">
+                <div key={k} className="p-2 rounded-lg bg-zinc-50 border border-zinc-100 flex items-center justify-between">
+                  <span className="text-zinc-500 text-[11px]">{CRITERION_LABEL[k] || k}</span>
+                  <span className="font-semibold text-zinc-900 font-mono text-[11px]">
                     {typeof v === 'number' ? v.toFixed(1) : v}
                   </span>
                 </div>
@@ -95,7 +98,7 @@ function AttemptDetailModal({ attempt: a, onClose }) {
         )}
 
         {(a.exam?.skill === 'writing' || a.exam?.skill === 'speaking') && !criteria && a.score == null && (
-          <p className="text-[11px] text-zinc-400 dark:text-slate-500 italic pt-2">Đề đang được AI chấm — chưa có điểm chi tiết.</p>
+          <p className="text-[11px] text-zinc-400 italic pt-2">Đề đang được AI chấm — chưa có điểm chi tiết.</p>
         )}
       </div>
     </Modal>
@@ -355,13 +358,10 @@ export default function Attempts() {
               <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Tìm kiếm</label>
               <div className="flex gap-2">
                 <div className="relative flex-1 min-w-0">
-                  <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    type="text"
+                  <SearchField
                     placeholder="Tìm theo tên hoặc email học viên..."
                     value={search}
                     onChange={e => { setSearch(e.target.value); setPage(1) }}
-                    className="w-full h-9 pl-8 pr-3 text-xs border border-zinc-200 rounded-full text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition shadow-2xs bg-zinc-50"
                   />
                 </div>
                 <MobileFilterToggle
@@ -408,7 +408,7 @@ export default function Attempts() {
             {/* Khoảng ngày — 2/4 cột, thẳng hàng dưới ô Tìm kiếm */}
             <div className={`md:col-span-2 ${moreFiltersCls}`}>
               <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Khoảng ngày</label>
-              <div className="flex items-center border border-zinc-200 rounded-full h-9 px-1 bg-zinc-50 w-full hover:border-zinc-300 focus-within:ring-2 focus-within:ring-zinc-200 focus-within:border-zinc-900 transition shadow-2xs">
+              <RangeField className="w-full" ariaLabel="Khoảng ngày">
                 <input
                   type="date"
                   value={dateFrom}
@@ -427,13 +427,13 @@ export default function Attempts() {
                   aria-label="Đến ngày"
                   className="grouped-field flex-1 min-w-0 h-full px-2.5 text-xs bg-transparent cursor-pointer text-zinc-900 focus:outline-none [color-scheme:light] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-datetime-edit-month-field]:bg-transparent [&::-webkit-datetime-edit-day-field]:bg-transparent [&::-webkit-datetime-edit-year-field]:bg-transparent [&::-webkit-datetime-edit-month-field]:text-zinc-900 [&::-webkit-datetime-edit-day-field]:text-zinc-900 [&::-webkit-datetime-edit-year-field]:text-zinc-900"
                 />
-              </div>
+              </RangeField>
             </div>
 
             {/* Khoảng Band — cùng style với Khoảng ngày */}
             <div className={moreFiltersCls}>
               <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Khoảng Band</label>
-              <div className="flex items-center gap-2 border border-zinc-200 rounded-full px-3.5 h-9 bg-zinc-50 w-full hover:border-zinc-300 focus-within:ring-2 focus-within:ring-zinc-200 focus-within:border-zinc-900 transition shadow-2xs">
+              <RangeField className="w-full" ariaLabel="Khoảng Band">
                 <input
                   type="number" min="0" max="9" step="0.5" placeholder="Từ" value={scoreMin}
                   onChange={handleScoreMinChange} onBlur={handleScoreMinBlur}
@@ -445,7 +445,7 @@ export default function Attempts() {
                   onChange={handleScoreMaxChange} onBlur={handleScoreMaxBlur}
                   className="grouped-field w-full text-xs text-center font-normal text-zinc-900 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder:text-zinc-400"
                 />
-              </div>
+              </RangeField>
             </div>
 
             {/* Đặt lại — ô cuối lưới, lấp khoảng trống bên phải hàng 2 (filter tự áp dụng qua useEffect) */}
@@ -482,7 +482,7 @@ export default function Attempts() {
                           checked={isAllSelected}
                           onChange={handleSelectAll}
                           aria-label="Chọn tất cả lượt thi trên trang"
-                          className="w-3.5 h-3.5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 cursor-pointer accent-zinc-900"
+                          className={checkboxBase}
                         />
                         <span className="sm:hidden">Chọn tất cả</span>
                       </label>
@@ -492,7 +492,7 @@ export default function Attempts() {
                     <th className="px-4 py-3 text-left">Đề thi</th>
                     <th className="w-[120px] px-4 py-3 text-left">Band Score</th>
                     <th className="w-[130px] px-4 py-3 text-left">Ngày làm bài</th>
-                    <th className="w-[130px] px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-slate-400">HÀNH ĐỘNG</th>
+                    <th className="w-[130px] px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-zinc-500 ">HÀNH ĐỘNG</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
@@ -505,7 +505,7 @@ export default function Attempts() {
                             checked={selectedAttemptIds.includes(a.id)}
                             onChange={() => handleSelectOne(a.id)}
                             aria-label={`Chọn lượt thi của ${a.user?.name || 'học viên'}`}
-                            className="w-3.5 h-3.5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 cursor-pointer accent-zinc-900"
+                            className={checkboxBase}
                           />
                         </label>
                       </td>
@@ -532,7 +532,7 @@ export default function Attempts() {
                           type="button"
                           onClick={() => setDetailAttempt(a)}
                           title="Xem tóm tắt lượt thi"
-                          className="h-8 px-4 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100 text-xs font-medium inline-flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer"
+                          className="h-8 px-4 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-medium inline-flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer"
                         >
                           <Eye className="w-3.5 h-3.5" />
                           <span>Chi tiết</span>

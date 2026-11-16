@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import QuestionExplanationModal, {
   getExplanationStatusInfo,
   ExplanationStatusBadge,
+  isSameAnswer,
 } from './QuestionExplanationModal'
 import api from '../../utils/axios'
 
@@ -98,6 +99,51 @@ describe('QuestionExplanationModal & Badge Helpers', () => {
       const info = getExplanationStatusInfo(null, { runStatus: 'generating' })
       expect(info.status).toBe('generating')
       expect(info.chipLabel).toBe('Đang sinh')
+    })
+  })
+
+  
+  describe('isSameAnswer', () => {
+    it('matches "A. he is..." with "A" and vice versa', () => {
+      expect(isSameAnswer('A. he is...', 'A')).toBe(true)
+      expect(isSameAnswer('A', 'A. he is...')).toBe(true)
+      expect(isSameAnswer('A. he is...', 'A.')).toBe(true)
+      expect(isSameAnswer('A. he is a doctor', 'A')).toBe(true)
+      expect(isSameAnswer('A: he is a doctor', 'A')).toBe(true)
+      expect(isSameAnswer('A) he is a doctor', 'A')).toBe(true)
+    })
+
+    it('matches "A. he is..." with plain text "he is..." and vice versa', () => {
+      expect(isSameAnswer('A. he is...', 'he is...')).toBe(true)
+      expect(isSameAnswer('he is...', 'A. he is...')).toBe(true)
+      expect(isSameAnswer('A. he is a doctor', 'he is a doctor')).toBe(true)
+    })
+
+    it('matches identical answer strings and case-insensitively', () => {
+      expect(isSameAnswer('A. he is...', 'A. he is...')).toBe(true)
+      expect(isSameAnswer('TRUE', 'true')).toBe(true)
+      expect(isSameAnswer('FALSE', 'false')).toBe(true)
+      expect(isSameAnswer('library', 'library')).toBe(true)
+    })
+
+    it('does NOT match different letters', () => {
+      expect(isSameAnswer('A. he is...', 'B')).toBe(false)
+      expect(isSameAnswer('A. he is...', 'B. he is...')).toBe(false)
+      expect(isSameAnswer('A. he is...', 'B. she is...')).toBe(false)
+      expect(isSameAnswer('A. he is...', 'she is...')).toBe(false)
+      expect(isSameAnswer('A', 'B')).toBe(false)
+    })
+
+    it('does NOT misinterpret abbreviations or decimals as option prefixes', () => {
+      expect(isSameAnswer('U.S.', 'US')).toBe(false)
+      expect(isSameAnswer('3.5', '35')).toBe(false)
+    })
+
+    it('returns false when either answer is null or undefined', () => {
+      expect(isSameAnswer(null, 'A')).toBe(false)
+      expect(isSameAnswer('A', null)).toBe(false)
+      expect(isSameAnswer(undefined, 'A')).toBe(false)
+      expect(isSameAnswer('', 'A')).toBe(false)
     })
   })
 

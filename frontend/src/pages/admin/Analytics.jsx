@@ -5,6 +5,7 @@ import { Listbox, ListboxButton, ListboxOptions, ListboxOption } from '@headless
 import { getAdminAnalytics, getAdminUser } from '../../services/adminService'
 import { Users2, BarChart2, Trophy, Award, ChevronRight, ChevronDown, Check } from 'lucide-react'
 import StudentDetailModal from '../../components/admin/StudentDetailModal'
+import RangeField from '../../components/admin/RangeField'
 import { AdminAnalyticsSkeleton } from '../../components/skeletons'
 import {
   AreaChart, Area, BarChart, Bar,
@@ -340,7 +341,7 @@ export default function Analytics() {
               <div ref={popoverRef}
                 className="absolute right-0 top-full mt-2 z-20 w-72 bg-white border border-zinc-200 rounded-xl shadow-lg p-3">
                 <label className="text-xs font-medium text-zinc-700 mb-1.5 block">Khoảng ngày</label>
-                <div className="flex items-center border border-zinc-200 rounded-md h-9 bg-zinc-50 w-full hover:border-zinc-300 focus-within:ring-2 focus-within:ring-zinc-200 focus-within:border-zinc-900 transition shadow-2xs">
+                <RangeField className="w-full" ariaLabel="Khoảng ngày">
                   <input
                     type="date"
                     value={customFrom}
@@ -359,12 +360,12 @@ export default function Analytics() {
                     aria-label="Đến ngày"
                     className="grouped-field flex-1 min-w-0 h-full px-2.5 text-xs bg-transparent cursor-pointer text-zinc-900 focus:outline-none [color-scheme:light] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-datetime-edit-month-field]:bg-transparent [&::-webkit-datetime-edit-day-field]:bg-transparent [&::-webkit-datetime-edit-year-field]:bg-transparent [&::-webkit-datetime-edit-month-field]:text-zinc-900 [&::-webkit-datetime-edit-day-field]:text-zinc-900 [&::-webkit-datetime-edit-year-field]:text-zinc-900"
                   />
-                </div>
+                </RangeField>
                 <button
                   type="button"
                   onClick={handleApplyCustom}
                   disabled={!customFrom || !customTo}
-                  className="w-full h-8 mt-2 rounded-md bg-zinc-900 text-white text-xs font-medium transition hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-zinc-900 cursor-pointer">
+                  className="w-full h-9 mt-2 rounded-full bg-zinc-900 text-white text-xs font-medium transition hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-zinc-900 cursor-pointer">
                   Áp dụng
                 </button>
               </div>
@@ -572,7 +573,7 @@ export default function Analytics() {
                 <tbody>
                   {skillBreakdown.map((s, idx) => {
                     const theme = SKILL_THEMES[s.skill] || {
-                      badge: 'bg-zinc-100 text-zinc-800 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:border-zinc-700',
+                      badge: 'bg-zinc-100 text-zinc-800 border-zinc-200   ',
                       bar: 'bg-zinc-900',
                     }
                     return (
@@ -593,7 +594,7 @@ export default function Analytics() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <div className="flex-1 h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden max-w-[100px]">
+                            <div className="flex-1 h-2 bg-zinc-100 rounded-full overflow-hidden max-w-[100px]">
                               <div className={`h-full rounded-full transition-all duration-500 ${theme.bar}`}
                                 style={{
                                   width: `${maxSkillCount > 0 ? (s.count / maxSkillCount * 100) : 0}%`,
@@ -660,7 +661,7 @@ export default function Analytics() {
                         role="button"
                         tabIndex={0}
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleOpenStudentDetail(u, rank) }}
-                        className="group hover:bg-zinc-50 dark:hover:bg-zinc-800/60 cursor-pointer transition-all border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 rounded-xl p-3 flex items-center justify-between"
+                        className="group hover:bg-zinc-50 cursor-pointer transition-all border border-zinc-200 hover:border-zinc-300 rounded-xl p-3 flex items-center justify-between"
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <span
@@ -669,19 +670,19 @@ export default function Analytics() {
                             {rank}
                           </span>
                           <div className="min-w-0">
-                            <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-black dark:group-hover:text-white transition-colors">
+                            <p className="text-xs font-semibold text-zinc-900 truncate group-hover:text-black transition-colors">
                               {u.name}
                             </p>
-                            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+                            <p className="text-[11px] text-zinc-500 truncate">
                               {u.attemptCount} lượt thi
                             </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <span className="font-bold text-zinc-900 dark:text-zinc-100 text-xs tabular-nums bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-2 py-0.5 rounded-lg shadow-2xs">
+                          <span className="font-bold text-zinc-900 text-xs tabular-nums bg-zinc-50 border border-zinc-200 px-2 py-0.5 rounded-lg shadow-2xs">
                             Band {formatBand(u.avgScore)}
                           </span>
-                          <ChevronRight size={14} className="text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200 transition-transform group-hover:translate-x-0.5" />
+                          <ChevronRight size={14} className="text-zinc-400 group-hover:text-zinc-600 transition-transform group-hover:translate-x-0.5" />
                         </div>
                       </div>
                     )
@@ -711,7 +712,7 @@ export default function Analytics() {
                           role="button"
                           tabIndex={0}
                           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleOpenStudentDetail(u, rank) }}
-                          className="group hover:bg-zinc-50 dark:hover:bg-zinc-800/60 cursor-pointer transition-all border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 rounded-xl p-3 flex items-center justify-between"
+                          className="group hover:bg-zinc-50 cursor-pointer transition-all border border-zinc-200 hover:border-zinc-300 rounded-xl p-3 flex items-center justify-between"
                         >
                           <div className="flex items-center gap-3 min-w-0">
                             <span
@@ -720,19 +721,19 @@ export default function Analytics() {
                               {rank}
                             </span>
                             <div className="min-w-0">
-                              <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-black dark:group-hover:text-white transition-colors">
+                              <p className="text-xs font-semibold text-zinc-900 truncate group-hover:text-black transition-colors">
                                 {u.name}
                               </p>
-                              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+                              <p className="text-[11px] text-zinc-500 truncate">
                                 {u.attemptCount} lượt thi
                               </p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
-                            <span className="font-bold text-zinc-900 dark:text-zinc-100 text-xs tabular-nums bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-2 py-0.5 rounded-lg shadow-2xs">
+                            <span className="font-bold text-zinc-900 text-xs tabular-nums bg-zinc-50 border border-zinc-200 px-2 py-0.5 rounded-lg shadow-2xs">
                               Band {formatBand(u.avgScore)}
                             </span>
-                            <ChevronRight size={14} className="text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200 transition-transform group-hover:translate-x-0.5" />
+                            <ChevronRight size={14} className="text-zinc-400 group-hover:text-zinc-600 transition-transform group-hover:translate-x-0.5" />
                           </div>
                         </div>
                       )
