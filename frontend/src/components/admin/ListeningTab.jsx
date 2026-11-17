@@ -1574,7 +1574,7 @@ function ListeningTab({ exams, onRefresh, examSeries = [], paginationData, fetch
 
       <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-xs">
         <h3 className="text-base font-semibold text-zinc-900 mb-4">Danh sách đề Listening</h3>
-        <ExamList exams={exams} skill="listening" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} error={loadError} />
+        <ExamList exams={exams} skill="listening" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} error={loadError} exactQuestions={40} />
       </div>
 
       <UnsavedChangesAIModal
