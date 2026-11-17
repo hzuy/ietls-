@@ -1,6 +1,10 @@
-// A blank line separates paragraphs; a single newline may just wrap a sentence.
-export const readingParagraphs = text => String(text || '').replace(/\r\n?/g, '\n')
-  .split(/\n[\t ]*\n+/).map(part => part.trim()).filter(Boolean)
+// Mỗi lần xuống dòng (Enter) tính thành một đoạn văn riêng.
+// Các dòng trống (2, 3 lần enter liên tiếp hoặc chỉ chứa khoảng trắng) được lọc bỏ, không tính thành các đoạn rỗng.
+export const readingParagraphs = text => String(text || '')
+  .replace(/\r\n?/g, '\n')
+  .split('\n')
+  .map(part => part.trim())
+  .filter(Boolean)
 
 export const needsParagraphLetters = type => ['matching_headings', 'matching_information', 'matching_paragraph'].includes(type)
 export const paragraphLettersAlert = 'Vui lòng tích “Đoạn văn có ký hiệu chữ cái (A, B, C...)” trước khi thêm Matching Headings hoặc Matching Information.'

@@ -28,7 +28,7 @@ describe('Matching headings from source passage', () => {
     expect(next.explanations).toEqual({ 4: { marker: 'first' }, 5: { marker: 'third' } })
   })
   it('preserves an explicit Practice toggle and counts CRLF paragraphs consistently', () => {
-    expect(readingParagraphs('First\r\nwrapped\r\n \r\nSecond\r\nwrapped')).toEqual(['First\nwrapped', 'Second\nwrapped'])
+    expect(readingParagraphs('First\r\nSecond\r\n \r\n\r\nThird')).toEqual(['First', 'Second', 'Third'])
     expect(practiceParagraphLetters([{ type: 'matching_headings', letteredParagraphs: false }])).toBe(false)
     expect(practiceParagraphLetters([{ type: 'matching_headings', letteredParagraphs: true }])).toBe(true)
     expect(practiceParagraphLetters([{ type: 'matching_headings' }])).toBe(true)
@@ -36,7 +36,7 @@ describe('Matching headings from source passage', () => {
     expect(needsParagraphLetters('matching_drag')).toBe(false)
   })
   it('hides mappings until letters are enabled and counts paragraphs instead of wrapped lines', () => {
-    const props = { onChange: vi.fn(), passage: 'First line\nwrapped line\n\nSecond paragraph\nwrapped line' }
+    const props = { onChange: vi.fn(), passage: 'First paragraph\n\nSecond paragraph' }
     const { rerender } = render(<Harness {...props} letteredParagraphs={false} />)
     expect(screen.queryByRole('button', { name: /Heading đúng cho đoạn/ })).toBeNull()
     rerender(<Harness {...props} letteredParagraphs />)

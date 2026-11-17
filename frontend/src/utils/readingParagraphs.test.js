@@ -1,13 +1,26 @@
 import { describe, expect, it } from 'vitest'
-import { paragraphMatchingOptions, syncParagraphGroups } from './readingParagraphs'
+import { readingParagraphs, paragraphMatchingOptions, syncParagraphGroups } from './readingParagraphs'
 import { buildExamPayload, hydrateExamForm } from './examAuthoring'
 import { validatePracticeReading, validateExamReading } from './questionValidation'
 
 const group = { id: 8, type: 'matching_information', qNumberStart: 1, qNumberEnd: 1, matchingOptions: [{ letter: 'A', text: 'Outdated duplicate' }], questions: [{ id: 30, number: 1, questionText: 'A statement', correctAnswer: 'B', explanation: { steps: ['Keep'] } }] }
-const passage = 'First line\r\nwrapped line\r\n \r\nSecond paragraph'
+const passage = 'First paragraph\r\n \r\nSecond paragraph'
 
 describe('source paragraph matching choices', () => {
-  it('derives letters from paragraphs rather than wrapped lines and accepts API option shapes', () => {
+  it('splits paragraphs by newline and ignores consecutive empty lines', () => {
+    // Xuống dòng (enter) tính là đoạn mới
+    expect(readingParagraphs('Đoạn 1\nĐoạn 2')).toEqual(['Đoạn 1', 'Đoạn 2'])
+    expect(readingParagraphs('Đoạn 1\r\nĐoạn 2')).toEqual(['Đoạn 1', 'Đoạn 2'])
+    // 2-3 lần enter rỗng không bị tính thành đoạn rỗng
+    expect(readingParagraphs('Đoạn 1\n\n\nĐoạn 2')).toEqual(['Đoạn 1', 'Đoạn 2'])
+    expect(readingParagraphs('Đoạn 1\r\n   \r\n\t\r\nĐoạn 2')).toEqual(['Đoạn 1', 'Đoạn 2'])
+    // Dòng trống đầu và cuối bị loại bỏ
+    expect(readingParagraphs('\n\n  \nĐoạn 1\n\n')).toEqual(['Đoạn 1'])
+    expect(readingParagraphs('')).toEqual([])
+    expect(readingParagraphs(null)).toEqual([])
+  })
+
+  it('derives letters from paragraphs and accepts API option shapes', () => {
     expect(paragraphMatchingOptions(passage, [{ id: 9, optionLetter: 'B', optionText: 'Old' }])).toEqual([{ letter: 'A', text: '' }, { id: 9, letter: 'B', text: '' }])
     expect(paragraphMatchingOptions('')).toEqual([])
   })

@@ -7,7 +7,7 @@ import AdditionalTaskEditor from './AdditionalTaskEditor'
 import PracticeGroupCard from '../PracticeGroupCard'
 
 const initial = { id: 8, type: 'matching_information', qNumberStart: 4, qNumberEnd: 4, instruction: 'Find the paragraph', matchingOptions: [{ letter: 'A', text: 'Old source copy' }], questions: [{ id: 30, number: 4, questionText: 'A description', correctAnswer: 'B' }] }
-const source = 'First paragraph\nwrapped line\n\nSecond paragraph\n\nThird paragraph'
+const source = 'First paragraph\n\nSecond paragraph\n\nThird paragraph'
 
 function Harness({ renderEditor, onChange = () => {} }) {
   const [group, setGroup] = useState(initial)

@@ -304,7 +304,7 @@ function ReadingPracticeExam({ exam, onBack }) {
           <h2 className="text-lg font-semibold text-zinc-900 text-center mb-1 leading-snug">{exam.title}</h2>
           <div className="w-16 h-0.5 bg-zinc-900 mx-auto mb-6" />
           <div className="text-zinc-800 font-normal text-base leading-relaxed">
-            {(practiceParagraphLetters(groups) ? readingParagraphs(exam.passage) : (exam.passage || '').split(/\n\s*\n|\n/).map(s => s.trim()).filter(Boolean)).map((para, i) => {
+            {readingParagraphs(exam.passage).map((para, i) => {
               const capitalized = para.charAt(0).toUpperCase() + para.slice(1)
               const paraHighlights = scopeHighlights.filter(h => h.paraIndex === i)
               return (
@@ -642,7 +642,7 @@ function ListeningPracticeExam({ exam, onBack }) {
           <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-5 mb-5 max-w-2xl mx-auto">
             <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Context / Situation</p>
             <div className="text-sm text-zinc-800 leading-relaxed font-normal">
-              {(exam.passage || '').split(/\n\s*\n|\n/).map(s => s.trim()).filter(Boolean).map((para, i) => {
+              {readingParagraphs(exam.passage).map((para, i) => {
                 const capitalized = para.charAt(0).toUpperCase() + para.slice(1)
                 const paraHighlights = scopeHighlights.filter(h => h.paraIndex === i)
                 return (

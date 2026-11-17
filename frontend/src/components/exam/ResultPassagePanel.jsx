@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { readingParagraphs } from '../../utils/readingParagraphs';
 
 export default function ResultPassagePanel({ passage, activePassage, activeLocator }) {
   useEffect(() => {
@@ -66,11 +67,7 @@ export default function ResultPassagePanel({ passage, activePassage, activeLocat
       <div className="w-16 h-0.5 bg-zinc-900 mx-auto mb-6" />
       <div className="text-zinc-800 font-normal text-base leading-relaxed">
         {passage.body
-          ? passage.body
-              .split(/\n\s*\n|\n/)
-              .map(s => s.trim())
-              .filter(Boolean)
-              .map((para, i) => renderParagraph(para, i))
+          ? readingParagraphs(passage.body).map((para, i) => renderParagraph(para, i))
           : <p className="text-zinc-400 italic text-center">Nội dung bài đọc không khả dụng.</p>
         }
       </div>

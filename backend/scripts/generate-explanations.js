@@ -199,7 +199,11 @@ function questionOptions(q) {
 }
 
 function splitParagraphs(text) {
-  return String(text || '').split(/\n\s*\n|\n/).map(s => s.trim()).filter(Boolean)
+  return String(text || '')
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map(s => s.trim())
+    .filter(Boolean)
 }
 
 function findParagraph(paragraphs, phrase) {

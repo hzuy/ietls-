@@ -562,8 +562,7 @@ export default function ReadingExam() {
           <div className="w-16 h-0.5 bg-zinc-900 mx-auto mb-6" />
           <div className="text-zinc-800 font-normal text-base leading-relaxed">
             {passage.body
-              ? (passage.letteredParagraphs ? readingParagraphs(passage.body) : passage.body.split(/\n\s*\n|\n/).map(s => s.trim()).filter(Boolean))
-                  .map((para, i) => {
+              ? readingParagraphs(passage.body).map((para, i) => {
                     const capitalized = para.charAt(0).toUpperCase() + para.slice(1)
                     const paraHighlights = scopeHighlights.filter(h => h.paraIndex === i)
                     const content = (

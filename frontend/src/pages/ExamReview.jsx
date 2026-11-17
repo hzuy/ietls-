@@ -114,7 +114,7 @@ function MarkedParagraph({ text, marks }) {
 }
 
 function PassageView({ passage, targets }) {
-  const paragraphs = useMemo(() => passage?.letteredParagraphs ? readingParagraphs(passage?.body) : splitParagraphs(passage?.body), [passage])
+  const paragraphs = useMemo(() => readingParagraphs(passage?.body), [passage])
   const marksByPara = useMemo(() => resolveTargets(targets, paragraphs), [targets, paragraphs])
   const dimOthers = !!marksByPara
   return (
