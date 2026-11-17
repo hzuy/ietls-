@@ -66,9 +66,6 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
   const clientFilteredList = useMemo(() => {
     if (!isClientMode) return []
     let res = exams.filter(e => !skill || e.skill === skill)
-    if (exactQuestions !== undefined && exactQuestions !== null) {
-      res = res.filter(e => e.questionCount === exactQuestions)
-    }
     if (debouncedSearch) {
       const q = debouncedSearch.toLowerCase()
       res = res.filter(e => (e.title || '').toLowerCase().includes(q))
@@ -82,7 +79,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
       res = res.filter(e => (e.questionCount ?? 0) === 0 && (e.passages?.length ?? 0) === 0)
     }
     return res
-  }, [isClientMode, exams, skill, debouncedSearch, filterSeries, filterStatus, exactQuestions])
+  }, [isClientMode, exams, skill, debouncedSearch, filterSeries, filterStatus])
 
   const clientTotal = isClientMode ? clientFilteredList.length : 0
   const clientPages = isClientMode ? Math.max(1, Math.ceil(clientTotal / PAGE_SIZE)) : 1
@@ -121,7 +118,6 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
       status: filterStatus,
       sortBy: s.sortBy,
       sortOrder: s.sortOrder,
-      ...(exactQuestions !== undefined && exactQuestions !== null ? { exactQuestions } : {}),
       ...overrides,
     })
   }
@@ -171,13 +167,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
   }
 
   // Backend đã lọc theo skill; giữ guard nhẹ phòng dữ liệu bất thường.
-  const skillExams = (Array.isArray(listExams) ? listExams : []).filter(e => {
-    if (skill && e.skill !== skill) return false
-    if (exactQuestions !== undefined && exactQuestions !== null) {
-      return e.questionCount === exactQuestions
-    }
-    return true
-  })
+  const skillExams = (Array.isArray(listExams) ? listExams : []).filter(e => !skill || e.skill === skill)
 
   const resetFilters = () => {
     setSearch('')
