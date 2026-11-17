@@ -355,12 +355,7 @@ function hasQuestionsFilterFor(skill) {
 // ─── GET EXAMS (PAGINATED & FILTERED) ───────────────────────────────────────
 router.get('/exams', authMiddleware, teacherOnly, async (req, res) => {
   try {
-    const { skill, search = '', seriesId, page = 1, limit = 20, status = 'all', sortBy = 'createdAt', sortOrder = 'desc', exactQuestions } = req.query
-    const parsedExactQuestions = exactQuestions !== undefined ? parseInt(exactQuestions) : null
-    // When exactQuestions filter is active we must fetch all matching rows first,
-    // compute questionCount, then filter and paginate in JS — because questionCount
-    // is a derived value not stored in the DB.
-    const needsPostFilter = parsedExactQuestions !== null && !isNaN(parsedExactQuestions)
+    const { skill, search = '', seriesId, page = 1, limit = 20, status = 'all', sortBy = 'createdAt', sortOrder = 'desc' } = req.query
     const parsedPage = Math.max(1, parseInt(page) || 1)
     const parsedLimit = Math.min(500, Math.max(1, parseInt(limit) || 20))
     const skip = (parsedPage - 1) * parsedLimit
@@ -406,10 +401,8 @@ router.get('/exams', authMiddleware, teacherOnly, async (req, res) => {
       prisma.exam.findMany({
         where,
         orderBy,
-        // When post-filtering by exactQuestions we fetch all rows so we can
-        // paginate after the JS-side filter; otherwise use normal pagination.
-        // Safety cap of 2000 rows to avoid runaway queries even in post-filter mode.
-        ...(needsPostFilter ? { take: 2000 } : { skip, take: parsedLimit }),
+        skip,
+        take: parsedLimit,
         select: {
           id: true,
           title: true,
@@ -467,15 +460,6 @@ router.get('/exams', authMiddleware, teacherOnly, async (req, res) => {
       return { ...e, avgScore: avgScoreMap[e.id] ?? null, questionCount }
     })
 
-    // Post-filter by exactQuestions (reading/listening only) and re-paginate
-    let finalData = data
-    let finalTotal = total
-    if (needsPostFilter) {
-      finalData = data.filter(e => e.questionCount === parsedExactQuestions)
-      finalTotal = finalData.length
-      finalData = finalData.slice(skip, skip + parsedLimit)
-    }
-
     // Stats tổng quan: toàn DB theo baseWhere (skill + bộ đề + tìm kiếm),
     // KHÔNG giới hạn trang, KHÔNG áp filter trạng thái câu hỏi.
     const stats = statsRaw ? {
@@ -486,10 +470,10 @@ router.get('/exams', authMiddleware, teacherOnly, async (req, res) => {
     } : null
 
     res.json({
-      exams: finalData,
-      total: finalTotal,
+      exams: data,
+      total,
       page: parsedPage,
-      pages: Math.ceil(finalTotal / parsedLimit),
+      pages: Math.ceil(total / parsedLimit),
       stats
     })
   } catch (error) {

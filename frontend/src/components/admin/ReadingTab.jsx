@@ -1560,7 +1560,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
 
       <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-xs">
         <h3 className="text-base font-semibold text-zinc-900 mb-4">Danh sách đề Reading</h3>
-        <ExamList exams={exams} skill="reading" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} error={loadError} exactQuestions={40} />
+        <ExamList exams={exams} skill="reading" onDelete={handleDelete} onEdit={loadForEdit} editingId={editingId} examSeries={examSeries} paginationData={paginationData} fetchExams={fetchExams} loading={loading} error={loadError} />
       </div>
 
       <UnsavedChangesAIModal

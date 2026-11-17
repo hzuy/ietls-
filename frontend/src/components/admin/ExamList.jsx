@@ -20,7 +20,7 @@ const SORT_MAP = {
   score:    { sortBy: 'score',     sortOrder: 'desc' },
 }
 
-function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries = [], paginationData, fetchExams, loading, error, exactQuestions }) {
+function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries = [], paginationData, fetchExams, loading, error }) {
   const [loadingId, setLoadingId] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
@@ -43,7 +43,7 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
 
   // TanStack Query: Quản lý cache và nạp đề thi theo kỹ năng
   const { data: examsData, isPending: queryLoading, isFetching: queryFetching, isError: queryError, refetch } = useQuery({
-    queryKey: ['admin', 'exams', skill, { page, limit: PAGE_SIZE, search: debouncedSearch, status: filterStatus, seriesId: filterSeries, sortBy: sort.sortBy, sortOrder: sort.sortOrder, exactQuestions }],
+    queryKey: ['admin', 'exams', skill, { page, limit: PAGE_SIZE, search: debouncedSearch, status: filterStatus, seriesId: filterSeries, sortBy: sort.sortBy, sortOrder: sort.sortOrder }],
     queryFn: () => getExams({
       skill,
       page,
@@ -53,7 +53,6 @@ function ExamList({ exams = [], skill, onDelete, onEdit, editingId, examSeries =
       status: filterStatus,
       sortBy: sort.sortBy,
       sortOrder: sort.sortOrder,
-      ...(exactQuestions !== undefined ? { exactQuestions } : {}),
     }),
     staleTime: 1000 * 30, // Giữ fresh 30 giây
     gcTime: 1000 * 60 * 10, // Giữ cache 10 phút
