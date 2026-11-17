@@ -227,6 +227,54 @@ describe('Admin Exams Router & Pagination', () => {
     expect(call.where).toHaveProperty('NOT')
     expect(call.orderBy).toEqual({ attempts: { _count: 'asc' } })
   })
+
+  it('GET /api/admin/exams filters to exact question count when exactQuestions param is provided', async () => {
+    prismaMock.exam.findMany.mockResolvedValueOnce([
+      {
+        id: 1,
+        title: 'Exam 40 Questions',
+        skill: 'reading',
+        passages: [
+          {
+            id: 10,
+            questionGroups: [{ qNumberStart: 1, qNumberEnd: 40 }],
+            questions: []
+          }
+        ],
+        listeningSections: [],
+        writingTasks: [],
+        speakingParts: [],
+        _count: { attempts: 0 }
+      },
+      {
+        id: 2,
+        title: 'Exam 20 Questions',
+        skill: 'reading',
+        passages: [
+          {
+            id: 20,
+            questionGroups: [{ qNumberStart: 1, qNumberEnd: 20 }],
+            questions: []
+          }
+        ],
+        listeningSections: [],
+        writingTasks: [],
+        speakingParts: [],
+        _count: { attempts: 0 }
+      }
+    ])
+
+    const res = await request(app)
+      .get('/api/admin/exams?skill=reading&exactQuestions=40')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .expect(200)
+
+    expect(res.body.exams.length).toBe(1)
+    expect(res.body.exams[0].id).toBe(1)
+    expect(res.body.exams[0].questionCount).toBe(40)
+    expect(res.body.total).toBe(1)
+    expect(res.body.stats.totalExams).toBe(1)
+  })
 })
 
 // ─── PUT /api/admin/exams/:id — diff-based upsert (preserve IDs) ────────────

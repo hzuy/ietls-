@@ -479,8 +479,8 @@ router.get('/exams', authMiddleware, teacherOnly, async (req, res) => {
     // Stats tổng quan: toàn DB theo baseWhere (skill + bộ đề + tìm kiếm),
     // KHÔNG giới hạn trang, KHÔNG áp filter trạng thái câu hỏi.
     const stats = statsRaw ? {
-      totalExams: statsRaw[0],
-      noQuestionsCount: statsRaw[1],
+      totalExams: needsPostFilter ? finalTotal : statsRaw[0],
+      noQuestionsCount: needsPostFilter ? 0 : statsRaw[1],
       totalAttempts: statsRaw[2]._count._all,
       avgBand: statsRaw[2]._avg.score, // null khi chưa có lượt nào có điểm
     } : null

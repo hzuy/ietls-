@@ -223,4 +223,20 @@ describe('ExamList — Speaking Part Badge & Validation Count', () => {
     fireEvent.click(screen.getByRole('option', { name: 'Band cao nhất' }))
     expect(fetchExams).toHaveBeenCalledWith(expect.objectContaining({ sortBy: 'score', sortOrder: 'desc' }))
   })
+
+  it('lọc chỉ hiển thị các đề có đúng số câu hỏi bằng exactQuestions (ví dụ 40 câu)', () => {
+    const exams = [
+      { id: 1, title: 'Đề đủ 40 câu', skill: 'reading', questionCount: 40 },
+      { id: 2, title: 'Đề thiếu câu (30)', skill: 'reading', questionCount: 30 },
+      { id: 3, title: 'Đề thừa câu (42)', skill: 'reading', questionCount: 42 },
+      { id: 4, title: 'Đề chưa có câu', skill: 'reading', questionCount: 0 },
+    ]
+
+    render(<ExamList exams={exams} skill="reading" exactQuestions={40} />)
+
+    expect(screen.getByText('Đề đủ 40 câu')).toBeInTheDocument()
+    expect(screen.queryByText('Đề thiếu câu (30)')).not.toBeInTheDocument()
+    expect(screen.queryByText('Đề thừa câu (42)')).not.toBeInTheDocument()
+    expect(screen.queryByText('Đề chưa có câu')).not.toBeInTheDocument()
+  })
 })
