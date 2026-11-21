@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { queryClient } from '../../lib/queryClient'
 import api from '../../utils/axios'
 import { showAlert } from '../../utils/alertUtils'
+import { useToast } from '../../context/ToastContext'
 import { notifyTrashChanged } from '../../services/adminService'
 import { isExamFormDirty, normalizeFormForDirtyCheck } from '../../utils/examExplanationUtils'
 import { emptySpeakingForm, inputCls, labelCls, btnSecondary, useExamSeriesList, useSeriesBooks } from './adminConstants'
@@ -32,15 +33,13 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
   const [editingId, setEditingId] = useState(null)
   const [loadingEdit, setLoadingEdit] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
-  const [toast, setToast] = useState('')
+  const { showToast } = useToast()
   const [draftBanner, setDraftBanner] = useState(null)
   const [editHighlight, setEditHighlight] = useState(false)
   const formRef = useRef(null)
   const previewRef = useRef(null)
   // Mốc so sánh cho autosave nháp: dữ liệu lúc mở đề / lúc lưu gần nhất.
   const draftBaselineSigRef = useRef(null)
-
-  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
   // Scroll the preview panel into view once it has rendered.
   useEffect(() => {
@@ -87,11 +86,9 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
         const now = new Date()
         const hh = now.getHours().toString().padStart(2, '0')
         const mm = now.getMinutes().toString().padStart(2, '0')
-        setToast(`Đã lưu bản nháp lúc ${hh}:${mm}`)
-        setTimeout(() => setToast(''), 3000)
+        showToast(`Đã lưu bản nháp lúc ${hh}:${mm}`)
       } catch {
-        setToast('Không lưu được nháp (bộ nhớ đầy)')
-        setTimeout(() => setToast(''), 3000)
+        showToast('Không lưu được nháp (bộ nhớ đầy)')
       }
     }, 2000)
     return () => clearTimeout(timer)
@@ -227,11 +224,6 @@ function SpeakingTab({ exams, onRefresh, examSeries = [], paginationData, fetchE
 
   return (
     <div className="space-y-6">
-      {toast && (
-        <div className="fixed bottom-4 right-4 bg-zinc-900 text-white text-sm px-4 py-2 rounded-xl shadow-lg z-50">
-          {toast}
-        </div>
-      )}
       <div className="relative">
       {loadingEdit && (
         <div className="absolute inset-0 z-20 rounded-2xl bg-white/70 backdrop-blur-[1px] flex items-center justify-center">
