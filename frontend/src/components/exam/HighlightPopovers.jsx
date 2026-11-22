@@ -49,7 +49,7 @@ export default function HighlightPopovers({
         </div>
       )}
 
-      {/* 2. Menu khi click vào đoạn đã note / highlight: nút Remove note chuẩn CD IELTS */}
+      {/* 2. Menu khi click vào đoạn đã note / highlight */}
       {highlightMenu && (
         <div
           data-highlight-popover
@@ -57,6 +57,18 @@ export default function HighlightPopovers({
           style={{ left: highlightMenu.x, top: highlightMenu.y - 4 }}
         >
           <div className="flex items-center bg-[#1e2530] text-white rounded-md shadow-md border border-slate-700/60 px-3 py-1.5">
+            {highlightMenu.note && onEditNote && (
+              <>
+                <button
+                  type="button"
+                  onClick={onEditNote}
+                  className="text-[13px] font-medium leading-none text-white hover:underline transition-all cursor-pointer whitespace-nowrap px-0.5"
+                >
+                  Edit note
+                </button>
+                <div className="w-px h-3 bg-slate-600 mx-2" />
+              </>
+            )}
             <button
               type="button"
               onClick={() => onClearHighlight(highlightMenu.id)}

@@ -1,6 +1,7 @@
 'use strict'
 
 const { AnswerValidationError, scoreMultiChoice, splitChoiceAnswer } = require('./multiChoice')
+const { isAnswerMatch } = require('./answerMatcher')
 const LISTENING_FILL_TYPES = new Set(['note_completion', 'table_completion', 'drag_word_bank', 'diagram_label', 'form_completion', 'summary_completion', 'flow_chart_completion', 'sentence_completion', 'short_answer'])
 
 function gradePractice(skill, exam, groups, answers) {
@@ -38,11 +39,10 @@ function gradePractice(skill, exam, groups, answers) {
           add(n, g.type, display(picks[i] || ''), display(i < scored.matches.length ? scored.matches[i] : remaining.shift() || ''), status, explanation)
         }
       } else {
-        const alts = expected.toLowerCase().split('/').map(s => s.trim()).filter(Boolean)
         // Preserve existing Listening single-choice semantics; slash alternatives
         // apply to completion types, and to all existing Reading single answers.
-        const accepted = skill !== 'listening' || LISTENING_FILL_TYPES.has(g.type) ? alts : [expected.toLowerCase()].filter(Boolean)
-        const ok = Boolean(given) && accepted.includes(given.toLowerCase())
+        const allowSlash = skill !== 'listening' || LISTENING_FILL_TYPES.has(g.type)
+        const ok = isAnswerMatch(given, expected, { allowSlash })
         add(q.number, g.type || q.type, given, expected, given ? ok ? 'correct' : 'wrong' : 'missed', explanation)
       }
     }

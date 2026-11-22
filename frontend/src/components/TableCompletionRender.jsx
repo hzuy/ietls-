@@ -47,20 +47,20 @@ export default function TableCompletionRender({ group, answers, onAnswer, previe
 
   return (
     <div id={`q-${group.qNumberStart}`} className="mb-6 scroll-mt-4">
-      <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
-        <p className="font-semibold text-zinc-900 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
+      <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-[15px] leading-relaxed">
+        <p className="font-semibold text-zinc-900 text-base mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
         {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
       </div>
       {section.title && (
-        <p className="text-sm font-semibold text-zinc-900 mb-2">{section.title}</p>
+        <p className="text-base font-semibold text-zinc-900 mb-2">{section.title}</p>
       )}
       <div className="overflow-x-auto rounded-2xl border border-zinc-200 shadow-xs bg-white">
-        <table className="w-full border-collapse text-sm">
+        <table className="w-full border-collapse text-[15px]">
           {headers.length > 0 && headers.some(h => (h || '').trim()) && (
             <thead>
               <tr className="bg-zinc-50/70">
                 {headers.map((h, i) => (
-                  <th key={i} className="text-left px-4 py-2.5 text-xs font-bold text-zinc-700 border-b border-zinc-200 border-r last:border-r-0 border-zinc-200">
+                  <th key={i} className="text-left px-4 py-2.5 text-[13px] font-bold text-zinc-700 border-b border-zinc-200 border-r last:border-r-0 border-zinc-200">
                     {h}
                   </th>
                 ))}

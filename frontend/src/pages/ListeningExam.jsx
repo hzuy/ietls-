@@ -12,6 +12,7 @@ import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
 import { Clock, LayoutGrid, ChevronUp, ChevronDown, ArrowRight } from 'lucide-react'
 import { useTextHighlight } from '../hooks/useTextHighlight'
 import HighlightPopovers from '../components/exam/HighlightPopovers'
+import ExamNotepad, { ExamNotepadButton } from '../components/exam/ExamNotepad'
 import { getSectionSlots, isSlotAnswered } from '../utils/questionCount'
 import MatchingTickGrid from '../components/MatchingTickGrid'
 import DragWordBankGroup from '../components/DragWordBankGroup'
@@ -81,6 +82,13 @@ export default function ListeningExam() {
   const [lastSavedAt, setLastSavedAt] = useState(null) // mốc lưu nháp gần nhất — cho indicator header
   const pendingSeekTimeRef = useRef(null)
   const lastAudioSaveRef = useRef(0)
+  const [flaggedQuestions, setFlaggedQuestions] = useState([])
+  const flaggedSet = useMemo(() => new Set(flaggedQuestions), [flaggedQuestions])
+  const toggleFlag = useCallback((num) => {
+    setFlaggedQuestions(prev => prev.includes(num) ? prev.filter(n => n !== num) : [...prev, num])
+  }, [])
+  const [scratchpad, setScratchpad] = useState('')
+  const [notepadOpen, setNotepadOpen] = useState(false)
 
   // ── Autosave draft ─────────────────────────────────────────────────────────
   // MỘT interval sống suốt phiên (deps [phase, previewMode, id]). KHÔNG đưa
@@ -90,14 +98,14 @@ export default function ListeningExam() {
   const autosaveRef = useRef(null)
   useEffect(() => {
     autosaveRef.current = {
-      answers, timeLeft,
+      answers, timeLeft, flaggedQuestions, scratchpad,
       userId: user ? (user.id || user._id) : null,
       totalSlots: allQ.length,
       playingSectionIndex,
     }
   })
   const persistDraftNow = useCallback(() => {
-    const { answers, timeLeft, userId, totalSlots: draftTotalSlots, playingSectionIndex: curSec } = autosaveRef.current
+    const { answers, timeLeft, flaggedQuestions, scratchpad, userId, totalSlots: draftTotalSlots, playingSectionIndex: curSec } = autosaveRef.current
     if (!userId || !id) return
     // P3-2: đừng để answers rỗng ghi đè một draft cũ không rỗng
     // (vd reload KHÔNG kèm ?resume=true → vào 'exam' với answers = {})
@@ -106,6 +114,8 @@ export default function ListeningExam() {
       if (existing?.data && Object.keys(existing.data).length > 0) {
         existing.timeRemaining = timeLeft
         existing.savedAt = new Date().toISOString()
+        existing.flaggedQuestions = flaggedQuestions
+        existing.scratchpad = scratchpad
         const curTime = audioRef.current ? Math.floor(audioRef.current.currentTime) : (existing.audioProgress?.currentTime || 0)
         existing.audioProgress = {
           sectionIndex: curSec ?? existing.audioProgress?.sectionIndex ?? 0,
@@ -128,6 +138,8 @@ export default function ListeningExam() {
       timeRemaining: timeLeft,
       examTitle,
       totalQuestions: draftTotalSlots || 40,
+      flaggedQuestions,
+      scratchpad,
       audioProgress: {
         sectionIndex: curSec ?? 0,
         currentTime: curTime,
@@ -194,6 +206,8 @@ export default function ListeningExam() {
             }
             if (draft.timeRemaining != null) setTimeLeft(draft.timeRemaining)
             if (draft.savedAt) setLastSavedAt(new Date(draft.savedAt))
+            if (Array.isArray(draft.flaggedQuestions)) setFlaggedQuestions(draft.flaggedQuestions)
+            if (typeof draft.scratchpad === 'string') setScratchpad(draft.scratchpad)
             if (draft.audioProgress) {
               const maxSec = (data?.listeningSections?.length || 1) - 1
               const sec = Math.max(0, Math.min(draft.audioProgress.sectionIndex ?? 0, maxSec))
@@ -489,11 +503,16 @@ export default function ListeningExam() {
             </button>
           ) : (
             <>
-              <span className="text-xs text-zinc-500 font-mono tabular-nums">
+              <span className="text-[13px] text-zinc-500 tabular-nums font-medium">
                 {answered}/{allQ.length} câu
               </span>
+              <ExamNotepadButton
+                open={notepadOpen}
+                hasContent={Boolean(scratchpad.trim())}
+                onClick={() => setNotepadOpen(v => !v)}
+              />
               <div
-                className={`tabular-nums text-xs font-semibold px-3 py-1 rounded-full border flex items-center gap-1.5 ${
+                className={`tabular-nums text-[13px] font-semibold px-3 py-1 rounded-full border flex items-center gap-1.5 ${
                   timeLeft < 300
                     ? 'text-red-600 bg-red-50 border-red-200'
                     : timeLeft < 600
@@ -615,7 +634,8 @@ export default function ListeningExam() {
             {/* New: group-based questions */}
             {sortedQuestionGroups.map(group => (
               <GroupBlock key={group.id} group={group} answers={answers} onAnswer={onAnswer}
-                previewMode={previewMode} showAnswers={showAnswers} />
+                previewMode={previewMode} showAnswers={showAnswers}
+                flaggedSet={flaggedSet} onToggleFlag={toggleFlag} />
             ))}
 
             {sectionSlots.length === 0 && (
@@ -640,7 +660,9 @@ export default function ListeningExam() {
                     number={slot.number}
                     roundedFull={true}
                     status={isSlotAnswered(slot, answers) ? 'answered' : 'unanswered'}
+                    flagged={flaggedSet.has(slot.number)}
                     onClick={() => jumpToQuestion(slot)}
+                    onContextMenu={(e) => { e.preventDefault(); toggleFlag(slot.number) }}
                   />
                 ))}
               </div>
@@ -721,14 +743,25 @@ export default function ListeningExam() {
           activeIndex={activeSection}
           onClose={() => setShowQuestionPanel(false)}
           onJump={jumpToQuestion}
+          onToggleFlag={toggleFlag}
           groups={exam.listeningSections.map(s => ({
             label: `Section ${s.number}`,
             items: getSectionSlots(s).map(slot => ({
               number: slot.number,
               answered: isSlotAnswered(slot, answers),
+              flagged: flaggedSet.has(slot.number),
               ref: slot
             })),
           }))}
+        />
+      )}
+
+      {!previewMode && (
+        <ExamNotepad
+          open={notepadOpen}
+          value={scratchpad}
+          onChange={setScratchpad}
+          onClose={() => setNotepadOpen(false)}
         />
       )}
 

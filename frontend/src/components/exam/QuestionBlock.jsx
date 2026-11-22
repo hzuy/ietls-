@@ -1,21 +1,30 @@
 import { selectedOptionValues } from '../../utils/mcqAnswer'
 import React from 'react'
+import { Flag } from 'lucide-react'
 import { toImgSrc } from '../../utils/media'
 import ExplanationPanel from './ExplanationPanel'
 
 const MATCHING_TYPES = ['matching','matching_headings','matching_features','matching_paragraph','matching_endings','choose_title','map_diagram']
+
+// Khi người dùng kéo bôi đen text trong đáp án để highlight/note, ngăn click của <label> vô tình đổi lựa chọn
+function preventToggleOnTextSelect(e) {
+  const sel = typeof window !== 'undefined' ? window.getSelection?.()?.toString?.() : ''
+  if (sel && sel.trim().length > 0) {
+    e.preventDefault()
+  }
+}
 
 // Danh sách radio 1-lựa-chọn dùng chung cho mcq / true_false_ng / yes_no_ng.
 // 3 loại này render y hệt nhau, chỉ khác tập đáp án → gom về đây, KHÔNG đổi
 // className/hành vi. Nội bộ file, không export.
 function SingleChoiceList({ options, q, answers, onAnswer, previewMode, showAnswers }) {
   return (
-    <div className="exam-option-list pl-8">
+    <div className="exam-option-list pl-9">
       {options.map(opt => {
         const displayAns = previewMode && showAnswers ? q.correctAnswer : answers[q.id]
         const isSelected = displayAns === opt
         return (
-          <label key={opt} className={`exam-option rounded-full
+          <label key={opt} onClick={preventToggleOnTextSelect} className={`exam-option rounded-full
             ${isSelected && previewMode && showAnswers ? 'bg-green-50 border border-green-400 text-green-700 cursor-default'
               : isSelected ? 'bg-zinc-100 border border-zinc-900 text-zinc-900 font-medium cursor-pointer'
               : previewMode ? 'border border-transparent text-zinc-400 cursor-default'
@@ -24,7 +33,7 @@ function SingleChoiceList({ options, q, answers, onAnswer, previewMode, showAnsw
               disabled={previewMode}
               onChange={previewMode ? undefined : () => onAnswer(q.id, opt)}
               className="accent-zinc-900" />
-            {opt}
+            <span>{opt}</span>
           </label>
         )
       })}
@@ -32,16 +41,34 @@ function SingleChoiceList({ options, q, answers, onAnswer, previewMode, showAnsw
   )
 }
 
-function QuestionBlockInner({ q, answers, onAnswer, maxChoices = 2, previewMode, showAnswers }) {
+function QuestionBlockInner({ q, answers, onAnswer, maxChoices = 2, previewMode, showAnswers, flagged = false, onToggleFlag }) {
   const opts = q.options ? (typeof q.options === 'string' ? JSON.parse(q.options) : q.options) : []
   const selected = selectedOptionValues(answers[q.id], opts)
 
   return (
     <div id={`q-${q.number}`} className="mb-6 scroll-mt-4">
-      <p className="text-sm text-zinc-900 mb-2 leading-relaxed flex gap-2">
-        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-xs shrink-0 mt-0.5">{q.number}</span>
-        <span>{q.questionText}</span>
-      </p>
+      <div className="text-base text-zinc-900 mb-2.5 leading-relaxed flex items-start gap-2.5">
+        {onToggleFlag && !previewMode ? (
+          <button
+            type="button"
+            onClick={() => onToggleFlag(q.number)}
+            title={flagged ? `Bỏ đánh dấu câu ${q.number}` : `Đánh dấu câu ${q.number} để xem lại`}
+            aria-label={flagged ? `Bỏ đánh dấu câu ${q.number}` : `Đánh dấu câu ${q.number} để xem lại`}
+            aria-pressed={flagged}
+            className={`relative inline-flex items-center justify-center w-7 h-7 rounded-full border font-bold text-[13px] shrink-0 mt-0.5 transition-colors cursor-pointer ${
+              flagged
+                ? 'bg-amber-50 border-amber-500 text-amber-800'
+                : 'bg-zinc-100 border-zinc-200 text-zinc-800 hover:border-amber-400 hover:bg-amber-50/50'
+            }`}
+          >
+            {q.number}
+            {flagged && <Flag className="w-2.5 h-2.5 text-amber-600 fill-amber-500 absolute -top-1 -right-1" aria-hidden="true" />}
+          </button>
+        ) : (
+          <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-[13px] shrink-0 mt-0.5">{q.number}</span>
+        )}
+        <span className="flex-1">{q.questionText}</span>
+      </div>
 
       {/* Single MCQ */}
       {q.type === 'mcq' && (
@@ -50,13 +77,13 @@ function QuestionBlockInner({ q, answers, onAnswer, maxChoices = 2, previewMode,
 
       {/* Multi MCQ (checkboxes) */}
       {q.type === 'mcq_multi' && (
-        <div className="space-y-1 pl-8">
+        <div className="space-y-1 pl-9">
           {opts.map(opt => {
             const correctList = previewMode && showAnswers ? selectedOptionValues(q.correctAnswer, opts) : []
             const checked = previewMode && showAnswers ? correctList.includes(opt) : selected.includes(opt)
             const disabled = previewMode || (!checked && selected.length >= maxChoices)
             return (
-              <label key={opt} className={`exam-option rounded-full
+              <label key={opt} onClick={preventToggleOnTextSelect} className={`exam-option rounded-full
                 ${checked && previewMode && showAnswers ? 'bg-green-50 border border-green-400 text-green-700 cursor-default'
                   : checked ? 'bg-zinc-100 border border-zinc-900 text-zinc-900 font-medium cursor-pointer'
                   : disabled ? 'border border-transparent text-zinc-300 cursor-not-allowed'
@@ -66,7 +93,7 @@ function QuestionBlockInner({ q, answers, onAnswer, maxChoices = 2, previewMode,
                     const next = checked ? selected.filter(s => s !== opt) : [...selected, opt]
                     onAnswer(q.id, next.join(','))
                   }} />
-                {opt}
+                <span>{opt}</span>
               </label>
             )
           })}
@@ -85,7 +112,7 @@ function QuestionBlockInner({ q, answers, onAnswer, maxChoices = 2, previewMode,
 
       {/* Text input: fill_blank, diagram_completion */}
       {['short_answer', 'fill_blank', 'diagram_completion'].includes(q.type) && (
-        <div className="pl-8">
+        <div className="pl-9">
           {q.imageUrl && <img src={toImgSrc(q.imageUrl)} alt="diagram" className="img-crisp w-full max-w-sm rounded-2xl mb-2 border border-zinc-200" style={{ imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)' }} loading="lazy" decoding="async" />}
           <input type="text"
             value={previewMode && showAnswers ? (q.correctAnswer || '') : (answers[q.id] || '')}
@@ -98,14 +125,14 @@ function QuestionBlockInner({ q, answers, onAnswer, maxChoices = 2, previewMode,
 
       {/* Matching types — select dropdown */}
       {MATCHING_TYPES.includes(q.type) && (
-        <div className="pl-8">
+        <div className="pl-9">
           {q.imageUrl && <img src={toImgSrc(q.imageUrl)} alt="map/diagram" className="img-crisp w-full max-w-sm rounded-2xl mb-2 border border-zinc-200" style={{ imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)' }} loading="lazy" decoding="async" />}
           {opts.length > 0 ? (
             <select
               value={previewMode && showAnswers ? (q.correctAnswer || '') : (answers[q.id] || '')}
               disabled={previewMode}
               onChange={previewMode ? undefined : e => onAnswer(q.id, e.target.value)}
-              className={`border ${previewMode && showAnswers ? 'border-green-400 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} rounded-full px-4 py-2 text-sm outline-none bg-white min-w-48`}>
+              className={`border ${previewMode && showAnswers ? 'border-green-400 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} rounded-full px-4 py-2 text-base outline-none bg-white min-w-48`}>
               <option value="">— Chọn đáp án —</option>
               {opts.map(opt => <option key={opt} value={opt}>{opt}</option>)}
             </select>
@@ -133,7 +160,9 @@ const MemoizedQuestionBlockInner = React.memo(QuestionBlockInner, (prev, next) =
     prev.onAnswer === next.onAnswer &&
     prev.previewMode === next.previewMode &&
     prev.showAnswers === next.showAnswers &&
-    prev.maxChoices === next.maxChoices
+    prev.maxChoices === next.maxChoices &&
+    prev.flagged === next.flagged &&
+    prev.onToggleFlag === next.onToggleFlag
   )
 })
 

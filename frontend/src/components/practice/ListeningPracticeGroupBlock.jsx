@@ -10,7 +10,7 @@ import { toImgSrc } from '../../utils/media'
 function ListeningTokenLine({ content, answers, onAnswer, group, tokenNumMap, isDragWordBank }) {
   const parts = (content || '').split(/(\[Q:\d+\])/)
   return (
-    <span className="text-sm leading-9 text-zinc-800">
+    <span className="text-base leading-10 text-zinc-800">
       {parts.map((part, i) => {
         const match = part.match(/\[Q:(\d+)\]/)
         if (match) {
@@ -20,9 +20,9 @@ function ListeningTokenLine({ content, answers, onAnswer, group, tokenNumMap, is
           if (isDragWordBank) {
             return (
               <span key={i} className="inline-flex items-center gap-1 mx-1">
-                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-900 font-bold text-xs shrink-0">{displayNum}</span>
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-900 font-bold text-xs shrink-0">{displayNum}</span>
                 <select value={val} onChange={e => onAnswer(qNum, e.target.value)}
-                  className="border border-zinc-300 rounded-full bg-white outline-none text-sm px-3 py-0.5 text-zinc-900 max-w-36 focus:border-zinc-900">
+                  className="border border-zinc-300 rounded-full bg-white outline-none text-[15px] px-3 py-0.5 text-zinc-900 max-w-40 focus:border-zinc-900">
                   <option value="">—</option>
                   {(group.matchingOptions || []).map((mo, mi) => (
                     <option key={mi} value={mo.letter}>{mo.letter}. {mo.text}</option>
@@ -33,9 +33,9 @@ function ListeningTokenLine({ content, answers, onAnswer, group, tokenNumMap, is
           }
           return (
             <span key={i} className="inline-flex items-center gap-1 mx-1">
-              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-900 font-bold text-xs shrink-0">{displayNum}</span>
+              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-900 font-bold text-xs shrink-0">{displayNum}</span>
               <input type="text" value={val} onChange={e => onAnswer(qNum, e.target.value)}
-                className="border border-zinc-300 focus:border-zinc-900 outline-none px-3 py-0.5 text-sm w-28 rounded-full bg-white text-zinc-900 transition text-center" />
+                className="border border-zinc-300 focus:border-zinc-900 outline-none px-3 py-0.5 text-[15px] w-32 rounded-full bg-white text-zinc-900 transition text-center" />
             </span>
           )
         }
@@ -61,8 +61,8 @@ export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }
 
   return (
     <div id={`q-${group.qNumberStart}`} className="mb-6 scroll-mt-4">
-      <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
-        <p className="font-semibold text-zinc-900 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
+      <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-[15px] leading-relaxed">
+        <p className="font-semibold text-zinc-900 text-base mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
         {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
       </div>
 

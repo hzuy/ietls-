@@ -1,5 +1,5 @@
 export default function TypeHeader({ type, from, to }) {
-  const base = 'bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm'
+  const base = 'bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-[15px] leading-relaxed'
   const q = `Questions ${from}–${to}`
   const headers = {
     true_false_ng: (

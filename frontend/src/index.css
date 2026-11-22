@@ -525,11 +525,12 @@ button.chatbot-chip { font-size: 0.875rem; line-height: 1.25rem; }
 }
 
 .exam-option {
-  display: flex; align-items: center; gap: 0.5rem;
+  display: flex; align-items: center; gap: 0.625rem;
   padding: 0.5rem 0.875rem;
-  font-size: var(--fs-sm);
+  font-size: 1rem;
+  line-height: 1.5;
   outline: none !important;
-  user-select: none;
+  user-select: text;
   -webkit-tap-highlight-color: transparent;
   transition: background var(--transition), border-color var(--transition);
 }
@@ -571,7 +572,7 @@ button.chatbot-chip { font-size: 0.875rem; line-height: 1.25rem; }
   background: transparent;
   border: none; border-bottom: 2px solid var(--border);
   padding: 0.25rem 0.5rem;
-  font-size: var(--fs-sm);
+  font-size: 1rem;
   outline: none !important;
   box-shadow: none !important;
   transition: border-color var(--transition);
@@ -583,10 +584,10 @@ button.chatbot-chip { font-size: 0.875rem; line-height: 1.25rem; }
 }
 
 /* Chuẩn hóa các ô điền từ trong bài thi: chỉ 1 viền duy nhất, không bóng mờ hay viền đôi lồng nhau */
-input[type="text"].rounded-full,
-input.rounded-full {
+input[type="text"].rounded-full:not(.admin-main *):not(.admin-scope *),
+input.rounded-full:not(.admin-main *):not(.admin-scope *) {
   outline: none !important;
-  font-size: 14px !important;
+  font-size: 15px !important;
 }
 input[type="text"].rounded-full:focus,
 input.rounded-full:focus {

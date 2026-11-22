@@ -51,9 +51,9 @@ function ReviewBlank({ number, info, active, onSelect }) {
   )
 }
 
-function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, showAnswers, review, activeNumber, onSelectNumber }) {
+function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, showAnswers, review, activeNumber, onSelectNumber, flaggedSet, onToggleFlag }) {
   if (['form_completion', 'summary_completion', 'flow_chart_completion', 'sentence_completion', 'short_answer'].includes(group.type)) return <TextTaskGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} numberKeys={false} listening={false} />
-  if (Object.hasOwn(GROUP_TYPE_ALIASES, group.type)) return <GroupBlockInner group={{ ...group, type: questionMechanic(group.type), questions: (group.questions || []).map(q => ({ ...q, type: questionMechanic(group.type) })) }} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} globalOffset={globalOffset} review={review} activeNumber={activeNumber} onSelectNumber={onSelectNumber} />
+  if (Object.hasOwn(GROUP_TYPE_ALIASES, group.type)) return <GroupBlockInner group={{ ...group, type: questionMechanic(group.type), questions: (group.questions || []).map(q => ({ ...q, type: questionMechanic(group.type) })) }} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} globalOffset={globalOffset} review={review} activeNumber={activeNumber} onSelectNumber={onSelectNumber} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
 
   const from = group.qNumberStart
   const to = group.qNumberEnd
@@ -95,18 +95,18 @@ function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, 
 
     return (
       <div id={`q-${from}`} className="mb-6 scroll-mt-4">
-        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
-          <p className="font-semibold text-zinc-900 mb-1">Questions {from}–{to}</p>
+        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-[15px] leading-relaxed">
+          <p className="font-semibold text-zinc-900 text-base mb-1">Questions {from}–{to}</p>
           {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
         </div>
-        <div className="rounded-2xl p-5 text-sm bg-white border border-zinc-200 shadow-xs">
+        <div className="rounded-2xl p-5 text-base bg-white border border-zinc-200 shadow-xs">
           {(group.noteSections || []).map((ns, nsi) => (
             <div key={nsi} className="mb-3 last:mb-0">
               {ns.title && <div className="font-semibold text-zinc-900 mb-1.5 border-b border-zinc-200 pb-1">{ns.title}</div>}
-              <ul className="space-y-2">
+              <ul className="space-y-2.5">
                 {(ns.lines || []).map((line, li) => (
                   line.lineType === 'heading'
-                    ? <li key={li} className="list-none font-semibold text-zinc-900 text-[0.95rem] pt-1 pb-0.5">{lineText(line)}</li>
+                    ? <li key={li} className="list-none font-semibold text-zinc-900 text-base pt-1 pb-0.5">{lineText(line)}</li>
                     : <li key={li} className="flex items-start gap-1.5 text-zinc-700 leading-relaxed">
                         <span className="text-zinc-400 mt-1 shrink-0">•</span>
                         <span>{parseContent(lineText(line))}</span>
@@ -125,10 +125,10 @@ function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, 
     const letters = (group.matchingOptions || []).map(mo => mo.optionLetter).filter(Boolean)
     return (
       <div id={`q-${from}`} className="mb-6 scroll-mt-4">
-        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
-          <p className="font-semibold text-zinc-900 mb-1">Questions {from}–{to}</p>
+        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-[15px] leading-relaxed">
+          <p className="font-semibold text-zinc-900 text-base mb-1">Questions {from}–{to}</p>
           {group.instruction && <p className="text-zinc-600 mb-1">{group.instruction}</p>}
-          <p className="text-zinc-400 text-xs italic">You may use any letter more than once.</p>
+          <p className="text-zinc-400 text-[13px] italic">You may use any letter more than once.</p>
         </div>
         <MatchingTickGrid
           letters={letters}
@@ -182,8 +182,8 @@ function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, 
 
     return (
       <div id={`q-${from}`} className="mb-6 scroll-mt-4">
-        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
-          <p className="font-semibold text-zinc-900 mb-1">Questions {from}–{to}</p>
+        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-[15px] leading-relaxed">
+          <p className="font-semibold text-zinc-900 text-base mb-1">Questions {from}–{to}</p>
           {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
         </div>
         {questions.map((q, qi) => {
@@ -209,8 +209,8 @@ function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, 
           return (
             <div key={q.id} className="mb-4">
               {q.questionText && (
-                <p className="text-sm text-zinc-900 mb-2 leading-relaxed flex gap-2">
-                  <span className="inline-flex items-center justify-center h-6 px-2 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-xs shrink-0 mt-0.5">{qStart}–{qEnd}</span>
+                <p className="text-base text-zinc-900 mb-2.5 leading-relaxed flex gap-2.5">
+                  <span className="inline-flex items-center justify-center h-7 px-2.5 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-[13px] shrink-0 mt-0.5">{qStart}–{qEnd}</span>
                   <span>{q.questionText}</span>
                 </p>
               )}
@@ -219,14 +219,14 @@ function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, 
                   const checked = previewMode && showAnswers ? correctSelected.includes(opt) : selected.includes(opt)
                   const disabled = previewMode || (!checked && limitReached)
                   return (
-                    <label key={opt} className={`exam-option rounded-full
+                    <label key={opt} onClick={(e) => { const sel = window.getSelection?.()?.toString?.(); if (sel && sel.trim()) e.preventDefault() }} className={`exam-option rounded-full
                       ${checked && previewMode && showAnswers ? 'bg-green-50 border border-green-400 text-green-700 cursor-default'
                         : checked ? 'bg-zinc-100 border border-zinc-900 text-zinc-900 font-medium cursor-pointer'
                         : disabled ? 'border border-transparent text-zinc-300 cursor-not-allowed'
                         : 'hover:bg-zinc-50 border border-transparent text-zinc-700 cursor-pointer'}`}>
                       <input type="checkbox" checked={checked} disabled={disabled} className="accent-zinc-900"
                         onChange={() => handleChange(opt)} />
-                      {opt}
+                      <span>{opt}</span>
                     </label>
                   )
                 })}
@@ -254,6 +254,8 @@ function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, 
           maxChoices={group.maxChoices || 2}
           previewMode={previewMode}
           showAnswers={showAnswers}
+          flagged={Boolean(flaggedSet?.has?.(q.number))}
+          onToggleFlag={onToggleFlag}
         />
       ))}
     </div>
@@ -269,7 +271,9 @@ function areGroupPropsEqual(prev, next) {
     prev.review !== next.review ||
     prev.activeNumber !== next.activeNumber ||
     prev.onSelectNumber !== next.onSelectNumber ||
-    prev.onAnswer !== next.onAnswer
+    prev.onAnswer !== next.onAnswer ||
+    prev.flaggedSet !== next.flaggedSet ||
+    prev.onToggleFlag !== next.onToggleFlag
   ) {
     return false
   }

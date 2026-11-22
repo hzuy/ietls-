@@ -53,15 +53,15 @@ export default function MatchingHeadingsGroup({ group, answers, onAnswer, previe
 
   return (
     <div id={`question-${group.qNumberStart}`} className="mb-6 scroll-mt-4">
-      <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
-        <p className="font-semibold text-zinc-900 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
+      <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-[15px] leading-relaxed">
+        <p className="font-semibold text-zinc-900 text-base mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
         {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
       </div>
 
       <div className="flex gap-3">
         {/* Left: headings pool */}
-        <div className="w-52 shrink-0">
-          <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2 px-1">List of Headings</p>
+        <div className="w-56 shrink-0">
+          <p className="text-[13px] font-semibold text-zinc-500 uppercase tracking-wider mb-2 px-1">List of Headings</p>
           <div className="space-y-1.5">
             {headings.map(h => {
               const isSelected = selectedKey === h.optionLetter
@@ -74,7 +74,7 @@ export default function MatchingHeadingsGroup({ group, answers, onAnswer, previe
                   onDragStart={() => { setDraggingKey(h.optionLetter); setSelectedKey(null) }}
                   onDragEnd={() => { setDraggingKey(null); setDragOverQId(null) }}
                   onClick={() => handleHeadingClick(h.optionLetter)}
-                  className={`flex items-start gap-2 px-3.5 py-2 rounded-full border text-sm transition select-none
+                  className={`flex items-start gap-2 px-3.5 py-2 rounded-full border text-[15px] transition
                     ${previewMode
                       ? 'border-zinc-200 bg-white cursor-default'
                       : isSelected
@@ -104,8 +104,8 @@ export default function MatchingHeadingsGroup({ group, answers, onAnswer, previe
 
             return (
               <div key={q.id} className="bg-white rounded-2xl border border-zinc-200 p-4 shadow-xs">
-                <p className="text-sm text-zinc-900 mb-2 flex gap-2 items-start leading-relaxed">
-                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-900 font-bold text-xs shrink-0 mt-0.5">
+                <p className="text-base text-zinc-900 mb-2 flex gap-2.5 items-start leading-relaxed">
+                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-900 font-bold text-[13px] shrink-0 mt-0.5">
                     {q.number}
                   </span>
                   <span>
@@ -118,7 +118,7 @@ export default function MatchingHeadingsGroup({ group, answers, onAnswer, previe
                   onDragLeave={() => setDragOverQId(null)}
                   onDrop={() => handleDrop(q.id)}
                   onClick={() => handleParaClick(q.id)}
-                  className={`min-h-[38px] rounded-full border-2 px-3.5 py-1.5 flex items-center text-sm transition
+                  className={`min-h-[40px] rounded-full border-2 px-3.5 py-1.5 flex items-center text-[15px] transition
                     ${!previewMode ? 'cursor-pointer' : ''}
                     ${isOver ? 'border-zinc-900 bg-zinc-100'
                     : answer ? 'border-zinc-900 bg-zinc-50'
@@ -127,14 +127,14 @@ export default function MatchingHeadingsGroup({ group, answers, onAnswer, previe
                 >
                   {answer ? (
                     <div className="flex items-center gap-2 w-full">
-                      <span className="font-bold text-zinc-900 text-sm shrink-0">{answer}</span>
-                      <span className="text-zinc-900 font-medium text-sm flex-1 leading-snug">{answerHeading?.optionText}</span>
+                      <span className="font-bold text-zinc-900 text-[15px] shrink-0">{answer}</span>
+                      <span className="text-zinc-900 font-medium text-[15px] flex-1 leading-snug">{answerHeading?.optionText}</span>
                       {!previewMode && (
-                        <button onClick={e => clearSlot(q.id, e)} className="text-zinc-400 hover:text-red-500 text-sm leading-none shrink-0">×</button>
+                        <button onClick={e => clearSlot(q.id, e)} className="text-zinc-400 hover:text-red-500 text-base leading-none shrink-0">×</button>
                       )}
                     </div>
                   ) : (
-                    <span className="text-zinc-400 text-sm italic">
+                    <span className="text-zinc-400 text-[15px] italic">
                       {previewMode ? '—' : 'Kéo hoặc click heading...'}
                     </span>
                   )}

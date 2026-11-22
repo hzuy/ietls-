@@ -21,7 +21,7 @@ export default function MatchingTickGrid({
 }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-zinc-200 shadow-xs bg-white">
-      <table className="w-full border-collapse text-sm">
+      <table className="w-full border-collapse text-[15px]">
         <thead>
           <tr className="border-b border-zinc-200 bg-zinc-50/70">
             <th className="text-left px-4 py-2.5 border-r border-zinc-200 min-w-[200px]" />

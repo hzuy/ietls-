@@ -16,16 +16,22 @@ import QuestionNavButton from './QuestionNavButton'
  *   onJump       — (ref) => void — nhảy tới câu; ref do caller tự định nghĩa (số câu hoặc slot)
  *   onClose      — () => void
  */
-export default function QuestionPanelPopover({ groups, activeIndex, bottomOffset, onJump, onClose }) {
+export default function QuestionPanelPopover({ groups, activeIndex, bottomOffset, onJump, onClose, onToggleFlag }) {
+  const totalFlagged = groups.reduce((acc, g) => acc + g.items.filter(it => it.flagged).length, 0)
   return (
     <>
       <div className="fixed inset-0 z-30" onClick={onClose} />
       <div
-        className="fixed left-4 z-40 bg-white rounded-2xl shadow-lg border border-zinc-200 w-72 max-h-80 overflow-y-auto"
+        className="fixed left-4 z-40 bg-white rounded-2xl shadow-lg border border-zinc-200 w-76 max-h-84 overflow-y-auto"
         style={{ bottom: bottomOffset }}
       >
         <div className="sticky top-0 bg-white border-b border-zinc-100 px-4 py-3 flex items-center justify-between">
-          <h3 className="font-semibold text-zinc-900 text-sm">Bảng câu hỏi</h3>
+          <div>
+            <h3 className="font-semibold text-zinc-900 text-[15px]">Bảng câu hỏi</h3>
+            {totalFlagged > 0 && (
+              <p className="text-xs text-amber-600 font-medium mt-0.5">{totalFlagged} câu đã đánh dấu xem lại</p>
+            )}
+          </div>
           <button
             aria-label="Đóng"
             onClick={onClose}
@@ -40,8 +46,8 @@ export default function QuestionPanelPopover({ groups, activeIndex, bottomOffset
             const isActive = activeIndex === gi
             return (
               <div key={gi}>
-                <p className={`text-xs font-semibold mb-1.5 ${isActive ? 'text-zinc-900' : 'text-zinc-500'}`}>
-                  {g.label} <span className="font-mono font-normal text-zinc-400 tabular-nums">· {answered}/{total}</span>
+                <p className={`text-[13px] font-semibold mb-1.5 ${isActive ? 'text-zinc-900' : 'text-zinc-500'}`}>
+                  {g.label} <span className="font-normal text-zinc-400 tabular-nums">· {answered}/{total}</span>
                 </p>
                 <div
                   className="h-1 rounded-full mb-2.5 overflow-hidden"
@@ -57,7 +63,7 @@ export default function QuestionPanelPopover({ groups, activeIndex, bottomOffset
                     style={{ width: `${pct}%`, backgroundColor: 'var(--primary)' }}
                   />
                 </div>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-2">
                   {g.items.map(it => (
                     <QuestionNavButton
                       key={it.number}
@@ -65,13 +71,20 @@ export default function QuestionPanelPopover({ groups, activeIndex, bottomOffset
                       roundedFull
                       status={it.status || (it.answered ? 'answered' : 'unanswered')}
                       active={it.active}
+                      flagged={Boolean(it.flagged)}
                       onClick={() => { onJump(it.ref); onClose() }}
+                      onContextMenu={onToggleFlag ? (e) => { e.preventDefault(); onToggleFlag(it.number) } : undefined}
                     />
                   ))}
                 </div>
               </div>
             )
           })}
+          {onToggleFlag && (
+            <p className="text-[11px] text-zinc-400 pt-1 border-t border-zinc-100">
+              Mẹo: Bấm chuột phải vào số câu (hoặc bấm biểu tượng cờ cạnh câu hỏi) để đánh dấu xem lại.
+            </p>
+          )}
         </div>
       </div>
     </>

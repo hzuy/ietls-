@@ -359,7 +359,7 @@ function WritingTaskAccordion({ task, r, isCompleted, onRetake }) {
               <div className="text-sm text-zinc-600 mb-6 font-medium">
                 You should spend about <span className="font-bold text-zinc-800">{task.number === 1 ? '20' : '40'} minutes</span> on this task.
                 <br /><br />
-                <p className="text-zinc-800 text-[14.5px] leading-relaxed whitespace-pre-line m-0 font-medium">
+                <p className="text-zinc-800 text-base leading-relaxed whitespace-pre-line m-0 font-medium">
                   {task.prompt}
                 </p>
                 <br />

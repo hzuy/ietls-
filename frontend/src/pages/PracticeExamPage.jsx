@@ -30,6 +30,7 @@ import { resolveImg } from '../utils/media'
 import { useTextHighlight } from '../hooks/useTextHighlight'
 import HighlightLayer from '../components/exam/HighlightLayer'
 import HighlightPopovers from '../components/exam/HighlightPopovers'
+import ExamNotepad, { ExamNotepadButton } from '../components/exam/ExamNotepad'
 import ReportIssueButton from '../components/common/ReportIssueButton'
 
 const PRACTICE_TIME = 20 * 60
@@ -37,14 +38,16 @@ const LISTENING_TIME = 10 * 60
 const LISTENING_FILL_TYPES = ['note_completion', 'table_completion', 'drag_word_bank', 'diagram_label', 'form_completion', 'summary_completion', 'flow_chart_completion', 'sentence_completion', 'short_answer']
 
 // ─── Full ReadingExam-style UI for Reading Practice ───────────────────────────
-function PracticeBottomBar({ answered, total, items, isAnswered, onJump, onSubmit }) {
+function PracticeBottomBar({ answered, total, items, isAnswered, flaggedSet, onToggleFlag, onJump, onSubmit }) {
   const buttons = items.map(item => (
     <QuestionNavButton
       key={item.number}
       number={item.number}
       roundedFull={true}
       status={isAnswered(item) ? 'answered' : 'unanswered'}
+      flagged={Boolean(flaggedSet?.has?.(item.number))}
       onClick={() => onJump(item.number)}
+      onContextMenu={onToggleFlag ? (e) => { e.preventDefault(); onToggleFlag(item.number) } : undefined}
     />
   ))
   return (
@@ -53,7 +56,7 @@ function PracticeBottomBar({ answered, total, items, isAnswered, onJump, onSubmi
         <div className="seg-scroller gap-2 py-1">{buttons}</div>
       </div>
       <div className="h-14 px-6 flex items-center gap-4">
-        <span className="text-xs text-zinc-500 shrink-0 min-w-[90px] font-mono tabular-nums">Đã làm {answered}/{total} câu</span>
+        <span className="text-[13px] text-zinc-500 shrink-0 min-w-[96px] tabular-nums font-medium">Đã làm {answered}/{total} câu</span>
         <div className="hidden md:block flex-1 min-w-0">
           <div className="seg-scroller gap-2">{buttons}</div>
         </div>
@@ -83,6 +86,11 @@ function ReadingPracticeExam({ exam, onBack }) {
   const bodyRef = useRef(null)
   const isDraggingRef = useRef(false)
   const [isDragging, setIsDragging] = useState(false)
+  const [flaggedQuestions, setFlaggedQuestions] = useState([])
+  const flaggedSet = new Set(flaggedQuestions)
+  const toggleFlag = (num) => setFlaggedQuestions(prev => prev.includes(num) ? prev.filter(n => n !== num) : [...prev, num])
+  const [scratchpad, setScratchpad] = useState('')
+  const [notepadOpen, setNotepadOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
   const [splitRatio, setSplitRatio] = useState(() => {
     const saved = localStorage.getItem('reading-split-ratio')
@@ -269,9 +277,14 @@ function ReadingPracticeExam({ exam, onBack }) {
           <span className="text-xs sm:text-sm font-semibold text-zinc-900 truncate">{exam.title}</span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <span className="text-xs text-zinc-500 font-mono tabular-nums">{answered}/{totalSlots} câu</span>
+          <span className="text-[13px] text-zinc-500 tabular-nums font-medium">{answered}/{totalSlots} câu</span>
+          <ExamNotepadButton
+            open={notepadOpen}
+            hasContent={Boolean(scratchpad.trim())}
+            onClick={() => setNotepadOpen(v => !v)}
+          />
           <div
-            className={`tabular-nums text-xs font-semibold px-3 py-1 rounded-full border flex items-center gap-1.5 ${
+            className={`tabular-nums text-[13px] font-semibold px-3 py-1 rounded-full border flex items-center gap-1.5 ${
               timeLeft < 300
                 ? 'text-red-600 bg-red-50 border-red-200'
                 : timeLeft < 600
@@ -301,9 +314,9 @@ function ReadingPracticeExam({ exam, onBack }) {
           <div className="sticky -top-6 -mx-8 px-8 py-2.5 mb-5 bg-white/95 backdrop-blur-xs border-b border-zinc-100 flex items-center justify-between z-10">
             <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Passage</span>
           </div>
-          <h2 className="text-lg font-semibold text-zinc-900 text-center mb-1 leading-snug">{exam.title}</h2>
+          <h2 className="text-xl font-semibold text-zinc-900 text-center mb-1.5 leading-snug">{exam.title}</h2>
           <div className="w-16 h-0.5 bg-zinc-900 mx-auto mb-6" />
-          <div className="text-zinc-800 font-normal text-base leading-relaxed">
+          <div className="text-zinc-800 font-normal text-[17px] leading-[1.75]">
             {readingParagraphs(exam.passage).map((para, i) => {
               const capitalized = para.charAt(0).toUpperCase() + para.slice(1)
               const paraHighlights = scopeHighlights.filter(h => h.paraIndex === i)
@@ -348,8 +361,17 @@ function ReadingPracticeExam({ exam, onBack }) {
         total={totalSlots}
         items={navItems}
         isAnswered={({ qId }) => Boolean(qId && answers[qId])}
+        flaggedSet={flaggedSet}
+        onToggleFlag={toggleFlag}
         onJump={jumpToQuestion}
         onSubmit={() => setShowConfirm(true)}
+      />
+
+      <ExamNotepad
+        open={notepadOpen}
+        value={scratchpad}
+        onChange={setScratchpad}
+        onClose={() => setNotepadOpen(false)}
       />
 
       {/* Submit confirm */}
@@ -396,6 +418,11 @@ function ListeningPracticeExam({ exam, onBack }) {
   const audioRef = useRef(null)
   const pendingSeekTimeRef = useRef(null)
   const lastAudioSaveRef = useRef(0)
+  const [flaggedQuestions, setFlaggedQuestions] = useState([])
+  const flaggedSet = new Set(flaggedQuestions)
+  const toggleFlag = (num) => setFlaggedQuestions(prev => prev.includes(num) ? prev.filter(n => n !== num) : [...prev, num])
+  const [scratchpad, setScratchpad] = useState('')
+  const [notepadOpen, setNotepadOpen] = useState(false)
 
   const examContainerRef = useRef(null)
 
@@ -586,9 +613,14 @@ function ListeningPracticeExam({ exam, onBack }) {
           <span className="text-xs sm:text-sm font-semibold text-zinc-900 truncate">{exam.title}</span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <span className="text-xs text-zinc-500 font-mono tabular-nums">{answered}/{totalSlots} câu</span>
+          <span className="text-[13px] text-zinc-500 tabular-nums font-medium">{answered}/{totalSlots} câu</span>
+          <ExamNotepadButton
+            open={notepadOpen}
+            hasContent={Boolean(scratchpad.trim())}
+            onClick={() => setNotepadOpen(v => !v)}
+          />
           <div
-            className={`tabular-nums text-xs font-semibold px-3 py-1 rounded-full border flex items-center gap-1.5 ${
+            className={`tabular-nums text-[13px] font-semibold px-3 py-1 rounded-full border flex items-center gap-1.5 ${
               timeLeft < 120
                 ? 'text-red-600 bg-red-50 border-red-200'
                 : timeLeft < 300
@@ -666,8 +698,17 @@ function ListeningPracticeExam({ exam, onBack }) {
         total={totalSlots}
         items={navItems}
         isAnswered={({ number }) => Boolean(answers[number])}
+        flaggedSet={flaggedSet}
+        onToggleFlag={toggleFlag}
         onJump={jumpToQuestion}
         onSubmit={() => setShowConfirm(true)}
+      />
+
+      <ExamNotepad
+        open={notepadOpen}
+        value={scratchpad}
+        onChange={setScratchpad}
+        onClose={() => setNotepadOpen(false)}
       />
 
       {/* Submit confirm */}

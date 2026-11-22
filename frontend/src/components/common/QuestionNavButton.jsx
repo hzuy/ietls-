@@ -27,34 +27,41 @@ const REVIEW_STYLES = {
   missed: { backgroundColor: 'var(--surface-raised)', borderColor: 'var(--border)', color: 'var(--muted)', label: 'bỏ trống' },
 }
 
-export default function QuestionNavButton({ number, status, onClick, size = 32, roundedFull = false, active = false }) {
+export default function QuestionNavButton({ number, status, onClick, onContextMenu, size = 32, roundedFull = false, active = false, flagged = false }) {
   const [hovered, setHovered] = useState(false)
   const answered = status === 'answered'
   const review = REVIEW_STYLES[status]
 
-  const backgroundColor = review ? review.backgroundColor : answered ? 'var(--primary-light)' : '#ffffff'
+  const backgroundColor = review ? review.backgroundColor : answered ? 'var(--primary-light)' : flagged ? '#fffbeb' : '#ffffff'
   const borderColor = review
     ? review.borderColor
-    : answered
-      ? 'var(--primary)'
-      : hovered ? 'var(--primary)' : 'var(--border)'
+    : flagged && !answered
+      ? '#f59e0b'
+      : answered
+        ? 'var(--primary)'
+        : hovered ? 'var(--primary)' : 'var(--border)'
   const color = review
     ? review.color
     : answered
       ? 'var(--primary)'
-      : hovered ? 'var(--primary)' : 'var(--ink)'
+      : flagged
+        ? '#b45309'
+        : hovered ? 'var(--primary)' : 'var(--ink)'
 
   const stateLabel = review ? ` — ${review.label}` : answered ? ' — đã trả lời' : ''
+  const flagLabel = flagged ? ' — đã đánh dấu xem lại' : ''
 
   return (
     <button
       type="button"
       onClick={onClick}
+      onContextMenu={onContextMenu}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      aria-label={`Câu ${number}${stateLabel}`}
+      title={onContextMenu ? `Câu ${number}${flagLabel} (chuột phải để ${flagged ? 'bỏ đánh dấu' : 'đánh dấu xem lại'})` : undefined}
+      aria-label={`Câu ${number}${stateLabel}${flagLabel}`}
       aria-current={active ? 'true' : undefined}
-      className="qnav-btn"
+      className="qnav-btn relative"
       style={{
         boxShadow: active ? '0 0 0 2px #fff, 0 0 0 4px var(--ink)' : undefined,
         width: size,
@@ -76,6 +83,21 @@ export default function QuestionNavButton({ number, status, onClick, size = 32, 
       }}
     >
       {number}
+      {flagged && !review && (
+        <span
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            top: -3,
+            right: -3,
+            width: 9,
+            height: 9,
+            borderRadius: '9999px',
+            backgroundColor: '#f59e0b',
+            border: '1.5px solid #ffffff',
+          }}
+        />
+      )}
     </button>
   )
 }

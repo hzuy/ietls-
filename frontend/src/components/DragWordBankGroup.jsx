@@ -225,20 +225,20 @@ export default function DragWordBankGroup({ group, answers, onAnswer, previewMod
 
   return (
     <div className="mb-6">
-      <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
-        <p className="font-semibold text-zinc-900 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
+      <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-[15px] leading-relaxed">
+        <p className="font-semibold text-zinc-900 text-base mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
         {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
       </div>
 
       {/* Summary text with inline drop targets */}
-      <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-5 mb-4 text-sm leading-9">
+      <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-5 mb-4 text-base leading-9">
         {(group.noteSections || []).map((ns, nsi) => (
           <div key={nsi} className={nsi > 0 ? 'mt-3' : ''}>
             {ns.title && <div className="font-semibold text-zinc-900 mb-1.5 pb-1 border-b border-zinc-200">{ns.title}</div>}
             {(ns.lines || []).map((line, li) => {
               const content = lineText(line)
               if (line.lineType === 'heading') {
-                return <p key={li} className="font-semibold text-zinc-900 text-[0.95rem] mt-2">{content}</p>
+                return <p key={li} className="font-semibold text-zinc-900 text-base mt-2">{content}</p>
               }
               return <p key={li} className="leading-9 text-zinc-800">{parseContent(content)}</p>
             })}
@@ -248,7 +248,7 @@ export default function DragWordBankGroup({ group, answers, onAnswer, previewMod
 
       {/* Word Bank */}
       <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-xs">
-        <p className="text-xs font-semibold uppercase tracking-wider mb-2 text-zinc-500">Word Bank</p>
+        <p className="text-[13px] font-semibold uppercase tracking-wider mb-2 text-zinc-500">Word Bank</p>
         <div className="flex flex-wrap gap-2">
           {wordBank.map(wb => {
             const isUsed = usedLetters.has(wb.optionLetter)
@@ -260,7 +260,7 @@ export default function DragWordBankGroup({ group, answers, onAnswer, previewMod
                 onDragStart={() => { setDragging(wb.optionLetter); setSelected(null) }}
                 onDragEnd={() => { setDragging(null); setDragOver(null) }}
                 onClick={() => handleWordBankClick(wb.optionLetter)}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-sm transition select-none
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-[15px] transition
                   ${previewMode
                     ? 'border-zinc-200 bg-white cursor-default text-zinc-700'
                     : isUsed
@@ -269,7 +269,7 @@ export default function DragWordBankGroup({ group, answers, onAnswer, previewMod
                     ? 'border-zinc-900 bg-zinc-100 cursor-pointer shadow-xs font-medium text-zinc-900'
                     : 'border-zinc-200 bg-white hover:border-zinc-400 hover:bg-zinc-50 cursor-grab active:cursor-grabbing text-zinc-800'}`}
               >
-                <span className="font-bold text-xs text-zinc-900">{wb.optionLetter}</span>
+                <span className="font-bold text-[13px] text-zinc-900">{wb.optionLetter}</span>
                 <span>{wb.optionText}</span>
               </div>
             )

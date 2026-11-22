@@ -33,7 +33,7 @@ export default function PassagePills({ items, activeIndex, onChange, fill = fals
             <span className="hidden sm:inline" aria-hidden="true">{item.label}</span>
             <span
               aria-hidden="true"
-              className={`font-mono text-[11px] sm:text-xs ${
+              className={`tabular-nums text-xs sm:text-[13px] ${
                 isActive ? 'opacity-80' : 'opacity-60'
               }`}
             >

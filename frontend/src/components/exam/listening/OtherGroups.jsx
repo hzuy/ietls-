@@ -23,8 +23,8 @@ import { toImgSrc } from '../../../utils/media'
 
 function InstructionBanner({ group }) {
   return (
-    <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
-      <p className="font-semibold text-zinc-900 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
+    <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-[15px] leading-relaxed">
+      <p className="font-semibold text-zinc-900 text-base mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
       {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
     </div>
   )
@@ -39,7 +39,7 @@ function MatchingGroupInner({ group, answers, onAnswer, previewMode, showAnswers
       {(group.matchingOptions || []).length > 0 && (
         <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4">
           {(group.matchingOptions || []).map(mo => (
-            <p key={mo.id} className="text-sm text-zinc-700 py-0.5">
+            <p key={mo.id} className="text-[15px] text-zinc-700 py-0.5">
               <span className="font-bold text-zinc-900 mr-2">{mo.optionLetter}.</span>{mo.optionText}
             </p>
           ))}
@@ -47,16 +47,16 @@ function MatchingGroupInner({ group, answers, onAnswer, previewMode, showAnswers
       )}
       {(group.questions || []).map(q => (
         <div key={q.id} id={`question-${q.number}`} className="mb-4 scroll-mt-4">
-          <p className="text-sm text-zinc-900 mb-2 leading-relaxed flex gap-2">
-            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-xs shrink-0 mt-0.5">{q.number}</span>
+          <p className="text-base text-zinc-900 mb-2 leading-relaxed flex gap-2.5">
+            <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-[13px] shrink-0 mt-0.5">{q.number}</span>
             <span>{q.questionText}</span>
           </p>
-          <div className="pl-8">
+          <div className="pl-9">
             <select
               value={previewMode && showAnswers ? (q.correctAnswer || '') : (answers[q.id] || '')}
               disabled={previewMode}
               onChange={previewMode ? undefined : e => onAnswer(q.id, e.target.value)}
-              className={`border ${previewMode && showAnswers ? 'border-green-400 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} rounded-full px-3.5 py-1.5 text-sm outline-none bg-white min-w-32`}>
+              className={`border ${previewMode && showAnswers ? 'border-green-400 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} rounded-full px-3.5 py-1.5 text-[15px] outline-none bg-white min-w-32`}>
               <option value="">— Chọn —</option>
               {opts.map(opt => <option key={opt} value={opt}>{opt}</option>)}
             </select>
@@ -84,14 +84,14 @@ function areMatchingPropsEqual(prev, next) {
 const MatchingGroup = React.memo(MatchingGroupInner, areMatchingPropsEqual)
 
 // ── Dispatcher ────────────────────────────────────────────────────────────────
-function GroupBlockInner({ group, answers, onAnswer, previewMode, showAnswers }) {
+function GroupBlockInner({ group, answers, onAnswer, previewMode, showAnswers, flaggedSet, onToggleFlag }) {
   if (['form_completion', 'summary_completion', 'flow_chart_completion', 'sentence_completion', 'short_answer'].includes(group.type)) return <TextTaskGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} numberKeys={false} listening={true} />
-  if (Object.hasOwn(GROUP_TYPE_ALIASES, group.type)) return <GroupBlockInner group={{ ...group, type: questionMechanic(group.type), questions: (group.questions || []).map(q => ({ ...q, type: questionMechanic(group.type) })) }} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
+  if (Object.hasOwn(GROUP_TYPE_ALIASES, group.type)) return <GroupBlockInner group={{ ...group, type: questionMechanic(group.type), questions: (group.questions || []).map(q => ({ ...q, type: questionMechanic(group.type) })) }} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
 
-  if (group.type === 'note_completion') return <NoteCompletionGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
+  if (group.type === 'note_completion') return <NoteCompletionGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
   if (group.type === 'table_completion') return <TableCompletionRender group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
-  if (group.type === 'mcq')             return <MCQGroup group={group} answers={answers} onAnswer={onAnswer} isMulti={false} previewMode={previewMode} showAnswers={showAnswers} />
-  if (group.type === 'mcq_multi')       return <MCQGroup group={group} answers={answers} onAnswer={onAnswer} isMulti={true} previewMode={previewMode} showAnswers={showAnswers} />
+  if (group.type === 'mcq')             return <MCQGroup group={group} answers={answers} onAnswer={onAnswer} isMulti={false} previewMode={previewMode} showAnswers={showAnswers} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
+  if (group.type === 'mcq_multi')       return <MCQGroup group={group} answers={answers} onAnswer={onAnswer} isMulti={true} previewMode={previewMode} showAnswers={showAnswers} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
   if (group.type === 'map_diagram')     return <MapDiagramGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
   if (group.type === 'matching')        return <MatchingGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
   if (group.type === 'drag_word_bank')  return <div id={`question-${group.qNumberStart}`} className="scroll-mt-4"><DragWordBankGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} /></div>
@@ -106,7 +106,9 @@ function areListeningGroupPropsEqual(prev, next) {
     prev.group !== next.group ||
     prev.previewMode !== next.previewMode ||
     prev.showAnswers !== next.showAnswers ||
-    prev.onAnswer !== next.onAnswer
+    prev.onAnswer !== next.onAnswer ||
+    prev.flaggedSet !== next.flaggedSet ||
+    prev.onToggleFlag !== next.onToggleFlag
   ) return false
   const qs = prev.group?.questions || []
   for (let i = 0; i < qs.length; i++) {

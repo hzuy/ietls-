@@ -5,8 +5,8 @@ export default function DiagramLabelGroup({ group, answers, onAnswer, previewMod
 
   return (
     <div id={`question-${group.qNumberStart}`} className="mb-6 scroll-mt-4">
-      <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
-        <p className="font-semibold text-zinc-900 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
+      <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-[15px] leading-relaxed">
+        <p className="font-semibold text-zinc-900 text-base mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
         {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
       </div>
 
@@ -29,7 +29,7 @@ export default function DiagramLabelGroup({ group, answers, onAnswer, previewMod
 
           return (
             <div key={q.id} className="flex items-center gap-3">
-              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-900 font-bold text-xs shrink-0">
+              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-900 font-bold text-[13px] shrink-0">
                 {q.number}
               </span>
               <input
@@ -38,7 +38,7 @@ export default function DiagramLabelGroup({ group, answers, onAnswer, previewMod
                 disabled={previewMode}
                 onChange={previewMode ? undefined : (e) => onAnswer(q.id, e.target.value)}
                 placeholder="Nhập đáp án..."
-                className={`flex-1 min-w-0 border bg-white px-3 py-1 text-sm rounded-full focus:outline-none transition
+                className={`flex-1 min-w-0 border bg-white px-3.5 py-1.5 text-[15px] rounded-full focus:outline-none transition
                   ${previewMode && showAnswers
                     ? 'border-green-500 text-green-700 font-semibold cursor-default'
                     : previewMode
@@ -46,7 +46,7 @@ export default function DiagramLabelGroup({ group, answers, onAnswer, previewMod
                     : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'}`}
               />
               {hint && (
-                <span className="text-xs text-zinc-500 italic shrink-0">{hint}</span>
+                <span className="text-[13px] text-zinc-500 italic shrink-0">{hint}</span>
               )}
             </div>
           )

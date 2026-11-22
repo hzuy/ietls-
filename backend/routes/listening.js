@@ -5,6 +5,7 @@ const validate = require('../middleware/validate')
 const { objectiveSubmitLimiter } = require('../middleware/rateLimiter')
 const { listeningSubmitSchema, resultDetailQuerySchema } = require('../validators/submissionValidator')
 const { AnswerValidationError, scoreMultiChoice, choices, splitChoiceAnswer } = require('../lib/multiChoice')
+const { isAnswerMatch } = require('../lib/answerMatcher')
 const { getListeningBand } = require('../lib/scoreUtils')
 const { sameSubmissionAnswers } = require('../lib/submissionIdentity')
 const { getOrSet, TTL_EXAM_DETAIL } = require('../utils/cache')
@@ -137,9 +138,7 @@ router.post('/exams/:id/submit', authMiddleware, learnerOnly, objectiveSubmitLim
     for (const s of sections) {
       for (const q of s.questions) {
         totalSlots++
-        const userAnswer = (answers[q.id] || '').trim().toLowerCase()
-        const acceptedAnswers = q.correctAnswer.split('/').map(a => a.trim().toLowerCase())
-        const isCorrect = acceptedAnswers.includes(userAnswer)
+        const isCorrect = isAnswerMatch(answers[q.id] || '', q.correctAnswer)
         if (isCorrect) correct++
         result.push({ questionId: q.id, questionType: q.type, questionText: q.questionText, userAnswer: answers[q.id] || '', correctAnswer: q.correctAnswer, isCorrect })
       }
@@ -159,9 +158,7 @@ router.post('/exams/:id/submit', authMiddleware, learnerOnly, objectiveSubmitLim
             isGroupCorrect = scored.correct === maxC
             result.push({ questionId: q.id, questionType: g.type, questionText: q.questionText, userAnswer: userAnswerStr, correctAnswer: q.correctAnswer, isCorrect: isGroupCorrect })
           } else {
-            const userAnswer = userAnswerStr.trim().toLowerCase()
-            const acceptedAnswers = q.correctAnswer.split('/').map(a => a.trim().toLowerCase())
-            const isCorrect = acceptedAnswers.includes(userAnswer)
+            const isCorrect = isAnswerMatch(userAnswerStr, q.correctAnswer)
             if (isCorrect) correct++
             result.push({ questionId: q.id, questionType: g.type, questionText: q.questionText, userAnswer: userAnswerStr, correctAnswer: q.correctAnswer, isCorrect })
           }

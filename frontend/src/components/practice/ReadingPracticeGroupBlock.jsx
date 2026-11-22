@@ -44,18 +44,18 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
     }
     return (
       <div id={`q-${from}`} className="mb-6 scroll-mt-4">
-        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
-          <p className="font-semibold text-zinc-900 mb-1">Questions {from}–{to}</p>
+        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-[15px] leading-relaxed">
+          <p className="font-semibold text-zinc-900 text-base mb-1">Questions {from}–{to}</p>
           {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
         </div>
-        <div className="rounded-2xl p-5 text-sm bg-white border border-zinc-200 shadow-xs">
+        <div className="rounded-2xl p-5 text-base bg-white border border-zinc-200 shadow-xs">
           {(group.noteSections || []).map((ns, nsi) => (
             <div key={nsi} className="mb-3 last:mb-0">
               {ns.title && <div className="font-semibold text-zinc-900 mb-1.5 border-b border-zinc-200 pb-1">{ns.title}</div>}
-              <ul className="space-y-2">
+              <ul className="space-y-2.5">
                 {(ns.lines || []).map((line, li) => (
                   line.lineType === 'heading'
-                    ? <li key={li} className="list-none font-semibold text-zinc-900 text-[0.95rem] pt-1 pb-0.5">{lineText(line)}</li>
+                    ? <li key={li} className="list-none font-semibold text-zinc-900 text-base pt-1 pb-0.5">{lineText(line)}</li>
                     : <li key={li} className="flex items-start gap-1.5 text-zinc-700 leading-relaxed">
                         <span className="text-zinc-400 mt-1 shrink-0">•</span>
                         <span>{parseContent(lineText(line))}</span>
@@ -122,8 +122,8 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
     const maxChoices = group.maxChoices || 2
     return (
       <div id={`q-${from}`} className="mb-6 scroll-mt-4">
-        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
-          <p className="font-semibold text-zinc-900 mb-1">Questions {from}–{to}</p>
+        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-[15px] leading-relaxed">
+          <p className="font-semibold text-zinc-900 text-base mb-1">Questions {from}–{to}</p>
           {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
         </div>
         {(group.questions || []).map((q, qi) => {
@@ -134,7 +134,7 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
           return (
             <div key={q.id} className="mb-4">
               {q.questionText && (
-                <p className="text-sm text-zinc-900 mb-2 leading-relaxed flex gap-2">
+                <p className="text-base text-zinc-900 mb-2.5 leading-relaxed flex gap-2.5">
                   <span className="font-bold text-zinc-700 shrink-0">{from + qi * maxChoices}–{from + qi * maxChoices + maxChoices - 1}.</span>
                   <span>{q.questionText}</span>
                 </p>
@@ -144,7 +144,7 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
                   const checked = selected.includes(opt)
                   const disabled = !checked && limitReached
                   return (
-                    <label key={oi} className={`exam-option rounded-full
+                    <label key={oi} onClick={(e) => { if (window.getSelection?.()?.toString?.().trim()) e.preventDefault() }} className={`exam-option rounded-full
                       ${checked ? 'bg-zinc-100 border border-zinc-900 text-zinc-900 font-medium cursor-pointer'
                       : disabled ? 'border border-transparent text-zinc-300 cursor-not-allowed'
                       : 'hover:bg-zinc-50 border border-transparent text-zinc-700 cursor-pointer'}`}>
@@ -153,7 +153,7 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
                           const next = checked ? selected.filter(s => s !== opt) : [...selected, opt]
                           onAnswer(q.id, next.join(','))
                         }} />
-                      {String.fromCharCode(65 + oi)}. {opt}
+                      <span>{String.fromCharCode(65 + oi)}. {opt}</span>
                     </label>
                   )
                 })}
@@ -169,23 +169,23 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
   if (group.type === 'mcq') {
     return (
       <div id={`q-${from}`} className="mb-6 scroll-mt-4">
-        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
-          <p className="font-semibold text-zinc-900 mb-1">Questions {from}–{to}</p>
+        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-[15px] leading-relaxed">
+          <p className="font-semibold text-zinc-900 text-base mb-1">Questions {from}–{to}</p>
           {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
         </div>
         {(group.questions || []).map(q => {
           const opts = Array.isArray(q.options) ? q.options : (q.options ? JSON.parse(q.options) : [])
           return (
             <div key={q.id} id={`q-${q.number}`} className="mb-5 scroll-mt-4">
-              <p className="text-sm text-zinc-900 mb-2 flex gap-2">
-                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-xs shrink-0 mt-0.5">{q.number}</span>
+              <p className="text-base text-zinc-900 mb-2.5 leading-relaxed flex gap-2.5">
+                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-[13px] shrink-0 mt-0.5">{q.number}</span>
                 <span>{q.questionText}</span>
               </p>
-              <div className="space-y-1.5 pl-8">
+              <div className="space-y-1.5 pl-9">
                 {opts.filter(o => o && o.trim()).map((opt, oi) => {
                   const isSelected = answers[q.id] === opt
                   return (
-                    <label key={oi} className={`exam-option rounded-full cursor-pointer
+                    <label key={oi} onClick={(e) => { if (window.getSelection?.()?.toString?.().trim()) e.preventDefault() }} className={`exam-option rounded-full cursor-pointer
                       ${isSelected ? 'bg-zinc-100 border border-zinc-900 text-zinc-900 font-medium' : 'hover:bg-zinc-50 border border-transparent text-zinc-700'}`}>
                       <input type="radio" name={`q${q.id}`} checked={isSelected} onChange={() => onAnswer(q.id, opt)} className="accent-zinc-900 shrink-0" />
                       <span>{String.fromCharCode(65 + oi)}. {opt}</span>
@@ -205,21 +205,21 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
     const tfOpts = group.type === 'true_false_ng' ? ['TRUE', 'FALSE', 'NOT GIVEN'] : ['YES', 'NO', 'NOT GIVEN']
     return (
       <div id={`q-${from}`} className="mb-6 scroll-mt-4">
-        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
-          <p className="font-semibold text-zinc-900 mb-1">Questions {from}–{to}</p>
+        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-[15px] leading-relaxed">
+          <p className="font-semibold text-zinc-900 text-base mb-1">Questions {from}–{to}</p>
           {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
         </div>
         {(group.questions || []).map(q => (
           <div key={q.id} id={`q-${q.number}`} className="mb-6 scroll-mt-4">
-            <p className="text-sm text-zinc-900 mb-2 leading-relaxed flex gap-2">
-              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-xs shrink-0 mt-0.5">{q.number}</span>
+            <p className="text-base text-zinc-900 mb-2.5 leading-relaxed flex gap-2.5">
+              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-[13px] shrink-0 mt-0.5">{q.number}</span>
               <span>{q.questionText}</span>
             </p>
-            <div className="space-y-1.5 pl-8">
+            <div className="space-y-1.5 pl-9">
               {tfOpts.map(opt => {
                 const isSelected = answers[q.id] === opt
                 return (
-                  <label key={opt} className={`exam-option rounded-full cursor-pointer
+                  <label key={opt} onClick={(e) => { if (window.getSelection?.()?.toString?.().trim()) e.preventDefault() }} className={`exam-option rounded-full cursor-pointer
                     ${isSelected ? 'bg-zinc-100 border border-zinc-900 text-zinc-900 font-medium' : 'hover:bg-zinc-50 border border-transparent text-zinc-700'}`}>
                     <input type="radio" name={`q${q.id}`} checked={isSelected} onChange={() => onAnswer(q.id, opt)} className="accent-zinc-900 shrink-0" />
                     <span>{opt}</span>
@@ -236,20 +236,20 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
   // Default: text input
   return (
     <div id={`q-${from}`} className="mb-6 scroll-mt-4">
-      <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-3 text-sm">
-        <p className="font-semibold text-zinc-900 mb-1">Questions {from}–{to}</p>
-        {group.instruction && <p className="text-zinc-600 text-xs">{group.instruction}</p>}
+      <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-3 text-[15px] leading-relaxed">
+        <p className="font-semibold text-zinc-900 text-base mb-1">Questions {from}–{to}</p>
+        {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
       </div>
       {(group.questions || []).map(q => (
         <div key={q.id} id={`q-${q.number}`} className="mb-6 scroll-mt-4">
-          <p className="text-sm text-zinc-900 mb-2 leading-relaxed flex gap-2">
-            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-xs shrink-0 mt-0.5">{q.number}</span>
+          <p className="text-base text-zinc-900 mb-2.5 leading-relaxed flex gap-2.5">
+            <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-[13px] shrink-0 mt-0.5">{q.number}</span>
             <span>{q.questionText}</span>
           </p>
-          <div className="pl-8">
+          <div className="pl-9">
             <input type="text" value={answers[q.id] || ''} onChange={e => onAnswer(q.id, e.target.value)}
               placeholder="Nhập đáp án..."
-              className="border-b-2 border-zinc-300 focus:border-zinc-900 outline-none px-2 py-1 text-sm w-64 bg-transparent text-zinc-900 transition" />
+              className="exam-input w-64 max-w-full text-zinc-900" />
           </div>
         </div>
       ))}

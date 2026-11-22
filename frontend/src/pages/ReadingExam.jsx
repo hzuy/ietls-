@@ -14,6 +14,7 @@ import { useBrowserHistoryGuard } from '../hooks/useBrowserHistoryGuard'
 import { BookOpen, Clock, LayoutGrid, ChevronUp, ChevronDown, ArrowRight } from 'lucide-react'
 import HighlightLayer, { getOffsetWithinElement } from '../components/exam/HighlightLayer'
 import HighlightPopovers from '../components/exam/HighlightPopovers'
+import ExamNotepad, { ExamNotepadButton } from '../components/exam/ExamNotepad'
 import { useTextHighlight } from '../hooks/useTextHighlight'
 import MatchingTickGrid from '../components/MatchingTickGrid'
 import DragWordBankGroup from '../components/DragWordBankGroup'
@@ -89,6 +90,13 @@ export default function ReadingExam() {
     return (!isNaN(n) && n >= 25 && n <= 75) ? n : 50
   })
   const [isDragging, setIsDragging] = useState(false)
+  const [flaggedQuestions, setFlaggedQuestions] = useState([])
+  const flaggedSet = useMemo(() => new Set(flaggedQuestions), [flaggedQuestions])
+  const toggleFlag = useCallback((num) => {
+    setFlaggedQuestions(prev => prev.includes(num) ? prev.filter(n => n !== num) : [...prev, num])
+  }, [])
+  const [scratchpad, setScratchpad] = useState('')
+  const [notepadOpen, setNotepadOpen] = useState(false)
 
   // ── Highlight text (kiểu IELTS on Computer: đoạn văn, câu hỏi, tiêu đề...) ────
   const examContainerRef = useRef(null)
@@ -120,13 +128,13 @@ export default function ReadingExam() {
   const autosaveRef = useRef(null)
   useEffect(() => {
     autosaveRef.current = {
-      answers, timeLeft, highlights,
+      answers, timeLeft, highlights, flaggedQuestions, scratchpad,
       userId: user ? (user.id || user._id) : null,
       totalSlots,
     }
   })
   const persistDraftNow = useCallback(() => {
-    const { answers, timeLeft, highlights, userId, totalSlots: draftTotalSlots } = autosaveRef.current
+    const { answers, timeLeft, highlights, flaggedQuestions, scratchpad, userId, totalSlots: draftTotalSlots } = autosaveRef.current
     if (!userId || !id) return
     // P3-2: đừng để answers rỗng ghi đè một draft cũ không rỗng
     // (vd reload KHÔNG kèm ?resume=true → vào 'exam' với answers = {})
@@ -136,6 +144,8 @@ export default function ReadingExam() {
         existing.timeRemaining = timeLeft
         existing.savedAt = new Date().toISOString()
         existing.highlights = highlights
+        existing.flaggedQuestions = flaggedQuestions
+        existing.scratchpad = scratchpad
         try {
           localStorage.setItem(`ielts_draft_${userId}_${id}_reading`, JSON.stringify(existing))
           setLastSavedAt(new Date())
@@ -144,7 +154,7 @@ export default function ReadingExam() {
       }
     }
     const examTitle = exam?.title || (exam?.seriesName ? `${exam.seriesName} · Test ${exam.testNumber} Reading` : 'IELTS Reading')
-    saveDraft({ userId, examId: id, skillType: 'reading', data: answers, timeRemaining: timeLeft, examTitle, totalQuestions: draftTotalSlots || 40, highlights })
+    saveDraft({ userId, examId: id, skillType: 'reading', data: answers, timeRemaining: timeLeft, examTitle, totalQuestions: draftTotalSlots || 40, highlights, flaggedQuestions, scratchpad })
     savedDraftRef.current = JSON.stringify(answers)
     setLastSavedAt(new Date())
   }, [id, exam])
@@ -207,6 +217,8 @@ export default function ReadingExam() {
             if (draft.timeRemaining != null) setTimeLeft(draft.timeRemaining)
             if (draft.savedAt) setLastSavedAt(new Date(draft.savedAt))
             if (Array.isArray(draft.highlights)) setHighlights(draft.highlights)
+            if (Array.isArray(draft.flaggedQuestions)) setFlaggedQuestions(draft.flaggedQuestions)
+            if (typeof draft.scratchpad === 'string') setScratchpad(draft.scratchpad)
           } else if (!previewMode && !viewResultMode) {
             const examTitle = data?.title || (data?.seriesName ? `${data.seriesName} · Test ${data.testNumber} Reading` : 'IELTS Reading')
             saveDraft({
@@ -519,11 +531,16 @@ export default function ReadingExam() {
             </button>
           ) : (
             <>
-              <span className="text-xs text-zinc-500 font-mono tabular-nums">
+              <span className="text-[13px] text-zinc-500 tabular-nums font-medium">
                 {answered}/{totalSlots} câu
               </span>
+              <ExamNotepadButton
+                open={notepadOpen}
+                hasContent={Boolean(scratchpad.trim())}
+                onClick={() => setNotepadOpen(v => !v)}
+              />
               <div
-                className={`tabular-nums text-xs font-semibold px-3 py-1 rounded-full border flex items-center gap-1.5 ${
+                className={`tabular-nums text-[13px] font-semibold px-3 py-1 rounded-full border flex items-center gap-1.5 ${
                   timeLeft < 300
                     ? 'text-red-600 bg-red-50 border-red-200'
                     : timeLeft < 600
@@ -557,10 +574,10 @@ export default function ReadingExam() {
             <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Passage {activePassage + 1}</span>
           </div>
 
-          <h2 className="text-lg font-semibold text-zinc-900 text-center mb-1 leading-snug">{passage.title}</h2>
-          {passage.subtitle && <p className="text-sm text-zinc-500 text-center mb-2 italic">{passage.subtitle}</p>}
+          <h2 className="text-xl font-semibold text-zinc-900 text-center mb-1.5 leading-snug">{passage.title}</h2>
+          {passage.subtitle && <p className="text-[15px] text-zinc-500 text-center mb-2 italic">{passage.subtitle}</p>}
           <div className="w-16 h-0.5 bg-zinc-900 mx-auto mb-6" />
-          <div className="text-zinc-800 font-normal text-base leading-relaxed">
+          <div className="text-zinc-800 font-normal text-[17px] leading-[1.75]">
             {passage.body
               ? readingParagraphs(passage.body).map((para, i) => {
                     const capitalized = para.charAt(0).toUpperCase() + para.slice(1)
@@ -629,6 +646,8 @@ export default function ReadingExam() {
                     showAnswers={showAnswers}
                     viewResultMode={viewResultMode}
                     reviewData={reviewData}
+                    flaggedSet={flaggedSet}
+                    onToggleFlag={toggleFlag}
                   />
                 )
                 groupOffset += (group.questions || []).length
@@ -654,6 +673,8 @@ export default function ReadingExam() {
                       showAnswers={showAnswers}
                       viewResultMode={viewResultMode}
                       reviewData={reviewData}
+                      flagged={flaggedSet.has(q.number)}
+                      onToggleFlag={toggleFlag}
                     />
                   ))}
                 </div>
@@ -676,7 +697,9 @@ export default function ReadingExam() {
                     number={slot.number}
                     roundedFull={true}
                     status={isSlotAnswered(slot, answers) ? 'answered' : 'unanswered'}
+                    flagged={flaggedSet.has(slot.number)}
                     onClick={() => jumpToQuestion(slot.number)}
+                    onContextMenu={(e) => { e.preventDefault(); toggleFlag(slot.number) }}
                   />
                 ))}
               </div>
@@ -776,14 +799,25 @@ export default function ReadingExam() {
           activeIndex={activePassage}
           onClose={() => setShowQuestionPanel(false)}
           onJump={jumpToQuestion}
+          onToggleFlag={toggleFlag}
           groups={exam.passages.map(p => ({
             label: `Passage ${p.number}`,
             items: getPassageSlots(p).map(slot => ({
               number: slot.number,
               answered: isSlotAnswered(slot, answers),
+              flagged: flaggedSet.has(slot.number),
               ref: slot.number,
             })),
           }))}
+        />
+      )}
+
+      {!previewMode && (
+        <ExamNotepad
+          open={notepadOpen}
+          value={scratchpad}
+          onChange={setScratchpad}
+          onClose={() => setNotepadOpen(false)}
         />
       )}
 
