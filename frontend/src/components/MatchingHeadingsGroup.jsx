@@ -53,12 +53,9 @@ export default function MatchingHeadingsGroup({ group, answers, onAnswer, previe
 
   return (
     <div id={`question-${group.qNumberStart}`} className="mb-6 scroll-mt-4">
-      <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-3 text-sm">
+      <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
         <p className="font-semibold text-zinc-900 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
-        {group.instruction && <p className="text-zinc-500 text-xs mb-1">{group.instruction}</p>}
-        {!previewMode && (
-          <p className="text-zinc-500 text-xs italic">Kéo heading vào paragraph, hoặc click heading → click paragraph.</p>
-        )}
+        {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
       </div>
 
       <div className="flex gap-3">

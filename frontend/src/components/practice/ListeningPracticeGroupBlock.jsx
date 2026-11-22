@@ -62,8 +62,8 @@ export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }
   return (
     <div id={`q-${group.qNumberStart}`} className="mb-6 scroll-mt-4">
       <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
-        <p className="font-semibold text-zinc-900 mb-0.5">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
-        {group.instruction && <p className="text-zinc-600 text-xs">{group.instruction}</p>}
+        <p className="font-semibold text-zinc-900 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
+        {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
       </div>
 
       {/* note_completion */}
@@ -155,7 +155,7 @@ export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }
               <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-xs shrink-0 mt-0.5">{q.number}</span>
               <span>{q.questionText}</span>
             </p>
-            <p className="text-xs text-zinc-400 pl-8 mb-2">Chọn {maxChoices} đáp án</p>
+            <p className="text-xs text-zinc-400 pl-8 mb-2">Choose {maxChoices} answers</p>
             <div className="space-y-1.5 pl-8">
               {(Array.isArray(q.options) ? q.options : []).filter(o => o && o.trim()).map((opt, oi) => {
                 const isSelected = selected.includes(opt)
@@ -188,7 +188,7 @@ export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }
               <span className="flex-1 text-sm text-zinc-800">{q.questionText}</span>
               <select value={answers[q.number] || ''} onChange={e => onAnswer(q.number, e.target.value)}
                 className="border border-zinc-300 rounded-full px-3.5 py-1.5 text-sm outline-none focus:border-zinc-900 text-zinc-900 bg-white min-w-32">
-                <option value="">— Chọn —</option>
+                <option value="">— Select —</option>
                 {opts.map(mo => <option key={mo.letter} value={mo.letter}>{mo.letter}. {mo.text}</option>)}
               </select>
             </div>
@@ -216,7 +216,7 @@ export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }
               <span className="flex-1 text-sm text-zinc-800">{q.questionText}</span>
               <select value={answers[q.number] || ''} onChange={e => onAnswer(q.number, e.target.value)}
                 className="border border-zinc-300 rounded-full px-3.5 py-1.5 text-sm outline-none focus:border-zinc-900 text-zinc-900 bg-white min-w-32">
-                <option value="">— Chọn —</option>
+                <option value="">— Select —</option>
                 {opts.map(mo => <option key={mo.letter} value={mo.letter}>{mo.letter}. {mo.text}</option>)}
               </select>
             </div>
@@ -260,7 +260,7 @@ export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }
                 </p>
                 <select value={answers[q.number] || ''} onChange={e => onAnswer(q.number, e.target.value)}
                   className="w-full border border-zinc-300 rounded-full px-3.5 py-1.5 text-sm outline-none focus:border-zinc-900 text-zinc-900 bg-white">
-                  <option value="">— Chọn đáp án —</option>
+                  <option value="">— Select —</option>
                   {opts.map(mo => <option key={mo.letter} value={mo.letter}>{mo.letter}. {mo.text}</option>)}
                 </select>
               </div>

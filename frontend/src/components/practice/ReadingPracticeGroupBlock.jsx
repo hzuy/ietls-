@@ -44,9 +44,9 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
     }
     return (
       <div id={`q-${from}`} className="mb-6 scroll-mt-4">
-        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-3 text-sm">
+        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
           <p className="font-semibold text-zinc-900 mb-1">Questions {from}–{to}</p>
-          {group.instruction && <p className="text-zinc-600 text-xs">{group.instruction}</p>}
+          {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
         </div>
         <div className="rounded-2xl p-5 text-sm bg-white border border-zinc-200 shadow-xs">
           {(group.noteSections || []).map((ns, nsi) => (
@@ -79,9 +79,9 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
     const letters = (group.matchingOptions || []).map(mo => mo.optionLetter).filter(Boolean)
     return (
       <div id={`q-${from}`} className="mb-6 scroll-mt-4">
-        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-3 text-sm">
+        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
           <p className="font-semibold text-zinc-900 mb-1">Questions {from}–{to}</p>
-          {group.instruction && <p className="text-zinc-600 text-xs mb-1">{group.instruction}</p>}
+          {group.instruction && <p className="text-zinc-600 mb-1">{group.instruction}</p>}
           <p className="text-zinc-400 text-xs italic">You may use any letter more than once.</p>
         </div>
         <MatchingTickGrid letters={letters} questions={group.questions || []} answers={answers} onAnswer={onAnswer} accentColor="zinc" />
@@ -122,9 +122,9 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
     const maxChoices = group.maxChoices || 2
     return (
       <div id={`q-${from}`} className="mb-6 scroll-mt-4">
-        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-3 text-sm">
+        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
           <p className="font-semibold text-zinc-900 mb-1">Questions {from}–{to}</p>
-          {group.instruction && <p className="text-zinc-600 text-xs">{group.instruction}</p>}
+          {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
         </div>
         {(group.questions || []).map((q, qi) => {
           const opts = Array.isArray(q.options) ? q.options : (q.options ? JSON.parse(q.options) : [])
@@ -169,9 +169,9 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
   if (group.type === 'mcq') {
     return (
       <div id={`q-${from}`} className="mb-6 scroll-mt-4">
-        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-3 text-sm">
+        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
           <p className="font-semibold text-zinc-900 mb-1">Questions {from}–{to}</p>
-          {group.instruction && <p className="text-zinc-600 text-xs">{group.instruction}</p>}
+          {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
         </div>
         {(group.questions || []).map(q => {
           const opts = Array.isArray(q.options) ? q.options : (q.options ? JSON.parse(q.options) : [])
@@ -205,9 +205,9 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
     const tfOpts = group.type === 'true_false_ng' ? ['TRUE', 'FALSE', 'NOT GIVEN'] : ['YES', 'NO', 'NOT GIVEN']
     return (
       <div id={`q-${from}`} className="mb-6 scroll-mt-4">
-        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-3 text-sm">
+        <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
           <p className="font-semibold text-zinc-900 mb-1">Questions {from}–{to}</p>
-          {group.instruction && <p className="text-zinc-600 text-xs">{group.instruction}</p>}
+          {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
         </div>
         {(group.questions || []).map(q => (
           <div key={q.id} id={`q-${q.number}`} className="mb-6 scroll-mt-4">
