@@ -466,26 +466,29 @@ export default function ListeningPractice() {
       return
     }
 
-    setGeneratingAI(true)
-    isCancellingAIRef.current = false
-    const abortController = new AbortController()
-    abortControllerRef.current = abortController
-    setAiProgress({ current: 0, total: 0, label: 'chuẩn bị...' })
-
     const availableNumbers = form.questionGroups.flatMap(g => eligibleExplanationNumbers(g, { overwriteProtected, resolveChoices, questionNumbers }))
       .filter(n => Number.isInteger(n) && n > 0)
     const targetNumbers = Array.isArray(questionNumbers)
       ? [...new Set(questionNumbers.map(Number))].filter(n => availableNumbers.includes(n))
       : [...new Set(availableNumbers)]
     if (targetNumbers.length === 0) {
-      setGeneratingAI(false)
-      setAiProgress(null)
-      abortControllerRef.current = null
+      if (!overwriteProtected) {
+        const confirmed = window.confirm('Tất cả câu hỏi đã có lời giải thích hoàn chỉnh. Bạn có chắc chắn muốn tạo lại toàn bộ giải thích bằng AI không?')
+        if (confirmed) {
+          return handleGenerateAI({ resolveChoices, overwriteProtected: true, questionNumbers })
+        }
+      }
       aiReport.start([], { scope: 'all' })
       aiReport.finish({ totalGenerated: 0, errors: [], remainingQuestionNumbers: [] })
       showToast('Tất cả câu hỏi đã có lời giải thích hoàn chỉnh', 'info')
       return
     }
+
+    setGeneratingAI(true)
+    isCancellingAIRef.current = false
+    const abortController = new AbortController()
+    abortControllerRef.current = abortController
+    setAiProgress({ current: 0, total: 0, label: 'chuẩn bị...' })
     const totalTarget = targetNumbers.length
     aiReport.start(targetNumbers, { scope: Array.isArray(questionNumbers) ? 'retry' : 'all' })
 
@@ -538,7 +541,7 @@ export default function ListeningPractice() {
           })
           return api.post(`/practice/admin/listening/${editing.id}/generate-explanations`, payload, opts)
         },
-        basePayload: { force: Array.isArray(questionNumbers) && questionNumbers.length > 0 },
+        basePayload: { force: (Array.isArray(questionNumbers) && questionNumbers.length > 0) || Boolean(overwriteProtected) },
         initialQuestionNumbers: Array.isArray(questionNumbers) ? targetNumbers : null,
         signal: abortController.signal,
         onProgress: ({ current, total, data }) => {

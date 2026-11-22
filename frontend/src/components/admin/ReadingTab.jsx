@@ -732,6 +732,12 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
       ? questionNumbers.map(Number).filter(n => Number.isInteger(n) && n > 0)
       : eligible).filter(number => eligible.includes(number))
     if (!targetNumbers.length) {
+      if (!overwriteProtected) {
+        const confirmed = window.confirm('Nhóm câu hỏi này đã có đầy đủ lời giải thích. Bạn có chắc chắn muốn tạo lại giải thích bằng AI không?')
+        if (confirmed) {
+          return handleGenerateGroupAI(group, { resolveChoices, overwriteProtected: true, questionNumbers })
+        }
+      }
       persistRunReport(finishRunReport(createRunReport({ examId: editingId, skill: 'reading', scope: 'group', totalQuestions: 0 })))
       showToast('Nhóm câu hỏi này đã có đầy đủ lời giải thích.', 'info')
       return
@@ -777,7 +783,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
           })
           return api.post(`/admin/exams/${editingId}/groups/${group.id}/generate-explanations`, payload, opts)
         },
-        basePayload: { force: Array.isArray(questionNumbers) && questionNumbers.length > 0 },
+        basePayload: { force: (Array.isArray(questionNumbers) && questionNumbers.length > 0) || Boolean(overwriteProtected) },
         signal: abortController.signal,
         initialQuestionNumbers: isRetryScope ? targetNumbers : null,
         onProgress: ({ current, total, data }) => {
@@ -899,6 +905,12 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
 
     allGroups = allGroups.filter(group => numbersForGroup(group).length > 0)
     if (!allGroups.length) {
+      if (!overwriteProtected) {
+        const confirmed = window.confirm('Tất cả câu hỏi đã có lời giải thích hoàn chỉnh. Bạn có chắc chắn muốn tạo lại toàn bộ giải thích bằng AI không?')
+        if (confirmed) {
+          return handleGenerateSequentialAll({ resolveChoices, overwriteProtected: true, questionNumbers })
+        }
+      }
       persistRunReport(finishRunReport(createRunReport({ examId: editingId, skill: 'reading', totalQuestions: 0 })))
       showToast('Tất cả câu hỏi đã có lời giải thích hoàn chỉnh', 'info')
       return
@@ -959,7 +971,7 @@ function ReadingTab({ exams, onRefresh, examSeries = [], paginationData, fetchEx
               opts
             )
           },
-          basePayload: { force: Array.isArray(questionNumbers) && questionNumbers.length > 0, operationId: runOperationId },
+          basePayload: { force: (Array.isArray(questionNumbers) && questionNumbers.length > 0) || Boolean(overwriteProtected), operationId: runOperationId },
           signal: abortController.signal,
           initialQuestionNumbers: requestedSet ? groupNums : null,
           onProgress: ({ current, data }) => {
