@@ -30,7 +30,6 @@ import { resolveImg } from '../utils/media'
 import { useTextHighlight } from '../hooks/useTextHighlight'
 import HighlightLayer from '../components/exam/HighlightLayer'
 import HighlightPopovers from '../components/exam/HighlightPopovers'
-import ExamNotepad, { ExamNotepadButton } from '../components/exam/ExamNotepad'
 import ReportIssueButton from '../components/common/ReportIssueButton'
 
 const PRACTICE_TIME = 20 * 60
@@ -89,8 +88,6 @@ function ReadingPracticeExam({ exam, onBack }) {
   const [flaggedQuestions, setFlaggedQuestions] = useState([])
   const flaggedSet = new Set(flaggedQuestions)
   const toggleFlag = (num) => setFlaggedQuestions(prev => prev.includes(num) ? prev.filter(n => n !== num) : [...prev, num])
-  const [scratchpad, setScratchpad] = useState('')
-  const [notepadOpen, setNotepadOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
   const [splitRatio, setSplitRatio] = useState(() => {
     const saved = localStorage.getItem('reading-split-ratio')
@@ -278,11 +275,6 @@ function ReadingPracticeExam({ exam, onBack }) {
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <span className="text-[13px] text-zinc-500 tabular-nums font-medium">{answered}/{totalSlots} câu</span>
-          <ExamNotepadButton
-            open={notepadOpen}
-            hasContent={Boolean(scratchpad.trim())}
-            onClick={() => setNotepadOpen(v => !v)}
-          />
           <div
             className={`tabular-nums text-[13px] font-semibold px-3 py-1 rounded-full border flex items-center gap-1.5 ${
               timeLeft < 300
@@ -367,13 +359,6 @@ function ReadingPracticeExam({ exam, onBack }) {
         onSubmit={() => setShowConfirm(true)}
       />
 
-      <ExamNotepad
-        open={notepadOpen}
-        value={scratchpad}
-        onChange={setScratchpad}
-        onClose={() => setNotepadOpen(false)}
-      />
-
       {/* Submit confirm */}
       <ExamActionDialog
         open={showConfirm}
@@ -421,8 +406,6 @@ function ListeningPracticeExam({ exam, onBack }) {
   const [flaggedQuestions, setFlaggedQuestions] = useState([])
   const flaggedSet = new Set(flaggedQuestions)
   const toggleFlag = (num) => setFlaggedQuestions(prev => prev.includes(num) ? prev.filter(n => n !== num) : [...prev, num])
-  const [scratchpad, setScratchpad] = useState('')
-  const [notepadOpen, setNotepadOpen] = useState(false)
 
   const examContainerRef = useRef(null)
 
@@ -614,11 +597,6 @@ function ListeningPracticeExam({ exam, onBack }) {
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <span className="text-[13px] text-zinc-500 tabular-nums font-medium">{answered}/{totalSlots} câu</span>
-          <ExamNotepadButton
-            open={notepadOpen}
-            hasContent={Boolean(scratchpad.trim())}
-            onClick={() => setNotepadOpen(v => !v)}
-          />
           <div
             className={`tabular-nums text-[13px] font-semibold px-3 py-1 rounded-full border flex items-center gap-1.5 ${
               timeLeft < 120
@@ -702,13 +680,6 @@ function ListeningPracticeExam({ exam, onBack }) {
         onToggleFlag={toggleFlag}
         onJump={jumpToQuestion}
         onSubmit={() => setShowConfirm(true)}
-      />
-
-      <ExamNotepad
-        open={notepadOpen}
-        value={scratchpad}
-        onChange={setScratchpad}
-        onClose={() => setNotepadOpen(false)}
       />
 
       {/* Submit confirm */}

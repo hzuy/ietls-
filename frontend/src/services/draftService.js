@@ -54,7 +54,7 @@ export function isDataEmpty(data) {
  * `highlights` (Reading) — optional list of text-highlight ranges the thí sinh đã tô.
  * `audioProgress` (Listening) — optional { sectionIndex, currentTime } để tự động tua tiếp khi resume.
  */
-export function saveDraft({ userId, examId, skillType, data, timeRemaining, examTitle, totalQuestions, highlights, audioProgress, flaggedQuestions, scratchpad }) {
+export function saveDraft({ userId, examId, skillType, data, timeRemaining, examTitle, totalQuestions, highlights, audioProgress, flaggedQuestions }) {
   if (!userId || !examId || !skillType) return
   const key = draftKey(userId, examId, skillType)
   const existing = loadDraft(userId, examId, skillType)
@@ -70,7 +70,6 @@ export function saveDraft({ userId, examId, skillType, data, timeRemaining, exam
     highlights: highlights !== undefined ? highlights : (existing?.highlights ?? []),
     audioProgress: audioProgress !== undefined ? audioProgress : (existing?.audioProgress ?? null),
     flaggedQuestions: flaggedQuestions !== undefined ? flaggedQuestions : (existing?.flaggedQuestions ?? []),
-    scratchpad: scratchpad !== undefined ? scratchpad : (existing?.scratchpad ?? ''),
   }
   try {
     localStorage.setItem(key, JSON.stringify(payload))
