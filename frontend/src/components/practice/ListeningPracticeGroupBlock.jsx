@@ -92,10 +92,10 @@ export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }
           <div>
             {section.title && <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">{section.title}</p>}
             <div className="overflow-x-auto rounded-2xl border border-zinc-200 shadow-xs bg-white">
-              <table className="w-full border-collapse text-sm">
+              <table className="w-full border-collapse text-base">
                 {headers.length > 0 && headers.some(h => h.trim()) && (
                   <thead><tr className="bg-zinc-50/70">
-                    {headers.map((h, i) => <th key={i} className="text-left px-3 py-2 text-xs font-bold text-zinc-700 border-b border-r last:border-r-0 border-zinc-200">{h}</th>)}
+                    {headers.map((h, i) => <th key={i} className="text-left px-4 py-2.5 text-[13px] font-bold text-zinc-700 border-b border-r last:border-r-0 border-zinc-200">{h}</th>)}
                   </tr></thead>
                 )}
                 <tbody>
@@ -104,7 +104,7 @@ export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }
                     return (
                       <tr key={ri} className={ri % 2 === 1 ? 'bg-zinc-50/40' : 'bg-white'}>
                         {cells.map((cell, ci) => (
-                          <td key={ci} className="px-3 py-2.5 border-b border-r last:border-r-0 border-zinc-200 text-zinc-800">
+                          <td key={ci} className="px-4 py-3 border-b border-r last:border-r-0 border-zinc-200 text-base text-zinc-800">
                             <ListeningTokenLine content={cell} answers={answers} onAnswer={onAnswer} group={group} tokenNumMap={tokenNumMap} isDragWordBank={false} />
                           </td>
                         ))}
@@ -121,15 +121,15 @@ export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }
       {/* mcq */}
       {group.type === 'mcq' && (group.questions || []).map(q => (
         <div key={q.number} id={`q-${q.number}`} className="mb-5 scroll-mt-4">
-          <p className="text-sm text-zinc-900 mb-2 flex gap-2">
-            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-xs shrink-0 mt-0.5">{q.number}</span>
+          <p className="text-base text-zinc-900 mb-2.5 leading-relaxed flex gap-2.5">
+            <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-[13px] shrink-0 mt-0.5">{q.number}</span>
             <span>{q.questionText}</span>
           </p>
-          <div className="space-y-1.5 pl-8">
+          <div className="space-y-1.5 pl-9">
             {(Array.isArray(q.options) ? q.options : []).filter(o => o && o.trim()).map((opt, oi) => {
               const isSelected = answers[q.number] === opt
               return (
-                <label key={oi} className={`exam-option rounded-full cursor-pointer
+                <label key={oi} onClick={(e) => { if (window.getSelection?.()?.toString?.().trim()) e.preventDefault() }} className={`exam-option rounded-full cursor-pointer
                   ${isSelected ? 'bg-zinc-100 border border-zinc-900 text-zinc-900 font-medium' : 'hover:bg-zinc-50 border border-transparent text-zinc-700'}`}>
                   <input type="radio" name={`q${q.number}`} checked={isSelected} onChange={() => onAnswer(q.number, opt)} className="accent-zinc-900 shrink-0" />
                   <span>{String.fromCharCode(65 + oi)}. {opt}</span>
@@ -151,16 +151,16 @@ export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }
         }
         return (
           <div key={q.number} id={`q-${q.number}`} className="mb-5 scroll-mt-4">
-            <p className="text-sm text-zinc-900 mb-2 flex gap-2">
-              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-xs shrink-0 mt-0.5">{q.number}</span>
+            <p className="text-base text-zinc-900 mb-2.5 leading-relaxed flex gap-2.5">
+              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-[13px] shrink-0 mt-0.5">{q.number}</span>
               <span>{q.questionText}</span>
             </p>
-            <p className="text-xs text-zinc-400 pl-8 mb-2">Choose {maxChoices} answers</p>
-            <div className="space-y-1.5 pl-8">
+            <p className="text-[13px] text-zinc-400 pl-9 mb-2">Choose {maxChoices} answers</p>
+            <div className="space-y-1.5 pl-9">
               {(Array.isArray(q.options) ? q.options : []).filter(o => o && o.trim()).map((opt, oi) => {
                 const isSelected = selected.includes(opt)
                 return (
-                  <label key={oi} className={`exam-option rounded-full cursor-pointer
+                  <label key={oi} onClick={(e) => { if (window.getSelection?.()?.toString?.().trim()) e.preventDefault() }} className={`exam-option rounded-full cursor-pointer
                     ${isSelected ? 'bg-zinc-100 border border-zinc-900 text-zinc-900 font-medium' : 'hover:bg-zinc-50 border border-transparent text-zinc-700'}`}>
                     <input type="checkbox" checked={isSelected} disabled={!isSelected && selected.length >= maxChoices} onChange={() => toggleOpt(opt)} className="accent-zinc-900 shrink-0" />
                     <span>{String.fromCharCode(65 + oi)}. {opt}</span>
@@ -177,17 +177,17 @@ export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }
         <div>
           <div className="flex flex-wrap gap-1.5 mb-4">
             {opts.map((mo, mi) => (
-              <span key={mi} className="text-xs px-3 py-1 bg-zinc-100 border border-zinc-200 text-zinc-800 rounded-full">
+              <span key={mi} className="text-[15px] px-3 py-1 bg-zinc-100 border border-zinc-200 text-zinc-800 rounded-full">
                 <span className="font-bold text-zinc-900">{mo.letter}.</span> {mo.text}
               </span>
             ))}
           </div>
           {(group.questions || []).map(q => (
             <div key={q.number} id={`q-${q.number}`} className="flex items-center gap-3 mb-3 scroll-mt-4">
-              <span className="text-xs font-bold text-zinc-500 w-7 shrink-0">{q.number}.</span>
-              <span className="flex-1 text-sm text-zinc-800">{q.questionText}</span>
+              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-[13px] shrink-0">{q.number}</span>
+              <span className="flex-1 text-base text-zinc-800">{q.questionText}</span>
               <select value={answers[q.number] || ''} onChange={e => onAnswer(q.number, e.target.value)}
-                className="border border-zinc-300 rounded-full px-3.5 py-1.5 text-sm outline-none focus:border-zinc-900 text-zinc-900 bg-white min-w-32">
+                className="h-9 border border-zinc-300 rounded-full px-3.5 py-0 text-[15px] outline-none focus:border-zinc-900 text-zinc-900 bg-white min-w-32">
                 <option value="">— Select —</option>
                 {opts.map(mo => <option key={mo.letter} value={mo.letter}>{mo.letter}. {mo.text}</option>)}
               </select>
@@ -205,17 +205,17 @@ export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }
           )}
           <div className="flex flex-wrap gap-1.5 mb-4">
             {opts.map((mo, mi) => (
-              <span key={mi} className="text-xs px-3 py-1 bg-zinc-100 border border-zinc-200 text-zinc-800 rounded-full">
+              <span key={mi} className="text-[15px] px-3 py-1 bg-zinc-100 border border-zinc-200 text-zinc-800 rounded-full">
                 <span className="font-bold text-zinc-900">{mo.letter}.</span> {mo.text}
               </span>
             ))}
           </div>
           {(group.questions || []).map(q => (
             <div key={q.number} id={`q-${q.number}`} className="flex items-center gap-3 mb-3 scroll-mt-4">
-              <span className="text-xs font-bold text-zinc-500 w-7 shrink-0">{q.number}.</span>
-              <span className="flex-1 text-sm text-zinc-800">{q.questionText}</span>
+              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-[13px] shrink-0">{q.number}</span>
+              <span className="flex-1 text-base text-zinc-800">{q.questionText}</span>
               <select value={answers[q.number] || ''} onChange={e => onAnswer(q.number, e.target.value)}
-                className="border border-zinc-300 rounded-full px-3.5 py-1.5 text-sm outline-none focus:border-zinc-900 text-zinc-900 bg-white min-w-32">
+                className="h-9 border border-zinc-300 rounded-full px-3.5 py-0 text-[15px] outline-none focus:border-zinc-900 text-zinc-900 bg-white min-w-32">
                 <option value="">— Select —</option>
                 {opts.map(mo => <option key={mo.letter} value={mo.letter}>{mo.letter}. {mo.text}</option>)}
               </select>

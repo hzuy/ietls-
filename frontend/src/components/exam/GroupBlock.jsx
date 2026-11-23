@@ -153,7 +153,7 @@ function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, 
 
   // Table completion
   if (group.type === 'table_completion') {
-    return <TableCompletionRender group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
+    return <TableCompletionRender group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
   }
 
   // Matching drag-drop (2-column)

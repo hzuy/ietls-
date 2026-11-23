@@ -21,7 +21,7 @@ export default function MatchingTickGrid({
 }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-zinc-200 shadow-xs bg-white">
-      <table className="w-full border-collapse text-[15px]">
+      <table className="w-full border-collapse text-base">
         <thead>
           <tr className="border-b border-zinc-200 bg-zinc-50/70">
             <th className="text-left px-4 py-2.5 border-r border-zinc-200 min-w-[200px]" />
@@ -44,7 +44,7 @@ export default function MatchingTickGrid({
                 className={`border-b border-zinc-100 last:border-b-0 transition-colors scroll-mt-4
                   ${rowSelected ? 'bg-zinc-50' : 'hover:bg-zinc-50/60'}`}
               >
-                <td className="px-4 py-3 border-r border-zinc-200 align-middle">
+                <td className="px-4 py-3 border-r border-zinc-200 align-middle text-base">
                   <span className="font-bold mr-1.5 text-zinc-900">{q.number}.</span>
                   <span className="text-zinc-800 leading-snug">{q.questionText}</span>
                 </td>

@@ -1,8 +1,9 @@
+import { Flag } from 'lucide-react'
 import { lineText } from '../utils/noteLine'
 // Shared render component for table_completion groups
 // Used by both ReadingExam and ListeningExam
 
-function CellContent({ content, questions, answers, onAnswer, previewMode, showAnswers }) {
+function CellContent({ content, questions, answers, onAnswer, previewMode, showAnswers, flaggedSet, onToggleFlag }) {
   const parts = (content || '').split(/(\[Q:\d+\])/)
   return (
     <>
@@ -13,16 +14,35 @@ function CellContent({ content, questions, answers, onAnswer, previewMode, showA
           const q = questions.find(q => q.number === qNum)
           if (!q) return <span key={i} className="inline-block w-16 border-b border-zinc-300 mx-1" />
           const val = previewMode && showAnswers ? (q.correctAnswer || '') : (answers[q.id] || '')
+          const flagged = Boolean(flaggedSet?.has?.(qNum))
           return (
-            <span key={i} className="inline-flex items-center gap-0.5">
-              <span className="text-xs font-semibold text-zinc-500 mr-0.5">{qNum}.</span>
+            <span key={i} id={`question-${qNum}`} className="inline-flex items-center gap-1 mx-1 align-middle scroll-mt-4">
+              {onToggleFlag && !previewMode ? (
+                <button
+                  type="button"
+                  onClick={() => onToggleFlag(qNum)}
+                  title={flagged ? `Bỏ đánh dấu câu ${qNum}` : `Đánh dấu câu ${qNum} để xem lại`}
+                  aria-label={flagged ? `Bỏ đánh dấu câu ${qNum}` : `Đánh dấu câu ${qNum} để xem lại`}
+                  aria-pressed={flagged}
+                  className={`relative inline-flex items-center justify-center w-6 h-6 rounded-full border font-bold text-xs shrink-0 transition-colors cursor-pointer ${
+                    flagged
+                      ? 'bg-amber-50 border-amber-500 text-amber-800'
+                      : 'bg-zinc-100 border-zinc-200 text-zinc-900 hover:border-amber-400 hover:bg-amber-50/50'
+                  }`}
+                >
+                  {qNum}
+                  {flagged && <Flag className="w-2.5 h-2.5 text-amber-600 fill-amber-500 absolute -top-1 -right-1" aria-hidden="true" />}
+                </button>
+              ) : (
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-900 font-bold text-xs shrink-0">{qNum}</span>
+              )}
               <input
                 type="text"
                 value={val}
                 readOnly={previewMode}
                 onChange={previewMode ? undefined : e => onAnswer(q.id, e.target.value)}
                 placeholder={previewMode ? '' : '...'}
-                className={`h-8 leading-normal border ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} rounded-full outline-none px-2.5 py-0 text-[15px] w-28 bg-white text-center transition`}
+                className={`h-8 leading-normal border ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} rounded-full outline-none px-3 py-0 text-[15px] w-32 bg-white text-center transition`}
               />
             </span>
           )
@@ -33,7 +53,7 @@ function CellContent({ content, questions, answers, onAnswer, previewMode, showA
   )
 }
 
-export default function TableCompletionRender({ group, answers, onAnswer, previewMode, showAnswers }) {
+export default function TableCompletionRender({ group, answers, onAnswer, previewMode, showAnswers, flaggedSet, onToggleFlag }) {
   const section = (group.noteSections || [])[0]
   if (!section) return null
 
@@ -55,7 +75,7 @@ export default function TableCompletionRender({ group, answers, onAnswer, previe
         <p className="text-base font-semibold text-zinc-900 mb-2">{section.title}</p>
       )}
       <div className="overflow-x-auto rounded-2xl border border-zinc-200 shadow-xs bg-white">
-        <table className="w-full border-collapse text-[15px]">
+        <table className="w-full border-collapse text-base">
           {headers.length > 0 && headers.some(h => (h || '').trim()) && (
             <thead>
               <tr className="bg-zinc-50/70">
@@ -73,7 +93,7 @@ export default function TableCompletionRender({ group, answers, onAnswer, previe
               return (
                 <tr key={li} className={li % 2 === 1 ? 'bg-zinc-50/40' : 'bg-white'}>
                   {cells.map((cell, ci) => (
-                    <td key={ci} className="px-4 py-2.5 border-b border-r last:border-r-0 border-zinc-200 text-zinc-800 leading-relaxed">
+                    <td key={ci} className="px-4 py-3 border-b border-r last:border-r-0 border-zinc-200 text-base text-zinc-800 leading-relaxed">
                       <CellContent
                         content={cell}
                         questions={questions}
@@ -81,6 +101,8 @@ export default function TableCompletionRender({ group, answers, onAnswer, previe
                         onAnswer={onAnswer}
                         previewMode={previewMode}
                         showAnswers={showAnswers}
+                        flaggedSet={flaggedSet}
+                        onToggleFlag={onToggleFlag}
                       />
                     </td>
                   ))}

@@ -89,7 +89,7 @@ function GroupBlockInner({ group, answers, onAnswer, previewMode, showAnswers, f
   if (Object.hasOwn(GROUP_TYPE_ALIASES, group.type)) return <GroupBlockInner group={{ ...group, type: questionMechanic(group.type), questions: (group.questions || []).map(q => ({ ...q, type: questionMechanic(group.type) })) }} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
 
   if (group.type === 'note_completion') return <NoteCompletionGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
-  if (group.type === 'table_completion') return <TableCompletionRender group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
+  if (group.type === 'table_completion') return <TableCompletionRender group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
   if (group.type === 'mcq')             return <MCQGroup group={group} answers={answers} onAnswer={onAnswer} isMulti={false} previewMode={previewMode} showAnswers={showAnswers} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
   if (group.type === 'mcq_multi')       return <MCQGroup group={group} answers={answers} onAnswer={onAnswer} isMulti={true} previewMode={previewMode} showAnswers={showAnswers} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
   if (group.type === 'map_diagram')     return <MapDiagramGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
@@ -126,8 +126,8 @@ function QuestionBlockInner({ q, globalIdx, answers, onAnswer, previewMode, show
   const selected = selectedOptionValues(answers[q.id], opts)
   return (
     <div id={`question-${q.number}`} className="mb-5 scroll-mt-4">
-      <p className="text-sm text-zinc-900 mb-2 leading-relaxed flex gap-2">
-        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-xs shrink-0 mt-0.5">{globalIdx + 1}</span>
+      <p className="text-base text-zinc-900 mb-2.5 leading-relaxed flex gap-2.5">
+        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-[13px] shrink-0 mt-0.5">{globalIdx + 1}</span>
         <span>{q.questionText}</span>
       </p>
       {q.type === 'mcq' && (

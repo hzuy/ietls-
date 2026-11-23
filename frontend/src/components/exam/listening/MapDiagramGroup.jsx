@@ -3,8 +3,8 @@ import { toImgSrc } from '../../../utils/media'
 
 function InstructionBanner({ group }) {
   return (
-    <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-sm">
-      <p className="font-semibold text-zinc-900 mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
+    <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 mb-4 text-[15px] leading-relaxed">
+      <p className="font-semibold text-zinc-900 text-base mb-1">Questions {group.qNumberStart}–{group.qNumberEnd}</p>
       {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
     </div>
   )
