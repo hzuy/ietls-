@@ -647,7 +647,7 @@ function buildNoteSectionsRaw(g) {
   return (g.noteSections || []).map((ns, nsi) => ({
     title: ns.title || '', sortOrder: nsi,
     lines: (ns.lines || []).map((l, li) => ({
-      contentWithTokens: l.contentWithTokens || l.content || '',
+      contentWithTokens: l.contentWithTokens ?? l.content ?? '',
       lineType: l.lineType || 'content',
       sortOrder: li
     }))
@@ -655,7 +655,11 @@ function buildNoteSectionsRaw(g) {
 }
 
 function buildMatchingOptionsRaw(g) {
-  return (g.matchingOptions || []).map((mo, moi) => ({ optionLetter: mo.letter, optionText: mo.text || '', sortOrder: moi }))
+  return (g.matchingOptions || []).map((mo, moi) => ({
+    optionLetter: mo.letter ?? mo.optionLetter ?? '',
+    optionText: mo.text ?? mo.optionText ?? '',
+    sortOrder: moi
+  }))
 }
 
 // Diff an existing Question[] against submitted question payloads.
@@ -775,16 +779,23 @@ function planGroupUpdate(tx, oldGroup, g, gi, skill, operations, sourceStaleReas
     return {
       ...previous,
       ...section,
-      lines: section.lines === undefined ? oldLines : section.lines.map((line, lineIndex) => ({
-        ...oldLines.find(item => line.id != null && item.id === line.id) || oldLines[lineIndex],
-        ...line,
-      })),
+      lines: section.lines === undefined ? oldLines : section.lines.map((line, lineIndex) => {
+        const oldLine = oldLines.find(item => line.id != null && item.id === line.id) || oldLines[lineIndex]
+        const merged = { ...oldLine, ...line }
+        if (line.content !== undefined && line.contentWithTokens === undefined) {
+          merged.contentWithTokens = line.content
+        }
+        return merged
+      }),
     }
   })
-  const matchingOptions = g.matchingOptions === undefined ? undefined : g.matchingOptions.map((option, index) => ({
-    ...oldGroup.matchingOptions?.find(item => option.id != null && item.id === option.id) || oldGroup.matchingOptions?.[index],
-    ...option,
-  }))
+  const matchingOptions = g.matchingOptions === undefined ? undefined : g.matchingOptions.map((option, index) => {
+    const oldOpt = oldGroup.matchingOptions?.find(item => option.id != null && item.id === option.id) || oldGroup.matchingOptions?.[index]
+    const merged = { ...oldOpt, ...option }
+    if (option.letter !== undefined && option.optionLetter === undefined) merged.optionLetter = option.letter
+    if (option.text !== undefined && option.optionText === undefined) merged.optionText = option.text
+    return merged
+  })
 
   const groupPatch = {
       ...(g.qNumberStart !== undefined ? { qNumberStart: g.qNumberStart } : {}),

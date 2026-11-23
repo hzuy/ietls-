@@ -761,6 +761,57 @@ describe('Admin Exams Router — PUT (diff-based upsert)', () => {
     expect(q2Update.explanation).toBeUndefined()
   })
 
+  it('PUT listening exam saves edited noteSections line.content instead of keeping stale DB contentWithTokens', async () => {
+    const existingSection = {
+      id: 511, number: 1, context: '', audioUrl: null, transcript: null,
+      questions: [],
+      questionGroups: [{
+        id: 611, sortOrder: 0, type: 'note_completion', instruction: '', imageUrl: null, canReuse: false, maxChoices: 2,
+        noteSections: [{
+          id: 801, title: 'Old Title', sortOrder: 0,
+          lines: [{ id: 901, contentWithTokens: 'Old line text [Q:1]', lineType: 'content', sortOrder: 0 }],
+        }],
+        matchingOptions: [],
+        questions: [{ id: 711, number: 1, type: 'fill_blank', questionText: '', options: null, correctAnswer: 'old', imageUrl: null, explanation: null }],
+      }],
+    }
+
+    prismaMock.exam.findUnique
+      .mockResolvedValueOnce({ skill: 'listening' })
+      .mockResolvedValueOnce({ id: 20, title: 'Listening Test 1', listeningSections: [] })
+    prismaMock.listeningSection.findMany.mockResolvedValueOnce([existingSection])
+
+    const body = {
+      title: 'Listening Test 1',
+      sections: [{
+        number: 1, context: '', audioUrl: null, transcript: null,
+        questions: [],
+        questionGroups: [{
+          id: 611, type: 'note_completion', qNumberStart: 1, qNumberEnd: 1, instruction: '', maxChoices: 2,
+          noteSections: [{ title: 'New Title', lines: [{ content: 'Updated line text [Q:1]', lineType: 'content' }] }],
+          matchingOptions: [],
+          questions: [{ id: 711, number: 1, questionText: '', correctAnswer: 'new' }],
+        }],
+      }],
+    }
+
+    await request(app)
+      .put('/api/admin/exams/20')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send(body)
+      .expect(200)
+
+    expect(prismaMock.noteSection.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        groupId: 611,
+        title: 'New Title',
+        lines: {
+          create: [expect.objectContaining({ contentWithTokens: 'Updated line text [Q:1]' })],
+        },
+      }),
+    })
+  })
+
   it('PUT reading exam matches and updates by explicit question.id even if question numbers changed', async () => {
     prismaMock.exam.findUnique.mockResolvedValueOnce({ skill: 'reading' }).mockResolvedValueOnce({ id: 10, passages: [] })
     prismaMock.passage.findMany.mockResolvedValueOnce([oldReadingPassage()])
