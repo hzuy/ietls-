@@ -717,6 +717,50 @@ describe('Admin Exams Router — PUT (diff-based upsert)', () => {
     })
   })
 
+  it('PUT listening exam auto-publishes valid ready AI drafts on save while keeping invalid drafts unpublished', async () => {
+    const { draftEnvelope } = require('../lib/explanationWorkflow')
+    const validDraft = draftEnvelope(null, { v: 2, answer: 'A', reasoning: 'Valid AI reasoning' }, 'hash-ok')
+    const invalidDraft = draftEnvelope(null, { v: 2, answer: 'A', reasoning: 'Bad AI reasoning' }, 'hash-bad', 'Thiếu bằng chứng')
+    const existingSection = {
+      id: 511, number: 1, context: '', audioUrl: null, transcript: null,
+      questions: [],
+      questionGroups: [{
+        id: 611, sortOrder: 0, type: 'matching', instruction: '', imageUrl: null, canReuse: false, maxChoices: 2,
+        noteSections: [],
+        matchingOptions: [{ optionLetter: 'A', optionText: 'Opt A', sortOrder: 0 }],
+        questions: [
+          { id: 711, number: 1, type: 'matching', questionText: 'Q1', options: null, correctAnswer: 'A', imageUrl: null, explanation: validDraft },
+          { id: 712, number: 2, type: 'matching', questionText: 'Q2', options: null, correctAnswer: 'A', imageUrl: null, explanation: invalidDraft },
+        ],
+      }],
+    }
+
+    prismaMock.exam.findUnique
+      .mockResolvedValueOnce({ skill: 'listening' })
+      .mockResolvedValueOnce({ id: 20, title: 'Listening Test 1', listeningSections: [] })
+    prismaMock.listeningSection.findMany.mockResolvedValueOnce([existingSection])
+
+    const body = listeningBody([
+      { number: 1, questionText: 'Q1', correctAnswer: 'A' },
+      { number: 2, questionText: 'Q2', correctAnswer: 'A' },
+    ])
+
+    await request(app)
+      .put('/api/admin/exams/20')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send(body)
+      .expect(200)
+
+    const q1Update = prismaMock.question.update.mock.calls.find(c => c[0].where.id === 711)?.[0]?.data
+    const q2Update = prismaMock.question.update.mock.calls.find(c => c[0].where.id === 712)?.[0]?.data
+    expect(q1Update.explanation).toMatchObject({
+      workflowVersion: 3,
+      draft: null,
+      published: expect.objectContaining({ answer: 'A', reasoning: 'Valid AI reasoning', status: 'teacher_reviewed' }),
+    })
+    expect(q2Update.explanation).toBeUndefined()
+  })
+
   it('PUT reading exam matches and updates by explicit question.id even if question numbers changed', async () => {
     prismaMock.exam.findUnique.mockResolvedValueOnce({ skill: 'reading' }).mockResolvedValueOnce({ id: 10, passages: [] })
     prismaMock.passage.findMany.mockResolvedValueOnce([oldReadingPassage()])

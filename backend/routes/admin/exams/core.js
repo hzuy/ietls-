@@ -2,7 +2,7 @@ const { lockExplanationTarget } = require('../../../lib/explanationWriteLock')
 const { generateForExam, regenerateQuestionExplanation, updateManualExplanation, reviewQuestionExplanation, questionConcurrency } = require('../../../services/explanationDraftService')
 const { listRuns, aggregate } = require('../../../lib/explanationMetrics')
 const { explanationFailureResponse } = require('../../../lib/explanationSave')
-const { fingerprint } = require('../../../lib/explanationWorkflow')
+const { fingerprint, publishReadyDraft } = require('../../../lib/explanationWorkflow')
 const { adminTargetView } = require('../../../lib/explanationQuestionContext')
 const { ExamIdentityConflict, matchExistingGroup } = require('../../../lib/examIdentity')
 const express = require('express')
@@ -677,7 +677,7 @@ function buildStaleExplanation(ex, reason) {
   }
 }
 
-function planQuestionDiff(existingQuestions, submittedQuestions, fieldMapper, sourceStaleReason = null) {
+function planQuestionDiff(existingQuestions, submittedQuestions, fieldMapper, sourceStaleReason = null, actorId = null) {
   const existingById = new Map(existingQuestions.map(q => [q.id, q]))
   const existingByNumber = new Map(existingQuestions.map(q => [q.number, q]))
   const matchedExistingIds = new Set()
@@ -699,6 +699,8 @@ function planQuestionDiff(existingQuestions, submittedQuestions, fieldMapper, so
       else if (optionsChanged) staleReason = 'Các lựa chọn đã thay đổi'
       return { explanation: buildStaleExplanation(ex, staleReason) }
     }
+    const published = publishReadyDraft(ex.explanation, { actorId })
+    if (published) return { explanation: published }
     return {}
   }
   function mergeExisting(ex, q) {
@@ -753,7 +755,7 @@ function planQuestionDiff(existingQuestions, submittedQuestions, fieldMapper, so
 // request has been confirmed answer-safe — see the blocked-deletion check in
 // the route handler) instead of writing immediately, and returns the question
 // rows that are candidates for pruning (not yet deleted).
-function planGroupUpdate(tx, oldGroup, g, gi, skill, operations, sourceStaleReason = null) {
+function planGroupUpdate(tx, oldGroup, g, gi, skill, operations, sourceStaleReason = null, actorId = null) {
   const contextSnapshot = group => ({
     type: group.type, instruction: group.instruction || '', imageUrl: group.imageUrl || null,
     canReuse: Boolean(group.canReuse), maxChoices: group.maxChoices ?? 2,
@@ -809,7 +811,7 @@ function planGroupUpdate(tx, oldGroup, g, gi, skill, operations, sourceStaleReas
     if (opts.length) operations.push(() => tx.matchingOption.createMany({ data: opts.map(o => ({ ...o, groupId: oldGroup.id })) }))
   }
 
-  const plan = g.questions === undefined ? { toUpdate: [], toCreate: [], toPrune: [] } : planQuestionDiff(oldGroup.questions, g.questions, q => mapFn(g.type || oldGroup.type, q), sourceStaleReason)
+  const plan = g.questions === undefined ? { toUpdate: [], toCreate: [], toPrune: [] } : planQuestionDiff(oldGroup.questions, g.questions, q => mapFn(g.type || oldGroup.type, q), sourceStaleReason, actorId)
   if (g.questions === undefined && sourceStaleReason) for (const question of oldGroup.questions) {
     if (question.explanation) operations.push(() => tx.question.update({ where: { id: question.id }, data: { explanation: buildStaleExplanation(question, sourceStaleReason) } }))
   }
@@ -973,7 +975,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema,
               const sourceStaleReason = passageSourceChanged ? 'Nội dung bài đọc đã thay đổi' : null
               const handledQuestionIds = new Set()
 
-              const directPlan = p.questions === undefined ? { toUpdate: [], toCreate: [], toPrune: [] } : planQuestionDiff(oldP.questions, p.questions, mapStandaloneQuestionFields, sourceStaleReason)
+              const directPlan = p.questions === undefined ? { toUpdate: [], toCreate: [], toPrune: [] } : planQuestionDiff(oldP.questions, p.questions, mapStandaloneQuestionFields, sourceStaleReason, req.user?.id || null)
               for (const u of directPlan.toUpdate) { handledQuestionIds.add(u.id); operations.push(() => tx.question.update({ where: { id: u.id }, data: u.data })) }
               if (directPlan.toCreate.length) operations.push(() => tx.question.createMany({ data: directPlan.toCreate.map(q => ({ ...q, passageId: oldP.id })) }))
               counts.created += directPlan.toCreate.length
@@ -994,7 +996,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema,
                 const oldG = matchExistingGroup(g, gi, oldGroups, matchedOldGroupIds)
                 if (oldG) {
                   matchedOldGroupIds.add(oldG.id)
-                  const groupResult = planGroupUpdate(tx, oldG, g, gi, 'reading', operations, sourceStaleReason)
+                  const groupResult = planGroupUpdate(tx, oldG, g, gi, 'reading', operations, sourceStaleReason, req.user?.id || null)
                   counts.created += groupResult.created
                   counts.updated += groupResult.updated
                   groupResult.toPrune.forEach(q => {
@@ -1140,7 +1142,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema,
               const sourceStaleReason = sectionSourceChanged ? 'Ngữ cảnh/transcript phần nghe đã thay đổi' : null
               const handledQuestionIds = new Set()
 
-              const directPlan = s.questions === undefined ? { toUpdate: [], toCreate: [], toPrune: [] } : planQuestionDiff(oldS.questions, s.questions, mapStandaloneQuestionFields, sourceStaleReason)
+              const directPlan = s.questions === undefined ? { toUpdate: [], toCreate: [], toPrune: [] } : planQuestionDiff(oldS.questions, s.questions, mapStandaloneQuestionFields, sourceStaleReason, req.user?.id || null)
               for (const u of directPlan.toUpdate) { handledQuestionIds.add(u.id); operations.push(() => tx.question.update({ where: { id: u.id }, data: u.data })) }
               if (directPlan.toCreate.length) operations.push(() => tx.question.createMany({ data: directPlan.toCreate.map(q => ({ ...q, listeningSectionId: oldS.id })) }))
               counts.created += directPlan.toCreate.length
@@ -1161,7 +1163,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema,
                 const oldG = matchExistingGroup(g, gi, oldGroups, matchedOldGroupIds)
                 if (oldG) {
                   matchedOldGroupIds.add(oldG.id)
-                  const groupResult = planGroupUpdate(tx, oldG, g, gi, 'listening', operations, sourceStaleReason)
+                  const groupResult = planGroupUpdate(tx, oldG, g, gi, 'listening', operations, sourceStaleReason, req.user?.id || null)
                   counts.created += groupResult.created
                   counts.updated += groupResult.updated
                   groupResult.toPrune.forEach(q => {

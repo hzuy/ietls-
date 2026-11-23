@@ -49,8 +49,31 @@ function draftEnvelope(previous, payload, sourceHash, issue = null) {
   }
 }
 
+function publishReadyDraft(previous, { actorId = null } = {}) {
+  if (!isWorkflow(previous)) return null
+  if (previous.status === 'possibly_stale') return null
+  const draft = previous.draft
+  if (!draft?.payload || draft.issue || draft.payload.contentIssue) return null
+  const now = new Date().toISOString()
+  return {
+    workflowVersion: 3,
+    published: {
+      ...draft.payload,
+      status: 'teacher_reviewed',
+      reviewedAt: now,
+      updatedAt: now,
+    },
+    publishedVersion: randomUUID(),
+    publishedSourceHash: draft.sourceHash || null,
+    publishedStale: false,
+    draft: null,
+    reviewedBy: actorId || null,
+    lastGenerationOperation: previous.lastGenerationOperation || null,
+  }
+}
+
 function workflowError(code, message, status = 409) {
   return Object.assign(new Error(message), { code, status })
 }
 
-module.exports = { fingerprint, isWorkflow, versionOf, adminView, publishedView, draftEnvelope, workflowError }
+module.exports = { fingerprint, isWorkflow, versionOf, adminView, publishedView, draftEnvelope, publishReadyDraft, workflowError }

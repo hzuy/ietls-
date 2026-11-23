@@ -122,7 +122,9 @@ function practiceGroupsWithExplanations(rows, { forAdmin = false, source = null 
   })
 }
 
-function carryOverExplanations(oldRows, newGroups, { sourceChanged = false } = {}) {
+const { publishReadyDraft } = require('../lib/explanationWorkflow')
+
+function carryOverExplanations(oldRows, newGroups, { sourceChanged = false, actorId = null } = {}) {
   const old = {}
   for (const row of oldRows || []) {
     const byNumber = row.explanation?.byNumber
@@ -163,7 +165,7 @@ function carryOverExplanations(oldRows, newGroups, { sourceChanged = false } = {
             staleAt: new Date().toISOString()
           }
         } else {
-          byNumber[q.number] = prev.explanation
+          byNumber[q.number] = publishReadyDraft(prev.explanation, { actorId }) || prev.explanation
         }
       }
     }
@@ -448,7 +450,7 @@ router.put('/admin/:skill/:id', authMiddleware, teacherStrict, validate(updatePr
       const oldRows = Array.isArray(questions) || sourceChanged
         ? await tx.practiceQuestion.findMany({ where: { examId: parseInt(id) }, select: { id: true, content: true, explanation: true } })
         : []
-      const keptExplanations = Array.isArray(questions) ? carryOverExplanations(oldRows, questions, { sourceChanged }) : []
+      const keptExplanations = Array.isArray(questions) ? carryOverExplanations(oldRows, questions, { sourceChanged, actorId: req.user?.id || null }) : []
       if (sourceChanged && !Array.isArray(questions)) {
         for (const row of oldRows) {
           if (!row.explanation?.byNumber) continue
