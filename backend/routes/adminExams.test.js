@@ -669,6 +669,54 @@ describe('Admin Exams Router — PUT (diff-based upsert)', () => {
     expect(prismaMock.question.delete).not.toHaveBeenCalled()
   })
 
+  it('PUT listening exam formats workflow v3 explanation drafts through adminView instead of returning raw DB envelope', async () => {
+    const { draftEnvelope } = require('../lib/explanationWorkflow')
+    const rawDraft = draftEnvelope(null, {
+      v: 2,
+      answer: 'ear',
+      reasoning: 'Người nói nhắc đến học chơi nhạc bằng tai (by ear).',
+      evidence_quote: 'using an app or by ear',
+    }, 'hash-1')
+    prismaMock.exam.findUnique
+      .mockResolvedValueOnce({ skill: 'listening' })
+      .mockResolvedValueOnce({
+        id: 20,
+        title: 'Listening Test 1',
+        listeningSections: [{
+          id: 511,
+          number: 1,
+          context: 'Context',
+          transcript: 'You can learn using an app or by ear.',
+          questions: [],
+          questionGroups: [{
+            id: 611,
+            type: 'table_completion',
+            qNumberStart: 7,
+            qNumberEnd: 7,
+            noteSections: [{ title: 'Notes', lines: [{ contentWithTokens: 'using an app or by [Q:7]' }] }],
+            matchingOptions: [],
+            questions: [{ id: 711, number: 7, type: 'fill_blank', questionText: '', correctAnswer: 'ear', explanation: rawDraft }],
+          }],
+        }],
+      })
+    prismaMock.listeningSection.findMany.mockResolvedValueOnce([oldListeningSection()])
+
+    const res = await request(app)
+      .put('/api/admin/exams/20')
+      .set('Authorization', `Bearer ${teacherToken}`)
+      .send(listeningBody([{ number: 1, questionText: 'Q1', correctAnswer: 'A' }]))
+      .expect(200)
+
+    const exp = res.body.listeningSections[0].questionGroups[0].questions[0].explanation
+    expect(exp).toMatchObject({
+      workflowVersion: 3,
+      hasDraft: true,
+      status: 'draft_ready',
+      answer: 'ear',
+      reasoning: 'Người nói nhắc đến học chơi nhạc bằng tai (by ear).',
+    })
+  })
+
   it('PUT reading exam matches and updates by explicit question.id even if question numbers changed', async () => {
     prismaMock.exam.findUnique.mockResolvedValueOnce({ skill: 'reading' }).mockResolvedValueOnce({ id: 10, passages: [] })
     prismaMock.passage.findMany.mockResolvedValueOnce([oldReadingPassage()])

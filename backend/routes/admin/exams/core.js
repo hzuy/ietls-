@@ -514,27 +514,39 @@ router.get('/exams/:id', authMiddleware, teacherOnly, async (req, res) => {
       }
     })
     if (!exam) return res.status(404).json({ message: 'Không tìm thấy đề' })
-    const parseQ = (q, group = null, source = {}) => ({
-      ...q,
-      options: q.options ? JSON.parse(q.options) : null,
-      explanation: adminTargetView(sanitizeExplanationForRead(
-        typeof q.explanation === 'string' ? (() => { try { return JSON.parse(q.explanation) } catch { return q.explanation } })() : q.explanation,
-        group?.type || q.type, q.options || group?.matchingOptions || group?.options
-      ), { ...q, ...source }, group ? { ...group, ...source } : null),
-    })
-    exam.passages?.forEach(p => {
-      p.questions = p.questions.map(q => parseQ(q, null, { passage: p }))
-      p.questionGroups?.forEach(g => { g.questions = g.questions.map(q => parseQ(q, g, { passage: p })) })
-    })
-    exam.listeningSections?.forEach(s => {
-      s.questions = s.questions.map(q => parseQ(q, null, { listeningSection: s }))
-      s.questionGroups?.forEach(g => { g.questions = g.questions.map(q => parseQ(q, g, { section: s })) })
-    })
-    res.json(exam)
+    res.json(formatAdminExam(exam))
   } catch (error) {
     sendServerError(res, error, 'Lỗi server')
   }
 })
+
+// Chuẩn hóa payload đề thi trả về cho admin editor (dùng chung cho GET và PUT /exams/:id):
+// parse options và bung workflow v3 explanation qua sanitizeExplanationForRead + adminTargetView
+// để không bao giờ trả raw DB envelope về cho frontend.
+function formatAdminExam(exam) {
+  if (!exam) return exam
+  const parseQ = (q, group = null, source = {}) => ({
+    ...q,
+    options: typeof q.options === 'string' ? (() => { try { return JSON.parse(q.options) } catch { return null } })() : (q.options ?? null),
+    explanation: adminTargetView(sanitizeExplanationForRead(
+      typeof q.explanation === 'string' ? (() => { try { return JSON.parse(q.explanation) } catch { return q.explanation } })() : q.explanation,
+      group?.type || q.type, q.options || group?.matchingOptions || group?.options
+    ), { ...q, ...source }, group ? { ...group, ...source } : null),
+  })
+  exam.passages?.forEach(p => {
+    if (Array.isArray(p.questions)) p.questions = p.questions.map(q => parseQ(q, null, { passage: p }))
+    p.questionGroups?.forEach(g => {
+      if (Array.isArray(g.questions)) g.questions = g.questions.map(q => parseQ(q, g, { passage: p }))
+    })
+  })
+  exam.listeningSections?.forEach(s => {
+    if (Array.isArray(s.questions)) s.questions = s.questions.map(q => parseQ(q, null, { listeningSection: s }))
+    s.questionGroups?.forEach(g => {
+      if (Array.isArray(g.questions)) g.questions = g.questions.map(q => parseQ(q, g, { section: s }))
+    })
+  })
+  return exam
+}
 
 // ─── DIFF-BASED UPSERT HELPERS (Reading + Listening PUT) ────────────────────
 // PUT used to delete-and-recreate the whole Passage/ListeningSection → Question
@@ -1070,7 +1082,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema,
           entityLabel: updated.title,
           metadata: counts
         })
-        return res.json(updated)
+        return res.json(formatAdminExam(updated))
       } catch (err) {
         if (err instanceof BlockedDeletionError) {
           return res.status(409).json({
@@ -1233,7 +1245,7 @@ router.put('/exams/:id', authMiddleware, teacherOnly, validate(updateExamSchema,
           entityLabel: updated.title,
           metadata: counts
         })
-        return res.json(updated)
+        return res.json(formatAdminExam(updated))
       } catch (err) {
         if (err instanceof BlockedDeletionError) {
           return res.status(409).json({
