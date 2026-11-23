@@ -35,7 +35,7 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
               <input type="text" value={val}
                 onChange={e => q && onAnswer(q.id, e.target.value)}
                 placeholder="..."
-                className="border border-zinc-300 focus:border-zinc-900 outline-none px-3 py-0.5 text-sm w-28 rounded-full bg-white text-zinc-900 transition text-center" />
+                className="h-8 leading-normal border border-zinc-300 focus:border-zinc-900 outline-none px-3 py-0 text-[15px] w-32 rounded-full bg-white text-zinc-900 transition text-center" />
             </span>
           )
         }

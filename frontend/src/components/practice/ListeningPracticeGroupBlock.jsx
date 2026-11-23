@@ -22,7 +22,7 @@ function ListeningTokenLine({ content, answers, onAnswer, group, tokenNumMap, is
               <span key={i} className="inline-flex items-center gap-1 mx-1">
                 <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-900 font-bold text-xs shrink-0">{displayNum}</span>
                 <select value={val} onChange={e => onAnswer(qNum, e.target.value)}
-                  className="border border-zinc-300 rounded-full bg-white outline-none text-[15px] px-3 py-0.5 text-zinc-900 max-w-40 focus:border-zinc-900">
+                  className="h-8 leading-normal border border-zinc-300 rounded-full bg-white outline-none text-[15px] px-3 py-0 text-zinc-900 max-w-40 focus:border-zinc-900">
                   <option value="">—</option>
                   {(group.matchingOptions || []).map((mo, mi) => (
                     <option key={mi} value={mo.letter}>{mo.letter}. {mo.text}</option>
@@ -35,7 +35,7 @@ function ListeningTokenLine({ content, answers, onAnswer, group, tokenNumMap, is
             <span key={i} className="inline-flex items-center gap-1 mx-1">
               <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-900 font-bold text-xs shrink-0">{displayNum}</span>
               <input type="text" value={val} onChange={e => onAnswer(qNum, e.target.value)}
-                className="border border-zinc-300 focus:border-zinc-900 outline-none px-3 py-0.5 text-[15px] w-32 rounded-full bg-white text-zinc-900 transition text-center" />
+                className="h-8 leading-normal border border-zinc-300 focus:border-zinc-900 outline-none px-3 py-0 text-[15px] w-32 rounded-full bg-white text-zinc-900 transition text-center" />
             </span>
           )
         }

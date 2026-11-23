@@ -22,8 +22,8 @@ function NoteTokenLine({ content, groupQuestions, answers, onAnswer, previewMode
           const val = previewMode && showAnswers ? (q?.correctAnswer || '') : (answers[q.id] || '')
           const flagged = Boolean(flaggedSet?.has?.(qNum))
           const cls = previewMode && showAnswers
-            ? 'inline-block w-32 border border-green-500 rounded-full outline-none px-3 py-0.5 text-[15px] bg-white text-center font-semibold text-green-700'
-            : 'inline-block w-32 border border-zinc-300 focus:border-zinc-900 rounded-full outline-none px-3 py-0.5 text-[15px] bg-white text-center text-zinc-900'
+            ? 'inline-block w-32 h-8 leading-normal border border-green-500 rounded-full outline-none px-3 py-0 text-[15px] bg-white text-center font-semibold text-green-700'
+            : 'inline-block w-32 h-8 leading-normal border border-zinc-300 focus:border-zinc-900 rounded-full outline-none px-3 py-0 text-[15px] bg-white text-center text-zinc-900'
           return (
             <span key={i} id={`question-${qNum}`} className="inline-flex items-center gap-1 mx-1 scroll-mt-4">
               {onToggleFlag && !previewMode ? (

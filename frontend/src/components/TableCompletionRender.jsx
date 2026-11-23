@@ -22,7 +22,7 @@ function CellContent({ content, questions, answers, onAnswer, previewMode, showA
                 readOnly={previewMode}
                 onChange={previewMode ? undefined : e => onAnswer(q.id, e.target.value)}
                 placeholder={previewMode ? '' : '...'}
-                className={`border ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} rounded-full outline-none px-2.5 py-0.5 text-sm w-24 bg-white text-center transition`}
+                className={`h-8 leading-normal border ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} rounded-full outline-none px-2.5 py-0 text-[15px] w-28 bg-white text-center transition`}
               />
             </span>
           )

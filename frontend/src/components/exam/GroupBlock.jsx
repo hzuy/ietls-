@@ -84,7 +84,7 @@ function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, 
                 readOnly={previewMode}
                 onChange={previewMode ? undefined : e => q && onAnswer(q.id, e.target.value)}
                 placeholder={previewMode ? '' : '...'}
-                className={`border ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} rounded-full outline-none px-3 py-0.5 text-sm w-28 bg-white transition text-center`}
+                className={`h-8 leading-normal border ${previewMode && showAnswers ? 'border-green-500 text-green-700 font-semibold' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900'} rounded-full outline-none px-3 py-0 text-[15px] w-32 bg-white transition text-center`}
               />
             </span>
           )
