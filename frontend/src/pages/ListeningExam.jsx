@@ -615,7 +615,8 @@ export default function ListeningExam() {
                 </div>
                 {group.qs.map((q, qi) => (
                   <QuestionBlock key={q.id} q={q} globalIdx={startIdx + group.startOffset + qi}
-                    answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
+                    answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers}
+                    flaggedSet={flaggedSet} onToggleFlag={toggleFlag} />
                 ))}
               </div>
             ))}

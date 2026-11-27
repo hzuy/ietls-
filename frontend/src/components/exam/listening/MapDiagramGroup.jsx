@@ -11,7 +11,7 @@ function InstructionBanner({ group }) {
 }
 
 // ── Map / Diagram Labelling Group ─────────────────────────────────────────────
-export default function MapDiagramGroup({ group, answers, onAnswer, previewMode, showAnswers }) {
+export default function MapDiagramGroup({ group, answers, onAnswer, previewMode, showAnswers, flaggedSet, onToggleFlag }) {
   const letters = (group.matchingOptions || []).map(mo => mo.optionLetter)
   const questions = group.questions || []
 
@@ -34,6 +34,8 @@ export default function MapDiagramGroup({ group, answers, onAnswer, previewMode,
         onAnswer={onAnswer}
         previewMode={previewMode}
         showAnswers={showAnswers}
+        flaggedSet={flaggedSet}
+        onToggleFlag={onToggleFlag}
       />
     </div>
   )

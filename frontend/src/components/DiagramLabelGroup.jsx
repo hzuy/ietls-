@@ -1,6 +1,7 @@
 import { resolveImg } from '../utils/media'
+import QuestionNumberBadge from './exam/QuestionNumberBadge'
 
-export default function DiagramLabelGroup({ group, answers, onAnswer, previewMode, showAnswers }) {
+export default function DiagramLabelGroup({ group, answers, onAnswer, previewMode, showAnswers, flaggedSet, onToggleFlag }) {
   const questions = group.questions || []
 
   return (
@@ -29,9 +30,12 @@ export default function DiagramLabelGroup({ group, answers, onAnswer, previewMod
 
           return (
             <div key={q.id} className="flex items-center gap-3">
-              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-900 font-bold text-[13px] shrink-0">
-                {q.number}
-              </span>
+              <QuestionNumberBadge
+                number={q.number}
+                flagged={Boolean(flaggedSet?.has?.(q.number))}
+                onToggleFlag={onToggleFlag}
+                previewMode={previewMode}
+              />
               <input
                 type="text"
                 value={userAns}

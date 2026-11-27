@@ -4,10 +4,11 @@ import MatchingHeadingsGroup from '../MatchingHeadingsGroup'
 import { toLearnerGroup } from '../../utils/questionTypes'
 import { GROUP_TYPE_ALIASES, questionMechanic } from '../../utils/questionTypes'
 import TextTaskGroup from '../exam/TextTaskGroup'
+import QuestionNumberBadge from '../exam/QuestionNumberBadge'
 import { buildListeningTokenMap } from '../../utils/practiceUtils'
 import { toImgSrc } from '../../utils/media'
 
-function ListeningTokenLine({ content, answers, onAnswer, group, tokenNumMap, isDragWordBank }) {
+function ListeningTokenLine({ content, answers, onAnswer, group, tokenNumMap, isDragWordBank, flaggedSet, onToggleFlag }) {
   const parts = (content || '').split(/(\[Q:\d+\])/)
   return (
     <span className="text-base leading-10 text-zinc-800">
@@ -20,7 +21,12 @@ function ListeningTokenLine({ content, answers, onAnswer, group, tokenNumMap, is
           if (isDragWordBank) {
             return (
               <span key={i} className="inline-flex items-center gap-1 mx-1">
-                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-900 font-bold text-xs shrink-0">{displayNum}</span>
+                <QuestionNumberBadge
+                  number={displayNum}
+                  size="sm"
+                  flagged={Boolean(flaggedSet?.has?.(displayNum))}
+                  onToggleFlag={onToggleFlag}
+                />
                 <select value={val} onChange={e => onAnswer(qNum, e.target.value)}
                   className="h-8 leading-normal border border-zinc-300 rounded-full bg-white outline-none text-[15px] px-3 py-0 text-zinc-900 max-w-40 focus:border-zinc-900">
                   <option value="">—</option>
@@ -33,7 +39,12 @@ function ListeningTokenLine({ content, answers, onAnswer, group, tokenNumMap, is
           }
           return (
             <span key={i} className="inline-flex items-center gap-1 mx-1">
-              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-900 font-bold text-xs shrink-0">{displayNum}</span>
+              <QuestionNumberBadge
+                number={displayNum}
+                size="sm"
+                flagged={Boolean(flaggedSet?.has?.(displayNum))}
+                onToggleFlag={onToggleFlag}
+              />
               <input type="text" value={val} onChange={e => onAnswer(qNum, e.target.value)}
                 className="h-8 leading-normal border border-zinc-300 focus:border-zinc-900 outline-none px-3 py-0 text-[15px] w-32 rounded-full bg-white text-zinc-900 transition text-center" />
             </span>
@@ -45,15 +56,15 @@ function ListeningTokenLine({ content, answers, onAnswer, group, tokenNumMap, is
   )
 }
 
-export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }) {
-  if (['form_completion', 'summary_completion', 'flow_chart_completion', 'sentence_completion', 'short_answer'].includes(group.type)) return <TextTaskGroup group={group} answers={answers} onAnswer={onAnswer} numberKeys={true} listening={true} />
-  if (Object.hasOwn(GROUP_TYPE_ALIASES, group.type)) return <ListeningPracticeGroupBlock group={{ ...group, type: questionMechanic(group.type), questions: (group.questions || []).map(q => ({ ...q, type: questionMechanic(group.type) })) }} answers={answers} onAnswer={onAnswer} />
+export default function ListeningPracticeGroupBlock({ group, answers, onAnswer, flaggedSet, onToggleFlag }) {
+  if (['form_completion', 'summary_completion', 'flow_chart_completion', 'sentence_completion', 'short_answer'].includes(group.type)) return <TextTaskGroup group={group} answers={answers} onAnswer={onAnswer} numberKeys={true} listening={true} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
+  if (Object.hasOwn(GROUP_TYPE_ALIASES, group.type)) return <ListeningPracticeGroupBlock group={{ ...group, type: questionMechanic(group.type), questions: (group.questions || []).map(q => ({ ...q, type: questionMechanic(group.type) })) }} answers={answers} onAnswer={onAnswer} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
 
   if (['diagram_label', 'matching_headings'].includes(group.type)) {
     const adapted = toLearnerGroup(group)
     adapted.questions = adapted.questions.map(q => ({ ...q, id: q.number }))
     const Component = group.type === 'diagram_label' ? DiagramLabelGroup : MatchingHeadingsGroup
-    return <Component group={adapted} answers={answers} onAnswer={onAnswer} />
+    return <Component group={adapted} answers={answers} onAnswer={onAnswer} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
   }
   const tokenNumMap = ['note_completion', 'table_completion', 'drag_word_bank'].includes(group.type)
     ? buildListeningTokenMap(group) : {}
@@ -74,7 +85,7 @@ export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }
             {(ns.lines || []).map((line, li) => (
               line.lineType === 'heading'
                 ? <p key={li} className="font-semibold text-zinc-900 pt-1">{line.content}</p>
-                : <p key={li}><ListeningTokenLine content={line.content} answers={answers} onAnswer={onAnswer} group={group} tokenNumMap={tokenNumMap} isDragWordBank={false} /></p>
+                : <p key={li}><ListeningTokenLine content={line.content} answers={answers} onAnswer={onAnswer} group={group} tokenNumMap={tokenNumMap} isDragWordBank={false} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} /></p>
             ))}
           </div>
         </div>
@@ -105,7 +116,7 @@ export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }
                       <tr key={ri} className={ri % 2 === 1 ? 'bg-zinc-50/40' : 'bg-white'}>
                         {cells.map((cell, ci) => (
                           <td key={ci} className="px-4 py-3 border-b border-r last:border-r-0 border-zinc-200 text-base text-zinc-800">
-                            <ListeningTokenLine content={cell} answers={answers} onAnswer={onAnswer} group={group} tokenNumMap={tokenNumMap} isDragWordBank={false} />
+                            <ListeningTokenLine content={cell} answers={answers} onAnswer={onAnswer} group={group} tokenNumMap={tokenNumMap} isDragWordBank={false} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
                           </td>
                         ))}
                       </tr>
@@ -121,10 +132,15 @@ export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }
       {/* mcq */}
       {group.type === 'mcq' && (group.questions || []).map(q => (
         <div key={q.number} id={`q-${q.number}`} className="mb-5 scroll-mt-4">
-          <p className="text-base text-zinc-900 mb-2.5 leading-relaxed flex gap-2.5">
-            <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-[13px] shrink-0 mt-0.5">{q.number}</span>
+          <div className="text-base text-zinc-900 mb-2.5 leading-relaxed flex items-start gap-2.5">
+            <QuestionNumberBadge
+              number={q.number}
+              flagged={Boolean(flaggedSet?.has?.(q.number))}
+              onToggleFlag={onToggleFlag}
+              className="mt-0.5"
+            />
             <span>{q.questionText}</span>
-          </p>
+          </div>
           <div className="space-y-1.5 pl-9">
             {(Array.isArray(q.options) ? q.options : []).filter(o => o && o.trim()).map((opt, oi) => {
               const isSelected = answers[q.number] === opt
@@ -151,10 +167,15 @@ export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }
         }
         return (
           <div key={q.number} id={`q-${q.number}`} className="mb-5 scroll-mt-4">
-            <p className="text-base text-zinc-900 mb-2.5 leading-relaxed flex gap-2.5">
-              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-[13px] shrink-0 mt-0.5">{q.number}</span>
+            <div className="text-base text-zinc-900 mb-2.5 leading-relaxed flex items-start gap-2.5">
+              <QuestionNumberBadge
+                number={q.number}
+                flagged={Boolean(flaggedSet?.has?.(q.number))}
+                onToggleFlag={onToggleFlag}
+                className="mt-0.5"
+              />
               <span>{q.questionText}</span>
-            </p>
+            </div>
             <p className="text-[13px] text-zinc-400 pl-9 mb-2">Choose {maxChoices} answers</p>
             <div className="space-y-1.5 pl-9">
               {(Array.isArray(q.options) ? q.options : []).filter(o => o && o.trim()).map((opt, oi) => {
@@ -184,7 +205,11 @@ export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }
           </div>
           {(group.questions || []).map(q => (
             <div key={q.number} id={`q-${q.number}`} className="flex items-center gap-3 mb-3 scroll-mt-4">
-              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-[13px] shrink-0">{q.number}</span>
+              <QuestionNumberBadge
+                number={q.number}
+                flagged={Boolean(flaggedSet?.has?.(q.number))}
+                onToggleFlag={onToggleFlag}
+              />
               <span className="flex-1 text-base text-zinc-800">{q.questionText}</span>
               <select value={answers[q.number] || ''} onChange={e => onAnswer(q.number, e.target.value)}
                 className="h-9 border border-zinc-300 rounded-full px-3.5 py-0 text-[15px] outline-none focus:border-zinc-900 text-zinc-900 bg-white min-w-32">
@@ -212,7 +237,11 @@ export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }
           </div>
           {(group.questions || []).map(q => (
             <div key={q.number} id={`q-${q.number}`} className="flex items-center gap-3 mb-3 scroll-mt-4">
-              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-[13px] shrink-0">{q.number}</span>
+              <QuestionNumberBadge
+                number={q.number}
+                flagged={Boolean(flaggedSet?.has?.(q.number))}
+                onToggleFlag={onToggleFlag}
+              />
               <span className="flex-1 text-base text-zinc-800">{q.questionText}</span>
               <select value={answers[q.number] || ''} onChange={e => onAnswer(q.number, e.target.value)}
                 className="h-9 border border-zinc-300 rounded-full px-3.5 py-0 text-[15px] outline-none focus:border-zinc-900 text-zinc-900 bg-white min-w-32">
@@ -240,7 +269,7 @@ export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }
               {ns.title && <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">{ns.title}</p>}
               <div className="bg-white border border-zinc-200 rounded-2xl p-5 space-y-1 shadow-xs">
                 {(ns.lines || []).map((line, li) => (
-                  <p key={li}><ListeningTokenLine content={line.content} answers={answers} onAnswer={onAnswer} group={group} tokenNumMap={tokenNumMap} isDragWordBank={true} /></p>
+                  <p key={li}><ListeningTokenLine content={line.content} answers={answers} onAnswer={onAnswer} group={group} tokenNumMap={tokenNumMap} isDragWordBank={true} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} /></p>
                 ))}
               </div>
             </div>
@@ -254,10 +283,16 @@ export default function ListeningPracticeGroupBlock({ group, answers, onAnswer }
           <div className="flex-1 space-y-3">
             {(group.questions || []).map(q => (
               <div key={q.number} id={`q-${q.number}`} className="bg-white rounded-2xl border border-zinc-200 p-4 shadow-xs scroll-mt-4">
-                <p className="text-sm text-zinc-900 mb-2 flex gap-2">
-                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-xs shrink-0 mt-0.5">{q.number}</span>
+                <div className="text-sm text-zinc-900 mb-2 flex items-start gap-2">
+                  <QuestionNumberBadge
+                    number={q.number}
+                    size="sm"
+                    flagged={Boolean(flaggedSet?.has?.(q.number))}
+                    onToggleFlag={onToggleFlag}
+                    className="mt-0.5"
+                  />
                   <span>{q.questionText}</span>
-                </p>
+                </div>
                 <select value={answers[q.number] || ''} onChange={e => onAnswer(q.number, e.target.value)}
                   className="w-full border border-zinc-300 rounded-full px-3.5 py-1.5 text-sm outline-none focus:border-zinc-900 text-zinc-900 bg-white">
                   <option value="">— Select —</option>

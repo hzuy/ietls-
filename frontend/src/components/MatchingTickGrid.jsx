@@ -1,3 +1,5 @@
+import QuestionNumberBadge from './exam/QuestionNumberBadge'
+
 /**
  * MatchingTickGrid — shared grid for:
  *   - Map / Diagram Labelling (Listening)
@@ -18,6 +20,8 @@ export default function MatchingTickGrid({
   onAnswer,
   previewMode,
   showAnswers,
+  flaggedSet,
+  onToggleFlag,
 }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-zinc-200 shadow-xs bg-white">
@@ -45,8 +49,17 @@ export default function MatchingTickGrid({
                   ${rowSelected ? 'bg-zinc-50' : 'hover:bg-zinc-50/60'}`}
               >
                 <td className="px-4 py-3 border-r border-zinc-200 align-middle text-base">
-                  <span className="font-bold mr-1.5 text-zinc-900">{q.number}.</span>
-                  <span className="text-zinc-800 leading-snug">{q.questionText}</span>
+                  <div className="flex items-start gap-2">
+                    <QuestionNumberBadge
+                      number={q.number}
+                      size="sm"
+                      flagged={Boolean(flaggedSet?.has?.(q.number))}
+                      onToggleFlag={onToggleFlag}
+                      previewMode={previewMode}
+                      className="mt-0.5"
+                    />
+                    <span className="text-zinc-800 leading-snug">{q.questionText}</span>
+                  </div>
                 </td>
                 {letters.map(l => {
                   const isSelected = currentAns === l

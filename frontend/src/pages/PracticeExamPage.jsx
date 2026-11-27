@@ -1,5 +1,5 @@
 import { readingParagraphs, practiceParagraphLetters } from '../utils/readingParagraphs'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 
 import Navbar from '../components/Navbar'
@@ -86,8 +86,10 @@ function ReadingPracticeExam({ exam, onBack }) {
   const isDraggingRef = useRef(false)
   const [isDragging, setIsDragging] = useState(false)
   const [flaggedQuestions, setFlaggedQuestions] = useState([])
-  const flaggedSet = new Set(flaggedQuestions)
-  const toggleFlag = (num) => setFlaggedQuestions(prev => prev.includes(num) ? prev.filter(n => n !== num) : [...prev, num])
+  const flaggedSet = useMemo(() => new Set(flaggedQuestions), [flaggedQuestions])
+  const toggleFlag = useCallback((num) => {
+    setFlaggedQuestions(prev => prev.includes(num) ? prev.filter(n => n !== num) : [...prev, num])
+  }, [])
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
   const [splitRatio, setSplitRatio] = useState(() => {
     const saved = localStorage.getItem('reading-split-ratio')
@@ -128,6 +130,7 @@ function ReadingPracticeExam({ exam, onBack }) {
     enabled: phase === 'exam',
     examTitle: exam.title,
     totalQuestions: exam.questionCount || 40,
+    flaggedQuestions,
   })
 
   // Mount: nếu có draft chưa nộp thì tự động khôi phục answers và timeLeft
@@ -136,6 +139,7 @@ function ReadingPracticeExam({ exam, onBack }) {
     const d = checkDraftOnMount()
     if (d.hasDraft) {
       if (d.data) setAnswers(d.data)
+      if (Array.isArray(d.flaggedQuestions)) setFlaggedQuestions(d.flaggedQuestions)
       setTimeLeft(Math.max(1, d.timeRemaining ?? PRACTICE_TIME))
       markSaved(d.data || {}, d.savedAt)
     } else {
@@ -343,7 +347,14 @@ function ReadingPracticeExam({ exam, onBack }) {
         <div className="overflow-y-auto px-6 py-5 max-md:w-full bg-zinc-50/50"
           style={{ width: isMobile ? '100%' : `${100 - splitRatio}%` }}>
           {groups.map((group, gi) => (
-            <ReadingPracticeGroupBlock key={group.id || gi} group={normalizeGroup(group)} answers={answers} onAnswer={onAnswer} />
+            <ReadingPracticeGroupBlock
+              key={group.id || gi}
+              group={normalizeGroup(group)}
+              answers={answers}
+              onAnswer={onAnswer}
+              flaggedSet={flaggedSet}
+              onToggleFlag={toggleFlag}
+            />
           ))}
         </div>
       </div>
@@ -404,8 +415,10 @@ function ListeningPracticeExam({ exam, onBack }) {
   const pendingSeekTimeRef = useRef(null)
   const lastAudioSaveRef = useRef(0)
   const [flaggedQuestions, setFlaggedQuestions] = useState([])
-  const flaggedSet = new Set(flaggedQuestions)
-  const toggleFlag = (num) => setFlaggedQuestions(prev => prev.includes(num) ? prev.filter(n => n !== num) : [...prev, num])
+  const flaggedSet = useMemo(() => new Set(flaggedQuestions), [flaggedQuestions])
+  const toggleFlag = useCallback((num) => {
+    setFlaggedQuestions(prev => prev.includes(num) ? prev.filter(n => n !== num) : [...prev, num])
+  }, [])
 
   const examContainerRef = useRef(null)
 
@@ -473,6 +486,7 @@ function ListeningPracticeExam({ exam, onBack }) {
     enabled: phase === 'exam',
     examTitle: exam.title,
     totalQuestions: exam.questionCount || 40,
+    flaggedQuestions,
     getAudioProgress: () => ({
       currentTime: audioRef.current ? Math.floor(audioRef.current.currentTime) : 0,
     }),
@@ -484,6 +498,7 @@ function ListeningPracticeExam({ exam, onBack }) {
     const d = checkDraftOnMount()
     if (d.hasDraft) {
       if (d.data) setAnswers(d.data)
+      if (Array.isArray(d.flaggedQuestions)) setFlaggedQuestions(d.flaggedQuestions)
       setTimeLeft(Math.max(1, d.timeRemaining ?? LISTENING_TIME))
       markSaved(d.data || {}, d.savedAt)
       if (d.audioProgress?.currentTime != null) {
@@ -666,7 +681,14 @@ function ListeningPracticeExam({ exam, onBack }) {
         )}
         <div className="max-w-2xl mx-auto">
           {groups.map((g, gi) => (
-            <ListeningPracticeGroupBlock key={g._id || g.id || gi} group={g} answers={answers} onAnswer={onAnswer} />
+            <ListeningPracticeGroupBlock
+              key={g._id || g.id || gi}
+              group={g}
+              answers={answers}
+              onAnswer={onAnswer}
+              flaggedSet={flaggedSet}
+              onToggleFlag={toggleFlag}
+            />
           ))}
         </div>
       </div>

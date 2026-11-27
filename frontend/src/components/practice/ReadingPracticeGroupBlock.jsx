@@ -7,12 +7,13 @@ import MatchingDragGroup from '../MatchingDragGroup'
 import DiagramLabelGroup from '../DiagramLabelGroup'
 import MatchingHeadingsGroup from '../MatchingHeadingsGroup'
 import TableCompletionRender from '../TableCompletionRender'
+import QuestionNumberBadge from '../exam/QuestionNumberBadge'
 import { lineText } from '../../utils/noteLine'
 
 // ─── Reading Practice group block (full rendering for all question types) ──────
-export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) {
-  if (['form_completion', 'summary_completion', 'flow_chart_completion', 'sentence_completion', 'short_answer'].includes(group.type)) return <TextTaskGroup group={group} answers={answers} onAnswer={onAnswer} numberKeys={false} listening={false} />
-  if (Object.hasOwn(GROUP_TYPE_ALIASES, group.type)) return <ReadingPracticeGroupBlock group={{ ...group, type: questionMechanic(group.type), questions: (group.questions || []).map(q => ({ ...q, type: questionMechanic(group.type) })) }} answers={answers} onAnswer={onAnswer} />
+export default function ReadingPracticeGroupBlock({ group, answers, onAnswer, flaggedSet, onToggleFlag }) {
+  if (['form_completion', 'summary_completion', 'flow_chart_completion', 'sentence_completion', 'short_answer'].includes(group.type)) return <TextTaskGroup group={group} answers={answers} onAnswer={onAnswer} numberKeys={false} listening={false} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
+  if (Object.hasOwn(GROUP_TYPE_ALIASES, group.type)) return <ReadingPracticeGroupBlock group={{ ...group, type: questionMechanic(group.type), questions: (group.questions || []).map(q => ({ ...q, type: questionMechanic(group.type) })) }} answers={answers} onAnswer={onAnswer} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
 
   const from = group.qNumberStart
   const to = group.qNumberEnd
@@ -30,8 +31,13 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
           const q = questionMap[qNum]
           const val = q ? (answers[q.id] || '') : ''
           return (
-            <span key={i} className="inline-flex items-center mx-1">
-              <span className="text-xs font-bold text-zinc-900 bg-zinc-100 border border-zinc-200 px-2 py-0.5 rounded-full mr-1">{qNum}</span>
+            <span key={i} className="inline-flex items-center gap-1 mx-1">
+              <QuestionNumberBadge
+                number={qNum}
+                size="sm"
+                flagged={Boolean(flaggedSet?.has?.(qNum))}
+                onToggleFlag={onToggleFlag}
+              />
               <input type="text" value={val}
                 onChange={e => q && onAnswer(q.id, e.target.value)}
                 placeholder="..."
@@ -71,7 +77,7 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
 
   // Table completion
   if (group.type === 'table_completion') {
-    return <TableCompletionRender group={group} answers={answers} onAnswer={onAnswer} />
+    return <TableCompletionRender group={group} answers={answers} onAnswer={onAnswer} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
   }
 
   // Matching Information (tick-grid)
@@ -84,7 +90,7 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
           {group.instruction && <p className="text-zinc-600 mb-1">{group.instruction}</p>}
           <p className="text-zinc-400 text-xs italic">You may use any letter more than once.</p>
         </div>
-        <MatchingTickGrid letters={letters} questions={group.questions || []} answers={answers} onAnswer={onAnswer} accentColor="zinc" />
+        <MatchingTickGrid letters={letters} questions={group.questions || []} answers={answers} onAnswer={onAnswer} accentColor="zinc" flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
       </div>
     )
   }
@@ -93,7 +99,7 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
   if (group.type === 'drag_word_bank') {
     return (
       <div id={`q-${from}`} className="scroll-mt-4">
-        <DragWordBankGroup group={group} answers={answers} onAnswer={onAnswer} />
+        <DragWordBankGroup group={group} answers={answers} onAnswer={onAnswer} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
       </div>
     )
   }
@@ -102,19 +108,19 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
   if (group.type === 'matching_drag') {
     return (
       <div id={`q-${from}`} className="scroll-mt-4">
-        <MatchingDragGroup group={group} answers={answers} onAnswer={onAnswer} />
+        <MatchingDragGroup group={group} answers={answers} onAnswer={onAnswer} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
       </div>
     )
   }
 
   // Diagram Label Completion
   if (group.type === 'diagram_label') {
-    return <DiagramLabelGroup group={group} answers={answers} onAnswer={onAnswer} />
+    return <DiagramLabelGroup group={group} answers={answers} onAnswer={onAnswer} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
   }
 
   // Matching Headings
   if (group.type === 'matching_headings') {
-    return <MatchingHeadingsGroup group={group} answers={answers} onAnswer={onAnswer} />
+    return <MatchingHeadingsGroup group={group} answers={answers} onAnswer={onAnswer} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
   }
 
   // MCQ Multi
@@ -127,6 +133,8 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
           {group.instruction && <p className="text-zinc-600">{group.instruction}</p>}
         </div>
         {(group.questions || []).map((q, qi) => {
+          const qStart = from + qi * maxChoices
+          const qEnd = qStart + maxChoices - 1
           const opts = Array.isArray(q.options) ? q.options : (q.options ? JSON.parse(q.options) : [])
           const combined = answers[q.id] || ''
           const selected = selectedOptionValues(combined, opts)
@@ -134,10 +142,17 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
           return (
             <div key={q.id} className="mb-4">
               {q.questionText && (
-                <p className="text-base text-zinc-900 mb-2.5 leading-relaxed flex gap-2.5">
-                  <span className="font-bold text-zinc-700 shrink-0">{from + qi * maxChoices}–{from + qi * maxChoices + maxChoices - 1}.</span>
+                <div className="text-base text-zinc-900 mb-2.5 leading-relaxed flex items-start gap-2.5">
+                  <QuestionNumberBadge
+                    number={qStart}
+                    label={`${qStart}–${qEnd}`}
+                    size="pill"
+                    flagged={Boolean(flaggedSet?.has?.(qStart))}
+                    onToggleFlag={onToggleFlag}
+                    className="mt-0.5"
+                  />
                   <span>{q.questionText}</span>
-                </p>
+                </div>
               )}
               <div className="space-y-1 pl-2">
                 {opts.filter(o => o && o.trim()).map((opt, oi) => {
@@ -177,10 +192,15 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
           const opts = Array.isArray(q.options) ? q.options : (q.options ? JSON.parse(q.options) : [])
           return (
             <div key={q.id} id={`q-${q.number}`} className="mb-5 scroll-mt-4">
-              <p className="text-base text-zinc-900 mb-2.5 leading-relaxed flex gap-2.5">
-                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-[13px] shrink-0 mt-0.5">{q.number}</span>
+              <div className="text-base text-zinc-900 mb-2.5 leading-relaxed flex items-start gap-2.5">
+                <QuestionNumberBadge
+                  number={q.number}
+                  flagged={Boolean(flaggedSet?.has?.(q.number))}
+                  onToggleFlag={onToggleFlag}
+                  className="mt-0.5"
+                />
                 <span>{q.questionText}</span>
-              </p>
+              </div>
               <div className="space-y-1.5 pl-9">
                 {opts.filter(o => o && o.trim()).map((opt, oi) => {
                   const isSelected = answers[q.id] === opt
@@ -211,10 +231,15 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
         </div>
         {(group.questions || []).map(q => (
           <div key={q.id} id={`q-${q.number}`} className="mb-6 scroll-mt-4">
-            <p className="text-base text-zinc-900 mb-2.5 leading-relaxed flex gap-2.5">
-              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-[13px] shrink-0 mt-0.5">{q.number}</span>
+            <div className="text-base text-zinc-900 mb-2.5 leading-relaxed flex items-start gap-2.5">
+              <QuestionNumberBadge
+                number={q.number}
+                flagged={Boolean(flaggedSet?.has?.(q.number))}
+                onToggleFlag={onToggleFlag}
+                className="mt-0.5"
+              />
               <span>{q.questionText}</span>
-            </p>
+            </div>
             <div className="space-y-1.5 pl-9">
               {tfOpts.map(opt => {
                 const isSelected = answers[q.id] === opt
@@ -242,10 +267,15 @@ export default function ReadingPracticeGroupBlock({ group, answers, onAnswer }) 
       </div>
       {(group.questions || []).map(q => (
         <div key={q.id} id={`q-${q.number}`} className="mb-6 scroll-mt-4">
-          <p className="text-base text-zinc-900 mb-2.5 leading-relaxed flex gap-2.5">
-            <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-[13px] shrink-0 mt-0.5">{q.number}</span>
+          <div className="text-base text-zinc-900 mb-2.5 leading-relaxed flex items-start gap-2.5">
+            <QuestionNumberBadge
+              number={q.number}
+              flagged={Boolean(flaggedSet?.has?.(q.number))}
+              onToggleFlag={onToggleFlag}
+              className="mt-0.5"
+            />
             <span>{q.questionText}</span>
-          </p>
+          </div>
           <div className="pl-9">
             <input type="text" value={answers[q.id] || ''} onChange={e => onAnswer(q.id, e.target.value)}
               placeholder="Nhập đáp án..."

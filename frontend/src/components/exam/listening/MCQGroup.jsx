@@ -1,5 +1,5 @@
 import { selectedOptionValues } from '../../../utils/mcqAnswer'
-import { Flag } from 'lucide-react'
+import QuestionNumberBadge from '../QuestionNumberBadge'
 
 function preventToggleOnTextSelect(e) {
   const sel = typeof window !== 'undefined' ? window.getSelection?.()?.toString?.() : ''
@@ -45,10 +45,18 @@ export default function MCQGroup({ group, answers, onAnswer, isMulti, previewMod
           return (
             <div key={q.id} id={`question-${qStart}`} className="mb-4 scroll-mt-4">
               {q.questionText && (
-                <p className="text-base text-zinc-900 mb-2.5 leading-relaxed flex gap-2.5">
-                  <span className="font-bold text-zinc-700 shrink-0">{qStart}–{qEnd}.</span>
+                <div className="text-base text-zinc-900 mb-2.5 leading-relaxed flex items-start gap-2.5">
+                  <QuestionNumberBadge
+                    number={qStart}
+                    label={`${qStart}–${qEnd}`}
+                    size="pill"
+                    flagged={Boolean(flaggedSet?.has?.(qStart))}
+                    onToggleFlag={onToggleFlag}
+                    previewMode={previewMode}
+                    className="mt-0.5"
+                  />
                   <span>{q.questionText}</span>
-                </p>
+                </div>
               )}
               <div className="space-y-1 pl-2">
                 {opts.map(opt => {
@@ -81,29 +89,16 @@ export default function MCQGroup({ group, answers, onAnswer, isMulti, previewMod
       {questions.map(q => {
         const opts = Array.isArray(q.options) ? q.options : q.options ? JSON.parse(q.options) : []
         const displayAnswer = previewMode && showAnswers ? q.correctAnswer : answers[q.id]
-        const flagged = Boolean(flaggedSet?.has?.(q.number))
         return (
           <div key={q.id} id={`question-${q.number}`} className="mb-5 scroll-mt-4">
             <div className="text-base text-zinc-900 mb-2.5 leading-relaxed flex items-start gap-2.5">
-              {onToggleFlag && !previewMode ? (
-                <button
-                  type="button"
-                  onClick={() => onToggleFlag(q.number)}
-                  title={flagged ? `Bỏ đánh dấu câu ${q.number}` : `Đánh dấu câu ${q.number} để xem lại`}
-                  aria-label={flagged ? `Bỏ đánh dấu câu ${q.number}` : `Đánh dấu câu ${q.number} để xem lại`}
-                  aria-pressed={flagged}
-                  className={`relative inline-flex items-center justify-center w-7 h-7 rounded-full border font-bold text-[13px] shrink-0 mt-0.5 transition-colors cursor-pointer ${
-                    flagged
-                      ? 'bg-amber-50 border-amber-500 text-amber-800'
-                      : 'bg-zinc-100 border-zinc-200 text-zinc-800 hover:border-amber-400 hover:bg-amber-50/50'
-                  }`}
-                >
-                  {q.number}
-                  {flagged && <Flag className="w-2.5 h-2.5 text-amber-600 fill-amber-500 absolute -top-1 -right-1" aria-hidden="true" />}
-                </button>
-              ) : (
-                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-[13px] shrink-0 mt-0.5">{q.number}</span>
-              )}
+              <QuestionNumberBadge
+                number={q.number}
+                flagged={Boolean(flaggedSet?.has?.(q.number))}
+                onToggleFlag={onToggleFlag}
+                previewMode={previewMode}
+                className="mt-0.5"
+              />
               <span className="flex-1">{q.questionText}</span>
             </div>
             <div className="space-y-1 pl-9">

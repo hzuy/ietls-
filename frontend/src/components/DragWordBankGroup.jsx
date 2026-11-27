@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { X } from 'lucide-react'
 import { lineText } from '../utils/noteLine'
+import QuestionNumberBadge from './exam/QuestionNumberBadge'
 
 // Danh sách phương án Word Bank hiển thị trong popover chọn nhanh của 1 ô trống.
 // Tách riêng để logic render item (highlight đang chọn / khóa từ đã dùng / xoá) không
@@ -50,7 +51,7 @@ function WordBankOptionList({ wordBank, currentAnswer, usedLetters, onSelect, on
   )
 }
 
-export default function DragWordBankGroup({ group, answers, onAnswer, previewMode, showAnswers }) {
+export default function DragWordBankGroup({ group, answers, onAnswer, previewMode, showAnswers, flaggedSet, onToggleFlag }) {
   const [dragging, setDragging] = useState(null)    // letter being dragged
   const [dragOver, setDragOver] = useState(null)     // qNum being hovered over
   const [selected, setSelected] = useState(null)     // letter selected by click (Word Bank → click ô)
@@ -157,7 +158,14 @@ export default function DragWordBankGroup({ group, answers, onAnswer, previewMod
       const isOpen = openQNum === qNum
 
       return (
-        <span key={i} className="relative inline-block align-middle">
+        <span key={i} className="relative inline-flex items-center gap-1 mx-1 align-middle">
+          <QuestionNumberBadge
+            number={qNum}
+            size="sm"
+            flagged={Boolean(flaggedSet?.has?.(qNum))}
+            onToggleFlag={onToggleFlag}
+            previewMode={previewMode}
+          />
           <span
             ref={el => { triggerRefs.current[qNum] = el }}
             data-testid={`blank-${qNum}`}
@@ -174,7 +182,7 @@ export default function DragWordBankGroup({ group, answers, onAnswer, previewMod
               if (previewMode) return
               if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleBlankClick(qNum) }
             }}
-            className={`inline-flex items-center gap-1 mx-1 min-w-[80px] text-sm leading-tight align-baseline transition-colors
+            className={`inline-flex items-center gap-1 min-w-[80px] text-sm leading-tight align-baseline transition-colors
               ${answer
                 ? 'font-normal px-2.5 py-0.5 rounded-full border border-zinc-200 bg-zinc-100 text-zinc-900'
                 : 'px-2.5 py-0.5 rounded-full border border-dashed border-zinc-300'}

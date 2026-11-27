@@ -61,13 +61,13 @@ const AUTOSAVE_INTERVAL_MS = 30_000
  *   lastSavedAt — mốc lưu nháp gần nhất cho indicator header; `null` khi chưa lưu lần nào.
  *   hasUnsavedChanges — `answers` hiện tại khác bộ đã ghi vào draft gần nhất.
  */
-export function usePracticeDraft({ examId, skillType, answers, timeLeft, userId, enabled, examTitle, totalQuestions, getAudioProgress }) {
+export function usePracticeDraft({ examId, skillType, answers, timeLeft, userId, enabled, examTitle, totalQuestions, getAudioProgress, flaggedQuestions }) {
   // Ref "giá trị mới nhất" — sync mỗi render (effect KHÔNG deps). Đọc trong
   // interval/callback để không phải đưa answers/timeLeft vào deps (đổi liên tục →
   // interval bị teardown + setup lại mỗi giây → không bao giờ đạt mốc 30s).
-  const latestRef = useRef({ answers, timeLeft, userId, examTitle, totalQuestions, getAudioProgress })
+  const latestRef = useRef({ answers, timeLeft, userId, examTitle, totalQuestions, getAudioProgress, flaggedQuestions })
   useEffect(() => {
-    latestRef.current = { answers, timeLeft, userId, examTitle, totalQuestions, getAudioProgress }
+    latestRef.current = { answers, timeLeft, userId, examTitle, totalQuestions, getAudioProgress, flaggedQuestions }
   })
 
   // Snapshot JSON của đáp án đã ghi vào draft gần nhất. Dùng STATE (không ref) →
@@ -76,7 +76,7 @@ export function usePracticeDraft({ examId, skillType, answers, timeLeft, userId,
   const [lastSavedAt, setLastSavedAt] = useState(null)
 
   const persistDraftNow = useCallback(() => {
-    const { answers, timeLeft, userId, examTitle: latestTitle, totalQuestions: latestTotal, getAudioProgress: getAudio } = latestRef.current
+    const { answers, timeLeft, userId, examTitle: latestTitle, totalQuestions: latestTotal, getAudioProgress: getAudio, flaggedQuestions: latestFlags } = latestRef.current
     if (!userId || !examId) return
     // P3-2: đáp án rỗng KHÔNG được đè một draft cũ còn nội dung (vd người dùng bấm
     // "Làm lại từ đầu" → answers = {} → thoát ngay trước lần autosave kế tiếp).
@@ -94,6 +94,7 @@ export function usePracticeDraft({ examId, skillType, answers, timeLeft, userId,
       examTitle: latestTitle ?? null,
       totalQuestions: latestTotal ?? 40,
       audioProgress,
+      flaggedQuestions: Array.isArray(latestFlags) ? latestFlags : [],
     })
     setSavedSnapshot(JSON.stringify(answers))
     setLastSavedAt(new Date())
@@ -112,7 +113,7 @@ export function usePracticeDraft({ examId, skillType, answers, timeLeft, userId,
     const { userId } = latestRef.current
     const draft = userId && examId ? loadDraft(userId, examId, skillType) : null
     if (!draft) {
-      return { hasDraft: false, savedAt: null, timeRemaining: null, data: null, audioProgress: null }
+      return { hasDraft: false, savedAt: null, timeRemaining: null, data: null, audioProgress: null, flaggedQuestions: [] }
     }
     return {
       hasDraft: true,
@@ -120,6 +121,7 @@ export function usePracticeDraft({ examId, skillType, answers, timeLeft, userId,
       timeRemaining: draft.timeRemaining ?? null,
       data: draft.data,
       audioProgress: draft.audioProgress ?? null,
+      flaggedQuestions: Array.isArray(draft.flaggedQuestions) ? draft.flaggedQuestions : [],
     }
   }, [examId, skillType])
 

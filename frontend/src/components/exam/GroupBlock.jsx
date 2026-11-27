@@ -20,6 +20,7 @@ import TableCompletionRender from '../TableCompletionRender'
 import TypeHeader from './TypeHeaders'
 import QuestionBlock from './QuestionBlock'
 import ExplanationPanel from './ExplanationPanel'
+import QuestionNumberBadge from './QuestionNumberBadge'
 import { lineText } from '../../utils/noteLine'
 
 // Render a group of questions (from questionGroups) with the appropriate header/UI
@@ -52,7 +53,7 @@ function ReviewBlank({ number, info, active, onSelect }) {
 }
 
 function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, showAnswers, review, activeNumber, onSelectNumber, flaggedSet, onToggleFlag }) {
-  if (['form_completion', 'summary_completion', 'flow_chart_completion', 'sentence_completion', 'short_answer'].includes(group.type)) return <TextTaskGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} numberKeys={false} listening={false} />
+  if (['form_completion', 'summary_completion', 'flow_chart_completion', 'sentence_completion', 'short_answer'].includes(group.type)) return <TextTaskGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} numberKeys={false} listening={false} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
   if (Object.hasOwn(GROUP_TYPE_ALIASES, group.type)) return <GroupBlockInner group={{ ...group, type: questionMechanic(group.type), questions: (group.questions || []).map(q => ({ ...q, type: questionMechanic(group.type) })) }} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} globalOffset={globalOffset} review={review} activeNumber={activeNumber} onSelectNumber={onSelectNumber} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
 
   const from = group.qNumberStart
@@ -76,8 +77,14 @@ function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, 
           const q = questionMap[qNum]
           const val = previewMode && showAnswers ? (q?.correctAnswer || '') : (q ? (answers[q.id] || '') : '')
           return (
-            <span key={i} className="inline-flex items-center mx-1">
-              <span className="text-xs font-bold text-zinc-900 bg-zinc-100 border border-zinc-200 px-2 py-0.5 rounded-full mr-1">{qNum}</span>
+            <span key={i} className="inline-flex items-center gap-1 mx-1">
+              <QuestionNumberBadge
+                number={qNum}
+                size="sm"
+                flagged={Boolean(flaggedSet?.has?.(qNum))}
+                onToggleFlag={onToggleFlag}
+                previewMode={previewMode}
+              />
               <input
                 type="text"
                 value={val}
@@ -137,6 +144,8 @@ function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, 
           onAnswer={onAnswer}
           previewMode={previewMode}
           showAnswers={showAnswers}
+          flaggedSet={flaggedSet}
+          onToggleFlag={onToggleFlag}
         />
       </div>
     )
@@ -146,7 +155,7 @@ function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, 
   if (group.type === 'drag_word_bank') {
     return (
       <div id={`q-${from}`} className="scroll-mt-4">
-        <DragWordBankGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
+        <DragWordBankGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
       </div>
     )
   }
@@ -160,19 +169,19 @@ function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, 
   if (group.type === 'matching_drag') {
     return (
       <div id={`q-${from}`} className="scroll-mt-4">
-        <MatchingDragGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
+        <MatchingDragGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
       </div>
     )
   }
 
   // Diagram Label Completion
   if (group.type === 'diagram_label') {
-    return <DiagramLabelGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
+    return <DiagramLabelGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
   }
 
   // Matching Headings
   if (group.type === 'matching_headings') {
-    return <MatchingHeadingsGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} />
+    return <MatchingHeadingsGroup group={group} answers={answers} onAnswer={onAnswer} previewMode={previewMode} showAnswers={showAnswers} flaggedSet={flaggedSet} onToggleFlag={onToggleFlag} />
   }
 
   // MCQ Multi: each sub-question rendered with its range prefix
@@ -209,10 +218,18 @@ function GroupBlockInner({ group, answers, onAnswer, globalOffset, previewMode, 
           return (
             <div key={q.id} className="mb-4">
               {q.questionText && (
-                <p className="text-base text-zinc-900 mb-2.5 leading-relaxed flex gap-2.5">
-                  <span className="inline-flex items-center justify-center h-7 px-2.5 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold text-[13px] shrink-0 mt-0.5">{qStart}–{qEnd}</span>
+                <div className="text-base text-zinc-900 mb-2.5 leading-relaxed flex items-start gap-2.5">
+                  <QuestionNumberBadge
+                    number={qStart}
+                    label={`${qStart}–${qEnd}`}
+                    size="pill"
+                    flagged={Boolean(flaggedSet?.has?.(qStart))}
+                    onToggleFlag={onToggleFlag}
+                    previewMode={previewMode}
+                    className="mt-0.5"
+                  />
                   <span>{q.questionText}</span>
-                </p>
+                </div>
               )}
               <div className="space-y-1 pl-2">
                 {opts.map(opt => {

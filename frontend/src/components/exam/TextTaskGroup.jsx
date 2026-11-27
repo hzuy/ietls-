@@ -1,14 +1,21 @@
 import { lineText } from '../../utils/noteLine'
+import QuestionNumberBadge from './QuestionNumberBadge'
 
-export default function TextTaskGroup({ group, answers = {}, onAnswer, previewMode, showAnswers, numberKeys = false, listening = false }) {
+export default function TextTaskGroup({ group, answers = {}, onAnswer, previewMode, showAnswers, numberKeys = false, listening = false, flaggedSet, onToggleFlag }) {
   const questions = group.questions || []
   const input = q => {
     if (!q) return null
     const key = numberKeys ? q.number : q.id
-    return <label className="inline-flex items-center gap-2 mx-1">
-      <span className="text-[13px] font-semibold text-zinc-800">{q.number}</span>
+    return <span className="inline-flex items-center gap-1.5 mx-1">
+      <QuestionNumberBadge
+        number={q.number}
+        size="sm"
+        flagged={Boolean(flaggedSet?.has?.(q.number))}
+        onToggleFlag={onToggleFlag}
+        previewMode={previewMode}
+      />
       <input name={`answer-${q.number}`} autoComplete="off" aria-label={`Answer ${q.number}`} className="w-36 h-8 leading-normal rounded-full border border-zinc-300 bg-white px-3 py-0 text-[15px] text-zinc-900 focus:border-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300" value={previewMode && showAnswers ? q.correctAnswer || '' : answers[key] || ''} readOnly={previewMode} onChange={e => onAnswer?.(key, e.target.value)} />
-    </label>
+    </span>
   }
   const tokens = text => String(text || '').split(/(\[Q:\d+\])/).map((part, i) => {
     const match = part.match(/^\[Q:(\d+)\]$/)

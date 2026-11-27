@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import QuestionNumberBadge from './exam/QuestionNumberBadge'
 
-export default function MatchingDragGroup({ group, answers, onAnswer, previewMode, showAnswers }) {
+export default function MatchingDragGroup({ group, answers, onAnswer, previewMode, showAnswers, flaggedSet, onToggleFlag }) {
   const [draggingLetter, setDraggingLetter] = useState(null)
   const [dragOverQId, setDragOverQId] = useState(null)
   const [selectedLetter, setSelectedLetter] = useState(null)
@@ -61,10 +62,16 @@ export default function MatchingDragGroup({ group, answers, onAnswer, previewMod
 
             return (
               <div key={q.id} className="bg-white rounded-2xl border border-zinc-200 p-4 shadow-xs">
-                <p className="text-base text-zinc-900 mb-2 leading-relaxed flex gap-2.5">
-                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-900 font-bold text-[13px] shrink-0 mt-0.5">{q.number}</span>
+                <div className="text-base text-zinc-900 mb-2 leading-relaxed flex gap-2.5">
+                  <QuestionNumberBadge
+                    number={q.number}
+                    flagged={Boolean(flaggedSet?.has?.(q.number))}
+                    onToggleFlag={onToggleFlag}
+                    previewMode={previewMode}
+                    className="mt-0.5"
+                  />
                   <span>{q.questionText}</span>
-                </p>
+                </div>
                 <div
                   onDragOver={e => { e.preventDefault(); setDragOverQId(q.id) }}
                   onDragLeave={() => setDragOverQId(null)}
